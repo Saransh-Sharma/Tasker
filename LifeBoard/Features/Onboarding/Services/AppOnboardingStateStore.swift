@@ -30,6 +30,7 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         state.completedVersion = version
         state.journeySnapshot = nil
         state.lifeMapJourneySnapshot = nil
+        state.lifeWeaveJourneySnapshot = nil
         save(state)
     }
 
@@ -57,10 +58,29 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         save(state)
     }
 
+    func markCompletedLifeWeave() {
+        var state = load()
+        state.completedLifeWeave = true
+        save(state)
+    }
+
+    func storeLifeWeaveJourney(_ snapshot: LifeWeaveDraft?) {
+        var state = load()
+        state.lifeWeaveJourneySnapshot = snapshot
+        save(state)
+    }
+
+    func clearLifeWeaveJourney() {
+        var state = load()
+        state.lifeWeaveJourneySnapshot = nil
+        save(state)
+    }
+
     func clearJourney() {
         var state = load()
         state.journeySnapshot = nil
         state.lifeMapJourneySnapshot = nil
+        state.lifeWeaveJourneySnapshot = nil
         save(state)
     }
 

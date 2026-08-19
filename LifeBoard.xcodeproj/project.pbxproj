@@ -464,6 +464,7 @@
 		A1C2D3E4F5A60718293B4C5E /* AssistantEnvelopeValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */; };
 		A1C3D4E5F6A7B8C9D0E1F2A3 /* KeyboardShortcutsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */; };
 		A1F0D0B22F5A100100ABC001 /* AppOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B12F5A100100ABC001 /* AppOnboarding.swift */; };
+		A31000000000000000000947 /* LifeWeaveOnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000946 /* LifeWeaveOnboardingTests.swift */; };
 		A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */; };
 		A1F0D0B72F5A100100ABC001 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */; };
 		A20000000000000000000001 /* QuickViewSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* QuickViewSelector.swift */; };
@@ -542,6 +543,26 @@
 		A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091C /* EvaTurnContextAssembler.swift */; };
 		A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091E /* EvaMemoryStoreV2.swift */; };
 		A31000000000000000000921 /* EvaConversationSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000920 /* EvaConversationSummary.swift */; };
+		A31000000000000000000923 /* LifeWeaveStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000922 /* LifeWeaveStep.swift */; };
+		A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000924 /* LifeWeaveIntent.swift */; };
+		A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000926 /* LifeWeaveDraft.swift */; };
+		A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000928 /* LifeWeaveMigration.swift */; };
+		A3100000000000000000092B /* LifeWeaveCommitBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092A /* LifeWeaveCommitBridge.swift */; };
+		A3100000000000000000092D /* LifeWeaveOnboardingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */; };
+		A3100000000000000000092F /* LifeWeavePowerUps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092E /* LifeWeavePowerUps.swift */; };
+		A31000000000000000000931 /* LifeWeavePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000930 /* LifeWeavePresentation.swift */; };
+		A31000000000000000000933 /* LifeWeaveGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000932 /* LifeWeaveGeometry.swift */; };
+		A31000000000000000000935 /* LifeWeaveCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000934 /* LifeWeaveCanvas.swift */; };
+		A31000000000000000000937 /* LifeWeaveAccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000936 /* LifeWeaveAccessibilityID.swift */; };
+		A31000000000000000000939 /* LifeWeaveChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000938 /* LifeWeaveChrome.swift */; };
+		A3100000000000000000093B /* LifeWeaveCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093A /* LifeWeaveCapture.swift */; };
+		A3100000000000000000093D /* LifeWeaveEvaActivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093C /* LifeWeaveEvaActivation.swift */; };
+		A3100000000000000000093F /* LifeWeaveOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093E /* LifeWeaveOnboardingView.swift */; };
+		A31000000000000000000941 /* LifeWeaveIntentSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000940 /* LifeWeaveIntentSteps.swift */; };
+		A31000000000000000000943 /* LifeWeaveShapeSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000942 /* LifeWeaveShapeSteps.swift */; };
+		A31000000000000000000945 /* LifeWeaveRevealStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000944 /* LifeWeaveRevealStep.swift */; };
+		A31000000000000000000949 /* OnboardingContextualTip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000948 /* OnboardingContextualTip.swift */; };
+		A3100000000000000000094B /* OnboardingContextualTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094A /* OnboardingContextualTipView.swift */; };
 		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
 		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
@@ -1554,6 +1575,7 @@
 		A1D100042F90000100AA2001 /* LifeBoardPersistentStoreBootstrapService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardPersistentStoreBootstrapService.swift; path = LifeBoard/Persistence/Bootstrap/PersistentStoreBootstrapService.swift; sourceTree = SOURCE_ROOT; };
 		A1E5C40F2F1A4B9D9C1E8A13 /* EventKitAppleRemindersRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EventKitAppleRemindersRepository.swift; path = Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/EventKitAppleRemindersRepository.swift; sourceTree = SOURCE_ROOT; };
 		A1F0D0B12F5A100100ABC001 /* AppOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOnboarding.swift; sourceTree = "<group>"; };
+		A31000000000000000000946 /* LifeWeaveOnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeWeaveOnboardingTests.swift; sourceTree = "<group>"; };
 		A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOnboardingTests.swift; sourceTree = "<group>"; };
 		A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
 		A25F3E0B9D00FA850EE9E8A9 /* TimelinePhoneRenderModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TimelinePhoneRenderModel.swift; path = LifeBoard/Features/Home/UI/Timeline/TimelinePhoneRenderModel.swift; sourceTree = SOURCE_ROOT; };
@@ -1626,6 +1648,26 @@
 		A3100000000000000000091C /* EvaTurnContextAssembler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaTurnContextAssembler.swift; path = LifeBoard/Features/Eva/Context/EvaTurnContextAssembler.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000091E /* EvaMemoryStoreV2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaMemoryStoreV2.swift; path = LifeBoard/Features/Eva/Context/EvaMemoryStoreV2.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000920 /* EvaConversationSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaConversationSummary.swift; path = LifeBoard/Features/Eva/Context/EvaConversationSummary.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000922 /* LifeWeaveStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveStep.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveStep.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000924 /* LifeWeaveIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveIntent.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveIntent.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000926 /* LifeWeaveDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveDraft.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveDraft.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000928 /* LifeWeaveMigration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveMigration.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveMigration.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000092A /* LifeWeaveCommitBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCommitBridge.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCommitBridge.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveOnboardingModel.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveOnboardingModel.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000092E /* LifeWeavePowerUps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUps.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeavePowerUps.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000930 /* LifeWeavePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePresentation.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeavePresentation.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000932 /* LifeWeaveGeometry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveGeometry.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeaveGeometry.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000934 /* LifeWeaveCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCanvas.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeaveCanvas.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000936 /* LifeWeaveAccessibilityID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveAccessibilityID.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveAccessibilityID.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000938 /* LifeWeaveChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveChrome.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveChrome.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000093A /* LifeWeaveCapture.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCapture.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCapture.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000093C /* LifeWeaveEvaActivation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveEvaActivation.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveEvaActivation.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000093E /* LifeWeaveOnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveOnboardingView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveOnboardingView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000940 /* LifeWeaveIntentSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveIntentSteps.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Steps/LifeWeaveIntentSteps.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000942 /* LifeWeaveShapeSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveShapeSteps.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Steps/LifeWeaveShapeSteps.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000944 /* LifeWeaveRevealStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveRevealStep.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Steps/LifeWeaveRevealStep.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000948 /* OnboardingContextualTip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingContextualTip.swift; path = LifeBoard/Features/Onboarding/LifeWeave/OnboardingContextualTip.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000094A /* OnboardingContextualTipView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingContextualTipView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/OnboardingContextualTipView.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTokenBridge.swift; path = LifeBoard/DesignSystem/TokenBridge.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
@@ -2852,6 +2894,7 @@
 				A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */,
 				A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */,
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
+				A31000000000000000000946 /* LifeWeaveOnboardingTests.swift */,
 				E0A100000000000000000302 /* EvaActivationTests.swift */,
 				E0A100000000000000000502 /* EvaHomeIntelligenceUseCasesTests.swift */,
 				C7A200000000000000000004 /* ChatCancellationPolicyTests.swift */,
@@ -3482,6 +3525,26 @@
 				A31000000000000000000514 /* LifeBoardValueControls.swift */,
 				A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */,
 				A31000000000000000000223 /* LifeBoardTokenBridge.swift */,
+				A3100000000000000000094A /* OnboardingContextualTipView.swift */,
+				A31000000000000000000948 /* OnboardingContextualTip.swift */,
+				A31000000000000000000944 /* LifeWeaveRevealStep.swift */,
+				A31000000000000000000942 /* LifeWeaveShapeSteps.swift */,
+				A31000000000000000000940 /* LifeWeaveIntentSteps.swift */,
+				A3100000000000000000093E /* LifeWeaveOnboardingView.swift */,
+				A3100000000000000000093C /* LifeWeaveEvaActivation.swift */,
+				A3100000000000000000093A /* LifeWeaveCapture.swift */,
+				A31000000000000000000938 /* LifeWeaveChrome.swift */,
+				A31000000000000000000936 /* LifeWeaveAccessibilityID.swift */,
+				A31000000000000000000934 /* LifeWeaveCanvas.swift */,
+				A31000000000000000000932 /* LifeWeaveGeometry.swift */,
+				A31000000000000000000930 /* LifeWeavePresentation.swift */,
+				A3100000000000000000092E /* LifeWeavePowerUps.swift */,
+				A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */,
+				A3100000000000000000092A /* LifeWeaveCommitBridge.swift */,
+				A31000000000000000000928 /* LifeWeaveMigration.swift */,
+				A31000000000000000000926 /* LifeWeaveDraft.swift */,
+				A31000000000000000000924 /* LifeWeaveIntent.swift */,
+				A31000000000000000000922 /* LifeWeaveStep.swift */,
 				A31000000000000000000920 /* EvaConversationSummary.swift */,
 				A3100000000000000000091E /* EvaMemoryStoreV2.swift */,
 				A3100000000000000000091C /* EvaTurnContextAssembler.swift */,
@@ -5305,6 +5368,26 @@
 				A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */,
 				A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
+				A3100000000000000000094B /* OnboardingContextualTipView.swift in Sources */,
+				A31000000000000000000949 /* OnboardingContextualTip.swift in Sources */,
+				A31000000000000000000945 /* LifeWeaveRevealStep.swift in Sources */,
+				A31000000000000000000943 /* LifeWeaveShapeSteps.swift in Sources */,
+				A31000000000000000000941 /* LifeWeaveIntentSteps.swift in Sources */,
+				A3100000000000000000093F /* LifeWeaveOnboardingView.swift in Sources */,
+				A3100000000000000000093D /* LifeWeaveEvaActivation.swift in Sources */,
+				A3100000000000000000093B /* LifeWeaveCapture.swift in Sources */,
+				A31000000000000000000939 /* LifeWeaveChrome.swift in Sources */,
+				A31000000000000000000937 /* LifeWeaveAccessibilityID.swift in Sources */,
+				A31000000000000000000935 /* LifeWeaveCanvas.swift in Sources */,
+				A31000000000000000000933 /* LifeWeaveGeometry.swift in Sources */,
+				A31000000000000000000931 /* LifeWeavePresentation.swift in Sources */,
+				A3100000000000000000092F /* LifeWeavePowerUps.swift in Sources */,
+				A3100000000000000000092D /* LifeWeaveOnboardingModel.swift in Sources */,
+				A3100000000000000000092B /* LifeWeaveCommitBridge.swift in Sources */,
+				A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */,
+				A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */,
+				A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */,
+				A31000000000000000000923 /* LifeWeaveStep.swift in Sources */,
 				A31000000000000000000921 /* EvaConversationSummary.swift in Sources */,
 				A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */,
 				A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */,
@@ -5471,6 +5554,7 @@
 				CA1A1000000000000000000C /* CalendarTestSupport.swift in Sources */,
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
+				A31000000000000000000947 /* LifeWeaveOnboardingTests.swift in Sources */,
 				E0A100000000000000000301 /* EvaActivationTests.swift in Sources */,
 				E0A100000000000000000501 /* EvaHomeIntelligenceUseCasesTests.swift in Sources */,
 				E0A100000000000000000401 /* SettingsViewModelTests.swift in Sources */,

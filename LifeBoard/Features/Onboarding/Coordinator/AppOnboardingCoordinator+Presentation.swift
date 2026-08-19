@@ -49,7 +49,11 @@ extension AppOnboardingCoordinator {
             guard self.eligibilityService.isSuppressedByLaunchArgument == false else { return }
 
             let state = self.stateStore.load()
-            if state.hasHandledCurrentVersion == false, state.lifeMapJourneySnapshot != nil {
+            // Either flow's snapshot resumes. Checking only the v5 one would
+            // restart a v6 journey from Arrival every time the app relaunched,
+            // and checking only v6 would strand a v5 journey the moment the
+            // flag flipped mid-setup.
+            if state.hasHandledCurrentVersion == false, state.hasResumableJourney {
                 self.enqueuePresentation(.fullFlow(source: "resume"))
                 return
             }
@@ -135,23 +139,49 @@ extension AppOnboardingCoordinator {
         feedbackController.prepare()
         let entryContext: OnboardingEntryContext = source == "settings_replay" || source == "life_map_refresh"
             ? .establishedWorkspace : .freshFlow
-        lifeMapModel.prepareForPresentation(
-            snapshot: stateStore.load().lifeMapJourneySnapshot,
-            entryContext: entryContext
-        )
+        let state = stateStore.load()
+        let usesLifeWeave = V2FeatureFlags.onboardingLifeWeaveV6Enabled
         logOnboardingInfo(
             event: "onboarding_started",
-            message: "Started Life Map onboarding flow",
-            fields: ["source": source]
+            message: "Started onboarding flow",
+            fields: ["source": source, "flow": usesLifeWeave ? "life_weave_v6" : "life_map_v5"]
         )
 
-        let rootView = LifeMapOnboardingView(
-            model: self.lifeMapModel,
-            onDismissFlow: { [weak self] in
-                guard let self else { return }
-                self.dismissFullFlow(animated: true)
-            }
-        )
+        let flowView: AnyView
+        if usesLifeWeave {
+            // Both snapshots are handed over: a v5 journey interrupted before the
+            // flag flipped is migrated rather than restarted.
+            lifeWeaveModel.prepareForPresentation(
+                snapshot: state.lifeWeaveJourneySnapshot,
+                legacySnapshot: state.lifeMapJourneySnapshot,
+                entryContext: entryContext
+            )
+            flowView = AnyView(
+                LifeWeaveOnboardingView(
+                    model: self.lifeWeaveModel,
+                    onDismissFlow: { [weak self] in
+                        guard let self else { return }
+                        self.dismissFullFlow(animated: true)
+                    }
+                )
+            )
+        } else {
+            lifeMapModel.prepareForPresentation(
+                snapshot: state.lifeMapJourneySnapshot,
+                entryContext: entryContext
+            )
+            flowView = AnyView(
+                LifeMapOnboardingView(
+                    model: self.lifeMapModel,
+                    onDismissFlow: { [weak self] in
+                        guard let self else { return }
+                        self.dismissFullFlow(animated: true)
+                    }
+                )
+            )
+        }
+
+        let rootView = flowView
         .lifeBoardTokenEnvironment(for: hostAdapter.currentOnboardingLayoutClass)
         // Mandatory, not decorative. This hosting controller is presented from
         // UIKit and inherits none of `FoundationShell`'s environment, so

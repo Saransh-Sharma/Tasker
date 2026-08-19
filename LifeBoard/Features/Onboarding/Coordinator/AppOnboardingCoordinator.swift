@@ -33,8 +33,16 @@ final class AppOnboardingCoordinator: NSObject {
 
     let evaAppManager = AppManager()
 
-    lazy var lifeMapModel: LifeMapOnboardingModel = {
-        let coordinator = LifeMapCommitCoordinator(
+    /// One commit path for both journeys.
+    ///
+    /// v5 and v6 ask different questions, but they write the same canonical
+    /// records — areas, working hours, Home layout, profile, first capture,
+    /// completion — and a second implementation of that sequence would be the
+    /// one that eventually loses somebody's first task. The v6 model projects
+    /// its draft onto `LifeMapDraft` through `LifeWeaveCommitBridge` rather than
+    /// forking this.
+    lazy var commitCoordinator: LifeMapCommitCoordinator = {
+        LifeMapCommitCoordinator(
             dependencies: .init(
                 fetchLifeAreas: { [weak self] in
                     guard let self else { return [] }
@@ -93,12 +101,32 @@ final class AppOnboardingCoordinator: NSObject {
             ),
             stateStore: stateStore
         )
-        return LifeMapOnboardingModel(
+    }()
+
+    lazy var lifeMapModel: LifeMapOnboardingModel = {
+        LifeMapOnboardingModel(
             stateStore: stateStore,
-            commitCoordinator: coordinator,
+            commitCoordinator: commitCoordinator,
             feedback: feedbackController,
             // Merge mode preseeds from the areas the user already has, so the
             // commit upserts their real records instead of creating near-duplicates.
+            existingLifeAreas: { [weak self] in
+                guard let self else { return [] }
+                return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
+            },
+            powerUps: Self.makePowerUpDependencies(
+                calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService
+            )
+        )
+    }()
+
+    /// The v6 journey. Same commit path, same power-up services, same merge-mode
+    /// preseed — only the questions and the map differ.
+    lazy var lifeWeaveModel: LifeWeaveOnboardingModel = {
+        LifeWeaveOnboardingModel(
+            stateStore: stateStore,
+            commitCoordinator: commitCoordinator,
+            feedback: feedbackController,
             existingLifeAreas: { [weak self] in
                 guard let self else { return [] }
                 return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
