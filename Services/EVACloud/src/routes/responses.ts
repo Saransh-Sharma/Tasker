@@ -1,6 +1,12 @@
 import { Hono } from 'hono'
 import type { EvaCreditState, EvaInferenceRequestV1, EvaStreamEvent } from '@lifeboard/eva-contracts'
-import { EvaInferenceRequestV1Schema, semanticValidationError, structuredSchemaForRoute } from '@lifeboard/eva-contracts'
+import {
+  EvaInferenceRequestSchema,
+  contextPayloadError,
+  semanticValidationError,
+  sensitiveContextCategories,
+  structuredSchemaForRoute,
+} from '@lifeboard/eva-contracts'
 import { Value } from '@sinclair/typebox/value'
 import type { Responses } from 'openai/resources/responses/responses'
 import type { AppVariables, Env, SessionPrincipal } from '../environment.js'
@@ -28,7 +34,6 @@ import { sha256 } from '../security/crypto.js'
 import { recordTelemetry } from '../telemetry/events.js'
 
 const encoder = new TextEncoder()
-const sensitiveCategories = new Set(['journal', 'health', 'lifeMoments', 'personalMemory'])
 
 export const responseRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>()
 responseRoutes.use('*', requireSession)
@@ -37,8 +42,10 @@ responseRoutes.post('/responses', async (context) => {
   const startedAt = Date.now()
   const principal = context.get('principal')
   await verifyRequestAttestation(context.env, principal, context.req.raw)
-  const request = await readJson<EvaInferenceRequestV1>(context.req.raw, EvaInferenceRequestV1Schema)
+  const request = await readJson<EvaInferenceRequestV1>(context.req.raw, EvaInferenceRequestSchema)
   validatePrincipal(request, principal)
+  const payloadError = contextPayloadError(request.contractVersion, request.context)
+  if (payloadError) throw new EvaHttpError(400, 'schema_invalid', payloadError)
 
   const config = await runtimeConfig(context.env)
   if (config.cloudState === 'disabled') {
@@ -66,7 +73,7 @@ responseRoutes.post('/responses', async (context) => {
     })
   }
   for (const section of request.context) {
-    if (sensitiveCategories.has(section.category) && !authorization.consent.grants.includes(section.category as never)) {
+    if (sensitiveContextCategories.has(section.category) && !authorization.consent.grants.includes(section.category as never)) {
       throw new EvaHttpError(403, 'consent_required', `Permission to share ${section.category} context is off.`, {
         recoveryAction: 'reviewConsent',
       })

@@ -8,9 +8,12 @@ import {
   EvaInferenceRequestV1Schema,
   EvaRefreshRequestV1Schema,
   EvaStreamEventSchema,
+  EvaContextPayloadSchemas,
   EvaPlanResultSchema,
   EvaTopThreeResultSchema,
   semanticValidationError,
+  sensitiveContextCategories,
+  contextPayloadError,
   structuredSchemaForRoute,
 } from './index.js'
 
@@ -157,6 +160,157 @@ describe('EVA cloud v1 contracts', () => {
     expect(semanticValidationError('plan', plan, request)).toContain('outside supplied context')
     plan.commands[0]!.projectID = knownProject
     expect(semanticValidationError('plan', plan, request)).toContain('end after it starts')
+  })
+
+  it('authorizes identifiers only from context, which is where the client must carry them', () => {
+    // Swift emits uppercase UUID strings; the validator lowercases before
+    // comparing, so the fixture keeps the real client casing.
+    const taskID = 'AAAAAAAA-1111-4111-8111-AAAAAAAAAAAA'
+    const topThree = {
+      items: [{ task_id: taskID, rationale: 'Overdue and blocking the launch.', confidence: 0.8 }],
+    }
+
+    // The pre-fix client shape: the task roster was inlined into the prompt and
+    // `context` went out empty, so every ranked result named an identifier the
+    // server could not authorize.
+    expect(semanticValidationError('topThree', topThree, { context: [] }))
+      .toContain('outside supplied context')
+
+    // The shape `EvaRouteContextSections.planning` now produces: the roster is a
+    // string payload inside a planning section, and the identifiers are
+    // recovered from it by scanning.
+    const carriedInContext = {
+      context: [{
+        category: 'planning' as const,
+        payload: {
+          kind: 'topThree',
+          taskProjection: `{"task_id":"${taskID}","title":"Ship the beta","priority":"high"}`,
+        },
+      }],
+    }
+    expect(semanticValidationError('topThree', topThree, carriedInContext)).toBeUndefined()
+
+    // Plan commands are authorized through the same path.
+    const projectID = 'BBBBBBBB-2222-4222-9222-BBBBBBBBBBBB'
+    const plan = {
+      schemaVersion: 3,
+      commands: [{
+        type: 'createInboxTask',
+        projectID,
+        title: 'Draft the launch note',
+        estimatedDuration: null,
+        lifeAreaID: null,
+        priority: 'high',
+        category: null,
+        details: null,
+        tagIDs: [],
+      }],
+      rationaleText: 'Captured for review.',
+    }
+    expect(semanticValidationError('plan', plan, { context: [] })).toContain('outside supplied context')
+    expect(semanticValidationError('plan', plan, {
+      context: [{
+        category: 'planning' as const,
+        payload: { kind: 'plan', taskProjection: `Projects:\n- Launch | ${projectID}` },
+      }],
+    })).toBeUndefined()
+  })
+
+  it('gates exactly the four consent categories, and no more', () => {
+    // Widening the category list must never widen what a grant covers. If a new
+    // category needs a grant it belongs in this set and in a consent revision.
+    expect([...sensitiveContextCategories].sort())
+      .toEqual(['health', 'journal', 'lifeMoments', 'personalMemory'])
+  })
+
+  it('validates v2 context payloads and leaves v1 free-form payloads alone', () => {
+    const capacity = {
+      day: '2026-08-19T00:00:00Z',
+      workingMinutes: 480,
+      fixedCalendarMinutes: 120,
+      bufferMinutes: 30,
+      usableMinutes: 330,
+      plannedMinutes: 500,
+      overloadMinutes: 170,
+      confidence: 'medium' as const,
+      freeWindows: [{ start: '2026-08-19T13:00:00Z', end: '2026-08-19T14:00:00Z', minutes: 60 }],
+    }
+    expect(contextPayloadError(2, [{ category: 'capacity', payload: capacity }])).toBeUndefined()
+
+    // A drifted projection has to fail at the boundary, not degrade an answer.
+    const { usableMinutes, ...drifted } = capacity
+    expect(contextPayloadError(2, [{ category: 'capacity', payload: drifted }]))
+      .toContain('does not match its schema')
+
+    expect(contextPayloadError(2, [{ category: 'nope', payload: {} }]))
+      .toContain('Unknown context category')
+    expect(contextPayloadError(2, [
+      { category: 'capacity', payload: capacity },
+      { category: 'capacity', payload: capacity },
+    ])).toContain('Duplicate context section')
+
+    // v1 clients keep working through their deprecation window.
+    expect(contextPayloadError(1, [{ category: 'planning', payload: { anything: true } }])).toBeUndefined()
+  })
+
+  it('keeps the fields that change the character of an answer on a task record', () => {
+    const task = {
+      id: '44444444-4444-4444-8444-444444444444',
+      title: 'Draft the launch note',
+      project: 'Launch', projectID: '55555555-5555-4555-8555-555555555555',
+      lifeArea: 'Work', priority: 'high' as const, energy: 'medium' as const,
+      estimatedMinutes: 45, actualMinutes: null,
+      due: '2026-08-19T17:00:00Z', scheduledStart: null, scheduledEnd: null,
+      bucket: 'today' as const,
+      deferredCount: 4, replanCount: 2, ageDays: 21,
+      notesExcerpt: null, blockedBy: [], rankReasons: ['Deadline within 24h'],
+    }
+    expect(contextPayloadError(2, [{
+      category: 'planning',
+      payload: {
+        generatedAt: '2026-08-19T09:00:00Z',
+        summary: { overdue: 3, today: 5, tomorrow: 2, thisWeek: 9, unscheduled: 12, completedToday: 1 },
+        tasks: [task], projects: [], lifeAreas: [], partialSections: [],
+      },
+    }])).toBeUndefined()
+
+    // Dropping deferral history is exactly the v1 regression this guards.
+    const { deferredCount, ...lossy } = task
+    expect(contextPayloadError(2, [{
+      category: 'planning',
+      payload: {
+        generatedAt: '2026-08-19T09:00:00Z',
+        summary: { overdue: 0, today: 0, tomorrow: 0, thisWeek: 0, unscheduled: 0, completedToday: 0 },
+        tasks: [lossy], projects: [], lifeAreas: [], partialSections: [],
+      },
+    }])).toContain('does not match its schema')
+  })
+
+  it('accepts the context payloads the Swift client actually encodes', () => {
+    const fixtures = JSON.parse(readFileSync(
+      new URL('../fixtures/context-sections-v2.json', import.meta.url),
+      'utf8',
+    )) as Record<string, unknown>
+
+    for (const [category, payload] of Object.entries(fixtures)) {
+      const schema = EvaContextPayloadSchemas[category as keyof typeof EvaContextPayloadSchemas]
+      expect(schema, `${category} schema`).toBeDefined()
+      expect(Value.Check(schema, payload), `${category} payload`).toBe(true)
+    }
+
+    // Swift's synthesized Encodable omits nil rather than writing null, and the
+    // second fixture task exercises that: no due date, no project, no energy.
+    // A schema that demanded explicit nulls would reject every real request.
+    const planning = fixtures.planning as { tasks: Record<string, unknown>[] }
+    expect(planning.tasks[1]).not.toHaveProperty('due')
+    expect(planning.tasks[1]).not.toHaveProperty('energy')
+
+    // Closed shapes: a drifted client field fails at the boundary rather than
+    // being silently ignored by a prompt that no longer reads it.
+    expect(Value.Check(EvaContextPayloadSchemas.planning, {
+      ...(fixtures.planning as object),
+      unexpectedField: 'drift',
+    })).toBe(false)
   })
 
   it('validates every shared structured fixture against its route schema', () => {

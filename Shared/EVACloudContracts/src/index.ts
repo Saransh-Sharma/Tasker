@@ -3,7 +3,9 @@ import { EvaPlatformSchema, EvaUUIDSchema } from './primitives.js'
 
 export { EvaPlatformSchema, EvaUUIDPattern, EvaUUIDSchema } from './primitives.js'
 
-export const EvaContractVersion = 1 as const
+export const EvaContractVersion = 2 as const
+/** Versions a current Worker still admits. */
+export const EvaSupportedContractVersions = [1, 2] as const
 const ISODateTimePattern = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$'
 
 export const EvaAppleExchangeRequestV1Schema = Type.Object({
@@ -61,8 +63,23 @@ export const EvaMessageSchema = Type.Object({
 }, { additionalProperties: false })
 export type EvaMessage = Static<typeof EvaMessageSchema>
 
+/**
+ * Context categories.
+ *
+ * Only the last four are consent-gated. The rest project records the person
+ * already sees inside LifeBoard and ride on the same authorization as the
+ * request itself, so widening this list does not widen what a grant means — see
+ * `sensitiveContextCategories`.
+ */
 export const EvaContextCategorySchema = Type.Union([
   Type.Literal('planning'),
+  Type.Literal('capacity'),
+  Type.Literal('goals'),
+  Type.Literal('habits'),
+  Type.Literal('dayLoop'),
+  Type.Literal('retrospective'),
+  Type.Literal('calendar'),
+  Type.Literal('conversationSummary'),
   Type.Literal('journal'),
   Type.Literal('health'),
   Type.Literal('lifeMoments'),
@@ -70,19 +87,50 @@ export const EvaContextCategorySchema = Type.Union([
 ])
 export type EvaContextCategory = Static<typeof EvaContextCategorySchema>
 
+/** Deny-by-default: adding a category here is what makes it need a grant. */
+export const sensitiveContextCategories: ReadonlySet<EvaContextCategory> = new Set<EvaContextCategory>([
+  'journal', 'health', 'lifeMoments', 'personalMemory',
+])
+
 export const EvaContextSectionSchema = Type.Object({
   category: EvaContextCategorySchema,
   payload: Type.Unknown(),
 }, { additionalProperties: false })
 
-export const EvaInferenceRequestV1Schema = Type.Object({
+/**
+ * The person's own standing instruction to EVA, carried from Settings.
+ *
+ * This is **user-authored text, not developer authority**. It reaches the model
+ * inside the developer message so that tone and working style actually take
+ * effect, but framed as a stated preference that cannot loosen policy, and it is
+ * moderated with the rest of the input. Length is capped here rather than on the
+ * client so a modified client cannot buy itself a larger instruction budget.
+ */
+export const EvaUserInstructionsSchema = Type.Object({
+  persona: Type.String({ maxLength: 2_000 }),
+  tone: Type.Optional(Type.String({ maxLength: 200 })),
+}, { additionalProperties: false })
+export type EvaUserInstructions = Static<typeof EvaUserInstructionsSchema>
+
+/**
+ * One schema accepts both contract versions.
+ *
+ * A v1 client simply never sends `userInstructions` and never names a category
+ * outside the original five, so forking the schema would buy nothing but a
+ * second code path through admission control. `contractVersion` still travels
+ * because the prompt layer reads it: only a v2 request may carry user
+ * instructions into the developer message.
+ */
+export const EvaInferenceRequestSchema = Type.Object({
   requestId: EvaUUIDSchema,
   route: EvaRouteSchema,
-  contractVersion: Type.Literal(EvaContractVersion),
+  contractVersion: Type.Union([Type.Literal(1), Type.Literal(2)]),
   locale: Type.String({ minLength: 2, maxLength: 64 }),
   timeZone: Type.String({ minLength: 1, maxLength: 128 }),
   messages: Type.Array(EvaMessageSchema, { minItems: 1, maxItems: 64 }),
-  context: Type.Array(EvaContextSectionSchema, { maxItems: 5 }),
+  // One section per category, so the cap is the category count.
+  context: Type.Array(EvaContextSectionSchema, { maxItems: 12 }),
+  userInstructions: Type.Optional(EvaUserInstructionsSchema),
   clientVersion: Type.String({ minLength: 1, maxLength: 64 }),
   platform: EvaPlatformSchema,
   installationId: EvaUUIDSchema,
@@ -92,8 +140,13 @@ export const EvaInferenceRequestV1Schema = Type.Object({
     structuredOutput: Type.Boolean(),
     spokenOutput: Type.Boolean(),
   }, { additionalProperties: false }),
-}, { $id: 'EvaInferenceRequestV1', additionalProperties: false })
-export type EvaInferenceRequestV1 = Static<typeof EvaInferenceRequestV1Schema>
+}, { $id: 'EvaInferenceRequestV2', additionalProperties: false })
+export type EvaInferenceRequest = Static<typeof EvaInferenceRequestSchema>
+
+/** @deprecated Retained so existing imports keep resolving; accepts v1 and v2. */
+export const EvaInferenceRequestV1Schema = EvaInferenceRequestSchema
+/** @deprecated Use `EvaInferenceRequest`. */
+export type EvaInferenceRequestV1 = EvaInferenceRequest
 
 export const EvaCreditStateSchema = Type.Object({
   balance: Type.Integer({ minimum: 0 }),
@@ -205,3 +258,4 @@ export const EvaSpeechRequestSchema = Type.Object({
 export type EvaSpeechRequest = Static<typeof EvaSpeechRequestSchema>
 
 export * from './structured.js'
+export * from './context.js'

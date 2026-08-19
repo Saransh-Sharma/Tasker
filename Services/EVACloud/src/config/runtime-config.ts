@@ -48,7 +48,7 @@ export const EvaRuntimeConfigSchema = Type.Object({
   speechModel: Type.Literal('tts-1'),
   speechVoice: Type.Literal('nova'),
   minimumClientVersion: Type.String({ minLength: 1, maxLength: 64 }),
-  contractVersions: Type.Tuple([Type.Literal(1)]),
+  contractVersions: Type.Tuple([Type.Literal(1), Type.Literal(2)]),
   creditPolicy: Type.Object({
     initial: Type.Literal(100),
     capacity: Type.Literal(100),
@@ -98,7 +98,7 @@ export function failClosedRuntimeConfig(env: Env): EvaRuntimeConfig {
     speechModel: 'tts-1',
     speechVoice: 'nova',
     minimumClientVersion: env.MINIMUM_CLIENT_VERSION,
-    contractVersions: [1],
+    contractVersions: [1, 2],
     creditPolicy: { initial: 100, capacity: 100, refillAmount: 20, refillPeriodSeconds: 86_400 },
     // Values mirror the official model pages fetched on 2026-08-16, but stay
     // unapproved until checked against the actual OpenAI project billing page.
@@ -114,13 +114,16 @@ export function failClosedRuntimeConfig(env: Env): EvaRuntimeConfig {
       ttsMicroUsdPerMillionCharacters: 15_000_000,
     },
     routes: {
-      chat: route(16_000, 2_048, 'low', true, false),
+      // Chat and the daily brief both weigh capacity against ambition, which is
+      // reasoning work rather than retrieval; 'low' was chosen when the client
+      // could only send ~1,500 tokens and there was nothing to reason over.
+      chat: route(16_000, 2_048, 'medium', true, false),
       plan: route(32_000, 4_096, 'medium', true, true),
       planRepair: route(32_000, 4_096, 'low', false, true),
       fieldSuggestion: route(8_000, 1_200, 'low', false, true),
       topThree: route(8_000, 1_200, 'low', true, true),
       taskBreakdown: route(8_000, 1_200, 'low', true, true),
-      dailyBrief: route(8_000, 1_200, 'low', true, true),
+      dailyBrief: route(16_000, 1_600, 'medium', true, true),
       universalInputClassification: route(2_000, 512, 'none', false, true),
       dynamicChips: route(2_000, 512, 'none', false, true),
       journalAnswer: route(16_000, 1_600, 'low', true, false),

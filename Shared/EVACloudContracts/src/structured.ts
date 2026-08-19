@@ -81,9 +81,37 @@ export const EvaTaskBreakdownResultSchema = Type.Array(
   { $id: 'EvaTaskBreakdownResultV1', minItems: 3, maxItems: 6, uniqueItems: true },
 )
 
+/**
+ * The brief is no longer one opaque paragraph.
+ *
+ * v1 returned `{ brief }` and the client rendered it whole, which meant the
+ * product could not tell a stated fact from a suggestion, could not show the
+ * tradeoff separately, and could not link a claim back to the record it came
+ * from. The roadmap's Day Compass measure is "what fits, what does not, and
+ * why", and that is three fields, not one string.
+ *
+ * `brief` stays first and required so an older client that reads only that key
+ * keeps working.
+ */
 export const EvaDailyBriefResultSchema = Type.Object({
   brief: Type.String({ minLength: 1, maxLength: 1_200 }),
-}, { $id: 'EvaDailyBriefResultV1', additionalProperties: false })
+  /** What is already fixed today — deadlines, calendar. Facts, not advice. */
+  fixedCommitments: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 200 }), { maxItems: 6 })),
+  /** The single most useful next move, named specifically. */
+  nextMove: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
+  /**
+   * What is being left out and why. When the day is over-committed this is the
+   * point of the brief, so it is modelled rather than buried in prose.
+   */
+  tradeoff: Type.Optional(Type.Object({
+    drop: Type.String({ minLength: 1, maxLength: 200 }),
+    because: Type.String({ minLength: 1, maxLength: 300 }),
+  }, { additionalProperties: false })),
+  /** Identifiers from the supplied context that the brief actually rests on. */
+  evidenceTaskIDs: Type.Optional(Type.Array(UUID, { maxItems: 10, uniqueItems: true })),
+  /** True only when the capacity section says planned exceeds usable. */
+  isOvercommitted: Type.Optional(Type.Boolean()),
+}, { $id: 'EvaDailyBriefResultV2', additionalProperties: false })
 
 export const EvaUniversalInputClassificationResultSchema = Type.Object({
   intent: Type.Union([
@@ -117,14 +145,14 @@ export function structuredSchemaForRoute(route: EvaRoute): TSchema | undefined {
   return EvaStructuredRouteSchemas[route as keyof typeof EvaStructuredRouteSchemas]
 }
 
-const identifierFields = new Set(['taskID', 'task_id', 'projectID', 'targetProjectID', 'lifeAreaID'])
+const identifierFields = new Set(['taskID', 'task_id', 'projectID', 'targetProjectID', 'lifeAreaID', 'evidenceTaskIDs'])
 
 export function semanticValidationError(
   route: EvaRoute,
   value: unknown,
   request: Pick<EvaInferenceRequestV1, 'context'>,
 ): string | undefined {
-  if (route !== 'plan' && route !== 'planRepair' && route !== 'topThree') return undefined
+  if (route !== 'plan' && route !== 'planRepair' && route !== 'topThree' && route !== 'dailyBrief') return undefined
   const allowed = identifiersIn(request.context)
   const referenced = referencedIdentifiers(value)
   for (const identifier of referenced) {
