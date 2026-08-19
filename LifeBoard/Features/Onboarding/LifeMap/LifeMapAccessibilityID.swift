@@ -50,6 +50,24 @@ enum LifeMapAccessibilityID {
     static func rootNode(_ id: String) -> String { "onboarding.lifeMap.root.\(id)" }
     static func permission(_ id: String) -> String { "onboarding.permission.\(id)" }
     static func permissionSkip(_ id: String) -> String { "onboarding.permission.\(id).skip" }
+
+    // Power-up chain. Denied states reuse `PermissionRecoveryCard`, which
+    // publishes its own `permission.recovery.<kind>` identifier — overriding it
+    // here would rename a contract other surfaces already assert on.
+    static let calendarList = "onboarding.calendar.list"
+    static func calendarRow(_ id: String) -> String { "onboarding.calendar.row.\(id)" }
+    static let healthWriteBackList = "onboarding.health.writeBack"
+    static func healthWriteBackRow(_ id: String) -> String { "onboarding.health.writeBack.\(id)" }
+    static let evaRequirements = "onboarding.eva.requirements"
+    static let evaConsentList = "onboarding.eva.consent"
+    static func evaConsentRow(_ id: String) -> String { "onboarding.eva.consent.\(id)" }
+    static let evaOffline = "onboarding.eva.offline"
+
+    // Closing.
+    static func tourBeat(_ id: String) -> String { "onboarding.tour.beat.\(id)" }
+    static let tourNext = "onboarding.tour.next"
+    static let firstWinPrompts = "onboarding.firstWin.prompts"
+    static func firstWinPrompt(_ id: String) -> String { "onboarding.firstWin.prompt.\(id)" }
 }
 
 extension LifeMapOnboardingStep {
@@ -69,8 +87,12 @@ extension LifeMapOnboardingStep {
         case .connections: "connections"
         case .capture: "capture"
         case .reveal: "reveal"
-        case .permissionsPowerUp: "permissionsPowerUp"
-        case .evaPowerUp: "evaPowerUp"
+        case .calendar: "calendar"
+        case .health: "health"
+        case .reminders: "reminders"
+        case .eva: "eva"
+        case .tour: "tour"
+        case .firstWin: "firstWin"
         }
     }
 }

@@ -1,6 +1,14 @@
 import Foundation
 import SwiftUI
 
+/// The flow, in three phases.
+///
+/// `core` builds and commits the Life Map and is the only phase whose
+/// completion the product promises. `powerUps` connect the outside world —
+/// calendar, Health, reminders, EVA — and are entirely optional, which is why
+/// they sit *after* the commit rather than inside it. `closing` orients the
+/// user and hands them to EVA; both exit paths converge on it, so a user who
+/// declines every power-up still meets the app and its assistant.
 enum LifeMapOnboardingStep: Int, CaseIterable, Codable, Identifiable {
     case welcome
     case desiredChange
@@ -11,8 +19,12 @@ enum LifeMapOnboardingStep: Int, CaseIterable, Codable, Identifiable {
     case connections
     case capture
     case reveal
-    case permissionsPowerUp
-    case evaPowerUp
+    case calendar
+    case health
+    case reminders
+    case eva
+    case tour
+    case firstWin
 
     var id: Int { rawValue }
 
@@ -21,12 +33,38 @@ enum LifeMapOnboardingStep: Int, CaseIterable, Codable, Identifiable {
         .capacity, .connections, .capture, .reveal
     ]
 
+    /// The optional connect chain, in the order it is offered.
+    static let powerUps: [Self] = [.calendar, .health, .reminders, .eva]
+
+    /// Seen on both exit paths — "Power it up" and "Show me around" alike.
+    static let closing: [Self] = [.tour, .firstWin]
+
     var coreProgress: Double {
         guard let index = Self.core.firstIndex(of: self) else { return 1 }
         return Double(index) / Double(max(1, Self.core.count - 1))
     }
 
-    var isPowerUp: Bool { self == .permissionsPowerUp || self == .evaPowerUp }
+    var isPowerUp: Bool { Self.powerUps.contains(self) }
+    var isClosing: Bool { Self.closing.contains(self) }
+
+    /// The power-up steps worth showing for this workspace.
+    ///
+    /// Derived from the same `OnboardingModuleCatalog` call the permission rows
+    /// use, so a module the user did not choose can never produce a step that
+    /// asks for a permission nothing would consume. Calendar is always present:
+    /// the catalog offers it unconditionally because two cards in every Home
+    /// layout depend on it.
+    static func visiblePowerUps(
+        requestablePermissions: [PermissionKind],
+        includesEva: Bool
+    ) -> [Self] {
+        var steps: [Self] = []
+        if requestablePermissions.contains(.calendar) { steps.append(.calendar) }
+        if requestablePermissions.contains(.appleHealth) { steps.append(.health) }
+        if requestablePermissions.contains(.notifications) { steps.append(.reminders) }
+        if includesEva { steps.append(.eva) }
+        return steps
+    }
 }
 
 enum LifeMapDesiredChange: String, CaseIterable, Codable, Identifiable {
@@ -150,6 +188,11 @@ enum LifeMapModuleGroup: String, CaseIterable, Codable, Identifiable {
                 OnboardingModuleCatalog.notesID
             ]
         case .eva:
+            // EVA places no Home cards and needs no module of its own; what the
+            // toggle decides is whether the EVA power-up step is offered at all.
+            // It previously returned an empty set *and* nothing consulted the
+            // group, so the control was inert and the EVA step appeared even for
+            // a user who had just switched it off.
             []
         }
     }
@@ -209,9 +252,12 @@ struct LifeMapDraft: Codable, Equatable {
     static let maximumLifeAreas = 5
     static let maximumFrictions = 2
 
-    /// Schema 6 is the first Life Map snapshot schema. Earlier onboarding
-    /// snapshots use a different payload and intentionally restart at welcome.
-    static let currentSchemaVersion = 6
+    /// Schema 6 was the first Life Map snapshot schema. Schema 7 replaced the
+    /// two power-up steps with the finer-grained connect chain and made the
+    /// permission record outcome-verified, so a schema-6 partial journey has no
+    /// honest translation and intentionally restarts at welcome — as does any
+    /// earlier onboarding snapshot, whose payload is a different shape entirely.
+    static let currentSchemaVersion = 7
 
     var schemaVersion = Self.currentSchemaVersion
     var step: LifeMapOnboardingStep = .welcome
@@ -231,8 +277,43 @@ struct LifeMapDraft: Codable, Equatable {
     var moduleIDs: [String] = []
     var stagedCapture: LifeMapStagedCapture?
     var resolvedLifeAreaIDsByTemplate: [String: UUID] = [:]
-    var permissionIDs: [String] = []
     var skippedCapture = false
+
+    // MARK: Power-up outcomes
+    //
+    // Split deliberately into granted and denied rather than a single "we asked
+    // about this" list. The previous single `permissionIDs` was appended to
+    // unconditionally, so a user who tapped Allow and then Don't Allow in the
+    // system sheet was shown a green "Connected" checkmark for a permission
+    // they had just refused.
+
+    /// Permissions the system confirmed. Only these earn a granted state.
+    var grantedPermissionIDs: [String] = []
+
+    /// Permissions the system refused, so the step can offer recovery instead
+    /// of silently re-asking.
+    var deniedPermissionIDs: [String] = []
+
+    /// Calendars the user chose to read. Empty is a real answer meaning "no
+    /// calendars", not "all of them" — see `FilterCalendarEventsUseCase`.
+    var selectedCalendarIDs: [String] = []
+
+    /// Health domains the user explicitly agreed LifeBoard may *write* back to.
+    /// Read authorization is separate and does not imply this.
+    var healthWriteBackDomainIDs: [String] = []
+
+    /// Cloud EVA passed every gate during onboarding.
+    var evaCloudReady = false
+
+    /// The user chose on-device EVA, or postponed the decision.
+    var evaDeferred = false
+
+    /// The orientation tour ran to completion.
+    var didTour = false
+
+    /// Guards the one-shot Life Map -> EVA profile write. The write happens
+    /// after the commit, so it cannot ride `commitPhase`.
+    var didWriteEvaProfile = false
 
     /// Set once the user actually touches the capacity step.
     ///

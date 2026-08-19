@@ -3,228 +3,27 @@ import LifeBoardDomain
 import LifeBoardTokens
 import SwiftUI
 
-/// Write boundaries inside `LifeMapCommitCoordinator.commit`.
+/// The outside-world services the power-up chain drives.
 ///
-/// The area upsert and the capture write are naturally idempotent — they look
-/// for an existing record by stable identity first. The working-hours, layout,
-/// preference, and profile writes are not: they are unconditional overwrites
-/// with no rollback, so replaying them after a mid-commit failure would clobber
-/// state a merge-mode user already had. Recording the phase lets a retry pick up
-/// where it stopped.
-enum LifeMapCommitPhase: Int, Codable, Comparable {
-    case notStarted
-    case lifeAreasWritten
-    case capacityWritten
-    case layoutWritten
-    case profileWritten
-    case captureWritten
-
-    static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
-}
-
+/// Injected as closures for the same reason `LifeMapCommitCoordinator` is:
+/// every one of these touches a system permission dialog, EventKit, HealthKit,
+/// or the network, none of which a unit test can stand up. The defaults below
+/// are the real wiring, so production callers construct the model unchanged.
 @MainActor
-final class LifeMapCommitCoordinator {
-    struct Dependencies {
-        var fetchLifeAreas: () async throws -> [LifeArea]
-        var createLifeArea: (StarterLifeAreaTemplate) async throws -> LifeArea
-        var updateLifeArea: (LifeArea) async throws -> LifeArea
-        var fetchTask: (UUID) async throws -> TaskDefinition?
-        var createTask: (CreateTaskDefinitionRequest) async throws -> TaskDefinition
-        var fetchReflection: (UUID) async throws -> ReflectionNote?
-        var saveReflection: (ReflectionNote) async throws -> ReflectionNote
-        var saveWorkingHours: (WorkingHoursProfile) async throws -> Void
-        var fetchHomeLayout: () async throws -> DashboardLayoutValue?
-        var saveHomeLayout: (DashboardLayoutValue) async throws -> Void
-    }
-
-    private let dependencies: Dependencies
-    private let stateStore: AppOnboardingStateStore
-    private let profileStore: LifeMapProfileStore
-    private let preferencesStore: WorkspacePreferencesStore
-
-    init(
-        dependencies: Dependencies,
-        stateStore: AppOnboardingStateStore,
-        profileStore: LifeMapProfileStore = .shared,
-        preferencesStore: WorkspacePreferencesStore = .shared
-    ) {
-        self.dependencies = dependencies
-        self.stateStore = stateStore
-        self.profileStore = profileStore
-        self.preferencesStore = preferencesStore
-    }
-
-    /// Upserts each canonical record using stable draft identities.
-    ///
-    /// Two properties make a retry safe. First, every write looks for an
-    /// existing record by stable identity before creating one. Second, the
-    /// draft carries a `commitPhase` so the non-idempotent writes — capacity,
-    /// layout, profile — are skipped on a retry that already passed them.
-    /// Completion is marked last, after every required write has succeeded, so
-    /// a failure halfway through never leaves onboarding "done" with a
-    /// half-built workspace.
-    /// - Parameter onProgress: Called after each write boundary with the draft
-    ///   as it stands. Without this the recorded `commitPhase` would die with
-    ///   the thrown error and a retry would replay every non-idempotent write —
-    ///   the phase would be bookkeeping that never bookkept anything.
-    func commit(
-        _ draft: LifeMapDraft,
-        onProgress: ((LifeMapDraft) -> Void)? = nil
-    ) async throws -> LifeMapDraft {
-        var committed = draft
-        let templates = draft.orderedLifeAreaTemplateIDs.compactMap { id in
-            StarterWorkspaceCatalog.allLifeAreas.first { $0.id == id }
-        }
-
-        // Areas are always reconciled, even on retry: the upsert is idempotent
-        // by name, and re-running it repairs a partial first attempt.
-        var existing = try await dependencies.fetchLifeAreas()
-        for (index, template) in templates.enumerated() {
-            let normalized = Self.normalizedName(template.name)
-            var area = existing.first { Self.normalizedName($0.name) == normalized }
-            if area == nil {
-                area = try await dependencies.createLifeArea(template)
-                if let area { existing.append(area) }
-            }
-            guard var area else { continue }
-            committed.resolvedLifeAreaIDsByTemplate[template.id] = area.id
-            if area.sortOrder != index || area.isArchived {
-                area.sortOrder = index
-                area.isArchived = false
-                area.updatedAt = Date()
-                area = try await dependencies.updateLifeArea(area)
-            }
-        }
-        committed.commitPhase = max(committed.commitPhase, .lifeAreasWritten)
-        onProgress?(committed)
-
-        if committed.commitPhase < .capacityWritten {
-            // An established user who never opened the capacity step has not
-            // asked for their week to be redefined.
-            if draft.entryContext != .establishedWorkspace || draft.didEditDayShape {
-                preferencesStore.update { $0.weekStartsOn = draft.dayShape.weekStartsOn }
-                try await dependencies.saveWorkingHours(draft.dayShape.makeProfile())
-            }
-            committed.commitPhase = .capacityWritten
-            onProgress?(committed)
-        }
-
-        if committed.commitPhase < .layoutWritten {
-            try await dependencies.saveHomeLayout(try await resolvedLayout(for: draft))
-            committed.commitPhase = .layoutWritten
-            onProgress?(committed)
-        }
-
-        if committed.commitPhase < .profileWritten {
-            let now = Date()
-            let previousProfile = profileStore.load()
-            profileStore.save(
-                LifeMapProfile(
-                    desiredChangeID: draft.desiredChange?.id ?? "",
-                    frictionIDs: draft.frictionIDs,
-                    createdAt: previousProfile?.createdAt ?? now,
-                    updatedAt: now
-                )
-            )
-            committed.commitPhase = .profileWritten
-            onProgress?(committed)
-        }
-
-        if committed.commitPhase < .captureWritten {
-            try await commitCapture(draft, templates: templates, resolved: committed.resolvedLifeAreaIDsByTemplate)
-            committed.commitPhase = .captureWritten
-            onProgress?(committed)
-        }
-
-        stateStore.markHandled(outcome: .completed)
-        return committed
-    }
-
-    /// The Home layout to persist.
-    ///
-    /// A fresh workspace gets the recommended layout outright. An established
-    /// one gets its existing layout with the newly chosen modules appended —
-    /// overwriting would silently discard a Home the user already arranged,
-    /// which is precisely what "merge mode" exists to prevent.
-    private func resolvedLayout(for draft: LifeMapDraft) async throws -> DashboardLayoutValue {
-        let recommended = OnboardingModuleCatalog.homePlacements(for: selectedModuleIDs(from: draft))
-        guard draft.entryContext == .establishedWorkspace,
-              let current = try await dependencies.fetchHomeLayout(),
-              current.placements.isEmpty == false
-        else {
-            return DashboardLayoutValue(mode: .smart, isDefault: true, placements: recommended)
-        }
-
-        let presentKinds = Set(current.placements.map(\.widgetKind))
-        let additions = recommended.filter { presentKinds.contains($0.widgetKind) == false }
-        guard additions.isEmpty == false else { return current }
-
-        var merged = current.placements
-        var nextOrdinal = (merged.map(\.ordinal).max() ?? -1) + 1
-        for addition in additions {
-            merged.append(DashboardWidgetPlacementValue(
-                widgetKind: addition.widgetKind,
-                semanticSize: addition.semanticSize,
-                ordinal: nextOrdinal
-            ))
-            nextOrdinal += 1
-        }
-        return DashboardLayoutValue(
-            mode: current.mode,
-            isDefault: current.isDefault,
-            placements: HomeGridPackingService.normalized(merged)
-        )
-    }
-
-    private func commitCapture(
-        _ draft: LifeMapDraft,
-        templates: [StarterLifeAreaTemplate],
-        resolved: [String: UUID]
-    ) async throws {
-        guard let capture = draft.stagedCapture, capture.isReviewed else { return }
-
-        if capture.kind == .task {
-            guard try await dependencies.fetchTask(capture.id) == nil else { return }
-            let lifeAreaID = capture.lifeAreaTemplateID.flatMap { resolved[$0] }
-            _ = try await dependencies.createTask(
-                CreateTaskDefinitionRequest(
-                    id: capture.id,
-                    title: capture.text,
-                    projectID: ProjectConstants.inboxProjectID,
-                    projectName: ProjectConstants.inboxProjectName,
-                    lifeAreaID: lifeAreaID,
-                    priority: .low,
-                    type: .morning,
-                    energy: .medium,
-                    category: .general,
-                    context: .anywhere,
-                    planningBucket: .thisWeek
-                )
-            )
-        } else {
-            guard try await dependencies.fetchReflection(capture.id) == nil else { return }
-            let areaName = capture.lifeAreaTemplateID.flatMap { id in
-                templates.first(where: { $0.id == id })?.name
-            }
-            _ = try await dependencies.saveReflection(
-                ReflectionNote(
-                    id: capture.id,
-                    kind: .freeform,
-                    prompt: [capture.kind.title, areaName].compactMap { $0 }.joined(separator: " · "),
-                    noteText: capture.text
-                )
-            )
-        }
-    }
-
-    private func selectedModuleIDs(from draft: LifeMapDraft) -> Set<String> {
-        if draft.moduleIDs.isEmpty == false { return Set(draft.moduleIDs) }
-        return Set(draft.moduleGroupIDs.compactMap(LifeMapModuleGroup.init(rawValue:)).flatMap(\.moduleIDs))
-    }
-
-    private static func normalizedName(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    }
+struct LifeMapPowerUpDependencies {
+    /// Returns whether calendar access was actually granted. Deliberately not
+    /// `PermissionPrimingCoordinator.performRequest`, whose calendar seam is
+    /// `() -> Void` and reports nothing.
+    var requestCalendarAccess: () async -> Bool = { false }
+    /// Every calendar EventKit reports, after access was granted.
+    var availableCalendars: () async -> [CalendarSourceSnapshot] = { [] }
+    var updateSelectedCalendarIDs: ([String]) async -> Void = { _ in }
+    /// Events in the coming week, used only to decide whether the opening
+    /// prompt may mention the calendar at all.
+    var upcomingEventCount: () async -> Int? = { nil }
+    var requestNotificationAccess: () async -> Bool = { false }
+    var connectHealth: (Set<HealthDomain>, Bool) async -> Void = { _, _ in }
+    var setHealthWriteEnabled: (Bool, HealthDomain) async -> Void = { _, _ in }
 }
 
 @MainActor
@@ -236,23 +35,28 @@ final class LifeMapOnboardingModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var permissionInFlight: PermissionKind?
     @Published var inspectedRoot: Destination?
+    @Published private(set) var availableCalendars: [CalendarSourceSnapshot] = []
+    @Published private(set) var openingPrompts: [EvaStarterPrompt] = []
 
     let feedback: OnboardingFeedbackController
     private let stateStore: AppOnboardingStateStore
     private let commitCoordinator: LifeMapCommitCoordinator
     private let universalInput = UniversalInputCoordinator()
     private let existingLifeAreas: () async throws -> [LifeArea]
+    private let powerUps: LifeMapPowerUpDependencies
 
     init(
         stateStore: AppOnboardingStateStore = .shared,
         commitCoordinator: LifeMapCommitCoordinator,
         feedback: OnboardingFeedbackController,
-        existingLifeAreas: @escaping () async throws -> [LifeArea] = { [] }
+        existingLifeAreas: @escaping () async throws -> [LifeArea] = { [] },
+        powerUps: LifeMapPowerUpDependencies = LifeMapPowerUpDependencies()
     ) {
         self.stateStore = stateStore
         self.commitCoordinator = commitCoordinator
         self.feedback = feedback
         self.existingLifeAreas = existingLifeAreas
+        self.powerUps = powerUps
     }
 
     var step: LifeMapOnboardingStep { draft.step }
@@ -488,35 +292,18 @@ final class LifeMapOnboardingModel: ObservableObject {
             guard draft.isCaptureResolved else { return false }
             await assemble()
         case .reveal:
-            setStep(.permissionsPowerUp)
-        case .permissionsPowerUp:
-            setStep(.evaPowerUp)
-        case .evaPowerUp:
+            // The primary action skips straight to the closing phase; the
+            // power-up chain is reached through the secondary action, which
+            // calls `enterPowerUps()` instead.
+            setStep(.tour)
+        case .calendar, .health, .reminders, .eva:
+            setStep(stepAfterPowerUp(step))
+        case .tour:
+            setStep(.firstWin)
+        case .firstWin:
             return true
         }
         return false
-    }
-
-    func goBack() {
-        guard let index = LifeMapOnboardingStep.core.firstIndex(of: step), index > 0 else { return }
-        setStep(LifeMapOnboardingStep.core[index - 1])
-    }
-
-    func requestPermission(_ kind: PermissionKind) async {
-        guard permissionInFlight == nil else { return }
-        permissionInFlight = kind
-        defer { permissionInFlight = nil }
-        await PermissionPrimingCoordinator.shared.performRequest(
-            kind: kind,
-            healthDomains: kind == .appleHealth
-                ? OnboardingModuleCatalog.healthDomains(for: selectedModuleIDs) : []
-        )
-        if draft.permissionIDs.contains(kind.id) == false { draft.permissionIDs.append(kind.id) }
-        persist()
-    }
-
-    func deferPermission(_ kind: PermissionKind) {
-        PermissionPromptState.recordOnboardingDeferral(kind)
     }
 
     /// The transient assemble phase.
@@ -619,5 +406,233 @@ enum LifeMapCapacity {
 
     static func fraction(forTotalMinutes minutes: Int) -> Double {
         min(1, max(0, Double(minutes) / Double(referenceWeeklyMinutes)))
+    }
+}
+
+/// The power-up chain and the EVA hand-off.
+///
+/// A same-file extension: the guardrail measures the largest top-level
+/// declaration, and keeping this here preserves access to the model's
+/// `private` dependencies and `persist()`.
+@MainActor
+extension LifeMapOnboardingModel {
+    /// The reveal's secondary action: opt in to connecting the outside world.
+    func enterPowerUps() {
+        setStep(visiblePowerUps.first ?? .tour)
+    }
+
+    /// The power-up steps worth showing for this workspace, in order.
+    var visiblePowerUps: [LifeMapOnboardingStep] {
+        LifeMapOnboardingStep.visiblePowerUps(
+            requestablePermissions: requestablePermissions,
+            includesEva: selectedModuleGroups.contains(.eva)
+        )
+    }
+
+    /// Back-navigation targets for the current step.
+    ///
+    /// Core walks core. The power-up chain walks itself and stops at its own
+    /// first step: the only thing behind it is the post-commit reveal, and
+    /// re-entering `.capture` from there would re-run a commit that has already
+    /// succeeded. The closing phase is one-way by design.
+    private var navigableFlow: [LifeMapOnboardingStep] {
+        if step.isPowerUp { return visiblePowerUps }
+        if step.isClosing { return [] }
+        return LifeMapOnboardingStep.core
+    }
+
+    var canGoBack: Bool {
+        guard let index = navigableFlow.firstIndex(of: step) else { return false }
+        return index > 0
+    }
+
+    private func stepAfterPowerUp(_ current: LifeMapOnboardingStep) -> LifeMapOnboardingStep {
+        let chain = visiblePowerUps
+        guard let index = chain.firstIndex(of: current), index + 1 < chain.count else { return .tour }
+        return chain[index + 1]
+    }
+
+    func goBack() {
+        let flow = navigableFlow
+        guard let index = flow.firstIndex(of: step), index > 0 else { return }
+        setStep(flow[index - 1])
+    }
+
+    /// Requests a permission and records **what the system actually said**.
+    ///
+    /// The previous implementation appended to a single `permissionIDs` list
+    /// the moment the request returned, so tapping Allow and then "Don't Allow"
+    /// in the system sheet still painted a green "Connected" checkmark. Worse,
+    /// the calendar path went through `PermissionPrimingCoordinator`, whose
+    /// `requestCalendar` seam is fire-and-forget `() -> Void` — the outcome was
+    /// not merely mis-recorded, it was never observed.
+    ///
+    /// Each branch below therefore uses the properly async service call and
+    /// reads a real status back. `PermissionPromptState.recordRequested` still
+    /// runs for every kind, so onboarding and Settings leave identical state.
+    @discardableResult
+    func requestPermission(_ kind: PermissionKind) async -> Bool {
+        guard permissionInFlight == nil else { return false }
+        permissionInFlight = kind
+        defer { permissionInFlight = nil }
+
+        let granted: Bool
+        switch kind {
+        case .calendar:
+            PermissionPromptState.recordRequested(.calendar)
+            granted = await powerUps.requestCalendarAccess()
+            if granted { await preselectAvailableCalendars() }
+        case .notifications:
+            PermissionPromptState.recordRequested(.notifications)
+            granted = await powerUps.requestNotificationAccess()
+        case .appleHealth:
+            // Read authorization only. Write-back is a separate answer the
+            // health step collects explicitly; see `setHealthWriteBack`.
+            await powerUps.connectHealth(
+                OnboardingModuleCatalog.healthDomains(for: selectedModuleIDs),
+                false
+            )
+            // HealthKit deliberately hides read denial, so there is no honest
+            // "granted" to report — only that the sheet was presented. The row
+            // says "Asked" rather than "Connected" for exactly this reason.
+            granted = true
+        case .microphone, .speech, .camera:
+            // Requested by the capture surface at the point of use; onboarding
+            // names them but must not pre-empt the system dialog.
+            PermissionPromptState.recordRequested(kind)
+            granted = false
+        }
+
+        record(kind: kind, granted: granted)
+        persist()
+        return granted
+    }
+
+    private func record(kind: PermissionKind, granted: Bool) {
+        draft.grantedPermissionIDs.removeAll { $0 == kind.id }
+        draft.deniedPermissionIDs.removeAll { $0 == kind.id }
+        if granted {
+            draft.grantedPermissionIDs.append(kind.id)
+        } else {
+            draft.deniedPermissionIDs.append(kind.id)
+        }
+    }
+
+    /// A granted calendar with no selection shows nothing.
+    ///
+    /// `FilterCalendarEventsUseCase` treats an empty `selectedCalendarIDs` as
+    /// *no calendars*, not *all of them*, and the integration service only ever
+    /// removes stale IDs on refresh — nothing seeds a default. So granting
+    /// access and stopping there produced an empty schedule, empty Home cards,
+    /// and an empty calendar projection in EVA's context.
+    ///
+    /// Every available calendar is preselected rather than some "primary" one:
+    /// neither `CalendarSnapshot` nor `CalendarIntegrationService` models a
+    /// default calendar, and reaching for `EKEventStore.defaultCalendarForNewEvents`
+    /// would mean widening the calendar package's public surface to answer a
+    /// question the user can answer better themselves. The step shows the full
+    /// list immediately, so narrowing is one tap away.
+    private func preselectAvailableCalendars() async {
+        guard draft.selectedCalendarIDs.isEmpty else { return }
+        availableCalendars = await powerUps.availableCalendars()
+        let preselected = availableCalendars.map(\.id).sorted()
+        guard preselected.isEmpty == false else { return }
+        draft.selectedCalendarIDs = preselected
+        await powerUps.updateSelectedCalendarIDs(preselected)
+    }
+
+    func setCalendarSelection(_ ids: [String]) {
+        draft.selectedCalendarIDs = ids.sorted()
+        persist()
+        Task { await powerUps.updateSelectedCalendarIDs(draft.selectedCalendarIDs) }
+    }
+
+    /// Writable domains the health step should offer, in catalog order.
+    var writableHealthDomains: [HealthDomain] {
+        HealthDomain.allCases.filter {
+            $0.supportsWriteBack && OnboardingModuleCatalog.healthDomains(for: selectedModuleIDs).contains($0)
+        }
+    }
+
+    func setHealthWriteBack(_ enabled: Bool, for domain: HealthDomain) async {
+        if enabled {
+            if draft.healthWriteBackDomainIDs.contains(domain.id) == false {
+                draft.healthWriteBackDomainIDs.append(domain.id)
+            }
+        } else {
+            draft.healthWriteBackDomainIDs.removeAll { $0 == domain.id }
+        }
+        persist()
+        await powerUps.setHealthWriteEnabled(enabled, domain)
+    }
+
+    func deferPermission(_ kind: PermissionKind) {
+        PermissionPromptState.recordOnboardingDeferral(kind)
+    }
+
+    func isGranted(_ kind: PermissionKind) -> Bool {
+        draft.grantedPermissionIDs.contains(kind.id)
+    }
+
+    func isDenied(_ kind: PermissionKind) -> Bool {
+        draft.deniedPermissionIDs.contains(kind.id)
+    }
+
+    func toggleCalendar(_ id: String) {
+        var ids = Set(draft.selectedCalendarIDs)
+        if ids.contains(id) { ids.remove(id) } else { ids.insert(id) }
+        feedback.selection()
+        setCalendarSelection(Array(ids))
+    }
+
+    /// Leaves the power-up chain without skipping the closing phase.
+    ///
+    /// "Enter LifeBoard" reads as an exit, but the tour and the staged EVA
+    /// openers are the part every user should get — including, especially, the
+    /// user who just declined every connection and would otherwise arrive at a
+    /// Home they have never been introduced to.
+    func skipToClosing() {
+        setStep(.tour)
+    }
+
+    func chooseOfflineEva() async {
+        draft.evaDeferred = true
+        // `EvaProviderRouter` is an actor; the preference write is isolated to it
+        // so cloud selection and this setting can never disagree mid-flight.
+        await EvaProviderRouter.shared.setPreference(.offline)
+        persist()
+    }
+
+    /// Writes the EVA profile and builds the openers.
+    ///
+    /// Runs on entering `.firstWin` rather than inside the commit, because the
+    /// commit already succeeded several steps ago. `didWriteEvaProfile` makes a
+    /// re-entry a no-op; `EvaMemoryMapper` also dedupes, so the guard is belt
+    /// and braces rather than the only thing standing between the user and a
+    /// memory full of repeated lines.
+    func prepareEvaHandoff() async {
+        draft.evaCloudReady = EvaCloudAccountState.shared.canUseCloud
+        if draft.didWriteEvaProfile == false {
+            let profile = LifeMapEvaProfileMapper.profileDraft(from: draft)
+            let merged = EvaMemoryMapper.mergeIntoLocalStore(
+                draft: profile,
+                existing: LLMPersonalMemoryDefaultsStore.load()
+            )
+            LLMPersonalMemoryDefaultsStore.save(merged)
+            draft.didWriteEvaProfile = true
+        }
+        openingPrompts = LifeMapEvaOpeningPrompt.prompts(
+            for: draft,
+            upcomingEventCount: await powerUps.upcomingEventCount()
+        )
+        persist()
+    }
+
+    /// Stages the openers and retires the standalone EVA activation flow.
+    func completeEvaHandoff() {
+        draft.didTour = true
+        EvaOpeningPromptStore.stage(openingPrompts)
+        EvaActivationDefaultsStore.markCompleted()
+        persist()
     }
 }

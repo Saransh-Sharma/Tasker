@@ -102,9 +102,79 @@ final class AppOnboardingCoordinator: NSObject {
             existingLifeAreas: { [weak self] in
                 guard let self else { return [] }
                 return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
-            }
+            },
+            powerUps: Self.makePowerUpDependencies(
+                calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService
+            )
         )
     }()
+
+    /// The real services behind the power-up chain.
+    ///
+    /// Calendar deliberately uses `requestAccessAsync()` rather than
+    /// `PermissionPrimingCoordinator.performRequest`: the coordinator's calendar
+    /// seam is `() -> Void`, so the grant outcome it reports is no outcome at
+    /// all. Health passes `enableWriteBack: false` — onboarding asks about
+    /// reading and writing as two separate questions.
+    /// Waits for the calendar refresh to settle, with a ceiling.
+    ///
+    /// Bounded rather than open-ended: a slow or failing EventKit fetch must
+    /// leave the user on a step that says "no calendars" and lets them continue,
+    /// never on one that hangs.
+    @MainActor
+    private static func awaitLoadedCalendars(
+        from service: CalendarIntegrationService,
+        timeout: TimeInterval = 3
+    ) async -> [CalendarSourceSnapshot] {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if service.snapshot.availableCalendars.isEmpty == false {
+                return service.snapshot.availableCalendars
+            }
+            if service.snapshot.isLoading == false, service.snapshot.errorMessage != nil { break }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return service.snapshot.availableCalendars
+    }
+
+    @MainActor
+    private static func makePowerUpDependencies(
+        calendarService: CalendarIntegrationService
+    ) -> LifeMapPowerUpDependencies {
+        LifeMapPowerUpDependencies(
+            requestCalendarAccess: { await calendarService.requestAccessAsync() },
+            availableCalendars: {
+                // `availableCalendars` is populated asynchronously, inside
+                // `refreshContext`'s `fetchCalendars` callback — reading the
+                // snapshot straight after `refreshAuthorizationStatus()` returns
+                // the pre-grant value, which is empty, and the step then says
+                // "No calendars found" on a device that has several.
+                calendarService.refreshAuthorizationStatus()
+                calendarService.refreshContext(reason: "onboarding_calendar_step")
+                return await Self.awaitLoadedCalendars(from: calendarService)
+            },
+            updateSelectedCalendarIDs: { ids in
+                calendarService.updateSelectedCalendarIDs(ids)
+            },
+            upcomingEventCount: {
+                calendarService.snapshot.selectedCalendarIDs.isEmpty
+                    ? nil : calendarService.snapshot.eventsInRange.count
+            },
+            requestNotificationAccess: {
+                guard let service = CompositionRoot.shared.notificationService else { return false }
+                return await service.requestPermissionAsync()
+            },
+            connectHealth: { domains, enableWriteBack in
+                await HealthCoordinator.shared.connectionStore.connect(
+                    domains: domains,
+                    enableWriteBack: enableWriteBack
+                )
+            },
+            setHealthWriteEnabled: { enabled, domain in
+                await HealthCoordinator.shared.connectionStore.setWriteEnabled(enabled, for: domain)
+            }
+        )
+    }
 
 
     init?(

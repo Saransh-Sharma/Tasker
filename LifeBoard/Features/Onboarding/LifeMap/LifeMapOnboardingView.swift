@@ -27,6 +27,9 @@ struct LifeMapOnboardingView: View {
     @State private var evaAccount = EvaCloudAccountState.shared
     @State private var evaIsWorking = false
     @State private var evaErrorMessage: String?
+    @State private var evaActivationTask: Task<Void, Never>?
+    @State private var evaGrants: Set<EvaConsentPolicy.Grant> = []
+    @State private var tourIndex = 0
     @State private var contentSafeAreaInsets = LifeMapOnboardingView.windowSafeAreaInsets
     @State private var bridgedScenePhase: ScenePhase =
         UIApplication.shared.applicationState == .background ? .background : .active
@@ -101,9 +104,17 @@ struct LifeMapOnboardingView: View {
             refreshContentSafeAreaInsets()
         }
         .task(id: model.step) {
-            guard model.step == .evaPowerUp,
-                  (try? await EvaCloudSessionStore.shared.load()) != nil else { return }
-            await evaAccount.refresh()
+            if model.step == .eva, (try? await EvaCloudSessionStore.shared.load()) != nil {
+                await evaAccount.refresh()
+                evaGrants = Set(evaAccount.consent?.grants ?? [])
+            }
+            if model.step == .firstWin {
+                await model.prepareEvaHandoff()
+            }
+        }
+        .onDisappear {
+            evaActivationTask?.cancel()
+            evaActivationTask = nil
         }
         // UIHostingController-backed flows do not participate in a SwiftUI App
         // scene, so their raw `scenePhase` can read `.background` while fully
@@ -176,14 +187,14 @@ struct LifeMapOnboardingView: View {
 
     private var contentColumn: some View {
         VStack(spacing: Theme.Spacing.md + 2) {
-            LifeMapTopBar(step: model.step, onBack: model.goBack)
+            LifeMapTopBar(step: model.step, canGoBack: model.canGoBack, onBack: model.goBack)
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
                     if let error = model.errorMessage {
                         LifeMapErrorBanner(message: error)
                     }
                     stepContent
-                        .id(model.step)
+                        .id(stepContentIdentity)
                         .transition(stepTransition)
                 }
                 .padding(.horizontal, Theme.Spacing.xs)
@@ -248,25 +259,81 @@ struct LifeMapOnboardingView: View {
                 capture: model.draft.stagedCapture,
                 placements: model.committedHomePlacements
             )
-        case .permissionsPowerUp:
-            LifeMapPermissionsStep(
-                permissions: model.requestablePermissions,
-                grantedIDs: model.draft.permissionIDs,
-                inFlight: model.permissionInFlight,
-                onRequest: { kind in Task { await model.requestPermission(kind) } },
-                onDefer: model.deferPermission
+        case .calendar:
+            LifeMapCalendarStep(
+                isGranted: model.isGranted(.calendar),
+                isDenied: model.isDenied(.calendar),
+                isBusy: model.permissionInFlight != nil,
+                sections: CalendarPresentation.chooserSections(from: model.availableCalendars),
+                selectedIDs: model.draft.selectedCalendarIDs,
+                onRequest: { Task { await model.requestPermission(.calendar) } },
+                onToggle: model.toggleCalendar,
+                onSkip: { model.deferPermission(.calendar) }
             )
-        case .evaPowerUp:
+        case .health:
+            LifeMapHealthStep(
+                isConnected: model.isGranted(.appleHealth),
+                isBusy: model.permissionInFlight != nil,
+                writableDomains: model.writableHealthDomains,
+                writeBackDomainIDs: model.draft.healthWriteBackDomainIDs,
+                onConnect: { Task { await model.requestPermission(.appleHealth) } },
+                onToggleWriteBack: { domain, enabled in
+                    Task { await model.setHealthWriteBack(enabled, for: domain) }
+                },
+                onSkip: { model.deferPermission(.appleHealth) }
+            )
+        case .reminders:
+            LifeMapRemindersStep(
+                isGranted: model.isGranted(.notifications),
+                isDenied: model.isDenied(.notifications),
+                isBusy: model.permissionInFlight != nil,
+                onRequest: { Task { await model.requestPermission(.notifications) } },
+                onSkip: { model.deferPermission(.notifications) }
+            )
+        case .eva:
             LifeMapEvaStep(
                 isAuthenticated: evaAccount.isAuthenticated,
                 isAdultEligible: evaAccount.isAdultEligible,
                 isCloudReady: evaAccount.canUseCloud,
                 isWorking: evaIsWorking,
-                errorMessage: evaErrorMessage
+                progressCaption: evaAccount.activationStage.progressCaption,
+                errorMessage: evaErrorMessage,
+                selectedGrants: evaGrants,
+                onToggleGrant: toggleEvaGrant,
+                onChooseOffline: chooseOfflineEva
+            )
+        case .tour:
+            LifeMapTourStep(
+                destination: tourDestination,
+                index: tourIndex,
+                total: Destination.allCases.count
+            )
+        case .firstWin:
+            LifeMapFirstWinStep(
+                isCloudReady: evaAccount.canUseCloud,
+                prompts: model.openingPrompts
             )
         }
     }
 
+    private var stepTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .move(edge: .leading).combined(with: .opacity)
+            )
+    }
+}
+
+/// The dock, the EVA activation legs, and the hand-off.
+///
+/// A same-file extension, not a separate type: `check_file_size_guardrails.rb`
+/// measures the largest *top-level declaration*, which is the number that
+/// predicts the `-Onone` launch crash — Debug inlines computed `some View`
+/// properties into their caller's stack frame. Keeping it in this file
+/// preserves access to the view's `private` state.
+extension LifeMapOnboardingView {
     // MARK: - Dock
 
     private var dock: some View {
@@ -284,23 +351,26 @@ struct LifeMapOnboardingView: View {
         switch model.step {
         case .welcome: "Build my Life Map"
         case .capture: "Connect it"
-        case .reveal: "Enter LifeBoard"
-        case .permissionsPowerUp: "Continue to EVA"
-        case .evaPowerUp:
+        case .reveal: "Show me around"
+        case .calendar, .health, .reminders: "Continue"
+        case .eva:
             if evaIsWorking { "Connecting…" }
-            else if evaAccount.canUseCloud { "Continue EVA setup" }
+            else if evaAccount.canUseCloud { "Continue" }
             else { "Sign in with Apple" }
+        case .tour: tourIndex + 1 < Destination.allCases.count ? "Next" : "Meet EVA"
+        case .firstWin: evaAccount.canUseCloud ? "Open EVA" : "Go to LifeBoard"
         default: "Continue"
         }
     }
 
-    /// Entering the app is always available before permissions or EVA — the core
+    /// Entering the app is always available once the map exists — the core
     /// payoff is complete at `.reveal`, and everything after it is optional.
     private var secondaryTitle: String? {
         switch model.step {
         case .reveal: "Power it up"
-        case .permissionsPowerUp: "Enter LifeBoard"
-        case .evaPowerUp: "Finish later"
+        case .calendar, .health, .reminders: "Enter LifeBoard"
+        case .eva: "Finish later"
+        case .tour: "Skip the tour"
         default: nil
         }
     }
@@ -311,36 +381,54 @@ struct LifeMapOnboardingView: View {
         case .friction: model.draft.frictionIDs.isEmpty
         case .lifeAreas: model.draft.isLifeAreaSelectionValid == false
         case .capture: model.draft.isCaptureResolved == false
-        case .evaPowerUp: evaIsWorking
+        case .eva: evaIsWorking
         default: false
         }
     }
 
     private func performPrimary() {
         switch model.step {
-        case .reveal:
-            onDismissFlow()
-        case .evaPowerUp:
+        case .eva:
+            // Signing in is the primary action only until it has succeeded;
+            // after that the primary simply moves on, so a connected user is
+            // never invited to re-run an activation that spends an exchange.
             if evaAccount.canUseCloud {
-                openEvaSetup()
+                advance()
             } else {
                 enableCloudEva()
             }
-        default:
-            Task {
-                if await model.advance() { onDismissFlow() }
+        case .tour:
+            if tourIndex + 1 < Destination.allCases.count {
+                tourIndex += 1
+                model.feedback.light()
+            } else {
+                advance()
             }
+        case .firstWin:
+            handOffToEva()
+        default:
+            advance()
         }
     }
 
     private func performSecondary() {
         switch model.step {
         case .reveal:
-            Task { _ = await model.advance() }
-        case .permissionsPowerUp, .evaPowerUp:
-            onDismissFlow()
+            model.enterPowerUps()
+        case .calendar, .health, .reminders, .eva:
+            // "Enter LifeBoard" / "Finish later" still runs the closing phase —
+            // the tour and the staged openers are the part every user gets.
+            model.skipToClosing()
+        case .tour:
+            advance()
         default:
             break
+        }
+    }
+
+    private func advance() {
+        Task {
+            if await model.advance() { onDismissFlow() }
         }
     }
 
@@ -348,32 +436,105 @@ struct LifeMapOnboardingView: View {
         guard evaIsWorking == false else { return }
         evaIsWorking = true
         evaErrorMessage = nil
-        Task { @MainActor in
-            defer { evaIsWorking = false }
+        // Owned rather than fire-and-forget: a detached task outlives the flow and
+        // keeps writing to torn-down state after the user taps "Finish later".
+        evaActivationTask = Task { @MainActor in
+            defer {
+                evaIsWorking = false
+                evaActivationTask = nil
+            }
             do {
                 try await evaAccount.activateCloud()
                 if let readinessError = evaAccount.readinessError() { throw readinessError }
                 model.feedback.successSignature()
+            } catch is CancellationError {
+                evaErrorMessage = nil
             } catch let error as ASAuthorizationError where error.code == .canceled {
                 evaErrorMessage = "Sign in was cancelled. You can try again or finish later."
             } catch {
-                evaErrorMessage = error.localizedDescription
+                evaErrorMessage = Self.activationMessage(for: error)
             }
         }
     }
 
-    private func openEvaSetup() {
-        NotificationCenter.default.post(name: .lifeboardOpenChatDeepLink, object: nil)
+    /// A stalled request reads to the user as "the app is broken", so name the
+    /// cause and the remedy instead of surfacing Foundation's bare
+    /// "The request timed out."
+    private static func activationMessage(for error: Error) -> String {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .timedOut, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
+                return "EVA's server didn’t respond in time. Tap to try again — you won’t have to sign in twice."
+            case .notConnectedToInternet, .networkConnectionLost:
+                return "You’re offline. Reconnect and tap to try again, or finish later."
+            default:
+                break
+            }
+        }
+        if let envelope = error as? EvaErrorEnvelope, envelope.retryable {
+            return "\(envelope.message) Tap to try again."
+        }
+        return error.localizedDescription
+    }
+
+    /// Consent is a compare-and-swap on the server's revision, so it is written
+    /// one toggle at a time and never retried — a replayed write would fail the
+    /// CAS and read to the user as the switch refusing to move.
+    private func toggleEvaGrant(_ grant: EvaConsentPolicy.Grant, enabled: Bool) {
+        guard evaIsWorking == false, let policy = evaAccount.consent else { return }
+        var replacement = evaGrants
+        if enabled { replacement.insert(grant) } else { replacement.remove(grant) }
+        evaIsWorking = true
+        evaActivationTask = Task { @MainActor in
+            defer {
+                evaIsWorking = false
+                evaActivationTask = nil
+            }
+            do {
+                let updated = try await EvaCloudTransport.shared.updateConsent(
+                    expectedRevision: policy.revision,
+                    grants: replacement.sorted { $0.rawValue < $1.rawValue }
+                )
+                await evaAccount.refresh()
+                evaGrants = Set(updated.grants)
+            } catch is CancellationError {
+                evaErrorMessage = nil
+            } catch {
+                evaErrorMessage = Self.activationMessage(for: error)
+                evaGrants = Set(evaAccount.consent?.grants ?? [])
+            }
+        }
+    }
+
+    private func chooseOfflineEva() {
+        Task {
+            await model.chooseOfflineEva()
+            model.skipToClosing()
+        }
+    }
+
+    /// Stage the openers, mark EVA activation handled, then open the tab.
+    ///
+    /// `markCompleted` runs whether or not cloud is ready: the point of merging
+    /// the flows is that nobody meets a second activation wizard, and a user who
+    /// declined here would otherwise land straight back in the one this replaces.
+    private func handOffToEva() {
+        model.completeEvaHandoff()
+        if evaAccount.canUseCloud {
+            NotificationCenter.default.post(name: .lifeboardOpenChatDeepLink, object: nil)
+        }
         onDismissFlow()
     }
 
-    private var stepTransition: AnyTransition {
-        reduceMotion
-            ? .opacity
-            : .asymmetric(
-                insertion: .move(edge: .trailing).combined(with: .opacity),
-                removal: .move(edge: .leading).combined(with: .opacity)
-            )
+    /// Tour beats are five screens inside one step, so the transition has to
+    /// key on the beat as well or four of the five would appear without motion.
+    private var stepContentIdentity: String {
+        model.step == .tour ? "tour.\(tourIndex)" : "step.\(model.step.rawValue)"
+    }
+
+    private var tourDestination: Destination {
+        let all = Destination.allCases
+        return all[min(max(0, tourIndex), all.count - 1)]
     }
 }
 

@@ -19,7 +19,7 @@ struct LifeMapProductPreview: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     header
                     VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                        ForEach(rows, id: \.symbol) { row in
+                        ForEach(rows) { row in
                             Label(row.text, systemImage: row.symbol)
                                 .font(.lifeboard(.body))
                                 .foregroundStyle(Color.lifeboard(.textPrimary))
@@ -65,7 +65,24 @@ struct LifeMapProductPreview: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var subtitle: String {
+    private var subtitle: String { LifeMapRootCopy.subtitle(for: destination) }
+
+    private var rows: [LifeMapRootCopy.Row] { LifeMapRootCopy.rows(for: destination) }
+}
+
+/// What each application root is for, in one place.
+///
+/// Lifted out of `LifeMapProductPreview` so the orientation tour reads the same
+/// sentences the inspect-a-root sheet does. Two copies would drift, and the
+/// tour is the first description of the app most users will ever read.
+enum LifeMapRootCopy {
+    struct Row: Identifiable {
+        let symbol: String
+        let text: String
+        var id: String { symbol }
+    }
+
+    static func subtitle(for destination: Destination) -> String {
         switch destination {
         case .home: "Your calm starting point"
         case .plan: "Time shaped around capacity"
@@ -75,37 +92,37 @@ struct LifeMapProductPreview: View {
         }
     }
 
-    private var rows: [(symbol: String, text: String)] {
+    static func rows(for destination: Destination) -> [Row] {
         switch destination {
         case .home:
             [
-                ("sun.max", "Today’s orientation"),
-                ("checklist", "Your next useful actions"),
-                ("rectangle.grid.1x2", "A Home tailored to your modules")
+                Row(symbol: "sun.max", text: "Today’s orientation"),
+                Row(symbol: "checklist", text: "Your next useful actions"),
+                Row(symbol: "rectangle.grid.1x2", text: "A Home tailored to your modules")
             ]
         case .plan:
             [
-                ("calendar", "Week and schedule"),
-                ("gauge.with.dots.needle.33percent", "Capacity-aware planning"),
-                ("timer", "Focus sessions")
+                Row(symbol: "calendar", text: "Week and schedule"),
+                Row(symbol: "gauge.with.dots.needle.33percent", text: "Capacity-aware planning"),
+                Row(symbol: "timer", text: "Focus sessions")
             ]
         case .track:
             [
-                ("repeat", "Routines that bend with the day"),
-                ("heart", "Health and care"),
-                ("chart.xyaxis.line", "Progress you can understand")
+                Row(symbol: "repeat", text: "Routines that bend with the day"),
+                Row(symbol: "heart", text: "Health and care"),
+                Row(symbol: "chart.xyaxis.line", text: "Progress you can understand")
             ]
         case .insights:
             [
-                ("book.closed", "Reflection"),
-                ("sparkles", "Patterns worth noticing"),
-                ("arrow.triangle.2.circlepath", "Recovery and adaptation")
+                Row(symbol: "book.closed", text: "Reflection"),
+                Row(symbol: "sparkles", text: "Patterns worth noticing"),
+                Row(symbol: "arrow.triangle.2.circlepath", text: "Recovery and adaptation")
             ]
         case .eva:
             [
-                ("lock.shield", "Private by design"),
-                ("point.3.filled.connected.trianglepath.dotted", "Connect context across modules"),
-                ("bubble.left.and.bubble.right", "Think through what comes next")
+                Row(symbol: "lock.shield", text: "Private by design"),
+                Row(symbol: "point.3.filled.connected.trianglepath.dotted", text: "Connect context across modules"),
+                Row(symbol: "bubble.left.and.bubble.right", text: "Think through what comes next")
             ]
         }
     }

@@ -115,10 +115,16 @@ struct LifeMapChoiceRow: View {
 
 struct LifeMapTopBar: View {
     let step: LifeMapOnboardingStep
+    /// Whether the model has somewhere to go back *to*. The power-up chain is
+    /// navigable now, but its first step has no predecessor — going back from
+    /// there would land on the post-commit reveal, whose primary action skips
+    /// the very chain the user just entered.
+    let canGoBack: Bool
     let onBack: () -> Void
 
     private var showsBack: Bool {
-        step != .welcome && step != .reveal && step.isPowerUp == false
+        guard step != .welcome, step != .reveal, step.isClosing == false else { return false }
+        return canGoBack
     }
 
     var body: some View {
@@ -135,7 +141,7 @@ struct LifeMapTopBar: View {
                 .accessibilityIdentifier(LifeMapAccessibilityID.backButton)
             }
             Spacer(minLength: 0)
-            if step.isPowerUp == false {
+            if step.isPowerUp == false, step.isClosing == false {
                 Text(progressLabel)
                     .font(.lifeboard(.eyebrow))
                     .tracking(1.4)

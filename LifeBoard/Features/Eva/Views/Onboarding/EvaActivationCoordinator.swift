@@ -221,10 +221,16 @@ final class EvaActivationCoordinator: ObservableObject {
             return
         }
 
+        if Self.retiredFirstRunStages.contains(state.stage) {
+            retireFirstRunStage()
+            return
+        }
+
         if state.isComplete {
             updateStage(.completed)
         }
     }
+
 
     func continueFromIntro() {
         updateStage(.aboutYou)
@@ -434,5 +440,37 @@ final class EvaActivationCoordinator: ObservableObject {
         state.lastUpdatedAt = .now
         state.apply(profileDraft: profileDraft)
         EvaActivationDefaultsStore.save(state, defaults: defaults)
+    }
+}
+
+/// Retirement of EVA's own first-run flow.
+///
+/// A same-file extension so `persist()` stays reachable while keeping the
+/// coordinator itself under the largest-type ceiling.
+@MainActor
+extension EvaActivationCoordinator {
+    /// Stages that app onboarding now owns.
+    ///
+    /// EVA used to greet a new user with its own five-stage flow — meet EVA,
+    /// working style, goals, connect the cloud, first chat — reached by opening
+    /// the EVA tab. App onboarding asks richer versions of all of it and hands
+    /// over a set of composed opening prompts, so meeting this flow afterwards
+    /// meant answering the same questions twice.
+    ///
+    /// The stages are normalised rather than deleted: a user mid-flight when
+    /// they updated still has one of these persisted, and the honest resolution
+    /// is to let them into EVA, not to strand them on a screen that no longer
+    /// leads anywhere. Offline model installation keeps its own entry point in
+    /// `ModelsSettingsView`, which never routed through this coordinator.
+    static let retiredFirstRunStages: Set<EvaActivationStage> = [
+        .intro, .aboutYou, .goals, .cloudSetup,
+        .modelChoice, .modelDownload, .installRecovery,
+        .firstChat, .unsupportedDevice
+    ]
+
+    private func retireFirstRunStage() {
+        state.isComplete = true
+        state.stage = .completed
+        persist()
     }
 }
