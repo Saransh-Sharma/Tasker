@@ -27,50 +27,46 @@ struct EvaCloudMessage: Codable, Sendable, Equatable {
 }
 
 struct EvaCloudContextSection: Codable, Sendable {
-    enum Category: String, Codable, Sendable {
+    /// Only the last four are consent-gated. The rest project records the person
+    /// already sees inside LifeBoard and ride on the request's own
+    /// authorization, so widening this list does not widen what a grant means.
+    enum Category: String, Codable, Sendable, CaseIterable {
         case planning
+        case capacity
+        case goals
+        case habits
+        case dayLoop
+        case retrospective
+        case calendar
+        case conversationSummary
         case journal
         case health
         case lifeMoments
         case personalMemory
+
+        /// Mirrors `sensitiveContextCategories` in the shared contract. The
+        /// server is authoritative; this only avoids building a section that
+        /// would be refused.
+        var requiredGrant: EvaConsentPolicy.Grant? {
+            switch self {
+            case .journal: .journal
+            case .health: .health
+            case .lifeMoments: .lifeMoments
+            case .personalMemory: .personalMemory
+            default: nil
+            }
+        }
     }
 
     let category: Category
     let payload: EvaJSONValue
 }
 
-enum EvaJSONValue: Codable, Sendable, Equatable {
-    case string(String)
-    case number(Double)
-    case bool(Bool)
-    case object([String: EvaJSONValue])
-    case array([EvaJSONValue])
-    case null
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if container.decodeNil() { self = .null }
-        else if let value = try? container.decode(Bool.self) { self = .bool(value) }
-        else if let value = try? container.decode(Double.self) { self = .number(value) }
-        else if let value = try? container.decode(String.self) { self = .string(value) }
-        else if let value = try? container.decode([String: EvaJSONValue].self) { self = .object(value) }
-        else { self = .array(try container.decode([EvaJSONValue].self)) }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case .string(let value): try container.encode(value)
-        case .number(let value): try container.encode(value)
-        case .bool(let value): try container.encode(value)
-        case .object(let value): try container.encode(value)
-        case .array(let value): try container.encode(value)
-        case .null: try container.encodeNil()
-        }
-    }
-}
-
 struct EvaInferenceRequest: Codable, Sendable {
+    /// Contract version this client speaks. The server admits 1 and 2; only a
+    /// v2 request may carry `userInstructions` into the developer message.
+    static let contractVersion = 2
+
     struct Capabilities: Codable, Sendable {
         let streaming: Bool
         let structuredOutput: Bool
@@ -84,6 +80,7 @@ struct EvaInferenceRequest: Codable, Sendable {
     let timeZone: String
     let messages: [EvaCloudMessage]
     let context: [EvaCloudContextSection]
+    let userInstructions: EvaUserInstructions?
     let clientVersion: String
     let platform: String
     let installationId: UUID

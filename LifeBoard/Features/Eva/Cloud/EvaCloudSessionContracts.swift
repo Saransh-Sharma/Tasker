@@ -61,6 +61,21 @@ enum EvaProviderError: LocalizedError, Sendable {
     }
 }
 
+extension Error {
+    /// True when the server's verdict is that this device must authenticate
+    /// again: a session it no longer has, a refresh family it rotated away, or
+    /// a binding it revoked. Deliberately narrow — a timeout or a 5xx says
+    /// nothing about whether the stored session is still good, and treating it
+    /// as though it did would throw away a perfectly valid session.
+    var evaRequiresReauthentication: Bool {
+        if let providerError = self as? EvaProviderError, case .authenticationRequired = providerError {
+            return true
+        }
+        guard let envelope = self as? EvaErrorEnvelope else { return false }
+        return envelope.code == "session_expired" || envelope.code == "unauthenticated"
+    }
+}
+
 extension JSONDecoder {
     static var evaCloud: JSONDecoder {
         let decoder = JSONDecoder()
