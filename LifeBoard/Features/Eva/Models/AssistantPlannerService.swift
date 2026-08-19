@@ -409,7 +409,7 @@ final class AssistantPlannerService {
             return .failure(.noModelConfigured)
         }
         let systemPrompt = planSystemPrompt(referenceDate: fallbackContext.now)
-        let plannerThread = cleanPlannerThread(userPrompt: userPrompt, contextPayload: contextPayload)
+        let plannerThread = cleanPlannerThread(userPrompt: userPrompt, contextPayload: contextPayload, modelName: modelName)
         logWarning(
             event: "eva_plan_started",
             message: "Started EVA plan generation",
@@ -426,7 +426,8 @@ final class AssistantPlannerService {
             thread: plannerThread,
             systemPrompt: systemPrompt,
             profile: .chatPlanJSON,
-            requestOptions: model.map(LLMGenerationRequestOptions.structuredOutput(for:))
+            requestOptions: model.map(LLMGenerationRequestOptions.structuredOutput(for:)),
+            cloudContext: EvaRouteContextSections.planning(projection: contextPayload, kind: .plan, modelName: modelName)
         )
 
         if output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -633,17 +634,16 @@ final class AssistantPlannerService {
         """
     }
 
-    private func cleanPlannerThread(userPrompt: String, contextPayload: String) -> Thread {
+    private func cleanPlannerThread(userPrompt: String, contextPayload: String, modelName: String) -> Thread {
         let thread = Thread()
         let now = nowProvider()
-        let body = """
+        let header = """
         current_time: \(now.ISO8601Format())
         selected_day: \(Calendar.current.startOfDay(for: now).ISO8601Format())
         user_prompt:
         \(userPrompt)
-
-        \(contextPayload)
         """
+        let body = EvaRouteContextSections.inlining(contextPayload, into: header, modelName: modelName)
         thread.messages.append(Message(role: .user, content: body, thread: thread))
         return thread
     }
@@ -721,7 +721,7 @@ final class AssistantPlannerService {
         traceContext: EvaTurnTraceContext?
     ) async -> AssistantEnvelopeValidator.ParsedEnvelope? {
         let thread = Thread()
-        let prompt = """
+        let header = """
         The previous output was not a valid AssistantCommandEnvelope.
         Convert it to ONLY a full AssistantCommandEnvelope JSON object. Do not return a bare command object. If it cannot be converted, return a full envelope containing createInboxTask commands for explicit untimed tasks or createScheduledTask commands for explicit timed tasks.
 
@@ -730,16 +730,16 @@ final class AssistantPlannerService {
 
         invalid_output:
         \(LoggingService.previewText(rawOutput, maxLength: 1_200))
-
-        \(contextPayload)
         """
+        let prompt = EvaRouteContextSections.inlining(contextPayload, into: header, modelName: modelName)
         thread.messages.append(Message(role: .user, content: prompt, thread: thread))
         let output = await llm.generate(
             modelName: modelName,
             thread: thread,
             systemPrompt: planSystemPrompt(referenceDate: nowProvider()),
             profile: .planRepairJSON,
-            requestOptions: model.map(LLMGenerationRequestOptions.structuredOutput(for:))
+            requestOptions: model.map(LLMGenerationRequestOptions.structuredOutput(for:)),
+            cloudContext: EvaRouteContextSections.planning(projection: contextPayload, kind: .planRepair, modelName: modelName)
         )
         logJSONShape(rawOutput: output, stage: "repair", traceContext: traceContext)
         let parsed = AssistantEnvelopeValidator.parseAndValidateDetailed(

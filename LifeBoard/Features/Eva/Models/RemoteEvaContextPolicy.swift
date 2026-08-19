@@ -27,11 +27,19 @@ public struct RemoteEvaContextSection: Codable, Equatable, Sendable {
 
 /// Account-scoped, deny-by-default authorization for remote Eva context.
 ///
-/// Remote transport is not currently composed by LifeBoard. This contract is
-/// the mandatory gate for any future transport: the account must opt in and
-/// every included category must have its own grant. System-surface disclosure
-/// remains governed by `SystemSurfaceSnapshot` and is deliberately
-/// outside this policy.
+/// **This is not the live gate.** Remote transport *is* composed by LifeBoard
+/// now — `EvaCloudTransport` posts to `/v1/eva/responses` and
+/// `EvaCloudContextProjection` builds its sections — but authorization runs
+/// through the server-authoritative `EvaConsentPolicy` instead, because a grant
+/// has to be revocable from any device and enforced before the next accepted
+/// request. This type is the local-only mirror of that idea and currently has no
+/// production caller; its category enum overlaps `EvaConsentPolicy.Grant`.
+///
+/// Two consent models describing one boundary is a real hazard, so do not add a
+/// caller here expecting it to gate anything. Collapsing the two is a contract
+/// decision that belongs with the v2 context envelope, not a local refactor.
+/// System-surface disclosure remains governed by `SystemSurfaceSnapshot` and is
+/// deliberately outside both policies.
 public struct RemoteEvaContextPolicy: Codable, Equatable, Sendable {
     public static let currentSchemaVersion = 2
 

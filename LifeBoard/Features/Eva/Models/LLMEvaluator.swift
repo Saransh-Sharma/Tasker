@@ -22,17 +22,20 @@ struct LLMChatPromptSnapshot: Sendable {
     let systemPromptCharacterCount: Int
     let buildDurationMs: Int
     let cloudContext: [EvaCloudContextSection]
+    let userInstructions: EvaUserInstructions?
 
     init(
         messages: [Chat.Message],
         systemPromptCharacterCount: Int,
         buildDurationMs: Int,
-        cloudContext: [EvaCloudContextSection] = []
+        cloudContext: [EvaCloudContextSection] = [],
+        userInstructions: EvaUserInstructions? = nil
     ) {
         self.messages = messages
         self.systemPromptCharacterCount = systemPromptCharacterCount
         self.buildDurationMs = buildDurationMs
         self.cloudContext = cloudContext
+        self.userInstructions = userInstructions
     }
 
     var messageCount: Int {
@@ -183,12 +186,25 @@ class LLMEvaluator {
         self.providerRouter = providerRouter
     }
 
+    /// Shapes a thread into a prompt snapshot and delegates to the routing entry
+    /// point.
+    ///
+    /// `modelName` may be the cloud routing sentinel rather than an installed MLX
+    /// model, so this must not require a local `ModelConfiguration`. It previously
+    /// did, and every caller on this overload — daily brief, top three, task
+    /// breakdown, field suggestion, planner, plan repair, Shortcuts — returned
+    /// "Failed: model not found" the moment Cloud EVA was selected, silently
+    /// falling back to heuristics without ever reaching the network. The default
+    /// configuration stands in only to shape messages; whether any of that reaches
+    /// a local runtime is decided by the provider branch in the snapshot overload,
+    /// which still refuses an unknown model on the offline path.
     func generate(
         modelName: String,
         thread: Thread,
         systemPrompt: String,
         profile: LLMGenerationProfile = .chat,
         requestOptions: LLMGenerationRequestOptions? = nil,
+        cloudContext: [EvaCloudContextSection] = [],
         onFirstToken: (@MainActor @Sendable () -> Void)? = nil
     ) async -> String {
         lastGenerationTimedOut = false
@@ -197,16 +213,13 @@ class LLMEvaluator {
         lastGeneratedTokenCount = 0
         lastVisibleCharacterCount = 0
         lastSanitizedTemplateArtifacts = false
-        guard let model = ModelConfiguration.getModelByName(modelName) else {
-            runtimePhase = .failed
-            output = "Failed: model not found"
-            return output
-        }
+        let model = ModelConfiguration.getModelByName(modelName) ?? .defaultModel
         let startedAt = Date()
         let snapshot = LLMChatPromptSnapshot(
             messages: model.getChatMessages(thread: thread, systemPrompt: systemPrompt),
             systemPromptCharacterCount: systemPrompt.count,
-            buildDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000)
+            buildDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000),
+            cloudContext: cloudContext
         )
         return await generate(
             modelName: modelName,

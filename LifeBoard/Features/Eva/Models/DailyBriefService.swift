@@ -59,6 +59,21 @@ final class DailyBriefService {
             )
         }
 
+        // The counts alone cannot support a brief worth reading: they say five
+        // things are due without saying which, so the answer can only ever be
+        // generic encouragement. On cloud the roster travels as typed context and
+        // the model can name the actual work; offline keeps the counts, which is
+        // what a 0.6B model can handle.
+        let cloudContext = await EvaTurnContextAssembler.sections(
+            budget: EvaContextBudget.resolveForChat(route: .dailyBrief, currentModelName: modelName, offlineModel: .defaultModel),
+            compactProjection: "",
+            executiveState: nil,
+            slashCommandState: nil,
+            personalMemory: nil,
+            habitSignals: resolvedHabitSignals,
+            evidence: .notProvided,
+            consent: EvaCloudAccountState.shared.consent
+        )
         let thread = Thread()
         thread.messages.append(
             Message(
@@ -83,7 +98,8 @@ final class DailyBriefService {
             {"brief":"4 short bullets with one clear next action"}
             """,
             profile: .dailyBrief,
-            requestOptions: .structuredOutput(for: ModelConfiguration.getModelByName(modelName) ?? .defaultModel)
+            requestOptions: .structuredOutput(for: ModelConfiguration.getModelByName(modelName) ?? .defaultModel),
+            cloudContext: cloudContext
         )
         if let brief = decodeBrief(from: output) {
             return DailyBriefOutput(brief: brief, modelName: modelName, routeBanner: route.bannerMessage)
@@ -137,8 +153,24 @@ final class DailyBriefService {
         }
     }
 
+    /// The v2 brief carries its structure rather than one paragraph.
+    ///
+    /// Every field beyond `brief` is optional so an offline model, which only
+    /// ever produced the single string, still decodes. The extra fields exist so
+    /// the product can show the tradeoff as a tradeoff and trace a claim back to
+    /// the record it rests on, instead of rendering prose and hoping.
     private struct BriefEnvelope: Decodable {
+        struct Tradeoff: Decodable {
+            let drop: String
+            let because: String
+        }
+
         let brief: String
+        let fixedCommitments: [String]?
+        let nextMove: String?
+        let tradeoff: Tradeoff?
+        let evidenceTaskIDs: [UUID]?
+        let isOvercommitted: Bool?
     }
 
     /// Executes decodeBrief.

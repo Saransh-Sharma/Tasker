@@ -34,7 +34,8 @@ extension LLMEvaluator {
         let request = EvaInferenceRequest.make(
             route: route,
             promptSnapshot: promptSnapshot,
-            consentRevision: consentRevision
+            consentRevision: consentRevision,
+            userInstructions: promptSnapshot.userInstructions
         )
         var emittedFirstToken = false
 
