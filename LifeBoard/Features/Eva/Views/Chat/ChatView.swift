@@ -603,6 +603,8 @@ struct ChatView: View {
     @State private var pendingResponsePhase: ChatPendingResponsePhase = .idle
     @State private var chatOpenTraceInterval: PerformanceInterval?
     @State private var promptSubmitTraceInterval: PerformanceInterval?
+    /// Openers handed over by onboarding. Drained on the first send.
+    @State private var stagedOpeningPrompts: [EvaStarterPrompt] = []
     @State private var evaSubmittedDraft: EvaSubmittedDraft?
     @State private var hasCompletedInitialTranscriptRender = false
     @State private var consumedPromptFocusRequestID: UInt64 = 0
@@ -677,8 +679,24 @@ struct ChatView: View {
         activationConfiguration != nil
     }
 
+    /// Starter prompts for the empty state.
+    ///
+    /// In activation presentation these come from the stage's configuration. In
+    /// normal presentation they used to be empty — which was fine while EVA had
+    /// its own activation flow to greet a new user, and is not now that
+    /// onboarding hands straight to `.normal`. `EvaOpeningPromptStore` carries
+    /// the openers composed from the user's Life Map across that hand-off; they
+    /// are cleared the moment the person says anything, since an opener is only
+    /// an opener until the conversation exists.
+    private func clearStagedOpeningPromptsIfNeeded() {
+        guard stagedOpeningPrompts.isEmpty == false else { return }
+        stagedOpeningPrompts = []
+        EvaOpeningPromptStore.clear()
+    }
+
     private var activationStarterPrompts: [EvaStarterPrompt] {
-        activationConfiguration?.starterPrompts ?? []
+        if let configured = activationConfiguration?.starterPrompts { return configured }
+        return stagedOpeningPrompts
     }
 
     private var commandSuggestions: [SlashCommandDescriptor] {
@@ -795,12 +813,14 @@ struct ChatView: View {
                 contextCoordinator.remove(attachment)
             },
             onGenerate: {
+                clearStagedOpeningPromptsIfNeeded()
                 submitPromptFromSendButton()
             },
             onStop: {
                 cancelActiveGeneration(reason: .stopButton)
             },
             onSubmitPrompt: {
+                clearStagedOpeningPromptsIfNeeded()
                 submitPromptFromComposer()
             },
             onClearCurrentThread: {
@@ -811,6 +831,9 @@ struct ChatView: View {
         .onAppear {
             handleChatViewAppear()
             handlePromptFocusRequestIfNeeded()
+            if activationConfiguration == nil, stagedOpeningPrompts.isEmpty {
+                stagedOpeningPrompts = EvaOpeningPromptStore.load()
+            }
         }
         .onChange(of: prompt) { _, newValue in
             handlePromptChanged(newValue)
@@ -1774,6 +1797,7 @@ extension ChatView {
         }
 
         let tID = threadID
+        let contextBudget = EvaContextBudget.resolveForChat(currentModelName: appManager.currentModelName, offlineModel: activeModelConfiguration)
         let contextTrace = PerformanceTrace.begin("ChatContextBuild")
         let contextStartedAt = Date()
         let contextPayload = await ChatContextAssembly.buildContextPayloadForCurrentTurn(
@@ -1783,9 +1807,7 @@ extension ChatView {
             budgets: chatBudgets,
             model: activeModelConfiguration,
             injectionPolicy: contextInjectionPolicy,
-            contextCharBudgetOverride: LLMTokenBudgetEstimator.estimatedCharacterBudget(
-                for: resolvedChatBudget.maxContextTokens
-            )
+            contextCharBudgetOverride: contextBudget.taskContextCharacters
         )
         PerformanceTrace.end(contextTrace)
         guard !Task.isCancelled else {
@@ -1807,29 +1829,30 @@ extension ChatView {
         let promptAssemblyTrace = PerformanceTrace.begin("ChatPromptAssembly")
         let memoryBlock = LLMPersonalMemoryDefaultsStore.promptBlock(for: activeModelConfiguration)
         let executiveContext = await ChatContextAssembly.buildExecutiveContextPrompt(
-            tokenBudget: resolvedChatBudget.executiveContextTokens
+            tokenBudget: contextBudget.executiveContextTokens
         )
         let activeAttachments = await ChatContextAssembly.loadSlashAttachments(for: tID)
         let slashCommandContext = ChatContextAssembly.slashCommandContextPrompt(
             attachments: activeAttachments,
-            tokenBudget: resolvedChatBudget.slashContextTokens
+            tokenBudget: contextBudget.slashContextTokens
         )
         let runtimeTaskContext = authorizedLifeEvidence.injecting(into: contextPayload.payload)
-        let dynamicSystemPrompt = ChatContextAssembly.composeChatSystemPrompt(
+        let dynamicSystemPrompt = LLMSystemPromptComposer.compose(
             basePrompt: appManager.systemPrompt,
-            model: activeModelConfiguration,
+            budget: contextBudget,
             personalMemory: memoryBlock,
             executiveContext: executiveContext,
             slashContext: slashCommandContext,
             taskContext: runtimeTaskContext
         )
-        let cloudContext = EvaCloudContextProjection.sections(
-            taskProjection: contextPayload.payload,
+        let cloudContext = await EvaTurnContextAssembler.sections(
+            budget: contextBudget,
+            compactProjection: contextPayload.payload,
             executiveState: executiveContext,
             slashCommandState: slashCommandContext,
-            personalMemory: memoryBlock,
+            personalMemory: memoryBlock, habitSignals: [],
             evidence: authorizedLifeEvidence,
-            consent: EvaCloudAccountState.shared.consent
+            consent: EvaCloudAccountState.shared.consent, userQuery: message
         )
         PerformanceTrace.end(promptAssemblyTrace)
         ChatGenerationLog.promptComponentSizes(
@@ -1910,7 +1933,12 @@ extension ChatView {
                     resolveThread: { self.thread(matching: $0) },
                     model: runtimeModelConfiguration,
                     systemPrompt: dynamicSystemPrompt,
-                    cloudContext: cloudContext
+                    cloudContext: cloudContext,
+                    userInstructions: EvaUserInstructions.customized(
+                        storedPrompt: appManager.systemPrompt,
+                        builtInPrompts: AppManager.legacyBuiltInSystemPrompts.union([AppManager.defaultSystemPrompt])
+                    ),
+                    budget: contextBudget
                 )
             }
         ) else {

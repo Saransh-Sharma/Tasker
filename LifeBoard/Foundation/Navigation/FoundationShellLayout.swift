@@ -298,7 +298,11 @@ extension FoundationShell {
         case .plan: "Make room for what matters."
         case .track: "Record what helps, skip what doesn’t."
         case .insights: "Notice change without turning life into a score."
-        case .eva: "Private context, shared only when you choose."
+        // The privacy promise moved to the lock badge on Eva's own strip,
+        // which expands to the full sentence and the sharing controls on
+        // tap. Repeating it here spent two wrapped lines of a chat screen
+        // restating something that never changes.
+        case .eva: "Ask or use / commands"
         }
     }
 

@@ -18,17 +18,6 @@ struct ChatEmptyStateView: View {
         return false
     }
 
-    var activationConfiguration: EvaActivationChatConfiguration? {
-        guard case .activation(let config) = presentationMode else { return nil }
-        return config
-    }
-
-    var activationStarterPrompts: [EvaStarterPrompt] {
-        let prompts = starterPrompts
-        guard let activationConfiguration else { return prompts }
-        return Array(prompts.prefix(activationConfiguration.visibleStarterLimit))
-    }
-
     var dayOverviewStarterPrompt: EvaStarterPrompt {
         EvaStarterPrompt.dayOverviewPrompt
     }
@@ -36,74 +25,103 @@ struct ChatEmptyStateView: View {
     var body: some View {
         if V2FeatureFlags.evaStructuredComposer && isActivationPresentation == false {
             structuredPlanEmptyState
+        } else if isActivationPresentation {
+            activationEmptyState
         } else {
-            VStack(spacing: Theme.Spacing.lg) {
-            Spacer()
+            legacyEmptyState
+        }
+    }
 
-            if isActivationPresentation {
-                VStack(spacing: Theme.Spacing.sm) {
-                    EvaLoopingLottieContainer(size: 64)
+    /// The activation lockup.
+    ///
+    /// It scrolls rather than sitting between two `Spacer`s. The composer's
+    /// bottom inset plus the keyboard can leave less height than this content
+    /// needs, and a squeezed `VStack` compressed the lockup into the composer's
+    /// top edge and re-centred itself on every keyboard frame. Scrolling also
+    /// gives a threadless chat somewhere to attach interactive keyboard
+    /// dismissal, which previously only existed on the transcript.
+    ///
+    /// The surrounding card is gone deliberately: `surfacePrimary` at `.e1` on
+    /// Eva's cream canvas has almost no edge, so it read as a wide empty slab
+    /// with the daypart celestial leaking around it rather than as a card.
+    var activationEmptyState: some View {
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(spacing: Theme.Spacing.md) {
+                    // The same mascot the structured empty state uses. The
+                    // Lottie seat that was here renders a 16:9 animation inside
+                    // a circle, so at this size the artwork collapsed to a
+                    // sliver and the seat read as an empty disc.
+                    EvaMascotView(placement: .chatEmptyHeader, size: .card)
+
                     VStack(spacing: Theme.Spacing.xs) {
                         Text("\(identity.askAction) anything")
                             .font(.lifeboard(.title2))
                             .foregroundStyle(Color.lifeboard(.textPrimary))
+                            .multilineTextAlignment(.center)
                             .accessibilityIdentifier("chat.emptyState.title")
-                        Text("Start with a focused prompt, or use a command for structured help.")
+                        Text("Your plans, your priorities, and what today actually looks like.")
                             .font(.lifeboard(.callout))
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                             .multilineTextAlignment(.center)
                     }
                 }
-                .padding(.horizontal, Theme.Spacing.lg)
-                .padding(.vertical, Theme.Spacing.lg)
-                .lifeboardPremiumSurface(
-                    cornerRadius: Theme.CornerRadius.xl,
-                    fillColor: Color.lifeboard(.surfacePrimary),
-                    strokeColor: Color.lifeboard(.strokeHairline),
-                    accentColor: Color.lifeboard(.accentSecondary),
-                    level: .e1,
-                    useNativeGlass: false
-                )
-                .enhancedStaggeredAppearance(index: 0)
-            } else {
-                ZStack {
-                    Circle()
-                        .fill(EvaChatSunriseGlass.assistantSurface)
-                        .frame(width: 80, height: 80)
-                        .overlay(
-                            Circle()
-                                .stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.78), lineWidth: 1)
-                        )
-                    Image(systemName: "bubble.left.and.text.bubble.right")
-                        .lifeboardFont(.heroDisplay)
-                        .foregroundStyle(EvaChatSunriseGlass.primary)
-                        .symbolEffect(
-                            .wiggle.byLayer,
-                            options: .repeat(.periodic(delay: 3.0)),
-                            isActive: !reduceMotion
-                        )
-                }
-                VStack(spacing: Theme.Spacing.xs) {
-                    Text("\(identity.askAction) anything")
-                        .font(.lifeboard(.title2))
-                        .foregroundStyle(EvaChatSunriseGlass.navy)
-                        .accessibilityIdentifier("chat.emptyState.title")
-                    Text("Type / for commands")
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(EvaChatSunriseGlass.navyMuted)
-                        .multilineTextAlignment(.center)
-                }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.vertical, Theme.Spacing.lg)
-                .lifeboardPremiumSurface(
-                    cornerRadius: Theme.CornerRadius.xl,
-                    fillColor: EvaChatSunriseGlass.glassFill,
-                    strokeColor: EvaChatSunriseGlass.glassBorder,
-                    accentColor: EvaChatSunriseGlass.primary,
-                    level: .e2
-                )
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: proxy.size.height, alignment: .center)
                 .enhancedStaggeredAppearance(index: 0)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            #if os(iOS)
+            .scrollDismissesKeyboard(.interactively)
+            #endif
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("chat.emptyState.container")
+    }
+
+    var legacyEmptyState: some View {
+        VStack(spacing: Theme.Spacing.lg) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(EvaChatSunriseGlass.assistantSurface)
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Circle()
+                            .stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.78), lineWidth: 1)
+                    )
+                Image(systemName: "bubble.left.and.text.bubble.right")
+                    .lifeboardFont(.heroDisplay)
+                    .foregroundStyle(EvaChatSunriseGlass.primary)
+                    .symbolEffect(
+                        .wiggle.byLayer,
+                        options: .repeat(.periodic(delay: 3.0)),
+                        isActive: !reduceMotion
+                    )
+            }
+            VStack(spacing: Theme.Spacing.xs) {
+                Text("\(identity.askAction) anything")
+                    .font(.lifeboard(.title2))
+                    .foregroundStyle(EvaChatSunriseGlass.navy)
+                    .accessibilityIdentifier("chat.emptyState.title")
+                Text("Type / for commands")
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(EvaChatSunriseGlass.navyMuted)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, Theme.Spacing.xl)
+            .padding(.vertical, Theme.Spacing.lg)
+            .lifeboardPremiumSurface(
+                cornerRadius: Theme.CornerRadius.xl,
+                fillColor: EvaChatSunriseGlass.glassFill,
+                strokeColor: EvaChatSunriseGlass.glassBorder,
+                accentColor: EvaChatSunriseGlass.primary,
+                level: .e2
+            )
+            .enhancedStaggeredAppearance(index: 0)
 
             promptCarousel
                 .enhancedStaggeredAppearance(index: 2)
@@ -112,7 +130,6 @@ struct ChatEmptyStateView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat.emptyState.container")
-        }
     }
 
     var structuredPlanEmptyState: some View {
@@ -144,7 +161,7 @@ struct ChatEmptyStateView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.md) {
-                    ForEach(EvaChiefOfStaffGuideContent.homePromptChips(for: identity)) { chip in
+                    ForEach(promptChips) { chip in
                         structuredExampleChip(chip)
                     }
                 }
@@ -155,6 +172,23 @@ struct ChatEmptyStateView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat.emptyState.container")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Openers handed over by onboarding lead, when there are any.
+    ///
+    /// `starterPrompts` is empty in normal presentation *unless* onboarding
+    /// staged a set composed from the person's own Life Map answers. Those are
+    /// far better first questions than the curated defaults — they name the
+    /// user's areas, capacity, and calendar — so they go first, and the curated
+    /// chips follow as alternatives rather than being replaced.
+    var promptChips: [EvaHomePromptChip] {
+        let curated = EvaChiefOfStaffGuideContent.homePromptChips(for: identity)
+        guard starterPrompts.isEmpty == false else { return curated }
+        let staged = starterPrompts.map {
+            EvaHomePromptChip(id: $0.id, icon: $0.isRecommended ? "sparkles" : "arrow.turn.down.right", prompt: $0)
+        }
+        let stagedIDs = Set(staged.map(\.id))
+        return staged + curated.filter { stagedIDs.contains($0.id) == false }
     }
 
     var guideButton: some View {
@@ -219,45 +253,19 @@ struct ChatEmptyStateView: View {
         .lifeboardPressFeedback()
     }
 
+    /// Only the legacy (pre-structured-composer) empty state renders this.
+    /// During activation the starters live on the composer's own rail instead,
+    /// so they ride the keyboard with the field they fill in.
     @ViewBuilder
     var promptCarousel: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Theme.Spacing.sm) {
-                if isActivationPresentation {
-                    ForEach(activationStarterPrompts) { prompt in
-                        starterPromptChip(prompt)
-                    }
-                } else {
-                    ForEach(commandSuggestions, id: \.id) { descriptor in
-                        commandSuggestionChip(for: descriptor)
-                    }
+                ForEach(commandSuggestions, id: \.id) { descriptor in
+                    commandSuggestionChip(for: descriptor)
                 }
             }
             .padding(.horizontal, Theme.Spacing.xl)
         }
-    }
-
-    func starterPromptChip(_ prompt: EvaStarterPrompt) -> some View {
-        Button {
-            onSelectStarterPrompt(prompt)
-        } label: {
-            HStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: prompt.style == .slashCommand ? "command" : (prompt.isRecommended ? "star.fill" : "sparkle"))
-                    .font(.lifeboard(.caption1))
-                Text(prompt.title)
-                    .font(.lifeboard(.callout))
-            }
-            .foregroundStyle(prompt.isRecommended ? Color.lifeboard(.accentOnPrimary) : EvaChatSunriseGlass.primary)
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.vertical, Theme.Spacing.sm)
-            .background(prompt.isRecommended ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.assistantSurface)
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(prompt.isRecommended ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.assistantBorder, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Send \(prompt.title)")
-        .accessibilityIdentifier("chat.activation_starter.\(prompt.id)")
-        .lifeboardPressFeedback()
     }
 
     func commandSuggestionChip(for descriptor: SlashCommandDescriptor) -> some View {

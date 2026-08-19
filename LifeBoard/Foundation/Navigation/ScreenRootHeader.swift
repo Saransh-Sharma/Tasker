@@ -54,6 +54,28 @@ struct ScreenRootHeader: View {
                     }
                     HapticFeedback.light()
                 },
+                leadingAccessory: destination == .eva
+                    ? AnyView(
+                        Button {
+                            HapticFeedback.light()
+                            runtime.router.select(.home)
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.lifeboard(.buttonSmall))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(
+                            AtmosphereDescriptor.usesInverseHeaderInk(for: atmosphereSnapshot.phase)
+                                ? Color(SemanticColorTokens.foundationOnScenicDark)
+                                : Color(SemanticColorTokens.inkPrimary)
+                        )
+                        .accessibilityLabel("Back to Home")
+                        .accessibilityHint("Leaves Eva and returns to the Home screen")
+                        .accessibilityIdentifier("eva.chat.back")
+                    )
+                    : nil,
                 secondaryActions: AnyView(
                     // Home's controls outgrew a menu. Atmosphere is a sequence
                     // — a day — and a menu can only list it; SwiftUI menus

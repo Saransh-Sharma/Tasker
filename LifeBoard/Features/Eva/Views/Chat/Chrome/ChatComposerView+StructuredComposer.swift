@@ -52,9 +52,9 @@ extension ChatComposerView {
             }
         }
         .padding(.vertical, Theme.Spacing.xs)
-        .lifeBoardGlassSurface(cornerRadius: 28, interactive: true)
+        .lifeBoardGlassSurface(cornerRadius: Theme.CornerRadius.bottomBar, interactive: true)
         .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.bottomBar, style: .continuous)
                 .stroke(
                     isPromptFocused ? EvaChatSunriseGlass.primary.opacity(0.42) : EvaChatSunriseGlass.glassBorder,
                     lineWidth: isPromptFocused ? 1.5 : 1
@@ -111,6 +111,8 @@ extension ChatComposerView {
             .lineLimit(1...4)
             .disabled(isStructuredDictationActive)
             .onSubmit(onSubmitPrompt)
+            .submitLabel(.send)
+            .evaComposerKeyboardDismissal(isFocused: $isPromptFocused)
     }
 
     @ViewBuilder
@@ -213,89 +215,6 @@ extension ChatComposerView {
         .accessibilityIdentifier("eva.structured.deferred.\(systemName)")
     }
 
-    var composerSuggestionStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Theme.Spacing.xs) {
-                if isActivationPresentation {
-                    ForEach(Array(activationStarterPrompts.enumerated()), id: \.element.id) { index, prompt in
-                        Button {
-                            onSelectStarterPrompt(prompt)
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: prompt.style == .slashCommand ? "command" : (prompt.isRecommended ? "star.fill" : "sparkle"))
-                                    .font(.lifeboard(.caption2))
-                                Text(prompt.title)
-                                    .font(.lifeboard(.caption1))
-                            }
-                            .foregroundStyle(prompt.isRecommended ? Color.lifeboard(.accentOnPrimary) : EvaChatSunriseGlass.primary)
-                            .padding(.horizontal, Theme.Spacing.sm)
-                            .padding(.vertical, Theme.Spacing.xs)
-                            .background(prompt.isRecommended ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.assistantSurface)
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Send \(prompt.title)")
-                        .accessibilityIdentifier("chat.activation.composer_starter.\(prompt.id)")
-                        .overlay(
-                            Capsule()
-                                .stroke(prompt.isRecommended ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.assistantBorder, lineWidth: 1)
-                        )
-                        .lifeboardPressFeedback()
-                        .enhancedStaggeredAppearance(index: index)
-                    }
-                } else {
-                    Button {
-                        onSelectStarterPrompt(dayOverviewStarterPrompt)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "sparkle")
-                                .font(.lifeboard(.caption2))
-                            Text(dayOverviewStarterPrompt.title)
-                                .font(.lifeboard(.caption1))
-                        }
-                        .foregroundStyle(Color.lifeboard(.accentOnPrimary))
-                        .padding(.horizontal, Theme.Spacing.sm)
-                        .padding(.vertical, Theme.Spacing.xs)
-                        .background(EvaChatSunriseGlass.primary)
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Send \(dayOverviewStarterPrompt.title)")
-                    .accessibilityIdentifier("chat.command_composer_starter.\(dayOverviewStarterPrompt.id)")
-                    .overlay(
-                        Capsule()
-                            .stroke(EvaChatSunriseGlass.primary, lineWidth: 1)
-                    )
-                    .lifeboardPressFeedback()
-
-                    ForEach(commandSuggestions, id: \.id) { descriptor in
-                        Button {
-                            onSelectSuggestion(descriptor)
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: descriptor.id.icon)
-                                    .font(.lifeboard(.caption2))
-                                Text(descriptor.command)
-                                    .font(.lifeboard(.caption1))
-                            }
-                            .foregroundStyle(EvaChatSunriseGlass.primary)
-                            .padding(.horizontal, Theme.Spacing.sm)
-                            .padding(.vertical, Theme.Spacing.xs)
-                            .background(EvaChatSunriseGlass.assistantSurface)
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Insert \(descriptor.command)")
-                        .accessibilityIdentifier("chat.command_composer_suggestion.\(descriptor.id.rawValue)")
-                        .lifeboardPressFeedback()
-                    }
-                }
-            }
-            .padding(.horizontal, Theme.Spacing.sm)
-        }
-        .transition(.opacity)
-    }
-
     var composerPlaceholder: String {
         isActivationPresentation ? "\(identity.askAction) what to focus on..." : "\(identity.askAction) anything"
     }
@@ -339,20 +258,6 @@ extension ChatComposerView {
             }
         }
         .transition(.opacity)
-    }
-
-    var shouldShowComposerSuggestionStrip: Bool {
-        guard slashDraft == nil else { return false }
-        guard hasCurrentThread else { return false }
-        guard prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-
-        if isActivationPresentation,
-           activationConfiguration?.collapsesCoachingAfterFirstAssistantReply == true,
-           hasActivationAssistantReply {
-            return false
-        }
-
-        return true
     }
 
     var slashButton: some View {

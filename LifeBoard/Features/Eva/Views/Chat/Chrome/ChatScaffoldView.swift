@@ -22,6 +22,7 @@ struct ChatScaffoldView: View {
 
     @Environment(\.evaComposerBottomClearance) var composerBottomClearance
 
+
     @State var showEvaGuide = false
 
     @StateObject var assistantIdentity = AssistantIdentityModel()
@@ -139,10 +140,36 @@ struct ChatScaffoldView: View {
                     }
                 )
             }
+
+            // The shell hides the compact dock while this composer is focused,
+            // and Eva is a stack root, so with the keyboard up the canvas is the
+            // largest thing left that can take a dismissing tap. It has to sit
+            // *above* the content: the transcript and the empty state are both
+            // scroll views, and a scroll view consumes touches across its whole
+            // area, so a layer underneath them never saw the tap. Gated on
+            // focus, so it costs nothing when the keyboard is down — and while
+            // the keyboard is up, spending the first tap on dismissing it is
+            // what Messages and Mail do too.
+            if isPromptFocused.wrappedValue {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { isPromptFocused.wrappedValue = false }
+                    .accessibilityHidden(true)
+            }
         }
         // Empty-state content can be taller than the device at accessibility
         // sizes. Keep that intrinsic height from enlarging the scaffold itself;
         // the composer inset must be anchored to the offered viewport.
+        // The composer inset below is lifted by the dock's measured clearance,
+        // which takes it *out of* the band the inset reserved — so content laid
+        // out above the inset (the empty state's example rail) ended up
+        // underneath the composer instead of above it. Shortening the content
+        // by the same amount the composer is lifted gives that space back
+        // without moving the composer, whose resting position is pinned by
+        // `assertRequiredEvaDockSpacing`. It has to precede the frame below:
+        // after it, the padding inflates the scaffold past the height it was
+        // offered and the composer inset drifts down with it.
+        .padding(.bottom, composerBottomClearance > 0 ? composerBottomClearance + Theme.Spacing.md : 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
@@ -196,12 +223,21 @@ struct ChatScaffoldView: View {
             // stack. Its measured clearance reserves transcript space at the
             // destination boundary; this offset places the inset composer in
             // that same visible region without relying on keyboard estimates.
+            // The matching `.padding(.bottom:)` above keeps content out from
+            // under it.
             .offset(
                 y: composerBottomClearance > 0
                     ? -(composerBottomClearance + Theme.Spacing.md)
                     : 0
             )
         }
+        // Deliberately opaque, and deliberately not the shell's daypart scene.
+        // Letting the atmosphere through here looks better in the abstract, but
+        // the shared root header sits *above* this view and is drawn straight
+        // onto the artwork, so any transparency leaves a hard seam across the
+        // screen at the header's edge — and at the night daypart it puts cocoa
+        // ink on a dark scene. The celestial that used to show through the chat
+        // body is handled at its source instead, in `AtmospherePlacement.eva`.
         .background(EvaChatSunriseGlass.canvasMid)
         .onAppear {
             publishNavigationChromeState()

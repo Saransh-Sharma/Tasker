@@ -8,7 +8,9 @@ enum EvaChatPromptSnapshotFactory {
         resolveThread: (UUID) -> Thread?,
         model: ModelConfiguration,
         systemPrompt: String,
-        cloudContext: [EvaCloudContextSection]
+        cloudContext: [EvaCloudContextSection],
+        userInstructions: EvaUserInstructions? = nil,
+        budget: EvaContextBudget? = nil
     ) -> LLMChatPromptSnapshot? {
         guard let thread = resolveThread(threadID) else {
             logWarning(
@@ -20,10 +22,12 @@ enum EvaChatPromptSnapshotFactory {
         }
         let startedAt = Date()
         return LLMChatPromptSnapshot(
-            messages: model.getChatMessages(thread: thread, systemPrompt: systemPrompt),
+            messages: budget.map { model.getChatMessages(thread: thread, systemPrompt: systemPrompt, budget: $0) }
+                ?? model.getChatMessages(thread: thread, systemPrompt: systemPrompt),
             systemPromptCharacterCount: systemPrompt.count,
             buildDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000),
-            cloudContext: cloudContext
+            cloudContext: cloudContext,
+            userInstructions: userInstructions
         )
     }
 }
