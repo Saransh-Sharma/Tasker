@@ -30,6 +30,18 @@ struct EvaAgeEligibilityService {
         let declaration: String
     }
 
+    /// Mirrors the server's 24-hour age lease. When this holds, re-presenting the
+    /// system sheet would ask the user to confirm something both sides already
+    /// agree on.
+    static var cachedEligibilityIsValid: Bool {
+        let last = UserDefaults.standard.double(forKey: lastEligibleAtKey)
+        return last > 0 && Date().timeIntervalSince1970 - last < validityInterval
+    }
+
+    static func invalidateCachedEligibility() {
+        UserDefaults.standard.removeObject(forKey: lastEligibleAtKey)
+    }
+
     func requestAndRegister(using client: EvaCloudTransport = .shared) async throws -> Result {
         guard let presenter = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -70,8 +82,7 @@ struct EvaAgeEligibilityService {
     }
 
     func revalidateIfNeeded(using client: EvaCloudTransport = .shared) async throws {
-        let last = UserDefaults.standard.double(forKey: Self.lastEligibleAtKey)
-        guard last <= 0 || Date().timeIntervalSince1970 - last >= Self.validityInterval else { return }
+        guard Self.cachedEligibilityIsValid == false else { return }
         let result = try await requestAndRegister(using: client)
         guard result.eligibleAdult else { throw EvaProviderError.adultEligibilityRequired }
     }

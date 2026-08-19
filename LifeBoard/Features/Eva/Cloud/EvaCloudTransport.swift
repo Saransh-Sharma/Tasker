@@ -11,6 +11,16 @@ struct EvaAppleExchangeRequestV1: Codable, Sendable {
     let signedAppTransaction: String?
 }
 
+/// What the exchange told us about the account behind the new session. `created`
+/// matters because a freshly bootstrapped account has no server-side age lease,
+/// so any locally cached eligibility must be discarded before it is trusted.
+struct EvaAppleExchangeOutcome: Sendable {
+    let credentials: EvaSessionCredentials
+    let requiresAdultEligibility: Bool
+    let requiresAttestation: Bool
+    let created: Bool
+}
+
 actor EvaCloudTransport {
     static let shared = EvaCloudTransport()
 
@@ -31,6 +41,9 @@ actor EvaCloudTransport {
         let accessTokenExpiresAt: Date
         let refreshToken: String
         let refreshTokenExpiresAt: Date
+        let requiresAdultEligibility: Bool?
+        let requiresAttestation: Bool?
+        let created: Bool?
     }
 
     private struct RefreshResponse: Decodable {
@@ -64,17 +77,30 @@ actor EvaCloudTransport {
     init(
         sessionStore: EvaCloudSessionStore = .shared,
         configurationStore: EvaSignedConfigurationStore = .shared,
-        session: URLSession = .shared
+        session: URLSession? = nil
     ) {
         self.sessionStore = sessionStore
         self.configurationStore = configurationStore
-        self.session = session
+        self.session = session ?? Self.makeSession()
+    }
+
+    /// `URLSession.shared` defaults to a 60-second request timeout, which is far
+    /// past the point where an activation step reads as broken rather than slow.
+    /// Every request routed through `send` is a short control-plane call, so it
+    /// gets a budget a person is willing to wait out. Streaming routes build
+    /// their own sessions — an SSE response would never fit inside this.
+    static func makeSession() -> URLSession {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 15
+        configuration.timeoutIntervalForResource = 30
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
     }
 
     func runtimeConfiguration(forceRefresh: Bool = false) async throws -> EvaCloudRuntimeConfiguration {
         if !forceRefresh, let fresh = await configurationStore.loadFresh() { return fresh }
         do {
-            let data = try await send(path: "/v1/eva/config", method: "GET", body: nil, authenticated: false, attested: false)
+            let data = try await send(path: "/v1/eva/config", method: "GET", body: nil, authenticated: false, attested: false, retryOnce: true)
             let envelope = try JSONDecoder.evaCloud.decode(ConfigurationEnvelope.self, from: data)
             return try await configurationStore.accept(envelope.signedConfiguration)
         } catch {
@@ -85,7 +111,9 @@ actor EvaCloudTransport {
 
     func signInChallenge() async throws -> (id: UUID, nonce: String) {
         let data = try JSONEncoder.evaCloud.encode(["purpose": "signIn"])
-        let response = try await send(path: "/v1/auth/challenge", method: "POST", body: data, authenticated: false, attested: false)
+        // Issuing a challenge mints fresh state rather than spending any, so a
+        // lost response costs nothing but an orphaned Durable Object entry.
+        let response = try await send(path: "/v1/auth/challenge", method: "POST", body: data, authenticated: false, attested: false, retryOnce: true)
         let challenge = try JSONDecoder.evaCloud.decode(Challenge.self, from: response)
         guard let id = challenge.challengeId, let nonce = challenge.nonce else { throw EvaProviderError.invalidResponse }
         return (id, nonce)
@@ -98,7 +126,7 @@ actor EvaCloudTransport {
         authorizationCode: String,
         appleUserIdentifier: String,
         signedAppTransaction: String?
-    ) async throws -> EvaSessionCredentials {
+    ) async throws -> EvaAppleExchangeOutcome {
         let body = EvaAppleExchangeRequestV1(
             challengeId: challengeId,
             nonce: nonce,
@@ -128,7 +156,12 @@ actor EvaCloudTransport {
             appleUserIdentifier: appleUserIdentifier
         )
         try await sessionStore.save(credentials)
-        return credentials
+        return EvaAppleExchangeOutcome(
+            credentials: credentials,
+            requiresAdultEligibility: response.requiresAdultEligibility ?? true,
+            requiresAttestation: response.requiresAttestation ?? (EvaInstallationIdentity.platform == "ios"),
+            created: response.created ?? false
+        )
     }
 
     func attestationChallenge() async throws -> String {
@@ -168,13 +201,13 @@ actor EvaCloudTransport {
 
     func credits() async throws -> EvaCreditState {
         try JSONDecoder.evaCloud.decode(EvaCreditState.self, from: await send(
-            path: "/v1/eva/credits", method: "GET", body: nil, authenticated: true, attested: false
+            path: "/v1/eva/credits", method: "GET", body: nil, authenticated: true, attested: false, retryOnce: true
         ))
     }
 
     func consent() async throws -> EvaConsentPolicy {
         try JSONDecoder.evaCloud.decode(EvaConsentPolicy.self, from: await send(
-            path: "/v1/eva/consent", method: "GET", body: nil, authenticated: true, attested: false
+            path: "/v1/eva/consent", method: "GET", body: nil, authenticated: true, attested: false, retryOnce: true
         ))
     }
 
@@ -259,11 +292,52 @@ actor EvaCloudTransport {
         await EvaAppAttestService.shared.clearRegistration()
     }
 
-    private func send(path: String, method: String, body: Data?, authenticated: Bool, attested: Bool) async throws -> Data {
+    /// `retryOnce` is opt-in per call site and must stay that way. Several routes
+    /// spend a single-use token the moment the server reads them — the Apple
+    /// exchange consumes its challenge and Apple's authorization code, refresh
+    /// rotates the token family, attested routes burn an attestation challenge,
+    /// and a consent write is a compare-and-swap on `expectedRevision`. Replaying
+    /// any of those after a lost response is worse than reporting the failure.
+    private func send(
+        path: String,
+        method: String,
+        body: Data?,
+        authenticated: Bool,
+        attested: Bool,
+        retryOnce: Bool = false
+    ) async throws -> Data {
+        do {
+            return try await perform(path: path, method: method, body: body, authenticated: authenticated, attested: attested)
+        } catch {
+            guard retryOnce, let delay = Self.retryDelay(for: error) else { throw error }
+            try await Task.sleep(for: .seconds(delay))
+            return try await perform(path: path, method: method, body: body, authenticated: authenticated, attested: attested)
+        }
+    }
+
+    private func perform(path: String, method: String, body: Data?, authenticated: Bool, attested: Bool) async throws -> Data {
         let request = try await makeRequest(path: path, method: method, body: body, authenticated: authenticated, attested: attested)
         let (data, response) = try await session.data(for: request)
         try validate(response: response, errorData: data)
         return data
+    }
+
+    /// Returns how long to wait before the single retry, or `nil` when the error
+    /// is not one a retry can fix. Cancellation is never retried — it is the
+    /// caller going away, not the network faltering.
+    private static func retryDelay(for error: Error) -> Double? {
+        if error is CancellationError { return nil }
+        if let envelope = error as? EvaErrorEnvelope {
+            guard envelope.retryable else { return nil }
+            return min(Double(envelope.retryAfter ?? 1), 5)
+        }
+        guard let urlError = error as? URLError else { return nil }
+        switch urlError.code {
+        case .timedOut, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
+            return 0.6
+        default:
+            return nil
+        }
     }
 
     private func makeRequest(path: String, method: String, body: Data?, authenticated: Bool, attested: Bool) async throws -> URLRequest {
@@ -293,23 +367,36 @@ actor EvaCloudTransport {
     private func validCredentials() async throws -> EvaSessionCredentials {
         guard let credentials = try await sessionStore.load() else { throw EvaProviderError.authenticationRequired }
         if credentials.accessTokenExpiresAt.timeIntervalSinceNow > 30 { return credentials }
-        guard credentials.refreshTokenExpiresAt > Date() else { throw EvaProviderError.authenticationRequired }
+        guard credentials.refreshTokenExpiresAt > Date() else {
+            try? await sessionStore.clear()
+            throw EvaProviderError.authenticationRequired
+        }
         struct Body: Encodable {
             let accountId: String; let familyId: UUID; let refreshToken: String; let installationId: UUID; let platform: String
         }
-        let data = try await send(
-            path: "/v1/auth/refresh",
-            method: "POST",
-            body: JSONEncoder.evaCloud.encode(Body(
-                accountId: credentials.accountId,
-                familyId: credentials.familyId,
-                refreshToken: credentials.refreshToken,
-                installationId: credentials.installationId,
-                platform: credentials.platform
-            )),
-            authenticated: false,
-            attested: false
-        )
+        let data: Data
+        do {
+            data = try await send(
+                path: "/v1/auth/refresh",
+                method: "POST",
+                body: JSONEncoder.evaCloud.encode(Body(
+                    accountId: credentials.accountId,
+                    familyId: credentials.familyId,
+                    refreshToken: credentials.refreshToken,
+                    installationId: credentials.installationId,
+                    platform: credentials.platform
+                )),
+                authenticated: false,
+                attested: false
+            )
+        } catch let error where error.evaRequiresReauthentication {
+            // The server has retired this family — reuse detection, a deleted
+            // account, or lost binding. Keeping the dead credentials would make
+            // every later attempt take the same doomed path and report "Your EVA
+            // session has expired" forever, with no route back to sign-in.
+            try? await sessionStore.clear()
+            throw EvaProviderError.authenticationRequired
+        }
         let refreshed = try JSONDecoder.evaCloud.decode(RefreshResponse.self, from: data)
         let replacement = EvaSessionCredentials(
             accountId: credentials.accountId,

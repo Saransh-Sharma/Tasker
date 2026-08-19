@@ -130,11 +130,12 @@ private enum EvaFeatureTextGenerator {
             let request = EvaInferenceRequest(
                 requestId: UUID(),
                 route: route,
-                contractVersion: 1,
+                contractVersion: EvaInferenceRequest.contractVersion,
                 locale: Locale.current.identifier,
                 timeZone: TimeZone.current.identifier,
                 messages: [.init(role: .user, content: prompt)],
                 context: context,
+                userInstructions: nil,
                 clientVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
                 platform: EvaInstallationIdentity.platform,
                 installationId: EvaInstallationIdentity.current,

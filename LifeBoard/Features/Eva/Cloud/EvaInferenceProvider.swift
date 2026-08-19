@@ -89,12 +89,34 @@ struct EvaDeterministicProvider: Sendable {
 final class EvaCloudAccountState {
     static let shared = EvaCloudAccountState()
 
+    /// Activation is four visible steps, not one opaque wait. Naming the current
+    /// step lets the UI say which one is slow instead of showing a single spinner
+    /// for the whole chain.
+    enum ActivationStage: Sendable {
+        case idle
+        case signingIn
+        case verifyingDevice
+        case confirmingAge
+        case finalizing
+
+        var progressCaption: String? {
+            switch self {
+            case .idle: nil
+            case .signingIn: String(localized: "Signing in with Apple…")
+            case .verifyingDevice: String(localized: "Verifying this device…")
+            case .confirmingAge: String(localized: "Confirming your age range…")
+            case .finalizing: String(localized: "Securing your EVA session…")
+            }
+        }
+    }
+
     private(set) var configuration: EvaCloudRuntimeConfiguration?
     private(set) var consent: EvaConsentPolicy?
     private(set) var credits: EvaCreditState?
     private(set) var isAuthenticated = false
     private(set) var isAdultEligible = false
     private(set) var lastError: String?
+    private(set) var activationStage: ActivationStage = .idle
 
     var canUseCloud: Bool {
         canUseCloud(route: .chat)
@@ -125,11 +147,15 @@ final class EvaCloudAccountState {
         route: EvaCloudRoute,
         lastError: String?
     ) -> EvaProviderError? {
-        if let lastError { return .unavailable(lastError) }
+        // `lastError` is checked last, not first. It holds the text of the most
+        // recent transient failure and is cleared only by a fully successful
+        // refresh, so leading with it would mask an accurate, actionable state
+        // (“confirm your age”) behind a stale network string for as long as the
+        // next refresh takes to succeed.
         guard isAuthenticated else { return .authenticationRequired }
         guard isAdultEligible else { return .adultEligibilityRequired }
         guard let configuration else {
-            return .unavailable(String(localized: "Cloud configuration could not be verified."))
+            return .unavailable(lastError ?? String(localized: "Cloud configuration could not be verified."))
         }
         guard configuration.cloudState != .disabled else {
             return .unavailable(configuration.maintenanceMessage ?? String(localized: "Cloud EVA is temporarily unavailable."))
@@ -141,6 +167,7 @@ final class EvaCloudAccountState {
         if configuration.routes[route]?.billable == true, (creditBalance ?? 0) <= 0 {
             return .creditsExhausted(nil)
         }
+        if let lastError { return .unavailable(lastError) }
         return nil
     }
 
@@ -159,19 +186,110 @@ final class EvaCloudAccountState {
             isAuthenticated = true
             isAdultEligible = true
             lastError = nil
+        } catch is CancellationError {
+            // The caller went away — `.task(id:)` teardown on a step change is the
+            // common case. Recording that as a failure would pin `canUseCloud`
+            // false and relabel the screen with the word "cancelled".
+            return
+        } catch let error as URLError where error.code == .cancelled {
+            return
         } catch {
             isAuthenticated = (try? await EvaCloudSessionStore.shared.load()) != nil
-            isAdultEligible = false
+            // Only an explicit server verdict clears eligibility. A timed-out
+            // credits call says nothing about the user's age.
+            if let envelope = error as? EvaErrorEnvelope, envelope.code == "adult_eligibility_required" {
+                isAdultEligible = false
+                EvaAgeEligibilityService.invalidateCachedEligibility()
+            }
             lastError = error.localizedDescription
         }
     }
 
+    /// Resumable by design. Each leg checks whether its work is already done, so
+    /// retrying after a stalled network hop picks up where it stopped instead of
+    /// re-presenting the Apple sheet and spending another of the five exchanges
+    /// the server allows per minute.
     func activateCloud() async throws {
-        _ = try await EvaAppleIdentityService.shared.signIn()
-        let age = try await EvaAgeEligibilityService().requestAndRegister()
-        guard age.eligibleAdult else { throw EvaProviderError.adultEligibilityRequired }
+        lastError = nil
+        activationStage = .signingIn
+        defer { activationStage = .idle }
+
+        var accountWasCreated = false
+        if try await resumeStoredSession() {
+            isAuthenticated = true
+        } else {
+            let outcome = try await EvaAppleIdentityService.shared.signIn(
+                onDeviceVerification: { [weak self] in self?.activationStage = .verifyingDevice }
+            )
+            accountWasCreated = outcome.created
+            isAuthenticated = true
+        }
+
+        // A freshly bootstrapped account carries no server-side age lease, so a
+        // local cache left over from a previous account would be a lie.
+        if accountWasCreated {
+            EvaAgeEligibilityService.invalidateCachedEligibility()
+            isAdultEligible = false
+        }
+
+        activationStage = .confirmingAge
+        if EvaAgeEligibilityService.cachedEligibilityIsValid {
+            isAdultEligible = true
+        } else {
+            let age = try await EvaAgeEligibilityService().requestAndRegister()
+            guard age.eligibleAdult else { throw EvaProviderError.adultEligibilityRequired }
+            isAdultEligible = true
+        }
+
+        activationStage = .finalizing
         await refresh(forceConfigurationRefresh: true)
         if let readinessError = readinessError() { throw readinessError }
+    }
+
+    /// Decides whether the stored session can stand in for a fresh sign-in.
+    ///
+    /// The Keychain only knows what was true when the session was written. It
+    /// cannot know that the server has since rotated the refresh family away,
+    /// deleted the account, or dropped the device binding — so the local checks
+    /// below are a precondition, not an answer. The server is asked directly,
+    /// and a refusal discards the dead session and returns `false` so this
+    /// attempt signs in again. Without that fallback a retired session is a
+    /// permanent dead end: every tap re-reads the same dead credentials and
+    /// reports "Your EVA session has expired" with no route back to sign-in.
+    private func resumeStoredSession() async throws -> Bool {
+        guard let credentials = try? await EvaCloudSessionStore.shared.load(),
+              credentials.refreshTokenExpiresAt > Date(),
+              await EvaAppleIdentityService.shared.credentialIsAuthorized() else { return false }
+
+        activationStage = .verifyingDevice
+        do {
+            // A cheap authenticated GET is the only honest liveness probe: it
+            // forces a token refresh when needed and makes the server rule on
+            // the family. App Attest registration cannot serve here — it
+            // short-circuits whenever a key already exists, proving nothing.
+            credits = try await EvaCloudTransport.shared.credits()
+            // Sign-in would have done this; the resume path has to, or the
+            // attested eligibility POST fails for want of a key.
+            try await EvaAppAttestService.shared.registerIfNeeded(using: .shared)
+            return true
+        } catch let error where error.evaRequiresReauthentication {
+            await discardStoredSession()
+            return false
+        }
+        // Any other failure — a timeout, a 5xx — propagates. It says nothing
+        // about the session, and silently re-presenting the Apple sheet would
+        // spend an exchange to solve a problem that was never authentication.
+    }
+
+    private func discardStoredSession() async {
+        try? await EvaCloudSessionStore.shared.clear()
+        await EvaAppAttestService.shared.clearRegistration()
+        EvaAgeEligibilityService.invalidateCachedEligibility()
+        configuration = nil
+        consent = nil
+        credits = nil
+        isAuthenticated = false
+        isAdultEligible = false
     }
 
     func accept(credits: EvaCreditState?) {
@@ -251,12 +369,21 @@ actor EvaProviderRouter {
 
 @MainActor
 enum EvaModelSelection {
+    /// Routing sentinel, not an installed model. It never resolves through
+    /// `ModelConfiguration.getModelByName`, so anything that treats a model name
+    /// as proof of a local runtime has to test for it explicitly.
+    nonisolated static let cloudSentinel = "cloud-eva"
+
+    nonisolated static func isCloud(_ modelName: String?) -> Bool {
+        modelName == cloudSentinel
+    }
+
     static func resolve(_ localModelName: String?, route: EvaCloudRoute = .chat) -> String? {
         let preference = EvaProviderRouter.Preference(
             rawValue: UserDefaults.standard.string(forKey: "eva.provider.preference.v1") ?? "automatic"
         ) ?? .automatic
         if preference != .offline, EvaCloudAccountState.shared.canUseCloud(route: route) {
-            return "cloud-eva"
+            return cloudSentinel
         }
         return preference == .offline ? localModelName : nil
     }
@@ -268,7 +395,7 @@ enum EvaRuntimePreparation {
         route: EvaCloudRoute
     ) async -> (result: LLMRuntimeCoordinator.EnsureReadyResult, usesCloud: Bool) {
         let cloudReady = await MainActor.run { EvaCloudAccountState.shared.canUseCloud(route: route) }
-        let usesCloud = modelName == "cloud-eva" && cloudReady
+        let usesCloud = EvaModelSelection.isCloud(modelName) && cloudReady
         if usesCloud {
             return (.init(
                 prewarmEligible: false,
@@ -387,10 +514,19 @@ actor EvaSpeechTicketRegistry {
 }
 
 extension EvaInferenceRequest {
+    /// Builds the wire request.
+    ///
+    /// System messages are still dropped here, and deliberately: the route's
+    /// operating contract and EVA's persona live server-side in `prompts.ts`,
+    /// where they can be corrected without an app release. What the client owns
+    /// is the person's *own* instruction, which now travels as
+    /// `userInstructions` rather than being composed into a system message and
+    /// silently discarded.
     static func make(
         route: EvaCloudRoute,
         promptSnapshot: LLMChatPromptSnapshot,
-        consentRevision: Int
+        consentRevision: Int,
+        userInstructions: EvaUserInstructions? = nil
     ) -> EvaInferenceRequest {
         let messages = promptSnapshot.messages.compactMap { message -> EvaCloudMessage? in
             switch message.role {
@@ -402,11 +538,12 @@ extension EvaInferenceRequest {
         return EvaInferenceRequest(
             requestId: UUID(),
             route: route,
-            contractVersion: 1,
+            contractVersion: EvaInferenceRequest.contractVersion,
             locale: Locale.current.identifier,
             timeZone: TimeZone.current.identifier,
             messages: messages.isEmpty ? [EvaCloudMessage(role: .user, content: "Continue.")] : messages,
             context: promptSnapshot.cloudContext,
+            userInstructions: userInstructions,
             clientVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
             platform: EvaInstallationIdentity.platform,
             installationId: EvaInstallationIdentity.current,

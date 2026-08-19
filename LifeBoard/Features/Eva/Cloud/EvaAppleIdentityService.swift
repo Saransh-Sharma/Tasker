@@ -9,6 +9,8 @@ final class EvaAppleIdentityService: NSObject {
     static let shared = EvaAppleIdentityService()
 
     private var continuation: CheckedContinuation<ASAuthorizationAppleIDCredential, Error>?
+    private var activeController: ASAuthorizationController?
+    private var presentationAnchorOverride: ASPresentationAnchor?
 
     override init() {
         super.init()
@@ -20,7 +22,14 @@ final class EvaAppleIdentityService: NSObject {
         )
     }
 
-    func signIn(using client: EvaCloudTransport = .shared) async throws -> EvaSessionCredentials {
+    /// `onDeviceVerification` fires once the Apple exchange has landed and the
+    /// remaining work is App Attest registration — two more round trips plus a
+    /// DeviceCheck key generation, which is long enough that the UI should stop
+    /// claiming it is still signing in.
+    func signIn(
+        using client: EvaCloudTransport = .shared,
+        onDeviceVerification: (@MainActor () -> Void)? = nil
+    ) async throws -> EvaAppleExchangeOutcome {
         let challenge = try await client.signInChallenge()
         let credential = try await authorize(challengeId: challenge.id, nonce: challenge.nonce)
         guard let identityTokenData = credential.identityToken,
@@ -37,6 +46,7 @@ final class EvaAppleIdentityService: NSObject {
             appleUserIdentifier: credential.user,
             signedAppTransaction: try await catalystAppTransaction()
         )
+        onDeviceVerification?()
         try await EvaAppAttestService.shared.registerIfNeeded(using: client)
         return session
     }
@@ -79,50 +89,84 @@ final class EvaAppleIdentityService: NSObject {
 
     private func authorize(challengeId: UUID, nonce: String) async throws -> ASAuthorizationAppleIDCredential {
         guard continuation == nil else { throw EvaProviderError.unavailable(String(localized: "Apple sign-in is already in progress.")) }
-        return try await withCheckedThrowingContinuation { continuation in
-            self.continuation = continuation
-            let request = ASAuthorizationAppleIDProvider().createRequest()
-            request.requestedScopes = []
-            request.state = challengeId.uuidString
-            let digest = Data(SHA256.hash(data: Data(nonce.utf8)))
-            request.nonce = digest.base64EncodedString()
-                .replacingOccurrences(of: "+", with: "-")
-                .replacingOccurrences(of: "/", with: "_")
-                .replacingOccurrences(of: "=", with: "")
-            let controller = ASAuthorizationController(authorizationRequests: [request])
-            controller.delegate = self
-            controller.presentationContextProvider = self
-            controller.performRequests()
+        // Resolve the anchor before presenting rather than inside the delegate
+        // callback: the protocol method cannot throw, and a missing window scene
+        // is a recoverable condition, not grounds for trapping the process.
+        guard let anchor = Self.resolveAnchor() else {
+            throw EvaProviderError.unavailable(String(localized: "Sign in with Apple needs an active LifeBoard window."))
         }
+        try Task.checkCancellation()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                self.continuation = continuation
+                self.presentationAnchorOverride = anchor
+                let request = ASAuthorizationAppleIDProvider().createRequest()
+                request.requestedScopes = []
+                request.state = challengeId.uuidString
+                let digest = Data(SHA256.hash(data: Data(nonce.utf8)))
+                request.nonce = digest.base64EncodedString()
+                    .replacingOccurrences(of: "+", with: "-")
+                    .replacingOccurrences(of: "/", with: "_")
+                    .replacingOccurrences(of: "=", with: "")
+                let controller = ASAuthorizationController(authorizationRequests: [request])
+                self.activeController = controller
+                controller.delegate = self
+                controller.presentationContextProvider = self
+                controller.performRequests()
+            }
+        } onCancel: {
+            Task { @MainActor in self.cancelActiveAuthorization() }
+        }
+    }
+
+    /// Without this, a cancelled sign-in leaves `continuation` non-nil for the
+    /// lifetime of the process and every later attempt fails the guard above
+    /// with "already in progress" until the app is relaunched.
+    private func cancelActiveAuthorization() {
+        let pending = continuation
+        finishAuthorization()
+        activeController?.cancel()
+        activeController = nil
+        pending?.resume(throwing: CancellationError())
+    }
+
+    private func finishAuthorization() {
+        continuation = nil
+        presentationAnchorOverride = nil
+    }
+
+    private static func resolveAnchor() -> ASPresentationAnchor? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        if let keyWindow = scenes.flatMap(\.windows).first(where: \.isKeyWindow) { return keyWindow }
+        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else {
+            return nil
+        }
+        return ASPresentationAnchor(windowScene: scene)
     }
 }
 
 extension EvaAppleIdentityService: ASAuthorizationControllerDelegate {
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        let pending = continuation
+        finishAuthorization()
+        activeController = nil
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-            continuation?.resume(throwing: EvaProviderError.authenticationRequired)
-            continuation = nil
+            pending?.resume(throwing: EvaProviderError.authenticationRequired)
             return
         }
-        continuation?.resume(returning: credential)
-        continuation = nil
+        pending?.resume(returning: credential)
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-        continuation?.resume(throwing: error)
-        continuation = nil
+        let pending = continuation
+        finishAuthorization()
+        activeController = nil
+        pending?.resume(throwing: error)
     }
 }
 
 extension EvaAppleIdentityService: ASAuthorizationControllerPresentationContextProviding {
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        if let keyWindow = scenes.flatMap(\.windows).first(where: \.isKeyWindow) {
-            return keyWindow
-        }
-        guard let scene = scenes.first else {
-            preconditionFailure("Sign in with Apple requires an active window scene.")
-        }
-        return ASPresentationAnchor(windowScene: scene)
+        presentationAnchorOverride ?? Self.resolveAnchor() ?? ASPresentationAnchor()
     }
 }
