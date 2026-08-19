@@ -10025,7 +10025,7 @@ final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
         var refineInvocationCount = 0
         let aiSuggestionService = AISuggestionService(
             llm: LLMEvaluator(),
-            generateOutput: { _, _, _, _, _ in
+            generateOutput: { _, _, _, _, _, _ in
                 refineInvocationCount += 1
                 return """
                 {"priority":"high","energy":"high","type":"morning","context":"computer","rationale":"refined","confidence":0.9}
@@ -10076,7 +10076,7 @@ final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
 
         let aiSuggestionService = AISuggestionService(
             llm: LLMEvaluator(),
-            generateOutput: { _, thread, _, _, _ in
+            generateOutput: { _, thread, _, _, _, _ in
                 let prompt = thread.messages.first?.content ?? ""
                 if prompt.contains("draft weekly plan for team sync") {
                     try? await _Concurrency.Task.sleep(nanoseconds: 600_000_000)

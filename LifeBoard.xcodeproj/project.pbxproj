@@ -523,9 +523,25 @@
 		A31000000000000000000587 /* LifeMapOnboardingChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000586 /* LifeMapOnboardingChrome.swift */; };
 		A31000000000000000000589 /* LifeMapOnboardingIntentSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000588 /* LifeMapOnboardingIntentSteps.swift */; };
 		A3100000000000000000058B /* LifeMapOnboardingRevealSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058A /* LifeMapOnboardingRevealSteps.swift */; };
+		A3100000000000000000090B /* LifeMapCommitCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090A /* LifeMapCommitCoordinator.swift */; };
+		A31000000000000000000901 /* LifeMapOnboardingConnectSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000900 /* LifeMapOnboardingConnectSteps.swift */; };
+		A31000000000000000000905 /* LifeMapOnboardingEvaStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000904 /* LifeMapOnboardingEvaStep.swift */; };
+		A31000000000000000000907 /* LifeMapOnboardingTourStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000906 /* LifeMapOnboardingTourStep.swift */; };
+		A31000000000000000000909 /* LifeMapEvaHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000908 /* LifeMapEvaHandoff.swift */; };
 		A3100000000000000000058D /* LifeMapOnboardingShapeSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058C /* LifeMapOnboardingShapeSteps.swift */; };
 		A3100000000000000000058F /* LifeMapOrbitCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058E /* LifeMapOrbitCanvas.swift */; };
 		A31000000000000000000591 /* LifeMapProductPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000590 /* LifeMapProductPreview.swift */; };
+		A3100000000000000000090D /* EvaRouteContextSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090C /* EvaRouteContextSections.swift */; };
+		A3100000000000000000090F /* AISuggestionPromptPayloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090E /* AISuggestionPromptPayloads.swift */; };
+		A31000000000000000000911 /* EvaUserInstructions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000910 /* EvaUserInstructions.swift */; };
+		A31000000000000000000913 /* EvaContextBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000912 /* EvaContextBudget.swift */; };
+		A31000000000000000000915 /* EvaPromptAssembly.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000914 /* EvaPromptAssembly.swift */; };
+		A31000000000000000000917 /* EvaContextEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000916 /* EvaContextEnvelope.swift */; };
+		A31000000000000000000919 /* EvaContextEnvelopeBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000918 /* EvaContextEnvelopeBuilder.swift */; };
+		A3100000000000000000091B /* EvaPlanningProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091A /* EvaPlanningProjector.swift */; };
+		A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091C /* EvaTurnContextAssembler.swift */; };
+		A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091E /* EvaMemoryStoreV2.swift */; };
+		A31000000000000000000921 /* EvaConversationSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000920 /* EvaConversationSummary.swift */; };
 		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
 		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
@@ -547,6 +563,7 @@
 		A3100000000000000000052D /* ComposerCaptureOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000052C /* ComposerCaptureOrb.swift */; };
 		A3100000000000000000052F /* ComposerAuxiliaryRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000052E /* ComposerAuxiliaryRows.swift */; };
 		A31000000000000000000531 /* AtmospherePlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000530 /* AtmospherePlacement.swift */; };
+		A31000000000000000000903 /* CelestialAssetPreheater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000902 /* CelestialAssetPreheater.swift */; };
 		A31000000000000000000533 /* AdaptiveAtmosphereMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000532 /* AdaptiveAtmosphereMotion.swift */; };
 		A31000000000000000000535 /* LifeMomentsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000534 /* LifeMomentsViews.swift */; };
 		A31000000000000000000537 /* WeeklyWorkspaceSectionCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000536 /* WeeklyWorkspaceSectionCopy.swift */; };
@@ -789,6 +806,7 @@
 		D2A100000000000000000002 /* QuietTrackingComposerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000001 /* QuietTrackingComposerSnapshot.swift */; };
 		D2A100000000000000000004 /* SunriseQuietTrackingComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000003 /* SunriseQuietTrackingComposerView.swift */; };
 		D2A100000000000000000006 /* QuietTrackingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000005 /* QuietTrackingUITests.swift */; };
+		D2A100000000000000000008 /* WellnessCaptureUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000007 /* WellnessCaptureUITests.swift */; };
 		D2D43D1D68EDFA8B61A9D766 /* HomeReloadScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = F98E00AF77E03AB54CB0D948 /* HomeReloadScope.swift */; };
 		D2E850DDFA592D3CFAA9C922 /* NotificationPermissionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */; };
 		D38314D027D0FAD3E8DBD55A /* LifeBoard/Features/Onboarding/Coordinator/AppOnboardingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D9D661B4914CE34AEA2DD30 /* LifeBoard/Features/Onboarding/Coordinator/AppOnboardingCoordinator.swift */; };
@@ -1589,9 +1607,25 @@
 		A31000000000000000000586 /* LifeMapOnboardingChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingChrome.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingChrome.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000588 /* LifeMapOnboardingIntentSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingIntentSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingIntentSteps.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000058A /* LifeMapOnboardingRevealSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingRevealSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingRevealSteps.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000090A /* LifeMapCommitCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapCommitCoordinator.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapCommitCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000900 /* LifeMapOnboardingConnectSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingConnectSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingConnectSteps.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000904 /* LifeMapOnboardingEvaStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingEvaStep.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingEvaStep.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000906 /* LifeMapOnboardingTourStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingTourStep.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingTourStep.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000908 /* LifeMapEvaHandoff.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapEvaHandoff.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapEvaHandoff.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000058C /* LifeMapOnboardingShapeSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingShapeSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingShapeSteps.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000058E /* LifeMapOrbitCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOrbitCanvas.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOrbitCanvas.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000590 /* LifeMapProductPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapProductPreview.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapProductPreview.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000090C /* EvaRouteContextSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaRouteContextSections.swift; path = LifeBoard/Features/Eva/Cloud/EvaRouteContextSections.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000090E /* AISuggestionPromptPayloads.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AISuggestionPromptPayloads.swift; path = LifeBoard/Features/Eva/Models/AISuggestionPromptPayloads.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000910 /* EvaUserInstructions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaUserInstructions.swift; path = LifeBoard/Features/Eva/Cloud/EvaUserInstructions.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000912 /* EvaContextBudget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextBudget.swift; path = LifeBoard/Features/Eva/Cloud/EvaContextBudget.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000914 /* EvaPromptAssembly.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPromptAssembly.swift; path = LifeBoard/Features/Eva/Cloud/EvaPromptAssembly.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000916 /* EvaContextEnvelope.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextEnvelope.swift; path = LifeBoard/Features/Eva/Context/EvaContextEnvelope.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000918 /* EvaContextEnvelopeBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextEnvelopeBuilder.swift; path = LifeBoard/Features/Eva/Context/EvaContextEnvelopeBuilder.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000091A /* EvaPlanningProjector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPlanningProjector.swift; path = LifeBoard/Features/Eva/Context/EvaPlanningProjector.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000091C /* EvaTurnContextAssembler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaTurnContextAssembler.swift; path = LifeBoard/Features/Eva/Context/EvaTurnContextAssembler.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000091E /* EvaMemoryStoreV2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaMemoryStoreV2.swift; path = LifeBoard/Features/Eva/Context/EvaMemoryStoreV2.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000920 /* EvaConversationSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaConversationSummary.swift; path = LifeBoard/Features/Eva/Context/EvaConversationSummary.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTokenBridge.swift; path = LifeBoard/DesignSystem/TokenBridge.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
@@ -1613,6 +1647,7 @@
 		A3100000000000000000052C /* ComposerCaptureOrb.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerCaptureOrb.swift; path = LifeBoard/Foundation/Navigation/ComposerCaptureOrb.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000052E /* ComposerAuxiliaryRows.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerAuxiliaryRows.swift; path = LifeBoard/Foundation/Navigation/ComposerAuxiliaryRows.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000530 /* AtmospherePlacement.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AtmospherePlacement.swift; path = LifeBoard/Foundation/Design/AtmospherePlacement.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000902 /* CelestialAssetPreheater.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CelestialAssetPreheater.swift; path = LifeBoard/Foundation/Design/CelestialAssetPreheater.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000532 /* AdaptiveAtmosphereMotion.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdaptiveAtmosphereMotion.swift; path = LifeBoard/Foundation/Design/AdaptiveAtmosphereMotion.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000534 /* LifeMomentsViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMomentsViews.swift; path = LifeBoard/Features/Health/UI/LifeMomentsViews.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000536 /* WeeklyWorkspaceSectionCopy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyWorkspaceSectionCopy.swift; path = LifeBoard/Features/Weekly/UI/WeeklyWorkspaceSectionCopy.swift; sourceTree = SOURCE_ROOT; };
@@ -1917,6 +1952,7 @@
 		D2A100000000000000000001 /* QuietTrackingComposerSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = QuietTrackingComposerSnapshot.swift; path = LifeBoard/Features/Track/UI/Models/QuietTrackingComposerSnapshot.swift; sourceTree = SOURCE_ROOT; };
 		D2A100000000000000000003 /* SunriseQuietTrackingComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SunriseQuietTrackingComposerView.swift; path = LifeBoard/Features/Track/UI/QuietTrackingComposerView.swift; sourceTree = SOURCE_ROOT; };
 		D2A100000000000000000005 /* QuietTrackingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietTrackingUITests.swift; sourceTree = "<group>"; };
+		D2A100000000000000000007 /* WellnessCaptureUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WellnessCaptureUITests.swift; sourceTree = "<group>"; };
 		D2AE4F7EBC5C7278D3CE857D /* PlanComposers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanComposers.swift; path = Features/Plan/UI/PlanComposers.swift; sourceTree = "<group>"; };
 		D3343BCF778595F2114EE830 /* LifeBoard/Features/Settings/LifeManagement/InlineToneBadge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/InlineToneBadge.swift; sourceTree = SOURCE_ROOT; };
 		D379A868382E81C83D874E36 /* SunriseTaskRowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SunriseTaskRowView.swift; path = LifeBoard/Features/Tasks/UI/TaskRowView.swift; sourceTree = SOURCE_ROOT; };
@@ -2978,6 +3014,7 @@
 				D5E7A8B92F3C4D5E0067A1B2 /* DailySummaryModalTests.swift */,
 				C8A4F1023D6E4B7A91C2D303 /* HabitBoardUITests.swift */,
 				D2A100000000000000000005 /* QuietTrackingUITests.swift */,
+				D2A100000000000000000007 /* WellnessCaptureUITests.swift */,
 			);
 			path = Secondary;
 			sourceTree = "<group>";
@@ -3445,10 +3482,26 @@
 				A31000000000000000000514 /* LifeBoardValueControls.swift */,
 				A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */,
 				A31000000000000000000223 /* LifeBoardTokenBridge.swift */,
+				A31000000000000000000920 /* EvaConversationSummary.swift */,
+				A3100000000000000000091E /* EvaMemoryStoreV2.swift */,
+				A3100000000000000000091C /* EvaTurnContextAssembler.swift */,
+				A3100000000000000000091A /* EvaPlanningProjector.swift */,
+				A31000000000000000000918 /* EvaContextEnvelopeBuilder.swift */,
+				A31000000000000000000916 /* EvaContextEnvelope.swift */,
+				A31000000000000000000914 /* EvaPromptAssembly.swift */,
+				A31000000000000000000912 /* EvaContextBudget.swift */,
+				A31000000000000000000910 /* EvaUserInstructions.swift */,
+				A3100000000000000000090E /* AISuggestionPromptPayloads.swift */,
+				A3100000000000000000090C /* EvaRouteContextSections.swift */,
 				A31000000000000000000590 /* LifeMapProductPreview.swift */,
 				A3100000000000000000058E /* LifeMapOrbitCanvas.swift */,
 				A3100000000000000000058C /* LifeMapOnboardingShapeSteps.swift */,
 				A3100000000000000000058A /* LifeMapOnboardingRevealSteps.swift */,
+				A3100000000000000000090A /* LifeMapCommitCoordinator.swift */,
+				A31000000000000000000900 /* LifeMapOnboardingConnectSteps.swift */,
+				A31000000000000000000904 /* LifeMapOnboardingEvaStep.swift */,
+				A31000000000000000000906 /* LifeMapOnboardingTourStep.swift */,
+				A31000000000000000000908 /* LifeMapEvaHandoff.swift */,
 				A31000000000000000000588 /* LifeMapOnboardingIntentSteps.swift */,
 				A31000000000000000000586 /* LifeMapOnboardingChrome.swift */,
 				A31000000000000000000584 /* LifeMapHeroBackdrop.swift */,
@@ -3483,6 +3536,7 @@
 				A31000000000000000000534 /* LifeMomentsViews.swift */,
 				A31000000000000000000532 /* AdaptiveAtmosphereMotion.swift */,
 				A31000000000000000000530 /* AtmospherePlacement.swift */,
+				A31000000000000000000902 /* CelestialAssetPreheater.swift */,
 				A3100000000000000000052E /* ComposerAuxiliaryRows.swift */,
 				A3100000000000000000052C /* ComposerCaptureOrb.swift */,
 				A3100000000000000000052A /* ComposerScrollReporter.swift */,
@@ -5251,10 +5305,26 @@
 				A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */,
 				A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
+				A31000000000000000000921 /* EvaConversationSummary.swift in Sources */,
+				A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */,
+				A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */,
+				A3100000000000000000091B /* EvaPlanningProjector.swift in Sources */,
+				A31000000000000000000919 /* EvaContextEnvelopeBuilder.swift in Sources */,
+				A31000000000000000000917 /* EvaContextEnvelope.swift in Sources */,
+				A31000000000000000000915 /* EvaPromptAssembly.swift in Sources */,
+				A31000000000000000000913 /* EvaContextBudget.swift in Sources */,
+				A31000000000000000000911 /* EvaUserInstructions.swift in Sources */,
+				A3100000000000000000090F /* AISuggestionPromptPayloads.swift in Sources */,
+				A3100000000000000000090D /* EvaRouteContextSections.swift in Sources */,
 				A31000000000000000000591 /* LifeMapProductPreview.swift in Sources */,
 				A3100000000000000000058F /* LifeMapOrbitCanvas.swift in Sources */,
 				A3100000000000000000058D /* LifeMapOnboardingShapeSteps.swift in Sources */,
 				A3100000000000000000058B /* LifeMapOnboardingRevealSteps.swift in Sources */,
+				A3100000000000000000090B /* LifeMapCommitCoordinator.swift in Sources */,
+				A31000000000000000000901 /* LifeMapOnboardingConnectSteps.swift in Sources */,
+				A31000000000000000000905 /* LifeMapOnboardingEvaStep.swift in Sources */,
+				A31000000000000000000907 /* LifeMapOnboardingTourStep.swift in Sources */,
+				A31000000000000000000909 /* LifeMapEvaHandoff.swift in Sources */,
 				A31000000000000000000589 /* LifeMapOnboardingIntentSteps.swift in Sources */,
 				A31000000000000000000587 /* LifeMapOnboardingChrome.swift in Sources */,
 				A31000000000000000000585 /* LifeMapHeroBackdrop.swift in Sources */,
@@ -5289,6 +5359,7 @@
 				A31000000000000000000535 /* LifeMomentsViews.swift in Sources */,
 				A31000000000000000000533 /* AdaptiveAtmosphereMotion.swift in Sources */,
 				A31000000000000000000531 /* AtmospherePlacement.swift in Sources */,
+				A31000000000000000000903 /* CelestialAssetPreheater.swift in Sources */,
 				A3100000000000000000052F /* ComposerAuxiliaryRows.swift in Sources */,
 				A3100000000000000000052D /* ComposerCaptureOrb.swift in Sources */,
 				A3100000000000000000052B /* ComposerScrollReporter.swift in Sources */,
@@ -5474,6 +5545,7 @@
 				D5E7A8BA2F3C4D5E0067A1B2 /* DailySummaryModalTests.swift in Sources */,
 				C8A4F1023D6E4B7A91C2D304 /* HabitBoardUITests.swift in Sources */,
 				D2A100000000000000000006 /* QuietTrackingUITests.swift in Sources */,
+				D2A100000000000000000008 /* WellnessCaptureUITests.swift in Sources */,
 				CA1A1000000000000000000D /* HomeCalendarModuleUITests.swift in Sources */,
 				E1A100000000000000000001 /* HomeReplanDayUITests.swift in Sources */,
 				753EFCC02445A24800A739E3 /* LifeBoardUITests.swift in Sources */,

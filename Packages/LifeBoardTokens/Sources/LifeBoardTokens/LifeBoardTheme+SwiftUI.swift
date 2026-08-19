@@ -131,6 +131,9 @@ extension Theme {
         public static var lg: CGFloat { tokens.r3 }
         public static var xl: CGFloat { tokens.r4 }
         public static var card: CGFloat { tokens.card }
+        /// The dock and composer cluster radius. `DESIGN.md`'s Shapes section
+        /// names it separately from `modal`; they only coincide on phone.
+        public static var bottomBar: CGFloat { tokens.bottomBar }
         public static var modal: CGFloat { tokens.modal }
         public static var pill: CGFloat { tokens.pill }
 

@@ -287,33 +287,89 @@ final class EvaCloudWireContractTests: XCTestCase {
         XCTAssertNoThrow(try JSONEncoder.evaCloud.encode(fixtures))
     }
 
-    func testInferenceRequestV1EncodesTheSharedWireShape() throws {
-        let requestID = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
-        let installationID = UUID(uuidString: "22222222-2222-4222-8222-222222222222")!
-        let request = EvaInferenceRequest(
+    private func makeInferenceRequest(
+        requestID: UUID,
+        installationID: UUID,
+        userInstructions: EvaUserInstructions? = nil
+    ) -> EvaInferenceRequest {
+        EvaInferenceRequest(
             requestId: requestID,
             route: .chat,
-            contractVersion: 1,
+            contractVersion: EvaInferenceRequest.contractVersion,
             locale: "en_US",
             timeZone: "Asia/Kolkata",
             messages: [.init(role: .user, content: "Help me plan today.")],
             context: [.init(category: .planning, payload: .object(["tasks": .array([])]))],
+            userInstructions: userInstructions,
             clientVersion: "1.0",
             platform: "ios",
             installationId: installationID,
             consentRevision: 3,
             providerCapabilities: .init(streaming: true, structuredOutput: true, spokenOutput: true)
         )
+    }
 
-        let data = try JSONEncoder.evaCloud.encode(request)
+    func testInferenceRequestEncodesTheSharedWireShape() throws {
+        let requestID = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let installationID = UUID(uuidString: "22222222-2222-4222-8222-222222222222")!
+
+        let data = try JSONEncoder.evaCloud.encode(
+            makeInferenceRequest(requestID: requestID, installationID: installationID)
+        )
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(object["requestId"] as? String, requestID.uuidString)
         XCTAssertEqual(object["route"] as? String, "chat")
-        XCTAssertEqual(object["contractVersion"] as? Int, 1)
+        XCTAssertEqual(object["contractVersion"] as? Int, 2)
         XCTAssertEqual(object["installationId"] as? String, installationID.uuidString)
+        // The client still names no model and composes no system prompt: both
+        // live in the Worker so they can be corrected without an app release.
         XCTAssertNil(object["model"])
         XCTAssertNil(object["systemPrompt"])
         XCTAssertNil(object["creditCharge"])
+        // Absent rather than null, so the strict server schema accepts it.
+        XCTAssertNil(object["userInstructions"])
+    }
+
+    func testInferenceRequestCarriesTheCustomizedPromptOnly() async throws {
+        let requestID = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let installationID = UUID(uuidString: "22222222-2222-4222-8222-222222222222")!
+        let instructions = try XCTUnwrap(EvaUserInstructions(persona: "Be blunt. No preamble."))
+
+        let data = try JSONEncoder.evaCloud.encode(makeInferenceRequest(
+            requestID: requestID,
+            installationID: installationID,
+            userInstructions: instructions
+        ))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let carried = try XCTUnwrap(object["userInstructions"] as? [String: Any])
+        XCTAssertEqual(carried["persona"] as? String, "Be blunt. No preamble.")
+
+        // A built-in default is not the person's own voice, so it is never sent:
+        // the server already states EVA's persona and a second copy would
+        // compete with it.
+        // Read the MainActor-isolated defaults once, outside the assertion
+        // autoclosures, which are nonisolated.
+        let builtInDefault = await MainActor.run { AppManager.defaultSystemPrompt }
+        let builtInPrompts = await MainActor.run {
+            AppManager.legacyBuiltInSystemPrompts.union([AppManager.defaultSystemPrompt])
+        }
+        XCTAssertNil(EvaUserInstructions.customized(
+            storedPrompt: builtInDefault,
+            builtInPrompts: builtInPrompts
+        ))
+        XCTAssertNil(EvaUserInstructions.customized(storedPrompt: "   ", builtInPrompts: []))
+        XCTAssertEqual(
+            EvaUserInstructions.customized(storedPrompt: "Speak plainly.", builtInPrompts: [])?.persona,
+            "Speak plainly."
+        )
+    }
+
+    func testUserInstructionsAreCappedAtTheServerLimit() throws {
+        let overlong = String(repeating: "a", count: EvaUserInstructions.maxPersonaCharacters + 500)
+        let instructions = try XCTUnwrap(EvaUserInstructions(persona: overlong))
+        // Trimming here keeps an over-long prompt from failing the whole request
+        // at admission with `schema_invalid`.
+        XCTAssertEqual(instructions.persona.count, EvaUserInstructions.maxPersonaCharacters)
     }
 
     func testStableErrorAndCreditDatesDecodeFromBackendJSON() throws {

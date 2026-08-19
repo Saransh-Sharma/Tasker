@@ -382,6 +382,15 @@ enum AccessibilityIdentifiers {
         static let connectionsStep = step("connections")
         static let captureStep = step("capture")
         static let revealStep = step("reveal")
+
+        // The optional power-up chain and the closing phase, which replaced the
+        // two coarse `permissionsPowerUp` / `evaPowerUp` steps.
+        static let calendarStep = step("calendar")
+        static let healthStep = step("health")
+        static let remindersStep = step("reminders")
+        static let evaStep = step("eva")
+        static let tourStep = step("tour")
+        static let firstWinStep = step("firstWin")
     }
 
     enum Onboarding {

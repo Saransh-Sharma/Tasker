@@ -78,5 +78,30 @@
 # flow has been the presented flow for a while and never declared
 # `onboarding.flow`. Rewiring those two files to the `LifeMapAccessibilityID`
 # namespace is the follow-up.
-count=818
-sha256=bad25d40131dd1755f90e11ecb5344e90c17f3b387226a4d18927b49a6896ad8
+# 2026-08-18, Eva chat escape hatches: 818 -> 820. Three additions, one removal.
+#
+#   + "chat.composer.dismiss_keyboard"  keyboard accessory Done on Eva's composer
+#   + "eva.chat.back"                   back-to-Home control on Eva's top strip
+#   + "eva.privacy.badge"               the collapsed privacy disclosure
+#   - "chat.activation_starter.\(prompt.id)"
+#
+# The removal is a move, not a loss: the activation starters left the empty
+# state's centred carousel for the composer's own rail, where they already
+# carried "chat.activation.composer_starter.\(prompt.id)". The three additions
+# are the controls that make Eva escapable — the shell hides the compact dock
+# while Eva's composer is focused, so with the keyboard up there was previously
+# no control on screen that could dismiss it or leave the screen.
+
+# 2026-08-19, EVA onboarding merged into app onboarding. Removals:
+# `LifeMapAccessibilityID.step(.permissionsPowerUp)` and `.step(.evaPowerUp)` —
+# both steps are gone, replaced by `.step(.calendar)`, `.step(.health)`,
+# `.step(.reminders)`, `.step(.eva)`, plus the closing `.step(.tour)` and
+# `.step(.firstWin)`. `LifeMapAccessibilityID.permission(kind.id)` and
+# `permissionSkip(kind.id)` are replaced by concrete-kind spellings; the
+# *resolved* values (`onboarding.permission.calendar`, ...) are unchanged, so the
+# UI-test contract in `AccessibilityIdentifiers.Onboarding.permission(_:)` still
+# matches. Additions cover the calendar scoping list, the Health write-back
+# toggles, EVA's consent rows, and the staged first-win prompts.
+
+count=838
+sha256=1285f5aeeae63073b37cd68a9d993246a5dffbe4e4f7701ab08080e52e981eec

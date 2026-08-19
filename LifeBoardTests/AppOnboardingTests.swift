@@ -422,13 +422,38 @@ final class AppOnboardingTests: XCTestCase {
 
 @MainActor
 final class LifeMapOnboardingTests: XCTestCase {
-    func testDraftUsesV4SnapshotSchemaAndCoreFlowEndsAtReveal() {
-        XCTAssertEqual(AppOnboardingState.currentVersion, 4)
-        XCTAssertEqual(LifeMapDraft().schemaVersion, 6)
+    /// Core still ends at the reveal.
+    ///
+    /// The connect chain and EVA activation were deliberately left *outside*
+    /// core when they moved into this flow: the product contract is that core
+    /// completion never depends on a permission, a download, or the network,
+    /// and promoting them would have broken it.
+    func testDraftUsesV5SnapshotSchemaAndCoreStillEndsAtReveal() {
+        XCTAssertEqual(AppOnboardingState.currentVersion, 5)
+        XCTAssertEqual(LifeMapDraft().schemaVersion, 7)
         XCTAssertEqual(LifeMapOnboardingStep.core.first, .welcome)
         XCTAssertEqual(LifeMapOnboardingStep.core.last, .reveal)
         XCTAssertFalse(LifeMapOnboardingStep.reveal.isPowerUp)
-        XCTAssertTrue(LifeMapOnboardingStep.permissionsPowerUp.isPowerUp)
+        XCTAssertTrue(LifeMapOnboardingStep.calendar.isPowerUp)
+        XCTAssertTrue(LifeMapOnboardingStep.eva.isPowerUp)
+        XCTAssertFalse(LifeMapOnboardingStep.tour.isPowerUp)
+        XCTAssertTrue(LifeMapOnboardingStep.tour.isClosing)
+        XCTAssertTrue(LifeMapOnboardingStep.firstWin.isClosing)
+    }
+
+    /// A power-up whose module was never chosen must not appear.
+    func testPowerUpChainOmitsStepsNoChosenModuleNeeds() {
+        let noExtras = LifeMapOnboardingStep.visiblePowerUps(
+            requestablePermissions: [.calendar],
+            includesEva: false
+        )
+        XCTAssertEqual(noExtras, [.calendar])
+
+        let everything = LifeMapOnboardingStep.visiblePowerUps(
+            requestablePermissions: [.notifications, .calendar, .appleHealth],
+            includesEva: true
+        )
+        XCTAssertEqual(everything, [.calendar, .health, .reminders, .eva])
     }
 
     func testLifeAreaSelectionStaysBetweenTwoAndFiveAndPreservesOrder() {
@@ -456,6 +481,13 @@ final class LifeMapOnboardingTests: XCTestCase {
         var invalid = draft
         invalid.schemaVersion = 3
         harness.model.prepareForPresentation(snapshot: invalid)
+        XCTAssertEqual(harness.model.step, .welcome)
+
+        // Schema 6 held the two retired power-up steps and an optimistic
+        // permission list; there is no honest translation, so it restarts too.
+        var schemaSix = draft
+        schemaSix.schemaVersion = 6
+        harness.model.prepareForPresentation(snapshot: schemaSix)
         XCTAssertEqual(harness.model.step, .welcome)
         harness.cleanup()
     }
@@ -531,7 +563,7 @@ final class LifeMapOnboardingTests: XCTestCase {
         XCTAssertEqual(createdAreaCount, 2, "Retry must match canonical areas instead of duplicating them")
         XCTAssertEqual(createdTaskCount, 1)
         XCTAssertEqual(stateStore.load().outcome, .completed)
-        XCTAssertEqual(stateStore.load().completedVersion, 4)
+        XCTAssertEqual(stateStore.load().completedVersion, AppOnboardingState.currentVersion)
     }
 
     /// The regression that made every Metal effect invisible.
@@ -700,7 +732,184 @@ final class LifeMapOnboardingTests: XCTestCase {
         )
     }
 
-    private func makeLifeMapHarness() -> (model: LifeMapOnboardingModel, cleanup: () -> Void) {
+    // MARK: - Power-up chain
+
+    /// The defect this whole step exists to fix.
+    ///
+    /// `FilterCalendarEventsUseCase` reads an empty selection as *no calendars*,
+    /// and nothing else in the app seeds one, so granting access without also
+    /// choosing calendars produced an empty schedule everywhere — including in
+    /// the projection EVA reasons over.
+    func testGrantingCalendarNeverLeavesTheSelectionEmpty() async {
+        let harness = makeLifeMapHarness(powerUps: LifeMapPowerUpDependencies(
+            requestCalendarAccess: { true },
+            availableCalendars: {
+                [
+                    CalendarSourceSnapshot(id: "work", title: "Work", sourceTitle: "iCloud", allowsContentModifications: true),
+                    CalendarSourceSnapshot(id: "home", title: "Home", sourceTitle: "iCloud", allowsContentModifications: true)
+                ]
+            }
+        ))
+        let granted = await harness.model.requestPermission(.calendar)
+
+        XCTAssertTrue(granted)
+        XCTAssertEqual(harness.model.draft.selectedCalendarIDs, ["home", "work"])
+        XCTAssertTrue(harness.model.isGranted(.calendar))
+        harness.cleanup()
+    }
+
+    /// A refusal used to paint a green "Connected" checkmark.
+    func testDeniedPermissionIsRecordedAsDeniedNotGranted() async {
+        let harness = makeLifeMapHarness(powerUps: LifeMapPowerUpDependencies(
+            requestCalendarAccess: { false },
+            requestNotificationAccess: { false }
+        ))
+        _ = await harness.model.requestPermission(.calendar)
+        _ = await harness.model.requestPermission(.notifications)
+
+        XCTAssertFalse(harness.model.isGranted(.calendar))
+        XCTAssertTrue(harness.model.isDenied(.calendar))
+        XCTAssertFalse(harness.model.isGranted(.notifications))
+        XCTAssertTrue(harness.model.isDenied(.notifications))
+        XCTAssertTrue(harness.model.draft.selectedCalendarIDs.isEmpty)
+        harness.cleanup()
+    }
+
+    /// Reading is not permission to write.
+    func testHealthConnectsForReadingWithoutEnablingWriteBack() async {
+        var writeBackRequested: [Bool] = []
+        let harness = makeLifeMapHarness(powerUps: LifeMapPowerUpDependencies(
+            connectHealth: { _, enableWriteBack in writeBackRequested.append(enableWriteBack) }
+        ))
+        _ = await harness.model.requestPermission(.appleHealth)
+
+        XCTAssertEqual(writeBackRequested, [false])
+        XCTAssertTrue(harness.model.draft.healthWriteBackDomainIDs.isEmpty)
+        harness.cleanup()
+    }
+
+    func testWriteBackIsRecordedOnlyForDomainsTheUserTicked() async {
+        var enabled: [String: Bool] = [:]
+        let harness = makeLifeMapHarness(powerUps: LifeMapPowerUpDependencies(
+            setHealthWriteEnabled: { isOn, domain in enabled[domain.id] = isOn }
+        ))
+        await harness.model.setHealthWriteBack(true, for: .hydration)
+
+        XCTAssertEqual(harness.model.draft.healthWriteBackDomainIDs, ["hydration"])
+        XCTAssertEqual(enabled, ["hydration": true])
+
+        await harness.model.setHealthWriteBack(false, for: .hydration)
+        XCTAssertTrue(harness.model.draft.healthWriteBackDomainIDs.isEmpty)
+        XCTAssertEqual(enabled["hydration"], false)
+        harness.cleanup()
+    }
+
+    /// Every power-up step was a one-way door before.
+    func testBackNavigationWalksThePowerUpChain() async {
+        let harness = makeLifeMapHarness()
+        harness.model.enterPowerUps()
+        let chain = harness.model.visiblePowerUps
+        XCTAssertEqual(harness.model.step, chain.first)
+        XCTAssertFalse(harness.model.canGoBack, "The first power-up has nowhere honest to go back to")
+
+        guard chain.count > 1 else { return harness.cleanup() }
+        _ = await harness.model.advance()
+        XCTAssertTrue(harness.model.canGoBack)
+        harness.model.goBack()
+        XCTAssertEqual(harness.model.step, chain.first)
+        harness.cleanup()
+    }
+
+    /// Declining every connection must still run the closing phase — that user
+    /// most needs the orientation and the staged openers, not least of all.
+    func testSkippingThePowerUpsStillReachesTheClosingPhase() {
+        let harness = makeLifeMapHarness()
+        harness.model.enterPowerUps()
+        harness.model.skipToClosing()
+        XCTAssertEqual(harness.model.step, .tour)
+        harness.cleanup()
+    }
+
+    // MARK: - EVA hand-off
+
+    /// The opener names only what the user actually supplied.
+    func testOpeningPromptOmitsFactsTheDraftDoesNotHave() {
+        var draft = LifeMapDraft()
+        draft.desiredChange = .seeWeek
+        draft.frictionIDs = [LifeMapFriction.scattered.id]
+
+        let bare = LifeMapEvaOpeningPrompt.openingSubmission(for: draft, upcomingEventCount: nil)
+        XCTAssertTrue(bare.contains("see my whole week clearly"))
+        XCTAssertTrue(bare.contains("everything lives in different places"))
+        XCTAssertFalse(bare.contains("on my calendar"), "No calendar was connected")
+        XCTAssertFalse(bare.contains("I've put one thing in"), "Nothing was captured")
+        XCTAssertTrue(bare.hasSuffix("where should I start?"))
+
+        draft.stagedCapture = LifeMapStagedCapture(text: "Book dentist", kind: .task, isReviewed: true)
+        let full = LifeMapEvaOpeningPrompt.openingSubmission(for: draft, upcomingEventCount: 7)
+        XCTAssertTrue(full.contains("7 things already on my calendar"))
+        XCTAssertTrue(full.contains("Book dentist"))
+    }
+
+    func testOpeningPromptsDropAlternatesThatHaveNoGrounding() {
+        var draft = LifeMapDraft()
+        draft.desiredChange = .knowNext
+
+        let bare = LifeMapEvaOpeningPrompt.prompts(for: draft, upcomingEventCount: nil)
+        XCTAssertEqual(bare.map(\.id), ["lifemap_where_to_start"])
+        XCTAssertTrue(bare[0].isRecommended)
+
+        draft.orderedLifeAreaTemplateIDs = ["health-self"]
+        draft.stagedCapture = LifeMapStagedCapture(text: "Book dentist", kind: .task, isReviewed: true)
+        let full = LifeMapEvaOpeningPrompt.prompts(for: draft, upcomingEventCount: 3)
+        XCTAssertEqual(
+            full.map(\.id),
+            [
+                "lifemap_where_to_start",
+                "lifemap_crowding_week",
+                "lifemap_break_down_capture",
+                "lifemap_protect_top_area"
+            ]
+        )
+    }
+
+    /// The mapping is lossy, so the user's own words have to survive it.
+    func testLifeMapProfileCarriesLiteralWordingAlongsideTheEnumMapping() {
+        var draft = LifeMapDraft()
+        draft.desiredChange = .clearHead
+        draft.frictionIDs = [LifeMapFriction.scattered.id, LifeMapFriction.plansBreak.id]
+        draft.orderedLifeAreaTemplateIDs = ["health-self", "work-career"]
+
+        let profile = LifeMapEvaProfileMapper.profileDraft(from: draft)
+        XCTAssertEqual(profile.selectedWorkingStyleIDs, [EvaWorkingStyleID.concise.rawValue])
+        XCTAssertEqual(
+            profile.selectedMomentumBlockerIDs,
+            [EvaMomentumBlockerID.contextSwitching.rawValue, EvaMomentumBlockerID.loseSteamMidDay.rawValue]
+        )
+        XCTAssertEqual(profile.customWorkingStyleNote, LifeMapDesiredChange.clearHead.title)
+        XCTAssertTrue(profile.customMomentumNote?.contains(LifeMapFriction.scattered.title) == true)
+        XCTAssertTrue(profile.goals.contains { $0.contains("in that order") })
+
+        // Stable across repeated derivation — the write is guarded, but the
+        // mapping itself must not drift either.
+        XCTAssertEqual(profile, LifeMapEvaProfileMapper.profileDraft(from: draft))
+    }
+
+    func testOpeningPromptStoreDrainsExactlyOnce() {
+        let suite = "eva.opening.prompt.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        EvaOpeningPromptStore.stage([EvaStarterPrompt.dayOverviewPrompt], defaults: defaults)
+        XCTAssertEqual(EvaOpeningPromptStore.load(defaults: defaults).map(\.id), ["day_overview"])
+
+        EvaOpeningPromptStore.clear(defaults: defaults)
+        XCTAssertTrue(EvaOpeningPromptStore.load(defaults: defaults).isEmpty)
+    }
+
+    private func makeLifeMapHarness(
+        powerUps: LifeMapPowerUpDependencies = LifeMapPowerUpDependencies()
+    ) -> (model: LifeMapOnboardingModel, cleanup: () -> Void) {
         let suite = "life.map.tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let store = AppOnboardingStateStore(userDefaults: defaults)
@@ -724,7 +933,8 @@ final class LifeMapOnboardingTests: XCTestCase {
         let model = LifeMapOnboardingModel(
             stateStore: store,
             commitCoordinator: commit,
-            feedback: OnboardingFeedbackController()
+            feedback: OnboardingFeedbackController(),
+            powerUps: powerUps
         )
         model.prepareForPresentation(snapshot: nil)
         return (model, { defaults.removePersistentDomain(forName: suite) })

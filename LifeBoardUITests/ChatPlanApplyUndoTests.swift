@@ -9,58 +9,56 @@ final class EvaCloudLiveDeviceSmokeTests: XCTestCase {
         continueAfterFailure = false
 
         let app = XCUIApplication()
+        // Deliberately *not* `-SKIP_ONBOARDING`: the EVA sign-in this test
+        // qualifies now lives inside onboarding's power-up chain.
         app.launchArguments = [
             XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
             XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
-            XCUIApplication.LaunchArgumentKey.skipOnboarding.rawValue,
-            XCUIApplication.LaunchArgumentKey.testEvaCloudSetup.rawValue
+            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue
         ]
         app.launch()
 
-        let evaDestination = app.buttons["foundation.destination.eva"]
-        if evaDestination.waitForExistence(timeout: 8) {
-            evaDestination.tap()
+        // Cloud EVA is reached through app onboarding now, not through a
+        // standalone setup screen on the EVA tab. `-LIFEBOARD_TEST_EVA_CLOUD_SETUP`
+        // no longer stages anything, so this smoke test drives the real path:
+        // build the Life Map, choose "Power it up", and walk to the EVA step.
+        let onboarding = app.descendants(matching: .any)["onboarding.lifeMap.flow"]
+        guard onboarding.waitForExistence(timeout: 15) else {
+            throw XCTSkip(
+                "Onboarding did not present. This smoke test needs a clean install: it signs in through the onboarding EVA step. Hierarchy: \(app.debugDescription)"
+            )
         }
 
-        let cloudSetup = app.descendants(matching: .any)["eva.activation.cloud_setup"]
+        let evaStep = app.descendants(matching: .any)["onboarding.lifeMap.step.eva"]
+        let primary = app.buttons["onboarding.primaryAction"]
+        let secondary = app.buttons["onboarding.secondaryAction"]
+
+        // Walk the flow. The core steps each accept their default answer, and
+        // the reveal's secondary action opens the power-up chain.
+        var guardRail = 0
+        while evaStep.exists == false, guardRail < 40 {
+            guardRail += 1
+            if app.descendants(matching: .any)["onboarding.lifeMap.step.reveal"].exists {
+                XCTAssertTrue(secondary.waitForExistence(timeout: 5))
+                secondary.tap()
+                continue
+            }
+            guard primary.waitForExistence(timeout: 5), primary.isEnabled else {
+                throw XCTSkip(
+                    "Onboarding stalled on a step needing a real choice. Hierarchy: \(app.debugDescription)"
+                )
+            }
+            primary.tap()
+        }
+
         XCTAssertTrue(
-            cloudSetup.waitForExistence(timeout: 10),
-            "Expected the UI-test launch argument to place EVA on Cloud Setup. Hierarchy: \(app.debugDescription)"
+            evaStep.waitForExistence(timeout: 10),
+            "Expected to reach the onboarding EVA step. Hierarchy: \(app.debugDescription)"
         )
 
-        let continueWithApple = app.buttons["Continue with Apple"]
-        let continueToFirstWin = app.buttons["Continue to First Win"]
-        let primaryActionAvailable = NSPredicate { _, _ in
-            continueWithApple.exists || continueToFirstWin.exists
-        }
-        XCTAssertEqual(
-            XCTWaiter.wait(
-                for: [XCTNSPredicateExpectation(predicate: primaryActionAvailable, object: app)],
-                timeout: 10
-            ),
-            .completed,
-            "Expected either a fresh Apple sign-in action or the ready-state continuation. Hierarchy: \(app.debugDescription)"
-        )
-
-        if continueToFirstWin.exists {
-            continueToFirstWin.tap()
-            let leftCloudSetup = XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "exists == false"),
-                object: cloudSetup
-            )
-            XCTAssertEqual(
-                XCTWaiter.wait(for: [leftCloudSetup], timeout: 10),
-                .completed,
-                "A ready Cloud EVA account should advance to First Win."
-            )
-            XCTAssertFalse(
-                app.descendants(matching: .any)["eva.activation.cloud.error"].exists,
-                "A previously authenticated Cloud EVA session should remain ready."
-            )
-            return
-        }
-
-        continueWithApple.tap()
+        XCTAssertTrue(primary.waitForExistence(timeout: 5))
+        let signInTitle = primary.label
+        primary.tap()
 
         #if targetEnvironment(simulator)
         throw XCTSkip(
@@ -68,18 +66,16 @@ final class EvaCloudLiveDeviceSmokeTests: XCTestCase {
         )
         #endif
 
-        let error = app.descendants(matching: .any)["eva.activation.cloud.error"]
-        let cloudReady = continueToFirstWin
-        let completed = NSPredicate { _, _ in
-            error.exists || cloudReady.exists || !cloudSetup.exists
+        // Success is the requirement checklist completing; failure surfaces as
+        // the step's inline error rather than a thrown exception.
+        let cloudReady = NSPredicate { _, _ in
+            primary.exists && primary.label != signInTitle
         }
         let result = XCTWaiter.wait(
-            for: [XCTNSPredicateExpectation(predicate: completed, object: app)],
+            for: [XCTNSPredicateExpectation(predicate: cloudReady, object: app)],
             timeout: 180
         )
-
         XCTAssertNotEqual(result, .timedOut, "Apple cloud activation did not finish within three minutes.")
-        XCTAssertFalse(error.exists, error.exists ? error.label : "Cloud activation failed.")
     }
 }
 
@@ -98,120 +94,54 @@ final class ChatPlanApplyUndoTests: BaseUITest {
         XCTAssertTrue(commandSearch.waitForExistence(timeout: 4), "Slash command picker search should open")
     }
 
-    func testEvaActivationDismissalReopensIntroUntilCompleted() throws {
+    /// EVA's tab is a chat screen now, not a wizard.
+    ///
+    /// These four tests used to drive the standalone activation flow — intro,
+    /// About You, Goals, model choice, and its own navigation chrome. App
+    /// onboarding asks all of that and marks activation completed on its way
+    /// out, so a user who reaches the EVA tab has already answered. Asserting
+    /// the old screens would be asserting the duplication this change removed.
+    func testChatEntryPointOpensDirectlyIntoChatWithoutAnActivationWizard() throws {
         try openChatSurface()
 
-        let intro = app.otherElements["eva.activation.intro"]
-        XCTAssertTrue(intro.waitForExistence(timeout: 4), "EVA activation intro should appear for a fresh chat entry")
+        let composer = app.otherElements["chat.composer.container"]
+        let emptyState = app.otherElements["chat.emptyState.container"]
+        let predicate = NSPredicate { _, _ in composer.exists || emptyState.exists }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expectation], timeout: 6),
+            .completed,
+            "Opening EVA should land in chat"
+        )
 
-        let introHero = app.otherElements["eva.activation.intro.hero"]
-        XCTAssertTrue(introHero.waitForExistence(timeout: 3), "Meet Eva hero media should be visible on the intro screen")
-
-        let window = app.windows.firstMatch
-        if window.waitForExistence(timeout: 1), window.frame.width < 500 {
-            XCTAssertLessThanOrEqual(introHero.frame.minX, 1, "Compact intro hero should bleed to the leading screen edge")
-            XCTAssertGreaterThanOrEqual(introHero.frame.maxX, window.frame.maxX - 1, "Compact intro hero should bleed to the trailing screen edge")
-
-            let navProgress = app.otherElements["eva.activation.nav.progress"]
-            XCTAssertTrue(navProgress.waitForExistence(timeout: 3), "Activation nav progress should be visible on the intro screen")
-
-            let topGap = introHero.frame.minY - navProgress.frame.maxY
-            XCTAssertLessThanOrEqual(abs(topGap), 2, "Compact intro hero should sit flush below the navigation chrome")
+        for retired in [
+            "eva.activation.intro",
+            "eva.activation.about_you",
+            "eva.activation.goals",
+            "eva.activation.cloud_setup",
+            "eva.activation.model_choice"
+        ] {
+            XCTAssertFalse(
+                app.descendants(matching: .any)[retired].exists,
+                "\(retired) is retired; app onboarding owns it now"
+            )
         }
-
-        let activate = app.buttons["Activate Eva"]
-        XCTAssertTrue(activate.waitForExistence(timeout: 3))
-        activate.tap()
-
-        let aboutYou = app.otherElements["eva.activation.about_you"]
-        XCTAssertTrue(aboutYou.waitForExistence(timeout: 4), "Activation should advance into the About You step")
-
-        let workingStyleNoteToggle = app.buttons["eva.activation.about_you.working_style_note.toggle"]
-        XCTAssertTrue(workingStyleNoteToggle.waitForExistence(timeout: 3), "Quick sync note toggle should start collapsed")
-
-        app.buttons["Back"].firstMatch.tap()
-
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view].waitForExistence(timeout: 5))
-
-        try openChatSurface()
-        XCTAssertTrue(intro.waitForExistence(timeout: 4), "Activation intro should return after dismissing without completing")
     }
 
-    func testEvaActivationIntroCloseReturnsToHome() throws {
+    /// Leaving EVA and coming back must not resurrect a setup flow.
+    func testLeavingAndReopeningChatDoesNotReopenAnActivationFlow() throws {
         try openChatSurface()
-
-        let intro = app.otherElements["eva.activation.intro"]
-        XCTAssertTrue(intro.waitForExistence(timeout: 4), "EVA activation intro should appear for a fresh chat entry")
 
         tapNativeChatBackOrCloseButton()
+        XCTAssertTrue(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view].waitForExistence(timeout: 5)
+        )
 
-        let homePage = HomePage(app: app)
-        XCTAssertTrue(homePage.verifyIsDisplayed(timeout: 4), "Closing activation intro should return to Home")
-        XCTAssertFalse(intro.waitForExistence(timeout: 1), "Activation intro should be dismissed after tapping Close")
-    }
-
-    func testEvaActivationModeSelectionUpdatesInstallCTA() throws {
         try openChatSurface()
-
-        XCTAssertTrue(app.buttons["Activate Eva"].waitForExistence(timeout: 3))
-        app.buttons["Activate Eva"].tap()
-
-        let aboutYou = app.otherElements["eva.activation.about_you"]
-        XCTAssertTrue(aboutYou.waitForExistence(timeout: 4))
-
-        let workingStyleChip = app.buttons["eva.activation.style.prioritizeForMe"]
-        XCTAssertTrue(workingStyleChip.waitForExistence(timeout: 3))
-        workingStyleChip.tap()
-
-        let continueFromAboutYou = app.buttons["Continue"].firstMatch
-        XCTAssertTrue(continueFromAboutYou.waitForExistence(timeout: 3))
-        continueFromAboutYou.tap()
-
-        let goals = app.otherElements["eva.activation.goals"]
-        XCTAssertTrue(goals.waitForExistence(timeout: 4))
-
-        let goalField = app.textFields["eva.activation.goals.composer.field"]
-        XCTAssertTrue(goalField.waitForExistence(timeout: 3))
-        goalField.tap()
-        goalField.typeText("Finish the client handoff plan")
-
-        let addOutcome = app.buttons["eva.activation.goals.composer.button"]
-        XCTAssertTrue(addOutcome.waitForExistence(timeout: 3))
-        addOutcome.tap()
-
-        let continueFromGoals = app.buttons["Continue"].firstMatch
-        XCTAssertTrue(continueFromGoals.waitForExistence(timeout: 3))
-        continueFromGoals.tap()
-
-        let modelChoice = app.otherElements["eva.activation.model_choice"]
-        XCTAssertTrue(modelChoice.waitForExistence(timeout: 4))
-        XCTAssertTrue(app.buttons["Install Fast"].waitForExistence(timeout: 3), "Fast should be the default install CTA")
-
-        let smarterCard = app.buttons["eva.activation.mode.smarter"]
-        XCTAssertTrue(smarterCard.waitForExistence(timeout: 3))
-        smarterCard.tap()
-
-        XCTAssertTrue(app.buttons["Install Smarter"].waitForExistence(timeout: 3), "CTA should update when Smarter is selected")
-    }
-
-    func testEvaActivationUsesSingleHostNavigationChrome() throws {
-        try openChatSurface()
-
-        XCTAssertTrue(app.buttons["Activate Eva"].waitForExistence(timeout: 3))
-        app.buttons["Activate Eva"].tap()
-
-        let aboutYou = app.otherElements["eva.activation.about_you"]
-        XCTAssertTrue(aboutYou.waitForExistence(timeout: 4))
-
-        let navTitle = app.staticTexts["eva.activation.nav.title"]
-        XCTAssertTrue(navTitle.waitForExistence(timeout: 3), "Native activation nav title should be visible")
-        XCTAssertEqual(navTitle.label, "Quick Sync")
-
-        let navProgress = app.otherElements["eva.activation.nav.progress"]
-        XCTAssertTrue(navProgress.waitForExistence(timeout: 3), "Native activation progress bar should be visible")
-
-        XCTAssertFalse(app.staticTexts["Step 2 of 6"].exists, "Inline step header should be removed from the screen body")
-        XCTAssertFalse(app.buttons["History"].exists, "History action should be hidden during activation")
+        XCTAssertFalse(
+            app.otherElements["eva.activation.intro"].waitForExistence(timeout: 2),
+            "Reopening EVA should not restart activation"
+        )
     }
 
     @discardableResult
@@ -232,11 +162,10 @@ final class ChatPlanApplyUndoTests: BaseUITest {
                 candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             }
 
-            let intro = app.otherElements["eva.activation.intro"]
             let emptyState = app.otherElements["chat.emptyState.container"]
             let composer = app.otherElements["chat.composer.container"]
             let predicate = NSPredicate { _, _ in
-                intro.exists || emptyState.exists || composer.exists
+                emptyState.exists || composer.exists
             }
             let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
             if XCTWaiter.wait(for: [expectation], timeout: 4) == .completed {

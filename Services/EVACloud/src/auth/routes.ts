@@ -12,7 +12,12 @@ import { EvaHttpError } from '../http/errors.js'
 import { durableJson, durableObjectStub } from '../durable-objects/helpers.js'
 import { accountStub } from '../durable-objects/account-client.js'
 import { encryptString, hmacSha256, sha256 } from '../security/crypto.js'
-import { exchangeAppleAuthorizationCode, verifyAppleAccountEvent, verifyAppleIdentityToken } from './apple.js'
+import {
+  AppleUpstreamTimeoutError,
+  exchangeAppleAuthorizationCode,
+  verifyAppleAccountEvent,
+  verifyAppleIdentityToken,
+} from './apple.js'
 import { verifyCatalystAppTransaction } from './app-transaction.js'
 import { requireSession } from './middleware.js'
 import { accessTokenExpiresAt, issueAccessToken, newRefreshToken } from './session.js'
@@ -53,7 +58,10 @@ authRoutes.post('/apple/exchange', async (context) => {
   let identity: Awaited<ReturnType<typeof verifyAppleIdentityToken>>
   try {
     identity = await verifyAppleIdentityToken(context.env, body.identityToken, body.nonce)
-  } catch {
+  } catch (error) {
+    if (error instanceof AppleUpstreamTimeoutError) {
+      throw appleTimeout(context.env, context.get('requestId'), 'identity_token_timeout')
+    }
     recordAppleExchangeFailure(context.env, context.get('requestId'), 'identity_token')
     throw new EvaHttpError(401, 'unauthenticated', 'Apple sign-in could not be verified.', {
       recoveryAction: 'signIn',
@@ -79,7 +87,13 @@ authRoutes.post('/apple/exchange', async (context) => {
       body.authorizationCode,
       identity.audience,
     )
-  } catch {
+  } catch (error) {
+    // A timeout says nothing about the credential — reporting it as
+    // "unauthenticated" sends the user back through the Apple sheet to fix a
+    // problem that was never theirs.
+    if (error instanceof AppleUpstreamTimeoutError) {
+      throw appleTimeout(context.env, context.get('requestId'), 'authorization_code_timeout')
+    }
     recordAppleExchangeFailure(context.env, context.get('requestId'), 'authorization_code')
     throw new EvaHttpError(401, 'unauthenticated', 'Apple sign-in could not be verified.', {
       recoveryAction: 'signIn',
@@ -165,6 +179,17 @@ function recordAppleExchangeFailure(env: Env, requestId: string, stage: string):
   // Deliberately content-free so live Worker tails can identify the failing
   // verification stage without exposing credentials, subjects, or payloads.
   console.warn(JSON.stringify({ event: 'auth.apple.exchange.failed', requestId, stage }))
+}
+
+/** Apple was unreachable, not unconvinced. `wait` plus `retryable` tells the
+ *  client to offer another attempt instead of restarting sign-in. */
+function appleTimeout(env: Env, requestId: string, stage: string): EvaHttpError {
+  recordAppleExchangeFailure(env, requestId, stage)
+  return new EvaHttpError(503, 'provider_unavailable', 'Apple did not respond in time. Try again.', {
+    retryable: true,
+    retryAfter: 2,
+    recoveryAction: 'wait',
+  })
 }
 
 authRoutes.post('/refresh', async (context) => {

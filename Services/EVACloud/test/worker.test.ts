@@ -25,6 +25,16 @@ async function bootstrappedAccount() {
   return { accountId, familyId, installationId, stub }
 }
 
+function base64Url(value: string): string {
+  return btoa(value).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
+}
+
+function unverifiableIdentityToken(): string {
+  const header = base64Url(JSON.stringify({ alg: 'RS256', kid: 'apple-key' }))
+  const payload = base64Url(JSON.stringify({ iss: 'https://appleid.apple.com', sub: 'user', aud: 'com.example.app' }))
+  return `${header}.${payload}.${base64Url('signature')}`
+}
+
 describe('EVA Cloud Worker', () => {
   const validAppleExchangeBody = () => ({
     challengeId: crypto.randomUUID(),
@@ -111,6 +121,53 @@ describe('EVA Cloud Worker', () => {
       code: 'unauthenticated',
       message: 'Apple sign-in could not be verified.',
     })
+  })
+
+  it('answers an unreachable Apple with a retryable outage instead of a sign-in failure', async () => {
+    const issued = await SELF.fetch('https://eva.test/v1/auth/challenge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purpose: 'signIn' }),
+    })
+    const challenge = await issued.json<{ challengeId: string; nonce: string }>()
+
+    const originalClientIds = bindings.APPLE_CLIENT_IDS
+    const originalFetch = globalThis.fetch
+    // Reaching Apple's key endpoint at all is what fails here. Telling the user
+    // their credential could not be verified would send them back through the
+    // Apple sheet to fix an outage on our side.
+    bindings.APPLE_CLIENT_IDS = 'com.example.app'
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input instanceof Request ? input.url : input).includes('appleid.apple.com')) {
+        throw new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+      }
+      return originalFetch(input as RequestInfo, init)
+    }) as typeof fetch
+
+    try {
+      const exchange = await SELF.fetch('https://eva.test/v1/auth/apple/exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...validAppleExchangeBody(),
+          challengeId: challenge.challengeId,
+          nonce: challenge.nonce,
+          // Structurally well-formed so jose reaches key resolution; the
+          // signature never matters because the key fetch is what fails.
+          identityToken: unverifiableIdentityToken(),
+        }),
+      })
+
+      expect(exchange.status).toBe(503)
+      await expect(exchange.json()).resolves.toMatchObject({
+        code: 'provider_unavailable',
+        retryable: true,
+        recoveryAction: 'wait',
+      })
+    } finally {
+      globalThis.fetch = originalFetch
+      bindings.APPLE_CLIENT_IDS = originalClientIds
+    }
   })
 
   it('rejects malformed Apple exchange UUIDs and extra properties', async () => {

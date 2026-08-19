@@ -26,7 +26,7 @@ final class AISuggestionServiceTests: XCTestCase {
         configureInstalledModels([ModelConfiguration.qwen_3_0_6b_4bit.name])
         let service = AISuggestionService(
             llm: LLMEvaluator(),
-            generateOutput: { _, _, _, _, _ in
+            generateOutput: { _, _, _, _, _, _ in
                 """
                 Sure, here's the output:
                 ```json
@@ -55,7 +55,7 @@ final class AISuggestionServiceTests: XCTestCase {
         configureInstalledModels([ModelConfiguration.qwen_3_0_6b_4bit.name])
         let service = AISuggestionService(
             llm: LLMEvaluator(),
-            generateOutput: { _, _, _, _, _ in "not valid json" }
+            generateOutput: { _, _, _, _, _, _ in "not valid json" }
         )
 
         let suggestion = await service.suggestFields(
@@ -80,7 +80,7 @@ final class AISuggestionServiceTests: XCTestCase {
 
         let service = AISuggestionService(
             llm: LLMEvaluator(),
-            generateOutput: { _, _, _, _, _ in
+            generateOutput: { _, _, _, _, _, _ in
                 """
                 {"items":[
                     {"task_id":"\(validID.uuidString)","rationale":"due soon","confidence":1.4},
@@ -99,7 +99,7 @@ final class AISuggestionServiceTests: XCTestCase {
 
     func testImmediateFieldSuggestionIsAvailableWithoutModel() {
         configureInstalledModels([])
-        let service = AISuggestionService(llm: LLMEvaluator(), generateOutput: { _, _, _, _, _ in "" })
+        let service = AISuggestionService(llm: LLMEvaluator(), generateOutput: { _, _, _, _, _, _ in "" })
 
         let suggestion = service.immediateFieldSuggestion(for: "call pharmacy", projectName: "Personal")
 

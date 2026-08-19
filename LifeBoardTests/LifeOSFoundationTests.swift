@@ -348,6 +348,59 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(declared, registered)
     }
 
+    /// A composer sheet root is never handed to a content-distorting effect.
+    ///
+    /// `contextLens` and `vitalOrbWarp` both wrap `content` in
+    /// `visualEffect { distortionEffect(...) }`, which asks SwiftUI to render
+    /// that subtree into an offscreen texture. A `ComposerScaffold` root is a
+    /// `NavigationStack` plus text fields, a keyboard toolbar and
+    /// `.presentationDetents`; SwiftUI cannot rasterise it, and substitutes its
+    /// unrenderable-content placeholder — so the whole composer opened as a
+    /// blank yellow panel. Shipped that way on the Body capture and nutrition
+    /// composers until 2026-08-19.
+    ///
+    /// The handoff belongs on the *presenting* plane, which is what
+    /// `SIGNATURE_EFFECT_DEPLOYMENT.md` already specifies. Scanning source is
+    /// the only way to assert this: a SwiftUI modifier chain is not inspectable
+    /// from a test.
+    func testNoComposerRootIsWrappedInAContentDistortingSignatureEffect() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sources = projectRoot.appendingPathComponent("LifeBoard")
+        let enumerator = try XCTUnwrap(
+            FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil),
+            "Could not walk the app sources"
+        )
+        let distorting = [".lifeboardContextLens(", ".lifeboardVitalOrbWarp("]
+        var offenders: [String] = []
+
+        for case let url as URL in enumerator where url.pathExtension == "swift" {
+            let source = try String(contentsOf: url, encoding: .utf8)
+            guard source.contains("ComposerScaffold(") else { continue }
+            // One chunk per view body. A chunk whose first lines open a
+            // `ComposerScaffold` is a composer root, and the modifiers applied
+            // to that root live in the same chunk.
+            for chunk in source.components(separatedBy: "var body: some View {").dropFirst() {
+                let opening = chunk
+                    .split(separator: "\n")
+                    .filter { $0.trimmingCharacters(in: .whitespaces).isEmpty == false }
+                    .prefix(3)
+                    .joined()
+                guard opening.contains("ComposerScaffold(") else { continue }
+                for modifier in distorting where chunk.contains(modifier) {
+                    offenders.append("\(url.lastPathComponent) applies \(modifier)")
+                }
+            }
+        }
+
+        XCTAssertEqual(
+            offenders,
+            [],
+            "A distorting signature effect is attached to a composer sheet root; move it to the presenting plane"
+        )
+    }
+
     // MARK: Completion control
 
     func testCompletionMarkIsAClosedRingAtRestAndAFullTickWhenComplete() {
