@@ -151,6 +151,10 @@ public struct FoundationShell: View {
                             compactShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
                         }
                     }
+                    // The four one-time root cues that replaced v6's root
+                    // tour. No-ops for anyone who finished under v5, who has
+                    // already been told these things once.
+                    .lifeBoardOnboardingTip(destination: router.selectedDestination)
                     .onChange(of: atmosphereSnapshot.semanticDaypart) { oldValue, newValue in
                         guard oldValue != newValue else { return }
                         // Dragging the atmosphere slider from Auto to Night
