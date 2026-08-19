@@ -141,6 +141,28 @@ Simulator may validate UI navigation and request construction but cannot satisfy
 
 Production deployment uploads a Worker version from the protected branch with environment approval. Runtime policy remains disabled until staging, privacy, security, evaluation, load, and TestFlight gates pass. Application secrets remain in Cloudflare; GitHub Actions needs only scoped Cloudflare deployment credentials.
 
+## Context envelope and budgets
+
+Route `inputTokenCap` in the signed runtime configuration is not advisory — it is
+what the client reads to size its context envelope. Lowering it is therefore a
+live lever on payload size, moderation latency, and cost per turn, and takes
+effect on the next request without an app release.
+
+- `chat` and `dailyBrief` run at `medium` reasoning effort. Both weigh capacity
+  against ambition, which is reasoning work rather than retrieval; `low` was
+  chosen when the client could only send ~1,500 tokens and there was nothing to
+  reason over. Lower it first if latency regresses.
+- A client that cannot verify the signed configuration falls back to the offline
+  budget, which is roughly a tenth the size. A sudden drop in `inputTokens`
+  across accounts usually means configuration verification is failing, not that
+  people are asking shorter questions.
+- Watch `cachedInputTokens` on the second turn of a thread. It should be
+  substantial; near-zero means the cacheable prefix is being invalidated, which
+  raises cost without failing anything.
+- Input moderation chunks oversized envelopes and evaluates chunks concurrently.
+  A flagged chunk fails the whole request, so `input_rejected` can rise from
+  projected content rather than from what the person typed.
+
 ## Operational signals
 
 Monitor by environment and route:
