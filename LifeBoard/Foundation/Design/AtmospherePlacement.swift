@@ -57,23 +57,34 @@ public enum AtmospherePlacement: String, CaseIterable, Hashable, Sendable {
     /// toolbar makes its controls unreadable. That bar is gone: the premium IA
     /// hides the navigation bar on all four roots in favour of the shared
     /// `ScreenRootHeader`, so they now have identical top chrome and can share
-    /// one celestial position. The offset is kept for surfaces that still own
-    /// something in that corner — Eva's transcript, and the toolbars on
-    /// ordinary detail screens.
+    /// one celestial position. The offset is kept for ordinary detail screens,
+    /// which still own a toolbar in that corner.
+    ///
+    /// Eva no longer takes it. The offset was justified by Eva's transcript,
+    /// which scrolls past whatever sits behind it — but Eva's empty state is a
+    /// short lockup centred in the same band, so 0.14 put the disc directly
+    /// behind the reading column and it showed around every edge of the
+    /// content. Eva keeps the same top-trailing position as the other roots,
+    /// where its own header and privacy strip are the only things it meets.
     var celestialAnchorOffset: Double {
         switch self {
-        case .home, .plan, .track, .insights, .onboarding, .focusedPresentation: return 0
-        case .eva, .secondary: return 0.14
+        case .home, .plan, .track, .insights, .onboarding, .focusedPresentation, .eva: return 0
+        case .secondary: return 0.14
         }
     }
 
     /// The roots share one celestial size; Eva and detail screens are working
     /// surfaces where it is atmosphere rather than the subject.
+    ///
+    /// Eva is the smallest of them. Now that it shares the roots' top-trailing
+    /// anchor it also shares their corner, and that corner already carries two
+    /// rows of chrome — the shared root header and Eva's privacy strip.
     var celestialScaleMultiplier: Double {
         switch self {
         case .home, .plan, .track, .insights: return 0.76
         case .onboarding, .focusedPresentation: return 1
-        case .eva, .secondary: return 0.78
+        case .eva: return 0.62
+        case .secondary: return 0.78
         }
     }
 }

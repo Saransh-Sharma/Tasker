@@ -312,7 +312,13 @@ public struct AtmosphereHost<Content: View>: View {
             }
         .environment(\.lifeBoardAtmosphereSnapshot, snapshot)
         .environment(\.lifeBoardAtmosphereIsHosted, true)
-        .task { await clock.run() }
+        .task {
+            // Decode the 6.29 MB daypart bitmaps off the main thread before the
+            // first draw asks for them, so the flat scene colour underneath is
+            // never what the user sees while a cold decode finishes.
+            CelestialAssetPreheater.preheat(around: snapshot.phase)
+            await clock.run()
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in clock.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)) { _ in clock.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in clock.refresh() }
@@ -369,7 +375,16 @@ public struct AdaptiveAtmosphere: View {
         GeometryReader { proxy in
             let layout = scenicLayout(for: proxy.size)
             ZStack {
+                // `.id` + `.transition` so this arrives *with* the artwork rather
+                // than ahead of it. `SceneHex` is documented as the colour to draw
+                // when a phase's artwork is unavailable, but with no transition of
+                // its own it also led every insertion — reaching full opacity a
+                // frame or more before the image above it, which turned a fresh
+                // mount into a flash of flat scene colour. Steady state is
+                // unchanged: a transition only affects insert and remove.
                 Color(lifeboardHex: descriptor.fallbackHex)
+                    .id(descriptor.backgroundAsset)
+                    .transition(.opacity)
 
                 // At regular width the crisp artwork stays capped at a portrait
                 // band so it is never stretched. On its own that left a hard

@@ -867,7 +867,6 @@ private struct NutritionLogComposer: View {
     @State private var quantity = 1.0
     @State private var slot: NutritionMealSlot = .snack
     @State private var errorMessage: String?
-    @State private var revealTrigger = 0
 
     init(
         prefilledFood: FoodItem? = nil,
@@ -915,11 +914,12 @@ private struct NutritionLogComposer: View {
             NutritionServingSection(servingGrams: $servingGrams, quantity: $quantity)
             NutritionErrorSection(message: errorMessage)
         }
-        // The composer arrives as a mode handoff, not a plain sheet — the same
-        // lens the capture composer uses. It inherited ComposerScaffold's CTA
-        // bezel and first light and added nothing of its own.
-        .lifeboardContextLens(trigger: revealTrigger)
-        .onAppear { revealTrigger &+= 1 }
+        // No `contextLens` here — same reason as `WellnessMetricCapture`. The
+        // mode handoff is real, but the lens distorts `content`, and `content`
+        // is a sheet root wrapping a NavigationStack and text fields. The
+        // handoff belongs on the presenting plane. This composer keeps
+        // ComposerScaffold's CTA bezel and first light, which is what carried
+        // the arrival anyway.
         .lifeBoardMotion(.contentInsertion, value: errorMessage)
     }
 
@@ -1709,7 +1709,6 @@ private struct WellnessMetricCapture: View {
     @State private var pending: BodyMetricSample?
     @State private var reviewMessage: String?
     @State private var successTrigger = 0
-    @State private var revealTrigger = 0
 
     init(
         kind: BodyMetricKind,
@@ -1749,13 +1748,26 @@ private struct WellnessMetricCapture: View {
                 dismiss()
             }
         }
+        // `completionBurst` and `healthSyncPulse` are overlays over a recorded
+        // state change, which is what SIGNATURE_EFFECT_DEPLOYMENT.md sanctions
+        // here. `vitalOrbWarp` and `contextLens` used to sit alongside them and
+        // are gone. Both distort `content` via `distortionEffect`, which asks
+        // for an offscreen rasterisation of whatever they wrap — and here that
+        // was the whole sheet root: PresentationScaffold, a NavigationStack, the
+        // value TextField and its keyboard toolbar, plus `.presentationDetents`.
+        // On device this composer was reported opening as a blank yellow panel
+        // with a red circle-slash, the system's unrenderable-content
+        // placeholder; nothing else on the sheet can draw that. It does not
+        // reproduce in the simulator, where the same subtree rasterises fine, so
+        // the mechanism is inferred rather than caught in a debugger.
+        //
+        // Neither effect was in contract anyway: the doc puts the composer
+        // handoff on the *presenting* plane, driven by `onChange` of "is a
+        // composer up" rather than `onAppear`, and Track already fires it that
+        // way (`LifeBoardTrackFoundationViews`). `vitalOrbWarp` is documented
+        // for the hydration target crossing, not for a wellness save.
         .lifeboardCompletionBurst(trigger: successTrigger)
         .lifeboardHealthSyncPulse(trigger: successTrigger)
-        // A vital under the finger warps as it moves; the review line settles in
-        // rather than appearing. Both were available and neither was used here.
-        .lifeboardVitalOrbWarp(trigger: successTrigger)
-        .lifeboardContextLens(trigger: revealTrigger)
-        .onAppear { revealTrigger &+= 1 }
         .lifeBoardMotion(.contentInsertion, value: reviewMessage)
     }
 

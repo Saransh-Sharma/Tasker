@@ -59,7 +59,15 @@ public final class HealthConnectionStore {
     /// connection state. The initial HealthKit import starts afterward as a
     /// managed task; callers do not wait for that potentially long-running work.
     /// Observe `isRefreshing` and `lastSuccessfulSync` for import progress.
-    public func connect(domains: Set<HealthDomain>) async {
+    /// - Parameter enableWriteBack: Whether a granted writable domain should
+    ///   also have its write preference switched on. Defaults to `true`, which
+    ///   is what every in-app "Connect Health" affordance means — the user
+    ///   reached it through a surface that named writing explicitly. Onboarding
+    ///   passes `false`: it asks for read authorization up front, and treats
+    ///   letting LifeBoard write *into* Apple Health as a separate, opt-in
+    ///   answer. Without this the first run silently enabled write-back for
+    ///   every writable domain the user had never been asked about.
+    public func connect(domains: Set<HealthDomain>, enableWriteBack: Bool = true) async {
         guard V2FeatureFlags.healthIntegrationsV1Enabled else { return }
         // Durably record that we've asked (across launches) before the system
         // sheet appears, so the just-in-time invitation never re-fires regardless
@@ -69,7 +77,7 @@ public final class HealthConnectionStore {
         do {
             try await gateway.requestAuthorization(writeDomains: writable)
             readRequestState = .requestCompleted
-            if let ledger = await ledgerProvider() {
+            if enableWriteBack, let ledger = await ledgerProvider() {
                 for domain in writable {
                     try await ledger.writePreference(domain: domain, enabled: true, optedInAt: Date())
                 }
