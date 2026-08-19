@@ -1206,19 +1206,46 @@ final class FeatureFlagPromotionTests: XCTestCase {
         )
     }
 
+    /// Flags whose Release default is deliberately `false` because their rollout
+    /// is still in progress.
+    ///
+    /// Membership here is the *only* sanctioned way to ship a staged flag off in
+    /// Release. It is spelled out by name so that holding one back stays a
+    /// decision someone made and can be read in a diff — the failure this whole
+    /// class exists to prevent is a flag being off in Release because nobody
+    /// noticed, not a flag being off on purpose.
+    private static let heldBackFromReleasePromotion: Set<String> = [
+        // The v6 "Life Weave" first run. Developers get it; Release keeps the v5
+        // Life Map journey until the rollout completes.
+        "feature.onboarding.life_weave_v6"
+    ]
+
     /// Every retained staged flag defaults on in Release, not just on the Debug
     /// launch developers see. A deliberate `false` and a missing entry are both
-    /// silent release-only omissions, so pin the value as well as membership.
+    /// silent release-only omissions, so pin the value as well as membership —
+    /// except for the flags named above, whose `false` is the decision.
     func testReachableStagedSurfacesArePromotedForRelease() throws {
         let block = try promotedBlock(flagSource())
         let stagedKeys = matches(
             in: try flagSource(),
             pattern: #"stagedFeatureEnabled\(\s*\n?\s*key: \"([^\"]+)\""#
         )
-        for key in stagedKeys {
+        for key in stagedKeys where Self.heldBackFromReleasePromotion.contains(key) == false {
             XCTAssertTrue(
                 block.contains("\"\(key)\": true"),
                 "Every retained staged flag must default on in Release: \(key)"
+            )
+        }
+    }
+
+    /// A held-back flag must still be *declared* off rather than merely absent,
+    /// so the promotion table stays the single place a Release default is read.
+    func testHeldBackFlagsAreExplicitlyDeclaredOff() throws {
+        let block = try promotedBlock(flagSource())
+        for key in Self.heldBackFromReleasePromotion {
+            XCTAssertTrue(
+                block.contains("\"\(key)\": false"),
+                "A held-back flag must be pinned false, not omitted: \(key)"
             )
         }
     }
