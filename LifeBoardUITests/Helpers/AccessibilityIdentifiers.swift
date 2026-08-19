@@ -348,6 +348,28 @@ enum AccessibilityIdentifiers {
     /// (they are plain strings) but match nothing at runtime. They are kept only
     /// until the two files that still use them — `BaseUITest` and
     /// `AppStoreScreenshotUITests` — are migrated.
+    /// The v6 "Life Weave" first run. A separate family from `LifeMap` on
+    /// purpose: both flows ship at once behind
+    /// `feature.onboarding.life_weave_v6`, so nothing here replaces a v5 value.
+    enum LifeWeave {
+        static let flow = "onboarding.lifeweave.flow"
+        static let canvas = "onboarding.lifeweave.canvas"
+        static let progress = "onboarding.lifeweave.progress"
+        static let back = "onboarding.lifeweave.back"
+        static let error = "onboarding.lifeweave.error"
+        static let primaryAction = "onboarding.lifeweave.primary"
+        static let secondaryAction = "onboarding.lifeweave.secondary"
+        static let captureField = "onboarding.lifeweave.capture.field"
+        static let revealReceipt = "onboarding.lifeweave.reveal.receipt"
+
+        static func step(_ suffix: String) -> String { "onboarding.lifeweave.step.\(suffix)" }
+        static func intent(_ id: String) -> String { "onboarding.lifeweave.intent.\(id)" }
+        static func lifeArea(_ id: String) -> String { "onboarding.lifeweave.area.\(id)" }
+        static func primaryArea(_ id: String) -> String { "onboarding.lifeweave.primaryArea.\(id)" }
+        static func dayShapePreset(_ id: String) -> String { "onboarding.lifeweave.preset.\(id)" }
+        static func captureKind(_ id: String) -> String { "onboarding.lifeweave.capture.kind.\(id)" }
+    }
+
     enum LifeMap {
         static let flow = "onboarding.lifeMap.flow"
         static let canvas = "onboarding.lifeMap.canvas"

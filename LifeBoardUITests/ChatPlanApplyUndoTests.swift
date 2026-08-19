@@ -14,7 +14,14 @@ final class EvaCloudLiveDeviceSmokeTests: XCTestCase {
         app.launchArguments = [
             XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
             XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
-            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue
+            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
+            // Pinned to the v5 Life Map journey, which is what the walk below
+            // drives. v6 is on by default in Debug, and without this the test
+            // would find no `onboarding.lifeMap.flow` and quietly `XCTSkip` —
+            // losing the Apple sign-in coverage it exists to provide rather than
+            // reporting that it had. Retarget this at the v6 chain when v6
+            // promotes and the v5 flow is retired.
+            "-LIFEBOARD_DISABLE_ONBOARDING_V6"
         ]
         app.launch()
 

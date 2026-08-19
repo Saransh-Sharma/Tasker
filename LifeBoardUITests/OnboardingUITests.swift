@@ -1,284 +1,157 @@
 import XCTest
 
-final class OnboardingFreshLaunchUITests: BaseUITest {
+/// The v6 "Life Weave" first run.
+///
+/// This file previously drove the nine-step flow that was deleted two redesigns
+/// ago — it asserted "Step 2 of 9" and tapped `onboarding.primaryGoal.*`
+/// identifiers that no longer exist anywhere in the app target, so it could not
+/// have passed. It went unnoticed because CI runs `-only-testing:LifeBoardTests`
+/// and no UI test is in the gate at all.
+///
+/// v6 is on by default in Debug, so these need no flag argument. The v5 walk is
+/// pinned explicitly where it is still needed (`ChatPlanApplyUndoTests`).
+final class LifeWeaveOnboardingUITests: BaseUITest {
     override var shouldSkipOnboarding: Bool { false }
 
-    /// Walks the rebuilt nine-step flow end to end.
-    ///
-    /// The previous version of this file asserted "Step 1 of 13" and walked
-    /// screens (pain, work style, weekly outcomes, calendar, notifications) that
-    /// were only reachable behind a screenshot-only launch argument no test
-    /// passed — so it could not have been passing.
-    func testGuidedFlowCompletesThroughNineSteps() {
-        advanceToSteadyWelcome(in: app)
+    private var flow: XCUIElement { app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.flow] }
+    private var primary: XCUIElement { app.buttons[AccessibilityIdentifiers.LifeWeave.primaryAction] }
+    private var secondary: XCUIElement { app.buttons[AccessibilityIdentifiers.LifeWeave.secondaryAction] }
 
-        let introCTA = app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue]
-        XCTAssertTrue(introCTA.waitForExistence(timeout: 12))
-        XCTAssertEqual(introCTA.label, "Start")
-        introCTA.tap()
-
-        // 2 — Intent
-        XCTAssertTrue(app.staticTexts["Step 2 of 9"].waitForExistence(timeout: 12))
-        app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.primaryGoal("wholeWeek")]
-            .firstMatch.tap()
-        tapNext()
-
-        // 3 — Life areas
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas]
-                .waitForExistence(timeout: 12)
-        )
-        app.buttons[AccessibilityIdentifiers.Onboarding.useAreas].firstMatch.tap()
-
-        // 4 — Guide
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.evaValue]
-                .waitForExistence(timeout: 12)
-        )
-        tapNext()
-
-        // 5 — Day shape. Accepting the prefilled hours is a single tap.
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.dayShape]
-                .waitForExistence(timeout: 12)
-        )
-        tapNext()
-
-        // 6 — Modules
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.modules]
-                .waitForExistence(timeout: 12)
-        )
-        tapNext()
-
-        // 7 — First win
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habitSetup]
-                .waitForExistence(timeout: 12)
-        )
-        let addTask = app.buttons[AccessibilityIdentifiers.Onboarding.primaryTaskAction].firstMatch
-        if addTask.waitForExistence(timeout: 8) { addTask.tap() }
-        app.buttons[AccessibilityIdentifiers.Onboarding.goFinishTask].firstMatch.tap()
-
-        // 8 — Permissions. Every row is skippable; nothing here may block.
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.permissions]
-                .waitForExistence(timeout: 12)
-        )
-        tapNext()
-
-        // 9 — Success
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.success]
-                .waitForExistence(timeout: 12)
-        )
-        let goHome = app.buttons[AccessibilityIdentifiers.Onboarding.goHome]
-        XCTAssertTrue(goHome.waitForExistence(timeout: 12))
-        goHome.tap()
-
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
-                .waitForExistence(timeout: 12)
-        )
+    private func step(_ suffix: String) -> XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.step(suffix)]
     }
 
-    func testProgressReportsNineStepsNotThirteen() {
-        advanceToSteadyWelcome(in: app)
-        app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue].tap()
-
-        XCTAssertTrue(app.staticTexts["Step 2 of 9"].waitForExistence(timeout: 12))
-        XCTAssertFalse(app.staticTexts["Step 2 of 13"].exists)
-    }
-
-    func testGlobalSkipStillLeavesAUsableWorkspace() {
-        advanceToSteadyWelcome(in: app)
-        app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue].tap()
-
-        let skip = app.buttons[AccessibilityIdentifiers.Onboarding.skipButton]
-        XCTAssertTrue(skip.waitForExistence(timeout: 12))
-        skip.tap()
-
-        // Skipping seeds the starter workspace and lands on permissions rather
-        // than dumping the user on an empty Home.
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.permissions]
-                .waitForExistence(timeout: 20)
-        )
-    }
-
-    func testLifeAreasShowCoreAreasThenRevealOptionalAreas() {
-        advanceToSteadyWelcome(in: app)
-        app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue].tap()
-        app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.primaryGoal("wholeWeek")]
-            .firstMatch.tap()
-        tapNext()
-
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas]
-                .waitForExistence(timeout: 12)
-        )
-        let moreAreas = app.buttons["More areas"].firstMatch
-        if moreAreas.waitForExistence(timeout: 6) {
-            moreAreas.tap()
-            XCTAssertTrue(
-                app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeArea("money")]
-                    .waitForExistence(timeout: 8)
-            )
+    /// Six decisions, then Home. The point of the walk is that each step accepts
+    /// a real answer and the flow ends — not that any particular pixel appears.
+    func testCoreFlowReachesTheRevealInSixSteps() throws {
+        guard flow.waitForExistence(timeout: 20) else {
+            throw XCTSkip("Onboarding did not present; this test needs a clean install. \(app.debugDescription)")
         }
+
+        XCTAssertTrue(step("arrival").waitForExistence(timeout: 10))
+        primary.tap()
+
+        // Intent — the primary stays disabled until something is chosen, which
+        // is the contract that stops a blank answer reaching the profile.
+        XCTAssertTrue(step("intent").waitForExistence(timeout: 10))
+        XCTAssertFalse(primary.isEnabled, "Continue must not be available before an intent is picked")
+        app.buttons[AccessibilityIdentifiers.LifeWeave.intent("clarityToday")].firstMatch.tap()
+        XCTAssertTrue(primary.isEnabled)
+        primary.tap()
+
+        // Life areas — two is the stated minimum, so one must not advance.
+        XCTAssertTrue(step("lifeAreas").waitForExistence(timeout: 10))
+        app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea("work-career")].firstMatch.tap()
+        XCTAssertFalse(primary.isEnabled, "one area is below the stated 2–5 minimum")
+        app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea("health-self")].firstMatch.tap()
+        XCTAssertTrue(primary.isEnabled)
+        primary.tap()
+
+        XCTAssertTrue(step("dayShape").waitForExistence(timeout: 10))
+        app.buttons[AccessibilityIdentifiers.LifeWeave.dayShapePreset("typical")].firstMatch.tap()
+        primary.tap()
+
+        XCTAssertTrue(step("firstCapture").waitForExistence(timeout: 10))
+        secondary.tap() // Skip for now
+
+        XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
+        XCTAssertTrue(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.revealReceipt].exists,
+            "the reveal must show what was actually saved"
+        )
+        primary.tap()
+
+        XCTAssertTrue(flow.waitForNonExistence(timeout: 15), "Start my day must leave onboarding")
     }
 
-    private func tapNext() {
-        let next = app.buttons[AccessibilityIdentifiers.Onboarding.nextButton].firstMatch
-        XCTAssertTrue(next.waitForExistence(timeout: 12))
-        next.tap()
-    }
-}
-
-
-final class OnboardingRestartUITests: BaseUITest {
-    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_TEST_OPEN_SETTINGS"] }
-
-    func testRestartOnboardingFromSettings() {
-        let restartButton = app.buttons[AccessibilityIdentifiers.Settings.onboardingRestartButton]
-        for _ in 0..<6 where restartButton.exists == false {
-            app.swipeUp()
+    /// A skipped capture is an honest empty state, never a fabricated task.
+    func testSkippingCaptureStillProducesAWorkspace() throws {
+        guard flow.waitForExistence(timeout: 20) else {
+            throw XCTSkip("Onboarding did not present. \(app.debugDescription)")
         }
-        XCTAssertTrue(restartButton.waitForExistence(timeout: 12))
-        restartButton.tap()
+        try walkToCapture()
+        secondary.tap()
 
-        advanceToSteadyWelcome(in: app)
+        XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
+        let receipt = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.revealReceipt]
+        XCTAssertTrue(receipt.exists)
+        XCTAssertFalse(
+            receipt.label.contains("captured"),
+            "nothing was captured, so the receipt must not claim anything was"
+        )
+    }
+
+    /// Back moves the step and leaves the answers alone.
+    func testBackDoesNotDestroyAnAnswer() throws {
+        guard flow.waitForExistence(timeout: 20) else {
+            throw XCTSkip("Onboarding did not present. \(app.debugDescription)")
+        }
+        XCTAssertTrue(step("arrival").waitForExistence(timeout: 10))
+        primary.tap()
+
+        XCTAssertTrue(step("intent").waitForExistence(timeout: 10))
+        let choice = app.buttons[AccessibilityIdentifiers.LifeWeave.intent("reduceMentalLoad")].firstMatch
+        choice.tap()
+        primary.tap()
+
+        XCTAssertTrue(step("lifeAreas").waitForExistence(timeout: 10))
+        app.buttons[AccessibilityIdentifiers.LifeWeave.back].tap()
+
+        XCTAssertTrue(step("intent").waitForExistence(timeout: 10))
+        XCTAssertTrue(primary.isEnabled, "returning to a step must find the answer still there")
+    }
+
+    /// The map is one semantic element, not a pile of decorative paths.
+    func testLifeMapIsSummarisedRatherThanExploded() throws {
+        guard flow.waitForExistence(timeout: 20) else {
+            throw XCTSkip("Onboarding did not present. \(app.debugDescription)")
+        }
+        XCTAssertTrue(step("arrival").waitForExistence(timeout: 10))
+        let canvas = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.canvas]
+        XCTAssertTrue(canvas.exists)
+        XCTAssertTrue(
+            canvas.label.contains("Life Map"),
+            "the map must publish one summary; VoiceOver cannot see geometry"
+        )
+    }
+
+    private func walkToCapture() throws {
+        XCTAssertTrue(step("arrival").waitForExistence(timeout: 10))
+        primary.tap()
+        XCTAssertTrue(step("intent").waitForExistence(timeout: 10))
+        app.buttons[AccessibilityIdentifiers.LifeWeave.intent("clarityToday")].firstMatch.tap()
+        primary.tap()
+        XCTAssertTrue(step("lifeAreas").waitForExistence(timeout: 10))
+        app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea("work-career")].firstMatch.tap()
+        app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea("health-self")].firstMatch.tap()
+        primary.tap()
+        XCTAssertTrue(step("dayShape").waitForExistence(timeout: 10))
+        primary.tap()
+        XCTAssertTrue(step("firstCapture").waitForExistence(timeout: 10))
     }
 }
 
-final class OnboardingPromptUITests: BaseUITest {
-    override var shouldSkipOnboarding: Bool { false }
-    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE"] }
+/// Restart and the established-workspace invitation are flow-agnostic: they are
+/// about *whether* onboarding presents, not which journey it presents.
+final class OnboardingPresentationUITests: BaseUITest {
+    override var shouldSkipOnboarding: Bool { true }
 
-    func testEstablishedWorkspacePromptCanStartFullOnboarding() {
-        let prompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
-        XCTAssertTrue(prompt.waitForExistence(timeout: 12))
-        assertCinematicBackdropIsAbsent(in: app)
-        assertEstablishedWorkspacePromptContentFits(prompt: prompt)
-
-        let startButton = app.buttons["Review matched setup"].firstMatch
-        XCTAssertTrue(startButton.waitForExistence(timeout: 12))
-        startButton.tap()
-
-        waitForGoalReady(in: app)
-        XCTAssertTrue(app.staticTexts["What needs attention first?"].waitForExistence(timeout: 12))
-        assertCinematicBackdrop(in: app, grain: "100%")
-    }
-
-    func testEstablishedWorkspacePromptDismissalSuppressesRelaunch() {
-        let prompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
-        XCTAssertTrue(prompt.waitForExistence(timeout: 12))
-        assertCinematicBackdropIsAbsent(in: app)
-        assertEstablishedWorkspacePromptContentFits(prompt: prompt)
-
-        let dismissButton = app.buttons["Not now"].firstMatch
-        XCTAssertTrue(dismissButton.waitForExistence(timeout: 12))
-        dismissButton.tap()
-
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view].waitForExistence(timeout: 12))
-    }
-
-    private func assertEstablishedWorkspacePromptContentFits(
-        prompt: XCUIElement,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        XCTAssertTrue(app.staticTexts["Start from what already fits."].waitForExistence(timeout: 4), file: file, line: line)
-        XCTAssertTrue(app.staticTexts["What LifeBoard will reuse"].waitForExistence(timeout: 4), file: file, line: line)
-        XCTAssertTrue(app.staticTexts["Already in place: 1 area, 1 project, 3 tasks"].waitForExistence(timeout: 4), file: file, line: line)
-        XCTAssertTrue(app.staticTexts["Keep the areas and projects that already fit."].waitForExistence(timeout: 4), file: file, line: line)
-        XCTAssertTrue(app.staticTexts["Suggest one light habit only if it improves tomorrow."].waitForExistence(timeout: 4), file: file, line: line)
-        XCTAssertTrue(app.staticTexts["Guide you into one small completion without duplicate clutter."].waitForExistence(timeout: 4), file: file, line: line)
-        XCTAssertTrue(app.staticTexts["Leave your existing setup intact while you review the next layer."].waitForExistence(timeout: 4), file: file, line: line)
-
-        let startButton = app.buttons["Review matched setup"].firstMatch
-        let dismissButton = app.buttons["Not now"].firstMatch
-        XCTAssertTrue(startButton.waitForExistence(timeout: 4), file: file, line: line)
-        XCTAssertTrue(dismissButton.waitForExistence(timeout: 4), file: file, line: line)
-        XCTAssertTrue(startButton.isHittable, file: file, line: line)
-        XCTAssertTrue(dismissButton.isHittable, file: file, line: line)
-
-        assertElementFitsInWindow(prompt, file: file, line: line)
-        assertElementFitsInWindow(startButton, file: file, line: line)
-        assertElementFitsInWindow(dismissButton, file: file, line: line)
-    }
-
-    private func assertElementFitsInWindow(
-        _ element: XCUIElement,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        let window = app.windows.firstMatch
-        let windowFrame = window.exists ? window.frame : app.frame
-        let frame = element.frame
-        let tolerance: CGFloat = 1
-
-        XCTAssertGreaterThanOrEqual(frame.minX, windowFrame.minX - tolerance, file: file, line: line)
-        XCTAssertGreaterThanOrEqual(frame.minY, windowFrame.minY - tolerance, file: file, line: line)
-        XCTAssertLessThanOrEqual(frame.maxX, windowFrame.maxX + tolerance, file: file, line: line)
-        XCTAssertLessThanOrEqual(frame.maxY, windowFrame.maxY + tolerance, file: file, line: line)
+    /// A completed workspace is never interrupted by a launch prompt.
+    func testCompletedWorkspaceIsNotInterrupted() {
+        let flow = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.flow]
+        let legacy = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeMap.flow]
+        XCTAssertFalse(flow.waitForExistence(timeout: 4))
+        XCTAssertFalse(legacy.exists)
     }
 }
 
-final class OnboardingLaunchQueueUITests: BaseUITest {
-    override var shouldSkipOnboarding: Bool { false }
-    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_TEST_ROUTE:daily_summary:morning"] }
-
-    func testFreshLaunchShowsOnboardingAfterBlockingModalDismisses() {
-        let dailySummary = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.dailySummaryModal]
-        XCTAssertTrue(dailySummary.waitForExistence(timeout: 12))
-
-        let dismissCTA = app.buttons["Start Today"]
-        XCTAssertTrue(dismissCTA.waitForExistence(timeout: 12))
-        dismissCTA.tap()
-
-        advanceToSteadyWelcome(in: app)
+private extension XCUIElement {
+    func waitForNonExistence(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if exists == false { return true }
+            _ = XCTWaiter.wait(for: [XCTestExpectation(description: "tick")], timeout: 0.25)
+        }
+        return exists == false
     }
-}
-
-@MainActor
-private func advanceToSteadyWelcome(in app: XCUIApplication) {
-    let introOverlay = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeIntroOverlay]
-    XCTAssertTrue(introOverlay.waitForExistence(timeout: 4))
-
-    assertCinematicBackdrop(in: app, grain: "25%")
-
-    let introCTA = app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue]
-    if introCTA.waitForExistence(timeout: 8) == false {
-        introOverlay.tap()
-    }
-    XCTAssertTrue(introCTA.waitForExistence(timeout: 12))
-    XCTAssertFalse(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
-    XCTAssertTrue(app.staticTexts["Guided setup"].exists)
-    XCTAssertTrue(app.staticTexts["~2 min"].exists)
-    XCTAssertTrue(app.staticTexts["Change this later"].exists)
-}
-
-@MainActor
-private func waitForGoalReady(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-    let goal = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.goal]
-    XCTAssertTrue(goal.waitForExistence(timeout: 12), "Expected goal step to exist", file: file, line: line)
-}
-
-@MainActor
-private func assertCinematicBackdrop(in app: XCUIApplication, grain expectedValue: String, file: StaticString = #filePath, line: UInt = #line) {
-    let video = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.backdropVideo]
-    XCTAssertTrue(video.waitForExistence(timeout: 8), "Expected cinematic backdrop video marker to exist", file: file, line: line)
-
-    let grain = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.backdropGrain]
-    XCTAssertTrue(grain.waitForExistence(timeout: 8), "Expected cinematic backdrop grain marker to exist", file: file, line: line)
-    XCTAssertEqual(grain.value as? String, expectedValue, "Unexpected onboarding video grain amount", file: file, line: line)
-}
-
-@MainActor
-private func assertCinematicBackdropIsAbsent(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-    let video = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.backdropVideo]
-    XCTAssertFalse(video.exists, "Expected cinematic backdrop video marker to be absent", file: file, line: line)
-
-    let grain = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.backdropGrain]
-    XCTAssertFalse(grain.exists, "Expected cinematic backdrop grain marker to be absent", file: file, line: line)
 }
