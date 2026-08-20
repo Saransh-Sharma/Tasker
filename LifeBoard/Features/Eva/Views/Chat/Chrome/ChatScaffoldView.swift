@@ -209,6 +209,9 @@ struct ChatScaffoldView: View {
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.top, isActivationPresentation ? Theme.Spacing.xs : Theme.Spacing.sm)
 
+                // The single separation between composer and dock. Sized to the
+                // md token because `assertRequiredEvaDockSpacing` requires every
+                // interactive part of the composer to clear the dock by it.
                 Color.clear
                     .frame(height: Theme.Spacing.md)
                     // Padding is compressible. An explicit ideal-size spacer
@@ -225,11 +228,10 @@ struct ChatScaffoldView: View {
             // that same visible region without relying on keyboard estimates.
             // The matching `.padding(.bottom:)` above keeps content out from
             // under it.
-            .offset(
-                y: composerBottomClearance > 0
-                    ? -(composerBottomClearance + Theme.Spacing.md)
-                    : 0
-            )
+            // Exactly the dock's clearance. The separation between composer and
+            // dock is the spacer below the composer and nothing else: adding a
+            // gap here as well counted it twice, and the reader saw the sum.
+            .offset(y: composerBottomClearance > 0 ? -composerBottomClearance : 0)
         }
         // Deliberately opaque, and deliberately not the shell's daypart scene.
         // Letting the atmosphere through here looks better in the abstract, but

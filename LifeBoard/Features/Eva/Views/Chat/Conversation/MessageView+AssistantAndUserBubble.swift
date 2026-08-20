@@ -246,21 +246,35 @@ extension MessageView {
             .padding(.leading, oppositeSideInset)
     }
 
-    @ViewBuilder
+    /// Renders assistant prose.
+    ///
+    /// Two things used to go wrong here while a reply was streaming, and both
+    /// came from this function.
+    ///
+    /// **Raw markdown reached the reader.** Streaming took a `Text` branch, so
+    /// `**bold**`, `###` and list bullets appeared as literal syntax and only
+    /// resolved into formatting once generation finished. `Markdown` renders
+    /// partial documents perfectly well — an unterminated `**` is simply shown as
+    /// text until its closing pair arrives — so there is no reason to withhold
+    /// formatting until the end, and the swap between the two branches was itself
+    /// a visible re-layout on the last frame.
+    ///
+    /// **The text flashed on every update.** `.id(renderModel.markdownSourceHash)`
+    /// derives identity from the content, so each new phrase gave the view a new
+    /// identity and SwiftUI tore down and rebuilt the whole subtree rather than
+    /// diffing it. `Markdown` is a plain value view holding `let content`; it
+    /// re-renders correctly when that content changes, and needs no identity
+    /// override at all. Do not reintroduce one keyed on content.
     func markdownText(_ text: String, color: Color) -> some View {
-        if isLiveOutput && runtimeRunning {
-            Text(text)
-                .lifeboardFont(.body)
-                .foregroundStyle(color)
-                .textSelection(.enabled)
-        } else {
-            Markdown(text)
-                .textSelection(.enabled)
-                .markdownTextStyle {
-                    ForegroundColor(color)
-                }
-                .id(renderModel.markdownSourceHash)
-        }
+        Markdown(text)
+            .textSelection(.enabled)
+            .markdownTextStyle {
+                ForegroundColor(color)
+            }
+            // Content grows from the top, so keep the block anchored there while
+            // it does; the default centre anchor makes settled lines drift.
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .animation(nil, value: text)
     }
 
     @ViewBuilder
