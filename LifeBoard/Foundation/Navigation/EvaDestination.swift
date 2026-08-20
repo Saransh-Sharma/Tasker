@@ -6,6 +6,9 @@ import VisionKit
 
 struct EvaDestination: View {
     @Environment(\.evaComposerBottomClearance) private var composerBottomClearance
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var isPrivacyDetailExpanded = false
 
     @StateObject private var appManager: AppManager
     @StateObject private var activationCoordinator: EvaActivationCoordinator
@@ -65,20 +68,7 @@ struct EvaDestination: View {
             )
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            GlassEffectContainer(spacing: 8) {
-                HStack(spacing: 10) {
-                    Label("Private on-device context", systemImage: "lock.shield")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    Spacer(minLength: 8)
-                    evidenceSharingMenu
-                }
-                .padding(.horizontal, 14)
-                .frame(minHeight: 44)
-                .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 4)
+            evaTopStrip
         }
         .navigationTitle("Eva")
         .navigationBarTitleDisplayMode(.inline)
@@ -117,6 +107,73 @@ struct EvaDestination: View {
         }
     }
 
+    /// Eva's privacy disclosure — a badge, not a banner.
+    ///
+    /// It used to be a permanently pinned full-width row carrying a sentence
+    /// and a menu, which spent a whole band of a chat screen restating
+    /// something that does not change between sessions. Collapsed it is one
+    /// lock; tapping it expands the sentence and the evidence controls to the
+    /// right, in place, and tapping it again puts them away.
+    ///
+    /// The way *out* of Eva is not here — it is the chevron beside the title in
+    /// the shared root header, which is where a back control belongs and where
+    /// it stays legible while the keyboard covers everything below it.
+    ///
+    /// Clay rather than glass: `DESIGN.md` allows one hero glass object per
+    /// screen and Eva's composer is it. This is chrome, not a decision surface.
+    private var evaTopStrip: some View {
+        HStack(spacing: Theme.Spacing.xs) {
+            privacyBadge
+
+            if isPrivacyDetailExpanded {
+                Spacer(minLength: Theme.Spacing.xs)
+                evidenceSharingMenu
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.xs)
+        .frame(minHeight: 40)
+        .lifeboardChromeSurface(cornerRadius: Theme.CornerRadius.lg, level: .e1, useNativeGlass: false)
+        .fixedSize(horizontal: isPrivacyDetailExpanded == false, vertical: false)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.bottom, Theme.Spacing.xs)
+    }
+
+    private var privacyBadge: some View {
+        Button {
+            appManager.playHaptic()
+            withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
+                isPrivacyDetailExpanded.toggle()
+            }
+        } label: {
+            HStack(spacing: Theme.Spacing.xs) {
+                Image(systemName: "lock.shield")
+                    .font(.lifeboard(.caption1))
+                if isPrivacyDetailExpanded {
+                    Text("Private on-device context")
+                        .font(.lifeboard(.caption1))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .transition(.opacity)
+                }
+            }
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            .padding(.horizontal, Theme.Spacing.sm)
+            .frame(minWidth: 40, minHeight: 40)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Private on-device context")
+        .accessibilityHint(
+            isPrivacyDetailExpanded
+                ? "Hides Eva's evidence sharing controls"
+                : "Shows what Eva may use, and lets you change it"
+        )
+        .accessibilityIdentifier("eva.privacy.badge")
+        .lifeboardPressFeedback()
+    }
+
     private var evidenceSharingMenu: some View {
         Menu {
             Toggle("Body signals", isOn: $sharingPolicy.permitsBody)
@@ -126,7 +183,8 @@ struct EvaDestination: View {
             Text("Journal sharing is managed in Journal Privacy")
         } label: {
             Label("Evidence", systemImage: "checkmark.shield")
-                .font(.caption.weight(.semibold))
+                .font(.lifeboard(.caption1))
+                .padding(.horizontal, Theme.Spacing.sm)
                 .frame(minHeight: 44)
         }
         .accessibilityLabel("Eva evidence sharing")

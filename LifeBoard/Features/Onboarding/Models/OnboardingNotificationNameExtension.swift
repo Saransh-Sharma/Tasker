@@ -8,6 +8,7 @@ import MLXLMCommon
 
 extension Notification.Name {
     static let lifeboardStartOnboardingRequested = Notification.Name("LifeBoardStartOnboardingRequested")
+    static let lifeboardOpenSetupCenterDeepLink = Notification.Name("LifeBoardOpenSetupCenterDeepLink")
 
     /// Posted by the Life OS shell on its first frame. First run used to be
     /// triggered only by the legacy Home controller switching to its tasks face,

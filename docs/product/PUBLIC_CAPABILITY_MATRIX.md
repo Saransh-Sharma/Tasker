@@ -86,5 +86,5 @@ screens when a verified capture environment is unavailable.
 - [ ] Qualifications appear near the claim, not only in legal text.
 - [ ] Every screenshot is synthetic, populated, manifest-approved, and free of fixture language.
 - [ ] App Store CTAs use `https://apps.apple.com/app/id1574046107`.
-- [ ] Support uses `support@lifeboard.app` and no personal contact details.
+- [ ] Support uses `support@getlifeboard.app` and no personal contact details.
 - [ ] Future direction remains isolated from current public behavior.

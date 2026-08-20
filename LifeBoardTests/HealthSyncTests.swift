@@ -240,13 +240,16 @@ final class HealthSyncTests: XCTestCase {
             projections: HealthProjectionFake(),
             featureFlags: { (true, false) }
         )
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let coordinator = HealthSyncCoordinator(
             gateway: gateway,
             engineProvider: { engine },
             ledgerProvider: { ledger },
-            defaultsSuiteName: suite
+            defaultsSuiteName: suite,
+            calendar: calendar
         )
-        let now = Date()
+        let now = Date(timeIntervalSince1970: 1_735_732_800) // 2025-01-01 12:00:00 UTC
 
         let manual = await coordinator.sync(.manual, now: now)
         let requestCount = gateway.anchoredRequestCount

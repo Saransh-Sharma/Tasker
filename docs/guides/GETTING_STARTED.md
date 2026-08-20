@@ -4,11 +4,11 @@
 > Audience: New and restructuring users
 > Capability status: Current workspace
 > Source authority: [Onboarding](../product/ONBOARDING_SETTINGS_AND_RECOVERY.md) and [Feature Catalog](../product/FEATURE_CATALOG.md)
-> Last verified: 2026-08-13
+> Last verified: 2026-08-20
 
 ## Build the minimum useful system
 
-During onboarding, describe the friction you want LifeBoard to reduce, choose a guide/persona, and select only the life areas that carry real responsibilities now. The starter set includes Work & Career, Life Admin, Health & Self, Relationships, Learning & Growth, Creativity & Fun, and Money. You can rename, remove, or add structure later in Settings → Life Management.
+During onboarding, choose the change you want first, name the friction LifeBoard should work around, and select only the life areas carrying real responsibilities now. The choices are Work & Career, Life Admin, Health & Self, Relationships, Learning & Growth, Creativity & Fun, and Money. You can rename, archive, reorder, or refresh the resulting Life Map later in Settings → Life Management.
 
 Use this hierarchy:
 
@@ -22,15 +22,14 @@ Use this hierarchy:
 
 ## Complete onboarding
 
-1. Choose the outcome and friction profile that best matches this season.
-2. Select starter life areas and review any suggested workspaces.
-3. Choose a day shape and guide/persona; these are preferences, not permanent identity labels.
-4. Enable only useful modules. Skipping Health, Calendar, notifications, speech, or EVA model setup keeps the rest of LifeBoard usable.
-5. Create one real first task with a verb, an outcome, and a reasonable duration.
-6. Add it to today only if it fits around fixed commitments.
-7. Grant permissions when their benefit is visible. A denied permission can be revisited in Settings.
+1. Read Arrival, then choose the desired change and optional recurring frictions.
+2. Select two to five life areas and tap the one that needs the clearest path first.
+3. Choose a day-shape preset or explicitly edit working hours.
+4. Optionally route one real thought to Task or Journal and review it before saving, or skip it.
+5. Inspect the assembled Life Map.
+6. Choose **Start my day**, or **Personalize more** to enter Home and then open Setup Center.
 
-Onboarding saves progress. If interrupted, resume rather than reinstalling starter content. Starter packs create real linked goals, habits, routines, trackers, and reminders; review them and archive anything that adds pressure rather than value.
+Onboarding saves both the exact step and commit/reveal lifecycle. LifeBoard creates no sample chores or fake activity; only a capture you explicitly review may create a record. Calendar, notifications, Health, and EVA remain optional in Setup Center and never block completion.
 
 ## Configure the daily environment
 

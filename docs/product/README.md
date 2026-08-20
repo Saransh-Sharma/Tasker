@@ -27,7 +27,7 @@ This handbook explains what LifeBoard currently does, how to use it as a persona
 | Habits, goals, routines, care, and wellness | [Track and Wellness](./TRACK_AND_WELLNESS.md) | [Health](../guides/MANAGING_HEALTH_AND_WELLBEING.md) |
 | Journal, Notes, and Knowledge | [Journal and Knowledge](./JOURNAL_NOTES_AND_REFLECTION.md) | [Reflect and adapt](../guides/RECOVERING_REFLECTING_AND_ADAPTING.md) |
 | Insights, rewards, and EVA | [Insights and EVA](./INSIGHTS_AND_EVA.md) | [Run the day](../guides/RUNNING_YOUR_DAY.md) |
-| Setup, permissions, settings, and repair | [Onboarding and Settings](./ONBOARDING_SETTINGS_AND_RECOVERY.md) | [Privacy and devices](../guides/PRIVACY_DATA_DEVICES_AND_INTEGRATIONS.md) |
+| Setup, permissions, settings, and repair | [Onboarding and Settings](./ONBOARDING_SETTINGS_AND_RECOVERY.md), [Life Weave v6 contract](./LIFE_WEAVE_V6_AND_SETUP_CENTER.md) | [Privacy and devices](../guides/PRIVACY_DATA_DEVICES_AND_INTEGRATIONS.md) |
 | Widgets, Siri, Watch, and continuity | [System Surfaces](./SYSTEM_SURFACES_AND_CONTINUITY.md) | [Privacy and devices](../guides/PRIVACY_DATA_DEVICES_AND_INTEGRATIONS.md) |
 
 Specialist references remain for the [calendar/timeline](../calendar/README.md), [habit runtime](../habits/README.md), [architecture](../architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md), [visual system](../../DESIGN.md), and [marketing-site expression](../design/MARKETING_SITE_GUIDE.md).

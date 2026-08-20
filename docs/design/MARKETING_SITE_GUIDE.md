@@ -72,8 +72,8 @@ grids, decorative autoplay media, and ornamental hover movement.
 
 ## Route and chapter contract
 
-The static site exposes `/LifeBoard/`, `/LifeBoard/features/`, seven feature
-chapters under `/LifeBoard/features/`, plus privacy, terms, and support. Each
+The static site exposes `/`, `/features/`, seven feature
+chapters under `/features/`, plus privacy, terms, and support. Each
 route gets a generated HTML entry with a unique title, description, canonical
 URL, and share metadata so direct visits and refreshes remain meaningful.
 
@@ -92,7 +92,7 @@ waitlist, or newsletter actions.
 The canonical destination is:
 `https://apps.apple.com/app/id1574046107`.
 
-Support links use `support@lifeboard.app`. Public pages must not contain a
+Support links use `support@getlifeboard.app`. Public pages must not contain a
 personal phone number, postal address, personal inbox, or conflicting account
 deletion instructions.
 
@@ -146,7 +146,7 @@ transfers, and keep route metadata available in static HTML.
 ## Publishing checklist
 
 - [ ] The [Public Capability Matrix](../product/PUBLIC_CAPABILITY_MATRIX.md) supports every claim.
-- [ ] Every route works by direct URL and refresh under the `/LifeBoard/` base.
+- [ ] Every route works by direct URL and refresh on `https://getlifeboard.app`.
 - [ ] Current-page, keyboard, reduced-motion, responsive, and zoom behavior pass.
 - [ ] Screenshot manifest and image budgets pass; every image shows realistic synthetic data.
 - [ ] Privacy, terms, support, App Store URL, and contact details are consistent.

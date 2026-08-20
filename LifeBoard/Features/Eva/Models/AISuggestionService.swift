@@ -22,7 +22,14 @@ struct AITopTaskSuggestion: Codable, Equatable {
 
 @MainActor
 final class AISuggestionService {
-    typealias GenerateOutputHandler = @MainActor (String, Thread, String, LLMGenerationProfile, (@MainActor @Sendable () -> Void)?) async -> String
+    typealias GenerateOutputHandler = @MainActor (
+        String,
+        Thread,
+        String,
+        LLMGenerationProfile,
+        [EvaCloudContextSection],
+        (@MainActor @Sendable () -> Void)?
+    ) async -> String
 
     @MainActor static let shared = AISuggestionService()
 
@@ -40,12 +47,13 @@ final class AISuggestionService {
     ) {
         let runtimeLLM = llm ?? LLMRuntimeCoordinator.shared.evaluator
         self.llm = runtimeLLM
-        self.generateOutput = generateOutput ?? { modelName, thread, systemPrompt, profile, onFirstToken in
+        self.generateOutput = generateOutput ?? { modelName, thread, systemPrompt, profile, cloudContext, onFirstToken in
             await runtimeLLM.generate(
                 modelName: modelName,
                 thread: thread,
                 systemPrompt: systemPrompt,
                 profile: profile,
+                cloudContext: cloudContext,
                 onFirstToken: onFirstToken
             )
         }
@@ -89,7 +97,7 @@ final class AISuggestionService {
         fallback.modelName = nil
         fallback.routeBanner = route.bannerMessage
 
-        guard let modelName = route.selectedModelName else {
+        guard let modelName = EvaModelSelection.resolve(route.selectedModelName, route: .fieldSuggestion) else {
             return fallback
         }
 
@@ -101,7 +109,7 @@ final class AISuggestionService {
         )
         let thread = Thread()
         thread.messages.append(Message(role: .user, content: payload.userPrompt, thread: thread))
-        let output = await generateOutput(modelName, thread, payload.systemPrompt, .addTaskSuggestion, nil)
+        let output = await generateOutput(modelName, thread, payload.systemPrompt, .addTaskSuggestion, [], nil)
 
         if let parsed = decodeSuggestion(from: output) {
             return TaskFieldSuggestion(
@@ -152,14 +160,24 @@ final class AISuggestionService {
             routeBanner: route.bannerMessage
         )
 
-        guard let modelName = route.selectedModelName else {
+        guard let modelName = EvaModelSelection.resolve(route.selectedModelName, route: .topThree) else {
             return fallback
         }
 
         let promptPayload = TopThreePromptPayload(tasks: Array(openTasks.prefix(40)))
         let thread = Thread()
-        thread.messages.append(Message(role: .user, content: promptPayload.userPrompt, thread: thread))
-        let output = await generateOutput(modelName, thread, promptPayload.systemPrompt, .topThree, nil)
+        // On cloud the roster travels as a context section, because the Worker
+        // only accepts a `task_id` it can find in `request.context`.
+        let prompt = EvaRouteContextSections.inlining("tasks:\n\(promptPayload.taskRows)", into: "Rank the supplied tasks.", modelName: modelName)
+        thread.messages.append(Message(role: .user, content: prompt, thread: thread))
+        let output = await generateOutput(
+            modelName,
+            thread,
+            promptPayload.systemPrompt,
+            .topThree,
+            EvaRouteContextSections.planning(projection: promptPayload.taskRows, kind: .topThree, modelName: modelName),
+            nil
+        )
 
         if let parsed = decodeTopThree(from: output, validIDs: Set(openTasks.map(\.id))) {
             let lookup = Dictionary(uniqueKeysWithValues: openTasks.map { ($0.id, $0.title) })
@@ -204,7 +222,7 @@ final class AISuggestionService {
         guard fallback.isEmpty == false else { return [] }
 
         let route = AIChatModeRouter.route(for: .dynamicChips)
-        guard let modelName = route.selectedModelName else {
+        guard let modelName = EvaModelSelection.resolve(route.selectedModelName, route: .dynamicChips) else {
             return fallback
         }
 
@@ -229,7 +247,7 @@ final class AISuggestionService {
 
         let thread = Thread()
         thread.messages.append(Message(role: .user, content: userPrompt, thread: thread))
-        let output = await generateOutput(modelName, thread, systemPrompt, .dynamicChips, nil)
+        let output = await generateOutput(modelName, thread, systemPrompt, .dynamicChips, [], nil)
 
         guard let decoded = decodeDynamicChips(from: output), decoded.isEmpty == false else {
             return fallback
@@ -237,30 +255,6 @@ final class AISuggestionService {
         return decoded
     }
 
-    private struct SuggestionPromptPayload {
-        let title: String
-        let projectName: String
-        let hour: Int
-        let weekday: Int
-
-        var systemPrompt: String {
-            """
-            You classify productivity task-capture fields.
-            Return ONLY JSON, no markdown and no prose.
-            Schema:
-            {"priority":"none|low|high|max","energy":"low|medium|high","type":"morning|evening|upcoming","context":"anywhere|home|office|computer|phone|errands|outdoor|gym|commute|meeting","rationale":"max 8 words","confidence":0.0}
-            """
-        }
-
-        var userPrompt: String {
-            """
-            title: "\(title)"
-            project: "\(projectName)"
-            hour: \(hour)
-            weekday: \(weekday)
-            """
-        }
-    }
 
     private struct SuggestionLLMResponse: Decodable {
         let priority: String
@@ -271,39 +265,6 @@ final class AISuggestionService {
         let confidence: Double
     }
 
-    private struct TopThreePromptPayload {
-        let tasks: [TaskDefinition]
-
-        var systemPrompt: String {
-            """
-            You rank the top 3 tasks for focus.
-            Return ONLY JSON, no markdown and no prose.
-            Schema:
-            {"items":[{"task_id":"UUID","rationale":"max 12 words","confidence":0.0}]}
-            Rules:
-            - Select 1 to 3 task_ids from provided tasks only.
-            - Prefer overdue or near-due work, then high priority.
-            """
-        }
-
-        var userPrompt: String {
-            let lines = tasks.map { task in
-                let due = task.dueDate?.ISO8601Format() ?? "none"
-                return """
-                {"task_id":"\(task.id.uuidString)","title":"\(escape(task.title))","priority":"\(task.priority.rawValue)","energy":"\(task.energy.rawValue)","due":"\(due)"}
-                """
-            }.joined(separator: "\n")
-
-            return "tasks:\n\(lines)"
-        }
-
-        /// Executes escape.
-        private func escape(_ value: String) -> String {
-            value
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
-        }
-    }
 
     private struct TopThreeLLMEnvelope: Decodable {
         let items: [TopThreeLLMItem]

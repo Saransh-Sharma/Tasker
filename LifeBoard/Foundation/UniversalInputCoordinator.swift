@@ -16,7 +16,7 @@ import Foundation
 /// 1. `CommandIntentAdapter` — exact commands and slash aliases
 /// 2. `TaskCaptureIntentAdapter` — structured task parsing
 /// 3. `CaptureLanguageIntentAdapter` — note/journal capture language
-/// 4. `SemanticIntentAdapter` — Foundation Models classifier (when available)
+/// 4. `SemanticIntentAdapter` — active EVA provider after explicit submission
 ///
 /// Unrecognized input falls through to `.answer` (EVA conversation).
 public actor UniversalInputCoordinator {

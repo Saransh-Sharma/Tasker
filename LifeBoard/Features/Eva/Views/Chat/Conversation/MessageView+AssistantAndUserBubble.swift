@@ -165,6 +165,16 @@ extension MessageView {
                     )
                     if isLiveOutput == false {
                         evidenceCitationRail(for: answer)
+                        spokenOutputControls(for: answer)
+                        if renderModel.contextReceipt != nil {
+                            Button("Context used", systemImage: "checkmark.shield") {
+                                showsContextReceipt = true
+                                Task { await ProductTelemetry.shared.record(.contextReceiptOpened) }
+                            }
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier("eva.contextReceipt.open")
+                        }
+                        inlineMemoryCandidate
                     }
                 }
 
@@ -175,6 +185,47 @@ extension MessageView {
             .padding(.vertical, Theme.Spacing.sm)
             .frame(maxWidth: messageMaxWidth, alignment: .leading)
             .padding(.trailing, oppositeSideInset)
+        }
+    }
+
+    @ViewBuilder
+    func spokenOutputControls(for text: String) -> some View {
+        if EvaCloudAccountState.shared.configuration?.ttsEnabled == true,
+           text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    if spokenOutput.activeText == text {
+                        switch spokenOutput.state {
+                        case .loading:
+                            ProgressView()
+                                .controlSize(.small)
+                            Button("Stop", systemImage: "stop.fill") { spokenOutput.stop() }
+                        case .playing:
+                            Button("Pause", systemImage: "pause.fill") { spokenOutput.pause() }
+                        case .paused:
+                            Button("Resume", systemImage: "play.fill") { spokenOutput.resume() }
+                            Button("Stop", systemImage: "stop.fill") { spokenOutput.stop() }
+                        case .failed:
+                            Button("Try again", systemImage: "arrow.clockwise") { spokenOutput.play(text: text) }
+                            if spokenOutput.requiresPaidRegeneration {
+                                Button("Regenerate · 1 credit") { paidSpeechRegenerationText = text }
+                            }
+                        case .idle:
+                            Button("Speak", systemImage: "speaker.wave.2.fill") { spokenOutput.play(text: text) }
+                        }
+                    } else {
+                        Button("Speak", systemImage: "speaker.wave.2.fill") { spokenOutput.play(text: text) }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Text(spokenOutput.disclosure)
+                    .font(.lifeboard(.caption2))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
+                    .accessibilityLabel("Spoken with an AI-generated voice")
+            }
+            .accessibilityElement(children: .contain)
         }
     }
 
@@ -204,21 +255,35 @@ extension MessageView {
             .padding(.leading, oppositeSideInset)
     }
 
-    @ViewBuilder
+    /// Renders assistant prose.
+    ///
+    /// Two things used to go wrong here while a reply was streaming, and both
+    /// came from this function.
+    ///
+    /// **Raw markdown reached the reader.** Streaming took a `Text` branch, so
+    /// `**bold**`, `###` and list bullets appeared as literal syntax and only
+    /// resolved into formatting once generation finished. `Markdown` renders
+    /// partial documents perfectly well — an unterminated `**` is simply shown as
+    /// text until its closing pair arrives — so there is no reason to withhold
+    /// formatting until the end, and the swap between the two branches was itself
+    /// a visible re-layout on the last frame.
+    ///
+    /// **The text flashed on every update.** `.id(renderModel.markdownSourceHash)`
+    /// derives identity from the content, so each new phrase gave the view a new
+    /// identity and SwiftUI tore down and rebuilt the whole subtree rather than
+    /// diffing it. `Markdown` is a plain value view holding `let content`; it
+    /// re-renders correctly when that content changes, and needs no identity
+    /// override at all. Do not reintroduce one keyed on content.
     func markdownText(_ text: String, color: Color) -> some View {
-        if isLiveOutput && runtimeRunning {
-            Text(text)
-                .lifeboardFont(.body)
-                .foregroundStyle(color)
-                .textSelection(.enabled)
-        } else {
-            Markdown(text)
-                .textSelection(.enabled)
-                .markdownTextStyle {
-                    ForegroundColor(color)
-                }
-                .id(renderModel.markdownSourceHash)
-        }
+        Markdown(text)
+            .textSelection(.enabled)
+            .markdownTextStyle {
+                ForegroundColor(color)
+            }
+            // Content grows from the top, so keep the block anchored there while
+            // it does; the default centre anchor makes settled lines drift.
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .animation(nil, value: text)
     }
 
     @ViewBuilder

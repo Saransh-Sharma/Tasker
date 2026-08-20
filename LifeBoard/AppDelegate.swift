@@ -188,12 +188,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     )
     private let metricKitSubscriber = MetricKitSubscriber()
 
-
     /// Executes application.
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         let launchInterval = PerformanceTrace.begin("AppLaunchCriticalPath")
         defer { PerformanceTrace.end(launchInterval) }
         HealthCoordinator.shared.prepareForLaunch()
+
+        EvaFeatureProviderRegistration.install()
 
         let launchArguments = ProcessInfo.processInfo.arguments
 
@@ -211,9 +212,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                 resetAppState()
             }
 
-            if launchArguments.contains("-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED") {
-                EvaActivationDefaultsStore.markCompleted()
-            }
+            EvaActivationDefaultsStore.stageForUITesting(arguments: launchArguments)
         }
 
         // Seeded outside the `-UI_TESTING` branch but after it, so a manual

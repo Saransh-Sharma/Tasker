@@ -4,11 +4,31 @@ import SwiftUI
 // view type stays inside the file-size ratchet's per-type ceiling — the
 // metric that predicts the `-Onone` launch crash.
 extension AdaptiveAtmosphere {
+    struct ScenicLayout {
+        let width: CGFloat
+        let minX: CGFloat
+        var midX: CGFloat { minX + width / 2 }
+    }
+
+    func scenicLayout(for size: CGSize) -> ScenicLayout {
+        let width = size.width >= 700 ? min(520, size.width) : size.width
+        return ScenicLayout(width: width, minX: (size.width - width) / 2)
+    }
+
     var motionPolicy: MotionPolicy {
         _ = powerRevision
-        return MotionPolicy.resolve(
-            reduceMotion: reduceMotion || VisualAppearanceFixture.active?.usesReducedMotion == true,
+        let context = ResolvedMotionContext.resolve(
+            systemReduceMotion: reduceMotion || VisualAppearanceFixture.active?.usesReducedMotion == true,
             reduceTransparency: reduceTransparency || VisualAppearanceFixture.active?.usesReducedTransparency == true,
+            comfortProfile: comfortProfile,
+            requestedAmbientTierID: requestedTier.rawValue,
+            sceneIsActive: scenePhase == .active
+        )
+        return MotionPolicy.resolve(
+            reduceMotion: context.effectiveReduceMotion,
+            reduceTransparency: context.reduceTransparency,
+            lowPowerMode: context.lowPowerMode,
+            thermalState: context.thermalState,
             sceneIsActive: scenePhase == .active,
             comfortProfile: comfortProfile,
             // `allowsIdleDrift`, not `suppressesAmbientDetail`: the latter now
@@ -38,10 +58,13 @@ extension AdaptiveAtmosphere {
     /// The ambient tier and parallax budget for this scene.
     var ambientPolicy: AmbientRenderingPolicy {
         _ = powerRevision
+        let effectiveReduceMotion = MotionOverride.resolve(
+            reduceMotion || VisualAppearanceFixture.active?.usesReducedMotion == true
+        )
         return AmbientRenderingPolicy.resolve(
             requestedTier: requestedTier,
             comfortProfile: comfortProfile,
-            reduceMotion: reduceMotion || VisualAppearanceFixture.active?.usesReducedMotion == true
+            reduceMotion: effectiveReduceMotion
         )
     }
 

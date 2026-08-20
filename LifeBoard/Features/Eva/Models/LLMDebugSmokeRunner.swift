@@ -95,7 +95,7 @@ enum LLMDebugSmokeRunner {
             modelName: ready.resolvedModelName,
             thread: thread,
             systemPrompt: smokeSystemPrompt,
-            profile: .chatProfile(for: resolvedModel, requestOptions: requestOptions),
+            profile: .debugSmoke,
             requestOptions: requestOptions
         )
         let rawOutput = evaluator.lastRawOutput.isEmpty ? visibleOutput : evaluator.lastRawOutput

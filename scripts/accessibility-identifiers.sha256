@@ -49,5 +49,80 @@
 # cannot resolve. `"\(identifierPrefix).\(item.id)"` remains in the set:
 # `SignalStrip` is kept in LifeBoardUI for future use, just no longer adopted
 # on Home.
-count=775
-sha256=b95063fd3b382f27b346b7337a7449e2349282727009c671e325e48154bf4a85
+# 2026-08-14, Life Map onboarding: 775 -> 845. Additions only, no removals.
+#
+# The Life Map flow shipped with four raw string literals and no per-step or
+# per-choice identifiers at all, so every UI assertion against it had to reach
+# for a localized label. Labels are not a test contract: they move with copy
+# edits and break under RTL and non-English runs. `LifeMapAccessibilityID` now
+# covers all eleven steps plus the controls, and derives `step(_:)` from
+# `LifeMapOnboardingStep` so a new step cannot be added without one.
+#
+# `identifierSuffix` is spelled out per case rather than derived from
+# `String(describing:)` on purpose — the latter would silently rename every
+# identifier if a case were renamed, turning a source refactor into a broken
+# UI-test contract with no compiler error.
+#
+# 2026-08-14, dead nine-step flow removed: 845 -> 818. Removals only, zero
+# additions — the 27 that went are exactly the `AppOnboardingAccessibilityID.*`
+# entries plus the three interpolated day-shape/permission identifiers that only
+# `AppOnboardingJourneyView` declared.
+#
+# The removal was diffed before deleting, per the standing hazard that dead UI
+# stays reachable by identifier at runtime even with zero Swift references. Two
+# live, non-onboarding UI test files — `Base/BaseUITest.swift` and
+# `AppStoreScreenshotUITests.swift` — do still reference the *test-side*
+# `AccessibilityIdentifiers.Onboarding` constants. They keep compiling (those are
+# test-target string constants with no app dependency), but they now match
+# nothing at runtime. That was already true before this deletion: the Life Map
+# flow has been the presented flow for a while and never declared
+# `onboarding.flow`. Rewiring those two files to the `LifeMapAccessibilityID`
+# namespace is the follow-up.
+# 2026-08-18, Eva chat escape hatches: 818 -> 820. Three additions, one removal.
+#
+#   + "chat.composer.dismiss_keyboard"  keyboard accessory Done on Eva's composer
+#   + "eva.chat.back"                   back-to-Home control on Eva's top strip
+#   + "eva.privacy.badge"               the collapsed privacy disclosure
+#   - "chat.activation_starter.\(prompt.id)"
+#
+# The removal is a move, not a loss: the activation starters left the empty
+# state's centred carousel for the composer's own rail, where they already
+# carried "chat.activation.composer_starter.\(prompt.id)". The three additions
+# are the controls that make Eva escapable — the shell hides the compact dock
+# while Eva's composer is focused, so with the keyboard up there was previously
+# no control on screen that could dismiss it or leave the screen.
+
+# 2026-08-19, EVA onboarding merged into app onboarding. Removals:
+# `LifeMapAccessibilityID.step(.permissionsPowerUp)` and `.step(.evaPowerUp)` —
+# both steps are gone, replaced by `.step(.calendar)`, `.step(.health)`,
+# `.step(.reminders)`, `.step(.eva)`, plus the closing `.step(.tour)` and
+# `.step(.firstWin)`. `LifeMapAccessibilityID.permission(kind.id)` and
+# `permissionSkip(kind.id)` are replaced by concrete-kind spellings; the
+# *resolved* values (`onboarding.permission.calendar`, ...) are unchanged, so the
+# UI-test contract in `AccessibilityIdentifiers.Onboarding.permission(_:)` still
+# matches. Additions cover the calendar scoping list, the Health write-back
+# toggles, EVA's consent rows, and the staged first-win prompts.
+
+# 2026-08-19 — the v6 "Life Weave" first run.
+# Additive only. Every new identifier is namespaced `onboarding.lifeweave.*`
+# (`LifeWeaveAccessibilityID`), so no v5 `onboarding.lifemap.*` value moved and
+# the existing Life Map UI-test contract still matches exactly. The two flows
+# ship side by side behind `feature.onboarding.life_weave_v6`, which is why both
+# identifier families are present at once rather than one replacing the other.
+# `LifeWeaveStep.identifierSuffix` is hand-written for the same reason its v5
+# counterpart is: a renamed case must not be able to rename a published value.
+# Also adds `onboarding.tip.<tip>` for the four one-time root cues that replaced
+# v6's root tour — Home, Plan, Track and Eva. Insights has no cue by design.
+
+# 2026-08-20 — post-onboarding Setup Center. Twelve additions, zero removals:
+# the Home card's open/dismiss/card controls, Setup Center root and connector
+# actions, Health disclosure, and EVA sign-in/grant/confirm/error controls.
+# These identifiers replace label-based UI-test targeting for optional setup.
+
+# 2026-08-20 — EVA trust controls. Two additions, zero removals:
+# `eva.contextReceipt.open` opens the immutable per-message context receipt and
+# `eva.memoryCandidate.inline` identifies the explicit Save/Edit/Later/Dismiss
+# proposal boundary. Neither identifier contains a source-record identifier.
+
+count=869
+sha256=e6fdca5be9c7b004229e94fc496d44d58f5b6fbad0fed44fd04d2b6ee9c1d945

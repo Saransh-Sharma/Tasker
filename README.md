@@ -137,10 +137,12 @@ unlock, trash and restoration, batch actions, and EVA-assisted work.
 
 ## EVA: a Chief of Staff, not an autopilot
 
-EVA uses local model routing and deterministic fallbacks to answer questions,
-summarize the day, retrieve relevant task context, break down work, and prepare
-reviewable proposals. Model output is bounded by schemas and canonical action
-pipelines.
+EVA uses an explicit provider seam: optional Cloud EVA runs Luna through
+LifeBoard's privacy-scoped service, Offline EVA uses installed MLX models, and
+deterministic behavior keeps core workflows available without either provider.
+It can answer questions, summarize the day, retrieve authorized context, break
+down work, and prepare reviewable proposals. Cloud and local model output remains
+bounded by schemas and canonical action pipelines.
 
 Meaningful changes follow:
 
@@ -165,6 +167,8 @@ Watch, notification, Spotlight, or lock-screen disclosure.
 - [User Operating Guides](docs/guides/README.md)
 - [Marketing Site Guide](docs/design/MARKETING_SITE_GUIDE.md)
 - [Future LifeOS Blueprint](docs/product/LIFEOS_FUTURE_BLUEPRINT.md)
+- [Cloud EVA Product and Technical Guide](docs/eva/CLOUD_EVA_PRODUCT_AND_TECHNICAL_GUIDE.md)
+- [EVA and the Ultimate Life OS Roadmap](docs/eva/LIFE_OS_PRODUCT_ROADMAP.md)
 - [Product Requirements](PRODUCT_REQUIREMENTS_DOCUMENT.md)
 - [Current Architecture](docs/architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md)
 - [Design Contract](DESIGN.md)

@@ -25,8 +25,6 @@ final class AppOnboardingCoordinator: NSObject {
 
     var onboardingHost: UIHostingController<AnyView>?
 
-    var promptHost: UIHostingController<AnyView>?
-
     var hasEvaluatedLaunch = false
 
     var presentationQueue = OnboardingPresentationQueue()
@@ -35,101 +33,177 @@ final class AppOnboardingCoordinator: NSObject {
 
     let evaAppManager = AppManager()
 
-    lazy var viewModel = OnboardingFlowModel(
-        stateStore: stateStore,
-        notificationService: CompositionRoot.shared.notificationService,
-        calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService,
-        fetchLifeAreas: { [weak self] in
-            guard let self else { return [] }
-            return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
-        },
-        fetchProjects: { [weak self] in
-            guard let self else { return [] }
-            return try await self.presentationDependencyContainer.coordinator.projectRepository.fetchAllProjectsAsync()
-        },
-        fetchHabit: { [weak self] habitID in
-            guard let self else { return nil }
-            let habits = try await self.presentationDependencyContainer.coordinator.manageHabits.listAsync()
-            return habits.first(where: { $0.id == habitID })
-        },
-        fetchTask: { [weak self] taskID in
-            guard let self else { return nil }
-            return try await self.presentationDependencyContainer.coordinator.taskDefinitionRepository.fetchTaskDefinitionAsync(id: taskID)
-        },
-        createLifeArea: { [weak self] template in
-            guard let self else { return LifeArea(name: template.name, color: template.colorHex, icon: template.icon) }
-            return try await self.presentationDependencyContainer.coordinator.manageLifeAreas.createAsync(
-                name: template.name,
-                color: template.colorHex,
-                icon: template.icon
+    /// One commit path for both journeys.
+    ///
+    /// v5 and v6 ask different questions, but they write the same canonical
+    /// records — areas, working hours, Home layout, profile, first capture,
+    /// completion — and a second implementation of that sequence would be the
+    /// one that eventually loses somebody's first task. The v6 model projects
+    /// its draft onto `LifeMapDraft` through `LifeWeaveCommitBridge` rather than
+    /// forking this.
+    lazy var commitCoordinator: LifeMapCommitCoordinator = {
+        LifeMapCommitCoordinator(
+            dependencies: .init(
+                fetchLifeAreas: { [weak self] in
+                    guard let self else { return [] }
+                    return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
+                },
+                createLifeArea: { [weak self] template in
+                    guard let self else {
+                        return LifeArea(name: template.name, color: template.colorHex, icon: template.icon)
+                    }
+                    return try await self.presentationDependencyContainer.coordinator.manageLifeAreas.createAsync(
+                        name: template.name,
+                        color: template.colorHex,
+                        icon: template.icon
+                    )
+                },
+                updateLifeArea: { [weak self] area in
+                    guard let self else { return area }
+                    return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.updateAsync(area)
+                },
+                fetchTask: { [weak self] id in
+                    guard let self else { return nil }
+                    return try await self.presentationDependencyContainer.coordinator.taskDefinitionRepository.fetchTaskDefinitionAsync(id: id)
+                },
+                createTask: { [weak self] request in
+                    guard let self else { return request.toTaskDefinition(projectName: request.projectName) }
+                    return try await self.presentationDependencyContainer.coordinator.createTaskDefinition.executeAsync(request: request)
+                },
+                fetchReflection: { [weak self] id in
+                    guard let self else { return nil }
+                    return try await self.presentationDependencyContainer.coordinator.reflectionNoteRepository
+                        .fetchNotesAsync(query: ReflectionNoteQuery(limit: 200))
+                        .first(where: { $0.id == id })
+                },
+                saveReflection: { [weak self] note in
+                    guard let self else { return note }
+                    return try await self.presentationDependencyContainer.coordinator.reflectionNoteRepository.saveNoteAsync(note)
+                },
+                saveWorkingHours: { profile in
+                    guard let container = await MainActor.run(body: {
+                        (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer
+                    }) else { return }
+                    try await CoreDataPlanningRepository(container: container).saveWorkingHoursProfile(profile)
+                },
+                fetchHomeLayout: {
+                    guard let container = await MainActor.run(body: {
+                        (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer
+                    }) else { return nil }
+                    return try await CoreDataDashboardLayoutRepository(container: container).fetchHome()
+                },
+                saveHomeLayout: { layout in
+                    guard let container = await MainActor.run(body: {
+                        (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer
+                    }) else { return }
+                    try await CoreDataDashboardLayoutRepository(container: container).saveHome(layout)
+                }
+            ),
+            stateStore: stateStore
+        )
+    }()
+
+    lazy var lifeMapModel: LifeMapOnboardingModel = {
+        LifeMapOnboardingModel(
+            stateStore: stateStore,
+            commitCoordinator: commitCoordinator,
+            feedback: feedbackController,
+            // Merge mode preseeds from the areas the user already has, so the
+            // commit upserts their real records instead of creating near-duplicates.
+            existingLifeAreas: { [weak self] in
+                guard let self else { return [] }
+                return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
+            },
+            powerUps: Self.makePowerUpDependencies(
+                calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService
             )
-        },
-        createProject: { [weak self] draft, lifeArea in
-            guard let self else { return Project(lifeAreaID: lifeArea.id, name: draft.name, projectDescription: draft.summary) }
-            return try await self.presentationDependencyContainer.coordinator.manageProjects.createProjectAsync(
-                request: CreateProjectRequest(
-                    name: draft.name,
-                    description: draft.summary,
-                    lifeAreaID: lifeArea.id
-                )
+        )
+    }()
+
+    /// The v6 journey. Same commit path, same power-up services, same merge-mode
+    /// preseed — only the questions and the map differ.
+    lazy var lifeWeaveModel: LifeWeaveOnboardingModel = {
+        LifeWeaveOnboardingModel(
+            stateStore: stateStore,
+            commitCoordinator: commitCoordinator,
+            feedback: feedbackController,
+            existingLifeAreas: { [weak self] in
+                guard let self else { return [] }
+                return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
+            },
+            powerUps: Self.makePowerUpDependencies(
+                calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService
             )
-        },
-        createHabit: { [weak self] request in
-            guard let self else {
-                return HabitDefinitionRecord(
-                    id: request.id,
-                    lifeAreaID: request.lifeAreaID,
-                    projectID: request.projectID,
-                    title: request.title,
-                    habitType: CreateHabitUseCase.habitTypeString(kind: request.kind, trackingMode: request.trackingMode),
-                    kindRaw: request.kind.rawValue,
-                    trackingModeRaw: request.trackingMode.rawValue,
-                    iconSymbolName: request.icon.symbolName,
-                    iconCategoryKey: request.icon.categoryKey,
-                    targetConfigData: try? JSONEncoder().encode(request.targetConfig),
-                    metricConfigData: try? JSONEncoder().encode(request.metricConfig),
-                    createdAt: request.createdAt,
-                    updatedAt: request.createdAt
-                )
+        )
+    }()
+
+    /// The real services behind the power-up chain.
+    ///
+    /// Calendar deliberately uses `requestAccessAsync()` rather than
+    /// `PermissionPrimingCoordinator.performRequest`: the coordinator's calendar
+    /// seam is `() -> Void`, so the grant outcome it reports is no outcome at
+    /// all. Health passes `enableWriteBack: false` — onboarding asks about
+    /// reading and writing as two separate questions.
+    /// Waits for the calendar refresh to settle, with a ceiling.
+    ///
+    /// Bounded rather than open-ended: a slow or failing EventKit fetch must
+    /// leave the user on a step that says "no calendars" and lets them continue,
+    /// never on one that hangs.
+    @MainActor
+    private static func awaitLoadedCalendars(
+        from service: CalendarIntegrationService,
+        timeout: TimeInterval = 3
+    ) async -> [CalendarSourceSnapshot] {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if service.snapshot.availableCalendars.isEmpty == false {
+                return service.snapshot.availableCalendars
             }
-            return try await self.presentationDependencyContainer.coordinator.createHabit.executeAsync(request: request)
-        },
-        createTask: { [weak self] request in
-            guard let self else { return request.toTaskDefinition(projectName: request.projectName) }
-            return try await self.presentationDependencyContainer.coordinator.createTaskDefinition.executeAsync(request: request)
-        },
-        setTaskCompletion: { [weak self] taskID, isComplete in
-            guard let self else {
-                var task = TaskDefinition(id: taskID, title: "Task")
-                task.isComplete = isComplete
-                task.dateCompleted = isComplete ? Date() : nil
-                return task
+            if service.snapshot.isLoading == false, service.snapshot.errorMessage != nil { break }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return service.snapshot.availableCalendars
+    }
+
+    @MainActor
+    private static func makePowerUpDependencies(
+        calendarService: CalendarIntegrationService
+    ) -> LifeMapPowerUpDependencies {
+        LifeMapPowerUpDependencies(
+            requestCalendarAccess: { await calendarService.requestAccessAsync() },
+            availableCalendars: {
+                // `availableCalendars` is populated asynchronously, inside
+                // `refreshContext`'s `fetchCalendars` callback — reading the
+                // snapshot straight after `refreshAuthorizationStatus()` returns
+                // the pre-grant value, which is empty, and the step then says
+                // "No calendars found" on a device that has several.
+                calendarService.refreshAuthorizationStatus()
+                calendarService.refreshContext(reason: "onboarding_calendar_step")
+                return await Self.awaitLoadedCalendars(from: calendarService)
+            },
+            updateSelectedCalendarIDs: { ids in
+                calendarService.updateSelectedCalendarIDs(ids)
+            },
+            upcomingEventCount: {
+                calendarService.snapshot.selectedCalendarIDs.isEmpty
+                    ? nil : calendarService.snapshot.eventsInRange.count
+            },
+            requestNotificationAccess: {
+                guard let service = CompositionRoot.shared.notificationService else { return false }
+                return await service.requestPermissionAsync()
+            },
+            connectHealth: { domains, enableWriteBack in
+                await HealthCoordinator.shared.connectionStore.connect(
+                    domains: domains,
+                    enableWriteBack: enableWriteBack
+                )
+            },
+            setHealthWriteEnabled: { enabled, domain in
+                await HealthCoordinator.shared.connectionStore.setWriteEnabled(enabled, for: domain)
             }
-            return try await self.presentationDependencyContainer.coordinator.completeTaskDefinition.setCompletionAsync(taskID: taskID, to: isComplete)
-        },
-        resolveHabitOccurrence: { [weak self] habitID, action, date in
-            guard let self else { return }
-            try await self.presentationDependencyContainer.coordinator.resolveHabitOccurrence.executeAsync(
-                habitID: habitID,
-                action: action,
-                on: date,
-                mutationContext: HabitMutationContext(source: "onboarding")
-            )
-        },
-        saveWorkingHours: { profile in
-            guard let container = await MainActor.run(body: {
-                (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer
-            }) else { return }
-            try await CoreDataPlanningRepository(container: container).saveWorkingHoursProfile(profile)
-        },
-        saveHomeLayout: { layout in
-            guard let container = await MainActor.run(body: {
-                (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer
-            }) else { return }
-            try await CoreDataDashboardLayoutRepository(container: container).saveHome(layout)
-        },
-        evaAppManager: evaAppManager
-    )
+        )
+    }
+
 
     init?(
         hostAdapter: UIViewController & AppOnboardingHostAdapter,

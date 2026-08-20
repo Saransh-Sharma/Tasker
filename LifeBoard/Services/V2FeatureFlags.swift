@@ -114,14 +114,6 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.journal_parity_v1") }
     }
 
-    /// Debug/AB path: phrase Eva's journal answers with the on-device Apple
-    /// FoundationModels layer when available. Never the only path — the
-    /// deterministic evidence answer always remains the fallback.
-    public static var evaFoundationModelsResponderEnabled: Bool {
-        get { stagedFeatureEnabled(key: "feature.life_os.eva_fm_responder_v1", argument: "EVA_FM_RESPONDER_V1") }
-        set { setStagedFeature(newValue, key: "feature.life_os.eva_fm_responder_v1") }
-    }
-
     public static var knowledgeNotesV1Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_v1", argument: "KNOWLEDGE_NOTES_V1") }
         set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_v1") }
@@ -257,6 +249,14 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.track_behavior_flagship_v1") }
     }
 
+    /// The v6 "Life Weave" first run. This is a presentation kill switch, not a
+    /// route back into the retired v5 journey.
+    public static var onboardingLifeWeaveV6Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.onboarding.life_weave_v6", argument: "ONBOARDING_V6")
+            && AppRuntimeConfigurationStore.current.onboardingLifeWeaveV6Enabled }
+        set { setStagedFeature(newValue, key: "feature.onboarding.life_weave_v6") }
+    }
+
     /// Route-level Phase 1 gate. New Plan roots and their stores are composed
     /// only when both halves of the execution flagship are enabled. This is
     /// deliberately stronger than sprinkling flags over individual buttons:
@@ -327,8 +327,8 @@ public enum V2FeatureFlags {
         // Universal input. Routing ships on so the home capture box stops
         // routing every typed line to Eva and instead opens the right
         // activity. Live dictation ships on (SpeechAnalyzer is the modern
-        // path on iOS 26). The semantic classifier (Apple Foundation Models
-        // + MLX-LLM-JSON fallback) ships on so paraphrases resolve without
+        // path on iOS 26). Submitted EVA classification ships on so
+        // paraphrases resolve without
         // an exact command match. Each has a staged-feature rollback path.
         "feature.universal_input.routing_v1": true,
         "feature.universal_input.dictation_v1": true,
@@ -337,7 +337,7 @@ public enum V2FeatureFlags {
         // path whose off state preserves canonical records and deterministic
         // behavior.
         "feature.life_os.track_behavior_flagship_v1": true,
-        "feature.life_os.eva_fm_responder_v1": true
+        "feature.onboarding.life_weave_v6": true
     ]
 
     private static func stagedFeatureEnabled(key: String, argument: String) -> Bool {
@@ -683,7 +683,7 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.universal_input.dictation_v1") }
     }
 
-    /// Gate for Foundation Models semantic classifier in the intent pipeline.
+    /// Gate for EVA semantic classification after explicit submission.
     public static var universalInputSemanticClassifierEnabled: Bool {
         get { stagedFeatureEnabled(key: "feature.universal_input.semantic_v1", argument: "UNIVERSAL_INPUT_SEMANTIC") }
         set { setStagedFeature(newValue, key: "feature.universal_input.semantic_v1") }

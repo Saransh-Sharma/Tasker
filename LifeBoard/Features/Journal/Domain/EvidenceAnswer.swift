@@ -36,9 +36,9 @@ public struct EvidenceBackedAnswer: Identifiable, Equatable, Sendable {
     }
 }
 
-/// Host apps plug their own inference here: OffRecord and LifeBoard both get
-/// the iOS 26 FoundationModels implementation for free; LifeBoard can bridge
-/// its MLX pipeline behind the same seam.
+/// Host apps plug their own inference here. Retrieval, privacy gates, and
+/// citation validation remain inside JournalFeature; the host only phrases
+/// an already-bounded evidence projection.
 public protocol EvidenceResponding: Sendable {
     /// Returns nil when the responder cannot improve on the deterministic
     /// fallback (model unavailable, empty evidence, no valid citations).
@@ -48,6 +48,30 @@ public protocol EvidenceResponding: Sendable {
         persona: LifeBoardDomain.AssistantPersona,
         fallback: EvidenceBackedAnswer
     ) async throws -> EvidenceBackedAnswer?
+}
+
+public actor EvidenceResponderRegistry {
+    public static let shared = EvidenceResponderRegistry()
+
+    private var responder: (any EvidenceResponding)?
+
+    public func register(_ responder: any EvidenceResponding) {
+        self.responder = responder
+    }
+
+    public func response(
+        question: String,
+        evidence: [EvidenceReference],
+        persona: LifeBoardDomain.AssistantPersona,
+        fallback: EvidenceBackedAnswer
+    ) async throws -> EvidenceBackedAnswer? {
+        try await responder?.respond(
+            question: question,
+            evidence: evidence,
+            persona: persona,
+            fallback: fallback
+        )
+    }
 }
 
 /// Deterministic, model-free answer assembly: surfaces the strongest

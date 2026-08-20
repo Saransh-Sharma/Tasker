@@ -102,7 +102,6 @@ let package = Package(
             sources: [
                 "Domain/AppLock.swift",
                 "Domain/EvidenceAnswer.swift",
-                "Domain/FoundationModelsEvidenceResponder.swift",
                 "Domain/HybridSearch.swift",
                 "Domain/JournalEvidenceService.swift",
                 "Domain/MemoryChunker.swift",

@@ -1,3 +1,4 @@
+import Foundation
 import LifeBoardTokens
 
 /// The comfort and readiness gate for every Metal effect in the app.
@@ -37,8 +38,30 @@ extension SignatureShaders {
     /// which cannot import the app target — can gate its own effects on the same
     /// fact. Without this, the package's paper grain reached straight for
     /// `ShaderFunction(library: .default, …)` with no readiness check at all.
-    static func publishEngineReadiness() {
-        ShaderReadiness.publishEngineReady(performancePermits && preloadDidFinish)
+    static func publishEngineReadiness(reason: String? = nil) {
+        let isReady = performancePermits && preloadDidFinish
+        ShaderReadiness.publishEngineReady(isReady, reason: isReady ? nil : (reason ?? preloadBlockReason))
+    }
+
+    /// Why `performancePermits` is currently false. Reported to the DEBUG motion
+    /// diagnostics overlay so a dark screen can be attributed rather than guessed at.
+    static var performanceBlockReason: String {
+        if V2FeatureFlags.signatureShadersEnabled == false { return "Signature shaders flag is off." }
+        if ProcessInfo.processInfo.isLowPowerModeEnabled { return "Low Power Mode." }
+        switch ProcessInfo.processInfo.thermalState {
+        case .serious: return "Thermal state: serious."
+        case .critical: return "Thermal state: critical."
+        default: return "Performance gate closed."
+        }
+    }
+
+    private static var preloadBlockReason: String {
+        switch preloadState {
+        case .idle: "Shader warm-up has not run yet."
+        case .loading: "Shader warm-up in progress."
+        case .ready: performanceBlockReason
+        case .unavailable(let reason): reason
+        }
     }
 
     /// Called by the shell when the comfort profile changes.

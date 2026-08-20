@@ -21,6 +21,22 @@ struct LLMChatPromptSnapshot: Sendable {
     let messages: [Chat.Message]
     let systemPromptCharacterCount: Int
     let buildDurationMs: Int
+    let cloudContext: [EvaCloudContextSection]
+    let userInstructions: EvaUserInstructions?
+
+    init(
+        messages: [Chat.Message],
+        systemPromptCharacterCount: Int,
+        buildDurationMs: Int,
+        cloudContext: [EvaCloudContextSection] = [],
+        userInstructions: EvaUserInstructions? = nil
+    ) {
+        self.messages = messages
+        self.systemPromptCharacterCount = systemPromptCharacterCount
+        self.buildDurationMs = buildDurationMs
+        self.cloudContext = cloudContext
+        self.userInstructions = userInstructions
+    }
 
     var messageCount: Int {
         messages.count
@@ -61,7 +77,7 @@ final class LLMGenerationCancellationToken: Sendable {
     }
 }
 
-private actor LLMGenerationSlot {
+actor LLMGenerationSlot {
     private var isOccupied = false
     private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, Error>)] = []
 
@@ -106,7 +122,7 @@ private actor LLMGenerationSlot {
     }
 }
 
-private struct LLMGenerationSlotLease: Sendable {
+struct LLMGenerationSlotLease: Sendable {
     fileprivate let slot: LLMGenerationSlot
 
     func release() async {
@@ -139,8 +155,8 @@ class LLMEvaluator {
     var runtimePhase: LLMChatRuntimePhase = .idle
     var answerPhaseSignalCount: Int = 0
     var loadedModelName: String?
-    private(set) var lastSettledPhraseCharacterCount = 0
-    private(set) var phraseSettlementSequence = 0
+    var lastSettledPhraseCharacterCount = 0
+    var phraseSettlementSequence = 0
 
     var elapsedTime: TimeInterval? {
         guard let startTime else { return nil }
@@ -151,18 +167,69 @@ class LLMEvaluator {
         startTime
     }
 
-    private var startTime: Date?
-    private var generationCancellationToken = LLMGenerationCancellationToken()
+    var startTime: Date?
+    var generationCancellationToken = LLMGenerationCancellationToken()
     private var didEmitAnswerPhaseSignalForRun = false
-    private var pendingVisibleOutput = ""
-    private var cumulativePhraseSettler = CumulativePhraseSettler()
+    var pendingVisibleOutput = ""
+    var cumulativePhraseSettler = CumulativePhraseSettler()
     private let inferenceEngine: LLMInferenceService
-    private let generationSlot = LLMGenerationSlot()
+    let providerRouter: EvaProviderRouter
+    let generationSlot = LLMGenerationSlot()
 
     var modelConfiguration = ModelConfiguration.defaultModel
 
-    init(inferenceEngine: LLMInferenceService = LLMInferenceService()) {
+    init(
+        inferenceEngine: LLMInferenceService = LLMInferenceService(),
+        providerRouter: EvaProviderRouter = .shared
+    ) {
         self.inferenceEngine = inferenceEngine
+        self.providerRouter = providerRouter
+    }
+
+    /// Shapes a thread into a prompt snapshot and delegates to the routing entry
+    /// point.
+    ///
+    /// `modelName` may be the cloud routing sentinel rather than an installed MLX
+    /// model, so this must not require a local `ModelConfiguration`. It previously
+    /// did, and every caller on this overload — daily brief, top three, task
+    /// breakdown, field suggestion, planner, plan repair, Shortcuts — returned
+    /// "Failed: model not found" the moment Cloud EVA was selected, silently
+    /// falling back to heuristics without ever reaching the network. The default
+    /// configuration stands in only to shape messages; whether any of that reaches
+    /// a local runtime is decided by the provider branch in the snapshot overload,
+    /// which still refuses an unknown model on the offline path.
+    func generate(
+        modelName: String,
+        thread: Thread,
+        systemPrompt: String,
+        profile: LLMGenerationProfile = .chat,
+        requestOptions: LLMGenerationRequestOptions? = nil,
+        cloudContext: [EvaCloudContextSection] = [],
+        turnRuntime: EvaTurnRuntime? = nil,
+        onFirstToken: (@MainActor @Sendable () -> Void)? = nil
+    ) async -> String {
+        lastGenerationTimedOut = false
+        lastTerminationReason = nil
+        lastRawOutput = ""
+        lastGeneratedTokenCount = 0
+        lastVisibleCharacterCount = 0
+        lastSanitizedTemplateArtifacts = false
+        let model = ModelConfiguration.getModelByName(modelName) ?? .defaultModel
+        let startedAt = Date()
+        let snapshot = LLMChatPromptSnapshot(
+            messages: model.getChatMessages(thread: thread, systemPrompt: systemPrompt),
+            systemPromptCharacterCount: systemPrompt.count,
+            buildDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000),
+            cloudContext: cloudContext
+        )
+        return await generate(
+            modelName: modelName,
+            promptSnapshot: snapshot,
+            profile: profile,
+            requestOptions: requestOptions,
+            turnRuntime: turnRuntime,
+            onFirstToken: onFirstToken
+        )
     }
 
     /// Executes switchModel.
@@ -277,111 +344,8 @@ class LLMEvaluator {
         )
     }
 
-    /// Executes generate.
-    func generate(
-        modelName: String,
-        thread: Thread,
-        systemPrompt: String,
-        profile: LLMGenerationProfile = .chat,
-        requestOptions: LLMGenerationRequestOptions? = nil,
-        onFirstToken: (@MainActor @Sendable () -> Void)? = nil
-    ) async -> String {
-        lastGenerationTimedOut = false
-        lastTerminationReason = nil
-        lastRawOutput = ""
-        lastGeneratedTokenCount = 0
-        lastVisibleCharacterCount = 0
-        lastSanitizedTemplateArtifacts = false
-
-        guard let model = ModelConfiguration.getModelByName(modelName) else {
-            runtimePhase = .failed
-            output = "Failed: model not found"
-            return output
-        }
-
-        let promptBuildStartedAt = Date()
-        let chatMessages = model.getChatMessages(thread: thread, systemPrompt: systemPrompt)
-        let promptSnapshot = LLMChatPromptSnapshot(
-            messages: chatMessages,
-            systemPromptCharacterCount: systemPrompt.count,
-            buildDurationMs: Int(Date().timeIntervalSince(promptBuildStartedAt) * 1_000)
-        )
-
-        return await generate(
-            modelName: modelName,
-            promptSnapshot: promptSnapshot,
-            profile: profile,
-            requestOptions: requestOptions,
-            onFirstToken: onFirstToken
-        )
-    }
-
-    func generate(
-        modelName: String,
-        promptSnapshot: LLMChatPromptSnapshot,
-        profile: LLMGenerationProfile = .chat,
-        requestOptions: LLMGenerationRequestOptions? = nil,
-        onFirstToken: (@MainActor @Sendable () -> Void)? = nil
-    ) async -> String {
-        lastGenerationTimedOut = false
-        lastTerminationReason = nil
-        lastRawOutput = ""
-        lastGeneratedTokenCount = 0
-        lastVisibleCharacterCount = 0
-        lastSanitizedTemplateArtifacts = false
-
-        let timeoutMs = UInt64(max(profile.timeoutSeconds, 0) * 1_000)
-        guard ModelConfiguration.getModelByName(modelName) != nil else {
-            runtimePhase = .failed
-            output = "Failed: model not found"
-            return output
-        }
-
-        logWarning(
-            event: "chat_prompt_build_ms",
-            message: "Built prompt history for generation",
-            fields: [
-                "model_name": modelName,
-                "duration_ms": String(promptSnapshot.buildDurationMs),
-                "message_count": String(promptSnapshot.messageCount),
-                "system_prompt_chars": String(promptSnapshot.systemPromptCharacterCount),
-                "prompt_history_chars": String(promptSnapshot.promptHistoryCharacterCount),
-                "final_prompt_chars": String(promptSnapshot.promptCharacterCount)
-            ]
-        )
-
-        guard timeoutMs > 0 else {
-            return await runGeneration(
-                modelName: modelName,
-                chatMessages: promptSnapshot.messages,
-                profile: profile,
-                requestOptions: requestOptions,
-                onFirstToken: onFirstToken
-            )
-        }
-
-        let (result, timedOut) = await LLMProjectionTimeout.execute(
-            timeoutMs: timeoutMs,
-            onTimeout: { [weak self] in
-                await self?.cancelGeneration(reason: "generation_timeout")
-            }
-        ) { [weak self] in
-            guard let self else { return "{}" }
-            return await self.runGeneration(
-                modelName: modelName,
-                chatMessages: promptSnapshot.messages,
-                profile: profile,
-                requestOptions: requestOptions,
-                onFirstToken: onFirstToken
-            )
-        }
-
-        lastGenerationTimedOut = timedOut
-        return result
-    }
-
     /// Executes runGeneration.
-    private func runGeneration(
+    func runGeneration(
         modelName: String,
         chatMessages: [Chat.Message],
         profile: LLMGenerationProfile,
@@ -576,13 +540,13 @@ class LLMEvaluator {
         }
     }
 
-    private func enqueueVisibleOutput(_ text: String) {
+    func enqueueVisibleOutput(_ text: String) {
         pendingVisibleOutput = text
         let update = cumulativePhraseSettler.ingest(cumulativeText: text)
         publishSettlement(update)
     }
 
-    private func flushPendingVisibleOutput(force: Bool) {
+    func flushPendingVisibleOutput(force: Bool) {
         guard force else { return }
         let update = cumulativePhraseSettler.complete(cumulativeText: pendingVisibleOutput)
         publishSettlement(update)

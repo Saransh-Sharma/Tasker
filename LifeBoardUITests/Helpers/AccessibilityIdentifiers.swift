@@ -341,6 +341,80 @@ enum AccessibilityIdentifiers {
 
     // MARK: - Onboarding
 
+    /// The Life Map flow — the one the app actually presents.
+    ///
+    /// Mirrors `LifeMapAccessibilityID` in the app target. The `Onboarding` enum
+    /// below still describes the deleted nine-step flow; its constants compile
+    /// (they are plain strings) but match nothing at runtime. They are kept only
+    /// until the two files that still use them — `BaseUITest` and
+    /// `AppStoreScreenshotUITests` — are migrated.
+    /// The v6 "Life Weave" first run. A separate family from `LifeMap` on
+    /// purpose: both flows ship at once behind
+    /// `feature.onboarding.life_weave_v6`, so nothing here replaces a v5 value.
+    enum LifeWeave {
+        static let flow = "onboarding.lifeweave.flow"
+        static let canvas = "onboarding.lifeweave.canvas"
+        static let progress = "onboarding.lifeweave.progress"
+        static let back = "onboarding.lifeweave.back"
+        static let error = "onboarding.lifeweave.error"
+        static let primaryAction = "onboarding.lifeweave.primary"
+        static let secondaryAction = "onboarding.lifeweave.secondary"
+        static let captureField = "onboarding.lifeweave.capture.field"
+        static let revealReceipt = "onboarding.lifeweave.reveal.receipt"
+
+        static func step(_ suffix: String) -> String { "onboarding.lifeweave.step.\(suffix)" }
+        static func intent(_ id: String) -> String { "onboarding.lifeweave.intent.\(id)" }
+        static func lifeArea(_ id: String) -> String { "onboarding.lifeweave.area.\(id)" }
+        static func primaryArea(_ id: String) -> String { "onboarding.lifeweave.primaryArea.\(id)" }
+        static func dayShapePreset(_ id: String) -> String { "onboarding.lifeweave.preset.\(id)" }
+        static func captureKind(_ id: String) -> String { "onboarding.lifeweave.capture.kind.\(id)" }
+    }
+
+    enum LifeMap {
+        static let flow = "onboarding.lifeMap.flow"
+        static let canvas = "onboarding.lifeMap.canvas"
+        static let progress = "onboarding.lifeMap.progress"
+        static let back = "onboarding.lifeMap.back"
+        static let primaryAction = "onboarding.primaryAction"
+        static let secondaryAction = "onboarding.secondaryAction"
+        static let error = "onboarding.error"
+
+        static let captureField = "onboarding.capture.field"
+        static let captureInterpret = "onboarding.capture.interpret"
+        static let captureApprove = "onboarding.capture.approve"
+        static let captureSkip = "onboarding.capture.skip"
+        static let homePreview = "onboarding.reveal.homePreview"
+
+        static func step(_ suffix: String) -> String { "onboarding.lifeMap.step.\(suffix)" }
+        static func desiredChange(_ id: String) -> String { "onboarding.desiredChange.\(id)" }
+        static func friction(_ id: String) -> String { "onboarding.friction.\(id)" }
+        static func lifeArea(_ id: String) -> String { "onboarding.lifeArea.\(id)" }
+        static func moveEarlier(_ id: String) -> String { "onboarding.priority.\(id).earlier" }
+        static func moveLater(_ id: String) -> String { "onboarding.priority.\(id).later" }
+        static func moduleGroup(_ id: String) -> String { "onboarding.moduleGroup.\(id)" }
+        static func permission(_ id: String) -> String { "onboarding.permission.\(id)" }
+        static func permissionSkip(_ id: String) -> String { "onboarding.permission.\(id).skip" }
+
+        static let welcome = step("welcome")
+        static let desiredChangeStep = step("desiredChange")
+        static let frictionStep = step("friction")
+        static let lifeAreasStep = step("lifeAreas")
+        static let prioritiesStep = step("priorities")
+        static let capacityStep = step("capacity")
+        static let connectionsStep = step("connections")
+        static let captureStep = step("capture")
+        static let revealStep = step("reveal")
+
+        // The optional power-up chain and the closing phase, which replaced the
+        // two coarse `permissionsPowerUp` / `evaPowerUp` steps.
+        static let calendarStep = step("calendar")
+        static let healthStep = step("health")
+        static let remindersStep = step("reminders")
+        static let evaStep = step("eva")
+        static let tourStep = step("tour")
+        static let firstWinStep = step("firstWin")
+    }
+
     enum Onboarding {
         static let flow = "onboarding.flow"
         static let progress = "onboarding.header.progress"

@@ -36,7 +36,7 @@ provenance only.
   public capability matrix and marketing-site guide.
 - The static marketing build exposes the homepage, feature hub, seven deep
   feature chapters, privacy, terms, support, and a fallback document under the
-  `/LifeBoard/` base. Each published route receives route-specific static metadata.
+  root-domain base. Each published route receives route-specific static metadata.
 - Current marketing verification passes for seven public pillars and six
   approved populated captures, each with 480-, 760-, and full-width WebP files,
   file budgets, byte counts, and SHA-256 checksums.

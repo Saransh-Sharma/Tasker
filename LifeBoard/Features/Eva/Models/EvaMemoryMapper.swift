@@ -1,6 +1,30 @@
 import Foundation
 
 enum EvaMemoryMapper {
+    static func mergeIntoV3Store(
+        draft: EvaProfileDraft,
+        existing: EvaMemoryStoreV3
+    ) -> EvaMemoryStoreV3 {
+        var merged = existing
+        let seeds: [(EvaMemoryStatement.Section, String)] = (
+            draft.selectedWorkingStyleIDs.compactMap { id in
+                guard let style = EvaWorkingStyleID(rawValue: id) else { return nil }
+                return (.preferences, style.memoryText)
+            } + draft.selectedMomentumBlockerIDs.compactMap { id in
+                guard let blocker = EvaMomentumBlockerID(rawValue: id) else { return nil }
+                return (.routines, blocker.memoryText)
+            } + draft.goals.map { (.currentGoals, $0) }
+        )
+        for (section, text) in seeds.prefix(6) {
+            merged.upsert(EvaMemoryStatement(
+                section: section,
+                text: text,
+                provenance: .userStated
+            ))
+        }
+        return merged
+    }
+
     static func mergeIntoLocalStore(
         draft: EvaProfileDraft,
         existing: LLMPersonalMemoryStoreV1

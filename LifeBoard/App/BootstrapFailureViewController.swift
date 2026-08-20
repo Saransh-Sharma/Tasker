@@ -194,3 +194,40 @@ final class BootstrapFailureViewController: UIViewController {
         onRecoverFromICloud?()
     }
 }
+
+extension SceneDelegate {
+    func installPersistentBootstrapObserver() {
+        if let persistentBootstrapObserver {
+            NotificationCenter.default.removeObserver(persistentBootstrapObserver)
+        }
+        persistentBootstrapObserver = NotificationCenter.default.addObserver(
+            forName: .lifeboardPersistentBootstrapStateDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handlePersistentBootstrapStateChange()
+            }
+        }
+    }
+
+    private func handlePersistentBootstrapStateChange() {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
+        let rootMode = appDelegate.makeLaunchRootMode()
+
+        switch rootMode {
+        case .loading, .home:
+            if let launchHostController = window?.rootViewController as? LaunchHostController {
+                launchHostController.refreshPendingHomeController()
+            } else {
+                renderRoot(for: rootMode)
+            }
+        case .bootstrapFailure(let message):
+            if let failureViewController = window?.rootViewController as? BootstrapFailureViewController {
+                failureViewController.setWorking(false, hint: message)
+            } else {
+                renderRoot(for: .bootstrapFailure(message: message))
+            }
+        }
+    }
+}

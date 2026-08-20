@@ -9996,12 +9996,17 @@ final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
     override func setUp() {
         super.setUp()
         originalAssistantCopilotEnabled = V2FeatureFlags.assistantCopilotEnabled
+        UserDefaults.standard.set(
+            EvaProviderRouter.Preference.offline.rawValue,
+            forKey: "eva.provider.preference.v1"
+        )
     }
 
     override func tearDown() {
         V2FeatureFlags.assistantCopilotEnabled = originalAssistantCopilotEnabled
         UserDefaults.standard.removeObject(forKey: "currentModelName")
         UserDefaults.standard.removeObject(forKey: "installedModels")
+        UserDefaults.standard.removeObject(forKey: "eva.provider.preference.v1")
         super.tearDown()
     }
 
@@ -10020,7 +10025,7 @@ final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
         var refineInvocationCount = 0
         let aiSuggestionService = AISuggestionService(
             llm: LLMEvaluator(),
-            generateOutput: { _, _, _, _, _ in
+            generateOutput: { _, _, _, _, _, _ in
                 refineInvocationCount += 1
                 return """
                 {"priority":"high","energy":"high","type":"morning","context":"computer","rationale":"refined","confidence":0.9}
@@ -10071,7 +10076,7 @@ final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
 
         let aiSuggestionService = AISuggestionService(
             llm: LLMEvaluator(),
-            generateOutput: { _, thread, _, _, _ in
+            generateOutput: { _, thread, _, _, _, _ in
                 let prompt = thread.messages.first?.content ?? ""
                 if prompt.contains("draft weekly plan for team sync") {
                     try? await _Concurrency.Task.sleep(nanoseconds: 600_000_000)

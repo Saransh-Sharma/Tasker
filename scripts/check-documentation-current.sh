@@ -21,7 +21,7 @@ end
 living << root.join("docs", "README.md")
 living.uniq!
 
-errors << "expected 43 living documents, found #{living.length}" unless living.length == 43
+errors << "expected 44 living documents, found #{living.length}" unless living.length == 44
 
 metadata = ["Classification", "Audience", "Capability status", "Source authority", "Last verified"]
 living.each do |path|
@@ -151,7 +151,7 @@ end
 marketing_source = root.join("src/content/marketing.ts").read
 app_source = root.join("src/App.tsx").read
 errors << "marketing source is missing canonical App Store URL" unless marketing_source.include?("https://apps.apple.com/app/id1574046107")
-errors << "marketing source is missing canonical support email" unless marketing_source.include?("support@lifeboard.app")
+errors << "marketing source is missing canonical support email" unless marketing_source.include?("support@getlifeboard.app")
 errors << "marketing site does not use the public promise" unless app_source.include?("One place to run the life you actually have.")
 errors << "marketing site does not present Life OS positioning" unless app_source.include?("Your private Life OS")
 

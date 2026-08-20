@@ -1,0 +1,41 @@
+{
+  "name": "@lifeboard/eva-cloud",
+  "private": true,
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "deploy:dry-run": "wrangler deploy --dry-run --env staging",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler versions upload --env production",
+    "smoke:staging": "node tools/staging-smoke.mjs",
+    "eval:luna": "node tools/luna-eval.mjs",
+    "load:staging": "node tools/load-test.mjs",
+    "preflight:staging": "node tools/deployment-preflight.mjs staging",
+    "preflight:production": "node tools/deployment-preflight.mjs production",
+    "keys:generate": "node tools/generate-environment-keys.mjs"
+  },
+  "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
+    "@lifeboard/eva-contracts": "1.0.0",
+    "@sinclair/typebox": "^0.34.52",
+    "cbor": "^10.0.12",
+    "hono": "^4.13.2",
+    "jose": "^6.2.8",
+    "node-app-attest": "^1.0.1",
+    "openai": "^7.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.21.3",
+    "@cloudflare/workers-types": "^5.20260814.1",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.123.0"
+  }
+}

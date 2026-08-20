@@ -46,6 +46,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         let defaults = UserDefaults.standard
         let originalInstalledData = defaults.data(forKey: LLMPersistedModelSelection.installedModelsKey)
         let originalCurrentModelName = defaults.string(forKey: LLMPersistedModelSelection.currentModelKey)
+        let originalProviderPreference = defaults.string(forKey: "eva.provider.preference.v1")
         defer {
             if let originalInstalledData {
                 defaults.set(originalInstalledData, forKey: LLMPersistedModelSelection.installedModelsKey)
@@ -57,10 +58,16 @@ final class AssistantPlannerServiceTests: XCTestCase {
             } else {
                 defaults.removeObject(forKey: LLMPersistedModelSelection.currentModelKey)
             }
+            if let originalProviderPreference {
+                defaults.set(originalProviderPreference, forKey: "eva.provider.preference.v1")
+            } else {
+                defaults.removeObject(forKey: "eva.provider.preference.v1")
+            }
         }
 
         LLMPersistedModelSelection.persistInstalledModels([modelName], defaults: defaults)
         defaults.set(modelName, forKey: LLMPersistedModelSelection.currentModelKey)
+        defaults.set(EvaProviderRouter.Preference.offline.rawValue, forKey: "eva.provider.preference.v1")
         let route = AIChatModeRouter.route(for: .planMode)
         guard route.selectedModelName == modelName else {
             throw XCTSkip("No supported local model route is available in this test environment.")
@@ -108,6 +115,11 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(evaluator.capturedMessageCount, 1)
         XCTAssertTrue(evaluator.capturedUserPrompt?.contains("user_prompt:") ?? false)
         XCTAssertFalse(evaluator.capturedUserPrompt?.contains("EVA could not finish this plan.") ?? true)
+        // Offline keeps the projection inline and sends no cloud context. The
+        // cloud branch moves it into an authorized context section instead, so
+        // this asserts the split did not leak into the on-device path.
+        XCTAssertTrue(evaluator.capturedUserPrompt?.contains("Context") ?? false)
+        XCTAssertTrue(evaluator.capturedCloudContext.isEmpty)
     }
 
     func testSchemaV3ScheduledCommandRoundTripsAndValidates() throws {
@@ -1584,8 +1596,10 @@ private func configureSupportedPlanRouteOrSkip() throws -> () -> Void {
     let defaults = UserDefaults.standard
     let originalInstalledData = defaults.data(forKey: LLMPersistedModelSelection.installedModelsKey)
     let originalCurrentModelName = defaults.string(forKey: LLMPersistedModelSelection.currentModelKey)
+    let originalProviderPreference = defaults.string(forKey: "eva.provider.preference.v1")
     LLMPersistedModelSelection.persistInstalledModels([modelName], defaults: defaults)
     defaults.set(modelName, forKey: LLMPersistedModelSelection.currentModelKey)
+    defaults.set(EvaProviderRouter.Preference.offline.rawValue, forKey: "eva.provider.preference.v1")
     let route = AIChatModeRouter.route(for: .planMode)
     guard route.selectedModelName == modelName else {
         if let originalInstalledData {
@@ -1597,6 +1611,11 @@ private func configureSupportedPlanRouteOrSkip() throws -> () -> Void {
             defaults.set(originalCurrentModelName, forKey: LLMPersistedModelSelection.currentModelKey)
         } else {
             defaults.removeObject(forKey: LLMPersistedModelSelection.currentModelKey)
+        }
+        if let originalProviderPreference {
+            defaults.set(originalProviderPreference, forKey: "eva.provider.preference.v1")
+        } else {
+            defaults.removeObject(forKey: "eva.provider.preference.v1")
         }
         throw XCTSkip("No supported local model route is available in this test environment.")
     }
@@ -1610,6 +1629,11 @@ private func configureSupportedPlanRouteOrSkip() throws -> () -> Void {
             defaults.set(originalCurrentModelName, forKey: LLMPersistedModelSelection.currentModelKey)
         } else {
             defaults.removeObject(forKey: LLMPersistedModelSelection.currentModelKey)
+        }
+        if let originalProviderPreference {
+            defaults.set(originalProviderPreference, forKey: "eva.provider.preference.v1")
+        } else {
+            defaults.removeObject(forKey: "eva.provider.preference.v1")
         }
     }
 }
@@ -1674,6 +1698,7 @@ private final class PlannerEvaluatorSpy: LLMEvaluator {
     var capturedRequestOptions: LLMGenerationRequestOptions?
     var capturedMessageCount: Int?
     var capturedUserPrompt: String?
+    var capturedCloudContext: [EvaCloudContextSection] = []
     var stubbedOutput: String?
     var stubbedOutputs: [String] = []
 
@@ -1683,12 +1708,15 @@ private final class PlannerEvaluatorSpy: LLMEvaluator {
         systemPrompt: String,
         profile: LLMGenerationProfile = .chat,
         requestOptions: LLMGenerationRequestOptions? = nil,
-        onFirstToken: (@MainActor () -> Void)? = nil
+        cloudContext: [EvaCloudContextSection] = [],
+        turnRuntime: EvaTurnRuntime? = nil,
+        onFirstToken: (@MainActor @Sendable () -> Void)? = nil
     ) async -> String {
         capturedModelName = modelName
         capturedRequestOptions = requestOptions
         capturedMessageCount = thread.messages.count
         capturedUserPrompt = thread.sortedMessages.last?.content
+        capturedCloudContext = cloudContext
 
         if stubbedOutputs.isEmpty == false {
             return stubbedOutputs.removeFirst()

@@ -3,6 +3,7 @@ import MLXLMCommon
 import Synchronization
 
 struct LLMGenerationProfile: Sendable {
+    let cloudRoute: EvaCloudRoute
     let timeoutSeconds: TimeInterval
     let regularMaxRawTokens: Int
     let reasoningMaxRawTokens: Int
@@ -19,6 +20,7 @@ struct LLMGenerationProfile: Sendable {
     let preservesVisibleThinking: Bool
 
     init(
+        cloudRoute: EvaCloudRoute = .chat,
         timeoutSeconds: TimeInterval,
         regularMaxRawTokens: Int = 4_096,
         reasoningMaxRawTokens: Int? = nil,
@@ -34,6 +36,7 @@ struct LLMGenerationProfile: Sendable {
         maxVisibleCharacters: Int? = nil,
         preservesVisibleThinking: Bool = false
     ) {
+        self.cloudRoute = cloudRoute
         self.timeoutSeconds = timeoutSeconds
         self.regularMaxRawTokens = regularMaxRawTokens
         self.reasoningMaxRawTokens = reasoningMaxRawTokens ?? regularMaxRawTokens
@@ -97,32 +100,6 @@ struct LLMGenerationProfile: Sendable {
             preservesVisibleThinking: supportsVisibleThinking
         )
     }
-    static let addTaskSuggestion = LLMGenerationProfile(timeoutSeconds: 6)
-    static let universalInputClassification = LLMGenerationProfile(
-        timeoutSeconds: 4,
-        regularMaxRawTokens: 160,
-        reasoningMaxRawTokens: 160,
-        temperature: 0,
-        topP: 0.8,
-        stripReasoningBlocks: true,
-        stripTemplateArtifacts: true,
-        maxVisibleCharacters: 1_000
-    )
-    static let dynamicChips = LLMGenerationProfile(timeoutSeconds: 6)
-    static let dailyBrief = LLMGenerationProfile(timeoutSeconds: 8)
-    static let topThree = LLMGenerationProfile(timeoutSeconds: 10)
-    static let breakdown = LLMGenerationProfile(timeoutSeconds: 10)
-    static let chatPlanJSON = LLMGenerationProfile(
-        timeoutSeconds: 12,
-        regularMaxRawTokens: 768,
-        reasoningMaxRawTokens: 768,
-        temperature: 0.1,
-        topP: 0.85,
-        repetitionPenalty: 1.05,
-        repetitionContextSize: 64,
-        stripReasoningBlocks: true,
-        stripTemplateArtifacts: true
-    )
 }
 
 struct LLMVisibleTextFormattingResult: Sendable {

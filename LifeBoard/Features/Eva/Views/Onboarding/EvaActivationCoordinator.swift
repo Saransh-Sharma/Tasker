@@ -126,7 +126,7 @@ final class EvaActivationCoordinator: ObservableObject {
             EvaActivationNavigationChrome(
                 screenTitle: "Meet \(identitySnapshot.displayName)",
                 stepIndex: 1,
-                stepCount: 6,
+                stepCount: 5,
                 showsProgress: true,
                 showsTrailingHistoryButton: false,
                 leadingActionStyle: .close
@@ -135,7 +135,7 @@ final class EvaActivationCoordinator: ObservableObject {
             EvaActivationNavigationChrome(
                 screenTitle: "Quick Sync",
                 stepIndex: 2,
-                stepCount: 6,
+                stepCount: 5,
                 showsProgress: true,
                 showsTrailingHistoryButton: false,
                 leadingActionStyle: .back
@@ -144,16 +144,25 @@ final class EvaActivationCoordinator: ObservableObject {
             EvaActivationNavigationChrome(
                 screenTitle: "Current Goals",
                 stepIndex: 3,
-                stepCount: 6,
+                stepCount: 5,
+                showsProgress: true,
+                showsTrailingHistoryButton: false,
+                leadingActionStyle: .back
+            )
+        case .cloudSetup:
+            EvaActivationNavigationChrome(
+                screenTitle: String(localized: "Connect Cloud EVA"),
+                stepIndex: 4,
+                stepCount: 5,
                 showsProgress: true,
                 showsTrailingHistoryButton: false,
                 leadingActionStyle: .back
             )
         case .modelChoice:
             EvaActivationNavigationChrome(
-                screenTitle: "Choose \(identitySnapshot.displayName)'s Mode",
+                screenTitle: String(localized: "Set Up Offline EVA"),
                 stepIndex: 4,
-                stepCount: 6,
+                stepCount: 5,
                 showsProgress: true,
                 showsTrailingHistoryButton: false,
                 leadingActionStyle: .back
@@ -161,8 +170,8 @@ final class EvaActivationCoordinator: ObservableObject {
         case .modelDownload:
             EvaActivationNavigationChrome(
                 screenTitle: "Getting \(identitySnapshot.displayName) Ready",
-                stepIndex: 5,
-                stepCount: 6,
+                stepIndex: 4,
+                stepCount: 5,
                 showsProgress: true,
                 showsTrailingHistoryButton: false,
                 leadingActionStyle: .back
@@ -170,8 +179,8 @@ final class EvaActivationCoordinator: ObservableObject {
         case .installRecovery:
             EvaActivationNavigationChrome(
                 screenTitle: "Recovery",
-                stepIndex: 5,
-                stepCount: 6,
+                stepIndex: 4,
+                stepCount: 5,
                 showsProgress: true,
                 showsTrailingHistoryButton: false,
                 leadingActionStyle: .back
@@ -179,8 +188,8 @@ final class EvaActivationCoordinator: ObservableObject {
         case .firstChat:
             EvaActivationNavigationChrome(
                 screenTitle: "First Win",
-                stepIndex: 6,
-                stepCount: 6,
+                stepIndex: 5,
+                stepCount: 5,
                 showsProgress: true,
                 showsTrailingHistoryButton: false,
                 leadingActionStyle: .back
@@ -189,7 +198,7 @@ final class EvaActivationCoordinator: ObservableObject {
             EvaActivationNavigationChrome(
                 screenTitle: identitySnapshot.displayName,
                 stepIndex: 0,
-                stepCount: 6,
+                stepCount: 5,
                 showsProgress: false,
                 showsTrailingHistoryButton: true,
                 leadingActionStyle: .back
@@ -198,7 +207,7 @@ final class EvaActivationCoordinator: ObservableObject {
             EvaActivationNavigationChrome(
                 screenTitle: identitySnapshot.displayName,
                 stepIndex: 0,
-                stepCount: 6,
+                stepCount: 5,
                 showsProgress: false,
                 showsTrailingHistoryButton: false,
                 leadingActionStyle: .close
@@ -207,13 +216,13 @@ final class EvaActivationCoordinator: ObservableObject {
     }
 
     func bootstrap() {
-        if deviceSupportsLocalEva == false {
-            updateStage(.unsupportedDevice)
+        if shouldAutoCompleteForExistingUser {
+            markCompletedFromMigration()
             return
         }
 
-        if shouldAutoCompleteForExistingUser {
-            markCompletedFromMigration()
+        if Self.retiredFirstRunStages.contains(state.stage) {
+            retireFirstRunStage()
             return
         }
 
@@ -221,6 +230,7 @@ final class EvaActivationCoordinator: ObservableObject {
             updateStage(.completed)
         }
     }
+
 
     func continueFromIntro() {
         updateStage(.aboutYou)
@@ -242,11 +252,23 @@ final class EvaActivationCoordinator: ObservableObject {
     func continueFromGoals() {
         state.apply(profileDraft: profileDraft)
         saveDraftIntoMemory()
-        updateStage(.modelChoice)
+        updateStage(.cloudSetup)
     }
 
     func backToGoals() {
         updateStage(.goals)
+    }
+
+    func completeCloudSetup() {
+        updateStage(.firstChat)
+    }
+
+    func chooseOfflineSetup() {
+        guard deviceSupportsLocalEva else {
+            updateStage(.unsupportedDevice)
+            return
+        }
+        updateStage(.modelChoice)
     }
 
     func selectModel(_ modelName: String) {
@@ -325,7 +347,7 @@ final class EvaActivationCoordinator: ObservableObject {
             backToIntro()
         case .goals:
             backToAboutYou()
-        case .modelChoice:
+        case .cloudSetup, .modelChoice:
             backToGoals()
         case .modelDownload:
             backToModelChoice()
@@ -418,5 +440,37 @@ final class EvaActivationCoordinator: ObservableObject {
         state.lastUpdatedAt = .now
         state.apply(profileDraft: profileDraft)
         EvaActivationDefaultsStore.save(state, defaults: defaults)
+    }
+}
+
+/// Retirement of EVA's own first-run flow.
+///
+/// A same-file extension so `persist()` stays reachable while keeping the
+/// coordinator itself under the largest-type ceiling.
+@MainActor
+extension EvaActivationCoordinator {
+    /// Stages that app onboarding now owns.
+    ///
+    /// EVA used to greet a new user with its own five-stage flow — meet EVA,
+    /// working style, goals, connect the cloud, first chat — reached by opening
+    /// the EVA tab. App onboarding asks richer versions of all of it and hands
+    /// over a set of composed opening prompts, so meeting this flow afterwards
+    /// meant answering the same questions twice.
+    ///
+    /// The stages are normalised rather than deleted: a user mid-flight when
+    /// they updated still has one of these persisted, and the honest resolution
+    /// is to let them into EVA, not to strand them on a screen that no longer
+    /// leads anywhere. Offline model installation keeps its own entry point in
+    /// `ModelsSettingsView`, which never routed through this coordinator.
+    static let retiredFirstRunStages: Set<EvaActivationStage> = [
+        .intro, .aboutYou, .goals, .cloudSetup,
+        .modelChoice, .modelDownload, .installRecovery,
+        .firstChat, .unsupportedDevice
+    ]
+
+    private func retireFirstRunStage() {
+        state.isComplete = true
+        state.stage = .completed
+        persist()
     }
 }

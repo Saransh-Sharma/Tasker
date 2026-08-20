@@ -237,3 +237,154 @@ final class LifeBoardEvidenceContractTests: XCTestCase {
         XCTAssertNotNil(object["tasks"])
     }
 }
+
+final class EvaCloudWireContractTests: XCTestCase {
+    func testAppleExchangeRequestMatchesSharedFixture() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtureURL = repositoryRoot.appending(path: "Shared/EVACloudContracts/fixtures/apple-auth-exchange-v1.json")
+        let fixtureData = try Data(contentsOf: fixtureURL)
+        let request = try JSONDecoder.evaCloud.decode(EvaAppleExchangeRequestV1.self, from: fixtureData)
+
+        XCTAssertEqual(request.challengeId.uuidString, "11111111-1111-4111-8111-111111111111")
+        XCTAssertEqual(request.installationId.uuidString, "22222222-2222-4222-8222-222222222222")
+        XCTAssertEqual(request.platform, "ios")
+
+        let encodedObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder.evaCloud.encode(request)) as? NSDictionary
+        )
+        let fixtureObject = try XCTUnwrap(JSONSerialization.jsonObject(with: fixtureData) as? NSDictionary)
+        XCTAssertEqual(encodedObject, fixtureObject)
+    }
+
+    func testAdultEligibilityRequestPreservesExplicitNullLowerBound() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtureURL = repositoryRoot.appending(path: "Shared/EVACloudContracts/fixtures/adult-eligibility-v1.json")
+        let fixtureData = try Data(contentsOf: fixtureURL)
+        let request = try JSONDecoder.evaCloud.decode(EvaAdultEligibilityRequestV1.self, from: fixtureData)
+
+        XCTAssertEqual(request.declaration, "unavailable")
+        XCTAssertNil(request.lowerBound)
+
+        let encodedObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder.evaCloud.encode(request)) as? NSDictionary
+        )
+        let fixtureObject = try XCTUnwrap(JSONSerialization.jsonObject(with: fixtureData) as? NSDictionary)
+        XCTAssertEqual(encodedObject, fixtureObject)
+        XCTAssertEqual(encodedObject["lowerBound"] as? NSNull, NSNull())
+    }
+
+    func testSharedStructuredFixturesDecodeThroughSwiftWireValue() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtureURL = repositoryRoot.appending(path: "Shared/EVACloudContracts/fixtures/structured-results-v1.json")
+        let fixtures = try JSONDecoder.evaCloud.decode(
+            [String: EvaJSONValue].self,
+            from: Data(contentsOf: fixtureURL)
+        )
+        XCTAssertEqual(
+            Set(fixtures.keys),
+            Set(["plan", "planRepair", "fieldSuggestion", "memoryCandidate", "topThree", "taskBreakdown", "dailyBrief", "universalInputClassification", "dynamicChips"])
+        )
+        XCTAssertNoThrow(try JSONEncoder.evaCloud.encode(fixtures))
+    }
+
+    private func makeInferenceRequest(
+        requestID: UUID,
+        installationID: UUID,
+        userInstructions: EvaUserInstructions? = nil
+    ) -> EvaInferenceRequest {
+        EvaInferenceRequest(
+            requestId: requestID,
+            route: .chat,
+            contractVersion: EvaInferenceRequest.maximumContractVersion,
+            locale: "en_US",
+            timeZone: "Asia/Kolkata",
+            messages: [.init(role: .user, content: "Help me plan today.")],
+            context: [.init(category: .planning, payload: .object(["tasks": .array([])]))],
+            userInstructions: userInstructions,
+            clientVersion: "1.0",
+            platform: "ios",
+            installationId: installationID,
+            consentRevision: 3,
+            providerCapabilities: .init(streaming: true, structuredOutput: true, spokenOutput: true)
+        )
+    }
+
+    func testInferenceRequestEncodesTheSharedWireShape() throws {
+        let requestID = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let installationID = UUID(uuidString: "22222222-2222-4222-8222-222222222222")!
+
+        let data = try JSONEncoder.evaCloud.encode(
+            makeInferenceRequest(requestID: requestID, installationID: installationID)
+        )
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["requestId"] as? String, requestID.uuidString)
+        XCTAssertEqual(object["route"] as? String, "chat")
+        XCTAssertEqual(object["contractVersion"] as? Int, 3)
+        XCTAssertEqual(object["installationId"] as? String, installationID.uuidString)
+        // The client still names no model and composes no system prompt: both
+        // live in the Worker so they can be corrected without an app release.
+        XCTAssertNil(object["model"])
+        XCTAssertNil(object["systemPrompt"])
+        XCTAssertNil(object["creditCharge"])
+        // Absent rather than null, so the strict server schema accepts it.
+        XCTAssertNil(object["userInstructions"])
+    }
+
+    func testInferenceRequestCarriesTheCustomizedPromptOnly() async throws {
+        let requestID = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let installationID = UUID(uuidString: "22222222-2222-4222-8222-222222222222")!
+        let instructions = try XCTUnwrap(EvaUserInstructions(persona: "Be blunt. No preamble."))
+
+        let data = try JSONEncoder.evaCloud.encode(makeInferenceRequest(
+            requestID: requestID,
+            installationID: installationID,
+            userInstructions: instructions
+        ))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let carried = try XCTUnwrap(object["userInstructions"] as? [String: Any])
+        XCTAssertEqual(carried["persona"] as? String, "Be blunt. No preamble.")
+
+        // A built-in default is not the person's own voice, so it is never sent:
+        // the server already states EVA's persona and a second copy would
+        // compete with it.
+        // Read the MainActor-isolated defaults once, outside the assertion
+        // autoclosures, which are nonisolated.
+        let builtInDefault = await MainActor.run { AppManager.defaultSystemPrompt }
+        let builtInPrompts = await MainActor.run {
+            AppManager.legacyBuiltInSystemPrompts.union([AppManager.defaultSystemPrompt])
+        }
+        XCTAssertNil(EvaUserInstructions.customized(
+            storedPrompt: builtInDefault,
+            builtInPrompts: builtInPrompts
+        ))
+        XCTAssertNil(EvaUserInstructions.customized(storedPrompt: "   ", builtInPrompts: []))
+        XCTAssertEqual(
+            EvaUserInstructions.customized(storedPrompt: "Speak plainly.", builtInPrompts: [])?.persona,
+            "Speak plainly."
+        )
+    }
+
+    func testUserInstructionsAreCappedAtTheServerLimit() throws {
+        let overlong = String(repeating: "a", count: EvaUserInstructions.maxPersonaCharacters + 500)
+        let instructions = try XCTUnwrap(EvaUserInstructions(persona: overlong))
+        // Trimming here keeps an over-long prompt from failing the whole request
+        // at admission with `schema_invalid`.
+        XCTAssertEqual(instructions.persona.count, EvaUserInstructions.maxPersonaCharacters)
+    }
+
+    func testStableErrorAndCreditDatesDecodeFromBackendJSON() throws {
+        let json = #"{"code":"insufficient_credits","message":"No cloud credits are available yet.","requestId":"request-1","retryable":false,"recoveryAction":"tryOffline","credits":{"balance":0,"capacity":100,"refillAmount":20,"nextRefillAt":"2026-08-15T10:00:00Z"}}"#
+        let error = try JSONDecoder.evaCloud.decode(EvaErrorEnvelope.self, from: Data(json.utf8))
+        XCTAssertEqual(error.code, "insufficient_credits")
+        XCTAssertEqual(error.credits?.balance, 0)
+        XCTAssertEqual(error.recoveryAction, "tryOffline")
+    }
+
+    func testRemoteContextPolicyV2RemainsDenyByDefault() {
+        let policy = RemoteEvaContextPolicy(accountID: "account-1")
+        XCTAssertEqual(policy.schemaVersion, 2)
+        XCTAssertFalse(policy.isRemoteEvaEnabled)
+        XCTAssertTrue(policy.grantedCategories.isEmpty)
+        XCTAssertFalse(policy.permits(.personalMemory, forAccountID: "account-1"))
+    }
+}

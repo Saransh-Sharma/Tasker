@@ -112,6 +112,7 @@ extension LifeThreadComposerHost {
     /// switch is off.
 
     func beginComposerAudioCapture() {
+        EvaSpokenOutputController.shared.stopForRecording()
         guard V2FeatureFlags.universalInputDictationEnabled else {
             guard V2FeatureFlags.journalV1Enabled else {
                 runtime.captureRouter.request(kind: .journal, source: .shell)

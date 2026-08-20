@@ -33,4 +33,4 @@
 #             pass would add 39 strokes that were never there.
 token_law_font_system	27
 token_law_shadow_usage	39
-token_law_uicolor_constructor	33
+token_law_uicolor_constructor	26

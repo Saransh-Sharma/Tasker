@@ -292,7 +292,7 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
                     .flatMap(ProjectExecutionMode.init(rawValue:)) ?? .parallel
                 return (id, mode)
             }
-            let executionModeByProjectID: [UUID: ProjectExecutionMode] = Dictionary(uniqueKeysWithValues: projectModes)
+            let executionModeByProjectID = ProjectExecutionModeProjection.coalescing(projectModes)
 
             let dependencyRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDependency")
             dependencyRequest.predicate = taskIDs.isEmpty

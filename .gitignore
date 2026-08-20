@@ -52,6 +52,12 @@ dist
 dist-ssr
 *.local
 .vite/
+.wrangler/
+coverage/
+**/.dev.vars
+**/.dev.vars.*
+!**/.dev.vars.example
+.eva-provisioning/
 
 # Local Claude/Codex artifacts
 .claude/worktrees/

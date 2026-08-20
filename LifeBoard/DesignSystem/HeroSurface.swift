@@ -134,6 +134,11 @@ public struct HeroSurfaceModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// Observed, not static. Reading `ShaderReadiness.allowsShaderRendering`
+    /// here is not an observation-tracked access, so this modifier rendered once
+    /// before warm-up finished and never re-evaluated — every hero in the app
+    /// fell back to clay for the whole session.
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     public init(palette: DaypartPalette, cornerRadius: CGFloat = Radius.hero) {
         self.palette = palette
@@ -169,7 +174,7 @@ public struct HeroSurfaceModifier: ViewModifier {
         guard contrast != .increased else { return false }
         guard scenePhase == .active else { return false }
         guard VisualAppearanceFixture.active?.usesReducedTransparency != true else { return false }
-        return ShaderReadiness.allowsShaderRendering
+        return shaderReadiness
     }
 
     /// The veil, sized by measurement.

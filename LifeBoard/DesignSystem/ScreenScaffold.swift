@@ -94,6 +94,11 @@ public struct AppRootHeader: View {
     public let usesInverseInk: Bool
     public let onCapture: () -> Void
     public let secondaryActions: AnyView?
+    /// Drawn before the title. Roots are stack roots and normally have no back
+    /// affordance — the dock is the switcher. Eva is the exception: the shell
+    /// hides the dock while its composer is focused, so it needs an exit that
+    /// does not disappear with the keyboard.
+    public let leadingAccessory: AnyView?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     public init(
@@ -101,6 +106,7 @@ public struct AppRootHeader: View {
         captureExpanded: Bool = false,
         usesInverseInk: Bool = false,
         onCapture: @escaping () -> Void,
+        leadingAccessory: AnyView? = nil,
         secondaryActions: AnyView? = nil
     ) {
         self.model = model
@@ -108,6 +114,7 @@ public struct AppRootHeader: View {
         self.usesInverseInk = usesInverseInk
         self.onCapture = onCapture
         self.secondaryActions = secondaryActions
+        self.leadingAccessory = leadingAccessory
     }
 
     private var primaryInk: Color {
@@ -130,22 +137,35 @@ public struct AppRootHeader: View {
 
         layout {
             VStack(alignment: .leading, spacing: 3) {
-                Text(model.title)
-                    .font(.system(
-                        usesAccessibilityLayout ? .title3 : .title2,
-                        design: .rounded,
-                        weight: .bold
-                    ))
-                    .foregroundStyle(primaryInk)
-                    .lineLimit(usesAccessibilityLayout ? 2 : 1)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .modifier(OptionalKineticGreeting(isEnabled: model.titleRespondsToTouch))
+                // The accessory rides the title's own row rather than sitting
+                // ahead of the whole block. At accessibility sizes this header
+                // becomes a VStack, and as a sibling there the accessory was a
+                // full extra row: it grew the header, pushed the destination
+                // down, and cost Eva's composer its pinned dock clearance.
+                HStack(spacing: 8) {
+                    if let leadingAccessory {
+                        leadingAccessory
+                    }
+                    Text(model.title)
+                        .font(.system(
+                            usesAccessibilityLayout ? .title3 : .title2,
+                            design: .rounded,
+                            weight: .bold
+                        ))
+                        .foregroundStyle(primaryInk)
+                        .lineLimit(usesAccessibilityLayout ? 2 : 1)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .modifier(OptionalKineticGreeting(isEnabled: model.titleRespondsToTouch))
+                }
                 if let context = model.context {
                     Text(context)
                         .font(usesAccessibilityLayout ? .body : .subheadline)
                         .foregroundStyle(secondaryInk)
                         .lineLimit(usesAccessibilityLayout ? nil : 2)
                         .fixedSize(horizontal: false, vertical: true)
+                        // Line the context up under the title rather than under
+                        // the accessory that now precedes it.
+                        .padding(.leading, leadingAccessory == nil ? 0 : 52)
                 }
             }
             if usesAccessibilityLayout == false {

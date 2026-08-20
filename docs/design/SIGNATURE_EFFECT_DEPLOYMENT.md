@@ -4,7 +4,7 @@
 > Audience: Design, engineering, accessibility, performance, and QA
 > Capability status: Current workspace
 > Source authority: Metal shader registry, wrappers, and design tests
-> Last verified: 2026-08-13
+> Last verified: 2026-08-19
 
 Where each Metal effect in the sanctioned vocabulary actually fires, and the rule
 that keeps it from becoming decoration.
@@ -29,7 +29,7 @@ Current count: **20**.
 | Effect | Fires on | Boundary | Guard against ambience |
 |---|---|---|---|
 | `paperGrain` | static, on every Track / composer / Notes-editor canvas | — | No time input. The only sanctioned static effect. Sits *behind* content, never over it. |
-| `contextLens` | any Track composer being presented | capture | One lens per presentation, driven by `onChange` of "is a composer up", not by `onAppear`. |
+| `contextLens` | any Track composer being presented | capture | One lens per presentation, driven by `onChange` of "is a composer up", not by `onAppear`. Fires on the **presenting** plane — never on the sheet itself. |
 | `clayPressBloom` | selection on a weighty option rail (tracker kind, mood, goal type) | capture | Opt-in per rail via `pressBloomTint`. Deliberately **not** on toggles, field focus or bead ticks — those are microinteractions and get haptics only. |
 | `valueDrumWarp` | while a value tape is under the finger | capture | Takes no `time`; amplitude is `grip`, a pure function of whether a finger is down. No `TimelineView`. Identity at the centre detent and at rest. |
 | `liquidGlassRefract` | lens picker thumb travel, all roots | navigation | Implemented *inside* `LifeBoardLensPicker`, so it cannot be applied to something that is not a lens. `strength` returns to 0. |
@@ -53,6 +53,19 @@ Current count: **20**.
 - No `lifeBoardScrollEntrance` inside composer scroll views. Ordinary scrolling
   and reading stay quiet.
 - Nothing on repeated history-row appearance.
+- **No content-distorting effect on a sheet root.** `contextLens` and
+  `vitalOrbWarp` wrap `content` in `visualEffect { distortionEffect(...) }`,
+  which requires SwiftUI to rasterise that subtree offscreen. A
+  `ComposerScaffold` root cannot be — it is a `NavigationStack` with text
+  fields, a keyboard toolbar and `.presentationDetents` — and SwiftUI
+  substitutes its unrenderable-content placeholder, so the composer opens as a
+  blank yellow panel instead of a form. This shipped on the Body capture and
+  nutrition composers and was removed on 2026-08-19; the mode handoff stays on
+  the presenting plane, where Track already fires it. Pinned by
+  `LifeOSFoundationContractTests.testNoComposerRootIsWrappedInAContentDistortingSignatureEffect`.
+  Note the failure is **device-only**: the same subtree rasterises without
+  complaint in the simulator, so `WellnessCaptureUITests` is smoke coverage for
+  the composer, not a guard for this.
 - `cardMorphWarp` on the Track module rail was **considered and dropped**: it
   needs a push trigger the rail cannot reach without threading a callback through
   three structs. The rows use the sanctioned zoom transition

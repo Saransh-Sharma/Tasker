@@ -1,5 +1,5 @@
 # Aggregate LifeBoard/ + Packages/ string-catalog snapshot. Intentional key or
 # translation changes require updating this file in the same reviewed change.
-count=904
-sha256=60a1a7d76d1989a22adf62042f45f4d4a38deb331d3160374a67c86371d6db51
-content_sha256=bbc652304243775b091e94679af9646a489ad3481d13f3740ce02ffa86aab33d
+count=1092
+sha256=67c1b0d6c79dbd4bd79b2e5f97ef6ef9ecf398008fc2f5d4df59c044798dd396
+content_sha256=47a04e6e981573872aded48e038a50812a26de74411dd5e49dd14b177e4dc3e6

@@ -128,6 +128,7 @@ enum SettingsSetupStatusResolver {
 extension SettingsDetailRoute {
     var summary: String {
         switch self {
+        case .setupCenter: return "Optional connections and EVA"
         case .planAndOrganize: return "Week, timeline, and anchors"
         case .calendarAndHealth: return "Connections and sync"
         case .eva: return "Personality, intelligence, and memory"
@@ -140,6 +141,7 @@ extension SettingsDetailRoute {
 
     var systemImage: String {
         switch self {
+        case .setupCenter: return "slider.horizontal.3"
         case .planAndOrganize: return "calendar.badge.clock"
         case .calendarAndHealth: return "heart.text.square.fill"
         case .eva: return "sparkles"
@@ -157,7 +159,7 @@ extension SettingsDetailRoute {
 
     var tint: Color {
         switch self {
-        case .eva, .llm, .chats, .models:
+        case .setupCenter, .eva, .llm, .chats, .models:
             Color.lifeboard(.accentSecondary)
         case .calendarAndHealth:
             Color.lifeboard(.statusSuccess)

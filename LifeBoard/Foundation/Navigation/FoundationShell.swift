@@ -44,6 +44,40 @@ public struct FoundationShell: View {
     @Environment(\.scenePhase) private var scenePhase
     @State var compactCaptureState = CaptureOrbPresentationState()
     @State var measuredChromeHeight: CGFloat = 132
+    /// Distance from the dock's top edge to the bottom of the shell.
+    ///
+    /// `measuredChromeHeight` covers the whole compact container, which on most
+    /// destinations also holds the global LifeThread composer, and even the
+    /// dock's own layout height overshoots the pill that is actually drawn.
+    /// Eva hides the global composer and supplies its own, so insetting it by
+    /// either of those reserved room for chrome that was not on screen and left
+    /// the composer floating well above the dock. This measures the answer
+    /// directly instead of deriving it.
+    @State var measuredDockClearance: CGFloat = 96
+
+    /// The compact chrome container's bottom inset.
+    static let compactChromeBottomPadding: CGFloat = 6
+
+    /// Separation between Eva's composer and the dock, folded into the measured
+    /// clearance rather than added by the composer.
+    ///
+    /// It belongs here because it is a contract, not a taste: the composer's
+    /// *interactive* bounds run lower than its visible pill — the mic and send
+    /// buttons overhang it — and `assertRequiredEvaDockSpacing` requires every
+    /// one of those controls to clear the dock by the md token. Sizing the gap
+    /// against the pill instead left the mic a point from the dock while looking
+    /// correct in a screenshot.
+    ///
+    /// Twice the md token, and the doubling is the overhang rather than taste:
+    /// the mic and send buttons hang roughly a token's worth below the pill, so
+    /// a 12pt gap measured from the pill leaves them ~1pt from the dock. Sizing
+    /// it here keeps the whole control cluster clear in every Dynamic Type and
+    /// compact-height state the dock-spacing tests cover.
+    static let evaComposerDockGap: CGFloat = 24
+
+    /// Names the shell's own coordinate space so chrome can be measured against
+    /// it rather than against the screen.
+    static let shellCoordinateSpace = "lifeboard.shell"
     @State var isEvaComposerFocused = false
     /// Roots that have been opened at least once. Dashboard roots stay built so
     /// their scroll position and navigation depth survive a root change. Eva is
@@ -77,6 +111,8 @@ public struct FoundationShell: View {
     /// Deferred so a `push` never lands under a still-animating sheet.
     @State private var pendingDisplayPanelSettingsPush = false
     @State private var scannedDraft: ScannedDraft?
+    @State private var bridgedScenePhase: ScenePhase = UIApplication.shared.applicationState == .background
+        ? .background : .active
     @State var lifeBoardActionReceipt: ActionReceipt?
     /// Fires the one-shot background warp when a card zooms into its detail
     /// route. Incremented on a real push, never on a redraw.
@@ -149,6 +185,10 @@ public struct FoundationShell: View {
                             compactShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
                         }
                     }
+                    // The four one-time root cues that replaced v6's root
+                    // tour. No-ops for anyone who finished under v5, who has
+                    // already been told these things once.
+                    .lifeBoardOnboardingTip(destination: router.selectedDestination)
                     .onChange(of: atmosphereSnapshot.semanticDaypart) { oldValue, newValue in
                         guard oldValue != newValue else { return }
                         // Dragging the atmosphere slider from Auto to Night
@@ -256,6 +296,7 @@ public struct FoundationShell: View {
             }
         }
         .onChange(of: router.selectedDestination, initial: true) { _, destination in
+            MotionDiagnosticsState.shared.record("root:\(destination.rawValue)")
             lifeThreadComposer.move(to: destination)
             if destination != .eva {
                 updateEvaComposerFocus(false)
@@ -299,6 +340,15 @@ public struct FoundationShell: View {
                 )
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            bridgedScenePhase = .active
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            bridgedScenePhase = .inactive
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            bridgedScenePhase = .background
+        }
         // "Full motion". `\.accessibilityReduceMotion` is a get-only key path,
         // so this cannot be injected into the environment; `MotionOverride`
         // applies the rule inside the motion policy instead and every token
@@ -314,6 +364,16 @@ public struct FoundationShell: View {
         // the observable preferences at the outermost level so sheets and
         // navigation destinations receive the same environment as root views.
         .environment(runtime.preferences)
+        .lifeBoardMotionDiagnostics(preferences: runtime.preferences)
+        .environment(\.scenePhase, bridgedScenePhase)
+        // Outermost, and after the scene-phase bridge it depends on. This is the
+        // single observation-tracked read of `ShaderReadinessStore` in the shell:
+        // warm-up finishing now invalidates this modifier and re-publishes
+        // readiness downward, which is what the static gate could never do.
+        .lifeBoardResolvedMotion(
+            comfortProfile: runtime.preferences.comfortProfile,
+            requestedAmbientTierID: runtime.preferences.renderingTier.rawValue
+        )
     }
 
     /// Whether the Full motion override is live.
@@ -426,9 +486,14 @@ public struct FoundationShell: View {
         showsCompactChrome(for: destination) ? measuredChromeHeight : 0
     }
 
+    /// How far Eva's own composer must sit above the bottom edge.
+    ///
+    /// This is the dock's occupied height, not the chrome stack's: Eva is the one
+    /// destination that replaces the global composer rather than stacking under
+    /// it, so the stack height would over-reserve by exactly the composer it hid.
     func evaComposerBottomClearance(for destination: Destination) -> CGFloat {
-        guard destination == .eva else { return 0 }
-        return reservedChromeHeight(for: destination)
+        guard destination == .eva, showsCompactChrome(for: destination) else { return 0 }
+        return measuredDockClearance + Self.evaComposerDockGap
     }
 
     func reservedDestinationChromeHeight(for destination: Destination) -> CGFloat {

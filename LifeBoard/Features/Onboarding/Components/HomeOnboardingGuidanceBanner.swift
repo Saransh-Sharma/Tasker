@@ -8,6 +8,8 @@ import MLXLMCommon
 
 struct HomeOnboardingGuidanceBanner: View {
     let state: HomeOnboardingGuidanceModel.State
+    var onStart: () -> Void = {}
+    var onDismiss: () -> Void = {}
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -20,6 +22,18 @@ struct HomeOnboardingGuidanceBanner: View {
                 Text(state.message)
                     .lifeboardFont(.caption1)
                     .foregroundStyle(OnboardingTheme.textSecondary)
+                if state.isInvitation {
+                    HStack(spacing: 12) {
+                        Button("Build my Life Map", action: onStart)
+                            .lifeboardFont(.caption1)
+                            .accessibilityIdentifier("home.onboarding.lifeMap.start")
+                        Button("Not now", action: onDismiss)
+                            .lifeboardFont(.caption1)
+                            .foregroundStyle(OnboardingTheme.textSecondary)
+                            .accessibilityIdentifier("home.onboarding.lifeMap.dismiss")
+                    }
+                    .padding(.top, 2)
+                }
             }
             Spacer()
         }

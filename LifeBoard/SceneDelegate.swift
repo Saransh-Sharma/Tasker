@@ -43,11 +43,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     var window: UIWindow?
-    private var persistentBootstrapObserver: NSObjectProtocol?
+    var persistentBootstrapObserver: NSObjectProtocol?
+    private var onboardingRequestObserver: NSObjectProtocol?
     private weak var journalPrivacyShield: UIView?
     private var navigationEventCoordinator: NavigationEventCoordinator?
     private var launchCoordinator: LaunchCoordinator?
     private var onboardingCoordinator: AppOnboardingCoordinator?
+    private var motionConstraintObservers: [NSObjectProtocol] = []
 
 
     /// Executes scene.
@@ -66,6 +68,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         )
         renderRoot(for: rootMode)
         installPersistentBootstrapObserver()
+        installMotionConstraintObservers()
+        onboardingRequestObserver = NotificationCenter.default.addObserver(
+            forName: .lifeboardStartOnboardingRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.onboardingCoordinator?.restartOnboarding() }
+        }
 
         if let notificationResponse = connectionOptions.notificationResponse {
             DispatchQueue.main.async { [weak self] in
@@ -88,7 +98,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     /// Executes renderRoot.
-    private func renderRoot(for rootMode: LaunchRootMode) {
+    func renderRoot(for rootMode: LaunchRootMode) {
         switch rootMode {
         case .loading, .home:
             if let launchHostController = window?.rootViewController as? LaunchHostController {
@@ -361,7 +371,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let foundationController = ApplicationHostController(
             root: AnyView(foundationRoot),
             presentationDependencies: CompositionRoot.shared,
-            planDependencies: planDependencies,
             router: FoundationCoordinator.shared.router
         )
 
@@ -546,6 +555,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             NotificationCenter.default.removeObserver(persistentBootstrapObserver)
             self.persistentBootstrapObserver = nil
         }
+        if let onboardingRequestObserver {
+            NotificationCenter.default.removeObserver(onboardingRequestObserver)
+            self.onboardingRequestObserver = nil
+        }
+        for observer in motionConstraintObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        motionConstraintObservers.removeAll()
     }
 
     /// Executes sceneDidBecomeActive.
@@ -556,6 +573,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Compile signature Metal effects off the first-use path so the first bloom/reveal is smooth.
         SignatureShaders.warmUp()
         removeJournalPrivacyShield()
+    }
+
+    private func installMotionConstraintObservers() {
+        guard motionConstraintObservers.isEmpty else { return }
+        let center = NotificationCenter.default
+        for name in [Notification.Name.NSProcessInfoPowerStateDidChange, ProcessInfo.thermalStateDidChangeNotification] {
+            motionConstraintObservers.append(
+                center.addObserver(forName: name, object: nil, queue: .main) { _ in
+                    Task { @MainActor in SignatureShaders.warmUp() }
+                }
+            )
+        }
     }
 
     /// Executes sceneWillResignActive.
@@ -952,40 +981,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
-    private func installPersistentBootstrapObserver() {
-        if let persistentBootstrapObserver {
-            NotificationCenter.default.removeObserver(persistentBootstrapObserver)
-        }
-        persistentBootstrapObserver = NotificationCenter.default.addObserver(
-            forName: .lifeboardPersistentBootstrapStateDidChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.handlePersistentBootstrapStateChange()
-            }
-        }
-    }
-
-    private func handlePersistentBootstrapStateChange() {
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
-        let rootMode = appDelegate.makeLaunchRootMode()
-
-        switch rootMode {
-        case .loading, .home:
-            if let launchHostController = window?.rootViewController as? LaunchHostController {
-                launchHostController.refreshPendingHomeController()
-            } else {
-                renderRoot(for: rootMode)
-            }
-        case .bootstrapFailure(let message):
-            if let failureViewController = window?.rootViewController as? BootstrapFailureViewController {
-                failureViewController.setWorking(false, hint: message)
-            } else {
-                renderRoot(for: .bootstrapFailure(message: message))
-            }
-        }
-    }
 }
 
 /// Keeps seeded UI journeys deterministic without delaying or changing production launch.
@@ -1025,7 +1020,7 @@ private final class UITestSeedGateViewController: UIViewController {
     }
 }
 
-private final class LaunchHostController: UIViewController {
+final class LaunchHostController: UIViewController {
     private let resolveHomeRootController: () -> UIViewController?
 
     private var hasScheduledHomeAttach = false

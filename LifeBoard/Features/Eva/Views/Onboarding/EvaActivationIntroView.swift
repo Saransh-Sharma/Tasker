@@ -10,7 +10,7 @@ struct EvaActivationIntroView: View {
 
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private let trustChips = ["On-device", "Private", "Ready in a minute"]
+    private let trustChips = ["Luna-powered", "Private by design", "Offline option"]
 
     private var spacing: SemanticSpacingTokens {
         tokens.spacing
@@ -95,8 +95,12 @@ struct EvaActivationIntroView: View {
     private func copyPanel(alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: spacing.s16) {
             EvaContentHeader(
-                title: "Meet \(assistantIdentity.snapshot.displayName)",
-                bodyText: "Your private executive assistant for planning, prioritizing, and keeping momentum. Runs entirely on this device.",
+                title: String(
+                    format: String(localized: "Meet %@"),
+                    locale: Locale.current,
+                    assistantIdentity.snapshot.displayName
+                ),
+                bodyText: String(localized: "Your executive assistant for planning, prioritizing, and keeping momentum. Cloud EVA uses Luna for stronger answers, while Apple powers text input and Offline EVA remains optional."),
                 eyebrow: assistantIdentity.snapshot.uppercaseName
             )
             .enhancedStaggeredAppearance(index: 1)
@@ -108,7 +112,7 @@ struct EvaActivationIntroView: View {
             }
             .enhancedStaggeredAppearance(index: 2)
 
-            Text("No account needed. Setup stays local to your device.")
+            Text("Cloud EVA requires Sign in with Apple and an Apple 18+ age-range result. You choose which sensitive context may be shared.")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: .leading)

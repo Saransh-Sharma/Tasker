@@ -173,3 +173,23 @@ enum EvaActivationChatEvent: Equatable {
     case userMessagePersisted(threadID: UUID)
     case assistantReplyPersisted(threadID: UUID, countsForCompletion: Bool)
 }
+
+extension EvaActivationDefaultsStore {
+    /// Stages navigation for explicit UI tests only. All cloud authentication,
+    /// device-trust, age, consent, and credit gates remain live.
+    /// Only `.completed` can be staged now.
+    ///
+    /// `-LIFEBOARD_TEST_EVA_CLOUD_SETUP` used to place the EVA tab on its own
+    /// cloud-setup screen. That screen is retired — app onboarding owns cloud
+    /// activation — and `EvaActivationCoordinator.bootstrap()` normalises the
+    /// stage back to `.completed`, so staging it would have quietly done
+    /// nothing. Tests that need the sign-in surface drive onboarding's EVA step.
+    static func stageForUITesting(
+        arguments: [String],
+        defaults: UserDefaults = .standard
+    ) {
+        if arguments.contains("-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED") {
+            markCompleted(defaults: defaults)
+        }
+    }
+}

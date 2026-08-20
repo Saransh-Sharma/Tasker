@@ -11,9 +11,6 @@ import Security
 import SQLite3
 import SwiftUI
 import UIKit
-#if canImport(FoundationModels)
-import FoundationModels
-#endif
 
 // MARK: - Editor and mutation contracts
 
@@ -1332,36 +1329,12 @@ public struct ModelsNoteAIProposalService: NoteAIProposalService {
         note: KnowledgeNoteValue,
         selectedText: String?
     ) async throws -> NoteAIProposal {
-        #if canImport(FoundationModels)
-        guard SystemLanguageModel.default.availability == .available else { throw ProposalError.unavailable }
         let source = selectedText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
             ? selectedText!
             : note.plainText
-        let instruction = switch action {
-        case .summarize: "Summarize the supplied note in a warm, precise paragraph."
-        case .cleanUp: "Improve clarity and structure without adding any facts. Return only the revised text."
-        case .continueWriting: "Continue naturally with one concise paragraph. Do not invent specific facts."
-        case .extractTasks: "List only concrete next actions already supported by the note, one per line."
-        case .suggestTags: "Suggest up to five short tags, separated by commas."
-        case .suggestLinks: "List the concepts that would be most useful to connect to other notes."
-        }
-        let session = LanguageModelSession(
-            model: .default,
-            instructions: """
-            You are Eva inside LifeBoard Notes. Operate only on the note text explicitly supplied in this request.
-            Never retrieve Journal content or claim access to other private data. Do not add facts.
-            """
-        )
-        let response = try await session.respond(
-            to: """
-            Action: \(instruction)
-
-            Note text:
-            \(source)
-            """,
-            options: GenerationOptions(temperature: 0.15, maximumResponseTokens: 520)
-        )
-        let output = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let output = try await NoteAITextProviderRegistry.shared.generate(action: action, source: source)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard output.isEmpty == false else { throw ProposalError.unavailable }
         var after = note
         switch action {
         case .summarize:
@@ -1392,9 +1365,6 @@ public struct ModelsNoteAIProposalService: NoteAIProposalService {
             preview: output,
             mutations: mutations
         )
-        #else
-        throw ProposalError.unavailable
-        #endif
     }
 }
 

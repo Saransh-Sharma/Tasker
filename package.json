@@ -1,12 +1,28 @@
 {
-  "name": "tmp-vite",
+  "name": "lifeboard-monorepo",
   "private": true,
   "version": "0.0.0",
+  "engines": {
+    "node": ">=24"
+  },
   "type": "module",
+  "workspaces": [
+    "Services/EVACloud",
+    "Shared/EVACloudContracts"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/generate-marketing-routes.mjs",
     "check:marketing": "node scripts/check-marketing-site.mjs",
+    "contracts:build": "npm run build --workspace @lifeboard/eva-contracts",
+    "contracts:check": "npm run check --workspace @lifeboard/eva-contracts",
+    "backend:dev": "npm run dev --workspace @lifeboard/eva-cloud",
+    "backend:test": "npm run test --workspace @lifeboard/eva-cloud",
+    "backend:typecheck": "npm run typecheck --workspace @lifeboard/eva-cloud",
+    "backend:deploy:staging": "npm run deploy:staging --workspace @lifeboard/eva-cloud",
+    "backend:preflight:staging": "npm run preflight:staging --workspace @lifeboard/eva-cloud",
+    "backend:preflight:production": "npm run preflight:production --workspace @lifeboard/eva-cloud",
+    "check": "npm run lint && npm run build && npm run check:marketing && npm run contracts:check && npm run backend:typecheck && npm run backend:test",
     "screenshots:marketing": "bash scripts/generate_readme_screenshots.sh && node scripts/generate_marketing_screenshots.mjs",
     "lint": "eslint .",
     "preview": "vite preview"

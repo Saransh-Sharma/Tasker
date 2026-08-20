@@ -271,8 +271,26 @@ public enum SignatureShaders {
     /// this deliberately stops at the supported public boundary instead of rasterizing hidden UI.
     /// The measured result is retained for diagnostics and makes repeated calls idempotent.
     public static func warmUp() {
-        guard performancePermits else { return }
+        guard performancePermits else {
+            // Publishing on this path matters in both directions. Returning
+            // silently used to leave `preloadState` at `.idle` with
+            // `engineReady` never set on a cold start; worse, when the device
+            // *entered* Low Power the power-state observer re-entered here, hit
+            // this guard, and left `engineReady` still `true` — so hero glass
+            // and every Metal effect kept drawing under exactly the constraint
+            // they were supposed to respect.
+            publishEngineReadiness(reason: performanceBlockReason)
+            return
+        }
+        // A previous verdict of `.unavailable` must not be terminal: it is
+        // reachable purely from transient state, and the power/thermal
+        // observers plus scene activation call back in when that state clears.
+        if case .unavailable = preloadState { preloadTask = nil }
         guard preloadTask == nil else { return }
+        guard preloadDidFinish == false else {
+            publishEngineReadiness()
+            return
+        }
 
         preloadState = .loading
         let names = functionNames
@@ -311,8 +329,10 @@ public enum SignatureShaders {
         }
     }
 
-    /// Shared `Color` → shader float3. Each modifier used to carry its own
-    /// private copy of this.
+}
+
+extension SignatureShaders {
+    /// Shared `Color` → shader float3. Each modifier used to carry its own private copy.
     static func components(of color: Color) -> (Float, Float, Float) {
         let ui = UIColor(color)
         var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
@@ -623,27 +643,42 @@ private struct VitalOrbWarpModifier: ViewModifier {
     let reduceTransparency: Bool
     let sceneIsActive: Bool
     @State private var startDate: Date?
+    /// Resolved once, when the trigger fires. Reading `usesFallback` from inside
+    /// the timeline let a pass that mounted before `SignatureShaders.warmUp()`
+    /// published flip into the shader branch mid-flight — the same pass, the
+    /// same view, suddenly rasterised offscreen.
+    @State private var usesShader = false
+
+    private let duration: TimeInterval = 0.42
 
     func body(content: Content) -> some View {
         Group {
             if let startDate {
                 TimelineView(.animation) { context in
-                    let progress = min(1, context.date.timeIntervalSince(startDate) / 0.42)
-                    if reduceMotion || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
-                        content.scaleEffect(0.985 + progress * 0.015)
-                    } else {
-                        content.visualEffect { effect, proxy in
-                            effect.distortionEffect(
-                                Shader(
-                                    function: ShaderFunction(library: .default, name: "LifeBoardVitalOrbWarp"),
-                                    arguments: [
-                                        .float2(Float(proxy.size.width), Float(proxy.size.height)),
-                                        .float(Float(progress))
-                                    ]
-                                ),
-                                maxSampleOffset: CGSize(width: 6, height: 6)
-                            )
+                    let progress = min(1, context.date.timeIntervalSince(startDate) / duration)
+                    Group {
+                        if usesShader {
+                            content.visualEffect { effect, proxy in
+                                effect.distortionEffect(
+                                    Shader(
+                                        function: ShaderFunction(library: .default, name: "LifeBoardVitalOrbWarp"),
+                                        arguments: [
+                                            .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                            .float(Float(progress))
+                                        ]
+                                    ),
+                                    maxSampleOffset: CGSize(width: 6, height: 6)
+                                )
+                            }
+                        } else {
+                            content.scaleEffect(0.985 + progress * 0.015)
                         }
+                    }
+                    .task(id: progress >= 1) {
+                        // Drop the timeline the moment the pass completes. A
+                        // distortion left mounted keeps `content` in an
+                        // offscreen render pass for the life of the view.
+                        if progress >= 1 { self.startDate = nil }
                     }
                 }
             } else {
@@ -652,8 +687,14 @@ private struct VitalOrbWarpModifier: ViewModifier {
         }
             .onChange(of: trigger) { _, _ in
                 guard sceneIsActive else { return }
+                usesShader = usesFallback == false
                 startDate = Date()
             }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || reduceTransparency || sceneIsActive == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -669,6 +710,8 @@ private struct ContextLensModifier: ViewModifier {
     let reduceTransparency: Bool
     let sceneIsActive: Bool
     @State private var startDate: Date?
+    /// Resolved once, when the trigger fires — see `VitalOrbWarpModifier`.
+    @State private var usesShader = false
 
     private let duration: TimeInterval = 0.38
 
@@ -677,22 +720,30 @@ private struct ContextLensModifier: ViewModifier {
             if let startDate {
                 TimelineView(.animation) { context in
                     let progress = min(1, context.date.timeIntervalSince(startDate) / duration)
-                    if usesFallback {
-                        content.opacity(0.96 + (0.04 * progress))
-                    } else {
-                        content.visualEffect { effect, proxy in
-                            effect.distortionEffect(
-                                Shader(
-                                    function: ShaderFunction(library: .default, name: "LifeBoardContextLens"),
-                                    arguments: [
-                                        .float2(Float(proxy.size.width), Float(proxy.size.height)),
-                                        .float2(Float(center.x), Float(center.y)),
-                                        .float(Float(progress))
-                                    ]
-                                ),
-                                maxSampleOffset: CGSize(width: 8, height: 8)
-                            )
+                    Group {
+                        if usesShader {
+                            content.visualEffect { effect, proxy in
+                                effect.distortionEffect(
+                                    Shader(
+                                        function: ShaderFunction(library: .default, name: "LifeBoardContextLens"),
+                                        arguments: [
+                                            .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                            .float2(Float(center.x), Float(center.y)),
+                                            .float(Float(progress))
+                                        ]
+                                    ),
+                                    maxSampleOffset: CGSize(width: 8, height: 8)
+                                )
+                            }
+                        } else {
+                            content.opacity(0.96 + (0.04 * progress))
                         }
+                    }
+                    .task(id: progress >= 1) {
+                        // Drop the timeline the moment the pass completes. A
+                        // distortion left mounted keeps `content` in an
+                        // offscreen render pass for the life of the view.
+                        if progress >= 1 { self.startDate = nil }
                     }
                 }
             } else {
@@ -701,6 +752,7 @@ private struct ContextLensModifier: ViewModifier {
         }
         .onChange(of: trigger) { _, _ in
             guard sceneIsActive else { return }
+            usesShader = usesFallback == false
             startDate = Date()
         }
     }
@@ -1882,7 +1934,6 @@ struct ValueDrumWarpModifier: ViewModifier {
             || SignatureShaders.isReadyForRendering == false
     }
 }
-
 public extension View {
     /// The value tape's cylinder warp, for the duration of a scrub.
     ///

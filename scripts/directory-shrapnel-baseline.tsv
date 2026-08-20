@@ -8,13 +8,17 @@
 # pulled the average from 122.1 to 153.8 — above MIN_AVERAGE_LINES, so it is no
 # longer a shrapnel candidate. Removing the row is stricter than raising it:
 # the generic rule now fails the directory the moment it drops back below 150.
+# 2026-08-14: LifeBoard/Features/Onboarding/Components dropped, not lowered.
+# The nine-step flow's deletion took it from 26 files to 3, which is below the
+# generic MIN_FILES threshold, so it is no longer a shrapnel candidate. Removing
+# the row is stricter than keeping a lowered one: the generic rule now fails it
+# again the moment it regrows past 8 files with a low average.
 # Existing small-file concentrations. Do not add shards or reduce the average
 # LOC until an intentional feature-boundary consolidation removes the entry.
 LifeBoard/Domain/Interfaces	23	110.826087
 LifeBoard/Features/Eva/Views/Chat/Chrome	15	128.333333
 LifeBoard/Features/Eva/Views/Chat/Conversation	24	101.416667
 LifeBoard/LifeBoardDesign/Components	24	97.750000
-LifeBoard/Features/Onboarding/Components	26	62.423077
 LifeBoard/Features/Onboarding/Models	71	66.577465
 LifeBoard/Features/Home/UI/Modals/OverdueRescue	45	91.044444
 LifeBoard/Features/Home/UI/Timeline/Surface	97	72.226804

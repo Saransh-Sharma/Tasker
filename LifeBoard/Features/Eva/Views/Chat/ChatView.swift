@@ -1,7 +1,3 @@
-//
-//  ChatView.swift
-//
-
 import Combine
 import MarkdownUI
 import MLXLMCommon
@@ -12,13 +8,11 @@ import os
 private struct EvaAuthorizedEvidenceContextEnvironmentKey: EnvironmentKey {
     static let defaultValue = EvaAuthorizedEvidenceContext.notProvided
 }
-
 struct EvaEvidenceOpenAction {
     var open: @MainActor (EvidenceReference) -> Void
 
     static let disabled = Self(open: { _ in })
 }
-
 private struct EvaEvidenceOpenActionEnvironmentKey: EnvironmentKey {
     static let defaultValue = EvaEvidenceOpenAction.disabled
 }
@@ -603,6 +597,8 @@ struct ChatView: View {
     @State private var pendingResponsePhase: ChatPendingResponsePhase = .idle
     @State private var chatOpenTraceInterval: PerformanceInterval?
     @State private var promptSubmitTraceInterval: PerformanceInterval?
+    /// Openers handed over by onboarding. Drained on the first send.
+    @State private var stagedOpeningPrompts: [EvaStarterPrompt] = []
     @State private var evaSubmittedDraft: EvaSubmittedDraft?
     @State private var hasCompletedInitialTranscriptRender = false
     @State private var consumedPromptFocusRequestID: UInt64 = 0
@@ -677,8 +673,24 @@ struct ChatView: View {
         activationConfiguration != nil
     }
 
+    /// Starter prompts for the empty state.
+    ///
+    /// In activation presentation these come from the stage's configuration. In
+    /// normal presentation they used to be empty — which was fine while EVA had
+    /// its own activation flow to greet a new user, and is not now that
+    /// onboarding hands straight to `.normal`. `EvaOpeningPromptStore` carries
+    /// the openers composed from the user's Life Map across that hand-off; they
+    /// are cleared the moment the person says anything, since an opener is only
+    /// an opener until the conversation exists.
+    private func clearStagedOpeningPromptsIfNeeded() {
+        guard stagedOpeningPrompts.isEmpty == false else { return }
+        stagedOpeningPrompts = []
+        EvaOpeningPromptStore.clear()
+    }
+
     private var activationStarterPrompts: [EvaStarterPrompt] {
-        activationConfiguration?.starterPrompts ?? []
+        if let configured = activationConfiguration?.starterPrompts { return configured }
+        return stagedOpeningPrompts
     }
 
     private var commandSuggestions: [SlashCommandDescriptor] {
@@ -795,12 +807,14 @@ struct ChatView: View {
                 contextCoordinator.remove(attachment)
             },
             onGenerate: {
+                clearStagedOpeningPromptsIfNeeded()
                 submitPromptFromSendButton()
             },
             onStop: {
                 cancelActiveGeneration(reason: .stopButton)
             },
             onSubmitPrompt: {
+                clearStagedOpeningPromptsIfNeeded()
                 submitPromptFromComposer()
             },
             onClearCurrentThread: {
@@ -811,6 +825,9 @@ struct ChatView: View {
         .onAppear {
             handleChatViewAppear()
             handlePromptFocusRequestIfNeeded()
+            if activationConfiguration == nil, stagedOpeningPrompts.isEmpty {
+                stagedOpeningPrompts = EvaOpeningPromptStore.load()
+            }
         }
         .onChange(of: prompt) { _, newValue in
             handlePromptChanged(newValue)
@@ -1224,7 +1241,8 @@ extension ChatView {
         content: String,
         threadID: UUID,
         generatingTime: TimeInterval? = nil,
-        sourceModelName: String? = nil
+        sourceModelName: String? = nil,
+        contextReceiptData: Data? = nil
     ) -> ChatMessageSendOutcome {
         guard let thread = thread(matching: threadID) else {
             logWarning(
@@ -1249,37 +1267,13 @@ extension ChatView {
                 content: content,
                 thread: thread,
                 generatingTime: generatingTime,
-                sourceModelName: sourceModelName
+                sourceModelName: sourceModelName,
+                contextReceiptData: contextReceiptData
             )
         )
     }
-
-    @MainActor
-    private func promptSnapshot(
-        threadID: UUID,
-        model: MLXLMCommon.ModelConfiguration,
-        systemPrompt: String
-    ) -> LLMChatPromptSnapshot? {
-        guard let thread = thread(matching: threadID) else {
-            logWarning(
-                event: "chat_thread_resolve_failed",
-                message: "Could not resolve chat thread for prompt snapshot",
-                fields: ["thread_id": threadID.uuidString]
-            )
-            return nil
-        }
-        let startedAt = Date()
-        return LLMChatPromptSnapshot(
-            messages: model.getChatMessages(thread: thread, systemPrompt: systemPrompt),
-            systemPromptCharacterCount: systemPrompt.count,
-            buildDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000)
-        )
-    }
-
 }
-
 // MARK: - Generation entry point
-
 extension ChatView {
     /// Executes generate.
     @MainActor
@@ -1401,7 +1395,6 @@ extension ChatView {
             }
         }
     }
-
 }
 
 // MARK: - EVA plan generation
@@ -1428,7 +1421,6 @@ extension ChatView {
                 }
             }
         }
-
         await MainActor.run {
             updatePendingResponsePhase(.buildingContext, for: runID)
             prompt = ""
@@ -1487,10 +1479,13 @@ extension ChatView {
             llm: llm,
             taskReadModelRepository: LLMContextRepositoryFactory.taskReadModelRepository
         )
+        let planUsesCloud = await MainActor.run { EvaCloudAccountState.shared.canUseCloud }
         let planResult = await service.generatePlan(
             userPrompt: message,
             thread: Thread(),
-            contextPayload: authorizedLifeEvidence.injecting(into: contextPayload.payload),
+            contextPayload: planUsesCloud
+                ? contextPayload.payload
+                : authorizedLifeEvidence.injecting(into: contextPayload.payload),
             taskTitleByID: [:],
             projectNameByID: [:],
             knownTaskIDs: [],
@@ -1769,7 +1764,6 @@ extension ChatView {
                 }
             }
         }
-
         guard !Task.isCancelled else {
             await MainActor.run {
                 llm.cancelGeneration(reason: "run_cancelled_before_start")
@@ -1784,15 +1778,26 @@ extension ChatView {
             _ = sendMessage(role: .user, content: message, threadID: threadID)
             llm.isThinking = true
         }
-
         guard !Task.isCancelled else {
             await MainActor.run {
                 llm.cancelGeneration(reason: "run_cancelled_before_context")
             }
             return
         }
-
         let tID = threadID
+        guard let turnRuntime = EvaTurnRuntime.resolveChat(
+            localModelName: appManager.currentModelName,
+            offlineModel: activeModelConfiguration,
+            reportFailure: { message in
+                _ = sendMessage(
+                    role: .assistant,
+                    content: message,
+                    threadID: threadID
+                )
+                llm.isThinking = false
+            }
+        ) else { return }
+        let contextBudget = turnRuntime.contextBudget
         let contextTrace = PerformanceTrace.begin("ChatContextBuild")
         let contextStartedAt = Date()
         let contextPayload = await ChatContextAssembly.buildContextPayloadForCurrentTurn(
@@ -1802,9 +1807,7 @@ extension ChatView {
             budgets: chatBudgets,
             model: activeModelConfiguration,
             injectionPolicy: contextInjectionPolicy,
-            contextCharBudgetOverride: LLMTokenBudgetEstimator.estimatedCharacterBudget(
-                for: resolvedChatBudget.maxContextTokens
-            )
+            contextCharBudgetOverride: contextBudget.taskContextCharacters
         )
         PerformanceTrace.end(contextTrace)
         guard !Task.isCancelled else {
@@ -1824,23 +1827,31 @@ extension ChatView {
             updatePendingResponsePhase(.assemblingPrompt, for: runID)
         }
         let promptAssemblyTrace = PerformanceTrace.begin("ChatPromptAssembly")
-        let memoryBlock = LLMPersonalMemoryDefaultsStore.promptBlock(for: activeModelConfiguration)
+        let memoryBlock = EvaMemoryDefaultsStoreV3.promptBlock(for: activeModelConfiguration)
         let executiveContext = await ChatContextAssembly.buildExecutiveContextPrompt(
-            tokenBudget: resolvedChatBudget.executiveContextTokens
+            tokenBudget: contextBudget.executiveContextTokens
         )
         let activeAttachments = await ChatContextAssembly.loadSlashAttachments(for: tID)
         let slashCommandContext = ChatContextAssembly.slashCommandContextPrompt(
             attachments: activeAttachments,
-            tokenBudget: resolvedChatBudget.slashContextTokens
+            tokenBudget: contextBudget.slashContextTokens
         )
         let runtimeTaskContext = authorizedLifeEvidence.injecting(into: contextPayload.payload)
-        let dynamicSystemPrompt = ChatContextAssembly.composeChatSystemPrompt(
+        let dynamicSystemPrompt = LLMSystemPromptComposer.compose(
             basePrompt: appManager.systemPrompt,
-            model: activeModelConfiguration,
+            budget: contextBudget,
             personalMemory: memoryBlock,
             executiveContext: executiveContext,
             slashContext: slashCommandContext,
             taskContext: runtimeTaskContext
+        )
+        let cloudContext = await turnRuntime.contextSections(
+            compactProjection: contextPayload.payload,
+            executiveState: executiveContext,
+            slashCommandState: slashCommandContext,
+            personalMemory: memoryBlock,
+            evidence: authorizedLifeEvidence,
+            userQuery: message
         )
         PerformanceTrace.end(promptAssemblyTrace)
         ChatGenerationLog.promptComponentSizes(
@@ -1852,34 +1863,22 @@ extension ChatView {
             slashContext: slashCommandContext,
             finalPrompt: dynamicSystemPrompt
         )
-
-        guard let modelName = appManager.currentModelName else {
-            await MainActor.run {
-                _ = sendMessage(role: .assistant, content: "No model selected", threadID: threadID)
-                llm.isThinking = false
-            }
-            return
-        }
-
         guard !Task.isCancelled else {
             await MainActor.run {
                 llm.cancelGeneration(reason: "run_cancelled_before_prepare")
             }
             return
         }
-
-        let prepareStartedAt = Date()
         await MainActor.run {
             updatePendingResponsePhase(.preparingModel, for: runID)
         }
-        let prepareResult = await LLMRuntimeCoordinator.shared.ensureReady(modelName: modelName)
-        let prepareMs = Int(Date().timeIntervalSince(prepareStartedAt) * 1_000)
+        let timedPreparation = await EvaRuntimePreparation.prepare(runtime: turnRuntime)
+        let prepareResult = timedPreparation.readiness
         ChatGenerationLog.modelPrepare(
-            modelName: modelName,
-            durationMs: prepareMs,
+            modelName: turnRuntime.modelName,
+            durationMs: timedPreparation.durationMs,
             prepareResult: prepareResult
         )
-
         guard prepareResult.ready else {
             await MainActor.run {
                 sendMessage(
@@ -1898,23 +1897,28 @@ extension ChatView {
             for: runtimeModelConfiguration,
             requestOptions: chatRequestOptions
         )
-
         guard !Task.isCancelled else {
             await MainActor.run {
                 llm.cancelGeneration(reason: "run_cancelled_before_generate")
             }
             return
         }
-
         await MainActor.run {
             updatePendingResponsePhase(.generating, for: runID)
         }
         guard let promptSnapshot = await MainActor.run(
             body: {
-                self.promptSnapshot(
+                EvaChatPromptSnapshotFactory.make(
                     threadID: threadID,
+                    resolveThread: { self.thread(matching: $0) },
                     model: runtimeModelConfiguration,
-                    systemPrompt: dynamicSystemPrompt
+                    systemPrompt: dynamicSystemPrompt,
+                    cloudContext: cloudContext,
+                    userInstructions: EvaUserInstructions.customized(
+                        storedPrompt: appManager.systemPrompt,
+                        builtInPrompts: AppManager.legacyBuiltInSystemPrompts.union([AppManager.defaultSystemPrompt])
+                    ),
+                    budget: contextBudget
                 )
             }
         ) else {
@@ -1932,7 +1936,8 @@ extension ChatView {
             modelName: prepareResult.resolvedModelName,
             promptSnapshot: promptSnapshot,
             profile: chatProfile,
-            requestOptions: chatRequestOptions
+            requestOptions: chatRequestOptions,
+            turnRuntime: turnRuntime
         )
         let primaryTerminationReason = await MainActor.run { llm.lastTerminationReason }
         ChatGenerationLog.generationResult(
@@ -1949,7 +1954,22 @@ extension ChatView {
             }
             return
         }
-
+        if turnRuntime.usesCloud {
+            guard await MainActor.run(body: { generationRunID == runID && llm.cancelled == false }) else { return }
+            let deliveredText = turnRuntime.cloudDisplayText(from: output)
+                .flatMap { $0.isEmpty ? nil : $0 }
+                ?? String(localized: "Cloud EVA returned an empty response. Please try again.")
+            let receipt = EvaContextReceiptSnapshot.make(runtime: turnRuntime, sections: cloudContext)?.encodedData
+            let outcome = await MainActor.run { sendMessage(
+                role: .assistant, content: deliveredText, threadID: threadID,
+                generatingTime: llm.thinkingTime, sourceModelName: turnRuntime.modelName,
+                contextReceiptData: receipt
+            ) }
+            if outcome.status == .persisted {
+                await attachMemoryCandidate(proposedFrom: message, to: outcome.messageID, threadID: threadID)
+            }
+            return
+        }
         let primaryOutputAssessment = ChatOutputAssessor.assessChatOutput(
             rawOutput: output,
             modelName: prepareResult.resolvedModelName,
@@ -1958,7 +1978,6 @@ extension ChatView {
             runID: runID,
             stage: "primary"
         )
-
         var finalRawOutput = output
         var finalOutput = primaryOutputAssessment.finalOutput
         var salvageOutput = primaryOutputAssessment.salvageOutput
@@ -1978,7 +1997,6 @@ extension ChatView {
                     "retry_mode": "answer_completion"
                 ]
             )
-
             let retryContextPayload = await ChatContextAssembly.buildContextPayloadForCurrentTurn(
                 threadID: tID,
                 timeoutMs: contextFetchTimeoutMs,
@@ -1997,7 +2015,6 @@ extension ChatView {
                 }
                 return
             }
-
             let retryExecutiveContext = await ChatContextAssembly.buildExecutiveContextPrompt(
                 tokenBudget: resolvedChatBudget.executiveContextTokens
             )
@@ -2006,7 +2023,7 @@ extension ChatView {
             let retrySystemPrompt = ChatContextAssembly.composeChatSystemPrompt(
                 basePrompt: appManager.systemPrompt,
                 model: runtimeModelConfiguration,
-                personalMemory: LLMPersonalMemoryDefaultsStore.promptBlock(for: runtimeModelConfiguration),
+                personalMemory: EvaMemoryDefaultsStoreV3.promptBlock(for: runtimeModelConfiguration),
                 executiveContext: retryExecutiveContext,
                 slashContext: ChatContextAssembly.slashCommandContextPrompt(
                     attachments: retryAttachments,
@@ -2015,45 +2032,21 @@ extension ChatView {
                 taskContext: retryTaskContext,
                 additionalInstruction: "Return only the final answer. Do not repeat the previous analysis, thinking, or intro. Keep it short and directly useful."
             )
-            let retryThread = Thread()
             let retrySeedContent = primaryOutputAssessment.finalOutput.isEmpty == false
                 ? primaryOutputAssessment.finalOutput
                 : output
-            retryThread.messages = [
-                Message(role: .user, content: message, thread: retryThread),
-                Message(
-                    role: .assistant,
-                    content: retrySeedContent,
-                    thread: retryThread,
-                    sourceModelName: prepareResult.resolvedModelName
-                ),
-                Message(
-                    role: .user,
-                    content: "Continue with only the final answer. Do not repeat the prior analysis, thinking, or bullets.",
-                    thread: retryThread
-                )
-            ]
-            let retryRequestOptions = LLMGenerationRequestOptions.answerCompletionRetry(
-                for: runtimeModelConfiguration
-            )
-            let retryProfile = LLMGenerationProfile.chatProfile(
-                for: runtimeModelConfiguration,
-                requestOptions: retryRequestOptions
-            )
-            let retryPromptStartedAt = Date()
-            let retryPromptSnapshot = LLMChatPromptSnapshot(
-                messages: runtimeModelConfiguration.getChatMessages(
-                    thread: retryThread,
-                    systemPrompt: retrySystemPrompt
-                ),
-                systemPromptCharacterCount: retrySystemPrompt.count,
-                buildDurationMs: Int(Date().timeIntervalSince(retryPromptStartedAt) * 1_000)
+            let retryPrompt = EvaChatRetryPromptFactory.make(
+                userMessage: message,
+                seedContent: retrySeedContent,
+                sourceModelName: prepareResult.resolvedModelName,
+                model: runtimeModelConfiguration,
+                systemPrompt: retrySystemPrompt
             )
             let retryOutput = await llm.generate(
                 modelName: prepareResult.resolvedModelName,
-                promptSnapshot: retryPromptSnapshot,
-                profile: retryProfile,
-                requestOptions: retryRequestOptions
+                promptSnapshot: retryPrompt.snapshot,
+                profile: retryPrompt.profile,
+                requestOptions: retryPrompt.requestOptions
             )
             let retryTerminationReason = await MainActor.run { llm.lastTerminationReason }
             ChatGenerationLog.generationResult(
@@ -2079,7 +2072,6 @@ extension ChatView {
                 runID: runID,
                 stage: "retry"
             )
-
             finalRawOutput = retryOutput
             finalOutput = retryOutputAssessment.finalOutput
             salvageOutput = retryOutputAssessment.salvageOutput
@@ -2123,7 +2115,6 @@ extension ChatView {
                 }
                 return
             }
-
             if salvageOutput.isEmpty == false {
                 await MainActor.run {
                     guard generationRunID == runID else { return }
@@ -2139,7 +2130,6 @@ extension ChatView {
                 return
             }
         }
-
         guard qualityAssessment.isAcceptable, finalOutput.isEmpty == false else {
             ChatGenerationLog.staticFallback(
                 modelName: prepareResult.resolvedModelName,
@@ -2158,7 +2148,6 @@ extension ChatView {
             }
             return
         }
-
         await MainActor.run {
             guard generationRunID == runID else { return }
             guard llm.cancelled == false else { return }
@@ -2333,6 +2322,15 @@ extension ChatView {
 // MARK: - Message persistence
 
 extension ChatView {
+    @MainActor
+    private func attachMemoryCandidate(proposedFrom userTurn: String, to messageID: UUID, threadID: UUID) async {
+        guard let thread = thread(matching: threadID),
+              let message = thread.messages.first(where: { $0.id == messageID }) else { return }
+        if await EvaMemoryProposalService.attach(proposedFrom: userTurn, to: message, in: modelContext) {
+            refreshTranscriptSnapshot(for: thread)
+        }
+    }
+
     /// Executes sendMessage.
     @MainActor
     @discardableResult
@@ -2343,10 +2341,12 @@ extension ChatView {
         let threadID = message.thread?.id ?? currentThread?.id
         if message.role == .assistant && AssistantCardCodec.isCard(message.content) == false {
             preSanitizeLength = message.content.count
-            let sanitizedText = LLMChatTextSanitizer.sanitizeForDisplay(
-                message.content,
-                modelName: message.sourceModelName ?? appManager.currentModelName
-            )
+            let sanitizedText = EvaModelSelection.isCloud(message.sourceModelName)
+                ? EvaCloudOutputNormalizer.normalize(message.content)
+                : LLMChatTextSanitizer.sanitizeForDisplay(
+                    message.content,
+                    modelName: message.sourceModelName ?? appManager.currentModelName
+                )
             let sanitizedResult = LLMChatTextSanitizer.Result(
                 text: sanitizedText,
                 removedReasoningBlocks: false,

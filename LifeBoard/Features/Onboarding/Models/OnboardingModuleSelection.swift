@@ -206,6 +206,48 @@ enum OnboardingModuleCatalog {
         }
     }
 
+    /// What v6 switches on, without ever asking.
+    ///
+    /// v5 spent a whole screen — "Here's how LifeBoard will work for you" — asking
+    /// people to evaluate planning, routines, reflection and EVA before they had
+    /// used any of them. The answer was almost entirely predictable from the two
+    /// questions already asked, so v6 derives it instead of charging a screen for
+    /// it, and the user reorders Home later from a product they have actually seen.
+    ///
+    /// Deterministic and local: the same intent and the same areas always produce
+    /// the same set, because this feeds `homePlacements(for:)` and a Home layout
+    /// that shuffled between two launches would be a bug, not personalisation.
+    ///
+    /// Availability is applied last. `all` is already filtered by
+    /// `V2FeatureFlags`, so intersecting with it means a disabled surface can
+    /// never contribute a Home card or pull in a permission nothing would use.
+    static func recommendedModuleIDs(
+        intent: LifeWeaveIntent?,
+        lifeAreaTemplateIDs: [String]
+    ) -> Set<String> {
+        var selection = recommended(for: intent?.primaryGoal)
+
+        // The areas carry more signal than the intent here: someone who put
+        // Health & Self on their map wants the health surfaces whatever they
+        // said they wanted to feel first.
+        for templateID in lifeAreaTemplateIDs {
+            switch templateID {
+            case "health-self": selection.formUnion([habitsID, moodID, bodyID])
+            case "life-admin": selection.formUnion([medicationID])
+            case "work-career": selection.formUnion([focusID])
+            case "learning-growth": selection.formUnion([notesID])
+            case "creativity-fun": selection.formUnion([journalID])
+            case "relationships": selection.formUnion([momentsID])
+            // Money has no trackable module today. It still shapes the map and
+            // the areas the first capture can land in; it just adds no card.
+            default: break
+            }
+        }
+
+        let available = Set(all.map(\.id))
+        return selection.intersection(available)
+    }
+
     // MARK: - Derived consequences
 
     /// The Apple Health domains implied by a selection.

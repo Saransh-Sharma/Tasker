@@ -95,14 +95,25 @@ struct RequestLLMIntent: AppIntent {
         }
 
         let route = AIChatModeRouter.route(for: .addTaskSuggestion, appManager: appManager)
-        if let modelName = route.selectedModelName,
-           let model = ModelConfiguration.getModelByName(modelName) {
+        if let modelName = EvaModelSelection.resolve(route.selectedModelName) {
+            let cloudReady = EvaCloudAccountState.shared.canUseCloud
+            let runtimeModel: MLXLMCommon.ModelConfiguration
+            let resolvedModelName: String
+            if cloudReady {
+                runtimeModel = ModelConfiguration.getModelByName(route.selectedModelName ?? "") ?? .defaultModel
+                resolvedModelName = modelName
+            } else if let model = ModelConfiguration.getModelByName(modelName) {
             let ready = await LLMRuntimeCoordinator.shared.ensureReady(modelName: modelName)
             guard ready.ready else {
                 let error = ready.failureMessage ?? "The active local model could not be prepared right now."
                 return .result(value: error, dialog: "\(error)")
             }
-            let runtimeModel = ModelConfiguration.getModelByName(ready.resolvedModelName) ?? model
+                runtimeModel = ModelConfiguration.getModelByName(ready.resolvedModelName) ?? model
+                resolvedModelName = ready.resolvedModelName
+            } else {
+                let error = "Offline EVA is not ready. Activate Cloud EVA or install a local model."
+                return .result(value: error, dialog: "\(error)")
+            }
             let resolvedBudget = LLMChatBudgets.active.resolved(for: runtimeModel)
 
             let contextResult = await LLMChatPlanningContextBuilder.build(
@@ -128,7 +139,7 @@ struct RequestLLMIntent: AppIntent {
                 basePrompt: appManager.systemPrompt,
                 model: runtimeModel,
                 additionalInstruction: systemPrompt,
-                personalMemory: LLMPersonalMemoryDefaultsStore.promptBlock(for: runtimeModel),
+                personalMemory: EvaMemoryDefaultsStoreV3.promptBlock(for: runtimeModel),
                 executiveContext: executiveContext,
                 taskContext: contextResult.payload
             )
@@ -137,10 +148,10 @@ struct RequestLLMIntent: AppIntent {
             thread.messages.append(message)
             let requestOptions = LLMGenerationRequestOptions.interactiveChat(for: runtimeModel)
             var output = await llm.generate(
-                modelName: ready.resolvedModelName,
+                modelName: resolvedModelName,
                 thread: thread,
                 systemPrompt: composedSystemPrompt,
-                profile: .chatProfile(for: runtimeModel, requestOptions: requestOptions),
+                profile: .shortcutsAnswer,
                 requestOptions: requestOptions
             )
             
@@ -160,7 +171,7 @@ struct RequestLLMIntent: AppIntent {
             return .result(value: output, dialog: "\(output)")
         }
         else {
-            let error = "no model is currently selected. open the app and select a model first."
+            let error = "Activate Cloud EVA or install an Offline EVA model first."
             return .result(value: error, dialog: "\(error)")
         }
     }

@@ -1,13 +1,13 @@
-# Local LLM / EVA Architecture
+# EVA Provider Architecture — Cloud Luna, Offline MLX, and Deterministic Recovery
 
 > **Classification: Canonical architecture reference.** Product and interaction behavior is defined in [Insights and EVA](../product/INSIGHTS_AND_EVA.md); this document owns runtime flow, trust boundaries, risks, tests, and operations.
 
 > Audience: Engineering, product, privacy/safety, and QA
 > Capability status: Current workspace; runtime/model availability varies
-> Source authority: EVA coordinator/runtime, context policy, proposal validators, and action pipeline
-> Last verified: 2026-08-13
+> Source authority: EVA provider router, cloud/local runtimes, context policy, proposal validators, and action pipeline
+> Last verified: 2026-08-17
 
-EVA is LifeBoard's local-first assistant layer for chat, day review, Chief of Staff planning, and planner-assisted task changes. The runtime uses local Foundation Models or installed MLX where available, deterministic fallbacks, schema-validated planner output, bounded context projection, and the canonical task/action pipeline. Any enabled remote path requires account opt-in plus category-specific context grants and never expands external-surface disclosure.
+EVA is LifeBoard's user-controlled assistant layer for chat, day review, Chief of Staff planning, and planner-assisted task changes. `EvaProviderRouter` selects Cloud EVA through OpenAI Luna when the signed policy, account, device trust, per-device 18+ eligibility, consent, credits, and network are ready; it selects an installed MLX model when Offline EVA is explicit; otherwise deterministic behavior preserves supported workflows. Apple Foundation Models are no longer an EVA inference provider. Every path uses schema-validated output, bounded context projection, and the canonical task/action pipeline.
 
 User-visible assistant identity is separate from the EVA architecture name. Eva remains the default Chief of Staff persona, but the app can render the assistant as the user's selected mascot persona while keeping internal EVA route, planner, telemetry, and persistence names where they are implementation details.
 
@@ -29,7 +29,7 @@ Voice, scan, inline timeline diff, and full applied-run history surfaces are fea
 
 ## Runtime Flow
 
-The chat UI accepts a prompt in `ChatView`, assigns a run ID, clears stale evaluator turn state with `LLMEvaluator.beginUserTurn(runID:)`, and routes the prompt. `EvaTurnRouter` identifies EVA planner routes, while `AIChatModeRouter` selects the local model route for ordinary LLM features based on installed models, device constraints, and fallback rules.
+The chat UI accepts a prompt in `ChatView`, assigns a run ID, clears stale evaluator turn state with `LLMEvaluator.beginUserTurn(runID:)`, and routes the prompt. `EvaTurnRouter` identifies the semantic job, while `EvaProviderRouter` selects one eligible provider for the complete request. Cloud uses `EvaCloudProvider` and normalized URLSession SSE; Offline uses `EvaMLXProvider` and the installed local runtime. A request never silently changes provider after acceptance.
 
 Context is built through the LLM context projection and envelope builders, with bounded budgets for chat-style turns. Required context failures are fail-closed: EVA persists a visible assistant message explaining the missing context instead of silently dropping the turn.
 
@@ -49,7 +49,14 @@ Chat messages and threads are persisted through the chat message flow. Assistant
 
 ## Architecture Decisions
 
-- Local-only inference: EVA uses on-device MLX models to preserve task privacy and offline behavior. The docs and UI should avoid implying cloud AI processing.
+- Explicit hybrid inference: Cloud EVA uses Luna only after account/trust/age/consent/configuration/credit gates. Offline EVA uses MLX and stays on device. The UI identifies the provider and cloud processing boundary.
+- **The two runtimes do not share a context budget.** `EvaContextBudget` is the single place a budget is produced. Cloud reads `RoutePolicy.inputTokenCap` from the signed configuration; offline reads the per-model `LLMTokenBudget` table. It fails closed to offline whenever a cloud turn cannot be positively confirmed — no verified configuration, a disabled route or cloud state, an unready account, or a model name that is not the cloud sentinel. Handing a cloud-sized envelope to an on-device model is the one failure mode that would exhaust memory on a phone, so ambiguity resolves downward.
+- **The provider is resolved before context is built, not after the model is prepared.** Discovering it later would size the projection against the wrong runtime, and the router can still fall back to MLX or deterministic mid-turn.
+- **One envelope builder, two render modes.** `.compact` reproduces the v1 plain-text projection byte for byte and never consults the rich projectors, so nothing extra is computed, allocated, or fetched on the device path — which also protects the 450 ms projection deadline. `.rich` emits typed sections and drops whole records on overflow rather than truncating, because a half-written identifier is worse than an absent one.
+- **`cloud-eva` is a routing sentinel, not an installed model.** It never resolves through `ModelConfiguration.getModelByName`, so anything treating a model name as proof of a local runtime must test for it explicitly. Not doing so is what made every non-chat route fail before reaching the network.
+- No silent fallback: automatic policy may choose cloud before a request, but a cloud failure offers “Try Offline” rather than resending the same private context to MLX or another provider without an explicit user action.
+- Server-owned cloud behavior: clients choose semantic routes, never model IDs, system prompts, tools, budgets, reasoning, prices, or safety identifiers.
+- Remote context is narrow: raw persistence models never cross the wire; sensitive categories are independently granted and server revision checked.
 - Deterministic-first planner guards: review, no-op, habit guard, fallback, and grounding-rejected responses can return visible text without requiring a model generation reset.
 - Day overview is a dedicated read-only surface: review prompts return `dayOverview` cards instead of proposal cards or plain no-op text.
 - Chief of Staff is a behavior contract: Eva should summarize, sequence, repair, defer, protect focus, and clarify next action, but should not imply autonomous control.
@@ -62,7 +69,7 @@ Chat messages and threads are persisted through the chat message flow. Assistant
 - Partial schedule context is disclosed: no calendar access, no selected calendars, stale snapshots, timeouts, and partial projections should affect assistant copy rather than being hidden.
 - Cancellation state is split: `cancelGeneration()` still cancels active model generation, while `beginUserTurn(runID:)` clears stale output and cancellation metadata for a new accepted UI turn without unloading or preparing the model.
 - Delivery is run-scoped: planner responses are persisted only when the active `generationRunID` still matches the turn run ID.
-- Feature flags separate complete and incomplete surfaces: text planning, structured composer, and proposal review cards are enabled by default; inline diff, applied-run history UI, voice, and scan deferred surfaces default off.
+- Feature flags separate complete and incomplete surfaces: text planning, structured composer, and proposal review cards are enabled by policy; spoken output has an independent switch; full-duplex voice and cloud speech-to-text are out of scope.
 - V2 boundaries remain authoritative: UI routes intent, planner emits commands, action pipeline validates/applies, repositories persist.
 
 ## Chief Of Staff Behavior
@@ -106,17 +113,23 @@ Examples:
 
 ## Risks And Known Gaps
 
+- Cloud qualification: production remains disabled until real-device auth/App Attest/age, Catalyst evidence, live Luna/TTS evaluation, privacy, load, and TestFlight gates pass.
+- Remote privacy: `store: false` does not itself guarantee Zero Data Retention; product disclosure follows the actual OpenAI project approval.
+- Provider policy drift: signed configuration is environment-pinned, monotonic, and fail-closed. Debug and Release must never share origins or signing keys.
 - Simulator support: local MLX model activation can be unavailable in iOS Simulator, so some model-backed tests may skip or need device validation.
 - Small-model drift: compact local models may produce malformed or partially grounded JSON; repair, normalization, and deterministic fallbacks are required.
 - Cancellation regressions: stale `llm.cancelled`, run ID mismatch, task cancellation, empty sanitized text, or save failure can still drop responses if delivery gates regress.
-- Context limits: bounded projection budgets and context timeouts may produce conservative responses or visible context-failure messages.
+- Context limits: bounded projection budgets and context timeouts may produce conservative responses or visible context-failure messages. Offline budgets are deliberately small and are not a defect to be "fixed" by raising them; the guard test asserting the compact envelope is unchanged exists to keep that true.
+- Prompt-cache sensitivity: context sections are emitted slowest-moving first so OpenAI's cache covers the stable prefix. Reordering `EvaContextEnvelope.cacheFriendlyOrder` silently raises cost per turn without failing any test — watch `cachedInputTokens` in `response.usage`.
+- Moderation surface: the whole envelope is moderated before any model call. Growth is handled by chunking rather than truncation, so a failing chunk fails the request; the trade is added latency on large turns.
+- Small-model output defences do not apply to Luna: the visible-text clamp, repetition gate, and `<think>` stripping are Qwen-tokenizer behaviours. The cloud history clipper deliberately does not drop assistant turns that fail the local quality gate, which would otherwise erase real answers from the thread the model is shown.
 - Partial day overviews: missing task or habit slices must degrade to explicit empty/degraded sections instead of inferred prose.
 - Schedule-context drift: if Eva receives a different day model than the timeline, guidance can contradict Home. Prefer shared projections and context receipts.
 - Calendar authority confusion: assistant copy can accidentally imply external calendar control. Keep wording read-only and name LifeBoard-owned changes explicitly.
 - Over-planning pressure: Chief of Staff guidance can become stressful if it tries to fill every free gap. Include leave-open and protect-focus options.
-- Memory pressure: model routing must keep respecting installed model availability, runtime support, and device memory limits.
+- Memory pressure: Offline routing must keep respecting installed model availability, runtime support, and device memory limits. Cloud routing must remain available without loading MLX.
 - Draft recovery: prompt/draft preservation during stop, backgrounding, or model failure remains stateful in `ChatView` and should be tested before expanding workflows.
-- Incomplete review surfaces: inline timeline diff preview hooks, complete applied-run history/activity UI, and voice/scan interactions are not complete.
+- Incomplete review surfaces: inline timeline diff preview hooks and complete applied-run history/activity UI remain incomplete. Spoken output is implemented; full-duplex voice and cloud speech input are deliberately excluded.
 - Strict apply gates: current gates cover selected apply and basic safety, but richer confirmations for recurrence scope, delete/drop, large batches, and calendar conflicts still depend on additional schema and context metadata.
 - Package identity: MLX dependencies can surface package identity warnings; keep workspace-based builds as the primary validation path.
 
@@ -170,4 +183,4 @@ Run these scenarios in the simulator or on device:
 8. While an EVA turn is building or generating, tap Stop.
    - Expected behavior: no silent hang; logs show an explicit cancellation/drop or the UI returns cleanly to idle.
 
-Every EVA turn should end with one terminal event: persisted text, persisted proposal card, explicit response drop, or explicit cancellation.
+Every EVA turn should end with one terminal event: persisted text, persisted proposal card, explicit response drop, or explicit cancellation. Cloud-specific contracts, operation, and risk are documented under `docs/eva/`.

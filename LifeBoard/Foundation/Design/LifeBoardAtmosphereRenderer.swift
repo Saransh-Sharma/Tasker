@@ -16,6 +16,15 @@ public struct AmbientRenderingPolicy: Equatable, Sendable {
         lowPowerMode: Bool = ProcessInfo.processInfo.isLowPowerModeEnabled,
         thermalState: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
     ) -> AmbientRenderingPolicy {
+        // Applied here rather than trusted to the caller. This parameter was a
+        // raw `Bool` that happened to be correct only because its single call
+        // site pre-applied the override; any second caller passing
+        // `@Environment(\.accessibilityReduceMotion)` straight through would
+        // have silently pinned the ambient tier to `.static` with Full Motion
+        // on. Resolving inside makes that impossible rather than merely
+        // discouraged. `MotionOverride.resolve` is idempotent, so a caller that
+        // already resolved loses nothing.
+        let reduceMotion = MotionOverride.resolve(reduceMotion)
         let constrained = reduceMotion || lowPowerMode || thermalState == .serious || thermalState == .critical
         let effectiveTier: AmbientRenderingTier
         if reduceMotion {
@@ -303,7 +312,13 @@ public struct AtmosphereHost<Content: View>: View {
             }
         .environment(\.lifeBoardAtmosphereSnapshot, snapshot)
         .environment(\.lifeBoardAtmosphereIsHosted, true)
-        .task { await clock.run() }
+        .task {
+            // Decode the 6.29 MB daypart bitmaps off the main thread before the
+            // first draw asks for them, so the flat scene colour underneath is
+            // never what the user sees while a cold decode finishes.
+            CelestialAssetPreheater.preheat(around: snapshot.phase)
+            await clock.run()
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in clock.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)) { _ in clock.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in clock.refresh() }
@@ -340,7 +355,6 @@ public struct AdaptiveAtmosphere: View {
     @Environment(\.lifeBoardComposerScrollObserver) var scrollObserver
     @State private var transitionTrigger = 0
     @State var powerRevision = 0
-
     public init(
         snapshot: AtmosphereSnapshot,
         placement: AtmospherePlacement = .home,
@@ -354,13 +368,21 @@ public struct AdaptiveAtmosphere: View {
         self.comfortProfile = comfortProfile
         self.showsCelestial = showsCelestial
     }
-
     public var body: some View {
         let descriptor = AtmosphereDescriptor.descriptor(for: snapshot.phase)
         GeometryReader { proxy in
             let layout = scenicLayout(for: proxy.size)
             ZStack {
+                // `.id` + `.transition` so this arrives *with* the artwork rather
+                // than ahead of it. `SceneHex` is documented as the colour to draw
+                // when a phase's artwork is unavailable, but with no transition of
+                // its own it also led every insertion — reaching full opacity a
+                // frame or more before the image above it, which turned a fresh
+                // mount into a flash of flat scene colour. Steady state is
+                // unchanged: a transition only affects insert and remove.
                 Color(lifeboardHex: descriptor.fallbackHex)
+                    .id(descriptor.backgroundAsset)
+                    .transition(.opacity)
 
                 // At regular width the crisp artwork stays capped at a portrait
                 // band so it is never stretched. On its own that left a hard
@@ -401,25 +423,22 @@ public struct AdaptiveAtmosphere: View {
                 daypart: snapshot.semanticDaypart
             )
         }
-        .animation(reduceMotion ? .linear(duration: 0.18) : .easeInOut(duration: 0.65), value: snapshot.transitionIdentity)
+        // Effective, not raw: this was the one branch in the atmosphere that
+        // still read the system flag directly, so a Full Motion user with
+        // system Reduce Motion on kept the 0.18s cut here while every other
+        // layer around it crossfaded.
+        .animation(
+            MotionOverride.resolve(reduceMotion)
+                ? .linear(duration: 0.18)
+                : .easeInOut(duration: 0.65),
+            value: snapshot.transitionIdentity
+        )
         .accessibilityHidden(true)
         .allowsHitTesting(false)
         .onChange(of: snapshot.transitionIdentity) { _, _ in transitionTrigger &+= 1 }
         .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in powerRevision &+= 1 }
         .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in powerRevision &+= 1 }
     }
-
-    private struct ScenicLayout {
-        let width: CGFloat
-        let minX: CGFloat
-        var midX: CGFloat { minX + width / 2 }
-    }
-
-    private func scenicLayout(for size: CGSize) -> ScenicLayout {
-        let width = size.width >= 700 ? min(520, size.width) : size.width
-        return ScenicLayout(width: width, minX: (size.width - width) / 2)
-    }
-
     /// Wide-layout underlay: the same daypart art, blown out and blurred until
     /// it reads as ambient colour rather than a second picture.
     private func scenicBed(descriptor: AtmosphereDescriptor) -> some View {

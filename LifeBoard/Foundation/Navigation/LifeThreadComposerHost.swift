@@ -38,7 +38,6 @@ struct LifeThreadComposerHost: View {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Namespace private var composerMorph
     @State private var presentation: ComposerPresentation = .capsule
-    @State private var contextLensTrigger = 0
 
     var body: some View {
         host(router: router)
@@ -377,13 +376,9 @@ extension LifeThreadComposerHost {
         }
         .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.88), value: composer.state)
         .lifeBoardMotion(.controlMorph, value: presentation)
-        .lifeboardContextLens(trigger: contextLensTrigger)
         .onChange(of: resolvedPresentation) { previous, next in
             guard previous != next else { return }
             presentation = next
-            // `contextLens` is named in DESIGN.md for exactly this: "capture or
-            // composer mode handoff". It had one call site before this.
-            contextLensTrigger &+= 1
             Haptic.settle.play()
         }
     }

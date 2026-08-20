@@ -81,7 +81,7 @@ final class TaskBreakdownService {
             projectName: projectName
         )
 
-        guard let modelName = route.selectedModelName else {
+        guard let modelName = EvaModelSelection.resolve(route.selectedModelName) else {
             return TaskBreakdownOutput(
                 steps: enforceStepContract(candidate: fallbackSteps, fallback: fallbackSteps),
                 modelName: nil,

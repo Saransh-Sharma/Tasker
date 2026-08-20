@@ -720,12 +720,12 @@ final class HomeLifeOSProjectionStore {
             guard let first = outstanding.first else {
                 // Nothing left to offer: the card reports empty and the Home
                 // canvas drops it rather than leaving a permanent placeholder.
-                return emptySnapshot(title, "Nothing left to set up.", date)
+                return emptySnapshot(title, "Everything you asked for is connected.", date)
             }
             return densitySnapshot(
                 title: title,
                 value: first,
-                compactDetail: outstanding.count == 1 ? "1 left" : "\(outstanding.count) left",
+                compactDetail: outstanding.count == 1 ? "1 optional step" : "\(outstanding.count) optional steps",
                 storyDetail: outstanding.prefix(3).joined(separator: " \u{00B7} "),
                 size: size,
                 date: date

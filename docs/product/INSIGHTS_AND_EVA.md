@@ -3,16 +3,16 @@
 **Classification:** Canonical feature contract
 
 **Audience:** Users, support, product, design, engineering, safety/privacy review, and QA
-**Capability status:** Current workspace; model availability varies
+**Capability status:** Current workspace; Cloud EVA production rollout remains disabled
 **Source authority:** Insight services, EVA runtime/coordinator, canonical proposal pipeline
-**Last verified:** 2026-08-13
+**Last verified:** 2026-08-17
 
 **Roots:** Insights and EVA
 **Related:** [Journal and Reflection](./JOURNAL_NOTES_AND_REFLECTION.md), [Local EVA architecture](../architecture/LOCAL_LLM_EVA_ARCHITECTURE.md)
 
 ## Promise and user jobs
 
-Insights helps users interpret their own evidence without overstating certainty. EVA helps users understand the day, explore options, and prepare safe changes through a local-first conversation with explicit review boundaries.
+Insights helps users interpret their own evidence without overstating certainty. EVA helps users understand the day, explore options, and prepare safe changes through an explicit provider choice and review boundary. Cloud EVA uses Luna when account, 18+ eligibility, device trust, consent, credits, network, and signed policy are ready. Offline EVA uses an installed MLX model. Deterministic recovery keeps ordinary LifeBoard usable without either.
 
 Users come here to:
 
@@ -66,7 +66,9 @@ Manual scroll disables automatic following. A single accessible “New response�
 
 ### Context and privacy
 
-Context is a bounded projection of authorized tasks, plans, calendar reality, habits, trackers, and evidence. External calendar content is read-only. Journal evidence requires the protected authorization path. Prompts and projected private content remain on device in the local runtime.
+Context is a bounded projection of authorized tasks, plans, calendar reality, habits, trackers, and evidence. External calendar content is read-only. Journal, Health, Life Moments, and personal memory are independently off by default and require the protected authorization path. Offline EVA keeps prompts and projected context on device. Cloud EVA sends the prompt and only the authorized bounded projection through LifeBoard's Cloudflare service to OpenAI with `store: false`; the Worker retains no cloud chat or audio history. The exact provider is visible and remains fixed for the request.
+
+Cloud EVA additionally requires Sign in with Apple, per-device Apple 18+ eligibility, iOS App Attest or Catalyst risk evidence, an authoritative consent revision, available credits, and a verified signed configuration. A cloud failure offers “Try Offline” rather than silently switching providers. Spoken output is optional AI-generated `tts-1` audio; dictation/transcription stays on Apple's stack and full-duplex voice is out of scope.
 
 ## State matrix
 
@@ -75,8 +77,8 @@ Context is a bounded projection of authorized tasks, plans, calendar reality, ha
 | Empty | Explain evidence needed | Offer concrete starter prompts |
 | Loading | Preserve chart/card geometry | Show truthful pipeline status and Stop |
 | Insufficient evidence | State threshold/timeframe | Ask a clarifying question or explain limitation |
-| Offline | Keep local reports available | Use deterministic/local capability or explain unavailable model |
-| Model unavailable | Insights remains usable | Preserve draft and offer setup/retry |
+| Offline | Keep local reports available | Use the explicitly selected installed MLX provider or explain unavailable model |
+| Model unavailable | Insights remains usable | Preserve draft; explain the failed cloud/local gate; offer setup, retry, or explicit Offline EVA |
 | Streaming stopped | Not applicable | Keep settled text; expose Continue/Retry |
 | Proposal stale | Evidence remains readable | Revalidate and explain changed inputs |
 | Apply failure | Keep insight/source intact | Preserve proposal and provide recovery |
@@ -97,11 +99,11 @@ Context is a bounded projection of authorized tasks, plans, calendar reality, ha
 - Streaming updates avoid excessive announcements; new-response and Stop controls are reachable.
 - Proposal cards expose affected item count, change summary, and all actions to VoiceOver and keyboard.
 - iPad/Catalyst can use wider reading/proposal layouts without excessive line length.
-- Model download/setup explains size, device support, progress, cancellation, and failure without blocking non-assistant features.
+- Cloud setup explains Apple sign-in, 18+ eligibility, context, credits, and processing. Offline model setup explains size, device support, progress, cancellation, and failure. Neither blocks non-assistant features.
 
 ## Implementation and evidence
 
-Primary anchors include local reflection/Insights services, Insights presentation, local LLM runtime/coordinator, run-scoped response delivery, context projection, assistant proposal/diff validators, canonical action pipeline, conversation views, and persistent composer.
+Primary anchors include local reflection/Insights services, Insights presentation, `EvaProviderRouter`, `EvaCloudProvider`, `EvaMLXProvider`, signed configuration and cloud account state, local LLM runtime/coordinator, run-scoped response delivery, context projection, assistant proposal/diff validators, canonical action pipeline, conversation views, spoken-output services, and the persistent composer. The complete cloud boundary is documented in [Cloud EVA Product and Technical Guide](../eva/CLOUD_EVA_PRODUCT_AND_TECHNICAL_GUIDE.md).
 
 Primary controls include `evaFoundationModelsResponderEnabled`, `assistantApplyEnabled`, `assistantUndoEnabled`, `assistantCopilotEnabled`, `assistantSemanticRetrievalEnabled`, `assistantFastModeEnabled`, and `assistantBreakdownEnabled`. Disabling an optional assistant capability must leave deterministic evidence, drafts, conversations, and ordinary app workflows usable.
 

@@ -5,6 +5,7 @@ enum HomeNavigationIntent: Equatable {
     case focusDeepLink
     case chatDeepLink(prompt: String?)
     case homeDeepLink(notice: String?)
+    case setupCenterDeepLink
     case insightsDeepLink
     case taskScopeDeepLink(scope: String, projectID: UUID?)
     case taskDetailDeepLink(taskID: UUID)

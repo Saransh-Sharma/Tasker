@@ -70,17 +70,7 @@ final class OnboardingEligibilityService: @unchecked Sendable {
         }
 
         let state = stateStore.load()
-        // Anyone who has finished setup stays finished, whatever version they
-        // finished. Comparing against the current version alone meant every
-        // version bump re-presented onboarding to established users; re-running
-        // setup is only ever a deliberate act via Settings, which clears this
-        // state outright.
-        if state.completedVersion != nil, state.outcome != nil {
-            return .suppressed
-        }
-        if state.completedVersion == version {
-            return .suppressed
-        }
+        let hasCompletedCore = state.completedVersion != nil && state.outcome != nil
 
         let snapshot: OnboardingWorkspaceSnapshot
         do {
@@ -105,13 +95,25 @@ final class OnboardingEligibilityService: @unchecked Sendable {
         }
 
         if snapshot.isEffectivelyEmpty {
-            return .fullFlow(snapshot)
+            return hasCompletedCore ? .suppressed : .fullFlow(snapshot)
         }
 
+        if hasCompletedCore {
+            return AppRuntimeConfigurationStore.current.existingUserRefreshEnabled && state.needsCurrentRefresh
+                ? .promptOnly(snapshot) : .suppressed
+        }
+
+        // Existing workspaces are never interrupted, but they are not ignored
+        // either. `.promptOnly` no longer means "present a blocking sheet" — the
+        // coordinator routes it to a dismissible invitation on Home and to the
+        // permanent Life Map card in Life Management.
+        //
+        // This is also the only reader of `establishedWorkspacePromptDismissedVersion`.
+        // `markEstablishedWorkspacePromptDismissed()` has always written it and
+        // nothing ever consulted it, so "Not now" did not actually mean "not now".
         if state.establishedWorkspacePromptDismissedVersion == version {
             return .suppressed
         }
-
-        return .promptOnly(snapshot)
+        return AppRuntimeConfigurationStore.current.existingUserRefreshEnabled ? .promptOnly(snapshot) : .suppressed
     }
 }

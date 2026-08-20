@@ -28,6 +28,7 @@ LifeBoard observes calendar reality and reflects it back in a compact, read-only
 That means:
 
 - Users can connect calendars and choose which ones matter
+- Setup Center requests access after a benefit primer and then offers calendar selection; an empty selection remains explicitly *no calendars* and is never reinterpreted as all calendars
 - LifeBoard can show schedule context without editing external events
 - The Home screen can surface the next meeting and free time
 - Task detail can surface fit hints derived from the live calendar picture

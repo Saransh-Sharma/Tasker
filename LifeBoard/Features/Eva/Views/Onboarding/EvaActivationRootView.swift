@@ -68,6 +68,12 @@ struct EvaActivationRootView: View {
                 onBack: coordinator.backToAboutYou,
                 onContinue: coordinator.continueFromGoals
             ))
+        case .cloudSetup:
+            AnyView(EvaCloudActivationView(
+                onBack: coordinator.backToGoals,
+                onCloudReady: coordinator.completeCloudSetup,
+                onChooseOffline: coordinator.chooseOfflineSetup
+            ))
         case .modelChoice:
             AnyView(EvaModelChoiceView(
                 selectedModelName: coordinator.state.chosenModelName,
@@ -107,8 +113,8 @@ struct EvaActivationRootView: View {
                             starterPrompts: EvaStarterPrompt.activationDefaults,
                             showsCompletionObserver: true,
                             progressTitle: "First Win",
-                            progressStep: 6,
-                            totalSteps: 6,
+                            progressStep: 5,
+                            totalSteps: 5,
                             hideUtilityActions: true,
                             recommendedStarterID: EvaStarterPrompt.activationDefaults.first(where: \.isRecommended)?.id,
                             visibleStarterLimit: 4,

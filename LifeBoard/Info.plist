@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>EVACloudBaseURL</key>
+	<string>$(EVA_CLOUD_BASE_URL)</string>
+	<key>EVAConfigSigningPublicKey</key>
+	<string>$(EVA_CONFIG_SIGNING_PUBLIC_KEY)</string>
+	<key>EVACloudEnvironment</key>
+	<string>$(EVA_CLOUD_ENVIRONMENT)</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.lifeboard.refresh.occurrences</string>

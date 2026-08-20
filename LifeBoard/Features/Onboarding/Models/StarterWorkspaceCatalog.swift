@@ -314,11 +314,11 @@ enum StarterWorkspaceCatalog {
         ),
         area(
             id: "life-admin",
-            name: "Life & Admin",
+            name: "Home & Life Admin", // Renamed; old name kept in aliases so upsert still matches.
             subtitle: "Home, errands, paperwork, and money in one place",
             icon: "house.fill",
             colorHex: "#5C6AC4",
-            aliases: ["life", "admin", "home", "paperwork", "errands", "personal admin"],
+            aliases: ["life", "admin", "home", "paperwork", "errands", "personal admin", "life & admin"],
             projects: [
                 project(
                     id: "life-home-reset",

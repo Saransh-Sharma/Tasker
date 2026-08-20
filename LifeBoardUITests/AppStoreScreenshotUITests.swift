@@ -259,15 +259,39 @@ final class AppStoreScreenshotUITests: BaseUITest {
         saveScreenshot("15_home_focus_strip")
     }
 
+    /// The "meet EVA" moment now lives in onboarding, not on the EVA tab.
+    ///
+    /// The old capture opened the tab and waited for `eva.activation.intro`,
+    /// which is retired: a seeded workspace lands straight in chat. Capturing
+    /// the onboarding EVA step keeps the marketing shot pointed at the screen
+    /// that actually introduces EVA.
     private func captureEvaActivationScreen() throws {
-        try relaunchSeededWorkspace(evaCompleted: false)
-        try openChatSurface()
-        try require(
-            app.descendants(matching: .any)["eva.activation.intro"],
-            timeout: 10,
-            message: "Eva activation intro did not appear"
-        )
+        try relaunchOnboarding()
+        let evaStep = app.descendants(matching: .any)["onboarding.lifeMap.step.eva"]
+        guard evaStep.waitForExistence(timeout: 10) || advanceOnboardingToEvaStep() else {
+            throw captureFailure("Onboarding EVA step did not appear")
+        }
         saveScreenshot("16_eva_activation")
+    }
+
+    /// Walks onboarding to its EVA step, accepting each default answer and
+    /// taking the reveal's "Power it up" branch.
+    private func advanceOnboardingToEvaStep() -> Bool {
+        let evaStep = app.descendants(matching: .any)["onboarding.lifeMap.step.eva"]
+        let primary = app.buttons["onboarding.primaryAction"]
+        let secondary = app.buttons["onboarding.secondaryAction"]
+        var guardRail = 0
+        while evaStep.exists == false, guardRail < 40 {
+            guardRail += 1
+            if app.descendants(matching: .any)["onboarding.lifeMap.step.reveal"].exists {
+                guard secondary.waitForExistence(timeout: 5) else { return false }
+                secondary.tap()
+                continue
+            }
+            guard primary.waitForExistence(timeout: 5), primary.isEnabled else { return false }
+            primary.tap()
+        }
+        return evaStep.exists
     }
 
     private func captureEvaChatScreen() throws {
@@ -740,6 +764,36 @@ final class AppStoreScreenshotUITests: BaseUITest {
         saveScreenshot("06-recover-imperfect-days")
     }
 
+    /// Relaunches into onboarding rather than a seeded workspace.
+    ///
+    /// The screenshot suite normally passes `-SKIP_ONBOARDING`; the EVA capture
+    /// needs the opposite, because the screen that introduces EVA is now an
+    /// onboarding step.
+    private func relaunchOnboarding() throws {
+        app.terminate()
+        let relaunched = XCUIApplication()
+        relaunched.launchArguments = [
+            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
+            XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
+            XCUIApplication.LaunchArgumentKey.testCalendarStub.rawValue,
+            "\(XCUIApplication.LaunchArgumentKey.testCalendarMode.rawValue):active"
+        ]
+        relaunched.launchArguments.append(contentsOf: screenshotLaunchConfiguration.launchArguments)
+        for (key, value) in screenshotLaunchConfiguration.launchEnvironment {
+            relaunched.launchEnvironment[key] = value
+        }
+        app = relaunched
+        app.launch()
+        waitForAppLaunch()
+        try require(
+            app.descendants(matching: .any)["onboarding.lifeMap.flow"],
+            timeout: 20,
+            message: "Onboarding did not present for the EVA capture"
+        )
+    }
+
     private func relaunchSeededWorkspace(
         evaCompleted: Bool,
         seedRescue: Bool = false,
@@ -831,8 +885,7 @@ final class AppStoreScreenshotUITests: BaseUITest {
         let homePage = HomePage(app: app)
         try require(homePage.chatButton, timeout: 8, message: "Eva dock button did not appear")
         try tap(homePage.chatButton)
-        let activationIntro = app.descendants(matching: .any)["eva.activation.intro"]
-        guard waitForEvaChat(timeout: 6) || activationIntro.waitForExistence(timeout: 2) else {
+        guard waitForEvaChat(timeout: 6) else {
             throw captureFailure("Eva surface did not open from the dock button")
         }
     }

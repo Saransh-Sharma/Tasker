@@ -781,7 +781,7 @@ struct EvaLoopingLottieContainer: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color.lifeboard(.bgCanvas).opacity(0.78))
+                .fill(EvaChatSunriseGlass.assistantSurface)
                 .overlay(Circle().stroke(Color.lifeboard(.strokeHairline), lineWidth: 1))
             if reduceMotion {
                 Image(systemName: "sparkles")
@@ -790,7 +790,7 @@ struct EvaLoopingLottieContainer: View {
             } else {
                 #if os(iOS) || os(visionOS)
                 EvaLoopingLottieView(animationName: EvaMediaAsset.introLottieName)
-                    .padding(size * 0.14)
+                    .frame(width: size * 0.72, height: size * 0.72)
                 #else
                 Image(systemName: "sparkles")
                     .font(.system(size: size * 0.3, weight: .medium))
@@ -798,7 +798,12 @@ struct EvaLoopingLottieContainer: View {
                 #endif
             }
         }
-        .frame(width: size, height: size)
+        // `EvaLoopingLottieView` is a `UIViewRepresentable`, and `LottieAnimationView`
+        // reports the animation's natural size as its intrinsic size. That sized the
+        // ZStack — and so the `Circle` behind it — to the artwork rather than to
+        // `size`; the outer frame only *reported* `size`, because frames do not clip.
+        // The result was a several-hundred-point disc drawn behind Eva's empty state.
+        .frame(width: size, height: size).clipShape(Circle())
     }
 }
 

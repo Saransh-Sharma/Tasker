@@ -1,0 +1,12 @@
+# Copy this file to .dev.vars and replace every value. Never commit .dev.vars.
+OPENAI_API_KEY=replace-me
+APPLE_TEAM_ID=replace-me
+APPLE_KEY_ID=replace-me
+APPLE_PRIVATE_KEY_P8=replace-with-apple-p8-pem
+APPLE_CLIENT_IDS=com.saransh1337.To-Do-List,com.saransh1337.To-Do-List.mac
+APPLE_ROOT_CERTIFICATES_BASE64=replace-with-comma-separated-base64-der-apple-root-certificates
+ACCOUNT_HMAC_KEY=replace-with-at-least-32-random-bytes
+SESSION_SIGNING_PRIVATE_KEY='{"kty":"OKP","crv":"Ed25519","x":"replace-me","d":"replace-me"}'
+TOKEN_ENCRYPTION_KEY=replace-with-base64url-encoded-32-byte-key
+CONFIG_SIGNING_PRIVATE_KEY='{"kty":"OKP","crv":"Ed25519","x":"replace-me","d":"replace-me"}'
+APP_ATTEST_ENVIRONMENT=development

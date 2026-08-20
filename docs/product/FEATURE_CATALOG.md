@@ -267,11 +267,11 @@ device-unverified behavior into an unqualified promise.
 ### EVA assistant
 
 - **Outcome and use:** Understand context, explore options, and safely apply reviewed changes.
-- **Entry points/status:** EVA root, persistent composer fallback, Home conversation card, selected context attachments, Siri request, and evidence follow-ups. Current; model/runtime availability varies.
-- **Authority/actions:** Activation selects guide/mascot and model; local runtime is preferred where available. Chats/threads, chips, slash commands, attachments, day overview cards, task/habit actions, semantic retrieval, and user-controlled memory feed a working/streaming response. Stop, Continue, Retry, and edit remain available. Consequential output becomes a proposal with diff, Apply/Edit/Not Now, partial-application disclosure, receipt, and Undo.
-- **Privacy:** Context is category-scoped. Remote context requires explicit consent and minimization; protected journal/health content is never silently attached. Memory can be inspected, disabled, or cleared according to Settings.
-- **States/accessibility:** Downloading, unavailable model, offline, working, streaming, stopped, partial, failed, and stale context are distinct. Text remains selectable/readable and streaming does not steal VoiceOver focus.
-- **Limitations/evidence:** EVA is assistive, not autonomous authority. It cannot bypass canonical validation or approval. See [EVA architecture](../architecture/LOCAL_LLM_EVA_ARCHITECTURE.md).
+- **Entry points/status:** EVA root, persistent composer fallback, Home conversation card, selected context attachments, Siri request, and evidence follow-ups. Current in source; Cloud EVA production policy remains disabled while staging qualification continues.
+- **Authority/actions:** Activation selects guide/mascot and Cloud EVA or Offline EVA. The provider router chooses Luna only when account, trust, per-device 18+, consent, credits, network, and signed policy are ready; explicitly selected Offline EVA uses installed MLX. Chats/threads, chips, slash commands, attachments, day overview cards, task/habit actions, semantic retrieval, and user-controlled memory feed a working/streaming response. Stop, Continue, Retry, and edit remain available. Consequential output becomes a proposal with diff, Apply/Edit/Not Now, partial-application disclosure, receipt, and Undo.
+- **Privacy:** Context is bounded and category-scoped. Cloud context requires explicit minimization and authoritative consent; Journal, Health, Life Moments, and personal memory are independently off by default. Offline prompts remain on device. Cloud prompts and authorized projections transit LifeBoard's Cloudflare Worker to OpenAI with `store: false`; the Worker retains no conversation/audio history.
+- **States/accessibility:** Signing in, device trust, age eligibility, consent, credits, configuration disabled/degraded, downloading, unavailable model, offline, working, streaming, stopped, partial, failed, and stale context are distinct. Text remains selectable/readable and streaming does not steal VoiceOver focus. TTS is optional and independently disableable.
+- **Limitations/evidence:** EVA is assistive, not autonomous authority. It cannot bypass canonical validation or approval, silently switch providers mid-request, use cloud speech input, or operate as full duplex. See [EVA architecture](../architecture/LOCAL_LLM_EVA_ARCHITECTURE.md) and [Cloud EVA guide](../eva/CLOUD_EVA_PRODUCT_AND_TECHNICAL_GUIDE.md).
 
 ## 9. Settings, continuity, and Apple platforms
 
@@ -389,4 +389,5 @@ The current `promotedDefaults` keys are exhaustively accounted for here:
 | `feature.universal_input.dictation_v1` | Live SpeechAnalyzer dictation |
 | `feature.universal_input.semantic_v1` | Semantic classification and fallback |
 | `feature.life_os.track_behavior_flagship_v1` | Flagship habit/goal/care/tracker presentation |
-| `feature.life_os.eva_fm_responder_v1` | Foundation Models phrasing with deterministic fallback |
+| `feature.onboarding.life_weave_v6` | v6 "Life Weave" first run; off in Release until the rollout completes, with the v5 Life Map journey still composed and resumable |
+| `feature.life_os.eva_fm_responder_v1` | Legacy key retained for migration compatibility; Apple Foundation Models are no longer an EVA provider |

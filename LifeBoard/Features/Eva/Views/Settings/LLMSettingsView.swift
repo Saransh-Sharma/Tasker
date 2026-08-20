@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 struct LLMSettingsView: View {
@@ -10,6 +11,8 @@ struct LLMSettingsView: View {
     @Binding var currentThread: Thread?
     var showsCloseButton: Bool = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
+    @State private var cloudAccount = EvaCloudAccountState.shared
+    @AppStorage("eva.cloud.migration.notice.dismissed.v1") private var dismissedCloudMigrationNotice = false
 
     private var spacing: SemanticSpacingTokens {
         tokens.spacing
@@ -47,7 +50,7 @@ struct LLMSettingsView: View {
                 SettingsHeroCard(
                     eyebrow: assistantIdentity.snapshot.uppercaseName,
                     title: "Run your day with \(assistantIdentity.snapshot.displayName)",
-                    subtitle: "Manage behavior, local models, and memory for your private executive assistant.",
+                    subtitle: "Manage Cloud EVA, Offline EVA, behavior, and the context you choose to share.",
                     statusItems: heroItems
                 )
                 .padding(.horizontal, spacing.screenHorizontal)
@@ -112,9 +115,10 @@ struct LLMSettingsView: View {
 
     private var phoneContent: some View {
         VStack(spacing: 0) {
-            behaviorSection(baseIndex: 1)
-            modelsSection(baseIndex: 4)
-            privacySection(baseIndex: 6)
+            cloudSection(baseIndex: 1)
+            behaviorSection(baseIndex: 3)
+            modelsSection(baseIndex: 6)
+            privacySection(baseIndex: 8)
         }
     }
 
@@ -122,17 +126,82 @@ struct LLMSettingsView: View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: spacing.sectionGap) {
                 VStack(spacing: 0) {
-                    behaviorSection(baseIndex: 1, includeHorizontalPadding: false)
+                    cloudSection(baseIndex: 1, includeHorizontalPadding: false)
+                    behaviorSection(baseIndex: 3, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
 
                 VStack(spacing: 0) {
-                    modelsSection(baseIndex: 4, includeHorizontalPadding: false)
-                    privacySection(baseIndex: 6, includeHorizontalPadding: false)
+                    modelsSection(baseIndex: 6, includeHorizontalPadding: false)
+                    privacySection(baseIndex: 8, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
             }
             .padding(.horizontal, spacing.screenHorizontal)
+        }
+    }
+
+    private func cloudSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
+        VStack(spacing: 0) {
+            SettingsSectionHeader(
+                title: "Cloud & Offline EVA",
+                subtitle: "Connect Luna, review credits and consent, or keep using an installed local model."
+            )
+            .enhancedStaggeredAppearance(index: baseIndex)
+            .padding(.top, spacing.sectionGap)
+
+            if appManager.installedModels.isEmpty == false,
+               cloudAccount.isAuthenticated == false,
+               dismissedCloudMigrationNotice == false {
+                SurfaceCard(active: true) {
+                    VStack(alignment: .leading, spacing: spacing.s12) {
+                        HStack(alignment: .top, spacing: spacing.s12) {
+                            Image(systemName: "cloud.sun.fill")
+                                .foregroundStyle(Color.lifeboard(.accentPrimary))
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: spacing.s4) {
+                                Text("Cloud EVA is now available")
+                                    .font(.lifeboard(.headline))
+                                    .foregroundStyle(Color.lifeboard(.textPrimary))
+                                Text("Your installed model remains available as Offline EVA. Connect Luna when you want stronger cloud answers and spoken output.")
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+
+                        Button("Dismiss") { dismissedCloudMigrationNotice = true }
+                            .font(.lifeboard(.button))
+                            .foregroundStyle(Color.lifeboard(.accentPrimary))
+                            .accessibilityIdentifier("llmSettings.cloudMigration.dismiss")
+                    }
+                }
+                .accessibilityIdentifier("llmSettings.cloudMigration.notice")
+                .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
+                .padding(.top, spacing.s12)
+            }
+
+            SurfaceCard(active: cloudAccount.canUseCloud) {
+                NavigationLink {
+                    EvaCloudSettingsView()
+                } label: {
+                    SettingsNavigationRow(
+                        descriptor: SettingsDestinationDescriptor(
+                            iconName: "cloud.fill",
+                            title: "Cloud EVA",
+                            subtitle: "Sign in with Apple, verify 18+, choose context, and manage Luna credits.",
+                            trailingStatus: cloudAccount.isAuthenticated ? "Connected" : "Set up",
+                            inlineBadge: cloudAccount.credits.map { SettingsInlineBadge(title: "\($0.balance) credits") },
+                            tone: cloudAccount.canUseCloud ? .success : .accent,
+                            accessibilityIdentifier: "llmSettings.cloudEvaRow"
+                        )
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .enhancedStaggeredAppearance(index: baseIndex + 1)
+            .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
+            .padding(.top, spacing.s12)
         }
     }
 
@@ -260,7 +329,7 @@ struct LLMSettingsView: View {
 
     private var footer: some View {
         VStack(spacing: spacing.s4) {
-            Text("Responses and memory stay local to your device.")
+            Text("Offline EVA stays local. Cloud EVA sends only the request context you authorize.")
                 .font(.lifeboard(.caption2))
                 .foregroundStyle(Color.lifeboard(.textQuaternary))
 
@@ -281,10 +350,7 @@ struct LLMSettingsView: View {
     }
 
     private var memoryItemCount: Int {
-        let memory = LLMPersonalMemoryDefaultsStore.load()
-        return LLMPersonalMemorySection.allCases.reduce(0) { partial, section in
-            partial + memory.entries(for: section).filter { $0.text.isEmpty == false }.count
-        }
+        EvaMemoryDefaultsStoreV3.load().statements.count
     }
 
     private var memorySummary: String {
@@ -301,7 +367,8 @@ struct LLMSettingsView: View {
 }
 
 struct LLMPersonalMemorySettingsView: View {
-    @State private var store = LLMPersonalMemoryDefaultsStore.load()
+    @State private var store = EvaMemoryDefaultsStoreV3.load()
+    @State private var candidateInbox = EvaMemoryCandidateDefaultsStore.load()
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
     @StateObject private var assistantIdentity = AssistantIdentityModel()
@@ -322,7 +389,11 @@ struct LLMPersonalMemorySettingsView: View {
                 VStack(spacing: spacing.cardStackVertical) {
                     helperCopy
 
-                    ForEach(LLMPersonalMemorySection.allCases) { section in
+                    if candidateInbox.pending.isEmpty == false {
+                        pendingMemoryCard
+                    }
+
+                    ForEach(EvaMemoryStatement.Section.allCases, id: \.self) { section in
                         memorySectionCard(section)
                     }
 
@@ -331,7 +402,7 @@ struct LLMPersonalMemorySettingsView: View {
                         subtitle: "Remove every saved preference, routine, and goal from \(assistantIdentity.snapshot.displayName)’s memory.",
                         buttonTitle: "Clear all memory"
                     ) {
-                        store = LLMPersonalMemoryStoreV1()
+                        store = EvaMemoryStoreV3()
                         persist()
                     }
                 }
@@ -349,35 +420,104 @@ struct LLMPersonalMemorySettingsView: View {
 
     private var helperCopy: some View {
         SettingsCard {
-            Text("Up to \(LLMPersonalMemoryStoreV1.maxEntriesPerSection) items per section, \(LLMPersonalMemoryStoreV1.maxEntryCharacters) characters each.")
+            Text("Up to \(EvaMemoryStoreV3.maxStatements) memories, \(EvaMemoryStoreV3.maxStatementCharacters) characters each. EVA only uses items you saved.")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private func memorySectionCard(_ section: LLMPersonalMemorySection) -> some View {
+    private var pendingMemoryCard: some View {
+        SettingsFieldCard(
+            title: "Memory suggestions",
+            subtitle: "Suggestions stay out of EVA context until you save them. They expire after 30 days."
+        ) {
+            VStack(spacing: spacing.s12) {
+                ForEach(candidateInbox.pending) { candidate in
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        TextField("Suggested memory", text: candidateBinding(candidate.id), axis: .vertical)
+                            .font(.lifeboard(.callout))
+                            .lineLimit(2...4)
+                        HStack {
+                            Button("Save") { saveCandidate(candidate.id) }
+                                .buttonStyle(.borderedProminent)
+                            Button("Later") { deferCandidate(candidate.id) }
+                                .buttonStyle(.bordered)
+                            Button("Dismiss", role: .destructive) { dismissCandidate(candidate.id) }
+                                .buttonStyle(.borderless)
+                        }
+                    }
+                    .padding(spacing.s12)
+                    .background(Color.lifeboard(.surfaceSecondary), in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+        }
+    }
+
+    private func candidateBinding(_ id: UUID) -> Binding<String> {
+        Binding(
+            get: { candidateInbox.pending.first(where: { $0.id == id })?.text ?? "" },
+            set: { value in
+                guard let index = candidateInbox.pending.firstIndex(where: { $0.id == id }) else { return }
+                candidateInbox.pending[index].text = String(value.prefix(EvaMemoryStoreV3.maxStatementCharacters))
+                EvaMemoryCandidateDefaultsStore.save(candidateInbox)
+            }
+        )
+    }
+
+    private func saveCandidate(_ id: UUID) {
+        guard let candidate = candidateInbox.pending.first(where: { $0.id == id }) else { return }
+        if store.statements.count >= EvaMemoryStoreV3.maxStatements,
+           let replaceID = store.statements.last(where: { $0.provenance != .userStated })?.id
+            ?? store.statements.last?.id {
+            store.remove(id: replaceID)
+        }
+        store.upsert(EvaMemoryStatement(
+            section: candidate.section,
+            text: candidate.text,
+            provenance: .inferredCandidate
+        ))
+        candidateInbox.pending.removeAll { $0.id == id }
+        persist()
+        EvaMemoryCandidateDefaultsStore.save(candidateInbox)
+    }
+
+    private func deferCandidate(_ id: UUID) {
+        candidateInbox.deferCandidate(id: id)
+        EvaMemoryCandidateDefaultsStore.save(candidateInbox)
+    }
+
+    private func dismissCandidate(_ id: UUID) {
+        candidateInbox.dismiss(id: id)
+        EvaMemoryCandidateDefaultsStore.save(candidateInbox)
+    }
+
+    private func memorySectionCard(_ section: EvaMemoryStatement.Section) -> some View {
         SettingsFieldCard(
             title: section.displayTitle,
             subtitle: section.supportingCopy
         ) {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                if store.entries(for: section).isEmpty {
-                    Text(section.emptyStateCopy)
+                if store.statements(in: section).isEmpty {
+                    Text("No saved memories in this section.")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard(.textTertiary))
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    ForEach(store.entries(for: section)) { entry in
+                    ForEach(store.statements(in: section)) { entry in
                         HStack(alignment: .top, spacing: spacing.s8) {
                             TextField(
-                                section.placeholderText,
+                                "Memory",
                                 text: binding(for: section, entryID: entry.id),
                                 axis: .vertical
                             )
                             .font(.lifeboard(.callout))
                             .foregroundStyle(Color.lifeboard(.textPrimary))
                             .lineLimit(2...4)
+
+                            Text(entry.provenance == .userStated ? "Saved by you" : "Confirmed suggestion")
+                                .font(.lifeboard(.caption2))
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
 
                             Button(role: .destructive) {
                                 deleteEntry(for: section, entryID: entry.id)
@@ -402,7 +542,7 @@ struct LLMPersonalMemorySettingsView: View {
                     }
                 }
 
-                if store.entries(for: section).count < LLMPersonalMemoryStoreV1.maxEntriesPerSection {
+                if store.statements.count < EvaMemoryStoreV3.maxStatements {
                     Button("Add item") {
                         addEntry(to: section)
                     }
@@ -414,37 +554,35 @@ struct LLMPersonalMemorySettingsView: View {
         }
     }
 
-    private func binding(for section: LLMPersonalMemorySection, entryID: UUID) -> Binding<String> {
+    private func binding(for section: EvaMemoryStatement.Section, entryID: UUID) -> Binding<String> {
         Binding(
             get: {
-                store.entries(for: section).first(where: { $0.id == entryID })?.text ?? ""
+                store.statements.first(where: { $0.id == entryID })?.text ?? ""
             },
             set: { newValue in
-                var entries = store.entries(for: section)
-                guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
-                entries[index].text = String(newValue.prefix(LLMPersonalMemoryStoreV1.maxEntryCharacters))
-                store.setEntries(entries, for: section)
+                guard let index = store.statements.firstIndex(where: { $0.id == entryID }) else { return }
+                store.statements[index].text = String(newValue.prefix(EvaMemoryStoreV3.maxStatementCharacters))
                 persist()
             }
         )
     }
 
-    private func addEntry(to section: LLMPersonalMemorySection) {
-        var entries = store.entries(for: section)
-        entries.append(LLMPersonalMemoryEntry(text: ""))
-        store.setEntries(entries, for: section)
+    private func addEntry(to section: EvaMemoryStatement.Section) {
+        store.upsert(EvaMemoryStatement(
+            section: section,
+            text: "New memory",
+            provenance: .userStated
+        ))
         persist()
     }
 
-    private func deleteEntry(for section: LLMPersonalMemorySection, entryID: UUID) {
-        var entries = store.entries(for: section)
-        entries.removeAll { $0.id == entryID }
-        store.setEntries(entries, for: section)
+    private func deleteEntry(for section: EvaMemoryStatement.Section, entryID: UUID) {
+        store.remove(id: entryID)
         persist()
     }
 
     private func persist() {
-        LLMPersonalMemoryDefaultsStore.save(store)
+        EvaMemoryDefaultsStoreV3.save(store)
     }
 }
 
@@ -501,13 +639,23 @@ struct LLMDataPrivacySettingsView: View {
     }
 
     private func deleteChats() {
-        do {
-            currentThread = nil
-            try modelContext.delete(model: Thread.self)
-            try modelContext.delete(model: Message.self)
-            try modelContext.save()
-        } catch {
-            logError("Failed to delete chats.")
+        Task { @MainActor in
+            do {
+                let messages = try modelContext.fetch(FetchDescriptor<Message>())
+                for message in messages where message.role == .assistant {
+                    let renderModel = ChatMessageRenderModel(message: message)
+                    if let answer = renderModel.answerText,
+                       answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                        await EvaSpokenOutputController.shared.deleteCachedSpeech(for: answer)
+                    }
+                }
+                currentThread = nil
+                try modelContext.delete(model: Thread.self)
+                try modelContext.delete(model: Message.self)
+                try modelContext.save()
+            } catch {
+                logError("Failed to delete chats.")
+            }
         }
     }
 }
