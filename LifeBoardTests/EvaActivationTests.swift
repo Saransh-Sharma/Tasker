@@ -351,6 +351,14 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertFalse(configuration.waitsForConnectivity)
     }
 
+    func testInferenceSessionOutlivesTheWorkerDeadline() {
+        let configuration = EvaCloudTransport.makeInferenceSession().configuration
+
+        XCTAssertEqual(configuration.timeoutIntervalForRequest, 20)
+        XCTAssertEqual(configuration.timeoutIntervalForResource, 75)
+        XCTAssertFalse(configuration.waitsForConnectivity)
+    }
+
     /// Issuing a challenge spends nothing, so one retry costs only a stray
     /// Durable Object entry and saves the user a tap.
     func testChallengeRequestRetriesOnceAfterATimeout() async {
@@ -416,11 +424,12 @@ final class EvaActivationTests: XCTestCase {
     /// Leaving it in the Keychain made every later attempt take the same doomed
     /// path and report "Your EVA session has expired" with no route back.
     func testServerRefusalOfRefreshClearsTheStoredSession() async throws {
-        try await seedStoredSession(accessTokenExpired: true, refreshTokenExpired: false)
+        let sessionStore = EvaCloudSessionStore(inMemory: true)
+        try await seedStoredSession(in: sessionStore, accessTokenExpired: true, refreshTokenExpired: false)
         EvaStubURLProtocol.reset()
         let refusal = Self.sessionExpiredEnvelope
         EvaStubURLProtocol.respond { _ in .success((401, refusal)) }
-        let transport = EvaCloudTransport(session: EvaStubURLProtocol.makeSession())
+        let transport = EvaCloudTransport(sessionStore: sessionStore, session: EvaStubURLProtocol.makeSession())
 
         do {
             _ = try await transport.credits()
@@ -429,28 +438,30 @@ final class EvaActivationTests: XCTestCase {
             XCTAssertTrue(error.evaRequiresReauthentication)
         }
 
-        let remaining = try await EvaCloudSessionStore.shared.load()
+        let remaining = try await sessionStore.load()
         XCTAssertNil(remaining, "A refused session must not survive to poison the next attempt.")
     }
 
     /// The mirror image: a timeout says nothing about whether the session is
     /// still good, so discarding it would force a needless Apple sheet.
     func testTransportFailureDuringRefreshKeepsTheStoredSession() async throws {
-        try await seedStoredSession(accessTokenExpired: true, refreshTokenExpired: false)
+        let sessionStore = EvaCloudSessionStore(inMemory: true)
+        try await seedStoredSession(in: sessionStore, accessTokenExpired: true, refreshTokenExpired: false)
         EvaStubURLProtocol.reset()
         EvaStubURLProtocol.respond { _ in .failure(URLError(.timedOut)) }
-        let transport = EvaCloudTransport(session: EvaStubURLProtocol.makeSession())
+        let transport = EvaCloudTransport(sessionStore: sessionStore, session: EvaStubURLProtocol.makeSession())
 
         _ = try? await transport.credits()
 
-        let remaining = try await EvaCloudSessionStore.shared.load()
+        let remaining = try await sessionStore.load()
         XCTAssertNotNil(remaining, "A network timeout must not destroy a valid session.")
     }
 
     func testExpiredRefreshTokenClearsTheStoredSessionWithoutACall() async throws {
-        try await seedStoredSession(accessTokenExpired: true, refreshTokenExpired: true)
+        let sessionStore = EvaCloudSessionStore(inMemory: true)
+        try await seedStoredSession(in: sessionStore, accessTokenExpired: true, refreshTokenExpired: true)
         EvaStubURLProtocol.reset()
-        let transport = EvaCloudTransport(session: EvaStubURLProtocol.makeSession())
+        let transport = EvaCloudTransport(sessionStore: sessionStore, session: EvaStubURLProtocol.makeSession())
 
         do {
             _ = try await transport.credits()
@@ -459,7 +470,7 @@ final class EvaActivationTests: XCTestCase {
             XCTAssertTrue(error.evaRequiresReauthentication)
         }
 
-        let remaining = try await EvaCloudSessionStore.shared.load()
+        let remaining = try await sessionStore.load()
         XCTAssertNil(remaining)
         XCTAssertTrue(EvaStubURLProtocol.recordedPaths.isEmpty, "A dead refresh token needs no round trip.")
     }
@@ -491,8 +502,12 @@ final class EvaActivationTests: XCTestCase {
         (try? JSONEncoder.evaCloud.encode(envelope(code: "session_expired"))) ?? Data()
     }
 
-    private func seedStoredSession(accessTokenExpired: Bool, refreshTokenExpired: Bool) async throws {
-        try await EvaCloudSessionStore.shared.save(EvaSessionCredentials(
+    private func seedStoredSession(
+        in sessionStore: EvaCloudSessionStore,
+        accessTokenExpired: Bool,
+        refreshTokenExpired: Bool
+    ) async throws {
+        try await sessionStore.save(EvaSessionCredentials(
             accountId: "test-account",
             familyId: UUID(),
             accessToken: "stale-access-token",
@@ -503,9 +518,6 @@ final class EvaActivationTests: XCTestCase {
             platform: "ios",
             appleUserIdentifier: "000123.abc.456"
         ))
-        addTeardownBlock {
-            try? await EvaCloudSessionStore.shared.clear()
-        }
     }
 
     func testRetryIsSkippedForErrorsARetryCannotFix() async {

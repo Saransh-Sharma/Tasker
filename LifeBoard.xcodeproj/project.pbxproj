@@ -564,6 +564,9 @@
 		A31000000000000000000949 /* OnboardingContextualTip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000948 /* OnboardingContextualTip.swift */; };
 		A3100000000000000000094B /* OnboardingContextualTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094A /* OnboardingContextualTipView.swift */; };
 		A3100000000000000000094D /* EvaContextSectionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094C /* EvaContextSectionFactory.swift */; };
+		A3100000000000000000094F /* EvaCloudControlPlane.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094E /* EvaCloudControlPlane.swift */; };
+		A31000000000000000000951 /* EvaCloudInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000950 /* EvaCloudInference.swift */; };
+		A31000000000000000000953 /* EvaCloudRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000952 /* EvaCloudRequest.swift */; };
 		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
 		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
@@ -1670,6 +1673,9 @@
 		A31000000000000000000948 /* OnboardingContextualTip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingContextualTip.swift; path = LifeBoard/Features/Onboarding/LifeWeave/OnboardingContextualTip.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000094A /* OnboardingContextualTipView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingContextualTipView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/OnboardingContextualTipView.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000094C /* EvaContextSectionFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextSectionFactory.swift; path = LifeBoard/Features/Eva/Context/EvaContextSectionFactory.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000094E /* EvaCloudControlPlane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudControlPlane.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudControlPlane.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000950 /* EvaCloudInference.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudInference.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudInference.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000952 /* EvaCloudRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudRequest.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudRequest.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTokenBridge.swift; path = LifeBoard/DesignSystem/TokenBridge.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
@@ -3527,6 +3533,9 @@
 				A31000000000000000000514 /* LifeBoardValueControls.swift */,
 				A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */,
 				A31000000000000000000223 /* LifeBoardTokenBridge.swift */,
+				A31000000000000000000952 /* EvaCloudRequest.swift */,
+				A31000000000000000000950 /* EvaCloudInference.swift */,
+				A3100000000000000000094E /* EvaCloudControlPlane.swift */,
 				A3100000000000000000094C /* EvaContextSectionFactory.swift */,
 				A3100000000000000000094A /* OnboardingContextualTipView.swift */,
 				A31000000000000000000948 /* OnboardingContextualTip.swift */,
@@ -5371,6 +5380,9 @@
 				A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */,
 				A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
+				A31000000000000000000953 /* EvaCloudRequest.swift in Sources */,
+				A31000000000000000000951 /* EvaCloudInference.swift in Sources */,
+				A3100000000000000000094F /* EvaCloudControlPlane.swift in Sources */,
 				A3100000000000000000094D /* EvaContextSectionFactory.swift in Sources */,
 				A3100000000000000000094B /* OnboardingContextualTipView.swift in Sources */,
 				A31000000000000000000949 /* OnboardingContextualTip.swift in Sources */,

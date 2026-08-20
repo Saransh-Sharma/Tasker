@@ -1934,7 +1934,6 @@ struct ValueDrumWarpModifier: ViewModifier {
             || SignatureShaders.isReadyForRendering == false
     }
 }
-
 public extension View {
     /// The value tape's cylinder warp, for the duration of a scrub.
     ///

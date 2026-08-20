@@ -22,6 +22,10 @@ extension FoundationShell {
         // placement. (A TabView's own safeAreaInset does not propagate into
         // per-tab scroll views.)
         return GeometryReader { geometry in
+            let shellHeight = geometry.size.height
+            let shellBottomInset = geometry.safeAreaInsets.bottom
+            let shellCoordinateSpace = FoundationShell.shellCoordinateSpace
+            let paletteMaxHeight = max(176, min(320, shellHeight * 0.38))
             // A plain stack rather than a TabView.
             //
             // At compact width the TabView switched nothing: the floating dock
@@ -139,7 +143,7 @@ extension FoundationShell {
                             }
                             compactNavigationChrome(
                                 router: router,
-                                paletteMaxHeight: max(176, min(320, geometry.size.height * 0.38))
+                                paletteMaxHeight: paletteMaxHeight
                             )
                             // The dock's *top edge*, not its height.
                             //
@@ -164,8 +168,8 @@ extension FoundationShell {
                             // by a home indicator's height on every device that
                             // has one.
                             .onGeometryChange(for: CGFloat.self) { proxy in
-                                let dockTop = proxy.frame(in: .named(FoundationShell.shellCoordinateSpace)).minY
-                                return geometry.size.height - dockTop - geometry.safeAreaInsets.bottom
+                                let dockTop = proxy.frame(in: .named(shellCoordinateSpace)).minY
+                                return shellHeight - dockTop - shellBottomInset
                             } action: { clearance in
                                 measuredDockClearance = max(0, clearance)
                             }

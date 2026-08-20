@@ -6,8 +6,15 @@ actor EvaCloudSessionStore {
 
     private let service = "app.getlifeboard.eva-cloud"
     private let account = "session-v1"
+    private let usesInMemoryStorage: Bool
+    private var inMemoryCredentials: EvaSessionCredentials?
+
+    init(inMemory: Bool = false) {
+        usesInMemoryStorage = inMemory
+    }
 
     func load() throws -> EvaSessionCredentials? {
+        if usesInMemoryStorage { return inMemoryCredentials }
         var result: CFTypeRef?
         let status = SecItemCopyMatching([
             kSecClass: kSecClassGenericPassword,
@@ -24,6 +31,10 @@ actor EvaCloudSessionStore {
     }
 
     func save(_ credentials: EvaSessionCredentials) throws {
+        if usesInMemoryStorage {
+            inMemoryCredentials = credentials
+            return
+        }
         let data = try JSONEncoder.evaCloud.encode(credentials)
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
@@ -43,6 +54,10 @@ actor EvaCloudSessionStore {
     }
 
     func clear() throws {
+        if usesInMemoryStorage {
+            inMemoryCredentials = nil
+            return
+        }
         let status = SecItemDelete([
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,

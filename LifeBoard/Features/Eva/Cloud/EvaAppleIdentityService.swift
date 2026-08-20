@@ -137,11 +137,11 @@ final class EvaAppleIdentityService: NSObject {
 
     private static func resolveAnchor() -> ASPresentationAnchor? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        if let keyWindow = scenes.flatMap(\.windows).first(where: \.isKeyWindow) { return keyWindow }
-        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else {
-            return nil
-        }
-        return ASPresentationAnchor(windowScene: scene)
+        let activeScenes = scenes.filter { $0.activationState == .foregroundActive }
+        return activeScenes.flatMap(\.windows).first(where: \.isKeyWindow)
+            ?? activeScenes.flatMap(\.windows).first
+            ?? scenes.flatMap(\.windows).first(where: \.isKeyWindow)
+            ?? scenes.flatMap(\.windows).first
     }
 }
 
@@ -167,6 +167,9 @@ extension EvaAppleIdentityService: ASAuthorizationControllerDelegate {
 
 extension EvaAppleIdentityService: ASAuthorizationControllerPresentationContextProviding {
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        presentationAnchorOverride ?? Self.resolveAnchor() ?? ASPresentationAnchor()
+        guard let anchor = presentationAnchorOverride ?? Self.resolveAnchor() else {
+            preconditionFailure("Apple authorization was presented without an active LifeBoard window.")
+        }
+        return anchor
     }
 }

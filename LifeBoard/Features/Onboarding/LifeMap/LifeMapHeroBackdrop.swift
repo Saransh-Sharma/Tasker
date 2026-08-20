@@ -42,10 +42,14 @@ private final class LifeMapLoopingPlayerView: UIView {
         let center = NotificationCenter.default
         lifecycleObservers = [
             center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-                self?.reconcilePlayback()
+                Task { @MainActor [weak self] in
+                    self?.reconcilePlayback()
+                }
             },
             center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
-                self?.player.pause()
+                Task { @MainActor [weak self] in
+                    self?.player.pause()
+                }
             }
         ]
     }

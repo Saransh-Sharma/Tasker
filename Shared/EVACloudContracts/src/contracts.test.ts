@@ -239,6 +239,7 @@ describe('EVA cloud v1 contracts', () => {
 
     // A drifted projection has to fail at the boundary, not degrade an answer.
     const { usableMinutes, ...drifted } = capacity
+    expect(usableMinutes).toBe(330)
     expect(contextPayloadError(2, [{ category: 'capacity', payload: drifted }]))
       .toContain('does not match its schema')
 
@@ -276,6 +277,7 @@ describe('EVA cloud v1 contracts', () => {
 
     // Dropping deferral history is exactly the v1 regression this guards.
     const { deferredCount, ...lossy } = task
+    expect(deferredCount).toBe(4)
     expect(contextPayloadError(2, [{
       category: 'planning',
       payload: {

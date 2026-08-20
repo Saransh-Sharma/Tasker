@@ -355,7 +355,6 @@ public struct AdaptiveAtmosphere: View {
     @Environment(\.lifeBoardComposerScrollObserver) var scrollObserver
     @State private var transitionTrigger = 0
     @State var powerRevision = 0
-
     public init(
         snapshot: AtmosphereSnapshot,
         placement: AtmospherePlacement = .home,
@@ -369,7 +368,6 @@ public struct AdaptiveAtmosphere: View {
         self.comfortProfile = comfortProfile
         self.showsCelestial = showsCelestial
     }
-
     public var body: some View {
         let descriptor = AtmosphereDescriptor.descriptor(for: snapshot.phase)
         GeometryReader { proxy in
@@ -441,7 +439,6 @@ public struct AdaptiveAtmosphere: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in powerRevision &+= 1 }
         .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in powerRevision &+= 1 }
     }
-
     /// Wide-layout underlay: the same daypart art, blown out and blurred until
     /// it reads as ambient colour rather than a second picture.
     private func scenicBed(descriptor: AtmosphereDescriptor) -> some View {
