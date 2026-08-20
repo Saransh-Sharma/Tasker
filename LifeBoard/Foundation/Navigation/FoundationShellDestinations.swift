@@ -193,24 +193,31 @@ extension FoundationShell {
     ) -> AnyView {
         if destination == .home,
            showsReferenceHome == false {
-            return AnyView(AdaptiveHome(
-                projectionAdapter: homeProjectionAdapter,
-                preferences: runtime.preferences,
-                router: router,
-                captureRouter: runtime.captureRouter,
-                repository: dashboardLayoutRepository,
-                phaseIIRepository: phaseIIRepository,
-                planningRepository: planningRepository,
-                trackFoundationRepository: trackFoundationRepository,
-                goalSampleProvider: goalSampleProvider,
-                wellnessRepository: wellnessRepository,
-                nutritionRepository: nutritionRepository,
-                lifeMomentRepository: lifeMomentRepository,
-                showsEmbeddedComposer: false,
-                onCustomizationChanged: { isCustomizing in
-                    homeIsCustomizing = isCustomizing
+            return AnyView(
+                VStack(spacing: 0) {
+                    SetupCenterHomeCard {
+                        router.push(.settingsDetail(.setupCenter), in: .home)
+                    }
+                    AdaptiveHome(
+                        projectionAdapter: homeProjectionAdapter,
+                        preferences: runtime.preferences,
+                        router: router,
+                        captureRouter: runtime.captureRouter,
+                        repository: dashboardLayoutRepository,
+                        phaseIIRepository: phaseIIRepository,
+                        planningRepository: planningRepository,
+                        trackFoundationRepository: trackFoundationRepository,
+                        goalSampleProvider: goalSampleProvider,
+                        wellnessRepository: wellnessRepository,
+                        nutritionRepository: nutritionRepository,
+                        lifeMomentRepository: lifeMomentRepository,
+                        showsEmbeddedComposer: false,
+                        onCustomizationChanged: { isCustomizing in
+                            homeIsCustomizing = isCustomizing
+                        }
+                    )
                 }
-            ))
+            )
         } else if destination == .plan,
                   V2FeatureFlags.phase1ExecutionFlagshipEnabled,
                   let planDependencies {

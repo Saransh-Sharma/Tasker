@@ -57,6 +57,13 @@ final class HomeNavigationEventAdapter {
             }
             .store(in: &cancellables)
 
+        notificationCenter.publisher(for: .lifeboardOpenSetupCenterDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.setupCenterDeepLink)
+            }
+            .store(in: &cancellables)
+
         notificationCenter.publisher(for: .lifeboardOpenInsightsDeepLink)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -212,6 +219,9 @@ final class NavigationEventCoordinator: HomeNavigationEventAdapterDelegate {
             if let notice, notice.isEmpty == false {
                 router.activeAlert = .init(title: "Opened Home", message: notice)
             }
+        case .setupCenterDeepLink:
+            router.select(.home)
+            router.push(.settingsDetail(.setupCenter), in: .home)
         case .insightsDeepLink:
             router.select(.insights)
         case .taskScopeDeepLink(let scope, let projectID):

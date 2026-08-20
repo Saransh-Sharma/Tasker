@@ -543,17 +543,14 @@
 		A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091C /* EvaTurnContextAssembler.swift */; };
 		A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091E /* EvaMemoryStoreV2.swift */; };
 		A31000000000000000000921 /* EvaConversationSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000920 /* EvaConversationSummary.swift */; };
-		A31000000000000000000923 /* LifeWeaveStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000922 /* LifeWeaveStep.swift */; };
 		A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000924 /* LifeWeaveIntent.swift */; };
 		A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000926 /* LifeWeaveDraft.swift */; };
 		A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000928 /* LifeWeaveMigration.swift */; };
 		A3100000000000000000092B /* LifeWeaveCommitBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092A /* LifeWeaveCommitBridge.swift */; };
 		A3100000000000000000092D /* LifeWeaveOnboardingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */; };
-		A3100000000000000000092F /* LifeWeavePowerUps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092E /* LifeWeavePowerUps.swift */; };
 		A31000000000000000000931 /* LifeWeavePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000930 /* LifeWeavePresentation.swift */; };
 		A31000000000000000000933 /* LifeWeaveGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000932 /* LifeWeaveGeometry.swift */; };
 		A31000000000000000000935 /* LifeWeaveCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000934 /* LifeWeaveCanvas.swift */; };
-		A31000000000000000000937 /* LifeWeaveAccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000936 /* LifeWeaveAccessibilityID.swift */; };
 		A31000000000000000000939 /* LifeWeaveChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000938 /* LifeWeaveChrome.swift */; };
 		A3100000000000000000093B /* LifeWeaveCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093A /* LifeWeaveCapture.swift */; };
 		A3100000000000000000093D /* LifeWeaveEvaActivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093C /* LifeWeaveEvaActivation.swift */; };
@@ -567,6 +564,9 @@
 		A3100000000000000000094F /* EvaCloudControlPlane.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094E /* EvaCloudControlPlane.swift */; };
 		A31000000000000000000951 /* EvaCloudInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000950 /* EvaCloudInference.swift */; };
 		A31000000000000000000953 /* EvaCloudRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000952 /* EvaCloudRequest.swift */; };
+		A31000000000000000000955 /* SetupCenterStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000954 /* SetupCenterStatus.swift */; };
+		A31000000000000000000957 /* SetupCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000956 /* SetupCenterView.swift */; };
+		A31000000000000000000959 /* SetupCenterHomeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000958 /* SetupCenterHomeCard.swift */; };
 		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
 		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
@@ -1652,17 +1652,14 @@
 		A3100000000000000000091C /* EvaTurnContextAssembler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaTurnContextAssembler.swift; path = LifeBoard/Features/Eva/Context/EvaTurnContextAssembler.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000091E /* EvaMemoryStoreV2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaMemoryStoreV2.swift; path = LifeBoard/Features/Eva/Context/EvaMemoryStoreV2.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000920 /* EvaConversationSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaConversationSummary.swift; path = LifeBoard/Features/Eva/Context/EvaConversationSummary.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000922 /* LifeWeaveStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveStep.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveStep.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000924 /* LifeWeaveIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveIntent.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveIntent.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000926 /* LifeWeaveDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveDraft.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveDraft.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000928 /* LifeWeaveMigration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveMigration.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveMigration.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000092A /* LifeWeaveCommitBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCommitBridge.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCommitBridge.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveOnboardingModel.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveOnboardingModel.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000092E /* LifeWeavePowerUps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUps.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeavePowerUps.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000930 /* LifeWeavePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePresentation.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeavePresentation.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000932 /* LifeWeaveGeometry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveGeometry.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeaveGeometry.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000934 /* LifeWeaveCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCanvas.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeaveCanvas.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000936 /* LifeWeaveAccessibilityID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveAccessibilityID.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveAccessibilityID.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000938 /* LifeWeaveChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveChrome.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveChrome.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000093A /* LifeWeaveCapture.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCapture.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCapture.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000093C /* LifeWeaveEvaActivation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveEvaActivation.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveEvaActivation.swift; sourceTree = SOURCE_ROOT; };
@@ -1676,6 +1673,9 @@
 		A3100000000000000000094E /* EvaCloudControlPlane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudControlPlane.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudControlPlane.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000950 /* EvaCloudInference.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudInference.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudInference.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000952 /* EvaCloudRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudRequest.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudRequest.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000954 /* SetupCenterStatus.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterStatus.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterStatus.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000956 /* SetupCenterView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterView.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000958 /* SetupCenterHomeCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterHomeCard.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterHomeCard.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTokenBridge.swift; path = LifeBoard/DesignSystem/TokenBridge.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
@@ -3533,6 +3533,9 @@
 				A31000000000000000000514 /* LifeBoardValueControls.swift */,
 				A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */,
 				A31000000000000000000223 /* LifeBoardTokenBridge.swift */,
+				A31000000000000000000958 /* SetupCenterHomeCard.swift */,
+				A31000000000000000000956 /* SetupCenterView.swift */,
+				A31000000000000000000954 /* SetupCenterStatus.swift */,
 				A31000000000000000000952 /* EvaCloudRequest.swift */,
 				A31000000000000000000950 /* EvaCloudInference.swift */,
 				A3100000000000000000094E /* EvaCloudControlPlane.swift */,
@@ -3546,17 +3549,14 @@
 				A3100000000000000000093C /* LifeWeaveEvaActivation.swift */,
 				A3100000000000000000093A /* LifeWeaveCapture.swift */,
 				A31000000000000000000938 /* LifeWeaveChrome.swift */,
-				A31000000000000000000936 /* LifeWeaveAccessibilityID.swift */,
 				A31000000000000000000934 /* LifeWeaveCanvas.swift */,
 				A31000000000000000000932 /* LifeWeaveGeometry.swift */,
 				A31000000000000000000930 /* LifeWeavePresentation.swift */,
-				A3100000000000000000092E /* LifeWeavePowerUps.swift */,
 				A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */,
 				A3100000000000000000092A /* LifeWeaveCommitBridge.swift */,
 				A31000000000000000000928 /* LifeWeaveMigration.swift */,
 				A31000000000000000000926 /* LifeWeaveDraft.swift */,
 				A31000000000000000000924 /* LifeWeaveIntent.swift */,
-				A31000000000000000000922 /* LifeWeaveStep.swift */,
 				A31000000000000000000920 /* EvaConversationSummary.swift */,
 				A3100000000000000000091E /* EvaMemoryStoreV2.swift */,
 				A3100000000000000000091C /* EvaTurnContextAssembler.swift */,
@@ -5380,6 +5380,9 @@
 				A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */,
 				A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
+				A31000000000000000000959 /* SetupCenterHomeCard.swift in Sources */,
+				A31000000000000000000957 /* SetupCenterView.swift in Sources */,
+				A31000000000000000000955 /* SetupCenterStatus.swift in Sources */,
 				A31000000000000000000953 /* EvaCloudRequest.swift in Sources */,
 				A31000000000000000000951 /* EvaCloudInference.swift in Sources */,
 				A3100000000000000000094F /* EvaCloudControlPlane.swift in Sources */,
@@ -5393,17 +5396,14 @@
 				A3100000000000000000093D /* LifeWeaveEvaActivation.swift in Sources */,
 				A3100000000000000000093B /* LifeWeaveCapture.swift in Sources */,
 				A31000000000000000000939 /* LifeWeaveChrome.swift in Sources */,
-				A31000000000000000000937 /* LifeWeaveAccessibilityID.swift in Sources */,
 				A31000000000000000000935 /* LifeWeaveCanvas.swift in Sources */,
 				A31000000000000000000933 /* LifeWeaveGeometry.swift in Sources */,
 				A31000000000000000000931 /* LifeWeavePresentation.swift in Sources */,
-				A3100000000000000000092F /* LifeWeavePowerUps.swift in Sources */,
 				A3100000000000000000092D /* LifeWeaveOnboardingModel.swift in Sources */,
 				A3100000000000000000092B /* LifeWeaveCommitBridge.swift in Sources */,
 				A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */,
 				A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */,
 				A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */,
-				A31000000000000000000923 /* LifeWeaveStep.swift in Sources */,
 				A31000000000000000000921 /* EvaConversationSummary.swift in Sources */,
 				A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */,
 				A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */,

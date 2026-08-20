@@ -249,9 +249,8 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.track_behavior_flagship_v1") }
     }
 
-    /// The v6 "Life Weave" first run. Presentation-only: v5 stays composed and
-    /// resumable while this is off, and both commit through the same coordinator.
-    /// Held back from Release — see `heldBackFromReleasePromotion` in the tests.
+    /// The v6 "Life Weave" first run. This is a presentation kill switch, not a
+    /// route back into the retired v5 journey.
     public static var onboardingLifeWeaveV6Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.onboarding.life_weave_v6", argument: "ONBOARDING_V6") }
         set { setStagedFeature(newValue, key: "feature.onboarding.life_weave_v6") }
@@ -337,7 +336,7 @@ public enum V2FeatureFlags {
         // path whose off state preserves canonical records and deterministic
         // behavior.
         "feature.life_os.track_behavior_flagship_v1": true,
-        "feature.onboarding.life_weave_v6": false
+        "feature.onboarding.life_weave_v6": true
     ]
 
     private static func stagedFeatureEnabled(key: String, argument: String) -> Bool {

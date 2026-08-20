@@ -37,6 +37,50 @@ final class AppOnboardingStateStore: @unchecked Sendable {
     func markEstablishedWorkspacePromptDismissed(version: Int = AppOnboardingState.currentVersion) {
         var state = load()
         state.establishedWorkspacePromptDismissedVersion = version
+        state.dismissedRefreshVersion = AppOnboardingState.currentLifeWeaveRefreshVersion
+        state.refreshDraft = nil
+        save(state)
+    }
+
+    func markRefreshDismissed(version: Int = AppOnboardingState.currentLifeWeaveRefreshVersion) {
+        var state = load()
+        state.dismissedRefreshVersion = version
+        state.refreshDraft = nil
+        save(state)
+    }
+
+    func storeRefreshDraft(_ snapshot: LifeWeaveDraft?) {
+        var state = load()
+        state.refreshDraft = snapshot
+        save(state)
+    }
+
+    func finalizeLifeWeave(
+        entryContext: OnboardingEntryContext,
+        destination: LifeWeaveCompletionDestination
+    ) {
+        var state = load()
+        if entryContext == .establishedWorkspace {
+            state.completedRefreshVersion = AppOnboardingState.currentLifeWeaveRefreshVersion
+            state.refreshDraft = nil
+        } else {
+            SetupCenterHomeCardPreference.resetForNewOnboarding()
+            state.outcome = .completed
+            state.completedVersion = AppOnboardingState.currentVersion
+            state.completedLifeWeave = true
+            state.completedRefreshVersion = AppOnboardingState.currentLifeWeaveRefreshVersion
+            state.lifeWeaveJourneySnapshot = nil
+        }
+        state.journeySnapshot = nil
+        state.lifeMapJourneySnapshot = nil
+        state.finalizedLifeWeaveDestination = destination
+        state.needsFinalizedDestinationDelivery = true
+        save(state)
+    }
+
+    func markFinalizedDestinationDelivered() {
+        var state = load()
+        state.needsFinalizedDestinationDelivery = false
         save(state)
     }
 

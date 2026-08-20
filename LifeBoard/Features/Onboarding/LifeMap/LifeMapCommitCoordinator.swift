@@ -38,7 +38,6 @@ final class LifeMapCommitCoordinator {
     }
 
     private let dependencies: Dependencies
-    private let stateStore: AppOnboardingStateStore
     private let profileStore: LifeMapProfileStore
     private let preferencesStore: WorkspacePreferencesStore
 
@@ -49,7 +48,6 @@ final class LifeMapCommitCoordinator {
         preferencesStore: WorkspacePreferencesStore = .shared
     ) {
         self.dependencies = dependencies
-        self.stateStore = stateStore
         self.profileStore = profileStore
         self.preferencesStore = preferencesStore
     }
@@ -136,7 +134,6 @@ final class LifeMapCommitCoordinator {
             onProgress?(committed)
         }
 
-        stateStore.markHandled(outcome: .completed)
         return committed
     }
 

@@ -6,6 +6,11 @@ import UIKit
 
 @MainActor
 final class EvaAppleIdentityService: NSObject {
+    struct PreparedSignIn: Sendable {
+        let challengeID: UUID
+        let nonce: String
+    }
+
     static let shared = EvaAppleIdentityService()
 
     private var continuation: CheckedContinuation<ASAuthorizationAppleIDCredential, Error>?
@@ -30,8 +35,37 @@ final class EvaAppleIdentityService: NSObject {
         using client: EvaCloudTransport = .shared,
         onDeviceVerification: (@MainActor () -> Void)? = nil
     ) async throws -> EvaAppleExchangeOutcome {
+        let prepared = try await prepareSignIn(using: client)
+        let credential = try await authorize(prepared)
+        return try await exchange(
+            credential,
+            prepared: prepared,
+            using: client,
+            onDeviceVerification: onDeviceVerification
+        )
+    }
+
+    /// Prepares the server challenge before SwiftUI renders Apple's standard
+    /// sign-in control. `SignInWithAppleButton.onRequest` is synchronous, so a
+    /// challenge fetched there would either block the main actor or require a
+    /// second, custom authorization sheet.
+    func prepareSignIn(using client: EvaCloudTransport = .shared) async throws -> PreparedSignIn {
         let challenge = try await client.signInChallenge()
-        let credential = try await authorize(challengeId: challenge.id, nonce: challenge.nonce)
+        return PreparedSignIn(challengeID: challenge.id, nonce: challenge.nonce)
+    }
+
+    func configure(_ request: ASAuthorizationAppleIDRequest, for prepared: PreparedSignIn) {
+        request.requestedScopes = []
+        request.state = prepared.challengeID.uuidString
+        request.nonce = Self.hashedNonce(prepared.nonce)
+    }
+
+    func exchange(
+        _ credential: ASAuthorizationAppleIDCredential,
+        prepared: PreparedSignIn,
+        using client: EvaCloudTransport = .shared,
+        onDeviceVerification: (@MainActor () -> Void)? = nil
+    ) async throws -> EvaAppleExchangeOutcome {
         guard let identityTokenData = credential.identityToken,
               let authorizationCodeData = credential.authorizationCode,
               let identityToken = String(data: identityTokenData, encoding: .utf8),
@@ -39,8 +73,8 @@ final class EvaAppleIdentityService: NSObject {
             throw EvaProviderError.authenticationRequired
         }
         let session = try await client.exchangeAppleCredential(
-            challengeId: challenge.id,
-            nonce: challenge.nonce,
+            challengeId: prepared.challengeID,
+            nonce: prepared.nonce,
             identityToken: identityToken,
             authorizationCode: authorizationCode,
             appleUserIdentifier: credential.user,
@@ -87,7 +121,7 @@ final class EvaAppleIdentityService: NSObject {
         #endif
     }
 
-    private func authorize(challengeId: UUID, nonce: String) async throws -> ASAuthorizationAppleIDCredential {
+    private func authorize(_ prepared: PreparedSignIn) async throws -> ASAuthorizationAppleIDCredential {
         guard continuation == nil else { throw EvaProviderError.unavailable(String(localized: "Apple sign-in is already in progress.")) }
         // Resolve the anchor before presenting rather than inside the delegate
         // callback: the protocol method cannot throw, and a missing window scene
@@ -101,13 +135,7 @@ final class EvaAppleIdentityService: NSObject {
                 self.continuation = continuation
                 self.presentationAnchorOverride = anchor
                 let request = ASAuthorizationAppleIDProvider().createRequest()
-                request.requestedScopes = []
-                request.state = challengeId.uuidString
-                let digest = Data(SHA256.hash(data: Data(nonce.utf8)))
-                request.nonce = digest.base64EncodedString()
-                    .replacingOccurrences(of: "+", with: "-")
-                    .replacingOccurrences(of: "/", with: "_")
-                    .replacingOccurrences(of: "=", with: "")
+                configure(request, for: prepared)
                 let controller = ASAuthorizationController(authorizationRequests: [request])
                 self.activeController = controller
                 controller.delegate = self
@@ -117,6 +145,14 @@ final class EvaAppleIdentityService: NSObject {
         } onCancel: {
             Task { @MainActor in self.cancelActiveAuthorization() }
         }
+    }
+
+    private static func hashedNonce(_ nonce: String) -> String {
+        let digest = Data(SHA256.hash(data: Data(nonce.utf8)))
+        return digest.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 
     /// Without this, a cancelled sign-in leaves `continuation` non-nil for the

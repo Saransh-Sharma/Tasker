@@ -114,5 +114,10 @@
 # Also adds `onboarding.tip.<tip>` for the four one-time root cues that replaced
 # v6's root tour — Home, Plan, Track and Eva. Insights has no cue by design.
 
-count=855
-sha256=198164938aa9a95b3f64c81e033af7a59f39b54f1d1beefc80945df9ce217290
+# 2026-08-20 — post-onboarding Setup Center. Twelve additions, zero removals:
+# the Home card's open/dismiss/card controls, Setup Center root and connector
+# actions, Health disclosure, and EVA sign-in/grant/confirm/error controls.
+# These identifiers replace label-based UI-test targeting for optional setup.
+
+count=867
+sha256=f180fc3c98a53764b97b81b81f74a4413401bc1a3d231aafc517f978a40c502d

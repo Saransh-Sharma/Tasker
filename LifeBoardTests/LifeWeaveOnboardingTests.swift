@@ -15,18 +15,11 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertEqual(LifeWeaveStep.core.count, 6)
         XCTAssertEqual(LifeWeaveStep.core.first, .arrival)
         XCTAssertEqual(LifeWeaveStep.core.last, .reveal)
-        XCTAssertEqual(LifeWeaveDraft().schemaVersion, 8)
+        XCTAssertEqual(LifeWeaveDraft().schemaVersion, 9)
     }
 
-    /// The connect chain stays outside core, which is the whole product
-    /// contract: core completion never depends on a permission, a download, an
-    /// account, or the network.
-    func testConnectorsAreNotPartOfCore() {
-        for step in LifeWeaveStep.powerUps {
-            XCTAssertTrue(step.isPowerUp, "\(step) should be a power-up")
-            XCTAssertNil(step.coreIndex, "\(step) must not occupy a core position")
-            XCTAssertFalse(LifeWeaveStep.core.contains(step))
-        }
+    func testStepEnumContainsOnlyTheSixCoreStages() {
+        XCTAssertEqual(LifeWeaveStep.allCases, [.arrival, .intent, .lifeAreas, .dayShape, .firstCapture, .reveal])
     }
 
     /// Numeric position is published for VoiceOver even though the sighted UI
@@ -35,20 +28,6 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertEqual(LifeWeaveStep.arrival.coreIndex, 1)
         XCTAssertEqual(LifeWeaveStep.lifeAreas.coreIndex, 3)
         XCTAssertEqual(LifeWeaveStep.reveal.coreIndex, 6)
-    }
-
-    func testPowerUpChainOmitsConnectorsNothingWouldUse() {
-        let minimal = LifeWeaveStep.visiblePowerUps(
-            requestablePermissions: [.calendar],
-            includesEva: false
-        )
-        XCTAssertEqual(minimal, [.calendar])
-
-        let full = LifeWeaveStep.visiblePowerUps(
-            requestablePermissions: [.calendar, .appleHealth, .notifications],
-            includesEva: true
-        )
-        XCTAssertEqual(full, [.calendar, .health, .reminders, .eva])
     }
 
     /// Renaming a case must not silently rename a published identifier, because
@@ -119,6 +98,19 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertEqual(LifeWeaveMigration.draft(fromV5: legacy).commitPhase, .profileWritten)
     }
 
+    func testSchemaEightLifecycleMigrationUsesDurableCommitFacts() {
+        var editing = LifeWeaveDraft()
+        editing.schemaVersion = 8
+        editing.lifecyclePhase = nil
+        XCTAssertEqual(LifeWeaveMigration.draft(fromV8: editing).lifecyclePhase, .editing)
+
+        var written = editing
+        written.commitPhase = .captureWritten
+        let migrated = LifeWeaveMigration.draft(fromV8: written)
+        XCTAssertEqual(migrated.schemaVersion, 9)
+        XCTAssertEqual(migrated.lifecyclePhase, .captureWritten)
+    }
+
     /// Resuming earlier than the user reached is the safe direction: they
     /// re-confirm an answer they already gave, rather than having a screen they
     /// never saw silently skipped.
@@ -135,10 +127,10 @@ final class LifeWeaveOnboardingTests: XCTestCase {
             (.reveal, .reveal),
             (.tour, .reveal),
             (.firstWin, .reveal),
-            (.calendar, .calendar),
-            (.health, .health),
-            (.reminders, .reminders),
-            (.eva, .eva)
+            (.calendar, .reveal),
+            (.health, .reveal),
+            (.reminders, .reveal),
+            (.eva, .reveal)
         ]
         for (legacy, expected) in expectations {
             XCTAssertEqual(LifeWeaveMigration.step(forV5: legacy), expected, "for \(legacy)")

@@ -107,7 +107,7 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(afterDismissal, .suppressed)
     }
 
-    func testEligibilitySuppressesWhenCurrentVersionAlreadyHandled() async {
+    func testCompletedUserReceivesTheCurrentRefreshOnce() async {
         let context = makeStoreContext()
         defer { context.cleanup() }
 
@@ -122,7 +122,46 @@ final class AppOnboardingTests: XCTestCase {
         )
 
         let result = await service.evaluate()
-        XCTAssertEqual(result, .suppressed)
+        XCTAssertEqual(result, .promptOnly(OnboardingWorkspaceSnapshot(
+            customLifeAreaCount: 1,
+            customProjectCount: 1,
+            taskCount: 1
+        )))
+
+        context.store.markRefreshDismissed()
+        let resultAfterDismissal = await service.evaluate()
+        XCTAssertEqual(resultAfterDismissal, .suppressed)
+    }
+
+    @MainActor
+    func testHealthAccessReportsRequestPresentationWithoutClaimingReadGrant() {
+        var statuses = Dictionary(uniqueKeysWithValues: HealthDomain.allCases.map {
+            ($0, HealthDomainStatus(domain: $0, readRequestState: .requestCompleted))
+        })
+        statuses[.hydration]?.writeAuthorizations[.water] = .authorized
+
+        let access = HealthAccessState.resolve(statuses: statuses, hasObservableData: false)
+
+        XCTAssertEqual(access.readState, .requestPresented)
+        XCTAssertEqual(access.authorizedWriteCount, 1)
+    }
+
+    @MainActor
+    func testSetupCenterDefersNotificationPermissionUntilAlertCreation() {
+        let statuses = Dictionary(uniqueKeysWithValues: HealthDomain.allCases.map {
+            ($0, HealthDomainStatus(domain: $0, readRequestState: .requestCompleted))
+        })
+        let status = SetupCenterStatus.resolve(
+            calendarAuthorization: .authorized,
+            notificationPermissionRequested: false,
+            notificationPermissionDenied: false,
+            healthStatuses: statuses,
+            healthHasObservableData: false,
+            evaIsActivated: true
+        )
+
+        XCTAssertEqual(status.reminders, .deferred)
+        XCTAssertTrue(status.allRowsHandled)
     }
 
     func testDefaultLifeAreaSelectionRespectsFrictionProfileAndMode() {
@@ -396,6 +435,45 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertTrue(state.hasHandledCurrentVersion)
     }
 
+    @MainActor
+    func testLifeWeaveFinalizationIsTheOnlyCoreCompletionBoundary() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        var draft = LifeWeaveDraft()
+        draft.step = .reveal
+        draft.lifecyclePhase = .revealReady
+        context.store.storeLifeWeaveJourney(draft)
+
+        XCTAssertNil(context.store.load().outcome)
+        context.store.finalizeLifeWeave(entryContext: .freshFlow, destination: .setupCenter)
+
+        let finalized = context.store.load()
+        XCTAssertEqual(finalized.outcome, .completed)
+        XCTAssertEqual(finalized.completedVersion, AppOnboardingState.currentVersion)
+        XCTAssertEqual(finalized.finalizedLifeWeaveDestination, .setupCenter)
+        XCTAssertEqual(finalized.needsFinalizedDestinationDelivery, true)
+        XCTAssertNil(finalized.lifeWeaveJourneySnapshot)
+    }
+
+    @MainActor
+    func testRefreshFinalizationDoesNotRewriteCoreCompletion() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+        context.store.markHandled(outcome: .completed, version: 4)
+
+        var refresh = LifeWeaveDraft()
+        refresh.entryContext = .establishedWorkspace
+        refresh.lifecyclePhase = .revealReady
+        context.store.storeRefreshDraft(refresh)
+        context.store.finalizeLifeWeave(entryContext: .establishedWorkspace, destination: .home)
+
+        let state = context.store.load()
+        XCTAssertEqual(state.completedVersion, 4)
+        XCTAssertEqual(state.completedRefreshVersion, AppOnboardingState.currentLifeWeaveRefreshVersion)
+        XCTAssertNil(state.refreshDraft)
+    }
+
     private func makeStoreContext() -> StoreContext {
         let suiteName = "AppOnboardingTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -429,7 +507,7 @@ final class LifeMapOnboardingTests: XCTestCase {
     /// completion never depends on a permission, a download, or the network,
     /// and promoting them would have broken it.
     func testDraftUsesV5SnapshotSchemaAndCoreStillEndsAtReveal() {
-        XCTAssertEqual(AppOnboardingState.currentVersion, 5)
+        XCTAssertEqual(AppOnboardingState.currentVersion, 6)
         XCTAssertEqual(LifeMapDraft().schemaVersion, 7)
         XCTAssertEqual(LifeMapOnboardingStep.core.first, .welcome)
         XCTAssertEqual(LifeMapOnboardingStep.core.last, .reveal)
@@ -492,7 +570,7 @@ final class LifeMapOnboardingTests: XCTestCase {
         harness.cleanup()
     }
 
-    func testCommitRetryDoesNotDuplicateAreasOrCaptureAndCompletesOnlyAfterEveryWrite() async throws {
+    func testCommitRetryDoesNotDuplicateAreasOrCaptureOrFinalizeOnCanonicalWrite() async throws {
         enum InjectedFailure: Error { case workingHours }
 
         let suite = "life.map.commit.tests.\(UUID().uuidString)"
@@ -562,8 +640,7 @@ final class LifeMapOnboardingTests: XCTestCase {
         _ = try await coordinator.commit(draft)
         XCTAssertEqual(createdAreaCount, 2, "Retry must match canonical areas instead of duplicating them")
         XCTAssertEqual(createdTaskCount, 1)
-        XCTAssertEqual(stateStore.load().outcome, .completed)
-        XCTAssertEqual(stateStore.load().completedVersion, AppOnboardingState.currentVersion)
+        XCTAssertNil(stateStore.load().outcome, "The reveal exit owns finalization, not the canonical writer")
     }
 
     /// The regression that made every Metal effect invisible.
@@ -679,7 +756,7 @@ final class LifeMapOnboardingTests: XCTestCase {
         XCTAssertEqual(workingHoursWrites, 1, "Capacity already landed; the retry must not rewrite it")
         XCTAssertEqual(layoutWrites, 1)
         XCTAssertEqual(areas.count, 2, "Retry must match canonical areas rather than duplicate them")
-        XCTAssertEqual(stateStore.load().outcome, .completed)
+        XCTAssertNil(stateStore.load().outcome, "The reveal exit owns finalization, not the canonical writer")
     }
 
     /// Merge mode must not overwrite a Home the user already arranged.
@@ -1214,11 +1291,7 @@ final class FeatureFlagPromotionTests: XCTestCase {
     /// decision someone made and can be read in a diff — the failure this whole
     /// class exists to prevent is a flag being off in Release because nobody
     /// noticed, not a flag being off on purpose.
-    private static let heldBackFromReleasePromotion: Set<String> = [
-        // The v6 "Life Weave" first run. Developers get it; Release keeps the v5
-        // Life Map journey until the rollout completes.
-        "feature.onboarding.life_weave_v6"
-    ]
+    private static let heldBackFromReleasePromotion: Set<String> = []
 
     /// Every retained staged flag defaults on in Release, not just on the Debug
     /// launch developers see. A deliberate `false` and a missing entry are both

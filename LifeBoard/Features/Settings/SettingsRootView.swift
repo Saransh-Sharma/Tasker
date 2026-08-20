@@ -2,8 +2,8 @@ import SwiftUI
 #if os(iOS)
 import UIKit
 #endif
-
 public enum SettingsDetailRoute: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
+    case setupCenter
     case planAndOrganize
     case calendarAndHealth
     case eva
@@ -16,10 +16,9 @@ public enum SettingsDetailRoute: String, Codable, CaseIterable, Hashable, Identi
     case models
     case recovery
     case notices
-
     public var id: String { rawValue }
-
     public static let categories: [SettingsDetailRoute] = [
+        .setupCenter,
         .planAndOrganize,
         .calendarAndHealth,
         .eva,
@@ -27,11 +26,10 @@ public enum SettingsDetailRoute: String, Codable, CaseIterable, Hashable, Identi
         .lookAndFeel,
         .dataAndHelp,
     ]
-
     public var isCategory: Bool { Self.categories.contains(self) }
-
     public var title: String {
         switch self {
+        case .setupCenter: return "Setup Center"
         case .planAndOrganize: return "Plan & Organize"
         case .calendarAndHealth: return "Calendar & Health"
         case .eva: return "Eva"
@@ -46,10 +44,8 @@ public enum SettingsDetailRoute: String, Codable, CaseIterable, Hashable, Identi
         case .notices: return "Acknowledgements"
         }
     }
-
     public var transitionID: String { "route.settings.\(rawValue)" }
 }
-
 struct SettingsRootView: View {
     private enum NotificationExpansion: Hashable {
         case dueSoon
@@ -57,7 +53,6 @@ struct SettingsRootView: View {
         case nightly
         case quietHours
     }
-
     @ObservedObject var viewModel: SettingsViewModel
     let destination: SettingsDetailRoute?
     let presentationPreferences: PresentationPreferences?
@@ -77,7 +72,6 @@ struct SettingsRootView: View {
     @State private var recoveryStatus = RecoveryStatusService.live().status()
     @State private var showsCalendarChooser = false
     @State private var copiedVersion = false
-
     init(
         viewModel: SettingsViewModel,
         destination: SettingsDetailRoute? = nil,
@@ -89,7 +83,6 @@ struct SettingsRootView: View {
         self.presentationPreferences = presentationPreferences
         self.onNavigate = onNavigate
     }
-
     private let dueSoonLeadOptions: [(value: Int, label: String)] = [
         (15, "15m"),
         (30, "30m"),
@@ -98,23 +91,18 @@ struct SettingsRootView: View {
         (90, "1.5h"),
         (120, "2h"),
     ]
-
     private let weekStartOptions: [(value: Weekday, label: String)] = Weekday.allCases.map {
         ($0, $0.displayTitle)
     }
-
     private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
-
     private var isPadLayout: Bool {
         horizontalSizeClass == .regular || layoutClass == .padRegular || layoutClass == .padExpanded
     }
-
     private var sectionTopPadding: CGFloat {
         SettingsMetrics.sectionSpacing
     }
-
     /// The compact Life OS composer and destination dock float above pushed
     /// routes. Giving scroll content a deliberate tail keeps the final setting
     /// comfortably reachable instead of merely visible beneath the glass.
@@ -132,7 +120,6 @@ struct SettingsRootView: View {
             recoveryHealth: recoveryStatus.worstHealth
         )
     }
-
     private var overviewStatusItems: [SettingsStatusDescriptor] {
         [
             .init(
@@ -286,6 +273,8 @@ struct SettingsRootView: View {
     @ViewBuilder
     private func premiumDestination(_ route: SettingsDetailRoute) -> some View {
         switch route {
+        case .setupCenter:
+            SetupCenterView(settingsViewModel: viewModel, onOpenCalendarChooser: { showsCalendarChooser = true }, onNavigate: navigate)
         case .llm:
             LLMSettingsView(currentThread: .constant(nil))
                 .environmentObject(viewModel.assistantAppManager)
@@ -341,6 +330,8 @@ struct SettingsRootView: View {
     @ViewBuilder
     private func premiumCategoryContent(_ route: SettingsDetailRoute) -> some View {
         switch route {
+        case .setupCenter:
+            EmptyView()
         case .planAndOrganize:
             workspaceSection(baseIndex: 0)
             timelineSection(baseIndex: 2)
@@ -378,6 +369,10 @@ struct SettingsRootView: View {
     }
 
     private func selectPadCategory(_ route: SettingsDetailRoute) {
+        if route == .setupCenter {
+            navigate(route)
+            return
+        }
         if route.isCategory {
             selectedPadCategory = route
             HapticFeedback.selection()
@@ -404,7 +399,9 @@ struct SettingsRootView: View {
             break
         }
     }
+}
 
+private extension SettingsRootView {
     private var overviewSection: some View {
         SettingsHeroCard(
             eyebrow: "LifeBoard Settings",

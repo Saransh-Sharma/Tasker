@@ -49,14 +49,19 @@ extension AppOnboardingCoordinator {
             guard self.eligibilityService.isSuppressedByLaunchArgument == false else { return }
 
             let state = self.stateStore.load()
+            if state.needsFinalizedDestinationDelivery == true,
+               let destination = state.finalizedLifeWeaveDestination {
+                self.deliverFinalizedDestination(destination)
+            }
             // Either flow's snapshot resumes. Checking only the v5 one would
             // restart a v6 journey from Arrival every time the app relaunched,
             // and checking only v6 would strand a v5 journey the moment the
             // flag flipped mid-setup.
-            if state.hasHandledCurrentVersion == false, state.hasResumableJourney {
+            if state.hasResumableJourney {
                 self.enqueuePresentation(.fullFlow(source: "resume"))
                 return
             }
+            guard V2FeatureFlags.onboardingLifeWeaveV6Enabled else { return }
             switch await self.eligibilityService.evaluate() {
             case .fullFlow:
                 self.enqueuePresentation(.fullFlow(source: "launch_auto"))
@@ -74,7 +79,7 @@ extension AppOnboardingCoordinator {
     }
 
     func restartOnboarding() {
-        stateStore.clear()
+        stateStore.storeRefreshDraft(nil)
         guidanceModel.clear()
         presentationQueue = OnboardingPresentationQueue()
         enqueuePresentation(.fullFlow(source: "settings_replay"))
@@ -137,49 +142,35 @@ extension AppOnboardingCoordinator {
         guard let anchor = presentationAnchor, anchor.presentedViewController == nil else { return false }
 
         feedbackController.prepare()
-        let entryContext: OnboardingEntryContext = source == "settings_replay" || source == "life_map_refresh"
-            ? .establishedWorkspace : .freshFlow
         let state = stateStore.load()
-        let usesLifeWeave = V2FeatureFlags.onboardingLifeWeaveV6Enabled
+        let entryContext: OnboardingEntryContext = state.refreshDraft != nil
+            || source == "settings_replay" || source == "life_map_refresh"
+            ? .establishedWorkspace : .freshFlow
         logOnboardingInfo(
             event: "onboarding_started",
             message: "Started onboarding flow",
-            fields: ["source": source, "flow": usesLifeWeave ? "life_weave_v6" : "life_map_v5"]
+            fields: ["source": source, "flow": "life_weave_v6"]
         )
 
-        let flowView: AnyView
-        if usesLifeWeave {
-            // Both snapshots are handed over: a v5 journey interrupted before the
-            // flag flipped is migrated rather than restarted.
-            lifeWeaveModel.prepareForPresentation(
-                snapshot: state.lifeWeaveJourneySnapshot,
-                legacySnapshot: state.lifeMapJourneySnapshot,
-                entryContext: entryContext
-            )
-            flowView = AnyView(
-                LifeWeaveOnboardingView(
-                    model: self.lifeWeaveModel,
-                    onDismissFlow: { [weak self] in
-                        guard let self else { return }
-                        self.dismissFullFlow(animated: true)
+        // Both snapshots are handed over: an interrupted v5 journey is migrated
+        // into the canonical six-stage graph rather than resumed into retired UI.
+        lifeWeaveModel.prepareForPresentation(
+            snapshot: entryContext == .establishedWorkspace
+                ? state.refreshDraft : state.lifeWeaveJourneySnapshot,
+            legacySnapshot: state.lifeMapJourneySnapshot,
+            entryContext: entryContext
+        )
+        let flowView = AnyView(
+            LifeWeaveOnboardingView(
+                model: self.lifeWeaveModel,
+                onComplete: { [weak self] destination in
+                    guard let self else { return }
+                    self.dismissFullFlow(animated: true) {
+                        self.deliverFinalizedDestination(destination)
                     }
-                )
+                }
             )
-        } else {
-            lifeMapModel.prepareForPresentation(
-                snapshot: state.lifeMapJourneySnapshot,
-                entryContext: entryContext
-            )
-            flowView = AnyView(
-                LifeMapOnboardingView(
-                    model: self.lifeMapModel,
-                    onDismissFlow: { [weak self] in
-                        guard let self else { return }
-                        self.dismissFullFlow(animated: true)
-                    }
-                )
-            )
-        }
+        )
 
         let rootView = flowView
         .lifeBoardTokenEnvironment(for: hostAdapter.currentOnboardingLayoutClass)
@@ -215,5 +206,13 @@ extension AppOnboardingCoordinator {
 
     func isPresentationBlocked() -> Bool {
         presentationAnchor?.presentedViewController != nil
+    }
+
+    private func deliverFinalizedDestination(_ destination: LifeWeaveCompletionDestination) {
+        notificationCenter.post(name: .lifeboardOpenHomeDeepLink, object: nil)
+        if destination == .setupCenter {
+            notificationCenter.post(name: .lifeboardOpenSetupCenterDeepLink, object: nil)
+        }
+        stateStore.markFinalizedDestinationDelivered()
     }
 }

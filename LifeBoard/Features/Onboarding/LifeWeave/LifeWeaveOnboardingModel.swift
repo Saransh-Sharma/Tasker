@@ -13,8 +13,6 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     @Published var isCaptureAmbiguous = false
     @Published var isCommitting = false
     @Published var errorMessage: String?
-    @Published var permissionInFlight: PermissionKind?
-    @Published private(set) var availableCalendars: [CalendarSourceSnapshot] = []
     @Published private(set) var openingPrompts: [EvaStarterPrompt] = []
 
     let feedback: OnboardingFeedbackController
@@ -82,6 +80,8 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     ) {
         if let snapshot, snapshot.schemaVersion == LifeWeaveDraft.currentSchemaVersion {
             draft = snapshot
+        } else if let snapshot, snapshot.schemaVersion == 8 {
+            draft = LifeWeaveMigration.draft(fromV8: snapshot)
         } else if let legacySnapshot, legacySnapshot.schemaVersion == LifeMapDraft.currentSchemaVersion {
             draft = LifeWeaveMigration.draft(fromV5: legacySnapshot)
             // The v5 snapshot is left on disk deliberately. Turning the flag back
@@ -95,12 +95,18 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         } else {
             draft = LifeWeaveDraft()
             draft.entryContext = entryContext
+            draft.lifecyclePhase = .editing
         }
+        draft.lifecyclePhase = draft.resolvedLifecyclePhase
+        if draft.lifecyclePhase == .revealReady { draft.step = .reveal }
         captureText = draft.stagedCapture?.text ?? ""
         persist()
 
         if draft.entryContext == .establishedWorkspace, draft.orderedLifeAreaTemplateIDs.isEmpty {
             Task { await preseedFromExistingWorkspace() }
+        }
+        if draft.lifecyclePhase == .captureWritten {
+            Task { await prepareRevealAfterCanonicalCommit() }
         }
     }
 
@@ -220,15 +226,7 @@ final class LifeWeaveOnboardingModel: ObservableObject {
             guard draft.isCaptureResolved else { return false }
             await assemble()
         case .reveal:
-            // The primary action leaves onboarding. Connectors are the secondary
-            // action, which calls `enterPowerUps()` — nobody is walked past them.
-            return true
-        case .calendar, .health, .reminders, .eva:
-            if let next = stepAfterPowerUp(step) {
-                setStep(next)
-            } else {
-                return true
-            }
+            return false
         }
         return false
     }
@@ -238,11 +236,6 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     /// Back never destroys an answer — it moves the step and leaves the draft
     /// alone, so returning to a screen shows what was already chosen.
     var previousStep: LifeWeaveStep? {
-        if step.isPowerUp {
-            let chain = visiblePowerUpChain
-            guard let index = chain.firstIndex(of: step) else { return nil }
-            return index > 0 ? chain[index - 1] : nil
-        }
         guard let index = LifeWeaveStep.core.firstIndex(of: step), index > 0 else { return nil }
         // The reveal is a commit boundary. Stepping back into the capture screen
         // from it would offer to re-stage a capture that is already persisted.
@@ -267,6 +260,8 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         defer { isCommitting = false }
         let startedAt = Date()
         do {
+            draft.lifecyclePhase = .committing
+            persist()
             let legacy = draft.makeCommitDraft(moduleIDs: recommendedModuleIDs)
             let committed = try await commitCoordinator.commit(legacy) { [weak self] partial in
                 guard let self else { return }
@@ -274,23 +269,10 @@ final class LifeWeaveOnboardingModel: ObservableObject {
                 self.persist()
             }
             draft.absorbCommitResult(committed)
-
-            // Runs here rather than at the end of a root tour, because there is
-            // no root tour any more. The EVA profile and the grounded opening
-            // prompts are derived from answers the user just gave, and deleting
-            // the closing phase must not delete them by omission.
-            await performEvaHandoff()
-
+            draft.lifecyclePhase = .captureWritten
+            persist()
             await holdAssemblyFloor(since: startedAt)
-            draft.step = .reveal
-            // Cleared only here, and both snapshots together: the journey is
-            // finished under either flow, so neither may resume it again.
-            stateStore.storeLifeWeaveJourney(nil)
-            stateStore.clearLifeMapJourney()
-            // Recorded after the commit, so a failed setup never leaves the
-            // product believing it has already introduced itself.
-            stateStore.markCompletedLifeWeave()
-            feedback.successSignature()
+            await prepareRevealAfterCanonicalCommit()
         } catch {
             errorMessage = error.localizedDescription
             persist()
@@ -309,6 +291,28 @@ final class LifeWeaveOnboardingModel: ObservableObject {
 
     private static let assemblyFloor: TimeInterval = 0.62
 
+    private func prepareRevealAfterCanonicalCommit() async {
+        guard draft.resolvedLifecyclePhase == .captureWritten else { return }
+        await performEvaHandoff()
+        draft.step = .reveal
+        draft.lifecyclePhase = .revealReady
+        persist()
+        feedback.successSignature()
+    }
+
+    @discardableResult
+    func finalize(destination: LifeWeaveCompletionDestination) -> Bool {
+        guard draft.resolvedLifecyclePhase == .revealReady
+                || draft.resolvedLifecyclePhase == .finalized else { return false }
+        if draft.resolvedLifecyclePhase != .finalized {
+            draft.selectedCompletionDestination = destination
+            draft.lifecyclePhase = .finalized
+            persist()
+            stateStore.finalizeLifeWeave(entryContext: draft.entryContext, destination: destination)
+        }
+        return true
+    }
+
     func setStep(_ step: LifeWeaveStep) {
         draft.step = step
         MotionDiagnosticsState.shared.record("onboarding:\(step.identifierSuffix)")
@@ -316,16 +320,18 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         persist()
     }
 
-    func persist() { stateStore.storeLifeWeaveJourney(draft) }
+    func persist() {
+        if draft.entryContext == .establishedWorkspace {
+            stateStore.storeRefreshDraft(draft)
+        } else {
+            stateStore.storeLifeWeaveJourney(draft)
+        }
+    }
 
     func setStagedCapture(_ capture: LifeMapStagedCapture?) {
         draft.stagedCapture = capture
         if capture != nil { draft.skippedCapture = false }
         persist()
-    }
-
-    func recordCalendars(_ calendars: [CalendarSourceSnapshot]) {
-        availableCalendars = calendars
     }
 
     func recordOpeningPrompts(_ prompts: [EvaStarterPrompt]) {
@@ -335,5 +341,31 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     func mutateDraft(_ update: (inout LifeWeaveDraft) -> Void) {
         update(&draft)
         persist()
+    }
+}
+
+/// Seeds bounded local context and starter prompts after canonical onboarding
+/// writes. Provider activation belongs to the post-onboarding Setup Center.
+@MainActor
+extension LifeWeaveOnboardingModel {
+    func performEvaHandoff() async {
+        let legacy = draft.makeCommitDraft(moduleIDs: recommendedModuleIDs)
+
+        if draft.didWriteEvaProfile == false {
+            let profile = LifeMapEvaProfileMapper.profileDraft(from: legacy)
+            let merged = EvaMemoryMapper.mergeIntoLocalStore(
+                draft: profile,
+                existing: LLMPersonalMemoryDefaultsStore.load()
+            )
+            LLMPersonalMemoryDefaultsStore.save(merged)
+            mutateDraft { $0.didWriteEvaProfile = true }
+        }
+
+        let prompts = LifeMapEvaOpeningPrompt.prompts(
+            for: legacy,
+            upcomingEventCount: await powerUps.upcomingEventCount()
+        )
+        recordOpeningPrompts(prompts)
+        EvaOpeningPromptStore.stage(prompts)
     }
 }

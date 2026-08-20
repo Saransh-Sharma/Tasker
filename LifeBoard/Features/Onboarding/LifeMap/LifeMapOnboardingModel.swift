@@ -597,9 +597,6 @@ extension LifeMapOnboardingModel {
 
     func chooseOfflineEva() async {
         draft.evaDeferred = true
-        // `EvaProviderRouter` is an actor; the preference write is isolated to it
-        // so cloud selection and this setting can never disagree mid-flight.
-        await EvaProviderRouter.shared.setPreference(.offline)
         persist()
     }
 
@@ -628,11 +625,10 @@ extension LifeMapOnboardingModel {
         persist()
     }
 
-    /// Stages the openers and retires the standalone EVA activation flow.
+    /// Stages suggested openers without changing activation or provider state.
     func completeEvaHandoff() {
         draft.didTour = true
         EvaOpeningPromptStore.stage(openingPrompts)
-        EvaActivationDefaultsStore.markCompleted()
         persist()
     }
 }

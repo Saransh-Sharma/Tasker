@@ -11,9 +11,8 @@ import SwiftUI
 /// answers rather than nine unrelated screens going by.
 struct LifeWeaveOnboardingView: View {
     @ObservedObject var model: LifeWeaveOnboardingModel
-    let onDismissFlow: () -> Void
+    let onComplete: (LifeWeaveCompletionDestination) -> Void
 
-    @StateObject private var eva = LifeWeaveEvaActivation()
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var clayTrigger = 0
@@ -59,7 +58,7 @@ struct LifeWeaveOnboardingView: View {
                         onBack: model.goBack
                     )
 
-                    if weaveHeightFraction > 0, model.step.isPowerUp == false {
+                    if weaveHeightFraction > 0 {
                         LifeWeaveCanvas(presentation: LifeWeavePresentation.make(from: model.draft))
                             .frame(height: weaveHeight(in: proxy.size))
                             .accessibilityIdentifier(LifeWeaveAccessibilityID.canvas)
@@ -91,10 +90,6 @@ struct LifeWeaveOnboardingView: View {
             }
         }
         .accessibilityIdentifier(LifeWeaveAccessibilityID.flow)
-        .task {
-            await eva.refresh()
-        }
-        .onDisappear { eva.cancel() }
     }
 
     @ViewBuilder
@@ -113,49 +108,6 @@ struct LifeWeaveOnboardingView: View {
                 LifeWeaveCaptureStep(model: model)
             case .reveal:
                 LifeWeaveRevealStep(model: model)
-            case .calendar:
-                LifeMapCalendarStep(
-                    isGranted: model.isGranted(.calendar),
-                    isDenied: model.isDenied(.calendar),
-                    isBusy: model.permissionInFlight != nil,
-                    sections: CalendarPresentation.chooserSections(from: model.availableCalendars),
-                    selectedIDs: model.draft.selectedCalendarIDs,
-                    onRequest: { Task { await model.requestPermission(.calendar) } },
-                    onToggle: model.toggleCalendar,
-                    onSkip: { model.deferPermission(.calendar) }
-                )
-            case .health:
-                LifeMapHealthStep(
-                    isConnected: model.isGranted(.appleHealth),
-                    isBusy: model.permissionInFlight != nil,
-                    writableDomains: model.writableHealthDomains,
-                    writeBackDomainIDs: model.draft.healthWriteBackDomainIDs,
-                    onConnect: { Task { await model.requestPermission(.appleHealth) } },
-                    onToggleWriteBack: { domain, enabled in
-                        Task { await model.setHealthWriteBack(enabled, for: domain) }
-                    },
-                    onSkip: { model.deferPermission(.appleHealth) }
-                )
-            case .reminders:
-                LifeMapRemindersStep(
-                    isGranted: model.isGranted(.notifications),
-                    isDenied: model.isDenied(.notifications),
-                    isBusy: model.permissionInFlight != nil,
-                    onRequest: { Task { await model.requestPermission(.notifications) } },
-                    onSkip: { model.deferPermission(.notifications) }
-                )
-            case .eva:
-                LifeMapEvaStep(
-                    isAuthenticated: eva.account.isAuthenticated,
-                    isAdultEligible: eva.account.isAdultEligible,
-                    isCloudReady: eva.account.canUseCloud,
-                    isWorking: eva.isWorking,
-                    progressCaption: eva.account.activationStage.progressCaption,
-                    errorMessage: eva.errorMessage,
-                    selectedGrants: eva.grants,
-                    onToggleGrant: eva.toggleGrant,
-                    onChooseOffline: { Task { await model.chooseOfflineEva() } }
-                )
             }
         }
         .accessibilityIdentifier(LifeWeaveAccessibilityID.step(model.step))
@@ -172,11 +124,6 @@ struct LifeWeaveOnboardingView: View {
         case .dayShape: "Use this rhythm"
         case .firstCapture: capturePrimaryTitle
         case .reveal: "Start my day"
-        case .calendar, .health, .reminders: "Continue"
-        case .eva:
-            if eva.isWorking { "Connecting…" }
-            else if eva.account.canUseCloud { "Continue" }
-            else { "Connect EVA" }
         }
     }
 
@@ -201,8 +148,7 @@ struct LifeWeaveOnboardingView: View {
         switch model.step {
         case .firstCapture:
             model.draft.stagedCapture == nil && model.draft.skippedCapture == false ? "Skip for now" : nil
-        case .reveal: model.visiblePowerUpChain.isEmpty ? nil : "Set up connections"
-        case .calendar, .health, .reminders, .eva: "Not now"
+        case .reveal: "Personalize more"
         default: nil
         }
     }
@@ -219,7 +165,6 @@ struct LifeWeaveOnboardingView: View {
                 || (model.draft.isCaptureResolved == false
                     && model.draft.stagedCapture == nil
                     && model.captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        case .eva: eva.isWorking
         default: model.isCommitting
         }
     }
@@ -248,14 +193,13 @@ struct LifeWeaveOnboardingView: View {
                 }
             }
 
-            if model.step == .eva, eva.account.canUseCloud == false {
-                eva.activate { model.feedback.successSignature() }
+            if model.step == .reveal {
+                guard model.finalize(destination: .home) else { return }
+                onComplete(.home)
                 return
             }
 
-            if await model.advance() {
-                onDismissFlow()
-            }
+            _ = await model.advance()
         }
     }
 
@@ -264,11 +208,8 @@ struct LifeWeaveOnboardingView: View {
         case .firstCapture:
             model.skipCapture()
         case .reveal:
-            model.enterPowerUps()
-        case .calendar, .health, .reminders, .eva:
-            Task { @MainActor in
-                if await model.advance() { onDismissFlow() }
-            }
+            guard model.finalize(destination: .setupCenter) else { return }
+            onComplete(.setupCenter)
         default:
             break
         }

@@ -30,11 +30,7 @@ enum LifeWeaveMigration {
         // asked rather than at a screen that is gone.
         case .capacity, .connections: .dayShape
         case .capture: .firstCapture
-        case .reveal, .tour, .firstWin: .reveal
-        case .calendar: .calendar
-        case .health: .health
-        case .reminders: .reminders
-        case .eva: .eva
+        case .reveal, .calendar, .health, .reminders, .eva, .tour, .firstWin: .reveal
         }
     }
 
@@ -76,7 +72,25 @@ enum LifeWeaveMigration {
         draft.didWriteEvaProfile = legacy.didWriteEvaProfile
 
         draft.commitPhase = legacy.commitPhase
+        draft.lifecyclePhase = legacy.commitPhase >= .captureWritten ? .revealReady : .editing
         return draft
+    }
+
+    /// Schema 8 had no explicit lifecycle. Infer only from durable facts, then
+    /// persist the result as schema 9 before the flow renders.
+    static func draft(fromV8 snapshot: LifeWeaveDraft) -> LifeWeaveDraft {
+        var migrated = snapshot
+        migrated.schemaVersion = LifeWeaveDraft.currentSchemaVersion
+        migrated.lifecyclePhase = lifecyclePhase(forV8: snapshot)
+        if migrated.lifecyclePhase == .revealReady { migrated.step = .reveal }
+        return migrated
+    }
+
+    static func lifecyclePhase(forV8 snapshot: LifeWeaveDraft) -> LifeWeaveLifecyclePhase {
+        if snapshot.step == .reveal { return .revealReady }
+        if snapshot.commitPhase >= .captureWritten { return .captureWritten }
+        if snapshot.commitPhase > .notStarted { return .committing }
+        return .editing
     }
 
     /// Recovers which preset a stored window corresponds to.

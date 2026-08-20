@@ -13,7 +13,8 @@ struct AppOnboardingState: Codable, Equatable {
     /// which is intended — their steps no longer exist. It must **not** re-onboard
     /// someone who already finished: `OnboardingEligibilityService` treats any
     /// recorded completion as handled, so a finished user stays finished.
-    static let currentVersion = 5
+    static let currentVersion = 6
+    static let currentLifeWeaveRefreshVersion = 1
 
     var outcome: OnboardingOutcome?
     var completedVersion: Int?
@@ -40,12 +41,22 @@ struct AppOnboardingState: Codable, Equatable {
     /// replaying them would be the product forgetting what it had said. Absent
     /// on every pre-v6 install, which reads correctly as "not the Life Weave".
     var completedLifeWeave: Bool?
+    var completedRefreshVersion: Int?
+    var dismissedRefreshVersion: Int?
+    var refreshDraft: LifeWeaveDraft?
+    var finalizedLifeWeaveDestination: LifeWeaveCompletionDestination?
+    var needsFinalizedDestinationDelivery: Bool?
 
     /// A journey is in flight under either flow. The launch path resumes on this
     /// rather than on one snapshot, so a person who started v5 and relaunched
     /// after the flag flipped is resumed instead of restarted.
     var hasResumableJourney: Bool {
-        lifeMapJourneySnapshot != nil || lifeWeaveJourneySnapshot != nil
+        lifeMapJourneySnapshot != nil || lifeWeaveJourneySnapshot != nil || refreshDraft != nil
+    }
+
+    var needsCurrentRefresh: Bool {
+        completedRefreshVersion != Self.currentLifeWeaveRefreshVersion
+            && dismissedRefreshVersion != Self.currentLifeWeaveRefreshVersion
     }
 
     var hasHandledCurrentVersion: Bool {

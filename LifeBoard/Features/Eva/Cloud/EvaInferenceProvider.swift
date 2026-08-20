@@ -1,3 +1,4 @@
+import AuthenticationServices
 import CryptoKit
 import Foundation
 import MLXLMCommon
@@ -225,6 +226,29 @@ final class EvaCloudAccountState {
             isAuthenticated = true
         }
 
+        try await finishActivation(accountWasCreated: accountWasCreated)
+    }
+
+    /// Completes the same activation pipeline from SwiftUI's standard
+    /// `SignInWithAppleButton`. The credential is exchanged once; no second
+    /// authorization controller is presented behind the standard control.
+    func activateCloud(
+        credential: ASAuthorizationAppleIDCredential,
+        preparedSignIn: EvaAppleIdentityService.PreparedSignIn
+    ) async throws {
+        lastError = nil
+        activationStage = .signingIn
+        defer { activationStage = .idle }
+        let outcome = try await EvaAppleIdentityService.shared.exchange(
+            credential,
+            prepared: preparedSignIn,
+            onDeviceVerification: { [weak self] in self?.activationStage = .verifyingDevice }
+        )
+        isAuthenticated = true
+        try await finishActivation(accountWasCreated: outcome.created)
+    }
+
+    private func finishActivation(accountWasCreated: Bool) async throws {
         // A freshly bootstrapped account carries no server-side age lease, so a
         // local cache left over from a previous account would be a lie.
         if accountWasCreated {

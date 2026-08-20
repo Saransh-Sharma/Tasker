@@ -42,7 +42,7 @@ enum LifeWeaveDayShapePreset: String, Codable, CaseIterable, Sendable {
 
 /// The v6 persisted journey.
 ///
-/// Schema 8. Schemas 6 and 7 were the v5 Life Map drafts; a v5 draft is not
+/// Schema 9. Schemas 6 and 7 were the v5 Life Map drafts; a v5 draft is not
 /// decoded into this type directly but translated by `LifeWeaveMigration`, which
 /// is why this has no legacy fields and no hand-written decoder.
 ///
@@ -56,11 +56,17 @@ struct LifeWeaveDraft: Codable, Equatable {
     static let maximumLifeAreas = 5
     static let maximumBlockers = 2
 
-    static let currentSchemaVersion = 8
+    static let currentSchemaVersion = 9
 
     var schemaVersion = Self.currentSchemaVersion
     var step: LifeWeaveStep = .arrival
     var entryContext: OnboardingEntryContext = .freshFlow
+
+    /// Optional only for wire compatibility with schema 8. Every schema-9 write
+    /// stores a value, and `resolvedLifecyclePhase` supplies the migration value
+    /// while an old draft is being normalized.
+    var lifecyclePhase: LifeWeaveLifecyclePhase?
+    var selectedCompletionDestination: LifeWeaveCompletionDestination?
 
     var intent: LifeWeaveIntent?
     /// Optional, inline, and never re-asked on a screen of its own.
@@ -126,4 +132,55 @@ struct LifeWeaveDraft: Codable, Equatable {
 
     /// The v5 vocabulary the commit path and the EVA mapper still speak.
     var desiredChange: LifeMapDesiredChange? { intent?.desiredChange }
+
+    var resolvedLifecyclePhase: LifeWeaveLifecyclePhase {
+        lifecyclePhase ?? LifeWeaveMigration.lifecyclePhase(forV8: self)
+    }
+}
+
+enum LifeWeaveLifecyclePhase: String, Codable, Equatable, Sendable {
+    case editing
+    case committing
+    case captureWritten
+    case revealReady
+    case finalized
+}
+
+enum LifeWeaveCompletionDestination: String, Codable, Equatable, Sendable {
+    case home
+    case setupCenter
+}
+
+/// The v6 first run: six decisions that build and commit the user's Life Map.
+enum LifeWeaveStep: Int, CaseIterable, Codable, Identifiable {
+    case arrival
+    case intent
+    case lifeAreas
+    case dayShape
+    case firstCapture
+    case reveal
+
+    var id: Int { rawValue }
+
+    /// The only phase whose completion the product promises. It depends on no
+    /// permission, network, model, or account.
+    static let core = Self.allCases
+
+    var coreIndex: Int? {
+        Self.core.firstIndex(of: self).map { $0 + 1 }
+    }
+
+    static var coreCount: Int { core.count }
+
+    /// Stable accessibility-identifier suffixes must not drift with case names.
+    var identifierSuffix: String {
+        switch self {
+        case .arrival: "arrival"
+        case .intent: "intent"
+        case .lifeAreas: "lifeAreas"
+        case .dayShape: "dayShape"
+        case .firstCapture: "firstCapture"
+        case .reveal: "reveal"
+        }
+    }
 }
