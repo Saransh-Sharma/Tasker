@@ -112,8 +112,19 @@ export const EvaPlanningContextSchema = Type.Object({
    *  rather than as zero. */
   partialSections: Type.Array(ShortText(40), { maxItems: 12 }),
   /** The plain-text overview, carried alongside the records so the model gets a
-   *  rendered summary without having to reduce 200 objects itself. */
+   *  rendered summary without having to reduce 200 objects itself.
+   *
+   *  It is also the whole payload on the degraded path: when the rich projection
+   *  is unavailable the client still emits this shape with an empty `tasks`
+   *  array, so the envelope never changes shape depending on how well the
+   *  projection went. */
   renderedOverview: NullableShortText(8_000),
+  /** Fourteen-day operating summary, when the client built one. */
+  executiveState: NullableShortText(4_000),
+  /** Pinned slash-command context, when any pins are active. */
+  slashCommandState: NullableShortText(4_000),
+  /** Which projection produced this section, for route-specific prompting. */
+  kind: NullableShortText(40),
 }, { additionalProperties: false })
 
 /**

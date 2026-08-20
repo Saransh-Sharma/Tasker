@@ -37,10 +37,7 @@ enum EvaRouteContextSections {
         let trimmed = projection.trimmingCharacters(in: .whitespacesAndNewlines)
         guard EvaModelSelection.isCloud(modelName), trimmed.isEmpty == false else { return [] }
         return [
-            .init(category: .planning, payload: .object([
-                "kind": .string(kind.rawValue),
-                "taskProjection": .string(trimmed),
-            ])),
+            EvaContextSectionFactory.planning(renderedOverview: trimmed, kind: kind.rawValue),
         ]
     }
 

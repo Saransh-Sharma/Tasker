@@ -80,15 +80,15 @@ struct EvaContextEnvelopeBuilder: Sendable {
         }
 
         var sections: [EvaCloudContextSection] = [
-            .init(category: .planning, payload: .encoding(EvaPlanningSection(
-                generatedAt: now,
+            EvaContextSectionFactory.planning(
+                renderedOverview: compactProjection,
                 summary: summary,
                 tasks: fitting(tasks),
                 projects: Array(projects.prefix(40)),
                 lifeAreas: Array(lifeAreas.prefix(20)),
                 partialSections: Array(partialSections.prefix(12)),
-                renderedOverview: compactProjection.isEmpty ? nil : compactProjection
-            ))),
+                now: now
+            ),
         ]
 
         if habits.isEmpty == false {
@@ -96,9 +96,9 @@ struct EvaContextEnvelopeBuilder: Sendable {
         }
 
         if let personalMemory,
-           personalMemory.isEmpty == false,
-           consent?.grants.contains(.personalMemory) == true {
-            sections.append(.init(category: .personalMemory, payload: .string(personalMemory)))
+           consent?.grants.contains(.personalMemory) == true,
+           let section = EvaContextSectionFactory.personalMemory(legacyBlock: personalMemory, now: now) {
+            sections.append(section)
         }
 
         sections.append(contentsOf: EvaCloudContextProjection.sections(
@@ -172,14 +172,4 @@ struct EvaLifeAreaRecord: Encodable, Sendable {
     let id: UUID
     let name: String
     let openTaskCount: Int
-}
-
-private struct EvaPlanningSection: Encodable, Sendable {
-    let generatedAt: Date
-    let summary: EvaPlanningSummary
-    let tasks: [EvaTaskRecord]
-    let projects: [EvaProjectRecord]
-    let lifeAreas: [EvaLifeAreaRecord]
-    let partialSections: [String]
-    let renderedOverview: String?
 }

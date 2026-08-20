@@ -1,5 +1,12 @@
 import Foundation
 
+/// Builds the consent-gated context sections for a cloud request.
+///
+/// Every payload here goes through `EvaContextSectionFactory`, so the shapes on
+/// the wire are identical whether the rich projection succeeded or the turn fell
+/// back to the rendered summary. They used to differ, which meant a fallback turn
+/// sent v1 shapes under `contractVersion: 2` and the Worker rejected the whole
+/// request with HTTP 400 before it reached the model.
 enum EvaCloudContextProjection {
     static func sections(
         taskProjection: String,
@@ -10,15 +17,17 @@ enum EvaCloudContextProjection {
         consent: EvaConsentPolicy?
     ) -> [EvaCloudContextSection] {
         var sections: [EvaCloudContextSection] = [
-            .init(category: .planning, payload: .object([
-                "taskProjection": .string(taskProjection),
-                "executiveState": .string(executiveState ?? ""),
-                "slashCommandState": .string(slashCommandState ?? ""),
-            ])),
+            EvaContextSectionFactory.planning(
+                renderedOverview: taskProjection,
+                executiveState: executiveState,
+                slashCommandState: slashCommandState
+            ),
         ]
         guard let consent else { return sections }
-        if let personalMemory, consent.grants.contains(.personalMemory) {
-            sections.append(.init(category: .personalMemory, payload: .string(personalMemory)))
+        if let personalMemory,
+           consent.grants.contains(.personalMemory),
+           let section = EvaContextSectionFactory.personalMemory(legacyBlock: personalMemory) {
+            sections.append(section)
         }
         sections.append(contentsOf: sensitiveSections(evidence: evidence, consent: consent))
         return sections
@@ -30,30 +39,25 @@ enum EvaCloudContextProjection {
     ) -> [EvaCloudContextSection] {
         guard evidence.availability == .ready else { return [] }
         let grants = Set(consent.grants)
-        var values: [EvaCloudContextSection.Category: [EvaJSONValue]] = [:]
+        var values: [EvaCloudContextSection.Category: [EvaEvidenceEventPayload]] = [:]
         for event in evidence.events.prefix(24)
         where event.authorization == .authorized && event.allowedDestinations.contains(.eva) {
             guard let category = category(for: event.domain, grants: grants) else { continue }
-            var object: [String: EvaJSONValue] = [
-                "reference": .string("LB-\(event.sourceID.uuidString.prefix(8).uppercased())"),
-                "domain": .string(event.domain),
-                "kind": .string(event.kind),
-                "occurredAt": .string(event.occurredAt.ISO8601Format()),
-                "freshness": .string(event.freshness.rawValue),
-            ]
-            if event.redaction != .sensitiveSummary,
-               let display = event.evidence.first?.display,
-               !display.isEmpty {
-                object["source"] = .string(display)
-            }
-            if event.redaction != .sensitiveSummary, let numericValue = event.numericValue {
-                object["value"] = .number(numericValue)
-            }
-            values[category, default: []].append(.object(object))
+            let isRedacted = event.redaction == .sensitiveSummary
+            let display = event.evidence.first?.display
+            values[category, default: []].append(EvaEvidenceEventPayload(
+                reference: "LB-\(event.sourceID.uuidString.prefix(8).uppercased())",
+                domain: event.domain,
+                kind: event.kind,
+                occurredAt: event.occurredAt,
+                freshness: event.freshness.rawValue,
+                source: isRedacted ? nil : (display?.isEmpty == false ? display : nil),
+                value: isRedacted ? nil : event.numericValue
+            ))
         }
         return [EvaCloudContextSection.Category.journal, .health, .lifeMoments].compactMap { category in
-            guard let events = values[category], !events.isEmpty else { return nil }
-            return .init(category: category, payload: .array(events))
+            guard let events = values[category] else { return nil }
+            return EvaContextSectionFactory.evidence(category: category, events: events)
         }
     }
 

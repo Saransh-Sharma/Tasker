@@ -292,10 +292,28 @@ describe('EVA cloud v1 contracts', () => {
       'utf8',
     )) as Record<string, unknown>
 
-    for (const [category, payload] of Object.entries(fixtures)) {
+    for (const [name, payload] of Object.entries(fixtures)) {
+      // `planningDegraded` exercises the fallback path against the planning schema.
+      const category = name === 'planningDegraded' ? 'planning' : name
       const schema = EvaContextPayloadSchemas[category as keyof typeof EvaContextPayloadSchemas]
-      expect(schema, `${category} schema`).toBeDefined()
-      expect(Value.Check(schema, payload), `${category} payload`).toBe(true)
+      expect(schema, `${name} schema`).toBeDefined()
+      expect(Value.Check(schema, payload), `${name} payload`).toBe(true)
+    }
+
+    // The shapes that shipped broken: a v2 request carrying any of these was
+    // rejected with HTTP 400 before reaching the model, because contractVersion
+    // is a build constant while the payload shape was decided per turn.
+    const rejectedLegacyShapes: [string, keyof typeof EvaContextPayloadSchemas, unknown][] = [
+      ['planning as loose strings', 'planning',
+        { taskProjection: 'Planning context:', executiveState: '', slashCommandState: '' }],
+      ['route planning as kind+projection', 'planning',
+        { kind: 'plan', taskProjection: 'Context JSON:\n{}' }],
+      ['personal memory as a bare string', 'personalMemory', 'User memory: mornings'],
+      ['journal wrapped in an object', 'journal',
+        { evidence: [{ id: 'x', date: '2026-08-19T09:00:00Z', snippet: 's', matchReason: 'keyword' }] }],
+    ]
+    for (const [name, category, payload] of rejectedLegacyShapes) {
+      expect(Value.Check(EvaContextPayloadSchemas[category], payload), name).toBe(false)
     }
 
     // Swift's synthesized Encodable omits nil rather than writing null, and the

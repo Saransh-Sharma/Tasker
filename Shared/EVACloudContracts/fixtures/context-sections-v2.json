@@ -1,7 +1,14 @@
 {
   "planning": {
     "generatedAt": "2026-08-19T09:00:00Z",
-    "summary": { "overdue": 3, "today": 5, "tomorrow": 2, "thisWeek": 9, "unscheduled": 14, "completedToday": 1 },
+    "summary": {
+      "overdue": 3,
+      "today": 5,
+      "tomorrow": 2,
+      "thisWeek": 9,
+      "unscheduled": 14,
+      "completedToday": 1
+    },
     "tasks": [
       {
         "ageDays": 12,
@@ -15,7 +22,10 @@
         "priority": "high",
         "project": "Launch",
         "projectID": "BBBBBBBB-2222-4222-9222-BBBBBBBBBBBB",
-        "rankReasons": ["overdue by 4 days", "deferred 4 times"],
+        "rankReasons": [
+          "overdue by 4 days",
+          "deferred 4 times"
+        ],
         "replanCount": 2,
         "title": "Write the launch note"
       },
@@ -32,12 +42,24 @@
       }
     ],
     "projects": [
-      { "id": "BBBBBBBB-2222-4222-9222-BBBBBBBBBBBB", "lifeArea": "Work", "motivationWhy": "Ship before the conference.", "name": "Launch", "openTaskCount": 7 }
+      {
+        "id": "BBBBBBBB-2222-4222-9222-BBBBBBBBBBBB",
+        "lifeArea": "Work",
+        "motivationWhy": "Ship before the conference.",
+        "name": "Launch",
+        "openTaskCount": 7
+      }
     ],
     "lifeAreas": [
-      { "id": "DDDDDDDD-4444-4444-8444-DDDDDDDDDDDD", "name": "Work", "openTaskCount": 21 }
+      {
+        "id": "DDDDDDDD-4444-4444-8444-DDDDDDDDDDDD",
+        "name": "Work",
+        "openTaskCount": 21
+      }
     ],
-    "partialSections": ["calendar"],
+    "partialSections": [
+      "calendar"
+    ],
     "renderedOverview": "Planning context:\nSummary: 3 overdue, 5 today"
   },
   "habits": [
@@ -48,7 +70,14 @@
       "dueToday": true,
       "id": "EEEEEEEE-5555-4555-8555-EEEEEEEEEEEE",
       "isOverdue": false,
-      "last14Days": ["hit", "hit", "miss", "hit", "skip", "unknown"],
+      "last14Days": [
+        "hit",
+        "hit",
+        "miss",
+        "hit",
+        "skip",
+        "unknown"
+      ],
       "lifeArea": "Health",
       "title": "Morning walk"
     }
@@ -63,7 +92,48 @@
     "overloadMinutes": 115,
     "confidence": "medium",
     "freeWindows": [
-      { "start": "2026-08-19T13:00:00Z", "end": "2026-08-19T14:30:00Z", "minutes": 90 }
+      {
+        "start": "2026-08-19T13:00:00Z",
+        "end": "2026-08-19T14:30:00Z",
+        "minutes": 90
+      }
     ]
-  }
+  },
+  "planningDegraded": {
+    "generatedAt": "2026-08-19T09:00:00Z",
+    "summary": {
+      "overdue": 0,
+      "today": 0,
+      "tomorrow": 0,
+      "thisWeek": 0,
+      "unscheduled": 0,
+      "completedToday": 0
+    },
+    "tasks": [],
+    "projects": [],
+    "lifeAreas": [],
+    "partialSections": [],
+    "renderedOverview": "Planning context:\nSummary: 1 overdue",
+    "executiveState": "14-day operating summary: mostly reactive",
+    "kind": "plan"
+  },
+  "personalMemory": [
+    {
+      "id": "5E9A0000-0000-4000-8000-000000000001",
+      "section": "preferences",
+      "text": "User memory:\nWorking style: mornings",
+      "provenance": "userStated",
+      "effectiveFrom": "2026-08-19T09:00:00Z"
+    }
+  ],
+  "journal": [
+    {
+      "reference": "j-1",
+      "domain": "journal",
+      "kind": "entry/calm",
+      "occurredAt": "2026-08-18T21:00:00Z",
+      "freshness": "keyword",
+      "source": "Felt steadier once I stopped checking mail."
+    }
+  ]
 }
