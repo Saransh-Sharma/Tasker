@@ -187,14 +187,21 @@ struct LifeMapOnboardingBackground: View {
 
     // Light appearance needs a heavier veil than dark: the dawn video is bright,
     // so cocoa ink on an unscrimmed frame lands well under the contrast floor.
+    //
+    // The *top* band is the exception, and it is sized differently from the rest.
+    // No body copy lives up there — it is where the Life Map draws — and a cream
+    // veil at 0.74 over a bright dawn frame left that whole region a flat pale
+    // wash with the map's hairlines invisible inside it. Light mode now lets the
+    // scene through at the top and keeps its full strength across the reading
+    // field below, where the contrast floor actually has to be met.
     private var topOpacity: Double {
         if contrast == .increased { return colorScheme == .dark ? 0.86 : 0.90 }
-        return colorScheme == .dark ? 0.62 : 0.74
+        return colorScheme == .dark ? 0.58 : 0.44
     }
 
     private var midOpacity: Double {
         if contrast == .increased { return colorScheme == .dark ? 0.74 : 0.80 }
-        return colorScheme == .dark ? 0.44 : 0.58
+        return colorScheme == .dark ? 0.44 : 0.56
     }
 
     private var bottomOpacity: Double {

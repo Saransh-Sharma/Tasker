@@ -15,6 +15,7 @@ struct LifeWeaveOnboardingView: View {
 
     @StateObject private var eva = LifeWeaveEvaActivation()
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var clayTrigger = 0
 
     /// The map yields before the copy does, always.
@@ -24,11 +25,27 @@ struct LifeWeaveOnboardingView: View {
     /// its labels, then itself — the question is what the screen is for.
     private var weaveHeightFraction: CGFloat {
         if dynamicTypeSize >= .accessibility3 { return 0 }
-        if dynamicTypeSize >= .accessibility1 { return 0.14 }
+        if dynamicTypeSize >= .accessibility1 { return 0.11 }
         switch model.step {
-        case .arrival, .reveal: return 0.30
-        default: return 0.22
+        // Arrival and Reveal are the two beats where the map *is* the content,
+        // so they keep a little more room. Every question screen gives it back:
+        // the map is there to acknowledge the answer, not to compete with it.
+        case .arrival, .reveal: return 0.22
+        default: return 0.16
         }
+    }
+
+    /// A share of the window on a phone, but a *capped* height on iPad.
+    ///
+    /// A fraction of a 1180-point window is 350 points of mostly-empty field
+    /// above six short rows — `DESIGN.md` is explicit that extra iPad space is
+    /// not to be filled just because it exists. The proper answer is the
+    /// two-pane composition (map beside the question); until that lands, the map
+    /// takes what it needs and gives the rest back.
+    private func weaveHeight(in size: CGSize) -> CGFloat {
+        let proportional = size.height * weaveHeightFraction
+        guard horizontalSizeClass == .regular else { return proportional }
+        return min(proportional, model.step == .reveal ? 240 : 200)
     }
 
     var body: some View {
@@ -44,7 +61,7 @@ struct LifeWeaveOnboardingView: View {
 
                     if weaveHeightFraction > 0, model.step.isPowerUp == false {
                         LifeWeaveCanvas(presentation: LifeWeavePresentation.make(from: model.draft))
-                            .frame(height: proxy.size.height * weaveHeightFraction)
+                            .frame(height: weaveHeight(in: proxy.size))
                             .accessibilityIdentifier(LifeWeaveAccessibilityID.canvas)
                     }
 

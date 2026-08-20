@@ -103,8 +103,20 @@ enum LifeWeaveGeometry {
     /// ways of working cross the same life. The curves extend past the canvas so
     /// their ends are never visible, which is what stops them reading as items.
     static func strandPath(index: Int, of total: Int, in size: CGSize, isMirrored: Bool) -> CGPath {
+        // Every strand passes through exactly this point, and it is the same
+        // point `now(in:isMirrored:)` gives the anchor view — so the circle sits
+        // dead on the intersection rather than beside it.
+        //
+        // The curve is symmetric about `now` by construction: `start` and `end`
+        // are equal and opposite along `direction`, and the two control points
+        // are equal and opposite along both `direction` and `normal`. A cubic's
+        // midpoint is `(start + 3·c1 + 3·c2 + end) / 8`, and every offset term
+        // cancels there, leaving exactly `now`. That is what guarantees the
+        // crossing is a single point and not a near-miss bundle.
         let now = self.now(in: size, isMirrored: isMirrored)
-        let span = max(size.width, size.height) * 1.4
+        // Shorter than the diagonal: strands that run to the screen edges make
+        // the map read as taller than the band it was actually given.
+        let span = max(size.width, size.height) * 0.78
         let angle = (Double.pi / Double(max(1, total))) * Double(index) - Double.pi / 2.6
         let direction = CGVector(dx: cos(angle), dy: sin(angle))
         let normal = CGVector(dx: -direction.dy, dy: direction.dx)

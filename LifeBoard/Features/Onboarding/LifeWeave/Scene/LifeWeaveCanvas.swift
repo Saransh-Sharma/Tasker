@@ -17,6 +17,8 @@ struct LifeWeaveCanvas: View {
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// Bumped when the map gains something. Drives the one-shot light bloom.
+    @State private var lightTrigger = 0
 
     private var reduceMotion: Bool { MotionOverride.resolve(systemReduceMotion) }
     private var isMirrored: Bool { layoutDirection == .rightToLeft }
@@ -58,6 +60,23 @@ struct LifeWeaveCanvas: View {
             }
             .lifeBoardMotion(.cardReflow, value: presentation.areas)
             .lifeBoardMotion(.contentInsertion, value: presentation.dayWindow)
+            // `firstLight` is the sanctioned Metal for this surface: DESIGN.md
+            // allows it for "the first daily commitment **and onboarding
+            // arrival**", it is a `colorEffect` so nothing is rasterised
+            // offscreen, and its `TimelineView` stops once settled — so it never
+            // becomes a second ambient timeline competing with the hero video,
+            // which owns the screen's entire ambient budget.
+            //
+            // `paperGrain` is deliberately *not* here. It is a `layerEffect`,
+            // and SIGNATURE_EFFECT_DEPLOYMENT.md is explicit that it "sits
+            // behind content, never over it". Applied over the weave it replaced
+            // the subtree's rasterisation and swallowed the strands and the
+            // anchor entirely — the map rendered blank in both appearances.
+            // There is nothing for it to sit behind here anyway: the map is
+            // transparent geometry over the hero video.
+            .lifeboardFirstLight(trigger: lightTrigger, tint: bloomTint)
+            .onChange(of: presentation.areas) { _, _ in lightTrigger &+= 1 }
+            .onChange(of: presentation.phase) { _, _ in lightTrigger &+= 1 }
         }
         .frame(maxWidth: .infinity)
         // One semantic summary instead of a dozen decorative paths. The rows
@@ -67,7 +86,22 @@ struct LifeWeaveCanvas: View {
         .accessibilityValue(presentation.accessibilitySummary)
     }
 
+    /// The bloom takes the emphasised area's own colour when there is one, so the
+    /// light that arrives is the light of the thing the user just chose.
+    private var bloomTint: Color {
+        guard let primary = presentation.areas.first(where: \.isPrimary) ?? presentation.areas.last
+        else { return Color.lifeboard(.accentPrimary) }
+        if let role = primary.accentRole { return Color.lifeboardArea(role) }
+        return Color.lifeboard(.accentPrimary)
+    }
+
     /// The five operating strands: structure, unlabelled until the reveal.
+    ///
+    /// Drawn in `textTertiary`, not `strokeHairline`. The hairline token is a
+    /// *separator* — it is designed to sit on a surface, so in light appearance
+    /// it is pale cream, which on the equally pale scrimmed sky rendered the
+    /// whole weave invisible while dark appearance looked correct. An ink token
+    /// carries contrast in both directions because it inverts with the scheme.
     private func strandLayer(size: CGSize) -> some View {
         Canvas { context, _ in
             for (index, strand) in presentation.strands.enumerated() {
@@ -81,11 +115,25 @@ struct LifeWeaveCanvas: View {
                 )
                 context.stroke(
                     path,
-                    with: .color(Color.lifeboard(.strokeHairline).opacity(0.34 * strand.emphasis)),
-                    style: StrokeStyle(lineWidth: 1, lineCap: .round)
+                    with: .color(Color.lifeboard(.textTertiary).opacity(0.30 * strand.emphasis)),
+                    style: StrokeStyle(lineWidth: 1.2, lineCap: .round)
                 )
             }
         }
+        // Fades out toward the edges so the strands read as passing through the
+        // band rather than as lines drawn to the bezel.
+        .mask(
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: .black, location: 0.22),
+                    .init(color: .black, location: 0.78),
+                    .init(color: .clear, location: 1)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
         .accessibilityHidden(true)
     }
 
@@ -103,8 +151,8 @@ struct LifeWeaveCanvas: View {
                 let path = Path(LifeWeaveGeometry.threadPath(from: center, to: now))
                 context.stroke(
                     path,
-                    with: .color(Color.lifeboard(.strokeHairline).opacity(area.isPrimary ? 0.62 : 0.42)),
-                    style: StrokeStyle(lineWidth: area.isPrimary ? 1.5 : 1, lineCap: .round)
+                    with: .color(Color.lifeboard(.textTertiary).opacity(area.isPrimary ? 0.58 : 0.40)),
+                    style: StrokeStyle(lineWidth: area.isPrimary ? 1.6 : 1.2, lineCap: .round)
                 )
             }
         }

@@ -44,6 +44,40 @@ public struct FoundationShell: View {
     @Environment(\.scenePhase) private var scenePhase
     @State var compactCaptureState = CaptureOrbPresentationState()
     @State var measuredChromeHeight: CGFloat = 132
+    /// Distance from the dock's top edge to the bottom of the shell.
+    ///
+    /// `measuredChromeHeight` covers the whole compact container, which on most
+    /// destinations also holds the global LifeThread composer, and even the
+    /// dock's own layout height overshoots the pill that is actually drawn.
+    /// Eva hides the global composer and supplies its own, so insetting it by
+    /// either of those reserved room for chrome that was not on screen and left
+    /// the composer floating well above the dock. This measures the answer
+    /// directly instead of deriving it.
+    @State var measuredDockClearance: CGFloat = 96
+
+    /// The compact chrome container's bottom inset.
+    static let compactChromeBottomPadding: CGFloat = 6
+
+    /// Separation between Eva's composer and the dock, folded into the measured
+    /// clearance rather than added by the composer.
+    ///
+    /// It belongs here because it is a contract, not a taste: the composer's
+    /// *interactive* bounds run lower than its visible pill — the mic and send
+    /// buttons overhang it — and `assertRequiredEvaDockSpacing` requires every
+    /// one of those controls to clear the dock by the md token. Sizing the gap
+    /// against the pill instead left the mic a point from the dock while looking
+    /// correct in a screenshot.
+    ///
+    /// Twice the md token, and the doubling is the overhang rather than taste:
+    /// the mic and send buttons hang roughly a token's worth below the pill, so
+    /// a 12pt gap measured from the pill leaves them ~1pt from the dock. Sizing
+    /// it here keeps the whole control cluster clear in every Dynamic Type and
+    /// compact-height state the dock-spacing tests cover.
+    static let evaComposerDockGap: CGFloat = 24
+
+    /// Names the shell's own coordinate space so chrome can be measured against
+    /// it rather than against the screen.
+    static let shellCoordinateSpace = "lifeboard.shell"
     @State var isEvaComposerFocused = false
     /// Roots that have been opened at least once. Dashboard roots stay built so
     /// their scroll position and navigation depth survive a root change. Eva is
@@ -452,9 +486,14 @@ public struct FoundationShell: View {
         showsCompactChrome(for: destination) ? measuredChromeHeight : 0
     }
 
+    /// How far Eva's own composer must sit above the bottom edge.
+    ///
+    /// This is the dock's occupied height, not the chrome stack's: Eva is the one
+    /// destination that replaces the global composer rather than stacking under
+    /// it, so the stack height would over-reserve by exactly the composer it hid.
     func evaComposerBottomClearance(for destination: Destination) -> CGFloat {
-        guard destination == .eva else { return 0 }
-        return reservedChromeHeight(for: destination)
+        guard destination == .eva, showsCompactChrome(for: destination) else { return 0 }
+        return measuredDockClearance + Self.evaComposerDockGap
     }
 
     func reservedDestinationChromeHeight(for destination: Destination) -> CGFloat {

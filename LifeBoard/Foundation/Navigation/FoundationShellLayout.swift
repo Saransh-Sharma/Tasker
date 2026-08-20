@@ -141,10 +141,38 @@ extension FoundationShell {
                                 router: router,
                                 paletteMaxHeight: max(176, min(320, geometry.size.height * 0.38))
                             )
+                            // The dock's *top edge*, not its height.
+                            //
+                            // Eva replaces the global composer rather than
+                            // stacking under it, so its composer has to clear
+                            // the dock and nothing else. Height alone is not
+                            // enough for that: the chrome stack also carries the
+                            // global composer on other destinations, and the
+                            // dock's own layout height exceeds the pill that is
+                            // actually drawn. Measuring where the dock starts
+                            // relative to the shell answers the only question
+                            // Eva is asking — how far above the bottom edge its
+                            // composer must sit — without modelling anything
+                            // about what else shares the container.
+                            //
+                            // The shell's bottom safe-area inset comes back out
+                            // of the answer. Eva's composer is placed by
+                            // `safeAreaInset(edge: .bottom)`, so it already sits
+                            // above the home indicator; the shell this dock is
+                            // measured against does not. Leaving the inset in
+                            // counted that strip twice and lifted the composer
+                            // by a home indicator's height on every device that
+                            // has one.
+                            .onGeometryChange(for: CGFloat.self) { proxy in
+                                let dockTop = proxy.frame(in: .named(FoundationShell.shellCoordinateSpace)).minY
+                                return geometry.size.height - dockTop - geometry.safeAreaInsets.bottom
+                            } action: { clearance in
+                                measuredDockClearance = max(0, clearance)
+                            }
                         }
                     }
                     .padding(.horizontal, 12)
-                    .padding(.bottom, 6)
+                    .padding(.bottom, FoundationShell.compactChromeBottomPadding)
                     .background(alignment: .bottom) {
                         LinearGradient(
                             colors: [
@@ -171,6 +199,7 @@ extension FoundationShell {
                 }
             }
         }
+        .coordinateSpace(name: FoundationShell.shellCoordinateSpace)
         .background(Color.clear.ignoresSafeArea())
         // Compact width only. At regular width the composer anchors to the
         // detail column with room to spare, so there is nothing to compress.
