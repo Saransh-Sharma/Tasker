@@ -2,6 +2,7 @@ import Foundation
 import JournalFeature
 import KnowledgeFeature
 import LifeBoardDomain
+import MLXLMCommon
 
 enum EvaFeatureProviderRegistration {
     @MainActor
@@ -133,52 +134,46 @@ private enum EvaFeatureTextGenerator {
         prompt: String,
         context: [EvaCloudContextSection]
     ) async throws -> String {
-        if EvaCloudAccountState.shared.canUseCloud {
-            guard let consent = EvaCloudAccountState.shared.consent else {
-                throw EvaProviderError.consentRequired
-            }
+        let modelRoute = AIChatModeRouter.route(for: .addTaskSuggestion)
+        let selectedModel = modelRoute.selectedModelName
+        let offlineModel = selectedModel.flatMap { ModelConfiguration.getModelByName($0) } ?? .defaultModel
+        let runtime = try EvaTurnRuntime.resolve(
+            localModelName: selectedModel,
+            offlineModel: offlineModel,
+            route: route
+        )
+        if runtime.usesCloud {
+            try runtime.validateCurrentAuthority()
             let request = EvaInferenceRequest(
                 requestId: UUID(),
                 route: route,
-                contractVersion: EvaInferenceRequest.negotiatedContractVersion(
-                    advertised: EvaCloudAccountState.shared.configuration?.contractVersions
-                ),
+                contractVersion: runtime.contractVersion,
                 locale: Locale.current.identifier,
                 timeZone: TimeZone.current.identifier,
                 messages: [.init(role: .user, content: prompt)],
-                context: context,
+                context: context.map { $0.forContract(runtime.contractVersion) },
                 userInstructions: nil,
                 clientVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
                 platform: EvaInstallationIdentity.platform,
                 installationId: EvaInstallationIdentity.current,
-                consentRevision: consent.revision,
+                consentRevision: runtime.consentRevision ?? 0,
                 providerCapabilities: .init(streaming: true, structuredOutput: true, spokenOutput: true)
             )
             return try await EvaCloudProvider().generate(request: request) { _ in }
         }
 
-        let modelRoute = AIChatModeRouter.route(for: .addTaskSuggestion)
-        guard let selectedModel = modelRoute.selectedModelName else {
-                throw EvaProviderError.unavailable(String(localized: "Install an Offline EVA model or activate Cloud EVA to use this feature."))
-        }
-        let readiness = await LLMRuntimeCoordinator.shared.ensureReady(modelName: selectedModel)
+        let readiness = await EvaRuntimePreparation.ensureReady(runtime: runtime)
         guard readiness.ready else {
             throw EvaProviderError.unavailable(String(localized: "Offline EVA is not ready on this device."))
         }
-        let contextText: String
-        if context.isEmpty {
-            contextText = ""
-        } else {
-            let data = try JSONEncoder.evaCloud.encode(context)
-            contextText = "\n\nAuthorized bounded context:\n\(String(decoding: data, as: UTF8.self))"
-        }
         let thread = Thread()
-        thread.messages = [Message(role: .user, content: prompt + contextText, thread: thread)]
+        thread.messages = [Message(role: .user, content: prompt, thread: thread)]
         let output = await LLMRuntimeCoordinator.shared.evaluator.generate(
             modelName: readiness.resolvedModelName,
             thread: thread,
             systemPrompt: "Use only the content explicitly supplied in this request. Do not invent facts.",
-            profile: profile
+            profile: profile,
+            turnRuntime: runtime
         )
         guard output.hasPrefix("Failed:") == false else {
             throw EvaProviderError.unavailable(output)

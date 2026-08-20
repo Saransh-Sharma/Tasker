@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 
 /// What EVA is allowed to remember about someone between conversations.
 ///
@@ -14,7 +15,7 @@ import Foundation
 /// guess becomes a permanent fact about them that they never agreed to and
 /// cannot find to correct.
 struct EvaMemoryStatement: Codable, Equatable, Identifiable, Sendable {
-    enum Section: String, Codable, CaseIterable, Sendable {
+    enum Section: String, Codable, CaseIterable, Hashable, Sendable {
         case preferences
         case routines
         case currentGoals
@@ -28,6 +29,8 @@ struct EvaMemoryStatement: Codable, Equatable, Identifiable, Sendable {
         /// EVA derived this from repeated evidence. Always revisable, never
         /// promoted to `userStated` without an explicit confirmation.
         case inferred
+        /// A machine-derived statement the person explicitly confirmed.
+        case inferredCandidate
     }
 
     let id: UUID
@@ -68,13 +71,35 @@ struct EvaMemoryStatement: Codable, Equatable, Identifiable, Sendable {
     /// design is meant to prevent.
     mutating func normalize() {
         text = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(EvaMemoryStoreV2.maxStatementCharacters))
-        if provenance != .inferred { confidence = nil }
+        if provenance == .userStated { confidence = nil }
     }
 
     func normalized() -> EvaMemoryStatement {
         var copy = self
         copy.normalize()
         return copy
+    }
+}
+
+extension EvaMemoryStatement.Section {
+    var displayTitle: String {
+        switch self {
+        case .preferences: String(localized: "Preferences")
+        case .routines: String(localized: "Routines")
+        case .currentGoals: String(localized: "Current goals")
+        case .capacity: String(localized: "Capacity")
+        case .boundaries: String(localized: "Boundaries")
+        }
+    }
+
+    var supportingCopy: String {
+        switch self {
+        case .preferences: String(localized: "How you prefer EVA to help.")
+        case .routines: String(localized: "Patterns and routines worth carrying forward.")
+        case .currentGoals: String(localized: "Goals that should shape current suggestions.")
+        case .capacity: String(localized: "Stable limits on time, energy, or workload.")
+        case .boundaries: String(localized: "Things EVA should protect or avoid suggesting.")
+        }
     }
 }
 
@@ -183,4 +208,249 @@ struct EvaMemoryStatementPayload: Encodable, Sendable {
     let provenance: String
     let confidence: Double?
     let effectiveFrom: Date
+}
+
+/// User-owned memory used by current EVA turns.
+struct EvaMemoryStoreV3: Codable, Equatable, Sendable {
+    static let schemaVersion = 3
+    static let maxStatementCharacters = 240
+    static let maxStatements = 30
+
+    var schemaVersion = Self.schemaVersion
+    var statements: [EvaMemoryStatement] = []
+
+    init(statements: [EvaMemoryStatement] = []) {
+        self.statements = Self.normalized(statements)
+    }
+
+    var isEmpty: Bool { statements.isEmpty }
+
+    func statements(in section: EvaMemoryStatement.Section) -> [EvaMemoryStatement] {
+        statements.filter { $0.section == section }
+    }
+
+    mutating func upsert(_ statement: EvaMemoryStatement) {
+        var incoming = statement
+        incoming.text = Self.normalizedText(incoming.text)
+        guard incoming.text.isEmpty == false else { return }
+        if incoming.provenance == .inferred { incoming.provenance = .inferredCandidate }
+        incoming.normalize()
+        if let index = statements.firstIndex(where: { $0.id == incoming.id }) {
+            incoming.revision = statements[index].revision + 1
+            statements[index] = incoming
+        } else if let index = statements.firstIndex(where: {
+            Self.deduplicationKey($0.text) == Self.deduplicationKey(incoming.text)
+        }) {
+            guard statements[index].provenance != .userStated || incoming.provenance == .userStated else { return }
+            incoming.revision = statements[index].revision + 1
+            statements[index] = incoming
+        } else {
+            guard statements.count < Self.maxStatements else { return }
+            statements.append(incoming)
+        }
+        statements = Self.normalized(statements)
+    }
+
+    mutating func remove(id: UUID) {
+        statements.removeAll { $0.id == id }
+    }
+
+    func contextPayload() -> [EvaMemoryStatementPayload] {
+        statements.map {
+            EvaMemoryStatementPayload(
+                id: $0.id,
+                section: $0.section.rawValue,
+                text: $0.text,
+                provenance: $0.provenance == .userStated ? "userStated" : "inferredCandidate",
+                confidence: $0.confidence,
+                effectiveFrom: $0.effectiveFrom
+            )
+        }
+    }
+
+    static func migrating(from store: EvaMemoryStoreV2) -> EvaMemoryStoreV3 {
+        EvaMemoryStoreV3(statements: store.statements.map { statement in
+            var migrated = statement
+            if migrated.provenance == .inferred { migrated.provenance = .inferredCandidate }
+            return migrated
+        })
+    }
+
+    static func migrating(from store: LLMPersonalMemoryStoreV1, now: Date = Date()) -> EvaMemoryStoreV3 {
+        var statements: [EvaMemoryStatement] = []
+        func append(_ entries: [LLMPersonalMemoryEntry], section: EvaMemoryStatement.Section) {
+            statements += entries.map {
+                EvaMemoryStatement(
+                    id: $0.id,
+                    section: section,
+                    text: $0.text,
+                    provenance: .userStated,
+                    effectiveFrom: now
+                )
+            }
+        }
+        append(store.preferences, section: .preferences)
+        append(store.routines, section: .routines)
+        append(store.currentGoals, section: .currentGoals)
+        return EvaMemoryStoreV3(statements: statements)
+    }
+
+    private static func normalized(_ statements: [EvaMemoryStatement]) -> [EvaMemoryStatement] {
+        var seen = Set<String>()
+        let ordered = statements.sorted {
+            if $0.provenance == .userStated && $1.provenance != .userStated { return true }
+            if $0.provenance != .userStated && $1.provenance == .userStated { return false }
+            return $0.effectiveFrom > $1.effectiveFrom
+        }
+        return ordered.compactMap { statement in
+            var copy = statement
+            copy.text = normalizedText(copy.text)
+            guard copy.text.isEmpty == false,
+                  seen.insert(deduplicationKey(copy.text)).inserted else { return nil }
+            if copy.provenance == .inferred { copy.provenance = .inferredCandidate }
+            copy.normalize()
+            return copy
+        }.prefix(Self.maxStatements).map { $0 }
+    }
+
+    private static func normalizedText(_ text: String) -> String {
+        String(text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ").prefix(maxStatementCharacters))
+    }
+
+    private static func deduplicationKey(_ text: String) -> String {
+        normalizedText(text).folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+    }
+}
+
+struct EvaMemoryCandidate: Codable, Equatable, Identifiable, Sendable {
+    enum State: String, Codable, Sendable { case inline, later }
+
+    let id: UUID
+    var section: EvaMemoryStatement.Section
+    var text: String
+    let createdAt: Date
+    var state: State
+
+    init(
+        id: UUID = UUID(),
+        section: EvaMemoryStatement.Section,
+        text: String,
+        createdAt: Date = Date(),
+        state: State = .inline
+    ) {
+        self.id = id
+        self.section = section
+        self.text = String(text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ").prefix(EvaMemoryStoreV3.maxStatementCharacters))
+        self.createdAt = createdAt
+        self.state = state
+    }
+
+    var expiresAt: Date { createdAt.addingTimeInterval(30 * 24 * 60 * 60) }
+    var suppressionKey: String { text.lowercased().filter { $0.isLetter || $0.isNumber } }
+}
+
+struct EvaMemoryCandidateInbox: Codable, Equatable, Sendable {
+    var pending: [EvaMemoryCandidate] = []
+    var suppressedKeys: Set<String> = []
+
+    mutating func propose(_ candidate: EvaMemoryCandidate, now: Date = Date()) {
+        removeExpired(now: now)
+        guard candidate.text.isEmpty == false,
+              candidate.expiresAt > now,
+              suppressedKeys.contains(candidate.suppressionKey) == false,
+              pending.contains(where: { $0.suppressionKey == candidate.suppressionKey }) == false else { return }
+        pending.append(candidate)
+    }
+
+    mutating func deferCandidate(id: UUID) {
+        guard let index = pending.firstIndex(where: { $0.id == id }) else { return }
+        pending[index].state = .later
+    }
+
+    mutating func dismiss(id: UUID) {
+        guard let candidate = pending.first(where: { $0.id == id }) else { return }
+        suppressedKeys.insert(candidate.suppressionKey)
+        pending.removeAll { $0.id == id }
+    }
+
+    mutating func removeExpired(now: Date = Date()) {
+        pending.removeAll { $0.expiresAt <= now }
+    }
+}
+
+enum EvaMemoryDefaultsStoreV3 {
+    static let key = "eva.personalMemory.v3"
+    private static var secureStore: LLMSecureBlobStore {
+        LLMSecureBlobStore(
+            service: (Bundle.main.bundleIdentifier ?? "LifeBoard") + ".secureStorage",
+            account: key
+        )
+    }
+
+    static func load(defaults: UserDefaults = .standard) -> EvaMemoryStoreV3 {
+        if let data = secureStore.loadData() {
+            if let current = try? JSONDecoder().decode(EvaMemoryStoreV3.self, from: data) {
+                return EvaMemoryStoreV3(statements: current.statements)
+            }
+            if let legacy = try? JSONDecoder().decode(EvaMemoryStoreV2.self, from: data) {
+                let migrated = EvaMemoryStoreV3.migrating(from: legacy)
+                save(migrated, defaults: defaults)
+                return migrated
+            }
+        }
+        let migrated = EvaMemoryStoreV3.migrating(
+            from: LLMPersonalMemoryDefaultsStore.load(defaults: defaults)
+        )
+        if migrated.isEmpty == false { save(migrated, defaults: defaults) }
+        return migrated
+    }
+
+    static func save(_ store: EvaMemoryStoreV3, defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(EvaMemoryStoreV3(statements: store.statements)),
+              secureStore.saveData(data) else { return }
+        defaults.removeObject(forKey: key)
+    }
+
+    static func clear(defaults: UserDefaults = .standard) {
+        secureStore.clear()
+        defaults.removeObject(forKey: key)
+    }
+
+    static func promptBlock(for model: MLXLMCommon.ModelConfiguration) -> String? {
+        let store = load()
+        guard store.isEmpty == false else { return nil }
+        var lines = ["User-confirmed memory:"]
+        for section in EvaMemoryStatement.Section.allCases {
+            let values = store.statements(in: section).map(\.text).joined(separator: "; ")
+            if values.isEmpty == false { lines.append("\(section.rawValue): \(values)") }
+        }
+        return LLMTokenBudgetEstimator.trimPrefix(
+            lines.joined(separator: "\n"),
+            toTokenBudget: model.tokenBudget.personalMemoryTokens
+        )
+    }
+}
+
+enum EvaMemoryCandidateDefaultsStore {
+    static let key = "eva.memoryCandidates.v1"
+    private static var secureStore: LLMSecureBlobStore {
+        LLMSecureBlobStore(
+            service: (Bundle.main.bundleIdentifier ?? "LifeBoard") + ".secureStorage",
+            account: key
+        )
+    }
+
+    static func load() -> EvaMemoryCandidateInbox {
+        guard let data = secureStore.loadData(),
+              var inbox = try? JSONDecoder().decode(EvaMemoryCandidateInbox.self, from: data) else {
+            return EvaMemoryCandidateInbox()
+        }
+        inbox.removeExpired()
+        return inbox
+    }
+
+    static func save(_ inbox: EvaMemoryCandidateInbox) {
+        guard let data = try? JSONEncoder().encode(inbox) else { return }
+        _ = secureStore.saveData(data)
+    }
 }

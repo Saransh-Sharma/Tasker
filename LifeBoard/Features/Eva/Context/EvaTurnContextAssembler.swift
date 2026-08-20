@@ -38,8 +38,14 @@ enum EvaTurnContextAssembler {
             return compact
         }
 
-        let projection = await projector.project(now: now)
-        guard projection.tasks.isEmpty == false else { return compact }
+        guard let projection = await projectionWithDeadline(projector, now: now) else {
+            let degraded = EvaContextSectionFactory.planning(
+                renderedOverview: compactProjection,
+                partialSections: ["planningProjectionDeadline"],
+                now: now
+            )
+            return EvaEnvelopeAllocator.allocate([degraded], budget: budget)
+        }
         let tasks = await semanticallyPrioritized(projection.tasks, query: userQuery)
 
         let envelope = EvaContextEnvelopeBuilder(budget: budget).build(
@@ -56,6 +62,20 @@ enum EvaTurnContextAssembler {
             now: now
         )
         return envelope.ordered()
+    }
+
+    private static func projectionWithDeadline(
+        _ projector: EvaPlanningProjector,
+        now: Date
+    ) async -> EvaPlanningProjector.Projection? {
+        let race = EvaProjectionDeadlineRace()
+        return await withCheckedContinuation { continuation in
+            Task { await race.resolve(await projector.project(now: now), continuation: continuation) }
+            Task {
+                try? await Task.sleep(for: .seconds(1.2))
+                await race.resolve(nil, continuation: continuation)
+            }
+        }
     }
 
     /// Promotes records the question is actually about.
@@ -90,5 +110,18 @@ enum EvaTurnContextAssembler {
                 return lhs.offset < rhs.offset
             }
             .map(\.element)
+    }
+}
+
+private actor EvaProjectionDeadlineRace {
+    private var didResolve = false
+
+    func resolve(
+        _ projection: EvaPlanningProjector.Projection?,
+        continuation: CheckedContinuation<EvaPlanningProjector.Projection?, Never>
+    ) {
+        guard didResolve == false else { return }
+        didResolve = true
+        continuation.resume(returning: projection)
     }
 }

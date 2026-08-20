@@ -65,7 +65,7 @@ struct SettingsRootView: View {
     @State private var selectedPadCategory: SettingsDetailRoute?
     @State private var timelineAnchorDraft = TimelineAnchorDraft(preferences: WorkspacePreferences())
     @State private var healthStore = HealthCoordinator.shared.connectionStore
-    @AppStorage("healthPrivacyLocalOnlyNoticeAcknowledged") private var didAcknowledgeHealthPrivacyNotice = false
+    @AppStorage("healthPrivacyLocalOnlyNoticeAcknowledged") private var didAcknowledgeHealthPrivacyNotice = false; @AppStorage(ProductTelemetry.enabledKey) private var productTelemetryEnabled = true
     @State private var showsHealthPrivacyNotice = false
     /// Resolved on appear rather than recomputed per render: opening a SQLite
     /// index is not something a view body should do on every layout pass.
@@ -1052,18 +1052,21 @@ private extension SettingsRootView {
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
-            SettingsCard {
-                SettingsNavigationRow(
-                    descriptor: SettingsDestinationDescriptor(
-                        iconName: "lifepreserver.fill",
-                        title: "Recovery",
-                        subtitle: "Sync status, search rebuilds and diagnostics.",
-                        trailingStatus: recoveryStatus.worstHealth == .healthy ? "Ready" : "Review",
-                        tone: recoveryStatus.worstHealth == .healthy ? .success : .warning,
-                        accessibilityIdentifier: "settings.recoveryCenterRow"
-                    ),
-                    action: { navigate(.recovery) }
-                )
+            VStack(spacing: spacing.cardStackVertical) {
+                SettingsCard {
+                    SettingsNavigationRow(
+                        descriptor: SettingsDestinationDescriptor(
+                            iconName: "lifepreserver.fill",
+                            title: "Recovery",
+                            subtitle: "Sync status, search rebuilds and diagnostics.",
+                            trailingStatus: recoveryStatus.worstHealth == .healthy ? "Ready" : "Review",
+                            tone: recoveryStatus.worstHealth == .healthy ? .success : .warning,
+                            accessibilityIdentifier: "settings.recoveryCenterRow"
+                        ),
+                        action: { navigate(.recovery) }
+                    )
+                }
+                ProductTelemetrySettingsCard(isEnabled: $productTelemetryEnabled)
             }
             .enhancedStaggeredAppearance(index: baseIndex)
         }

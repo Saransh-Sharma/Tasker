@@ -350,10 +350,7 @@ struct LLMSettingsView: View {
     }
 
     private var memoryItemCount: Int {
-        let memory = LLMPersonalMemoryDefaultsStore.load()
-        return LLMPersonalMemorySection.allCases.reduce(0) { partial, section in
-            partial + memory.entries(for: section).filter { $0.text.isEmpty == false }.count
-        }
+        EvaMemoryDefaultsStoreV3.load().statements.count
     }
 
     private var memorySummary: String {
@@ -370,7 +367,8 @@ struct LLMSettingsView: View {
 }
 
 struct LLMPersonalMemorySettingsView: View {
-    @State private var store = LLMPersonalMemoryDefaultsStore.load()
+    @State private var store = EvaMemoryDefaultsStoreV3.load()
+    @State private var candidateInbox = EvaMemoryCandidateDefaultsStore.load()
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
     @StateObject private var assistantIdentity = AssistantIdentityModel()
@@ -391,7 +389,11 @@ struct LLMPersonalMemorySettingsView: View {
                 VStack(spacing: spacing.cardStackVertical) {
                     helperCopy
 
-                    ForEach(LLMPersonalMemorySection.allCases) { section in
+                    if candidateInbox.pending.isEmpty == false {
+                        pendingMemoryCard
+                    }
+
+                    ForEach(EvaMemoryStatement.Section.allCases, id: \.self) { section in
                         memorySectionCard(section)
                     }
 
@@ -400,7 +402,7 @@ struct LLMPersonalMemorySettingsView: View {
                         subtitle: "Remove every saved preference, routine, and goal from \(assistantIdentity.snapshot.displayName)’s memory.",
                         buttonTitle: "Clear all memory"
                     ) {
-                        store = LLMPersonalMemoryStoreV1()
+                        store = EvaMemoryStoreV3()
                         persist()
                     }
                 }
@@ -418,35 +420,104 @@ struct LLMPersonalMemorySettingsView: View {
 
     private var helperCopy: some View {
         SettingsCard {
-            Text("Up to \(LLMPersonalMemoryStoreV1.maxEntriesPerSection) items per section, \(LLMPersonalMemoryStoreV1.maxEntryCharacters) characters each.")
+            Text("Up to \(EvaMemoryStoreV3.maxStatements) memories, \(EvaMemoryStoreV3.maxStatementCharacters) characters each. EVA only uses items you saved.")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private func memorySectionCard(_ section: LLMPersonalMemorySection) -> some View {
+    private var pendingMemoryCard: some View {
+        SettingsFieldCard(
+            title: "Memory suggestions",
+            subtitle: "Suggestions stay out of EVA context until you save them. They expire after 30 days."
+        ) {
+            VStack(spacing: spacing.s12) {
+                ForEach(candidateInbox.pending) { candidate in
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        TextField("Suggested memory", text: candidateBinding(candidate.id), axis: .vertical)
+                            .font(.lifeboard(.callout))
+                            .lineLimit(2...4)
+                        HStack {
+                            Button("Save") { saveCandidate(candidate.id) }
+                                .buttonStyle(.borderedProminent)
+                            Button("Later") { deferCandidate(candidate.id) }
+                                .buttonStyle(.bordered)
+                            Button("Dismiss", role: .destructive) { dismissCandidate(candidate.id) }
+                                .buttonStyle(.borderless)
+                        }
+                    }
+                    .padding(spacing.s12)
+                    .background(Color.lifeboard(.surfaceSecondary), in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+        }
+    }
+
+    private func candidateBinding(_ id: UUID) -> Binding<String> {
+        Binding(
+            get: { candidateInbox.pending.first(where: { $0.id == id })?.text ?? "" },
+            set: { value in
+                guard let index = candidateInbox.pending.firstIndex(where: { $0.id == id }) else { return }
+                candidateInbox.pending[index].text = String(value.prefix(EvaMemoryStoreV3.maxStatementCharacters))
+                EvaMemoryCandidateDefaultsStore.save(candidateInbox)
+            }
+        )
+    }
+
+    private func saveCandidate(_ id: UUID) {
+        guard let candidate = candidateInbox.pending.first(where: { $0.id == id }) else { return }
+        if store.statements.count >= EvaMemoryStoreV3.maxStatements,
+           let replaceID = store.statements.last(where: { $0.provenance != .userStated })?.id
+            ?? store.statements.last?.id {
+            store.remove(id: replaceID)
+        }
+        store.upsert(EvaMemoryStatement(
+            section: candidate.section,
+            text: candidate.text,
+            provenance: .inferredCandidate
+        ))
+        candidateInbox.pending.removeAll { $0.id == id }
+        persist()
+        EvaMemoryCandidateDefaultsStore.save(candidateInbox)
+    }
+
+    private func deferCandidate(_ id: UUID) {
+        candidateInbox.deferCandidate(id: id)
+        EvaMemoryCandidateDefaultsStore.save(candidateInbox)
+    }
+
+    private func dismissCandidate(_ id: UUID) {
+        candidateInbox.dismiss(id: id)
+        EvaMemoryCandidateDefaultsStore.save(candidateInbox)
+    }
+
+    private func memorySectionCard(_ section: EvaMemoryStatement.Section) -> some View {
         SettingsFieldCard(
             title: section.displayTitle,
             subtitle: section.supportingCopy
         ) {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                if store.entries(for: section).isEmpty {
-                    Text(section.emptyStateCopy)
+                if store.statements(in: section).isEmpty {
+                    Text("No saved memories in this section.")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard(.textTertiary))
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    ForEach(store.entries(for: section)) { entry in
+                    ForEach(store.statements(in: section)) { entry in
                         HStack(alignment: .top, spacing: spacing.s8) {
                             TextField(
-                                section.placeholderText,
+                                "Memory",
                                 text: binding(for: section, entryID: entry.id),
                                 axis: .vertical
                             )
                             .font(.lifeboard(.callout))
                             .foregroundStyle(Color.lifeboard(.textPrimary))
                             .lineLimit(2...4)
+
+                            Text(entry.provenance == .userStated ? "Saved by you" : "Confirmed suggestion")
+                                .font(.lifeboard(.caption2))
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
 
                             Button(role: .destructive) {
                                 deleteEntry(for: section, entryID: entry.id)
@@ -471,7 +542,7 @@ struct LLMPersonalMemorySettingsView: View {
                     }
                 }
 
-                if store.entries(for: section).count < LLMPersonalMemoryStoreV1.maxEntriesPerSection {
+                if store.statements.count < EvaMemoryStoreV3.maxStatements {
                     Button("Add item") {
                         addEntry(to: section)
                     }
@@ -483,37 +554,35 @@ struct LLMPersonalMemorySettingsView: View {
         }
     }
 
-    private func binding(for section: LLMPersonalMemorySection, entryID: UUID) -> Binding<String> {
+    private func binding(for section: EvaMemoryStatement.Section, entryID: UUID) -> Binding<String> {
         Binding(
             get: {
-                store.entries(for: section).first(where: { $0.id == entryID })?.text ?? ""
+                store.statements.first(where: { $0.id == entryID })?.text ?? ""
             },
             set: { newValue in
-                var entries = store.entries(for: section)
-                guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return }
-                entries[index].text = String(newValue.prefix(LLMPersonalMemoryStoreV1.maxEntryCharacters))
-                store.setEntries(entries, for: section)
+                guard let index = store.statements.firstIndex(where: { $0.id == entryID }) else { return }
+                store.statements[index].text = String(newValue.prefix(EvaMemoryStoreV3.maxStatementCharacters))
                 persist()
             }
         )
     }
 
-    private func addEntry(to section: LLMPersonalMemorySection) {
-        var entries = store.entries(for: section)
-        entries.append(LLMPersonalMemoryEntry(text: ""))
-        store.setEntries(entries, for: section)
+    private func addEntry(to section: EvaMemoryStatement.Section) {
+        store.upsert(EvaMemoryStatement(
+            section: section,
+            text: "New memory",
+            provenance: .userStated
+        ))
         persist()
     }
 
-    private func deleteEntry(for section: LLMPersonalMemorySection, entryID: UUID) {
-        var entries = store.entries(for: section)
-        entries.removeAll { $0.id == entryID }
-        store.setEntries(entries, for: section)
+    private func deleteEntry(for section: EvaMemoryStatement.Section, entryID: UUID) {
+        store.remove(id: entryID)
         persist()
     }
 
     private func persist() {
-        LLMPersonalMemoryDefaultsStore.save(store)
+        EvaMemoryDefaultsStoreV3.save(store)
     }
 }
 

@@ -119,5 +119,10 @@
 # actions, Health disclosure, and EVA sign-in/grant/confirm/error controls.
 # These identifiers replace label-based UI-test targeting for optional setup.
 
-count=867
-sha256=f180fc3c98a53764b97b81b81f74a4413401bc1a3d231aafc517f978a40c502d
+# 2026-08-20 — EVA trust controls. Two additions, zero removals:
+# `eva.contextReceipt.open` opens the immutable per-message context receipt and
+# `eva.memoryCandidate.inline` identifies the explicit Save/Edit/Later/Dismiss
+# proposal boundary. Neither identifier contains a source-record identifier.
+
+count=869
+sha256=e6fdca5be9c7b004229e94fc496d44d58f5b6fbad0fed44fd04d2b6ee9c1d945

@@ -46,6 +46,14 @@ struct MessageView: View {
 
     @State var paidSpeechRegenerationText: String?
 
+    @State var showsContextReceipt = false
+
+    @State var memoryCandidateDraft = ""
+
+    @State var isEditingMemoryCandidate = false
+
+    @State var memoryCandidateRevision = 0
+
     let renderModel: ChatMessageRenderModel
 
     let now: Date
@@ -129,6 +137,11 @@ struct MessageView: View {
             Button("Cancel", role: .cancel) { paidSpeechRegenerationText = nil }
         } message: {
             Text("The local audio copy is unavailable. A new cloud rendering uses one credit.")
+        }
+        .sheet(isPresented: $showsContextReceipt) {
+            if let receipt = renderModel.contextReceipt {
+                EvaContextReceiptSheet(receipt: receipt)
+            }
         }
     }
 }

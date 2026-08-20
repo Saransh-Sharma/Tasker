@@ -706,7 +706,7 @@ final class LifeMapOnboardingTests: XCTestCase {
         var layoutWrites = 0
         var failLayoutOnce = true
 
-        let coordinator = await LifeMapCommitCoordinator(
+        let coordinator = LifeMapCommitCoordinator(
             dependencies: .init(
                 fetchLifeAreas: { areas },
                 createLifeArea: { template in
@@ -774,7 +774,7 @@ final class LifeMapOnboardingTests: XCTestCase {
         var saved: DashboardLayoutValue?
         var workingHoursWrites = 0
 
-        let coordinator = await LifeMapCommitCoordinator(
+        let coordinator = LifeMapCommitCoordinator(
             dependencies: .init(
                 fetchLifeAreas: { [] },
                 createLifeArea: { LifeArea(name: $0.name, color: $0.colorHex, icon: $0.icon) },

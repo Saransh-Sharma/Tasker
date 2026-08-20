@@ -81,7 +81,7 @@ responseRoutes.post('/responses', async (context) => {
   }
 
   const client = openAIClient(context.env)
-  const inputText = JSON.stringify({ messages: request.messages, context: request.context })
+  const inputText = JSON.stringify(modelInput(request))
   const inputDecision = await moderateText(client, inputText)
   if (!inputDecision.allowed) {
     recordTelemetry(context.env, {
@@ -299,7 +299,7 @@ function streamingTextResponse(arguments_: StreamingTextArguments): Response {
               store: false,
               stream: true,
               tools: [],
-              prompt_cache_key: `eva:${request.route}:v1`,
+              prompt_cache_key: `eva:eva-cloud-v2:${request.route}:v${request.contractVersion}`,
               prompt_cache_options: { mode: 'explicit', ttl: '30m' },
             }, { signal: abortController.signal })
             for await (const event of stream) {
@@ -453,7 +453,7 @@ async function generateResponse(
     store: false,
     stream: false,
     tools: [],
-    prompt_cache_key: `eva:${request.route}:v1`,
+    prompt_cache_key: `eva:eva-cloud-v2:${request.route}:v${request.contractVersion}`,
     prompt_cache_options: { mode: 'explicit', ttl: '30m' },
     ...(policy.structured ? { text: structuredTextFormat(request.route) } : {}),
   }, { signal: AbortSignal.timeout(60_000) })
@@ -663,8 +663,10 @@ function validatePrincipal(request: EvaInferenceRequestV1, principal: SessionPri
 }
 
 function enforceInputBudget(request: EvaInferenceRequestV1, policy: EvaRoutePolicy): void {
-  const approximateTokens = Math.ceil(JSON.stringify({ messages: request.messages, context: request.context }).length / 4)
-  if (approximateTokens > policy.inputTokenCap) {
+  const promptInputTokens = Math.ceil(JSON.stringify(modelInput(request)).length / 4)
+  const reservedTotalTokens = promptInputTokens + policy.outputTokenCap
+  const routeEnvelopeTokens = policy.inputTokenCap + policy.outputTokenCap
+  if (promptInputTokens > policy.inputTokenCap || reservedTotalTokens > routeEnvelopeTokens) {
     throw new EvaHttpError(413, 'input_rejected', 'This request contains too much context. Reduce the selected context and try again.')
   }
 }

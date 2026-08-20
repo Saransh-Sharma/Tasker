@@ -99,7 +99,8 @@ final class OnboardingEligibilityService: @unchecked Sendable {
         }
 
         if hasCompletedCore {
-            return state.needsCurrentRefresh ? .promptOnly(snapshot) : .suppressed
+            return AppRuntimeConfigurationStore.current.existingUserRefreshEnabled && state.needsCurrentRefresh
+                ? .promptOnly(snapshot) : .suppressed
         }
 
         // Existing workspaces are never interrupted, but they are not ignored
@@ -113,6 +114,6 @@ final class OnboardingEligibilityService: @unchecked Sendable {
         if state.establishedWorkspacePromptDismissedVersion == version {
             return .suppressed
         }
-        return .promptOnly(snapshot)
+        return AppRuntimeConfigurationStore.current.existingUserRefreshEnabled ? .promptOnly(snapshot) : .suppressed
     }
 }

@@ -356,9 +356,19 @@ actor EvaProviderRouter {
     static let shared = EvaProviderRouter()
 
     enum Preference: String, Sendable {
+        /// Decode-only compatibility for builds that exposed an Automatic mode.
         case automatic
         case cloud
         case offline
+
+        static func resolvedStoredPreference(defaults: UserDefaults = .standard) -> Preference {
+            let stored = Preference(
+                rawValue: defaults.string(forKey: "eva.provider.preference.v1") ?? Preference.cloud.rawValue
+            ) ?? .cloud
+            guard stored == .automatic else { return stored }
+            defaults.set(Preference.cloud.rawValue, forKey: "eva.provider.preference.v1")
+            return .cloud
+        }
     }
 
     private let cloud = EvaCloudProvider()
@@ -366,7 +376,7 @@ actor EvaProviderRouter {
     private let deterministic = EvaDeterministicProvider()
 
     func select(hasOfflineModel: Bool, route: EvaCloudRoute) async -> EvaRuntimeDescriptor {
-        let preference = Preference(rawValue: UserDefaults.standard.string(forKey: "eva.provider.preference.v1") ?? "automatic") ?? .automatic
+        let preference = Preference.resolvedStoredPreference()
         let cloudReady = await MainActor.run { EvaCloudAccountState.shared.canUseCloud(route: route) }
         switch preference {
         case .cloud where cloudReady:
@@ -403,10 +413,8 @@ enum EvaModelSelection {
     }
 
     static func resolve(_ localModelName: String?, route: EvaCloudRoute = .chat) -> String? {
-        let preference = EvaProviderRouter.Preference(
-            rawValue: UserDefaults.standard.string(forKey: "eva.provider.preference.v1") ?? "automatic"
-        ) ?? .automatic
-        if preference != .offline, EvaCloudAccountState.shared.canUseCloud(route: route) {
+        let preference = EvaProviderRouter.Preference.resolvedStoredPreference()
+        if preference == .cloud, EvaCloudAccountState.shared.canUseCloud(route: route) {
             return cloudSentinel
         }
         return preference == .offline ? localModelName : nil
@@ -414,6 +422,29 @@ enum EvaModelSelection {
 }
 
 enum EvaRuntimePreparation {
+    static func prepare(
+        runtime: EvaTurnRuntime
+    ) async -> (readiness: LLMRuntimeCoordinator.EnsureReadyResult, durationMs: Int) {
+        let startedAt = Date()
+        let readiness = await ensureReady(runtime: runtime)
+        return (readiness, Int(Date().timeIntervalSince(startedAt) * 1_000))
+    }
+
+    static func ensureReady(
+        runtime: EvaTurnRuntime
+    ) async -> LLMRuntimeCoordinator.EnsureReadyResult {
+        if runtime.usesCloud {
+            return .init(
+                prewarmEligible: false,
+                prewarmHit: true,
+                ready: true,
+                resolvedModelName: runtime.modelName,
+                failureMessage: nil
+            )
+        }
+        return await LLMRuntimeCoordinator.shared.ensureReady(modelName: runtime.modelName)
+    }
+
     static func ensureReady(
         modelName: String,
         route: EvaCloudRoute
@@ -567,7 +598,7 @@ extension EvaInferenceRequest {
             locale: Locale.current.identifier,
             timeZone: TimeZone.current.identifier,
             messages: messages.isEmpty ? [EvaCloudMessage(role: .user, content: "Continue.")] : messages,
-            context: promptSnapshot.cloudContext,
+            context: promptSnapshot.cloudContext.map { $0.forContract(contractVersion) },
             // A v1 Worker's strict schema has no `userInstructions` property and
             // rejects the whole request rather than ignoring it.
             userInstructions: contractVersion >= 2 ? userInstructions : nil,

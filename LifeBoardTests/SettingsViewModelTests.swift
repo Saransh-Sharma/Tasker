@@ -320,7 +320,7 @@ final class SettingsViewModelTests: XCTestCase {
         let decoded = try JSONDecoder().decode([SettingsDetailRoute].self, from: data)
 
         XCTAssertEqual(decoded, SettingsDetailRoute.categories)
-        XCTAssertEqual(decoded.count, 6)
+        XCTAssertEqual(decoded.count, 7)
     }
 
     private func time(hour: Int, minute: Int) -> Date {

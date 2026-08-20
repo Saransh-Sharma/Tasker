@@ -1709,7 +1709,8 @@ private final class PlannerEvaluatorSpy: LLMEvaluator {
         profile: LLMGenerationProfile = .chat,
         requestOptions: LLMGenerationRequestOptions? = nil,
         cloudContext: [EvaCloudContextSection] = [],
-        onFirstToken: (@MainActor () -> Void)? = nil
+        turnRuntime: EvaTurnRuntime? = nil,
+        onFirstToken: (@MainActor @Sendable () -> Void)? = nil
     ) async -> String {
         capturedModelName = modelName
         capturedRequestOptions = requestOptions

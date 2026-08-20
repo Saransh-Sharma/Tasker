@@ -45,6 +45,7 @@ export const EvaRouteSchema = Type.Union([
   Type.Literal('plan'),
   Type.Literal('planRepair'),
   Type.Literal('fieldSuggestion'),
+  Type.Literal('memoryCandidate'),
   Type.Literal('topThree'),
   Type.Literal('taskBreakdown'),
   Type.Literal('dailyBrief'),
@@ -95,6 +96,15 @@ export const sensitiveContextCategories: ReadonlySet<EvaContextCategory> = new S
 export const EvaContextSectionSchema = Type.Object({
   category: EvaContextCategorySchema,
   payload: Type.Unknown(),
+  metadata: Type.Optional(Type.Object({
+    availability: Type.Union([
+      Type.Literal('complete'), Type.Literal('partial'), Type.Literal('unavailable'),
+    ]),
+    availableCount: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
+    includedCount: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
+    partialReasons: Type.Array(Type.String({ minLength: 1, maxLength: 120 }), { maxItems: 16 }),
+    sourceIDs: Type.Array(Type.String({ minLength: 1, maxLength: 160 }), { maxItems: 240 }),
+  }, { additionalProperties: false })),
 }, { additionalProperties: false })
 
 /**
@@ -124,7 +134,7 @@ export type EvaUserInstructions = Static<typeof EvaUserInstructionsSchema>
 export const EvaInferenceRequestSchema = Type.Object({
   requestId: EvaUUIDSchema,
   route: EvaRouteSchema,
-  contractVersion: Type.Union([Type.Literal(1), Type.Literal(2)]),
+  contractVersion: Type.Union([Type.Literal(1), Type.Literal(2), Type.Literal(3)]),
   locale: Type.String({ minLength: 2, maxLength: 64 }),
   timeZone: Type.String({ minLength: 1, maxLength: 128 }),
   messages: Type.Array(EvaMessageSchema, { minItems: 1, maxItems: 64 }),
@@ -140,7 +150,7 @@ export const EvaInferenceRequestSchema = Type.Object({
     structuredOutput: Type.Boolean(),
     spokenOutput: Type.Boolean(),
   }, { additionalProperties: false }),
-}, { $id: 'EvaInferenceRequestV2', additionalProperties: false })
+}, { $id: 'EvaInferenceRequestV3', additionalProperties: false })
 export type EvaInferenceRequest = Static<typeof EvaInferenceRequestSchema>
 
 /** @deprecated Retained so existing imports keep resolving; accepts v1 and v2. */

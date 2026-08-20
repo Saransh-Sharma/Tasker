@@ -54,7 +54,7 @@ enum EvaContextSectionFactory {
             EvaMemoryStatementPayload(
                 id: Self.legacyBlockIdentifier,
                 section: EvaMemoryStatement.Section.preferences.rawValue,
-                text: String(text.prefix(EvaMemoryStoreV2.maxStatementCharacters)),
+                text: String(text.prefix(EvaMemoryStoreV3.maxStatementCharacters)),
                 provenance: EvaMemoryStatement.Provenance.userStated.rawValue,
                 confidence: nil,
                 effectiveFrom: now
@@ -63,8 +63,9 @@ enum EvaContextSectionFactory {
     }
 
     static func personalMemory(statements: [EvaMemoryStatementPayload]) -> EvaCloudContextSection? {
-        guard statements.isEmpty == false else { return nil }
-        return .init(category: .personalMemory, payload: .encoding(statements))
+        let bounded = Array(statements.prefix(EvaMemoryStoreV3.maxStatements))
+        guard bounded.isEmpty == false else { return nil }
+        return .init(category: .personalMemory, payload: .encoding(bounded))
     }
 
     /// Evidence events for a grant-gated category.

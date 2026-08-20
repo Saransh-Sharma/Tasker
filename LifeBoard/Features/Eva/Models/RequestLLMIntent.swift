@@ -139,7 +139,7 @@ struct RequestLLMIntent: AppIntent {
                 basePrompt: appManager.systemPrompt,
                 model: runtimeModel,
                 additionalInstruction: systemPrompt,
-                personalMemory: LLMPersonalMemoryDefaultsStore.promptBlock(for: runtimeModel),
+                personalMemory: EvaMemoryDefaultsStoreV3.promptBlock(for: runtimeModel),
                 executiveContext: executiveContext,
                 taskContext: contextResult.payload
             )

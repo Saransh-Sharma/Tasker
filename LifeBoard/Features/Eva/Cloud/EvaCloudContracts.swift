@@ -5,6 +5,7 @@ enum EvaCloudRoute: String, Codable, CaseIterable, Sendable {
     case plan
     case planRepair
     case fieldSuggestion
+    case memoryCandidate
     case topThree
     case taskBreakdown
     case dailyBrief
@@ -38,7 +39,6 @@ struct EvaCloudContextSection: Codable, Sendable {
         case dayLoop
         case retrospective
         case calendar
-        case conversationSummary
         case journal
         case health
         case lifeMoments
@@ -60,13 +60,49 @@ struct EvaCloudContextSection: Codable, Sendable {
 
     let category: Category
     let payload: EvaJSONValue
+    let metadata: EvaContextSectionMetadata?
+
+    init(
+        category: Category,
+        payload: EvaJSONValue,
+        metadata: EvaContextSectionMetadata? = nil
+    ) {
+        self.category = category
+        self.payload = payload
+        self.metadata = metadata
+    }
+
+    func forContract(_ version: Int) -> EvaCloudContextSection {
+        guard version >= 3 else {
+            return EvaCloudContextSection(category: category, payload: payload)
+        }
+        return EvaCloudContextSection(
+            category: category,
+            payload: payload,
+            metadata: metadata ?? .init(
+                availability: "complete",
+                availableCount: nil,
+                includedCount: nil,
+                partialReasons: [],
+                sourceIDs: []
+            )
+        )
+    }
+}
+
+struct EvaContextSectionMetadata: Codable, Sendable, Equatable {
+    let availability: String
+    let availableCount: Int?
+    let includedCount: Int?
+    let partialReasons: [String]
+    let sourceIDs: [String]
 }
 
 struct EvaInferenceRequest: Codable, Sendable {
     /// The highest contract version this build can speak.
     ///
     /// It is a ceiling, not the value to send. See `negotiatedContractVersion`.
-    static let maximumContractVersion = 2
+    static let maximumContractVersion = 3
 
     /// The version to actually send, given what the server advertises.
     ///

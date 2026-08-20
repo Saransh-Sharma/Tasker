@@ -67,9 +67,9 @@ final class EvaSignedConfigurationVerifierTests: XCTestCase {
         let tamperedPayload = Data("{}".utf8).evaTestBase64URL
         let tampered = "\(segments[0]).\(tamperedPayload).\(segments[2])"
 
-        assertConfigurationError(.invalidSignature) { try verifier(key: key).verify(tampered) }
+        assertConfigurationError(.invalidSignature) { _ = try verifier(key: key).verify(tampered) }
         assertConfigurationError(.invalidSignature) {
-            try verifier(key: key).verify(try sign(makeConfiguration(), using: key, keyIdentifier: "attacker"))
+            _ = try verifier(key: key).verify(try sign(makeConfiguration(), using: key, keyIdentifier: "attacker"))
         }
     }
 
@@ -78,7 +78,7 @@ final class EvaSignedConfigurationVerifierTests: XCTestCase {
         let signed = try sign(makeConfiguration(), using: signingKey)
 
         assertConfigurationError(.missingPinnedKey) {
-            try EvaSignedConfigurationVerifier(
+            _ = try EvaSignedConfigurationVerifier(
                 pinnedPublicKey: nil,
                 expectedEnvironment: "staging",
                 acceptedVersion: 0,
@@ -86,7 +86,7 @@ final class EvaSignedConfigurationVerifierTests: XCTestCase {
             ).verify(signed)
         }
         assertConfigurationError(.invalidSignature) {
-            try verifier(key: Curve25519.Signing.PrivateKey()).verify(signed)
+            _ = try verifier(key: Curve25519.Signing.PrivateKey()).verify(signed)
         }
     }
 
@@ -95,8 +95,8 @@ final class EvaSignedConfigurationVerifierTests: XCTestCase {
         let stale = makeConfiguration(issuedAt: now.addingTimeInterval(-7 * 24 * 60 * 60 - 1))
         let future = makeConfiguration(issuedAt: now.addingTimeInterval(5 * 60 + 1))
 
-        assertConfigurationError(.stale) { try verifier(key: key).verify(try sign(stale, using: key)) }
-        assertConfigurationError(.stale) { try verifier(key: key).verify(try sign(future, using: key)) }
+        assertConfigurationError(.stale) { _ = try verifier(key: key).verify(try sign(stale, using: key)) }
+        assertConfigurationError(.stale) { _ = try verifier(key: key).verify(try sign(future, using: key)) }
     }
 
     func testRejectsRollbackAndEnvironmentMismatch() throws {
@@ -105,10 +105,10 @@ final class EvaSignedConfigurationVerifierTests: XCTestCase {
         let production = makeConfiguration(environment: "production")
 
         assertConfigurationError(.rollback) {
-            try verifier(key: key, acceptedVersion: 10).verify(try sign(rollback, using: key))
+            _ = try verifier(key: key, acceptedVersion: 10).verify(try sign(rollback, using: key))
         }
         assertConfigurationError(.unsupported) {
-            try verifier(key: key).verify(try sign(production, using: key))
+            _ = try verifier(key: key).verify(try sign(production, using: key))
         }
     }
 
@@ -118,10 +118,10 @@ final class EvaSignedConfigurationVerifierTests: XCTestCase {
         let wrongModel = makeConfiguration(textModel: "gpt-5.6-not-luna")
 
         assertConfigurationError(.unsupported) {
-            try verifier(key: key).verify(try sign(wrongContract, using: key))
+            _ = try verifier(key: key).verify(try sign(wrongContract, using: key))
         }
         assertConfigurationError(.unsupported) {
-            try verifier(key: key).verify(try sign(wrongModel, using: key))
+            _ = try verifier(key: key).verify(try sign(wrongModel, using: key))
         }
     }
 
@@ -1221,7 +1221,7 @@ final class EvaContractNegotiationTests: XCTestCase {
     /// A server advertising a version this build predates must not drag the
     /// client above its own ceiling.
     func testNeverExceedsTheClientCeiling() {
-        XCTAssertEqual(EvaInferenceRequest.negotiatedContractVersion(advertised: [1, 2, 3, 99]), 2)
+        XCTAssertEqual(EvaInferenceRequest.negotiatedContractVersion(advertised: [1, 2, 3, 99]), 3)
         XCTAssertEqual(
             EvaInferenceRequest.negotiatedContractVersion(advertised: [3, 4], maximum: 2),
             1,
@@ -1410,47 +1410,6 @@ final class EvaMemoryStoreV2Tests: XCTestCase {
         let payload = store.contextPayload()
         XCTAssertEqual(payload.first?.section, "boundaries")
         XCTAssertEqual(payload.first?.provenance, "userStated")
-    }
-}
-
-final class EvaConversationSummaryTests: XCTestCase {
-    private func thread(messageCount: Int) -> [LifeBoard.Message] {
-        let thread = LifeBoard.Thread()
-        for index in 0 ..< messageCount {
-            thread.messages.append(LifeBoard.Message(
-                role: index.isMultiple(of: 2) ? .user : .assistant,
-                content: "turn \(index)",
-                thread: thread
-            ))
-        }
-        return thread.sortedMessages
-    }
-
-    func testShortThreadsAreNotSummarized() {
-        // Nothing to compress while the turns still fit; summarizing early would
-        // replace verbatim text with a lossy paraphrase for no benefit.
-        XCTAssertTrue(EvaConversationSummary.overflow(thread(messageCount: 6), liveWindow: 4).isEmpty)
-    }
-
-    func testOverflowIsTheOldestTurnsOutsideTheLiveWindow() {
-        let messages = thread(messageCount: 20)
-        let overflow = EvaConversationSummary.overflow(messages, liveWindow: 8)
-
-        XCTAssertEqual(overflow.count, 12)
-        XCTAssertEqual(overflow.first?.content, "turn 0")
-        XCTAssertEqual(overflow.last?.content, "turn 11")
-    }
-
-    func testSummaryRejectsEmptyContentAndCapsLength() {
-        XCTAssertNil(EvaConversationSummary(summarizedTurnCount: 4, summary: "   "))
-        XCTAssertNil(EvaConversationSummary(summarizedTurnCount: 0, summary: "something"))
-
-        let long = EvaConversationSummary(
-            summarizedTurnCount: 12,
-            summary: String(repeating: "s", count: EvaConversationSummary.maxSummaryCharacters + 500)
-        )
-        XCTAssertEqual(long?.summary.count, EvaConversationSummary.maxSummaryCharacters)
-        XCTAssertEqual(long?.section().category, .conversationSummary)
     }
 }
 
@@ -1676,6 +1635,24 @@ final class EvaContextBudgetTests: XCTestCase {
         XCTAssertEqual(EvaCloudHistoryClipper.clip(sorted, maxMessages: 3, maxTokens: 100_000).count, 3)
         XCTAssertTrue(EvaCloudHistoryClipper.clip(sorted, maxMessages: 0, maxTokens: 1_000).isEmpty)
         XCTAssertTrue(EvaCloudHistoryClipper.clip(sorted, maxMessages: 64, maxTokens: 0).isEmpty)
+    }
+
+    func testLegacyAutomaticPreferenceMigratesToCloud() {
+        let suite = "eva.runtime.preference.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(EvaProviderRouter.Preference.automatic.rawValue, forKey: "eva.provider.preference.v1")
+
+        XCTAssertEqual(EvaProviderRouter.Preference.resolvedStoredPreference(defaults: defaults), .cloud)
+        XCTAssertEqual(defaults.string(forKey: "eva.provider.preference.v1"), "cloud")
+    }
+
+    func testCloudOutputNormalizationDoesNotApplyMLXTemplateCleanup() {
+        let output = "  <think>server-visible literal</think>\r\nA long cloud answer.  "
+        XCTAssertEqual(
+            EvaCloudOutputNormalizer.normalize(output),
+            "<think>server-visible literal</think>\nA long cloud answer."
+        )
     }
 }
 

@@ -68,6 +68,53 @@ describe('EVA Cloud Worker', () => {
     await expect(response.json()).resolves.toMatchObject({ code: 'schema_invalid' })
   })
 
+  it('accepts only content-free enumerated product events', async () => {
+    const accepted = await SELF.fetch('https://eva.test/v1/product-events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        installationId: crypto.randomUUID().toUpperCase(),
+        events: [{
+          name: 'coreFinalized',
+          timestamp: new Date().toISOString(),
+          flowVersion: 6,
+          audience: 'fresh',
+          outcome: 'home',
+          durationBucket: '1_3s',
+        }],
+      }),
+    })
+    expect(accepted.status).toBe(202)
+    await expect(accepted.json()).resolves.toEqual({ accepted: 1 })
+
+    const contentBearing = await SELF.fetch('https://eva.test/v1/product-events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        installationId: crypto.randomUUID(),
+        events: [{
+          name: 'memoryProposalSaved',
+          timestamp: new Date().toISOString(),
+          memoryText: 'A private fact must never be accepted.',
+        }],
+      }),
+    })
+    expect(contentBearing.status).toBe(400)
+
+    const unknownEvent = await SELF.fetch('https://eva.test/v1/product-events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        installationId: crypto.randomUUID(),
+        events: [{ name: 'messageSent', timestamp: new Date().toISOString() }],
+      }),
+    })
+    expect(unknownEvent.status).toBe(400)
+  })
+
   it('consumes an auth challenge exactly once', async () => {
     const stub = bindings.AUTH_CHALLENGES.get(bindings.AUTH_CHALLENGES.idFromName(crypto.randomUUID()))
     const issued = await stub.fetch('https://durable.internal/issue', {

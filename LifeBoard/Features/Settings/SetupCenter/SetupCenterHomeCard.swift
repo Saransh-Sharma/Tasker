@@ -3,13 +3,23 @@ import SwiftUI
 struct SetupCenterHomeCard: View {
     let onOpen: () -> Void
 
-    @StateObject private var settingsViewModel = SettingsViewModel(
-        calendarIntegrationService: CompositionRoot.shared
-            .coordinator
-            .calendarIntegrationService
-    )
-    @State private var healthStore = HealthCoordinator.shared.connectionStore
+    @StateObject private var settingsViewModel: SettingsViewModel
+    @State private var healthStore: HealthConnectionStore
     @State private var isDismissed = SetupCenterHomeCardPreference.isDismissed
+
+    init(
+        calendarIntegrationService: CalendarIntegrationService,
+        healthStore: HealthConnectionStore,
+        onOpen: @escaping () -> Void
+    ) {
+        _settingsViewModel = StateObject(
+            wrappedValue: SettingsViewModel(
+                calendarIntegrationService: calendarIntegrationService
+            )
+        )
+        _healthStore = State(initialValue: healthStore)
+        self.onOpen = onOpen
+    }
 
     private var status: SetupCenterStatus {
         SetupCenterStatus.resolve(
@@ -55,6 +65,7 @@ struct SetupCenterHomeCard: View {
                 Button {
                     SetupCenterHomeCardPreference.dismiss()
                     isDismissed = true
+                    Task { await ProductTelemetry.shared.record(.setupCenterDismissed, outcome: "home_card") }
                 } label: {
                     Image(systemName: "xmark")
                         .font(.caption.weight(.bold))

@@ -3,7 +3,7 @@ import Foundation
 extension LLMEvaluator {
     func runCloudGeneration(
         promptSnapshot: LLMChatPromptSnapshot,
-        route: EvaCloudRoute,
+        runtime: EvaTurnRuntime,
         onFirstToken: (@MainActor @Sendable () -> Void)?
     ) async -> String {
         let slotLease: LLMGenerationSlotLease
@@ -30,15 +30,17 @@ extension LLMEvaluator {
         modelInfo = "Cloud EVA · Luna"
         let cancellationToken = LLMGenerationCancellationToken()
         generationCancellationToken = cancellationToken
-        let consentRevision = EvaCloudAccountState.shared.consent?.revision ?? 0
+        guard let consentRevision = runtime.consentRevision else {
+            runtimePhase = .failed
+            lastTerminationReason = "cloud_runtime_missing_consent"
+            return "Failed: Cloud EVA consent is not ready."
+        }
         let request = EvaInferenceRequest.make(
-            route: route,
+            route: runtime.route,
             promptSnapshot: promptSnapshot,
             consentRevision: consentRevision,
             userInstructions: promptSnapshot.userInstructions,
-            contractVersion: EvaInferenceRequest.negotiatedContractVersion(
-                advertised: EvaCloudAccountState.shared.configuration?.contractVersions
-            )
+            contractVersion: runtime.contractVersion
         )
         var emittedFirstToken = false
 
@@ -52,6 +54,7 @@ extension LLMEvaluator {
         }
 
         do {
+            try runtime.validateCurrentAuthority()
             let provider = await providerRouter.cloudProvider()
             let result = try await provider.generate(request: request) { [weak self] cumulativeText in
                 guard let self else { return }

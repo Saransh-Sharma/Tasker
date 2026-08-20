@@ -54,6 +54,7 @@ struct SetupCenterView: View {
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("setupCenter.root")
         .task {
+            await ProductTelemetry.shared.record(.setupCenterOpened)
             settingsViewModel.reload()
             await healthStore.bootstrap()
             await evaAccount.refresh()
@@ -75,8 +76,13 @@ struct SetupCenterView: View {
             titleVisibility: .visible
         ) {
             Button("Sign in with Apple") {}
-            Button("Set up Offline EVA") { onNavigate(.llm) }
-            Button("Not now", role: .cancel) {}
+            Button("Set up Offline EVA") {
+                Task { await ProductTelemetry.shared.record(.evaActivationDismissed, outcome: "offline_settings") }
+                onNavigate(.llm)
+            }
+            Button("Not now", role: .cancel) {
+                Task { await ProductTelemetry.shared.record(.evaActivationDismissed, outcome: "not_now") }
+            }
         } message: {
             Text("Cloud EVA can plan with the LifeBoard context you choose, ground suggestions in your day, and carry forward only memories you approve.")
         }
@@ -330,6 +336,7 @@ private extension SetupCenterView {
 
     private func completeAppleSignIn(_ result: Result<ASAuthorization, Error>) {
         guard isEvaWorking == false, let preparedAppleSignIn else { return }
+        Task { await ProductTelemetry.shared.record(.evaActivationStarted) }
         switch result {
         case .failure(let error as ASAuthorizationError) where error.code == .canceled:
             evaErrorMessage = "Sign in was cancelled. You can try again or finish later."
@@ -337,6 +344,7 @@ private extension SetupCenterView {
             Task { await prepareAppleSignIn() }
         case .failure(let error):
             evaErrorMessage = LifeWeaveEvaActivation.message(for: error)
+            Task { await ProductTelemetry.shared.record(.evaActivationFailed, errorCode: "apple_sign_in") }
             self.preparedAppleSignIn = nil
             Task { await prepareAppleSignIn() }
         case .success(let authorization):
@@ -383,8 +391,10 @@ private extension SetupCenterView {
                 if let readinessError = evaAccount.readinessError() { throw readinessError }
                 EvaActivationDefaultsStore.markCompleted()
                 evaPhase = .ready
+                await ProductTelemetry.shared.record(.evaActivationSucceeded)
             } catch {
                 evaErrorMessage = LifeWeaveEvaActivation.message(for: error)
+                await ProductTelemetry.shared.record(.evaActivationFailed, errorCode: "consent_or_readiness")
             }
         }
     }

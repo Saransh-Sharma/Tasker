@@ -205,6 +205,7 @@ class LLMEvaluator {
         profile: LLMGenerationProfile = .chat,
         requestOptions: LLMGenerationRequestOptions? = nil,
         cloudContext: [EvaCloudContextSection] = [],
+        turnRuntime: EvaTurnRuntime? = nil,
         onFirstToken: (@MainActor @Sendable () -> Void)? = nil
     ) async -> String {
         lastGenerationTimedOut = false
@@ -226,6 +227,7 @@ class LLMEvaluator {
             promptSnapshot: snapshot,
             profile: profile,
             requestOptions: requestOptions,
+            turnRuntime: turnRuntime,
             onFirstToken: onFirstToken
         )
     }

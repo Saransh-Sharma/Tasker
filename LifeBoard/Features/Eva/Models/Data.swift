@@ -938,17 +938,16 @@ class Message {
     var timestamp: Date
     var generatingTime: TimeInterval?
     var sourceModelName: String?
-    var sortTimestamp: Date { timestamp }
-    
-    /// Initializes a new instance.
+    var contextReceiptData: Data?; var memoryCandidateData: Data?; var sortTimestamp: Date { timestamp }
     @Relationship(deleteRule: .nullify) var thread: Thread?
-    
     init(
         role: Role,
         content: String,
         thread: Thread? = nil,
         generatingTime: TimeInterval? = nil,
-        sourceModelName: String? = nil
+        sourceModelName: String? = nil,
+        contextReceiptData: Data? = nil,
+        memoryCandidateData: Data? = nil
     ) {
         self.id = UUID()
         self.role = role
@@ -957,6 +956,7 @@ class Message {
         self.thread = thread
         self.generatingTime = generatingTime
         self.sourceModelName = sourceModelName
+        self.contextReceiptData = contextReceiptData; self.memoryCandidateData = memoryCandidateData
     }
 }
 

@@ -68,6 +68,19 @@ export const EvaFieldSuggestionResultSchema = Type.Object({
   confidence: Type.Number({ minimum: 0, maximum: 1 }),
 }, { $id: 'EvaFieldSuggestionResultV1', additionalProperties: false })
 
+export const EvaMemoryCandidateResultSchema = Type.Object({
+  candidate: Type.Union([
+    Type.Object({
+      section: Type.Union([
+        Type.Literal('preferences'), Type.Literal('routines'), Type.Literal('currentGoals'),
+        Type.Literal('capacity'), Type.Literal('boundaries'),
+      ]),
+      text: Type.String({ minLength: 1, maxLength: 240 }),
+    }, { additionalProperties: false }),
+    Type.Null(),
+  ]),
+}, { $id: 'EvaMemoryCandidateResultV1', additionalProperties: false })
+
 export const EvaTopThreeResultSchema = Type.Object({
   items: Type.Array(Type.Object({
     task_id: UUID,
@@ -132,6 +145,7 @@ export const EvaStructuredRouteSchemas = {
   plan: EvaPlanResultSchema,
   planRepair: EvaPlanResultSchema,
   fieldSuggestion: EvaFieldSuggestionResultSchema,
+  memoryCandidate: EvaMemoryCandidateResultSchema,
   topThree: EvaTopThreeResultSchema,
   taskBreakdown: EvaTaskBreakdownResultSchema,
   dailyBrief: EvaDailyBriefResultSchema,

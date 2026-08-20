@@ -5,6 +5,7 @@ import { attestationRoutes } from './attestation/routes.js'
 import { accountRoutes } from './routes/account.js'
 import { responseRoutes } from './routes/responses.js'
 import { speechRoutes } from './routes/speech.js'
+import { productEventRoutes } from './routes/product-events.js'
 import { signedRuntimeConfig } from './config/runtime-config.js'
 import { EvaHttpError, jsonError } from './http/errors.js'
 import { recordTelemetry } from './telemetry/events.js'
@@ -68,6 +69,7 @@ app.get('/v1/eva/config', async (context) => context.json({
 
 app.route('/v1/auth', authRoutes)
 app.route('/v1/attestation', attestationRoutes)
+app.route('/v1/product-events', productEventRoutes)
 app.route('/v1', accountRoutes)
 app.route('/v1/eva', responseRoutes)
 app.route('/v1/eva', speechRoutes)

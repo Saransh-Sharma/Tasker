@@ -166,6 +166,15 @@ extension MessageView {
                     if isLiveOutput == false {
                         evidenceCitationRail(for: answer)
                         spokenOutputControls(for: answer)
+                        if renderModel.contextReceipt != nil {
+                            Button("Context used", systemImage: "checkmark.shield") {
+                                showsContextReceipt = true
+                                Task { await ProductTelemetry.shared.record(.contextReceiptOpened) }
+                            }
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier("eva.contextReceipt.open")
+                        }
+                        inlineMemoryCandidate
                     }
                 }
 

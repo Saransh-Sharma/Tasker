@@ -61,6 +61,8 @@ struct ChatMessageRenderModel: Identifiable, Equatable, Sendable {
     let isThinkingOpenEnded: Bool
     let markdownSourceHash: Int
     let sourceModelName: String?
+    let contextReceipt: EvaContextReceiptSnapshot?
+    let memoryCandidate: EvaMemoryCandidate?
 
     init(message: Message) {
         self.id = message.id
@@ -69,15 +71,23 @@ struct ChatMessageRenderModel: Identifiable, Equatable, Sendable {
         self.generatingTime = message.generatingTime
         self.cardPayload = AssistantCardCodec.decode(from: message.content)
         self.sourceModelName = message.sourceModelName
+        self.contextReceipt = message.contextReceiptData.flatMap {
+            try? JSONDecoder.evaCloud.decode(EvaContextReceiptSnapshot.self, from: $0)
+        }
+        self.memoryCandidate = message.memoryCandidateData.flatMap {
+            try? JSONDecoder.evaCloud.decode(EvaMemoryCandidate.self, from: $0)
+        }
 
         let cardFingerprint = Self.cardFingerprint(from: self.cardPayload)
 
         let displayContent: String
         if message.role == .assistant {
-            displayContent = LLMChatTextSanitizer.sanitizeForDisplay(
-                message.content,
-                modelName: message.sourceModelName
-            )
+            displayContent = EvaModelSelection.isCloud(message.sourceModelName)
+                ? EvaCloudOutputNormalizer.normalize(message.content)
+                : LLMChatTextSanitizer.sanitizeForDisplay(
+                    message.content,
+                    modelName: message.sourceModelName
+                )
         } else {
             displayContent = message.content
         }
@@ -110,6 +120,8 @@ struct ChatMessageRenderModel: Identifiable, Equatable, Sendable {
         self.displayContent = displayContent
         self.generatingTime = generatingTime
         self.sourceModelName = sourceModelName
+        self.contextReceipt = nil
+        self.memoryCandidate = nil
         self.cardPayload = AssistantCardCodec.decode(from: originalContent)
         let cardFingerprint = Self.cardFingerprint(from: self.cardPayload)
         let thinkingSplit = Self.processThinkingContent(displayContent, modelName: sourceModelName)
@@ -141,6 +153,9 @@ struct ChatMessageRenderModel: Identifiable, Equatable, Sendable {
         answer: String?,
         isOpenEnded: Bool
     ) {
+        if EvaModelSelection.isCloud(modelName) {
+            return (nil, content, false)
+        }
         let extraction = LLMVisibleThinkingExtractor.extract(
             from: content,
             modelName: modelName,

@@ -34,7 +34,7 @@ struct EvaContextEnvelope: Sendable {
     /// possible. Reordering this list silently raises cost per turn.
     static let cacheFriendlyOrder: [EvaCloudContextSection.Category] = [
         .personalMemory, .goals, .retrospective, .habits, .dayLoop,
-        .capacity, .calendar, .planning, .conversationSummary,
+        .capacity, .calendar, .planning,
         .journal, .health, .lifeMoments,
     ]
 

@@ -2,6 +2,20 @@ import CryptoKit
 import Foundation
 
 struct EvaCloudRuntimeConfiguration: Codable, Sendable {
+    struct AppRuntimeConfiguration: Codable, Equatable, Sendable {
+        static let releaseDefault = AppRuntimeConfiguration(
+            onboardingLifeWeaveV6Enabled: true,
+            existingUserRefreshVersion: 1,
+            existingUserRefreshEnabled: true,
+            productEventsEnabled: true
+        )
+
+        let onboardingLifeWeaveV6Enabled: Bool
+        let existingUserRefreshVersion: Int
+        let existingUserRefreshEnabled: Bool
+        let productEventsEnabled: Bool
+    }
+
     enum CloudState: String, Codable, Sendable {
         case enabled
         case degraded
@@ -30,6 +44,7 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
     let speechVoice: String
     let minimumClientVersion: String
     let contractVersions: [Int]
+    let appRuntime: AppRuntimeConfiguration
     let routes: [EvaCloudRoute: RoutePolicy]
 
     private enum CodingKeys: String, CodingKey {
@@ -46,6 +61,7 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         case speechVoice
         case minimumClientVersion
         case contractVersions
+        case appRuntime
         case routes
     }
 
@@ -63,6 +79,7 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         speechVoice: String,
         minimumClientVersion: String,
         contractVersions: [Int],
+        appRuntime: AppRuntimeConfiguration = .releaseDefault,
         routes: [EvaCloudRoute: RoutePolicy]
     ) {
         self.schemaVersion = schemaVersion
@@ -78,6 +95,7 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         self.speechVoice = speechVoice
         self.minimumClientVersion = minimumClientVersion
         self.contractVersions = contractVersions
+        self.appRuntime = appRuntime
         self.routes = routes
     }
 
@@ -96,6 +114,7 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         speechVoice = try container.decode(String.self, forKey: .speechVoice)
         minimumClientVersion = try container.decode(String.self, forKey: .minimumClientVersion)
         contractVersions = try container.decode([Int].self, forKey: .contractVersions)
+        appRuntime = try container.decodeIfPresent(AppRuntimeConfiguration.self, forKey: .appRuntime) ?? .releaseDefault
 
         let wireRoutes = try container.decode([String: RoutePolicy].self, forKey: .routes)
         var decodedRoutes: [EvaCloudRoute: RoutePolicy] = [:]
@@ -128,6 +147,7 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         try container.encode(speechVoice, forKey: .speechVoice)
         try container.encode(minimumClientVersion, forKey: .minimumClientVersion)
         try container.encode(contractVersions, forKey: .contractVersions)
+        try container.encode(appRuntime, forKey: .appRuntime)
         try container.encode(
             Dictionary(uniqueKeysWithValues: routes.map { ($0.key.rawValue, $0.value) }),
             forKey: .routes
@@ -196,14 +216,18 @@ actor EvaSignedConfigurationStore {
         guard let cached = try? loadCache(), Date().timeIntervalSince(cached.fetchedAt) <= freshLifetime else {
             return nil
         }
-        return try? verify(cached.signedConfiguration)
+        guard let configuration = try? verify(cached.signedConfiguration) else { return nil }
+        AppRuntimeConfigurationStore.accept(configuration.appRuntime)
+        return configuration
     }
 
     func loadLastVerified() -> EvaCloudRuntimeConfiguration? {
         guard let cached = try? loadCache(), Date().timeIntervalSince(cached.fetchedAt) <= staleLifetime else {
             return nil
         }
-        return try? verify(cached.signedConfiguration)
+        guard let configuration = try? verify(cached.signedConfiguration) else { return nil }
+        AppRuntimeConfigurationStore.accept(configuration.appRuntime)
+        return configuration
     }
 
     func accept(_ signedConfiguration: String) throws -> EvaCloudRuntimeConfiguration {
@@ -218,6 +242,7 @@ actor EvaSignedConfigurationStore {
         )
         try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         UserDefaults.standard.set(configuration.version, forKey: acceptedVersionKey)
+        AppRuntimeConfigurationStore.accept(configuration.appRuntime)
         return configuration
     }
 
@@ -256,6 +281,24 @@ actor EvaSignedConfigurationStore {
             create: true
         )
         return base.appending(path: "EVACloud/config-v2.json")
+    }
+}
+
+enum AppRuntimeConfigurationStore {
+    private static let key = "app.runtimeConfiguration.lastVerified.v1"
+
+    static var current: EvaCloudRuntimeConfiguration.AppRuntimeConfiguration {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let value = try? JSONDecoder().decode(
+                EvaCloudRuntimeConfiguration.AppRuntimeConfiguration.self,
+                from: data
+              ) else { return .releaseDefault }
+        return value
+    }
+
+    static func accept(_ configuration: EvaCloudRuntimeConfiguration.AppRuntimeConfiguration) {
+        guard let data = try? JSONEncoder().encode(configuration) else { return }
+        UserDefaults.standard.set(data, forKey: key)
     }
 }
 

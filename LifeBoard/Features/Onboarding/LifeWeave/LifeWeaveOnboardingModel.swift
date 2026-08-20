@@ -101,6 +101,18 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         if draft.lifecyclePhase == .revealReady { draft.step = .reveal }
         captureText = draft.stagedCapture?.text ?? ""
         persist()
+        Task {
+            await ProductTelemetry.shared.record(
+                draft.entryContext == .establishedWorkspace ? .refreshPresented : .onboardingPresented,
+                flowVersion: AppOnboardingState.currentVersion,
+                audience: draft.entryContext == .establishedWorkspace ? "existing" : "fresh"
+            )
+            await ProductTelemetry.shared.record(
+                .onboardingStepViewed,
+                flowVersion: AppOnboardingState.currentVersion,
+                outcome: draft.step.identifierSuffix
+            )
+        }
 
         if draft.entryContext == .establishedWorkspace, draft.orderedLifeAreaTemplateIDs.isEmpty {
             Task { await preseedFromExistingWorkspace() }
@@ -205,6 +217,7 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         captureText = ""
         feedback.light()
         persist()
+        Task { await ProductTelemetry.shared.record(.firstCaptureSkipped, flowVersion: 6) }
     }
 
     // MARK: - Navigation
@@ -245,6 +258,7 @@ final class LifeWeaveOnboardingModel: ObservableObject {
 
     func goBack() {
         guard let previousStep else { return }
+        Task { await ProductTelemetry.shared.record(.onboardingBack, outcome: step.identifierSuffix) }
         setStep(previousStep)
     }
 
@@ -259,6 +273,7 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         isCommitting = true
         defer { isCommitting = false }
         let startedAt = Date()
+        await ProductTelemetry.shared.record(.commitStarted, flowVersion: 6)
         do {
             draft.lifecyclePhase = .committing
             persist()
@@ -271,11 +286,13 @@ final class LifeWeaveOnboardingModel: ObservableObject {
             draft.absorbCommitResult(committed)
             draft.lifecyclePhase = .captureWritten
             persist()
+            await ProductTelemetry.shared.record(.commitCompleted, flowVersion: 6)
             await holdAssemblyFloor(since: startedAt)
             await prepareRevealAfterCanonicalCommit()
         } catch {
             errorMessage = error.localizedDescription
             persist()
+            await ProductTelemetry.shared.record(.commitFailed, flowVersion: 6, errorCode: "canonical_commit")
         }
     }
 
@@ -298,6 +315,7 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         draft.lifecyclePhase = .revealReady
         persist()
         feedback.successSignature()
+        await ProductTelemetry.shared.record(.revealViewed, flowVersion: 6)
     }
 
     @discardableResult
@@ -314,10 +332,15 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     }
 
     func setStep(_ step: LifeWeaveStep) {
+        let previous = draft.step
         draft.step = step
         MotionDiagnosticsState.shared.record("onboarding:\(step.identifierSuffix)")
         feedback.light()
         persist()
+        Task {
+            await ProductTelemetry.shared.record(.onboardingStepCompleted, flowVersion: 6, outcome: previous.identifierSuffix)
+            await ProductTelemetry.shared.record(.onboardingStepViewed, flowVersion: 6, outcome: step.identifierSuffix)
+        }
     }
 
     func persist() {
@@ -332,6 +355,9 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         draft.stagedCapture = capture
         if capture != nil { draft.skippedCapture = false }
         persist()
+        if capture != nil {
+            Task { await ProductTelemetry.shared.record(.firstCaptureConfirmed, flowVersion: 6) }
+        }
     }
 
     func recordOpeningPrompts(_ prompts: [EvaStarterPrompt]) {
@@ -353,11 +379,11 @@ extension LifeWeaveOnboardingModel {
 
         if draft.didWriteEvaProfile == false {
             let profile = LifeMapEvaProfileMapper.profileDraft(from: legacy)
-            let merged = EvaMemoryMapper.mergeIntoLocalStore(
+            let merged = EvaMemoryMapper.mergeIntoV3Store(
                 draft: profile,
-                existing: LLMPersonalMemoryDefaultsStore.load()
+                existing: EvaMemoryDefaultsStoreV3.load()
             )
-            LLMPersonalMemoryDefaultsStore.save(merged)
+            EvaMemoryDefaultsStoreV3.save(merged)
             mutateDraft { $0.didWriteEvaProfile = true }
         }
 

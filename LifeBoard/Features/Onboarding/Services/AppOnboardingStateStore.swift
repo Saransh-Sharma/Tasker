@@ -47,6 +47,7 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         state.dismissedRefreshVersion = version
         state.refreshDraft = nil
         save(state)
+        Task { await ProductTelemetry.shared.record(.refreshDeferred, flowVersion: version, audience: "existing") }
     }
 
     func storeRefreshDraft(_ snapshot: LifeWeaveDraft?) {
@@ -76,6 +77,14 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         state.finalizedLifeWeaveDestination = destination
         state.needsFinalizedDestinationDelivery = true
         save(state)
+        Task {
+            await ProductTelemetry.shared.record(
+                entryContext == .establishedWorkspace ? .refreshCompleted : .coreFinalized,
+                flowVersion: AppOnboardingState.currentVersion,
+                audience: entryContext == .establishedWorkspace ? "existing" : "fresh",
+                outcome: destination.rawValue
+            )
+        }
     }
 
     func markFinalizedDestinationDelivered() {

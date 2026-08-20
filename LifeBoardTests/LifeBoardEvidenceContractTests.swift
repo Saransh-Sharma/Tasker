@@ -282,7 +282,7 @@ final class EvaCloudWireContractTests: XCTestCase {
         )
         XCTAssertEqual(
             Set(fixtures.keys),
-            Set(["plan", "planRepair", "fieldSuggestion", "topThree", "taskBreakdown", "dailyBrief", "universalInputClassification", "dynamicChips"])
+            Set(["plan", "planRepair", "fieldSuggestion", "memoryCandidate", "topThree", "taskBreakdown", "dailyBrief", "universalInputClassification", "dynamicChips"])
         )
         XCTAssertNoThrow(try JSONEncoder.evaCloud.encode(fixtures))
     }
@@ -319,7 +319,7 @@ final class EvaCloudWireContractTests: XCTestCase {
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(object["requestId"] as? String, requestID.uuidString)
         XCTAssertEqual(object["route"] as? String, "chat")
-        XCTAssertEqual(object["contractVersion"] as? Int, 2)
+        XCTAssertEqual(object["contractVersion"] as? Int, 3)
         XCTAssertEqual(object["installationId"] as? String, installationID.uuidString)
         // The client still names no model and composes no system prompt: both
         // live in the Worker so they can be corrected without an app release.

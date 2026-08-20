@@ -195,7 +195,10 @@ extension FoundationShell {
            showsReferenceHome == false {
             return AnyView(
                 VStack(spacing: 0) {
-                    SetupCenterHomeCard {
+                    SetupCenterHomeCard(
+                        calendarIntegrationService: homeViewModel.calendarIntegrationService,
+                        healthStore: HealthCoordinator.shared.connectionStore
+                    ) {
                         router.push(.settingsDetail(.setupCenter), in: .home)
                     }
                     AdaptiveHome(

@@ -333,6 +333,24 @@ describe('EVA cloud v1 contracts', () => {
     })).toBe(false)
   })
 
+  it('requires availability metadata and retires summaries in contract v3', () => {
+    const payload = {
+      generatedAt: '2026-08-20T09:00:00Z',
+      summary: { overdue: 0, today: 0, tomorrow: 0, thisWeek: 0, unscheduled: 0, completedToday: 0 },
+      tasks: [], projects: [], lifeAreas: [], partialSections: [],
+    }
+    expect(contextPayloadError(3, [{ category: 'planning', payload }]))
+      .toContain('missing v3 availability metadata')
+    expect(contextPayloadError(3, [{
+      category: 'planning', payload,
+      metadata: { availability: 'complete', partialReasons: [], sourceIDs: [] },
+    }])).toBeUndefined()
+    expect(contextPayloadError(3, [{
+      category: 'conversationSummary', payload: { summarizedTurnCount: 2, summary: 'Old turns' },
+      metadata: { availability: 'complete', partialReasons: [], sourceIDs: [] },
+    }])).toContain('not part of contract v3')
+  })
+
   it('validates every shared structured fixture against its route schema', () => {
     const fixtures = JSON.parse(readFileSync(new URL('../fixtures/structured-results-v1.json', import.meta.url), 'utf8')) as Record<string, unknown>
     for (const [route, value] of Object.entries(fixtures)) {

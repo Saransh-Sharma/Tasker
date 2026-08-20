@@ -59,6 +59,15 @@ describe.sequential('signed runtime configuration source', () => {
     candidate.routes.chat!.enabled = true
     candidate.priceSchedule.approved = true
     await bindings.EVA_CONFIG.put('runtime-config-v2', JSON.stringify(candidate))
-    await expect(runtimeConfig(bindings)).resolves.toMatchObject({ version: 1, cloudState: 'enabled' })
+    await expect(runtimeConfig(bindings)).resolves.toMatchObject({
+      version: 1,
+      cloudState: 'enabled',
+      appRuntime: {
+        onboardingLifeWeaveV6Enabled: true,
+        existingUserRefreshVersion: 1,
+        existingUserRefreshEnabled: true,
+        productEventsEnabled: true,
+      },
+    })
   })
 })

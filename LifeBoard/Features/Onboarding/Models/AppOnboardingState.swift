@@ -14,7 +14,9 @@ struct AppOnboardingState: Codable, Equatable {
     /// someone who already finished: `OnboardingEligibilityService` treats any
     /// recorded completion as handled, so a finished user stays finished.
     static let currentVersion = 6
-    static let currentLifeWeaveRefreshVersion = 1
+    static var currentLifeWeaveRefreshVersion: Int {
+        AppRuntimeConfigurationStore.current.existingUserRefreshVersion
+    }
 
     var outcome: OnboardingOutcome?
     var completedVersion: Int?

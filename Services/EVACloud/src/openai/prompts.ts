@@ -36,6 +36,12 @@ const routeInstruction: Record<EvaRoute, string> = {
     'Do not add scope the person did not ask for. If the plan cannot be repaired faithfully, return no commands and say what was missing.',
   ].join(' '),
   fieldSuggestion: 'Infer the capture fields from the task title and its project. Prefer a confident null-shaped default over an invented specific; keep the rationale to the single signal that decided it.',
+  memoryCandidate: [
+    'Consider only the latest user turn and the bounded confirmed-memory context.',
+    'Return at most one concise, durable fact that would materially improve future help.',
+    'Do not save transient plans, sensitive health facts, secrets, diagnoses, or anything already present.',
+    'Return candidate null when no stable, clearly user-owned fact is worth proposing.',
+  ].join(' '),
   topThree: [
     'Choose up to three priorities and explain the ordering.',
     'The context may include a deterministic ranking and the reasons behind it. Treat that as a strong prior to adjudicate, not a result to restate: disagree when the person\'s goals, capacity, or recent pattern justify it, and say why.',

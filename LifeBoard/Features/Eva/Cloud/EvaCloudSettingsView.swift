@@ -3,7 +3,7 @@ import SwiftUI
 struct EvaCloudSettingsView: View {
     @Environment(\.lifeboardTokens) private var tokens
     @State private var account = EvaCloudAccountState.shared
-    @AppStorage("eva.provider.preference.v1") private var providerPreference = EvaProviderRouter.Preference.automatic.rawValue
+    @AppStorage("eva.provider.preference.v1") private var providerPreference = EvaProviderRouter.Preference.cloud.rawValue
     @State private var selectedGrants: Set<EvaConsentPolicy.Grant> = []
     @State private var isWorking = false
     @State private var errorMessage: String?
@@ -26,14 +26,13 @@ struct EvaCloudSettingsView: View {
 
                 SettingsSectionView(
                     title: String(localized: "Provider"),
-                    subtitle: String(localized: "Automatic prefers Cloud EVA when your account, consent, connection, and credits are ready.")
+                    subtitle: String(localized: "Cloud failures are shown directly. EVA never switches providers without your choice.")
                 ) {
                     SettingsFieldCard(
                         title: String(localized: "Choose where EVA runs"),
                         subtitle: String(localized: "A request keeps the same provider from start to finish. Offline EVA remains available when an MLX model is installed.")
                     ) {
                         Picker("EVA provider", selection: $providerPreference) {
-                            Text("Automatic").tag(EvaProviderRouter.Preference.automatic.rawValue)
                             Text("Cloud").tag(EvaProviderRouter.Preference.cloud.rawValue)
                             Text("Offline").tag(EvaProviderRouter.Preference.offline.rawValue)
                         }
@@ -141,7 +140,10 @@ struct EvaCloudSettingsView: View {
         .background(Color.lifeboard(.bgCanvas))
         .navigationTitle("Cloud EVA")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await restoreState() }
+        .task {
+            providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference().rawValue
+            await restoreState()
+        }
         .onChange(of: account.consent) { _, consent in
             selectedGrants = Set(consent?.grants ?? [])
         }

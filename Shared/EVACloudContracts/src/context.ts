@@ -235,7 +235,9 @@ export const EvaPersonalMemoryContextSchema = Type.Array(Type.Object({
     Type.Literal('currentGoals'), Type.Literal('capacity'), Type.Literal('boundaries'),
   ]),
   text: ShortText(400),
-  provenance: Type.Union([Type.Literal('userStated'), Type.Literal('inferred')]),
+  provenance: Type.Union([
+    Type.Literal('userStated'), Type.Literal('inferred'), Type.Literal('inferredCandidate'),
+  ]),
   confidence: NullableFraction,
   effectiveFrom: NullableISODateTime,
 }, { additionalProperties: false }), { maxItems: 60 })
@@ -277,13 +279,19 @@ export type EvaContextCategoryName = keyof typeof EvaContextPayloadSchemas
  */
 export function contextPayloadError(
   contractVersion: number,
-  context: readonly { category: string; payload: unknown }[],
+  context: readonly { category: string; payload: unknown; metadata?: unknown }[],
 ): string | undefined {
   if (contractVersion < 2) return undefined
   const seen = new Set<string>()
   for (const section of context) {
     if (seen.has(section.category)) return `Duplicate context section: ${section.category}`
     seen.add(section.category)
+    if (contractVersion >= 3 && section.category === 'conversationSummary') {
+      return 'Conversation summaries are not part of contract v3.'
+    }
+    if (contractVersion >= 3 && section.metadata === undefined) {
+      return `Context section ${section.category} is missing v3 availability metadata.`
+    }
     const schema = EvaContextPayloadSchemas[section.category as EvaContextCategoryName]
     if (!schema) return `Unknown context category: ${section.category}`
     if (!Value.Check(schema, section.payload)) {

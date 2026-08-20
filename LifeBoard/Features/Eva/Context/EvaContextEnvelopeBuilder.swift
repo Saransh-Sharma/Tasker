@@ -95,9 +95,9 @@ struct EvaContextEnvelopeBuilder: Sendable {
             sections.append(.init(category: .habits, payload: .encoding(Array(habits.prefix(40)))))
         }
 
-        if let personalMemory,
-           consent?.grants.contains(.personalMemory) == true,
-           let section = EvaContextSectionFactory.personalMemory(legacyBlock: personalMemory, now: now) {
+        let confirmedMemory = EvaMemoryDefaultsStoreV3.load().contextPayload()
+        if consent?.grants.contains(.personalMemory) == true,
+           let section = EvaContextSectionFactory.personalMemory(statements: confirmedMemory) {
             sections.append(section)
         }
 
@@ -110,7 +110,7 @@ struct EvaContextEnvelopeBuilder: Sendable {
             consent: consent
         ).filter { $0.category != .planning && $0.category != .personalMemory })
 
-        return EvaContextEnvelope(sections: sections)
+        return EvaContextEnvelope(sections: EvaEnvelopeAllocator.allocate(sections, budget: budget))
     }
 
     /// Drops whole records, lowest value first, until the roster fits.

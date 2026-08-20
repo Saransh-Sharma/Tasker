@@ -7,6 +7,7 @@ extension LLMEvaluator {
         promptSnapshot: LLMChatPromptSnapshot,
         profile: LLMGenerationProfile = .chat,
         requestOptions: LLMGenerationRequestOptions? = nil,
+        turnRuntime: EvaTurnRuntime? = nil,
         onFirstToken: (@MainActor @Sendable () -> Void)? = nil
     ) async -> String {
         lastGenerationTimedOut = false
@@ -15,18 +16,28 @@ extension LLMEvaluator {
         lastGeneratedTokenCount = 0
         lastVisibleCharacterCount = 0
         lastSanitizedTemplateArtifacts = false
-        let runtime = await providerRouter.select(
-            hasOfflineModel: ModelConfiguration.getModelByName(modelName) != nil,
-            route: profile.cloudRoute
-        )
-        if runtime.provider == .cloud {
+        let runtime: EvaTurnRuntime
+        do {
+            runtime = try turnRuntime ?? EvaTurnRuntime.resolve(
+                localModelName: modelName,
+                offlineModel: ModelConfiguration.getModelByName(modelName) ?? .defaultModel,
+                route: profile.cloudRoute
+            )
+            try runtime.validateCurrentAuthority()
+        } catch {
+            runtimePhase = .failed
+            lastTerminationReason = "runtime_resolution_failed"
+            output = "Failed: \(error.localizedDescription)"
+            return output
+        }
+        if runtime.usesCloud {
             return await runCloudGeneration(
                 promptSnapshot: promptSnapshot,
-                route: profile.cloudRoute,
+                runtime: runtime,
                 onFirstToken: onFirstToken
             )
         }
-        guard ModelConfiguration.getModelByName(modelName) != nil else {
+        guard ModelConfiguration.getModelByName(runtime.modelName) != nil else {
             runtimePhase = .failed
             output = "Failed: model not found"
             return output
@@ -46,7 +57,7 @@ extension LLMEvaluator {
         let timeoutMs = UInt64(max(profile.timeoutSeconds, 0) * 1_000)
         guard timeoutMs > 0 else {
             return await runGeneration(
-                modelName: modelName,
+                modelName: runtime.modelName,
                 chatMessages: promptSnapshot.messages,
                 profile: profile,
                 requestOptions: requestOptions,
@@ -61,7 +72,7 @@ extension LLMEvaluator {
         ) { [weak self] in
             guard let self else { return "{}" }
             return await self.runGeneration(
-                modelName: modelName,
+                modelName: runtime.modelName,
                 chatMessages: promptSnapshot.messages,
                 profile: profile,
                 requestOptions: requestOptions,

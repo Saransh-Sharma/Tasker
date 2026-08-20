@@ -28,7 +28,7 @@ const RoutePolicySchema = Type.Object({
 const routes = [
   'chat', 'plan', 'planRepair', 'fieldSuggestion', 'topThree', 'taskBreakdown', 'dailyBrief',
   'universalInputClassification', 'dynamicChips', 'journalAnswer', 'knowledgeAnswer',
-  'shortcutsAnswer', 'debugSmoke',
+  'shortcutsAnswer', 'debugSmoke', 'memoryCandidate',
 ] as const satisfies readonly EvaRoute[]
 
 const RoutesSchema = Type.Object(Object.fromEntries(routes.map((name) => [name, RoutePolicySchema])), {
@@ -48,7 +48,13 @@ export const EvaRuntimeConfigSchema = Type.Object({
   speechModel: Type.Literal('tts-1'),
   speechVoice: Type.Literal('nova'),
   minimumClientVersion: Type.String({ minLength: 1, maxLength: 64 }),
-  contractVersions: Type.Tuple([Type.Literal(1), Type.Literal(2)]),
+  contractVersions: Type.Tuple([Type.Literal(1), Type.Literal(2), Type.Literal(3)]),
+  appRuntime: Type.Object({
+    onboardingLifeWeaveV6Enabled: Type.Boolean(),
+    existingUserRefreshVersion: Type.Integer({ minimum: 1, maximum: 100 }),
+    existingUserRefreshEnabled: Type.Boolean(),
+    productEventsEnabled: Type.Boolean(),
+  }, { additionalProperties: false }),
   creditPolicy: Type.Object({
     initial: Type.Literal(100),
     capacity: Type.Literal(100),
@@ -98,7 +104,13 @@ export function failClosedRuntimeConfig(env: Env): EvaRuntimeConfig {
     speechModel: 'tts-1',
     speechVoice: 'nova',
     minimumClientVersion: env.MINIMUM_CLIENT_VERSION,
-    contractVersions: [1, 2],
+    contractVersions: [1, 2, 3],
+    appRuntime: {
+      onboardingLifeWeaveV6Enabled: true,
+      existingUserRefreshVersion: 1,
+      existingUserRefreshEnabled: true,
+      productEventsEnabled: true,
+    },
     creditPolicy: { initial: 100, capacity: 100, refillAmount: 20, refillPeriodSeconds: 86_400 },
     // Values mirror the official model pages fetched on 2026-08-16, but stay
     // unapproved until checked against the actual OpenAI project billing page.
@@ -121,6 +133,7 @@ export function failClosedRuntimeConfig(env: Env): EvaRuntimeConfig {
       plan: route(32_000, 4_096, 'medium', true, true),
       planRepair: route(32_000, 4_096, 'low', false, true),
       fieldSuggestion: route(8_000, 1_200, 'low', false, true),
+      memoryCandidate: route(2_000, 320, 'none', false, true),
       topThree: route(8_000, 1_200, 'low', true, true),
       taskBreakdown: route(8_000, 1_200, 'low', true, true),
       dailyBrief: route(16_000, 1_600, 'medium', true, true),

@@ -252,7 +252,8 @@ public enum V2FeatureFlags {
     /// The v6 "Life Weave" first run. This is a presentation kill switch, not a
     /// route back into the retired v5 journey.
     public static var onboardingLifeWeaveV6Enabled: Bool {
-        get { stagedFeatureEnabled(key: "feature.onboarding.life_weave_v6", argument: "ONBOARDING_V6") }
+        get { stagedFeatureEnabled(key: "feature.onboarding.life_weave_v6", argument: "ONBOARDING_V6")
+            && AppRuntimeConfigurationStore.current.onboardingLifeWeaveV6Enabled }
         set { setStagedFeature(newValue, key: "feature.onboarding.life_weave_v6") }
     }
 

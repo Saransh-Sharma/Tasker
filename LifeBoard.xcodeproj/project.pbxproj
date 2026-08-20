@@ -506,6 +506,14 @@
 		A31000000000000000000561 /* EvaCloudSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000560 /* EvaCloudSessionStore.swift */; };
 		A31000000000000000000563 /* EvaCloudTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000562 /* EvaCloudTransport.swift */; };
 		A31000000000000000000565 /* EvaInferenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000564 /* EvaInferenceProvider.swift */; };
+		A32000000000000000000002 /* EvaTurnRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* EvaTurnRuntime.swift */; };
+		A32000000000000000000004 /* EvaContextReceiptSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000003 /* EvaContextReceiptSnapshot.swift */; };
+		A32000000000000000000006 /* ProductTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000005 /* ProductTelemetry.swift */; };
+		A32000000000000000000008 /* EvaMemoryProposalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000007 /* EvaMemoryProposalService.swift */; };
+		A3200000000000000000000A /* EvaTrustArchitectureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000009 /* EvaTrustArchitectureTests.swift */; };
+		A3200000000000000000000C /* MessageView+MemoryCandidate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3200000000000000000000B /* MessageView+MemoryCandidate.swift */; };
+		A3200000000000000000000E /* ProductTelemetrySettingsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3200000000000000000000D /* ProductTelemetrySettingsCard.swift */; };
+		A32000000000000000000010 /* EvaEnvelopeAllocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3200000000000000000000F /* EvaEnvelopeAllocator.swift */; };
 		A31000000000000000000567 /* EvaSignedConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000566 /* EvaSignedConfiguration.swift */; };
 		A31000000000000000000569 /* EvaSpokenOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000568 /* EvaSpokenOutput.swift */; };
 		A3100000000000000000056B /* EvaCloudSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000056A /* EvaCloudSettingsView.swift */; };
@@ -542,7 +550,6 @@
 		A3100000000000000000091B /* EvaPlanningProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091A /* EvaPlanningProjector.swift */; };
 		A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091C /* EvaTurnContextAssembler.swift */; };
 		A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091E /* EvaMemoryStoreV2.swift */; };
-		A31000000000000000000921 /* EvaConversationSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000920 /* EvaConversationSummary.swift */; };
 		A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000924 /* LifeWeaveIntent.swift */; };
 		A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000926 /* LifeWeaveDraft.swift */; };
 		A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000928 /* LifeWeaveMigration.swift */; };
@@ -1615,6 +1622,14 @@
 		A31000000000000000000560 /* EvaCloudSessionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudSessionStore.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudSessionStore.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000562 /* EvaCloudTransport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudTransport.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudTransport.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000564 /* EvaInferenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaInferenceProvider.swift; path = LifeBoard/Features/Eva/Cloud/EvaInferenceProvider.swift; sourceTree = SOURCE_ROOT; };
+		A32000000000000000000001 /* EvaTurnRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaTurnRuntime.swift; path = LifeBoard/Features/Eva/Cloud/EvaTurnRuntime.swift; sourceTree = SOURCE_ROOT; };
+		A32000000000000000000003 /* EvaContextReceiptSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextReceiptSnapshot.swift; path = LifeBoard/Features/Eva/Context/EvaContextReceiptSnapshot.swift; sourceTree = SOURCE_ROOT; };
+		A32000000000000000000005 /* ProductTelemetry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductTelemetry.swift; path = LifeBoard/Services/ProductTelemetry.swift; sourceTree = SOURCE_ROOT; };
+		A32000000000000000000007 /* EvaMemoryProposalService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaMemoryProposalService.swift; path = LifeBoard/Features/Eva/Context/EvaMemoryProposalService.swift; sourceTree = SOURCE_ROOT; };
+		A32000000000000000000009 /* EvaTrustArchitectureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaTrustArchitectureTests.swift; sourceTree = "<group>"; };
+		A3200000000000000000000B /* MessageView+MemoryCandidate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "MessageView+MemoryCandidate.swift"; path = "LifeBoard/Features/Eva/Views/Chat/MessageView+MemoryCandidate.swift"; sourceTree = SOURCE_ROOT; };
+		A3200000000000000000000D /* ProductTelemetrySettingsCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductTelemetrySettingsCard.swift; path = LifeBoard/Features/Settings/ProductTelemetrySettingsCard.swift; sourceTree = SOURCE_ROOT; };
+		A3200000000000000000000F /* EvaEnvelopeAllocator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaEnvelopeAllocator.swift; path = LifeBoard/Features/Eva/Context/EvaEnvelopeAllocator.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000566 /* EvaSignedConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaSignedConfiguration.swift; path = LifeBoard/Features/Eva/Cloud/EvaSignedConfiguration.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000568 /* EvaSpokenOutput.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaSpokenOutput.swift; path = LifeBoard/Features/Eva/Cloud/EvaSpokenOutput.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000056A /* EvaCloudSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudSettingsView.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudSettingsView.swift; sourceTree = SOURCE_ROOT; };
@@ -1651,7 +1666,6 @@
 		A3100000000000000000091A /* EvaPlanningProjector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPlanningProjector.swift; path = LifeBoard/Features/Eva/Context/EvaPlanningProjector.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000091C /* EvaTurnContextAssembler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaTurnContextAssembler.swift; path = LifeBoard/Features/Eva/Context/EvaTurnContextAssembler.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000091E /* EvaMemoryStoreV2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaMemoryStoreV2.swift; path = LifeBoard/Features/Eva/Context/EvaMemoryStoreV2.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000920 /* EvaConversationSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaConversationSummary.swift; path = LifeBoard/Features/Eva/Context/EvaConversationSummary.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000924 /* LifeWeaveIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveIntent.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveIntent.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000926 /* LifeWeaveDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveDraft.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveDraft.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000928 /* LifeWeaveMigration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveMigration.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveMigration.swift; sourceTree = SOURCE_ROOT; };
@@ -2904,6 +2918,7 @@
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
 				A31000000000000000000946 /* LifeWeaveOnboardingTests.swift */,
 				E0A100000000000000000302 /* EvaActivationTests.swift */,
+				A32000000000000000000009 /* EvaTrustArchitectureTests.swift */,
 				E0A100000000000000000502 /* EvaHomeIntelligenceUseCasesTests.swift */,
 				C7A200000000000000000004 /* ChatCancellationPolicyTests.swift */,
 				E0A100000000000000000402 /* SettingsViewModelTests.swift */,
@@ -3557,12 +3572,16 @@
 				A31000000000000000000928 /* LifeWeaveMigration.swift */,
 				A31000000000000000000926 /* LifeWeaveDraft.swift */,
 				A31000000000000000000924 /* LifeWeaveIntent.swift */,
-				A31000000000000000000920 /* EvaConversationSummary.swift */,
 				A3100000000000000000091E /* EvaMemoryStoreV2.swift */,
+				A3200000000000000000000F /* EvaEnvelopeAllocator.swift */,
+				A32000000000000000000007 /* EvaMemoryProposalService.swift */,
 				A3100000000000000000091C /* EvaTurnContextAssembler.swift */,
 				A3100000000000000000091A /* EvaPlanningProjector.swift */,
 				A31000000000000000000918 /* EvaContextEnvelopeBuilder.swift */,
 				A31000000000000000000916 /* EvaContextEnvelope.swift */,
+				A32000000000000000000003 /* EvaContextReceiptSnapshot.swift */,
+				A3200000000000000000000B /* MessageView+MemoryCandidate.swift */,
+				A3200000000000000000000D /* ProductTelemetrySettingsCard.swift */,
 				A31000000000000000000914 /* EvaPromptAssembly.swift */,
 				A31000000000000000000912 /* EvaContextBudget.swift */,
 				A31000000000000000000910 /* EvaUserInstructions.swift */,
@@ -3595,6 +3614,7 @@
 				A31000000000000000000568 /* EvaSpokenOutput.swift */,
 				A31000000000000000000566 /* EvaSignedConfiguration.swift */,
 				A31000000000000000000564 /* EvaInferenceProvider.swift */,
+				A32000000000000000000001 /* EvaTurnRuntime.swift */,
 				A31000000000000000000562 /* EvaCloudTransport.swift */,
 				A31000000000000000000560 /* EvaCloudSessionStore.swift */,
 				A3100000000000000000055E /* EvaCloudContracts.swift */,
@@ -3660,6 +3680,7 @@
 			isa = PBXGroup;
 			children = (
 				34CC91CCAA408A3ADB2D8693 /* LifeBoard/Services/V2FeatureFlags.swift */,
+				A32000000000000000000005 /* ProductTelemetry.swift */,
 				53C94956D526284966A1EEDC /* LifeBoard/Services/LocalNotificationService.swift */,
 				7F1B2C3D4E5F60718293A4B6 /* LifeBoard/Services/GamificationRemoteKillSwitchService.swift */,
 				7F1B2C3D4E5F60718293A4B8 /* LifeBoard/Services/LiquidMetalCTARemoteConfigService.swift */,
@@ -4985,6 +5006,7 @@
 				DFF1C01087EA0CE41AF85876 /* LifeBoard/Features/Sync/Domain/ReconcileExternalRemindersUseCase.swift in Sources */,
 				AE2B20F87AC525CF7E27B3C0 /* LifeBoard/Features/Eva/Models/LLMContextProjectionService.swift in Sources */,
 				BEB8BC780A4A962C58A77BC4 /* LifeBoard/Services/V2FeatureFlags.swift in Sources */,
+				A32000000000000000000006 /* ProductTelemetry.swift in Sources */,
 				59E0A865A7529C69B04F684A /* LifeBoard/Services/LocalNotificationService.swift in Sources */,
 				7F1B2C3D4E5F60718293A4B5 /* LifeBoard/Services/GamificationRemoteKillSwitchService.swift in Sources */,
 				7F1B2C3D4E5F60718293A4B7 /* LifeBoard/Services/LiquidMetalCTARemoteConfigService.swift in Sources */,
@@ -5404,7 +5426,6 @@
 				A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */,
 				A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */,
 				A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */,
-				A31000000000000000000921 /* EvaConversationSummary.swift in Sources */,
 				A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */,
 				A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */,
 				A3100000000000000000091B /* EvaPlanningProjector.swift in Sources */,
@@ -5442,6 +5463,12 @@
 				A31000000000000000000569 /* EvaSpokenOutput.swift in Sources */,
 				A31000000000000000000567 /* EvaSignedConfiguration.swift in Sources */,
 				A31000000000000000000565 /* EvaInferenceProvider.swift in Sources */,
+				A32000000000000000000002 /* EvaTurnRuntime.swift in Sources */,
+				A32000000000000000000004 /* EvaContextReceiptSnapshot.swift in Sources */,
+				A32000000000000000000008 /* EvaMemoryProposalService.swift in Sources */,
+				A3200000000000000000000C /* MessageView+MemoryCandidate.swift in Sources */,
+				A3200000000000000000000E /* ProductTelemetrySettingsCard.swift in Sources */,
+				A32000000000000000000010 /* EvaEnvelopeAllocator.swift in Sources */,
 				A31000000000000000000563 /* EvaCloudTransport.swift in Sources */,
 				A31000000000000000000561 /* EvaCloudSessionStore.swift in Sources */,
 				A3100000000000000000055F /* EvaCloudContracts.swift in Sources */,
@@ -5572,6 +5599,7 @@
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
 				A31000000000000000000947 /* LifeWeaveOnboardingTests.swift in Sources */,
 				E0A100000000000000000301 /* EvaActivationTests.swift in Sources */,
+				A3200000000000000000000A /* EvaTrustArchitectureTests.swift in Sources */,
 				E0A100000000000000000501 /* EvaHomeIntelligenceUseCasesTests.swift in Sources */,
 				E0A100000000000000000401 /* SettingsViewModelTests.swift in Sources */,
 				E0A100000000000000000508 /* FocusClockTests.swift in Sources */,
