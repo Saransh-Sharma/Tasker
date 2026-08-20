@@ -4,7 +4,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const pagesBase = '/Tasker/';
+const pagesBase = '/';
+const siteOrigin = 'https://getlifeboard.app';
 const requiredRoutes = ['features', 'features/home', 'features/plan', 'features/track', 'features/journal', 'features/insights', 'features/eva', 'features/everywhere', 'privacy', 'terms', 'support'];
 const webIcons = [
   { file: 'lifeboard-app-icon-32.png', width: 32, height: 32 },
@@ -40,11 +41,15 @@ for (const { route, file } of generatedPages) {
   if (/(?:src|href)="\/LifeBoard\/(?:assets\/|[^"]*(?:icon|favicon))/i.test(html)) {
     throw new Error(`Legacy /LifeBoard/ deployment asset path in ${route}`);
   }
+  if (/(?:src|href)="\/Tasker\//i.test(html)) throw new Error(`Legacy /Tasker/ deployment path in ${route}`);
   if (!html.includes(`src="${pagesBase}assets/`)) throw new Error(`Missing ${pagesBase} JavaScript asset path in ${route}`);
   if (!html.includes(`href="${pagesBase}assets/`)) throw new Error(`Missing ${pagesBase} stylesheet asset path in ${route}`);
   if (/href="\.\/[^"]*icon/i.test(html)) throw new Error(`Route-relative icon path in ${route}`);
   if (!html.includes(`href="${pagesBase}lifeboard-app-icon-32.png"`)) throw new Error(`Missing app favicon path in ${route}`);
   if (!html.includes(`href="${pagesBase}lifeboard-app-icon-180.png"`)) throw new Error(`Missing app touch-icon path in ${route}`);
+  if (route !== '/404.html' && !html.includes(`<link rel="canonical" href="${siteOrigin}${route}" />`)) {
+    throw new Error(`Missing canonical custom-domain URL in ${route}`);
+  }
 }
 
 function pngDimensions(content, file) {
