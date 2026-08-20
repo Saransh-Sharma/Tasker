@@ -1186,6 +1186,152 @@ final class EvaActivationTests: XCTestCase {
 /// Intercepts every request made through its session so transport policy — how
 /// many attempts a route gets, and for which failures — can be asserted without
 /// a network.
+final class EvaContractNegotiationTests: XCTestCase {
+    /// Hardcoding the client's ceiling made the deploy order load-bearing: a
+    /// client that always claimed v2 was rejected with HTTP 400 by any Worker not
+    /// yet deployed, because v2 fields and categories fail an older strict
+    /// schema. The signed configuration already publishes what the server
+    /// accepts, so the client negotiates down and either side can ship first.
+    func testNegotiatesTheHighestMutuallySupportedVersion() {
+        XCTAssertEqual(EvaInferenceRequest.negotiatedContractVersion(advertised: [1, 2]), 2)
+        XCTAssertEqual(EvaInferenceRequest.negotiatedContractVersion(advertised: [2]), 2)
+        XCTAssertEqual(EvaInferenceRequest.negotiatedContractVersion(advertised: [1]), 1)
+    }
+
+    /// Anything unverified or unrecognised resolves to v1 — the version every
+    /// deployed Worker has always accepted.
+    func testFallsBackToV1WhenTheServerSaysNothingUsable() {
+        XCTAssertEqual(EvaInferenceRequest.negotiatedContractVersion(advertised: nil), 1)
+        XCTAssertEqual(EvaInferenceRequest.negotiatedContractVersion(advertised: []), 1)
+        XCTAssertEqual(EvaInferenceRequest.negotiatedContractVersion(advertised: [0, -3]), 1)
+    }
+
+    /// A server advertising a version this build predates must not drag the
+    /// client above its own ceiling.
+    func testNeverExceedsTheClientCeiling() {
+        XCTAssertEqual(EvaInferenceRequest.negotiatedContractVersion(advertised: [1, 2, 3, 99]), 2)
+        XCTAssertEqual(
+            EvaInferenceRequest.negotiatedContractVersion(advertised: [3, 4], maximum: 2),
+            1,
+            "No mutually supported version means v1, not a version the client cannot encode"
+        )
+    }
+
+    /// `userInstructions` has no property on a v1 strict schema, so sending it
+    /// fails the whole request rather than being ignored.
+    func testUserInstructionsAreWithheldFromAV1Request() throws {
+        let snapshot = LLMChatPromptSnapshot(
+            messages: [.user("Hi")],
+            systemPromptCharacterCount: 0,
+            buildDurationMs: 0,
+            cloudContext: [],
+            userInstructions: EvaUserInstructions(persona: "Be blunt.")
+        )
+        let v1 = EvaInferenceRequest.make(
+            route: .chat, promptSnapshot: snapshot, consentRevision: 0,
+            userInstructions: snapshot.userInstructions, contractVersion: 1
+        )
+        let v2 = EvaInferenceRequest.make(
+            route: .chat, promptSnapshot: snapshot, consentRevision: 0,
+            userInstructions: snapshot.userInstructions, contractVersion: 2
+        )
+
+        XCTAssertNil(v1.userInstructions)
+        XCTAssertEqual(v1.contractVersion, 1)
+        XCTAssertNotNil(v2.userInstructions)
+        XCTAssertEqual(v2.contractVersion, 2)
+    }
+}
+
+final class EvaContextSectionShapeTests: XCTestCase {
+    /// Every section the client can emit must satisfy its category schema.
+    ///
+    /// `contractVersion` is a build constant while the payload shape used to be
+    /// decided per turn — rich when the projection succeeded, legacy when it fell
+    /// back, and different again in the route and journal helpers. The server
+    /// validates each section against its category schema for a v2 request, so
+    /// any fallback path sent a v1 shape under a v2 version and the whole request
+    /// was rejected with HTTP 400 before reaching the model. These assertions pin
+    /// the shape; `fixtures/context-sections-v2.json` pins the other side.
+    private func payloadObject(_ section: EvaCloudContextSection) throws -> [String: Any] {
+        let data = try JSONEncoder.evaCloud.encode(section.payload)
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    func testDegradedPlanningSectionKeepsTheRichShape() throws {
+        let section = EvaCloudContextProjection.sections(
+            taskProjection: "Planning context:\nSummary: 1 overdue",
+            executiveState: "14-day operating summary: mostly reactive",
+            slashCommandState: nil,
+            personalMemory: nil,
+            evidence: .notProvided,
+            consent: nil
+        ).first
+
+        let payload = try payloadObject(try XCTUnwrap(section))
+        // The degraded path is the same object with an empty roster, not a
+        // differently-shaped one.
+        XCTAssertNotNil(payload["generatedAt"])
+        XCTAssertNotNil(payload["summary"])
+        XCTAssertEqual((payload["tasks"] as? [Any])?.count, 0)
+        XCTAssertEqual(payload["renderedOverview"] as? String, "Planning context:\nSummary: 1 overdue")
+        XCTAssertEqual(payload["executiveState"] as? String, "14-day operating summary: mostly reactive")
+        // Absent rather than null: Swift omits nil, and the schema allows absence.
+        XCTAssertNil(payload["slashCommandState"])
+        // The v1 shape must be gone entirely.
+        XCTAssertNil(payload["taskProjection"])
+    }
+
+    func testRouteSectionsUseTheSamePlanningShape() throws {
+        let section = try XCTUnwrap(EvaRouteContextSections.planning(
+            projection: "Context JSON:\n{}",
+            kind: .plan,
+            modelName: EvaModelSelection.cloudSentinel
+        ).first)
+
+        let payload = try payloadObject(section)
+        XCTAssertEqual(payload["kind"] as? String, "plan")
+        XCTAssertEqual(payload["renderedOverview"] as? String, "Context JSON:\n{}")
+        XCTAssertNotNil(payload["generatedAt"])
+        XCTAssertNil(payload["taskProjection"])
+    }
+
+    /// Personal memory is an array of statements on the wire, never a bare
+    /// string — a string fails the schema and takes the whole request with it.
+    func testPersonalMemoryIsCarriedAsStatements() throws {
+        let consent = EvaConsentPolicy(
+            schemaVersion: 2, revision: 1, grants: [.personalMemory], updatedAt: Date()
+        )
+        let sections = EvaCloudContextProjection.sections(
+            taskProjection: "Planning context:",
+            executiveState: nil,
+            slashCommandState: nil,
+            personalMemory: "User memory:\nWorking style: mornings",
+            evidence: .notProvided,
+            consent: consent
+        )
+        let memory = try XCTUnwrap(sections.first { $0.category == .personalMemory })
+        let data = try JSONEncoder.evaCloud.encode(memory.payload)
+        let statements = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+
+        XCTAssertEqual(statements.count, 1)
+        XCTAssertEqual(statements.first?["provenance"] as? String, "userStated")
+        XCTAssertEqual(statements.first?["text"] as? String, "User memory:\nWorking style: mornings")
+        XCTAssertNotNil(statements.first?["id"])
+    }
+
+    func testPersonalMemoryIsOmittedWithoutTheGrant() {
+        let consent = EvaConsentPolicy(schemaVersion: 2, revision: 1, grants: [], updatedAt: Date())
+        let sections = EvaCloudContextProjection.sections(
+            taskProjection: "Planning context:",
+            executiveState: nil, slashCommandState: nil,
+            personalMemory: "User memory: mornings",
+            evidence: .notProvided, consent: consent
+        )
+        XCTAssertNil(sections.first { $0.category == .personalMemory })
+    }
+}
+
 final class EvaMemoryStoreV2Tests: XCTestCase {
     /// The provenance rule is the point of the type. A confident wrong guess
     /// must never silently replace something the person actually said, because
@@ -1541,14 +1687,16 @@ final class EvaRouteContextSectionsTests: XCTestCase {
         XCTAssertEqual(sections.count, 1)
         let section = try XCTUnwrap(sections.first)
         XCTAssertEqual(section.category, .planning)
-        guard case .object(let payload) = section.payload else {
-            return XCTFail("Expected an object payload")
-        }
-        XCTAssertEqual(payload["kind"], .string("topThree"))
-        guard case .string(let carried)? = payload["taskProjection"] else {
-            return XCTFail("Expected the projection to be carried as a string")
-        }
-        XCTAssertTrue(carried.contains(taskID.uuidString))
+        // What the server actually needs from this section is the identifiers:
+        // `semanticValidationError` scans the encoded context for the UUIDs a
+        // structured result is allowed to name. The field they arrive in changed
+        // when every emitter moved to one shape; that they arrive at all did not.
+        let encoded = String(
+            decoding: try JSONEncoder.evaCloud.encode(section.payload),
+            as: UTF8.self
+        )
+        XCTAssertTrue(encoded.contains(taskID.uuidString))
+        XCTAssertTrue(encoded.contains("\"kind\":\"topThree\""))
     }
 
     func testPlanningSectionIsOmittedWhenProjectionIsBlank() {

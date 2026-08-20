@@ -63,9 +63,29 @@ struct EvaCloudContextSection: Codable, Sendable {
 }
 
 struct EvaInferenceRequest: Codable, Sendable {
-    /// Contract version this client speaks. The server admits 1 and 2; only a
-    /// v2 request may carry `userInstructions` into the developer message.
-    static let contractVersion = 2
+    /// The highest contract version this build can speak.
+    ///
+    /// It is a ceiling, not the value to send. See `negotiatedContractVersion`.
+    static let maximumContractVersion = 2
+
+    /// The version to actually send, given what the server advertises.
+    ///
+    /// Hardcoding the ceiling made the deploy order load-bearing: a client that
+    /// always claimed v2 was rejected with HTTP 400 by any Worker that had not
+    /// been deployed yet, because v2 fields and categories fail an older strict
+    /// schema. The signed configuration already publishes `contractVersions`, so
+    /// the client negotiates down instead and the two sides can ship in either
+    /// order.
+    ///
+    /// Falling back to nil — no verified configuration — means v1, the version
+    /// every deployed Worker has always accepted.
+    static func negotiatedContractVersion(
+        advertised: [Int]?,
+        maximum: Int = EvaInferenceRequest.maximumContractVersion
+    ) -> Int {
+        let supported = (advertised ?? []).filter { $0 >= 1 && $0 <= maximum }
+        return supported.max() ?? 1
+    }
 
     struct Capabilities: Codable, Sendable {
         let streaming: Bool

@@ -295,7 +295,7 @@ final class EvaCloudWireContractTests: XCTestCase {
         EvaInferenceRequest(
             requestId: requestID,
             route: .chat,
-            contractVersion: EvaInferenceRequest.contractVersion,
+            contractVersion: EvaInferenceRequest.maximumContractVersion,
             locale: "en_US",
             timeZone: "Asia/Kolkata",
             messages: [.init(role: .user, content: "Help me plan today.")],

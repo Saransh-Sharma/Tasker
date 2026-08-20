@@ -61,15 +61,25 @@ struct EvaJournalEvidenceResponder: EvidenceResponding {
         fallback: EvidenceBackedAnswer
     ) async throws -> EvidenceBackedAnswer? {
         guard evidence.isEmpty == false else { return nil }
-        let evidenceValue: EvaJSONValue = .array(evidence.map { item in
-            .object([
-                "id": .string(item.id),
-                "date": .string(ISO8601DateFormatter().string(from: item.date)),
-                "mood": item.mood.map(EvaJSONValue.string) ?? .null,
-                "snippet": .string(item.snippet),
-                "matchReason": .string(item.matchReason.rawValue),
-            ])
-        })
+        // Journal evidence has to arrive in the shared evidence shape, not a
+        // bespoke one: the server validates every section against its category
+        // schema, so a differently-shaped journal payload fails the whole
+        // request. Mood and match reason ride in `kind` rather than being
+        // dropped.
+        let journalSection = EvaContextSectionFactory.evidence(
+            category: .journal,
+            events: evidence.map { item in
+                EvaEvidenceEventPayload(
+                    reference: item.id,
+                    domain: "journal",
+                    kind: item.mood.map { "entry/\($0)" } ?? "entry",
+                    occurredAt: item.date,
+                    freshness: item.matchReason.rawValue,
+                    source: item.snippet,
+                    value: nil
+                )
+            }
+        )
         let output = try await EvaFeatureTextGenerator.generate(
             route: .journalAnswer,
             profile: .journalAnswer,
@@ -80,7 +90,7 @@ struct EvaJournalEvidenceResponder: EvidenceResponding {
             {"summary":"...","observations":[{"text":"...","evidenceIDs":["allowed-id"]}],"confidence":0.0,"followUpPrompt":null,"limitations":null}
             Every observation must cite one or more IDs from the supplied journal context. Do not invent events, people, dates, moods, or causes.
             """,
-            context: [.init(category: .journal, payload: .object(["evidence": evidenceValue]))]
+            context: journalSection.map { [$0] } ?? []
         )
         let candidate = Self.jsonObject(in: output)
         guard let data = candidate.data(using: .utf8),
@@ -130,7 +140,9 @@ private enum EvaFeatureTextGenerator {
             let request = EvaInferenceRequest(
                 requestId: UUID(),
                 route: route,
-                contractVersion: EvaInferenceRequest.contractVersion,
+                contractVersion: EvaInferenceRequest.negotiatedContractVersion(
+                    advertised: EvaCloudAccountState.shared.configuration?.contractVersions
+                ),
                 locale: Locale.current.identifier,
                 timeZone: TimeZone.current.identifier,
                 messages: [.init(role: .user, content: prompt)],

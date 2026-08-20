@@ -526,7 +526,8 @@ extension EvaInferenceRequest {
         route: EvaCloudRoute,
         promptSnapshot: LLMChatPromptSnapshot,
         consentRevision: Int,
-        userInstructions: EvaUserInstructions? = nil
+        userInstructions: EvaUserInstructions? = nil,
+        contractVersion: Int = 1
     ) -> EvaInferenceRequest {
         let messages = promptSnapshot.messages.compactMap { message -> EvaCloudMessage? in
             switch message.role {
@@ -538,12 +539,14 @@ extension EvaInferenceRequest {
         return EvaInferenceRequest(
             requestId: UUID(),
             route: route,
-            contractVersion: EvaInferenceRequest.contractVersion,
+            contractVersion: contractVersion,
             locale: Locale.current.identifier,
             timeZone: TimeZone.current.identifier,
             messages: messages.isEmpty ? [EvaCloudMessage(role: .user, content: "Continue.")] : messages,
             context: promptSnapshot.cloudContext,
-            userInstructions: userInstructions,
+            // A v1 Worker's strict schema has no `userInstructions` property and
+            // rejects the whole request rather than ignoring it.
+            userInstructions: contractVersion >= 2 ? userInstructions : nil,
             clientVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
             platform: EvaInstallationIdentity.platform,
             installationId: EvaInstallationIdentity.current,

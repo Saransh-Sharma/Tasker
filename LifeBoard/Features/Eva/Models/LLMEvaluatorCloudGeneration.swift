@@ -35,7 +35,10 @@ extension LLMEvaluator {
             route: route,
             promptSnapshot: promptSnapshot,
             consentRevision: consentRevision,
-            userInstructions: promptSnapshot.userInstructions
+            userInstructions: promptSnapshot.userInstructions,
+            contractVersion: EvaInferenceRequest.negotiatedContractVersion(
+                advertised: EvaCloudAccountState.shared.configuration?.contractVersions
+            )
         )
         var emittedFirstToken = false
 

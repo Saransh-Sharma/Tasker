@@ -55,7 +55,7 @@ All JSON request objects reject unknown properties. The Worker applies a 256 KiB
 
 - `requestId`: canonical UUID and idempotency key.
 - `route`: one semantic route listed below.
-- `contractVersion`: `1` or `2`. The Worker admits both; only a v2 request may carry `userInstructions`.
+- `contractVersion`: **negotiated, not hardcoded.** The client sends the highest version present in both its own ceiling and the `contractVersions` array of the verified signed configuration, falling back to `1` when there is no verified configuration or no overlap. Only a v2 request may carry `userInstructions`, and a v1 request omits the field entirely rather than sending null — an older strict schema has no such property and rejects the whole request.
 - `locale`, `timeZone`, `clientVersion`, `platform`, and `installationId`.
 - `messages`: bounded conversation history, at most 64 turns.
 - `context`: the typed projection envelope, at most 12 sections — one per category.
@@ -205,6 +205,8 @@ Speech accepts at most 12,000 source characters, validates the exact SHA-256-bou
 
 - `/v1` paths remain stable for compatible additions. `contractVersion` `1` and `2` are both admitted; `runtime-config` publishes `contractVersions: [1, 2]`.
 - v2 added optional fields and new context categories only. A v1 client never sends them, so one schema serves both and admission control does not fork.
+- **Deploy order is not load-bearing, by design.** Version negotiation means a v2-capable app against a v1 Worker simply speaks v1. Hardcoding the client ceiling instead made every request fail with `schema_invalid` until the Worker caught up.
+- **One payload shape per category, regardless of how the projection went.** A degraded projection emits the same planning object with an empty `tasks` array and the rendered text in `renderedOverview` — never a differently-shaped object. `contractVersion` is decided per request while payloads are built in several places, so if fallback paths emitted their own shapes, any turn that took one would be rejected. `EvaContextSectionFactory` is the only sanctioned constructor; nothing may bypass it.
 - New required fields, changed semantics, or incompatible output schemas require a new contract version and dual-read migration period.
 - Runtime configuration publishes supported contract versions and minimum client version.
 - The client rejects invalid signatures, environment mismatch, unsupported versions/models, future documents, or monotonic rollback.
