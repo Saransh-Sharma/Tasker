@@ -21,7 +21,7 @@ end
 living << root.join("docs", "README.md")
 living.uniq!
 
-errors << "expected 43 living documents, found #{living.length}" unless living.length == 43
+errors << "expected 44 living documents, found #{living.length}" unless living.length == 44
 
 metadata = ["Classification", "Audience", "Capability status", "Source authority", "Last verified"]
 living.each do |path|

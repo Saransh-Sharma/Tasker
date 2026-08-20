@@ -98,8 +98,10 @@ broken on the cloud path.
       projectors; overflow drops whole records rather than truncating.
 - [x] Use the existing embedding index for cloud context selection instead of
       substring matching. Offline keeps substring matching.
-- [x] Add `EvaMemoryStoreV2` with provenance, confidence, and revisions, and a
-      rolling conversation summary section.
+- [x] Supersede `EvaMemoryStoreV2` with user-owned v3 memory: 30 confirmed
+      240-character statements, inactive proposals, suppression/expiry, and no
+      conversation-summary generation or v3 field. V1/V2 decoding remains only
+      for migration and wire rollout compatibility.
 - [x] Rewrite the server prompts: real persona and doctrine, per-route judgement
       contracts, and no restating of JSON shapes the strict schema already
       enforces. Raise `chat` and `dailyBrief` reasoning effort to `medium`.

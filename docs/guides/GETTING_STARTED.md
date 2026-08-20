@@ -4,7 +4,7 @@
 > Audience: New and restructuring users
 > Capability status: Current workspace
 > Source authority: [Onboarding](../product/ONBOARDING_SETTINGS_AND_RECOVERY.md) and [Feature Catalog](../product/FEATURE_CATALOG.md)
-> Last verified: 2026-08-14
+> Last verified: 2026-08-20
 
 ## Build the minimum useful system
 
@@ -22,14 +22,14 @@ Use this hierarchy:
 
 ## Complete onboarding
 
-1. Choose the desired change and up to two recurring frictions.
-2. Select two to five life areas and drag them into seasonal priority order.
-3. Confirm working hours, weekend availability, and week start.
-4. Tune the recommended Plan & Focus, Routines & Health, Reflection & Growth, and EVA connections.
-5. Optionally route one real thought through Universal Input, then review its type and destination before saving.
-6. Inspect the assembled Life Map and enter LifeBoard immediately, or continue into optional permissions and EVA setup.
+1. Read Arrival, then choose the desired change and optional recurring frictions.
+2. Select two to five life areas and tap the one that needs the clearest path first.
+3. Choose a day-shape preset or explicitly edit working hours.
+4. Optionally route one real thought to Task or Journal and review it before saving, or skip it.
+5. Inspect the assembled Life Map.
+6. Choose **Start my day**, or **Personalize more** to enter Home and then open Setup Center.
 
-Onboarding saves progress. If interrupted, the v4 draft resumes at the exact step. LifeBoard creates no sample chores or fake activity; only a capture you explicitly review may create a record. Calendar, notifications, Health, and EVA remain optional and resumable.
+Onboarding saves both the exact step and commit/reveal lifecycle. LifeBoard creates no sample chores or fake activity; only a capture you explicitly review may create a record. Calendar, notifications, Health, and EVA remain optional in Setup Center and never block completion.
 
 ## Configure the daily environment
 

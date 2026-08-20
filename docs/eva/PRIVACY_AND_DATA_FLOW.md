@@ -51,7 +51,7 @@ flowchart LR
 
 The client never sends raw Core Data/CloudKit models. Projection DTOs are bounded by route budgets and consent revision. Calendar content is read-only. Sensitive protected evidence must be unlocked and explicitly authorized before projection.
 
-### What changed with contract v2, and what did not
+### What changed with contract v3, and what did not
 
 The envelope is materially larger. A chat turn previously carried roughly 1,500
 tokens — six task titles reduced to `title | due | project`. It now carries up to
@@ -61,8 +61,8 @@ energy, estimates, and how many times each item has been deferred or replanned.
 What did **not** change is which categories require a grant. `journal`, `health`,
 `lifeMoments`, and `personalMemory` remain deny-by-default and separately
 granted, enforced server-side by `sensitiveContextCategories` before any model
-call. The categories v2 added — `capacity`, `goals`, `habits`, `dayLoop`,
-`retrospective`, `calendar`, `conversationSummary` — project records the person
+call. The rich categories — `capacity`, `goals`, `habits`, `dayLoop`,
+`retrospective`, and `calendar` — project records the person
 already sees in LifeBoard and ride on the request's own authorization, exactly as
 `planning` always did. Widening the list did not widen what a grant means.
 
@@ -102,11 +102,16 @@ caller; the server-authoritative `EvaConsentPolicy` is what actually authorizes 
 section. Two consent models describing one boundary is a hazard, so do not add a
 caller to the local one expecting it to gate anything.
 
-Personal memory statements carry a `provenance` field of `userStated` or
-`inferred`. EVA may propose a revision to an inference, but a proposal can never
+Personal memory statements carry a `provenance` field of `userStated` or a
+user-confirmed `inferredCandidate`. EVA may propose one concise candidate, but a proposal can never
 silently overwrite something the person stated — otherwise a confident wrong
 guess becomes a permanent fact about them that they never agreed to and cannot
 find to correct.
+
+There are no conversation summaries in contract v3. Each Cloud assistant message
+may instead store a local immutable receipt describing categories and stable
+source keys without content bodies. A per-record exclusion affects future EVA
+projection only; it does not delete the source and cannot rewrite history.
 
 ## Logging and observability
 

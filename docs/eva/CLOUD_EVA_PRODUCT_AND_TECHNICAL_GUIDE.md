@@ -4,7 +4,7 @@
 **Implementation status:** Complete architecture; staging end-to-end qualification in progress  
 **Text provider:** OpenAI [`gpt-5.6-luna`](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
 **Spoken output:** OpenAI [`tts-1`](https://developers.openai.com/api/docs/models/tts-1), `nova`; no cloud speech-to-text or full duplex
-**Last verified:** 2026-08-19
+**Last verified:** 2026-08-20
 
 ## Product promise
 
@@ -47,7 +47,9 @@ Base context may include the prompt, typed task records, projects and life areas
 habits with their recent history, capacity for the day, goals, the day-loop
 state, the weekly retrospective the person wrote, a read-only calendar
 projection, executive/slash-command state, and bounded chat history. Journal,
-health, Life Moments, and personal memory remain separate, off-by-default grants.
+health, Life Moments, and personal memory remain separate grants. Activation
+preselects them for review, but the person can disable any category before the
+single explicit confirmation.
 Revocation is authoritative on the server before the next accepted request on any
 device.
 
@@ -66,15 +68,15 @@ overstate and the second is easy to miss:
 
 ### Activate Cloud EVA
 
-Activation happens inside app onboarding, as an optional step in the connect
-chain after the Life Map reveal. There is no separate EVA activation flow: the
-EVA tab opens straight into chat.
+Activation happens in post-onboarding Setup Center. Core Life Weave completion
+never activates EVA. The ordinary Setup Center path presents Cloud EVA only;
+Offline EVA remains an advanced Settings option and explicit recovery route.
 
-1. The person reaches the EVA step and reads the private-context and AI-processing disclosure.
-2. Sign in with Apple establishes a pseudonymous account.
+1. The person acts on one standard Sign in with Apple button.
+2. Sign in with Apple establishes a pseudonymous account; explanatory copy appears only if they try to dismiss.
 3. The app qualifies device trust and asks Apple for an 18+ age-range result.
 4. The app force-refreshes signed configuration, then loads consent and credits.
-5. Sensitive-context grants are then offered as off-by-default toggles. Skipping them is the expected path — a fresh account bootstraps at revision 0 with no grants, which is already sufficient for chat — and each toggle is a compare-and-swap on the server revision, so it is written one at a time and never retried.
+5. Sensitive-context grants are preselected but editable, then written together through one compare-and-swap confirmation.
 6. If all gates pass, Cloud EVA becomes available and onboarding stages opening prompts composed from the person's own Life Map answers. Otherwise the exact failed gate is shown with an explicit recovery path; Offline EVA remains available from Settings.
 
 Declining or deferring is a first-class outcome: the prompts are staged either
@@ -83,12 +85,18 @@ way, and the EVA tab offers connection inline rather than reopening setup.
 ### Ask and review
 
 1. The app builds a bounded context projection using the current consent revision.
-2. The provider router selects cloud once for this request.
+2. One immutable turn runtime selects Cloud or explicitly selected Offline before context assembly.
 3. The Worker validates body, identity, trust, age, policy, route, consent, rate, credits, and budget.
 4. Input plus projected context is moderated as untrusted content.
 5. Luna streams safe text or returns one validated structured object.
 6. Credits commit only for a nonempty, nonrefusal, valid result.
-7. Any proposal still passes through LifeBoard's review/apply boundary.
+7. The Cloud message persists an immutable context receipt; any consequential proposal still passes through LifeBoard's review/apply boundary.
+
+Contract v3 adds typed availability/count metadata and stable source identifiers,
+forbids conversation summaries, and supports per-record exclusions. User-owned
+memory is capped at 30 confirmed 240-character statements. A non-billable route
+may propose one inactive memory after a Cloud turn; Save/Edit/Later/Dismiss keep
+the user as the activation boundary.
 
 ### Recover
 

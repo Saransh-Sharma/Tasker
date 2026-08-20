@@ -65,7 +65,7 @@ All JSON request objects reject unknown properties. The Worker applies a 256 KiB
 
 The server owns model selection, stable prompts, schemas, reasoning effort, caching boundaries, output caps, moderation, repairs, safety identifiers, attempt graph, and credit/cost charging.
 
-### Context envelope (v2)
+### Context envelope (v3, with v1/v2 compatibility)
 
 v1 carried `payload: unknown`, so a drifted client projection degraded answer
 quality silently — nothing on the server could notice a field had disappeared.
@@ -82,11 +82,10 @@ boundary with `schema_invalid`.
 | `dayLoop` | — | Closes, opens, run length, reversals, and yesterday's close ring |
 | `retrospective` | — | Week focus statement, outcomes, and the person's own wins/blockers/lessons |
 | `calendar` | — | Read-only busy blocks; the title may be withheld while the block still constrains the day |
-| `conversationSummary` | — | A rolling summary of turns outside the live window |
 | `journal` | `journal` | Authorized, already-redacted evidence events |
 | `health` | `health` | Authorized, already-redacted evidence events |
 | `lifeMoments` | `lifeMoments` | Authorized, already-redacted evidence events |
-| `personalMemory` | `personalMemory` | Versioned statements tagged `userStated` or `inferred` |
+| `personalMemory` | `personalMemory` | Up to 30 confirmed statements tagged `userStated` or `inferredCandidate` |
 
 Only the last four are consent-gated (`sensitiveContextCategories`). The rest
 project records the person already sees inside LifeBoard and ride on the
@@ -94,6 +93,11 @@ request's own authorization, so widening the list does not widen what a grant
 means.
 
 Two conventions hold across every schema:
+
+- **V3 sections carry availability metadata.** `complete`, `partial`, or
+  `unavailable`, optional known counts, bounded partial reasons, and stable
+  source identifiers power honest receipts and exclusions. Conversation
+  summaries are rejected in v3.
 
 - **Durations are minutes**, never seconds and never wall-clock strings. One unit
   makes capacity arithmetic reliable.

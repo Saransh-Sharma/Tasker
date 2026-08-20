@@ -7,6 +7,7 @@ Use these documents by job:
 | Need | Document |
 |---|---|
 | Understand the product and system end to end | [Product and Technical Guide](./CLOUD_EVA_PRODUCT_AND_TECHNICAL_GUIDE.md) |
+| Implement v3 runtime, memory, receipts, exclusions, or telemetry | [Runtime, Context, Memory, Receipts, and Telemetry v3](./EVA_RUNTIME_CONTEXT_MEMORY_AND_TELEMETRY_V3.md) |
 | Implement or integrate a client | [API Contract](./API_CONTRACT.md) |
 | Provision, deploy, observe, or roll back | [Backend Runbook](./BACKEND_RUNBOOK.md) |
 | Review consent, processors, retention, or deletion | [Privacy and Data Flow](./PRIVACY_AND_DATA_FLOW.md) |

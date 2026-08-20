@@ -4,7 +4,7 @@
 **Audience:** Users, support, product, design, engineering, and QA
 **Capability status:** Current workspace
 **Source authority:** Onboarding flow/state, Settings routes/stores, bootstrap/recovery services
-**Last verified:** 2026-08-19
+**Last verified:** 2026-08-20
 **Primary routes:** First launch, EVA activation, Settings, Life Management, permission prompts, and bootstrap recovery
 
 ## Promise and user jobs
@@ -23,12 +23,12 @@ Users need to:
 
 ## Onboarding journey
 
-Two journeys ship side by side. `feature.onboarding.life_weave_v6` selects which
-one a fresh install sees; both commit through the same coordinator and record the
-same canonical structure, so the flag is a presentation rollback and never
-strands work.
+Life Weave v6 is canonical for every fresh install. Its signed presentation
+switch is an emergency kill switch, not a route back to v5. Legacy v5 and
+interrupted v6 drafts are accepted only as migration inputs and resume in the
+six-stage graph without losing confirmed answers.
 
-### v6 — Life Weave (six core steps, schema 8)
+### v6 — Life Weave (six core steps, schema 9)
 
 1. **Arrival.** The promise, the privacy line, and one action. No feature list,
    no root names, no percentage.
@@ -47,15 +47,14 @@ strands work.
    guessed. Onboarding offers Task and Journal, which are the two stores it
    actually writes.
 6. **Reveal.** A deterministic personalised sentence, a receipt of what was
-   saved, and one dominant action into Home.
+   saved, and explicit **Start my day** and **Personalize more** exits. Both
+   finalize; the second opens Home and then Setup Center.
 
-Everything else is reached from the reveal's quiet secondary action: calendar
-access and calendar selection, Apple Health reading with a separate per-domain
-write-back choice, reminders, and Cloud EVA. Each is skippable, each is omitted
-when nothing would consume it, and the chain is navigable backwards. There is no
-closing phase and **no root tour** — the five destinations are introduced by four
-one-time contextual cues the first time the person opens Home, Plan, Track, and
-EVA. Insights deliberately has no cue until there is evidence to interpret.
+Calendar, Apple Health, Reminders, and Cloud EVA live in post-onboarding Setup
+Center. They are never onboarding steps or completion gates. Setup Center is
+reachable from Reveal, a dismissible Home card, and a permanent Settings row;
+dismissal changes no connector state. There is no closing phase and **no root
+tour**.
 
 The modules screen is gone. What Home contains is derived from the intent and the
 chosen areas rather than asked for, so removing the question does not mean every
@@ -67,26 +66,17 @@ the commit phase all carry across. The v5 snapshot is left in place so turning
 the flag back off resumes rather than restarts. Migration resumes at the screen
 that now owns each question, which is never later than the person reached.
 
-### v5 — Life Map (nine core steps, schema 7)
+### Retired v5 migration
 
-The v5 journey remains composed and resumable while the flag is off:
-
-1. Welcome and the promise "Your whole life, in one calm system."
-2. Desired change and up to two sources of friction.
-3. Two to five active life areas and their seasonal priority order.
-4. Real working capacity and week start.
-5. Recommended module connections across Home, Plan, Track, Insights, and EVA.
-6. One optional Universal Input capture, reviewed before staging.
-7. An idempotent assembly phase and the completed Life Map reveal.
-
-Two branches leave the reveal — an optional connect chain, or straight on — and
-both converge on a five-beat orientation across the five roots.
+V5 UI, connector steps, and root tour are retired. Persisted intent, friction,
+area order, day shape, reviewed capture, and commit progress migrate to their v6
+owners. Migration does not reactivate permissions or EVA.
 
 ### What both guarantee
 
 Each step has one primary action. Core completion never depends on permission,
-model download, network access, or sample data — which is precisely why the
-connect chain and EVA activation sit after the commit rather than inside it. The
+model download, network access, or sample data — which is precisely why Setup
+Center and EVA activation are outside the core lifecycle. The
 commit upserts canonical life areas and their order, working hours, and Home
 layout, stores only goal/friction as small profile metadata, then writes the
 reviewed capture last; it is phase-tracked, so a failure resumes rather than
@@ -94,9 +84,10 @@ replays. Completion is recorded only after required writes succeed. No starter
 projects, chores, habits, tasks, or fabricated activity are installed, and a
 skipped capture is reported as an honest empty state rather than dressed up.
 
-Completed users remain completed. An established workspace is never interrupted
-by a launch prompt; Life Management exposes the live, canonical Life Map and a
-voluntary "Refresh my map" merge flow that preserves existing records.
+Completed users remain completed and receive one prefilled refresh invitation
+after Home settles for each signed refresh version. **Not now** suppresses
+future automatic prompts for that version; Settings replay remains available.
+The merge preserves every existing record and customized Home layout.
 
 ## EVA activation and model setup
 
@@ -108,8 +99,8 @@ no longer leads anywhere. EVA's profile is derived from the Life Map instead of
 re-asked, carrying the person's literal wording alongside the structured
 mapping. Offline model installation keeps its own entry point in Settings.
 
-- Cloud activation explains Luna processing, Sign in with Apple, per-device Apple 18+ eligibility, device trust, credits, bounded context, and optional AI-generated spoken output before consent.
-- Sensitive Journal, Health, Life Moments, and personal-memory grants are separate and off by default. Cloud setup force-refreshes verified policy so a cached disabled configuration cannot hide a newly available staging service.
+- Setup Center presents one standard Sign in with Apple control, then compactly progresses account exchange, Apple 18+ eligibility, device trust, signed configuration, and credits.
+- Journal, Health, Life Moments, and personal-memory grants are preselected after sign-in but individually editable before one explicit compare-and-swap confirmation.
 - Offline EVA explains on-device processing, supported hardware, model size, storage impact, download progress, cancellation, retry, insufficient storage, and expected capability.
 - The provider chosen for a request stays fixed. Cloud failure may offer explicit Offline EVA but never silently redirects private context to another provider.
 - Model choice does not imply clinical, guaranteed, or autonomous behavior. Users can use ordinary LifeBoard when all assistant setup is skipped or fails.
@@ -151,10 +142,11 @@ Derived-state recovery can rebuild indexes, caches, or projections without repla
 | State | Required behavior |
 |---|---|
 | Fresh start | One clear next action and honest time/permission expectations |
-| Resumed onboarding | Restore exact v4 step and recoverable schema-6 Life Map draft |
+| Resumed onboarding | Restore the exact schema-9 lifecycle/step or migrate a v5/v8 draft |
 | Permission denied | Explain limitation, preserve remaining functionality, link to Settings |
-| Calendar granted, none selected | Never ship this state: an empty selection means *no calendars*, so grant preselects what is available and leaves the list editable |
-| Health read without write | Default. Reading is authorized; writing back is a separate, off-by-default answer per domain |
+| Calendar granted, none selected | Represent none selected; never reinterpret an empty selection as all calendars |
+| Health request presented | Say access was requested; infer neither read grant nor read denial from the sheet |
+| Health write access | Show an authorized count or per-category status independently of read availability |
 | EVA deferred or declined | Record the choice, stage the opening prompts anyway, and let the EVA tab offer connection inline |
 | Unsupported device | Describe unavailable capability and keep core app usable |
 | Cloud policy disabled | Show the signed maintenance reason and offer explicit Offline EVA |
