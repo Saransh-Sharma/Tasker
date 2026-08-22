@@ -144,14 +144,28 @@ private enum EvaFeatureTextGenerator {
         )
         if runtime.usesCloud {
             try runtime.validateCurrentAuthority()
+            let resolvedContext: [EvaCloudContextSection]
+            switch route {
+            case .journalAnswer, .knowledgeAnswer:
+                // These editor-scoped routes operate only on the exact source
+                // the feature supplied; broader retrieval would change a
+                // transform/summarize request into an unintended cross-note read.
+                resolvedContext = context.map { $0.forContract(runtime.contractVersion) }
+            default:
+                resolvedContext = await runtime.enrichedContextSections(
+                    explicit: context,
+                    userQuery: prompt
+                )
+            }
             let request = EvaInferenceRequest(
                 requestId: UUID(),
                 route: route,
                 contractVersion: runtime.contractVersion,
                 locale: Locale.current.identifier,
                 timeZone: TimeZone.current.identifier,
+                turnContext: runtime.contractVersion >= 4 ? .current(surface: surface(for: route)) : nil,
                 messages: [.init(role: .user, content: prompt)],
-                context: context.map { $0.forContract(runtime.contractVersion) },
+                context: resolvedContext,
                 userInstructions: nil,
                 clientVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
                 platform: EvaInstallationIdentity.platform,
@@ -179,5 +193,13 @@ private enum EvaFeatureTextGenerator {
             throw EvaProviderError.unavailable(output)
         }
         return output
+    }
+
+    private static func surface(for route: EvaCloudRoute) -> EvaSurface {
+        switch route {
+        case .knowledgeAnswer: .knowledge
+        case .journalAnswer: .journal
+        default: .background
+        }
     }
 }

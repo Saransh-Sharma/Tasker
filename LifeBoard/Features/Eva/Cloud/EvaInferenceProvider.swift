@@ -1,4 +1,3 @@
-import AuthenticationServices
 import CryptoKit
 import Foundation
 import MLXLMCommon
@@ -30,8 +29,23 @@ struct EvaCloudProvider: EvaInferenceProviding {
         request: EvaInferenceRequest,
         onText: @MainActor @Sendable @escaping (String) -> Void
     ) async throws -> String {
-        try await EvaAgeEligibilityService().revalidateIfNeeded(using: transport)
-        let events = try await transport.inference(request)
+        let requiresAgeDecision = await MainActor.run {
+            EvaCloudAccountState.shared.configuration?.requiresAgeDecision == true
+        }
+        if requiresAgeDecision {
+            try await EvaAgeEligibilityService().revalidateIfNeeded(using: transport)
+        }
+        if UserDefaults.standard.bool(forKey: "eva.cloud.first-prompt.sent") == false {
+            await ProductTelemetry.shared.record(.evaFirstPromptSent)
+            UserDefaults.standard.set(true, forKey: "eva.cloud.first-prompt.sent")
+        }
+        let events: AsyncThrowingStream<EvaStreamEvent, Error>
+        do {
+            events = try await transport.inference(request)
+        } catch let error as EvaErrorEnvelope where error.code == "daily_quota_exhausted" {
+            await ProductTelemetry.shared.record(.evaQuotaExhausted)
+            throw error
+        }
         var text = ""
         var didComplete = false
         for try await event in events {
@@ -44,9 +58,9 @@ struct EvaCloudProvider: EvaInferenceProviding {
                 let data = try JSONEncoder.evaCloud.encode(value)
                 text = String(decoding: data, as: UTF8.self)
                 await onText(text)
-            case .completed(_, _, let speechTicket, let speechSource, let credits):
+            case .completed(_, _, let speechTicket, let speechSource, let quota, let credits):
                 didComplete = true
-                await EvaCloudAccountState.shared.accept(credits: credits)
+                await EvaCloudAccountState.shared.accept(quota: quota, credits: credits)
                 if let speechTicket {
                     await EvaSpeechTicketRegistry.shared.store(
                         requestId: request.requestId,
@@ -55,6 +69,9 @@ struct EvaCloudProvider: EvaInferenceProviding {
                     )
                 }
             case .failed(_, _, let error):
+                if error.code == "daily_quota_exhausted" {
+                    await ProductTelemetry.shared.record(.evaQuotaExhausted)
+                }
                 throw error
             case .accepted, .usage:
                 break
@@ -62,6 +79,10 @@ struct EvaCloudProvider: EvaInferenceProviding {
         }
         guard didComplete, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw EvaProviderError.invalidResponse
+        }
+        if UserDefaults.standard.bool(forKey: "eva.cloud.first-answer.completed") == false {
+            await ProductTelemetry.shared.record(.evaFirstAnswerCompleted)
+            UserDefaults.standard.set(true, forKey: "eva.cloud.first-answer.completed")
         }
         return text
     }
@@ -95,7 +116,7 @@ final class EvaCloudAccountState {
     /// for the whole chain.
     enum ActivationStage: Sendable {
         case idle
-        case signingIn
+        case creatingGuest
         case verifyingDevice
         case confirmingAge
         case finalizing
@@ -103,7 +124,7 @@ final class EvaCloudAccountState {
         var progressCaption: String? {
             switch self {
             case .idle: nil
-            case .signingIn: String(localized: "Signing in with Apple…")
+            case .creatingGuest: String(localized: "Activating Cloud EVA…")
             case .verifyingDevice: String(localized: "Verifying this device…")
             case .confirmingAge: String(localized: "Confirming your age range…")
             case .finalizing: String(localized: "Securing your EVA session…")
@@ -114,6 +135,9 @@ final class EvaCloudAccountState {
     private(set) var configuration: EvaCloudRuntimeConfiguration?
     private(set) var consent: EvaConsentPolicy?
     private(set) var credits: EvaCreditState?
+    private(set) var quota: EvaQuotaState?
+    private(set) var identityKind: EvaIdentityKind?
+    private(set) var trustTier: String?
     private(set) var isAuthenticated = false
     private(set) var isAdultEligible = false
     private(set) var lastError: String?
@@ -128,15 +152,19 @@ final class EvaCloudAccountState {
     }
 
     func readinessError(route: EvaCloudRoute = .chat) -> EvaProviderError? {
-        Self.readinessError(
+        if let base = Self.readinessError(
             configuration: configuration,
             isAuthenticated: isAuthenticated,
             isAdultEligible: isAdultEligible,
-            hasConsent: consent != nil,
-            creditBalance: credits?.balance,
+            hasConsent: consent != nil && consent?.reviewRequired != true,
+            creditBalance: quota?.remaining ?? credits?.balance,
             route: route,
             lastError: lastError
-        )
+        ) { return base }
+        if identityKind == .guest, configuration?.guestAccess?.inferenceEnabled != true {
+            return .unavailable(configuration?.maintenanceMessage ?? String(localized: "Guest Cloud EVA is temporarily unavailable."))
+        }
+        return nil
     }
 
     static func readinessError(
@@ -177,13 +205,32 @@ final class EvaCloudAccountState {
         forceConfigurationRefresh: Bool = false
     ) async {
         do {
-            guard await EvaAppleIdentityService.shared.credentialIsAuthorized() else {
-                await handleAppleCredentialInvalidation()
+            guard let credentials = try await transport.sessionStore.load() else {
+                configuration = nil
+                consent = nil
+                credits = nil
+                quota = nil
+                identityKind = nil
+                trustTier = nil
+                isAuthenticated = false
+                isAdultEligible = false
+                lastError = nil
                 return
+            }
+            if credentials.resolvedIdentityKind == .apple {
+                guard await EvaAppleIdentityService.shared.credentialIsAuthorized() else {
+                    await handleAppleCredentialInvalidation()
+                    return
+                }
             }
             configuration = try await transport.runtimeConfiguration(forceRefresh: forceConfigurationRefresh)
             consent = try await transport.consent()
-            credits = try await transport.credits()
+            quota = try await transport.quota()
+            credits = Self.creditProjection(from: quota)
+            let highTrust = await EvaAppAttestService.shared.registerIfNeeded(using: transport)
+            let updatedCredentials = (try? await transport.sessionStore.load()) ?? credentials
+            identityKind = updatedCredentials.resolvedIdentityKind
+            trustTier = highTrust ? "high" : updatedCredentials.trustTier
             isAuthenticated = true
             isAdultEligible = true
             lastError = nil
@@ -198,7 +245,8 @@ final class EvaCloudAccountState {
             isAuthenticated = (try? await EvaCloudSessionStore.shared.load()) != nil
             // Only an explicit server verdict clears eligibility. A timed-out
             // credits call says nothing about the user's age.
-            if let envelope = error as? EvaErrorEnvelope, envelope.code == "adult_eligibility_required" {
+            if let envelope = error as? EvaErrorEnvelope,
+               envelope.code == "adult_eligibility_required" || envelope.code == "age_eligibility_required" {
                 isAdultEligible = false
                 EvaAgeEligibilityService.invalidateCachedEligibility()
             }
@@ -210,61 +258,53 @@ final class EvaCloudAccountState {
     /// retrying after a stalled network hop picks up where it stopped instead of
     /// re-presenting the Apple sheet and spending another of the five exchanges
     /// the server allows per minute.
-    func activateCloud() async throws {
+    func activateCloud(grants: [EvaConsentPolicy.Grant] = EvaConsentPolicy.Grant.allCases) async throws {
         lastError = nil
-        activationStage = .signingIn
+        activationStage = .creatingGuest
         defer { activationStage = .idle }
+        await ProductTelemetry.shared.record(.evaActivationStarted)
 
-        var accountWasCreated = false
+        configuration = try await EvaCloudTransport.shared.runtimeConfiguration(forceRefresh: true)
         if try await resumeStoredSession() {
             isAuthenticated = true
+            let currentConsent = try await EvaCloudTransport.shared.consent()
+            let requestedGrants = Set(grants)
+            if Set(currentConsent.grants) == requestedGrants {
+                consent = currentConsent
+            } else {
+                consent = try await EvaCloudTransport.shared.updateConsent(
+                    expectedRevision: currentConsent.revision,
+                    grants: grants
+                )
+            }
         } else {
-            let outcome = try await EvaAppleIdentityService.shared.signIn(
-                onDeviceVerification: { [weak self] in self?.activationStage = .verifyingDevice }
-            )
-            accountWasCreated = outcome.created
+            guard configuration?.guestAccess?.bootstrapEnabled == true else {
+                throw EvaProviderError.unavailable(
+                    configuration?.maintenanceMessage ?? String(localized: "Guest Cloud EVA is not enabled yet.")
+                )
+            }
+            await ProductTelemetry.shared.record(.evaActivationReviewConfirmed)
+            let credentials = try await EvaCloudTransport.shared.bootstrapGuest(grants: grants)
+            identityKind = credentials.resolvedIdentityKind
+            trustTier = credentials.trustTier
             isAuthenticated = true
         }
-
-        try await finishActivation(accountWasCreated: accountWasCreated)
+        try await finishGuestActivation()
     }
 
-    /// Completes the same activation pipeline from SwiftUI's standard
-    /// `SignInWithAppleButton`. The credential is exchanged once; no second
-    /// authorization controller is presented behind the standard control.
-    func activateCloud(
-        credential: ASAuthorizationAppleIDCredential,
-        preparedSignIn: EvaAppleIdentityService.PreparedSignIn
-    ) async throws {
-        lastError = nil
-        activationStage = .signingIn
-        defer { activationStage = .idle }
-        let outcome = try await EvaAppleIdentityService.shared.exchange(
-            credential,
-            prepared: preparedSignIn,
-            onDeviceVerification: { [weak self] in self?.activationStage = .verifyingDevice }
-        )
-        isAuthenticated = true
-        try await finishActivation(accountWasCreated: outcome.created)
-    }
-
-    private func finishActivation(accountWasCreated: Bool) async throws {
-        // A freshly bootstrapped account carries no server-side age lease, so a
-        // local cache left over from a previous account would be a lie.
-        if accountWasCreated {
-            EvaAgeEligibilityService.invalidateCachedEligibility()
-            isAdultEligible = false
-        }
-
-        activationStage = .confirmingAge
-        if EvaAgeEligibilityService.cachedEligibilityIsValid {
+    private func finishGuestActivation() async throws {
+        if configuration?.requiresAgeDecision == true {
+            activationStage = .confirmingAge
+            let age = try await EvaAgeEligibilityService().requestAndRegister(policyRequired: true)
+            guard age.eligible else { throw EvaProviderError.adultEligibilityRequired }
             isAdultEligible = true
         } else {
-            let age = try await EvaAgeEligibilityService().requestAndRegister()
-            guard age.eligibleAdult else { throw EvaProviderError.adultEligibilityRequired }
             isAdultEligible = true
         }
 
+        activationStage = .verifyingDevice
+        let highTrust = await EvaAppAttestService.shared.registerIfNeeded(using: .shared)
+        trustTier = highTrust ? "high" : (trustTier ?? "low")
         activationStage = .finalizing
         await refresh(forceConfigurationRefresh: true)
         if let readinessError = readinessError() { throw readinessError }
@@ -282,8 +322,9 @@ final class EvaCloudAccountState {
     /// reports "Your EVA session has expired" with no route back to sign-in.
     private func resumeStoredSession() async throws -> Bool {
         guard let credentials = try? await EvaCloudSessionStore.shared.load(),
-              credentials.refreshTokenExpiresAt > Date(),
-              await EvaAppleIdentityService.shared.credentialIsAuthorized() else { return false }
+              credentials.refreshTokenExpiresAt > Date() else { return false }
+        if credentials.resolvedIdentityKind == .apple,
+           await EvaAppleIdentityService.shared.credentialIsAuthorized() == false { return false }
 
         activationStage = .verifyingDevice
         do {
@@ -291,10 +332,13 @@ final class EvaCloudAccountState {
             // forces a token refresh when needed and makes the server rule on
             // the family. App Attest registration cannot serve here — it
             // short-circuits whenever a key already exists, proving nothing.
-            credits = try await EvaCloudTransport.shared.credits()
+            quota = try await EvaCloudTransport.shared.quota()
+            credits = Self.creditProjection(from: quota)
             // Sign-in would have done this; the resume path has to, or the
             // attested eligibility POST fails for want of a key.
-            try await EvaAppAttestService.shared.registerIfNeeded(using: .shared)
+            let highTrust = await EvaAppAttestService.shared.registerIfNeeded(using: .shared)
+            identityKind = credentials.resolvedIdentityKind
+            trustTier = highTrust ? "high" : credentials.trustTier
             return true
         } catch let error where error.evaRequiresReauthentication {
             await discardStoredSession()
@@ -312,43 +356,93 @@ final class EvaCloudAccountState {
         configuration = nil
         consent = nil
         credits = nil
+        quota = nil
+        identityKind = nil
+        trustTier = nil
         isAuthenticated = false
         isAdultEligible = false
     }
 
-    func accept(credits: EvaCreditState?) {
+    func accept(quota: EvaQuotaState?, credits: EvaCreditState?) {
+        if let quota {
+            self.quota = quota
+            self.credits = Self.creditProjection(from: quota)
+            return
+        }
         if let credits { self.credits = credits }
     }
 
+    func accept(credits: EvaCreditState?) { accept(quota: nil, credits: credits) }
+
     func deactivateCloud() async {
         await EvaCloudTransport.shared.logout()
+        EvaCloudActivationReceiptStore.clear()
         configuration = nil
         consent = nil
         credits = nil
+        quota = nil
+        identityKind = nil
+        trustTier = nil
         isAuthenticated = false
         isAdultEligible = false
     }
 
     func handleAppleCredentialInvalidation() async {
+        guard identityKind == .apple else { return }
         await EvaCloudTransport.shared.logout()
         configuration = nil
         consent = nil
         credits = nil
+        quota = nil
+        identityKind = nil
+        trustTier = nil
         isAuthenticated = false
         isAdultEligible = false
-        lastError = String(localized: "Sign in with Apple authorization changed. Sign in again to use Cloud EVA.")
+        lastError = String(localized: "Your protected Cloud EVA session changed. Activate Cloud EVA again to continue.")
     }
 
     func deleteCloudAccount() async throws {
-        // A fresh Apple exchange gives the deletion endpoint its required
-        // recent-authentication proof and binds the request to this device.
-        _ = try await EvaAppleIdentityService.shared.signIn()
+        if identityKind == .apple {
+            try await EvaAppleIdentityService.shared.reauthenticate()
+        }
         try await EvaCloudTransport.shared.deleteAccount()
+        EvaCloudActivationReceiptStore.clear()
         configuration = nil
         consent = nil
         credits = nil
+        quota = nil
+        identityKind = nil
+        trustTier = nil
         isAuthenticated = false
         isAdultEligible = false
+    }
+
+    func protectWithApple() async throws {
+        guard identityKind == .guest else { return }
+        do {
+            _ = try await EvaCloudTransport.shared.quota()
+        } catch let error where error.evaRequiresReauthentication {
+            // A link may have committed while its response was lost. In that
+            // case the guest family is intentionally revoked; a normal Apple
+            // exchange recovers the canonical account without another merge.
+            _ = try await EvaAppleIdentityService.shared.signIn()
+            identityKind = .apple
+            await refresh(forceConfigurationRefresh: true)
+            return
+        }
+        _ = try await EvaAppleIdentityService.shared.linkGuest()
+        await refresh(forceConfigurationRefresh: true)
+        guard identityKind == .apple else { throw EvaProviderError.invalidResponse }
+    }
+
+    private static func creditProjection(from quota: EvaQuotaState?) -> EvaCreditState? {
+        guard let quota else { return nil }
+        return EvaCreditState(
+            balance: quota.remaining,
+            capacity: quota.limit,
+            refillAmount: 1,
+            nextRefillAt: quota.nextAvailableAt ?? Date().addingTimeInterval(TimeInterval(quota.windowSeconds))
+        )
     }
 }
 
@@ -582,7 +676,8 @@ extension EvaInferenceRequest {
         promptSnapshot: LLMChatPromptSnapshot,
         consentRevision: Int,
         userInstructions: EvaUserInstructions? = nil,
-        contractVersion: Int = 1
+        contractVersion: Int = 1,
+        surface: EvaSurface = .evaTab
     ) -> EvaInferenceRequest {
         let messages = promptSnapshot.messages.compactMap { message -> EvaCloudMessage? in
             switch message.role {
@@ -597,6 +692,7 @@ extension EvaInferenceRequest {
             contractVersion: contractVersion,
             locale: Locale.current.identifier,
             timeZone: TimeZone.current.identifier,
+            turnContext: contractVersion >= 4 ? .current(surface: surface) : nil,
             messages: messages.isEmpty ? [EvaCloudMessage(role: .user, content: "Continue.")] : messages,
             context: promptSnapshot.cloudContext.map { $0.forContract(contractVersion) },
             // A v1 Worker's strict schema has no `userInstructions` property and

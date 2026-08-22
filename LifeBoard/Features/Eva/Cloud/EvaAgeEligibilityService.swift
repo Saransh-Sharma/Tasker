@@ -6,9 +6,27 @@ struct EvaAdultEligibilityRequestV1: Codable, Sendable {
     let declaration: String
     let lowerBound: Int?
     let policyVersion: String
+    let policyRequired: Bool
 
     private enum CodingKeys: String, CodingKey {
-        case declaration, lowerBound, policyVersion
+        case declaration, lowerBound, policyVersion, policyRequired
+    }
+
+    init(declaration: String, lowerBound: Int?, policyVersion: String, policyRequired: Bool) {
+        self.declaration = declaration
+        self.lowerBound = lowerBound
+        self.policyVersion = policyVersion
+        self.policyRequired = policyRequired
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        declaration = try container.decode(String.self, forKey: .declaration)
+        lowerBound = try container.decodeIfPresent(Int.self, forKey: .lowerBound)
+        policyVersion = try container.decode(String.self, forKey: .policyVersion)
+        // Version-one fixtures and older clients predate this policy hint. A
+        // missing value means the ordinary, non-forced eligibility check.
+        policyRequired = try container.decodeIfPresent(Bool.self, forKey: .policyRequired) ?? false
     }
 
     func encode(to encoder: Encoder) throws {
@@ -16,6 +34,11 @@ struct EvaAdultEligibilityRequestV1: Codable, Sendable {
         try container.encode(declaration, forKey: .declaration)
         try container.encode(lowerBound, forKey: .lowerBound)
         try container.encode(policyVersion, forKey: .policyVersion)
+        // Keep the original v1 wire representation stable unless the server
+        // must distinguish a policy-enforced revalidation.
+        if policyRequired {
+            try container.encode(true, forKey: .policyRequired)
+        }
     }
 }
 
@@ -25,7 +48,7 @@ struct EvaAgeEligibilityService {
     private static let validityInterval: TimeInterval = 24 * 60 * 60
 
     struct Result: Sendable {
-        let eligibleAdult: Bool
+        let eligible: Bool
         let lowerBound: Int?
         let declaration: String
     }
@@ -42,7 +65,10 @@ struct EvaAgeEligibilityService {
         UserDefaults.standard.removeObject(forKey: lastEligibleAtKey)
     }
 
-    func requestAndRegister(using client: EvaCloudTransport = .shared) async throws -> Result {
+    func requestAndRegister(
+        using client: EvaCloudTransport = .shared,
+        policyRequired: Bool = false
+    ) async throws -> Result {
         guard let presenter = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .flatMap(\.windows)
@@ -52,27 +78,27 @@ struct EvaAgeEligibilityService {
         }
         let response: AgeRangeService.Response
         do {
-            response = try await AgeRangeService.shared.requestAgeRange(ageGates: 18, in: presenter)
+            response = try await AgeRangeService.shared.requestAgeRange(ageGates: 13, in: presenter)
         } catch AgeRangeService.Error.notAvailable {
-            try await registerResult(lowerBound: nil, declaration: "unavailable", using: client)
+            try await registerResult(lowerBound: nil, declaration: "unavailable", policyRequired: policyRequired, using: client)
             UserDefaults.standard.removeObject(forKey: Self.lastEligibleAtKey)
-            return Result(eligibleAdult: false, lowerBound: nil, declaration: "unavailable")
+            return Result(eligible: false, lowerBound: nil, declaration: "unavailable")
         }
         switch response {
         case .declinedSharing:
-            try await registerResult(lowerBound: nil, declaration: "declined", using: client)
+            try await registerResult(lowerBound: nil, declaration: "declined", policyRequired: policyRequired, using: client)
             UserDefaults.standard.removeObject(forKey: Self.lastEligibleAtKey)
-            return Result(eligibleAdult: false, lowerBound: nil, declaration: "declined")
+            return Result(eligible: false, lowerBound: nil, declaration: "declined")
         case .sharing(let range):
             let source = range.ageRangeDeclaration.map { String(describing: $0) } ?? "unspecified"
-            try await registerResult(lowerBound: range.lowerBound, declaration: "shared", using: client)
-            if (range.lowerBound ?? 0) >= 18 {
+            try await registerResult(lowerBound: range.lowerBound, declaration: "shared", policyRequired: policyRequired, using: client)
+            if (range.lowerBound ?? 0) >= 13 {
                 UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastEligibleAtKey)
             } else {
                 UserDefaults.standard.removeObject(forKey: Self.lastEligibleAtKey)
             }
             return Result(
-                eligibleAdult: (range.lowerBound ?? 0) >= 18,
+                eligible: (range.lowerBound ?? 0) >= 13,
                 lowerBound: range.lowerBound,
                 declaration: source
             )
@@ -83,17 +109,22 @@ struct EvaAgeEligibilityService {
 
     func revalidateIfNeeded(using client: EvaCloudTransport = .shared) async throws {
         guard Self.cachedEligibilityIsValid == false else { return }
-        let result = try await requestAndRegister(using: client)
-        guard result.eligibleAdult else { throw EvaProviderError.adultEligibilityRequired }
+        let result = try await requestAndRegister(using: client, policyRequired: true)
+        guard result.eligible else { throw EvaProviderError.adultEligibilityRequired }
     }
 
     private func registerResult(
         lowerBound: Int?,
         declaration: String,
+        policyRequired: Bool,
         using client: EvaCloudTransport
     ) async throws {
         do {
-            try await client.registerAdultEligibility(lowerBound: lowerBound, declaration: declaration)
+            try await client.registerAgeEligibility(
+                lowerBound: lowerBound,
+                declaration: declaration,
+                policyRequired: policyRequired
+            )
         } catch let error as EvaErrorEnvelope where error.code == "adult_eligibility_required" {
             // The server records the negative result before returning the fail-closed error.
         }

@@ -5,6 +5,7 @@ private struct EvaCloudStreamWireEvent: Decodable {
     let requestId: UUID
     let sequence: Int
     let credits: EvaCreditState?
+    let quota: EvaQuotaState?
     let delta: String?
     let value: EvaJSONValue?
     let inputTokens: Int?
@@ -67,7 +68,7 @@ extension EvaCloudTransport {
 
     fileprivate static func event(from wire: EvaCloudStreamWireEvent) throws -> EvaStreamEvent {
         switch wire.type {
-        case "response.accepted": .accepted(requestId: wire.requestId, sequence: wire.sequence, credits: wire.credits)
+        case "response.accepted": .accepted(requestId: wire.requestId, sequence: wire.sequence, quota: wire.quota, credits: wire.credits)
         case "response.text.delta":
             if let delta = wire.delta { .textDelta(requestId: wire.requestId, sequence: wire.sequence, delta: delta) }
             else { throw EvaProviderError.invalidResponse }
@@ -90,6 +91,7 @@ extension EvaCloudTransport {
             sequence: wire.sequence,
             speechTicket: wire.speechTicket,
             speechSource: wire.speechSource,
+            quota: wire.quota,
             credits: wire.credits
         )
         case "response.failed":

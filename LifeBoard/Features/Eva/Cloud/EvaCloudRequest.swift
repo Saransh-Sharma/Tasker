@@ -63,23 +63,54 @@ extension EvaCloudTransport {
             let credentials = try await validCredentials()
             request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
         }
-        if attested, EvaInstallationIdentity.platform == "ios" {
-            let challenge = try await attestationChallenge()
-            let digest = Data(SHA256.hash(data: body ?? Data())).base64URLEncodedString()
-            let payload = Data("\(method)\n\(path)\n\(challenge)\n\(digest)".utf8)
-            request.setValue(challenge, forHTTPHeaderField: "X-EVA-Attest-Challenge")
-            request.setValue(try await EvaAppAttestService.shared.assertion(for: payload), forHTTPHeaderField: "X-EVA-Attest-Assertion")
+        if attested,
+           EvaInstallationIdentity.platform == "ios",
+           await EvaAppAttestService.shared.canAssert() {
+            // App Attest is a risk signal. Unsupported devices and transient
+            // assertion failures continue at the account's low-trust tier.
+            if let challenge = try? await attestationChallenge() {
+                let digest = Data(SHA256.hash(data: body ?? Data())).base64URLEncodedString()
+                let payload = Data("\(method)\n\(path)\n\(challenge)\n\(digest)".utf8)
+                if let assertion = try? await EvaAppAttestService.shared.assertion(for: payload) {
+                    request.setValue(challenge, forHTTPHeaderField: "X-EVA-Attest-Challenge")
+                    request.setValue(assertion, forHTTPHeaderField: "X-EVA-Attest-Assertion")
+                }
+            }
         }
         return request
     }
 
     func validCredentials() async throws -> EvaSessionCredentials {
         guard let credentials = try await sessionStore.load() else { throw EvaProviderError.authenticationRequired }
+        guard credentials.installationId == EvaInstallationIdentity.current else {
+            // ThisDeviceOnly Keychain items can outlive app deletion on some
+            // systems. The preference-backed installation marker is the
+            // deliberate reinstall boundary, so never resurrect an old device
+            // session under a new installation identity.
+            try? await sessionStore.clear()
+            try? await sessionStore.clearGuestBootstrapID()
+            await EvaAppAttestService.shared.clearRegistration()
+            throw EvaProviderError.authenticationRequired
+        }
         if credentials.accessTokenExpiresAt.timeIntervalSinceNow > 30 { return credentials }
         guard credentials.refreshTokenExpiresAt > Date() else {
             try? await sessionStore.clear()
             throw EvaProviderError.authenticationRequired
         }
+        if let refreshTask { return try await refreshTask.value }
+        let task = Task { try await self.rotate(credentials) }
+        refreshTask = task
+        do {
+            let replacement = try await task.value
+            refreshTask = nil
+            return replacement
+        } catch {
+            refreshTask = nil
+            throw error
+        }
+    }
+
+    private func rotate(_ credentials: EvaSessionCredentials) async throws -> EvaSessionCredentials {
         struct Body: Encodable {
             let accountId: String
             let familyId: UUID
@@ -116,7 +147,9 @@ extension EvaCloudTransport {
             refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt,
             installationId: credentials.installationId,
             platform: credentials.platform,
-            appleUserIdentifier: credentials.appleUserIdentifier
+            appleUserIdentifier: credentials.appleUserIdentifier,
+            identityKind: credentials.identityKind,
+            trustTier: credentials.trustTier
         )
         try await sessionStore.save(replacement)
         return replacement

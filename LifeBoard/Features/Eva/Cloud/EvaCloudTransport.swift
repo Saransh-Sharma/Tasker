@@ -29,6 +29,7 @@ actor EvaCloudTransport {
     let configurationStore: EvaSignedConfigurationStore
     let controlSession: URLSession
     let inferenceSession: URLSession
+    var refreshTask: Task<EvaSessionCredentials, Error>?
 
     init(
         sessionStore: EvaCloudSessionStore = .shared,
@@ -42,6 +43,37 @@ actor EvaCloudTransport {
         // Tests that inject one protocol-backed session should observe every
         // route. Production gets a dedicated streaming policy.
         self.inferenceSession = inferenceSession ?? session ?? Self.makeInferenceSession()
+    }
+
+    func currentAccountIDForAttestation() async -> String? {
+        try? await sessionStore.load()?.accountId
+    }
+
+    func recordHighTrust(for accountID: String) async {
+        await recordTrustTier("high", for: accountID)
+    }
+
+    func recordLowTrust(for accountID: String) async {
+        await recordTrustTier("low", for: accountID)
+    }
+
+    private func recordTrustTier(_ trustTier: String, for accountID: String) async {
+        guard let credentials = try? await sessionStore.load(),
+              credentials.accountId == accountID else { return }
+        let replacement = EvaSessionCredentials(
+            accountId: credentials.accountId,
+            familyId: credentials.familyId,
+            accessToken: credentials.accessToken,
+            accessTokenExpiresAt: credentials.accessTokenExpiresAt,
+            refreshToken: credentials.refreshToken,
+            refreshTokenExpiresAt: credentials.refreshTokenExpiresAt,
+            installationId: credentials.installationId,
+            platform: credentials.platform,
+            appleUserIdentifier: credentials.appleUserIdentifier,
+            identityKind: credentials.identityKind,
+            trustTier: trustTier
+        )
+        try? await sessionStore.save(replacement)
     }
 
     /// Short account/configuration calls should fail while recovery still feels

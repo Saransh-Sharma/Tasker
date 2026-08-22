@@ -7,9 +7,35 @@ struct EvaErrorEnvelope: Codable, Error, LocalizedError, Sendable {
     let retryable: Bool
     let retryAfter: Int?
     let credits: EvaCreditState?
+    let quota: EvaQuotaState?
     let recoveryAction: String?
 
     var errorDescription: String? { message }
+
+    init(
+        code: String,
+        message: String,
+        requestId: String,
+        retryable: Bool,
+        retryAfter: Int?,
+        credits: EvaCreditState?,
+        quota: EvaQuotaState? = nil,
+        recoveryAction: String?
+    ) {
+        self.code = code
+        self.message = message
+        self.requestId = requestId
+        self.retryable = retryable
+        self.retryAfter = retryAfter
+        self.credits = credits
+        self.quota = quota
+        self.recoveryAction = recoveryAction
+    }
+}
+
+enum EvaIdentityKind: String, Codable, Sendable {
+    case guest
+    case apple
 }
 
 struct EvaUsage: Codable, Sendable {
@@ -30,6 +56,38 @@ struct EvaSessionCredentials: Codable, Sendable {
     let installationId: UUID
     let platform: String
     let appleUserIdentifier: String?
+    let identityKind: EvaIdentityKind?
+    let trustTier: String?
+
+    var resolvedIdentityKind: EvaIdentityKind {
+        identityKind ?? (appleUserIdentifier == nil ? .guest : .apple)
+    }
+
+    init(
+        accountId: String,
+        familyId: UUID,
+        accessToken: String,
+        accessTokenExpiresAt: Date,
+        refreshToken: String,
+        refreshTokenExpiresAt: Date,
+        installationId: UUID,
+        platform: String,
+        appleUserIdentifier: String?,
+        identityKind: EvaIdentityKind? = nil,
+        trustTier: String? = nil
+    ) {
+        self.accountId = accountId
+        self.familyId = familyId
+        self.accessToken = accessToken
+        self.accessTokenExpiresAt = accessTokenExpiresAt
+        self.refreshToken = refreshToken
+        self.refreshTokenExpiresAt = refreshTokenExpiresAt
+        self.installationId = installationId
+        self.platform = platform
+        self.appleUserIdentifier = appleUserIdentifier
+        self.identityKind = identityKind
+        self.trustTier = trustTier
+    }
 }
 
 struct EvaRuntimeDescriptor: Sendable, Equatable {
@@ -52,10 +110,10 @@ enum EvaProviderError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .unavailable(let message): message
-        case .authenticationRequired: String(localized: "Sign in with Apple to use Cloud EVA.")
-        case .adultEligibilityRequired: String(localized: "Confirm 18+ eligibility to use Cloud EVA.")
+        case .authenticationRequired: String(localized: "Activate Cloud EVA to continue.")
+        case .adultEligibilityRequired: String(localized: "Cloud EVA is available to people age 13 or older.")
         case .consentRequired: String(localized: "Review what Cloud EVA may use before continuing.")
-        case .creditsExhausted: String(localized: "Cloud credits are unavailable. Offline EVA is still available.")
+        case .creditsExhausted: String(localized: "You've reached Cloud EVA's rolling answer limit. Offline EVA is still available.")
         case .invalidResponse: String(localized: "Cloud EVA returned an unreadable response.")
         }
     }

@@ -136,7 +136,7 @@ final class EvaSpokenOutputController {
                 EvaAudioSessionArbiter.shared.endSpokenOutput()
             } catch {
                 if let envelope = error as? EvaErrorEnvelope,
-                   envelope.code == "insufficient_credits" {
+                   envelope.code == "insufficient_credits" || envelope.code == "daily_quota_exhausted" {
                     requiresPaidRegeneration = true
                 }
                 state = .failed(error.localizedDescription)

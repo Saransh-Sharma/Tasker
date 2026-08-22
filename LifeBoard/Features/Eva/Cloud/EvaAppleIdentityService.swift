@@ -81,8 +81,54 @@ final class EvaAppleIdentityService: NSObject {
             signedAppTransaction: try await catalystAppTransaction()
         )
         onDeviceVerification?()
-        try await EvaAppAttestService.shared.registerIfNeeded(using: client)
+        _ = await EvaAppAttestService.shared.registerIfNeeded(using: client)
         return session
+    }
+
+    func linkGuest(using client: EvaCloudTransport = .shared) async throws -> EvaAppleExchangeOutcome {
+        let challenge = try await client.appleChallenge(purpose: "link")
+        let prepared = PreparedSignIn(challengeID: challenge.id, nonce: challenge.nonce)
+        let credential = try await authorize(prepared)
+        guard let identityTokenData = credential.identityToken,
+              let authorizationCodeData = credential.authorizationCode,
+              let identityToken = String(data: identityTokenData, encoding: .utf8),
+              let authorizationCode = String(data: authorizationCodeData, encoding: .utf8) else {
+            throw EvaProviderError.authenticationRequired
+        }
+        let outcome = try await client.linkAppleCredential(
+            challengeId: prepared.challengeID,
+            nonce: prepared.nonce,
+            identityToken: identityToken,
+            authorizationCode: authorizationCode,
+            appleUserIdentifier: credential.user,
+            signedAppTransaction: try await catalystAppTransaction()
+        )
+        _ = await EvaAppAttestService.shared.registerIfNeeded(using: client)
+        return outcome
+    }
+
+    /// Confirms the Apple identity already linked to the active account without
+    /// replacing its refresh family. This is intentionally distinct from
+    /// `signIn`: account deletion must never switch accounts as a side effect of
+    /// recent-authentication UI.
+    func reauthenticate(using client: EvaCloudTransport = .shared) async throws {
+        let challenge = try await client.appleChallenge(purpose: "reauthenticate")
+        let prepared = PreparedSignIn(challengeID: challenge.id, nonce: challenge.nonce)
+        let credential = try await authorize(prepared)
+        guard let identityTokenData = credential.identityToken,
+              let authorizationCodeData = credential.authorizationCode,
+              let identityToken = String(data: identityTokenData, encoding: .utf8),
+              let authorizationCode = String(data: authorizationCodeData, encoding: .utf8) else {
+            throw EvaProviderError.authenticationRequired
+        }
+        try await client.reauthenticateAppleCredential(
+            challengeId: prepared.challengeID,
+            nonce: prepared.nonce,
+            identityToken: identityToken,
+            authorizationCode: authorizationCode,
+            appleUserIdentifier: credential.user,
+            signedAppTransaction: try await catalystAppTransaction()
+        )
     }
 
     func credentialIsAuthorized() async -> Bool {

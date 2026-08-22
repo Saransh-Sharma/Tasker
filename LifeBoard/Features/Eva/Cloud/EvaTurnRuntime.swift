@@ -58,7 +58,7 @@ struct EvaTurnRuntime: Sendable {
                   let consent = account.consent else {
                 throw EvaProviderError.unavailable(String(localized: "Cloud EVA configuration is not ready."))
             }
-            let creditReady = policy.billable == false || (account.credits?.balance ?? 0) > 0
+            let creditReady = policy.billable == false || (account.quota?.remaining ?? account.credits?.balance ?? 0) > 0
             guard creditReady else { throw EvaProviderError.creditsExhausted(account.credits) }
             return EvaTurnRuntime(
                 provider: .cloud,
@@ -148,19 +148,45 @@ struct EvaTurnRuntime: Sendable {
             grants: Array(grants),
             updatedAt: .distantPast
         )
+        let habitSignals = await EvaHabitContextResolver.today()
         let sections = await EvaTurnContextAssembler.sections(
             budget: contextBudget,
             compactProjection: compactProjection,
             executiveState: executiveState,
             slashCommandState: slashCommandState,
             personalMemory: personalMemory,
-            habitSignals: [],
+            habitSignals: habitSignals,
             evidence: evidence,
             consent: consent,
+            route: route,
             userQuery: userQuery
         )
         let exclusions = EvaContextExclusionStore.load()
         return sections.map { exclusions.filtering($0.forContract(contractVersion)) }
+    }
+
+    /// Adds the route's adaptive baseline around any caller-supplied section.
+    /// Explicit context wins per category (for example a planner's exact task
+    /// roster or Journal's already-authorized evidence), while the shared path
+    /// contributes capacity, calendar, goals, and habits where the route allows.
+    func enrichedContextSections(
+        explicit: [EvaCloudContextSection],
+        userQuery: String
+    ) async -> [EvaCloudContextSection] {
+        let adaptive = await contextSections(
+            compactProjection: "",
+            executiveState: nil,
+            slashCommandState: nil,
+            personalMemory: nil,
+            evidence: .notProvided,
+            userQuery: userQuery
+        )
+        var byCategory = Dictionary(uniqueKeysWithValues: adaptive.map { ($0.category, $0) })
+        let exclusions = EvaContextExclusionStore.load()
+        for section in explicit {
+            byCategory[section.category] = exclusions.filtering(section.forContract(contractVersion))
+        }
+        return EvaContextEnvelope(sections: Array(byCategory.values)).ordered()
     }
 
     func cloudDisplayText(from output: String) -> String? {
@@ -169,6 +195,22 @@ struct EvaTurnRuntime: Sendable {
         return normalized.hasPrefix("Failed:")
             ? String(normalized.dropFirst("Failed:".count)).trimmingCharacters(in: .whitespaces)
             : normalized
+    }
+}
+
+private enum EvaHabitContextResolver {
+    static func today(now: Date = Date()) async -> [LifeBoardHabitSignal] {
+        guard let repository = LLMContextRepositoryFactory.habitRuntimeReadRepository else { return [] }
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: now)
+        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? now
+        return await withCheckedContinuation { continuation in
+            repository.fetchSignals(start: start, end: end) { result in
+                continuation.resume(returning: ((try? result.get()) ?? []).map {
+                    LifeBoardHabitSignal(summary: $0, referenceDate: now)
+                })
+            }
+        }
     }
 }
 

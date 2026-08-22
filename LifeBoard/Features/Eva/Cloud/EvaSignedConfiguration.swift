@@ -31,6 +31,25 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         let structured: Bool
     }
 
+    struct GuestAccessPolicy: Codable, Sendable {
+        let bootstrapEnabled: Bool
+        let inferenceEnabled: Bool
+        let appleLinkingEnabled: Bool
+        let rolloutPercent: Int
+    }
+
+    struct UsagePolicy: Codable, Sendable {
+        let billableLimit: Int
+        let helperLimit: Int
+        let rollingWindowSeconds: Int
+    }
+
+    struct AgePolicy: Codable, Sendable {
+        let minimumAge: Int
+        let unknownAgeAllowed: Bool
+        let requiredRegionFailClosed: Bool
+    }
+
     let schemaVersion: Int
     let version: Int
     let issuedAt: Date
@@ -45,7 +64,17 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
     let minimumClientVersion: String
     let contractVersions: [Int]
     let appRuntime: AppRuntimeConfiguration
+    let guestAccess: GuestAccessPolicy?
+    let usagePolicy: UsagePolicy?
+    let agePolicy: AgePolicy?
     let routes: [EvaCloudRoute: RoutePolicy]
+
+    var requiresAgeDecision: Bool {
+        cloudState != .disabled && (
+            agePolicy?.requiredRegionFailClosed == true
+            || agePolicy?.unknownAgeAllowed == false
+        )
+    }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion
@@ -62,6 +91,9 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         case minimumClientVersion
         case contractVersions
         case appRuntime
+        case guestAccess
+        case usagePolicy
+        case agePolicy
         case routes
     }
 
@@ -80,6 +112,9 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         minimumClientVersion: String,
         contractVersions: [Int],
         appRuntime: AppRuntimeConfiguration = .releaseDefault,
+        guestAccess: GuestAccessPolicy? = nil,
+        usagePolicy: UsagePolicy? = nil,
+        agePolicy: AgePolicy? = nil,
         routes: [EvaCloudRoute: RoutePolicy]
     ) {
         self.schemaVersion = schemaVersion
@@ -96,6 +131,9 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         self.minimumClientVersion = minimumClientVersion
         self.contractVersions = contractVersions
         self.appRuntime = appRuntime
+        self.guestAccess = guestAccess
+        self.usagePolicy = usagePolicy
+        self.agePolicy = agePolicy
         self.routes = routes
     }
 
@@ -115,6 +153,9 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         minimumClientVersion = try container.decode(String.self, forKey: .minimumClientVersion)
         contractVersions = try container.decode([Int].self, forKey: .contractVersions)
         appRuntime = try container.decodeIfPresent(AppRuntimeConfiguration.self, forKey: .appRuntime) ?? .releaseDefault
+        guestAccess = try container.decodeIfPresent(GuestAccessPolicy.self, forKey: .guestAccess)
+        usagePolicy = try container.decodeIfPresent(UsagePolicy.self, forKey: .usagePolicy)
+        agePolicy = try container.decodeIfPresent(AgePolicy.self, forKey: .agePolicy)
 
         let wireRoutes = try container.decode([String: RoutePolicy].self, forKey: .routes)
         var decodedRoutes: [EvaCloudRoute: RoutePolicy] = [:]
@@ -148,6 +189,9 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
         try container.encode(minimumClientVersion, forKey: .minimumClientVersion)
         try container.encode(contractVersions, forKey: .contractVersions)
         try container.encode(appRuntime, forKey: .appRuntime)
+        try container.encodeIfPresent(guestAccess, forKey: .guestAccess)
+        try container.encodeIfPresent(usagePolicy, forKey: .usagePolicy)
+        try container.encodeIfPresent(agePolicy, forKey: .agePolicy)
         try container.encode(
             Dictionary(uniqueKeysWithValues: routes.map { ($0.key.rawValue, $0.value) }),
             forKey: .routes

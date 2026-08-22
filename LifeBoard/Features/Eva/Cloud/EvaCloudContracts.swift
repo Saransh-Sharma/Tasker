@@ -2,6 +2,8 @@ import Foundation
 
 enum EvaCloudRoute: String, Codable, CaseIterable, Sendable {
     case chat
+    case capture
+    case navigation
     case plan
     case planRepair
     case fieldSuggestion
@@ -15,6 +17,50 @@ enum EvaCloudRoute: String, Codable, CaseIterable, Sendable {
     case knowledgeAnswer
     case shortcutsAnswer
     case debugSmoke
+}
+
+enum EvaSurface: String, Codable, Sendable {
+    case evaTab
+    case globalComposer
+    case home
+    case dailyBrief
+    case knowledge
+    case journal
+    case shortcut
+    case background
+}
+
+struct EvaTurnContext: Codable, Sendable, Equatable {
+    let requestedAt: Date
+    let localDate: String
+    let calendarIdentifier: String
+    let firstWeekday: Int
+    let surface: EvaSurface
+
+    static func current(
+        surface: EvaSurface,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> EvaTurnContext {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return EvaTurnContext(
+            requestedAt: now,
+            localDate: formatter.string(from: now),
+            calendarIdentifier: calendar.identifier.evaWireName,
+            firstWeekday: calendar.firstWeekday,
+            surface: surface
+        )
+    }
+}
+
+private extension Calendar.Identifier {
+    var evaWireName: String {
+        String(describing: self)
+    }
 }
 
 struct EvaCloudMessage: Codable, Sendable, Equatable {
@@ -43,6 +89,7 @@ struct EvaCloudContextSection: Codable, Sendable {
         case health
         case lifeMoments
         case personalMemory
+        case knowledge
 
         /// Mirrors `sensitiveContextCategories` in the shared contract. The
         /// server is authoritative; this only avoids building a section that
@@ -76,15 +123,26 @@ struct EvaCloudContextSection: Codable, Sendable {
         guard version >= 3 else {
             return EvaCloudContextSection(category: category, payload: payload)
         }
+        let resolved = metadata ?? .init(
+            availability: "complete",
+            availableCount: nil,
+            includedCount: nil,
+            partialReasons: [],
+            sourceIDs: []
+        )
         return EvaCloudContextSection(
             category: category,
             payload: payload,
-            metadata: metadata ?? .init(
-                availability: "complete",
-                availableCount: nil,
-                includedCount: nil,
-                partialReasons: [],
-                sourceIDs: []
+            metadata: .init(
+                availability: resolved.availability,
+                availableCount: resolved.availableCount,
+                includedCount: resolved.includedCount,
+                partialReasons: resolved.partialReasons,
+                sourceIDs: resolved.sourceIDs,
+                selectionReasons: version >= 4
+                    ? (resolved.selectionReasons?.isEmpty == false ? resolved.selectionReasons : ["routeBaseline"])
+                    : nil,
+                freshnessAt: version >= 4 ? resolved.freshnessAt : nil
             )
         )
     }
@@ -96,13 +154,33 @@ struct EvaContextSectionMetadata: Codable, Sendable, Equatable {
     let includedCount: Int?
     let partialReasons: [String]
     let sourceIDs: [String]
+    let selectionReasons: [String]?
+    let freshnessAt: Date?
+
+    init(
+        availability: String,
+        availableCount: Int?,
+        includedCount: Int?,
+        partialReasons: [String],
+        sourceIDs: [String],
+        selectionReasons: [String]? = nil,
+        freshnessAt: Date? = nil
+    ) {
+        self.availability = availability
+        self.availableCount = availableCount
+        self.includedCount = includedCount
+        self.partialReasons = partialReasons
+        self.sourceIDs = sourceIDs
+        self.selectionReasons = selectionReasons
+        self.freshnessAt = freshnessAt
+    }
 }
 
 struct EvaInferenceRequest: Codable, Sendable {
     /// The highest contract version this build can speak.
     ///
     /// It is a ceiling, not the value to send. See `negotiatedContractVersion`.
-    static let maximumContractVersion = 3
+    static let maximumContractVersion = 4
 
     /// The version to actually send, given what the server advertises.
     ///
@@ -134,6 +212,7 @@ struct EvaInferenceRequest: Codable, Sendable {
     let contractVersion: Int
     let locale: String
     let timeZone: String
+    var turnContext: EvaTurnContext? = nil
     let messages: [EvaCloudMessage]
     let context: [EvaCloudContextSection]
     let userInstructions: EvaUserInstructions?
@@ -151,6 +230,14 @@ struct EvaCreditState: Codable, Sendable, Equatable {
     let nextRefillAt: Date
 }
 
+struct EvaQuotaState: Codable, Sendable, Equatable {
+    let limit: Int
+    let used: Int
+    let remaining: Int
+    let windowSeconds: Int
+    let nextAvailableAt: Date?
+}
+
 struct EvaConsentPolicy: Codable, Sendable, Equatable {
     enum Grant: String, Codable, CaseIterable, Sendable {
         case journal
@@ -162,14 +249,29 @@ struct EvaConsentPolicy: Codable, Sendable, Equatable {
     let schemaVersion: Int
     let revision: Int
     let grants: [Grant]
+    let reviewRequired: Bool?
     let updatedAt: Date
+
+    init(
+        schemaVersion: Int,
+        revision: Int,
+        grants: [Grant],
+        reviewRequired: Bool? = nil,
+        updatedAt: Date
+    ) {
+        self.schemaVersion = schemaVersion
+        self.revision = revision
+        self.grants = grants
+        self.reviewRequired = reviewRequired
+        self.updatedAt = updatedAt
+    }
 }
 
 enum EvaStreamEvent: Sendable {
-    case accepted(requestId: UUID, sequence: Int, credits: EvaCreditState?)
+    case accepted(requestId: UUID, sequence: Int, quota: EvaQuotaState?, credits: EvaCreditState?)
     case textDelta(requestId: UUID, sequence: Int, delta: String)
     case structured(requestId: UUID, sequence: Int, value: EvaJSONValue)
     case usage(requestId: UUID, sequence: Int, usage: EvaUsage)
-    case completed(requestId: UUID, sequence: Int, speechTicket: String?, speechSource: String?, credits: EvaCreditState?)
+    case completed(requestId: UUID, sequence: Int, speechTicket: String?, speechSource: String?, quota: EvaQuotaState?, credits: EvaCreditState?)
     case failed(requestId: UUID, sequence: Int, error: EvaErrorEnvelope)
 }
