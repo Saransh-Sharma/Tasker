@@ -77,13 +77,28 @@ public struct MoodDialSelectedMoodView: View {
                 .accessibilityIdentifier("moodDial.sentence")
 
             ZStack {
-                mood.glowImage
-                    .resizable()
-                    .interpolation(.medium)
-                    .scaledToFit()
-                    .frame(width: 292 * layoutScale, height: 292 * layoutScale)
-                    .opacity(0.24)
-                    .accessibilityHidden(true)
+                // Drawn, not blitted. `Neutral_Glow`/`Positive_Glow`/
+                // `Difficult_Glow` are indexed PNGs with a PLTE chunk and no
+                // tRNS — fully opaque 627x627 squares whose soft falloff was
+                // flattened onto a light background when they were authored. At
+                // 24% over a light canvas that reads as a faint halo, which is
+                // why it looked right; over the night daypart the same square
+                // reads as a grey box sitting under the mood.
+                //
+                // A radial gradient has real alpha, so it falls off to nothing
+                // on any background, and it picks up the daypart tint the theme
+                // already computes per mood.
+                RadialGradient(
+                    colors: [
+                        theme.moodAccent(mood).opacity(0.38),
+                        theme.moodAccent(mood).opacity(0)
+                    ],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: 146 * layoutScale
+                )
+                .frame(width: 292 * layoutScale, height: 292 * layoutScale)
+                .accessibilityHidden(true)
 
                 mood.largeImage
                     .resizable()

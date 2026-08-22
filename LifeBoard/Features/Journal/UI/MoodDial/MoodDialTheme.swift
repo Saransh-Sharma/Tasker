@@ -78,20 +78,26 @@ public struct MoodDialTheme: @unchecked Sendable {
 
     /// Grayscale fallback used when a host app forgets to inject a theme
     /// (previews, tests). Intentionally plain so the omission is visible.
+    ///
+    /// Plain, but not light-only. Every value here used to be a fixed
+    /// `Color(white:)`, so if this fallback ever reached a running app in dark
+    /// appearance it rendered a white slab with near-black ink — the omission
+    /// would have been visible as a bug rather than as a plain theme. These are
+    /// the same neutral steps, mirrored for dark.
     public static let neutral = MoodDialTheme(
-        backgroundTop: Color(white: 0.97),
-        backgroundBottom: Color(white: 0.93),
-        accent: Color(white: 0.25),
-        accentContrast: .white,
-        surface: .white,
-        heading: Color(white: 0.15),
-        textSecondary: Color(white: 0.35),
-        textTertiary: Color(white: 0.55),
+        backgroundTop: Color(uiColor: .lifeboardDynamic(lightHex: "#F7F7F7", darkHex: "#16161A")),
+        backgroundBottom: Color(uiColor: .lifeboardDynamic(lightHex: "#EDEDED", darkHex: "#1E1E24")),
+        accent: Color(uiColor: .lifeboardDynamic(lightHex: "#404040", darkHex: "#C8C8CE")),
+        accentContrast: Color(uiColor: .lifeboardDynamic(lightHex: "#FFFFFF", darkHex: "#16161A")),
+        surface: Color(uiColor: .lifeboardDynamic(lightHex: "#FFFFFF", darkHex: "#22222A")),
+        heading: Color(uiColor: .lifeboardDynamic(lightHex: "#262626", darkHex: "#F2F2F5")),
+        textSecondary: Color(uiColor: .lifeboardDynamic(lightHex: "#595959", darkHex: "#B8B8C0")),
+        textTertiary: Color(uiColor: .lifeboardDynamic(lightHex: "#8C8C8C", darkHex: "#8E8E96")),
         titleFont: .system(size: 30, weight: .bold, design: .rounded),
         labelFont: .system(size: 17, weight: .semibold, design: .rounded),
         captionFont: .system(size: 14, weight: .regular, design: .rounded),
-        segmentColor: { _ in Color(white: 0.8) },
-        moodAccent: { _ in Color(white: 0.4) }
+        segmentColor: { _ in Color(uiColor: .lifeboardDynamic(lightHex: "#CCCCCC", darkHex: "#3A3A44")) },
+        moodAccent: { _ in Color(uiColor: .lifeboardDynamic(lightHex: "#666666", darkHex: "#9A9AA4")) }
     )
 }
 

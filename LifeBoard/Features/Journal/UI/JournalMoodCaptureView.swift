@@ -104,19 +104,28 @@ struct JournalHaptics: JournalHapticsProviding {
 // MARK: - Capture view
 
 /// Two-stage mood → optional energy capture presented from the capture orb.
+///
+/// Migrated onto the composer kit. The dial stage uses `contentFit: .filling`
+/// because `MoodDialView` sizes its wheel from a `GeometryReader`, which gets an
+/// undefined height inside the scaffold's `ScrollView` — so it keeps the
+/// composer's chrome (editor presentation, warm canvas, cancel item, commit bar,
+/// privacy redaction) without the scroll container that would collapse it. The
+/// energy stage owns its own scroll view around ordinary clay sections.
 struct JournalMoodCaptureView: View {
     @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var store: TrackFoundationStore
     @State private var draftMood: Mood = .none
     @State private var stage: Stage = .mood
-    @State private var energy = 3.0
+    @State private var energy = 3
     @State private var includesEnergy = false
-    @State private var isSaving = false
+    @State private var commitPhase: LifeBoardComposerPhase = .idle
+    @State private var successTrigger = 0
 
-    private enum Stage { case mood, energy }
+    private typealias Stage = JournalMoodCaptureStageKind
 
     init(
         repository: CoreDataTrackFoundationRepository,
@@ -129,145 +138,202 @@ struct JournalMoodCaptureView: View {
     }
 
     var body: some View {
-        let palette = DaypartTokens.palette(for: preferences.resolvedDaypart())
-        let theme = MoodDialTheme.sunriseGlass(palette: palette)
+        let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
 
-        ZStack(alignment: .top) {
-            switch stage {
-            case .mood:
-                MoodDialView(selectedMood: $draftMood)
-                    .transition(.opacity)
-            case .energy:
-                energyStage(palette: palette)
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
-            }
-
-            header(palette: palette)
-        }
-        .background(
-            LinearGradient(
-                colors: [theme.backgroundTop, theme.backgroundBottom],
-                startPoint: .top,
-                endPoint: .bottom
+        ComposerScaffold(
+            title: stage == .mood ? "How are you?" : "Energy",
+            titleDisplayMode: .inline,
+            identifier: "journalParity.moodCapture",
+            contentFit: .filling,
+            cancelIdentifier: "journalParity.moodCapture.cancel"
+        ) {
+            JournalMoodCaptureStage(
+                stage: stage,
+                draftMood: $draftMood,
+                includesEnergy: $includesEnergy,
+                energy: $energy,
+                palette: palette
             )
-            .ignoresSafeArea()
-        )
-        .environment(\.moodDialTheme, theme)
-        .environment(\.journalHaptics, JournalHaptics())
+        } commit: {
+            JournalMoodCaptureCommitBar(
+                stage: stage,
+                commitPhase: commitPhase,
+                onNext: advance,
+                onSave: save
+            )
+        }
+        .lifeboardCompletionBurst(trigger: successTrigger)
         .interactiveDismissDisabled()
-        .accessibilityIdentifier("journalParity.moodCapture")
         .onAppear { MoodAssetPreheater.preheatMoodAssets() }
     }
 
-    private func header(palette: DaypartPalette) -> some View {
-        HStack {
-            Button("Cancel") { dismiss() }
-                .lifeboardFont(.headline)
-                .foregroundStyle(palette.color(for: .foreground))
-                .frame(minWidth: 76, minHeight: 44)
-                .background(.regularMaterial, in: Capsule())
-                .accessibilityIdentifier("journalParity.moodCapture.cancel")
-
-            Spacer()
-
-            Button(stage == .mood ? "Next" : (isSaving ? "Saving…" : "Save")) {
-                advance()
-            }
-            .lifeboardFont(.headline)
-            .foregroundStyle(Color(SemanticColorTokens.foundationOnCelestialAccent))
-            .frame(minWidth: 84, minHeight: 44)
-            .background(palette.color(for: .celestialCore), in: Capsule())
-            .disabled(isSaving)
-            .accessibilityIdentifier("journalParity.moodCapture.confirm")
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-    }
-
     private func advance() {
-        switch stage {
-        case .mood:
-            withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.82)) {
-                stage = .energy
-            }
-        case .energy:
-            save()
+        withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
+            stage = .energy
         }
     }
 
     private func save() {
-        guard !isSaving else { return }
-        isSaving = true
-        let value = MoodEnergyCheckInValue(
-            mood: draftMood.lifeBoardJournalMood,
-            energy: includesEnergy ? Int(energy.rounded()) : nil
-        )
-        Task {
-            await store.saveMood(value)
-            await MainActor.run {
-                HapticFeedback.success()
-                dismiss()
-            }
-        }
-    }
-
-    private func energyStage(palette: DaypartPalette) -> some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            draftMood.largeImage
-                .resizable()
-                .interpolation(.high)
-                .scaledToFit()
-                .frame(width: 132, height: 132)
-                .accessibilityHidden(true)
-
-            Text(includesEnergy ? energyLabel : "Energy is optional")
-                .lifeboardFont(.metric)
-                .foregroundStyle(palette.color(for: .foreground))
-                .contentTransition(.opacity)
-
-            VStack(spacing: 18) {
-                Toggle("Add an energy signal", isOn: $includesEnergy.animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85)))
-                    .lifeboardFont(.headline)
-
-                if includesEnergy {
-                    Slider(value: $energy, in: 1...5, step: 1) {
-                        Text("Energy")
-                    } minimumValueLabel: {
-                        Image(systemName: "battery.25")
-                    } maximumValueLabel: {
-                        Image(systemName: "battery.100")
-                    }
-                    .tint(palette.color(for: .celestialCore))
-                    .accessibilityValue(energyLabel)
-                    .onChange(of: energy) {
-                        HapticFeedback.selection()
-                    }
+        guard case .running = commitPhase else {
+            commitPhase = .running(progress: nil)
+            let value = MoodEnergyCheckInValue(
+                mood: draftMood.lifeBoardJournalMood,
+                energy: includesEnergy ? energy : nil
+            )
+            Task {
+                if await store.saveMood(value) {
+                    commitPhase = .success(receipt: ComposerReceipt())
+                    successTrigger &+= 1
+                    HapticFeedback.success()
+                    dismiss()
+                } else {
+                    commitPhase = .recoverableFailure(.init(
+                        message: "The check-in could not be saved.",
+                        recovery: .retry
+                    ))
                 }
             }
-            .padding(18)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .padding(.horizontal, 24)
-
-            Text("This records your signal. LifeBoard does not assign a clinical interpretation.")
-                .font(.footnote)
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-
-            Spacer()
+            return
         }
-        .padding(.top, 64)
+    }
+}
+
+// MARK: - Stages
+
+private struct JournalMoodCaptureStage: View {
+    let stage: JournalMoodCaptureStageKind
+    @Binding var draftMood: Mood
+    @Binding var includesEnergy: Bool
+    @Binding var energy: Int
+    let palette: DaypartPalette
+
+    var body: some View {
+        switch stage {
+        case .mood:
+            MoodDialView(selectedMood: $draftMood)
+                .environment(\.moodDialTheme, MoodDialTheme.sunriseGlass(palette: palette))
+                .environment(\.journalHaptics, JournalHaptics())
+                // The dial paints its own full-bleed scene. Without this the
+                // commit bar's `safeAreaInset` stops that scene short of the
+                // bottom edge and the composer's warm canvas shows through the
+                // glass as a light band under a dark screen.
+                .ignoresSafeArea()
+                .transition(.opacity)
+        case .energy:
+            JournalMoodEnergyStage(
+                draftMood: draftMood,
+                includesEnergy: $includesEnergy,
+                energy: $energy,
+                palette: palette
+            )
+            .transition(.opacity)
+        }
+    }
+}
+
+/// Mirrors `JournalMoodCaptureView.Stage`; a nested private enum cannot be a
+/// parameter of a sibling struct.
+enum JournalMoodCaptureStageKind { case mood, energy }
+
+private struct JournalMoodEnergyStage: View {
+    let draftMood: Mood
+    @Binding var includesEnergy: Bool
+    @Binding var energy: Int
+    let palette: DaypartPalette
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                draftMood.largeImage
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: 132, height: 132)
+                    .accessibilityHidden(true)
+
+                JournalMoodEnergySection(includesEnergy: $includesEnergy, energy: $energy)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+        }
+        .scrollIndicators(.hidden)
+    }
+}
+
+private struct JournalMoodEnergySection: View {
+    @Binding var includesEnergy: Bool
+    @Binding var energy: Int
+
+    var body: some View {
+        ComposerSection(
+            "Energy",
+            footer: "This records your signal. LifeBoard does not assign a clinical interpretation."
+        ) {
+            Toggle("Add an energy signal", isOn: $includesEnergy)
+                .toggleStyle(.lifeBoardClay)
+                .accessibilityIdentifier("journalParity.moodCapture.includesEnergy")
+            if includesEnergy {
+                // A slider was trying to be this: an ordered 1-5 magnitude with
+                // a caption, which is exactly what a bead run is for. The
+                // vocabulary matches `MoodEnergySection` in Track so the two
+                // mood composers stop describing one scale two different ways.
+                BeadStepper(
+                    "Energy",
+                    value: $energy,
+                    in: 1...5,
+                    beadSymbol: "bolt.fill",
+                    caption: Self.caption,
+                    identifier: "journalParity.moodCapture.energy"
+                )
+            }
+        }
     }
 
-    private var energyLabel: String {
-        switch Int(energy.rounded()) {
-        case 1: return "Very low energy"
-        case 2: return "Low energy"
-        case 3: return "Steady energy"
-        case 4: return "High energy"
-        default: return "Very high energy"
+    private static func caption(_ level: Int) -> String {
+        switch level {
+        case 1: "Running on empty"
+        case 2: "Low"
+        case 3: "Steady"
+        case 4: "Good"
+        default: "Full tank"
+        }
+    }
+}
+
+// MARK: - Commit
+
+private struct JournalMoodCaptureCommitBar: View {
+    let stage: JournalMoodCaptureStageKind
+    let commitPhase: LifeBoardComposerPhase
+    let onNext: () -> Void
+    let onSave: () -> Void
+
+    var body: some View {
+        switch stage {
+        case .mood:
+            VStack(spacing: 8) {
+                Button("Next", action: onNext)
+                    .buttonStyle(.lifeBoardPrimary)
+                    .accessibilityIdentifier("journalParity.moodCapture.confirm")
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background {
+                Color.clear
+                    .lifeBoardSystemGlass(.regular, in: Rectangle())
+                    .ignoresSafeArea(edges: .bottom)
+            }
+        case .energy:
+            // A real commit control: idle → running → success, driven by whether
+            // the check-in actually persisted. The previous "Saving…" was a
+            // title swap that reported nothing.
+            ComposerCommitBar(
+                title: "Save check-in",
+                phase: commitPhase,
+                identifier: "journalParity.moodCapture.confirm",
+                action: onSave
+            )
         }
     }
 }
