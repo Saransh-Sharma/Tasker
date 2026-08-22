@@ -181,7 +181,7 @@ struct EvaContextReceiptSheet: View {
                         }
                         if category.sourceIDs.isEmpty {
                             Text("No record identifiers were included in this section.")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                         } else {
                             ForEach(category.sourceIDs, id: \.self) { sourceID in
                                 sourceRow(category: category.category, sourceID: sourceID)
@@ -196,7 +196,7 @@ struct EvaContextReceiptSheet: View {
                 }
                 Section {
                     Text("These controls affect future EVA requests only. Excluding a record never deletes it from LifeBoard.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                     NavigationLink("EVA privacy and consent settings") {
                         EvaCloudSettingsView()
                     }
