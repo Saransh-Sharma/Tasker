@@ -94,7 +94,7 @@ struct ChatsSettingsView: View {
                         isEditingPrompt = true
                     }
                     .font(.lifeboard(.buttonSmall))
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .tint(Color.lifeboard(.accentPrimary))
 
                     if appManager.systemPrompt != AppManager.defaultSystemPrompt {

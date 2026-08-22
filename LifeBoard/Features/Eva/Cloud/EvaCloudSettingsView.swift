@@ -70,7 +70,7 @@ struct EvaCloudSettingsView: View {
                                 Button("Protect & sync EVA") {
                                     run { try await account.protectWithApple() }
                                 }
-                                .buttonStyle(.borderedProminent)
+                                .buttonStyle(.lifeBoardPrimaryCompact)
                                 .accessibilityIdentifier("evaCloudSettings.protectWithApple")
                               }
                             }
@@ -89,7 +89,7 @@ struct EvaCloudSettingsView: View {
                                   )
                                 }
                               }
-                              .buttonStyle(.borderedProminent)
+                              .buttonStyle(.lifeBoardPrimaryCompact)
                               .tint(Color.lifeboard(.accentPrimary))
                               .accessibilityIdentifier("evaCloudSettings.activateButton")
                             }
@@ -135,7 +135,7 @@ struct EvaCloudSettingsView: View {
                                             .font(.lifeboard(.caption1))
                                             .foregroundStyle(Color.lifeboard(.textSecondary))
                                         Button("Confirm current context") { confirmCurrentConsent() }
-                                            .buttonStyle(.borderedProminent)
+                                            .buttonStyle(.lifeBoardPrimaryCompact)
                                     }
                                 }
                                 consentToggle(.journal, title: String(localized: "Journal"), subtitle: String(localized: "Allow bounded journal context in Cloud EVA requests."), icon: "book.closed.fill")

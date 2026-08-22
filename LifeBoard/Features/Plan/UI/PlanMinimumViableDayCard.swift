@@ -64,7 +64,7 @@ struct PlanMinimumViableDayCard: View {
                     ) {
                         Task { await store.applyPendingScenario() }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .disabled(scenario.isReadyToApply == false)
                 }
             }

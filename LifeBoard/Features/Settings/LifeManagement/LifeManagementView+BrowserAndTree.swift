@@ -200,7 +200,7 @@ extension LifeManagementView {
                 } label: {
                     Label("Add Area", systemImage: "plus.circle.fill")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .disabled(viewModel.isMutating)
                 .accessibilityIdentifier("settings.lifeManagement.addAreaButton")
             }

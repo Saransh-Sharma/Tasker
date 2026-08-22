@@ -123,7 +123,7 @@ struct OnboardingDownloadingModelProgressView: View {
                             #endif
                     }
                     #if os(macOS)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     #endif
                     .scaleOnPress()
 
@@ -165,7 +165,7 @@ struct OnboardingDownloadingModelProgressView: View {
                             #endif
                     }
                     #if os(macOS)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     #endif
                     .padding(.horizontal, Theme.Spacing.xl)
                     .disabled(isInstallInFlight)

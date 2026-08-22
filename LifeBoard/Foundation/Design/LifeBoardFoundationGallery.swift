@@ -2424,7 +2424,7 @@ private struct HomeContextReasonSheet: View {
                 contextReasonCandidate = nil
                 Task { await store.saveCustomization() }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.lifeBoardPrimaryCompact)
             .frame(maxWidth: .infinity)
         }
         .padding(24)
@@ -4352,7 +4352,7 @@ private struct AdaptiveWidgetGallery: View {
                                             Text(descriptor.title).font(.headline)
                                             Text("\(descriptor.defaultSize.title) · \(descriptor.multiplicity.title)")
                                                 .font(.caption)
-                                                .foregroundStyle(.secondary)
+                                                .foregroundStyle(Color.lifeboard(.textSecondary))
                                         }
                                     }
                                     .frame(minHeight: 52)

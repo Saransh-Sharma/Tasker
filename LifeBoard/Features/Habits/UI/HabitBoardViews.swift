@@ -664,7 +664,7 @@ struct HabitBoardScreen: View {
                 Button("Retry") {
                     viewModel.refresh()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .accessibilityIdentifier(HabitBoardAccessibilityID.retryButton)
 
                 Button("Manage Habits") {
@@ -701,7 +701,7 @@ struct HabitBoardScreen: View {
             Button("Manage Habits") {
                 openManageHabitsFromBoard()
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.lifeBoardPrimaryCompact)
             .accessibilityIdentifier(HabitBoardAccessibilityID.createButton)
         }
         .frame(maxWidth: .infinity)

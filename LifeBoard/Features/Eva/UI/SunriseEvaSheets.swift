@@ -1718,7 +1718,7 @@ private struct EvaOverdueRescueSheet: View {
                                 dismiss()
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
 
                         if lastBatchRunID != nil {
                             Button("Undo last apply") {

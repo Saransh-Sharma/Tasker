@@ -231,7 +231,7 @@ extension MessageView {
                 .frame(minWidth: 104, minHeight: 44)
                 .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.lifeBoardPrimaryCompact)
         .tint(action == .discard ? Color.lifeboard(.statusDanger) : Color.lifeboard(.accentPrimary))
     }
 

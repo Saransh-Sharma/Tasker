@@ -29,14 +29,14 @@ struct RoutineRouteView: View {
                         .font(.headline)
                     Text("Historical runs remain readable with their saved routine version.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
 
                 Divider()
                 Text("Run history").font(.headline)
                 if snapshot.runs.isEmpty {
                     Text("No runs recorded yet.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 } else {
                     ForEach(snapshot.runs.prefix(30)) { run in
                         VStack(alignment: .leading, spacing: 5) {
@@ -46,11 +46,11 @@ struct RoutineRouteView: View {
                                 Spacer()
                                 Text(run.startedAt.formatted(date: .abbreviated, time: .shortened))
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.lifeboard(.textSecondary))
                             }
                             Text("Version \(run.versionSnapshot.version) · \(run.events.count)/\(run.versionSnapshot.steps.count) steps · \(routineDuration(run))")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                         }
                         .padding(12)
                         .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -58,7 +58,7 @@ struct RoutineRouteView: View {
                     }
                 }
                 Button("Open in Track", systemImage: "chart.bar.fill") { router.select(.track) }
-                    .buttonStyle(.borderedProminent).tint(Color(SemanticColorTokens.inkPrimary))
+                    .buttonStyle(.lifeBoardPrimaryCompact).tint(Color(SemanticColorTokens.inkPrimary))
             }
         }
         .task(id: id) { await load() }
@@ -151,7 +151,7 @@ struct GoalRouteView: View {
                 ) {
                     showsLinker = true
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .accessibilityIdentifier("goal.primaryAction")
 
@@ -178,10 +178,10 @@ struct GoalRouteView: View {
                             .accessibilityValue(fraction.formatted(.percent.precision(.fractionLength(0))))
                         Text("\(fraction.formatted(.percent.precision(.fractionLength(0)))) · confidence \(progress.confidence.formatted(.percent.precision(.fractionLength(0))))")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     } else {
                         Text("Progress is partial because linked evidence is missing.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
                     Text(progress.nextUsefulAction)
                         .font(.subheadline)
@@ -190,7 +190,7 @@ struct GoalRouteView: View {
                 Divider()
                 Text("Linked sources").font(.headline)
                 if snapshot.links.isEmpty {
-                    Text("No sources linked yet.").foregroundStyle(.secondary)
+                    Text("No sources linked yet.").foregroundStyle(Color.lifeboard(.textSecondary))
                 } else {
                     ForEach(snapshot.links) { resolved in
                         HStack(spacing: 10) {
@@ -201,7 +201,7 @@ struct GoalRouteView: View {
                                     .font(.subheadline.weight(.medium))
                                 Text(resolved.link.source.rawValue.capitalized)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.lifeboard(.textSecondary))
                             }
                             Spacer()
                             if resolved.source == nil {
@@ -222,7 +222,7 @@ struct GoalRouteView: View {
                             Text(point.date.formatted(date: .abbreviated, time: .omitted))
                             Spacer()
                             Text(point.progress.progressFraction?.formatted(.percent.precision(.fractionLength(0))) ?? "Partial")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                         }
                         .font(.subheadline)
                         .accessibilityElement(children: .combine)

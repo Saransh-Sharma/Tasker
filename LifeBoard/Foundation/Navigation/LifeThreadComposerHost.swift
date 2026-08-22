@@ -207,7 +207,7 @@ extension LifeThreadComposerHost {
                     Button(recovery == .continue ? "Continue" : "Retry") {
                         submitLifeThreadComposer(router: router)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .controlSize(.small)
                     .accessibilityHint("Keeps the current draft and attachments")
                 }

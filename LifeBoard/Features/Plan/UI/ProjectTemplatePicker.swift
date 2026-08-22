@@ -54,7 +54,7 @@ struct ProjectTemplatePicker: View {
                                 }
                                 .frame(minHeight: 44)
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.lifeBoardPrimaryCompact)
                             .disabled(
                                 selectedTemplateID == nil
                                     || projectName.trimmingCharacters(

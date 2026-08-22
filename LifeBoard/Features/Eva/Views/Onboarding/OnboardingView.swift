@@ -115,7 +115,7 @@ struct OnboardingView: View {
                         #endif
                 }
                 #if os(macOS)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 #endif
                 .scaleOnPress()
                 .padding(.horizontal, Theme.Spacing.xl)

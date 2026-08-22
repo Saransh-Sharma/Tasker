@@ -267,18 +267,27 @@ public extension ButtonStyle where Self == ClayButtonStyle {
 /// the only arrangement that survives an ambient foreground style.
 public struct PrimaryActionStyle: ButtonStyle {
     public let fill: Color?
+    /// Whether the pill claims the full available width.
+    ///
+    /// `true` for a screen's dominant action — a commit bar, a hero's primary.
+    /// `false` for an action that sits inline beside siblings, where claiming
+    /// the row would push them onto their own lines. `.borderedProminent`, which
+    /// this style replaces, is intrinsically sized, so the compact variant is
+    /// what preserves an existing layout during that swap.
+    public let expands: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isEnabled) private var isEnabled
 
-    public init(fill: Color? = nil) {
+    public init(fill: Color? = nil, expands: Bool = true) {
         self.fill = fill
+        self.expands = expands
     }
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(Color.lifeboard(.onAccent, on: .accent))
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .frame(maxWidth: expands ? .infinity : nil, minHeight: 44)
             .padding(.horizontal, 14)
             .background(
                 Capsule(style: .continuous)
@@ -296,6 +305,16 @@ public struct PrimaryActionStyle: ButtonStyle {
 
 public extension ButtonStyle where Self == PrimaryActionStyle {
     static var lifeBoardPrimary: PrimaryActionStyle { PrimaryActionStyle() }
+
+    /// Intrinsically-sized primary action, for buttons that sit inline beside
+    /// siblings. Same fill and same `.onAccent` ink — only the width differs.
+    ///
+    /// This is the safe replacement for `.borderedProminent`, whose real defect
+    /// is that the system pins a **white** label against the app tint: in dark
+    /// appearance that tint resolves to cream, so it draws white on cream.
+    static var lifeBoardPrimaryCompact: PrimaryActionStyle {
+        PrimaryActionStyle(expands: false)
+    }
 }
 
 // MARK: - Form surface

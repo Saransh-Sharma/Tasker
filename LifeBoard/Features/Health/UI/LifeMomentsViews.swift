@@ -85,7 +85,7 @@ struct LifeMomentsView: View {
                         description: Text(error)
                     )
                     Button("Try again") { Task { await store.load() } }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 } else if case .moment(let id) = focus,
                           let moment = store.moments.first(where: { $0.id == id }) {
@@ -101,7 +101,7 @@ struct LifeMomentsView: View {
                         description: Text("It may have been archived or removed.")
                     )
                     Button("View all moments") { focus = .overview }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 } else if store.moments.isEmpty {
                     ContentUnavailableView(
@@ -111,7 +111,7 @@ struct LifeMomentsView: View {
                     )
                     .padding(.top, 40)
                     Button("Add moment") { editing = nil; showsComposer = true }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .frame(maxWidth: .infinity, minHeight: 48)
                 } else {
                     momentsList(omitting: nil)
@@ -193,7 +193,7 @@ private struct LifeMomentFocusedDetail: View {
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Button("Edit moment", systemImage: "pencil", action: edit)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .accessibilityIdentifier("lifeMoment.edit")
         }

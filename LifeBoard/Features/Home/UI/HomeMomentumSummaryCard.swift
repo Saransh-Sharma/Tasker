@@ -61,7 +61,7 @@ struct HomeMomentumSummaryCard: View {
 
                 if reflectionEligible, let onOpenReflection {
                     Button("Reflection", action: onOpenReflection)
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .controlSize(.small)
                         .tint(Color.lifeboard.accentPrimary)
                         .accessibilityIdentifier("home.reflectionChip")

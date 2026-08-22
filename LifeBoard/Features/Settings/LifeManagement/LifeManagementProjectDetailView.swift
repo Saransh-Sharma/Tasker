@@ -172,7 +172,7 @@ struct LifeManagementProjectDetailView: View {
             Button("Restore") {
                 onRestoreProject(row.id)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.lifeBoardPrimaryCompact)
         } else if row.isInbox == false {
             Button("Archive Project") {
                 onArchiveProject(row.id)

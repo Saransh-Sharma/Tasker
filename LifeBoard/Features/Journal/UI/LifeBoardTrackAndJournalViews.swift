@@ -871,7 +871,7 @@ struct TrackRootView: View {
                     Text(store.activeFast == nil ? "Start" : "End")
                         .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .tint(palette.color(for: .foreground))
             }
             if store.fastingSessions.contains(where: { $0.endedAt != nil }) {
@@ -1010,7 +1010,7 @@ struct TrackRootView: View {
                 Text("Open Habits")
                     .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.lifeBoardPrimaryCompact)
             .tint(palette.color(for: .foreground))
         }
         .padding(24)
@@ -1437,7 +1437,7 @@ struct BehaviorNativeAreasView: View {
                             Haptic.pick.play()
                             loggingTracker = tracker
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .tint(Color(SemanticColorTokens.inkPrimary))
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("track.tracker.log.\(tracker.id.uuidString)")
@@ -2757,6 +2757,15 @@ private struct TrackerHistoryView: View {
         entries.sorted { $0.timestamp > $1.timestamp }
     }
 
+    private var hasChartData: Bool {
+        (recentMagnitudes?.isEmpty == false)
+    }
+
+    /// The sweep draws once, when valid data first appears. An empty or
+    /// unavailable history never sweeps: a reveal animation implies data
+    /// arrived.
+    @State private var chartRevealProgress: Double = 0
+
     private var historySummary: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
@@ -2810,7 +2819,10 @@ private struct TrackerHistoryView: View {
                         .frame(maxHeight: .infinity, alignment: .bottom)
                     }
                     .frame(height: dynamicTypeSize.isAccessibilitySize ? 64 : 78)
-                    .lifeboardChartRevealSweep(progress: 1)
+                    // Driven, not pinned. Hardcoding `progress: 1` left this
+                    // chart permanently settled, so its reveal could never play
+                    // — the effect was wired but inert.
+                    .lifeboardChartRevealSweep(progress: chartRevealProgress)
                     .accessibilityHidden(true)
                 }
             }
@@ -2818,6 +2830,11 @@ private struct TrackerHistoryView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .lifeBoardClaySurface(.raised, cornerRadius: 20)
+        .onAppear { chartRevealProgress = hasChartData ? 1 : 0 }
+        .onChange(of: hasChartData) { _, nowHasData in
+            guard nowHasData, chartRevealProgress == 0 else { return }
+            withAnimation(.easeOut(duration: 0.6)) { chartRevealProgress = 1 }
+        }
         .privacySensitive(tracker.effectivePrivacyClass != .standard)
         .accessibilityIdentifier("track.tracker.history.summary")
     }
@@ -3199,7 +3216,7 @@ private struct MedicationHistoryView: View {
                                 Label(event.status.rawValue.capitalized, systemImage: statusSymbol(event.status))
                                 Spacer()
                                 Text(event.scheduledAt.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.caption).foregroundStyle(Color.lifeboard(.textSecondary))
                             }
                             .frame(minHeight: 44)
                         }
@@ -4084,13 +4101,18 @@ final class JournalStore {
         }
     }
 
-    func appendText(_ text: String, promptID: String? = nil) async {
+    /// Reports whether the entry reached disk. `@discardableResult` so the
+    /// existing Void call sites keep compiling untouched.
+    @discardableResult
+    func appendText(_ text: String, promptID: String? = nil) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return false }
         var day = today ?? JournalDayValue(day: Date())
         day.blocks.append(.init(dayID: day.id, kind: .text, text: trimmed, promptID: promptID, ordinal: day.blocks.count))
         day.updatedAt = Date()
-        if await save(day) { await clearDraft() }
+        guard await save(day) else { return false }
+        await clearDraft()
+        return true
     }
 
     func saveDraftText(_ text: String, promptID: String?, editPosition: Int? = nil) async {
@@ -4365,7 +4387,7 @@ struct JournalModuleView: View {
                 onDraftChanged: { text, editPosition in
                     Task { await store.saveDraftText(text, promptID: currentPrompt.id, editPosition: editPosition) }
                 },
-                onSave: { text in Task { await store.appendText(text, promptID: currentPrompt.id) } }
+                onSave: { await store.appendText($0, promptID: currentPrompt.id) }
             )
         }.sheet(isPresented: $showsMood) {
             JournalMoodDialSheet(selectedMood: $mood) { energy in Task { await store.appendMood(mood, energy: energy) } }
@@ -4575,14 +4597,14 @@ struct JournalModuleView: View {
                                 .font(.headline)
                             Text(watchRecoveryMessage(record.reason))
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                             Text(record.receivedAtUTC, format: .dateTime.month().day().hour().minute())
                                 .font(.caption)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
                             HStack {
                                 if record.isRetryable {
                                     Button("Retry") { Task { await store.retryWatchRecovery() } }
-                                        .buttonStyle(.borderedProminent)
+                                        .buttonStyle(.lifeBoardPrimaryCompact)
                                 }
                                 Button("Remove", role: .destructive) {
                                     Task { await store.discardWatchRecoveryRecord(id: record.id) }
@@ -4859,7 +4881,7 @@ struct JournalModuleView: View {
                             }
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .controlSize(.large)
                 }
                 if case .recoveryRequired = privacy.state {
@@ -4921,7 +4943,7 @@ struct JournalModuleView: View {
                 Text(store.draft == nil ? (store.today == nil ? "Start with a sentence" : "Add another thought") : "Continue your draft")
                     .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
             }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .tint(palette.color(for: .foreground))
         }
         .padding(20)
@@ -5196,7 +5218,7 @@ struct JournalModuleView: View {
                             Label(store.reflectionReports.isEmpty ? "Save" : "Regenerate", systemImage: "arrow.clockwise")
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .disabled(report.density != .empty && store.reflectionSourceSelection.isEmpty)
                         .accessibilityIdentifier("journal.reflection.regenerate")
                     }
@@ -5926,73 +5948,6 @@ private final class JournalAudioPlaybackController: NSObject, AVAudioPlayerDeleg
     }
 }
 
-private struct JournalTextComposer: View {
-    let prompt: JournalPrompt
-    let initialText: String
-    let onDraftChanged: (String, Int?) -> Void
-    let onSave: (String) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var text: String
-    @State private var committed = false
-
-    init(
-        prompt: JournalPrompt,
-        initialText: String,
-        onDraftChanged: @escaping (String, Int?) -> Void,
-        onSave: @escaping (String) -> Void
-    ) {
-        self.prompt = prompt
-        self.initialText = initialText
-        self.onDraftChanged = onDraftChanged
-        self.onSave = onSave
-        _text = State(initialValue: initialText)
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(prompt.title).font(.title2.weight(.semibold))
-                Text(prompt.supportiveCopy).foregroundStyle(.secondary)
-                TextEditor(text: $text)
-                    .font(.body)
-                    .padding(12)
-                    .background(.background, in: RoundedRectangle(cornerRadius: 16))
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(.separator))
-                    .accessibilityLabel("Journal text")
-            }
-            .padding(20)
-            .task(id: text) {
-                do {
-                    try await Task.sleep(for: .milliseconds(250))
-                    guard committed == false else { return }
-                    onDraftChanged(text, text.count)
-                } catch is CancellationError {
-                    return
-                } catch {
-                    return
-                }
-            }
-            .onDisappear {
-                guard committed == false else { return }
-                onDraftChanged(text, text.count)
-            }
-            .navigationTitle("Write")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        committed = true
-                        onSave(text)
-                        dismiss()
-                    }
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }
-    }
-}
-
 enum JournalAudioFiles {
     static func newRecordingURL() throws -> URL {
         let root = try directory()
@@ -6039,7 +5994,9 @@ enum JournalAudioFiles {
 /// Journal transcription backed by the shared TranscriptionKit service:
 /// on-device SpeechAnalyzer with bounded concurrency and an overall timeout
 /// (OffRecord parity).
-private final class JournalSpeechTranscriber {
+// Internal, not private: the audio composer that drives it now lives in
+// `JournalCaptureComposers.swift`.
+final class JournalSpeechTranscriber {
     /// One shared service so the two-job concurrency limiter spans every
     /// journal transcription in the process.
     private static let service = TranscriptionService(
@@ -6134,220 +6091,6 @@ private struct JournalRecoverySection: View {
             Button("Import encrypted backup", systemImage: "square.and.arrow.down", action: onImportBackup)
                 .buttonStyle(.lifeBoardClay(.well, cornerRadius: Radius.pill))
         }
-    }
-}
-
-struct JournalAudioCapture: View {
-    enum Purpose { case journal, search }
-
-    let purpose: Purpose
-    let onSave: (String, TimeInterval, String?) async -> Bool
-    let onTranscription: (String, String?) async -> Void
-    let onDiscard: (String) async -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var recorder = JournalAudioRecorder()
-    @State private var capturedURL: URL?
-    @State private var capturedDuration: TimeInterval = 0
-    @State private var transcribes: Bool
-    @State private var isTranscribing = false
-    @State private var showsConsent = false
-    @State private var transcription: String?
-    @State private var manualTranscription = ""
-    @State private var processingState: JournalMediaAttachment.ProcessingState = .ready
-    @State private var didPersist = false
-
-    init(
-        purpose: Purpose = .journal,
-        onSave: @escaping (String, TimeInterval, String?) async -> Bool,
-        onTranscription: @escaping (String, String?) async -> Void = { _, _ in },
-        onDiscard: @escaping (String) async -> Void = { _ in }
-    ) {
-        self.purpose = purpose
-        self.onSave = onSave
-        self.onTranscription = onTranscription
-        self.onDiscard = onDiscard
-        _transcribes = State(initialValue: purpose == .search)
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Image(systemName: recorder.isRecording ? "waveform.circle.fill" : "mic.circle.fill")
-                    .lifeboardFont(.heroDisplay)
-                    .symbolEffect(.pulse, isActive: recorder.isRecording)
-                    .accessibilityHidden(true)
-                Text(recorder.isRecording ? Self.duration(recorder.duration) : capturedURL == nil ? "Ready when you are" : "Recording ready")
-                    .font(.title2.weight(.semibold))
-                if let error = recorder.errorMessage {
-                    Text(error).foregroundStyle(Color.lifeboard(.statusDanger))
-                }
-                if isTranscribing { ProgressView("Transcribing saved audio…") }
-                if let transcription { Text(transcription).padding().background(.background, in: RoundedRectangle(cornerRadius: 14)) }
-                if processingState == .transcriptionFailed {
-                    VStack(spacing: 10) {
-                        Label("The recording is safe, but transcription did not finish.", systemImage: "exclamationmark.bubble")
-                            .font(.subheadline)
-                            .multilineTextAlignment(.center)
-                        TextField("Add transcription manually", text: $manualTranscription, axis: .vertical)
-                            .textFieldStyle(.roundedBorder)
-                        HStack {
-                            Button("Retry") { Task { await retryTranscription() } }
-                            Button(purpose == .search ? "Use text" : "Save text") { Task { await saveManualTranscription() } }
-                                .disabled(manualTranscription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        }
-                        .buttonStyle(.lifeBoardChip)
-                        if purpose == .journal {
-                            Button("Keep audio without text") { dismiss() }
-                            Button("Discard recording", role: .destructive) { Task { await discardRecording() } }
-                        }
-                    }
-                }
-                if purpose == .journal {
-                    Toggle("Transcribe after recording", isOn: Binding(
-                        get: { transcribes },
-                        set: { enabled in
-                            if enabled && !Self.hasSpeechConsent { showsConsent = true }
-                            else { transcribes = enabled }
-                        }
-                    ))
-                    .disabled(recorder.isRecording)
-                }
-                Button {
-                    if purpose == .search && !Self.hasSpeechConsent {
-                        showsConsent = true
-                        return
-                    }
-                    if recorder.isRecording {
-                        if let result = recorder.stop() { capturedURL = result.url; capturedDuration = result.duration }
-                    } else {
-                        Task { await recorder.start() }
-                    }
-                } label: {
-                    Label(recorder.isRecording ? "Stop recording" : "Start recording", systemImage: recorder.isRecording ? "stop.fill" : "mic.fill")
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                }
-                .buttonStyle(.borderedProminent)
-                if capturedURL != nil {
-                    Button(purpose == .search ? "Search journal" : "Save audio") { Task { await save() } }
-                        .buttonStyle(.lifeBoardChip)
-                        .disabled(isTranscribing || didPersist)
-                }
-                Text(purpose == .search
-                    ? "The temporary recording is deleted after transcription. Journal content is searched only inside LifeBoard."
-                    : "Audio is file-protected and stays on this device. Only its duration and optional transcription sync privately.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(24)
-            .navigationTitle(purpose == .search ? "Voice Search" : "Voice Journal")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(didPersist ? "Done" : "Cancel") {
-                        if !didPersist { recorder.cancel() }
-                        dismiss()
-                    }
-                }
-            }
-            .alert("About transcription", isPresented: $showsConsent) {
-                Button("Continue") {
-                    UserDefaults.standard.set(true, forKey: "lifeboard.journal.speech_consent.v1")
-                    transcribes = true
-                }
-                Button("Not now", role: .cancel) { transcribes = false }
-            } message: {
-                Text("If you continue, Apple Speech may process this recording according to the system’s speech-recognition availability and privacy settings. You can keep audio without transcription.")
-            }
-        }
-    }
-
-    private func save() async {
-        guard let capturedURL else { return }
-        let path = JournalAudioFiles.relativePath(for: capturedURL)
-        if purpose == .journal {
-            processingState = .queued
-            guard await onSave(path, capturedDuration, nil) else {
-                processingState = .transcriptionFailed
-                return
-            }
-            didPersist = true
-            guard transcribes else { dismiss(); return }
-            await transcribeSavedAudio(capturedURL, path: path)
-        } else {
-            await transcribeSearchAudio(capturedURL, path: path)
-        }
-    }
-
-    private func transcribeSavedAudio(_ url: URL, path: String) async {
-        processingState = .transcribing
-        isTranscribing = true
-        let result = await JournalSpeechTranscriber().transcribe(url)
-        isTranscribing = false
-        guard let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            processingState = .transcriptionFailed
-            return
-        }
-        transcription = result
-        processingState = .transcriptionComplete
-        await onTranscription(path, result)
-        dismiss()
-    }
-
-    private func transcribeSearchAudio(_ url: URL, path: String) async {
-        processingState = .transcribing
-        isTranscribing = true
-        let result = await JournalSpeechTranscriber().transcribe(url)
-        isTranscribing = false
-        guard let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            processingState = .transcriptionFailed
-            return
-        }
-        transcription = result
-        processingState = .transcriptionComplete
-        _ = await onSave(path, capturedDuration, result)
-        dismiss()
-    }
-
-    private func retryTranscription() async {
-        guard let capturedURL else { return }
-        let path = JournalAudioFiles.relativePath(for: capturedURL)
-        if purpose == .journal {
-            await transcribeSavedAudio(capturedURL, path: path)
-        } else {
-            await transcribeSearchAudio(capturedURL, path: path)
-        }
-    }
-
-    private func saveManualTranscription() async {
-        guard let capturedURL else { return }
-        let text = manualTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        let path = JournalAudioFiles.relativePath(for: capturedURL)
-        processingState = .manualTranscription
-        if purpose == .journal {
-            await onTranscription(path, text)
-        } else {
-            _ = await onSave(path, capturedDuration, text)
-        }
-        dismiss()
-    }
-
-    private func discardRecording() async {
-        guard let capturedURL else { return }
-        let path = JournalAudioFiles.relativePath(for: capturedURL)
-        processingState = .discarded
-        if didPersist { await onDiscard(path) }
-        else { try? JournalAudioFiles.delete(relativePath: path) }
-        dismiss()
-    }
-
-    private static var hasSpeechConsent: Bool {
-        UserDefaults.standard.bool(forKey: "lifeboard.journal.speech_consent.v1")
-    }
-
-    private static func duration(_ interval: TimeInterval) -> String {
-        String(format: "%02d:%02d", Int(interval) / 60, Int(interval) % 60)
     }
 }
 

@@ -79,7 +79,7 @@ struct HomeCardPlacementSheet: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity, minHeight: 52)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .tint(Color(SemanticColorTokens.inkPrimary))
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)
@@ -223,7 +223,7 @@ struct ComposerPreviewCard: View {
                     .buttonStyle(.bordered)
                     .frame(minHeight: 44)
                 Button("Apply", action: onApply)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .tint(Color(SemanticColorTokens.inkPrimary))
                     .frame(maxWidth: .infinity, minHeight: 44)
             }

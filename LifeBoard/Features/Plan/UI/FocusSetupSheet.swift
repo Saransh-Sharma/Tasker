@@ -81,7 +81,7 @@ struct FocusSetupSheet: View {
                         Label(startTitle, systemImage: "play.fill")
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .accessibilityIdentifier("plan.focus.setup.start")
                 }
                 .padding(20)

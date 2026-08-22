@@ -282,7 +282,7 @@ extension LifeManagementView {
                     Button("Retry") {
                         viewModel.reload()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
 
                     Button("Dismiss") {
                         viewModel.clearError()
@@ -349,7 +349,7 @@ extension LifeManagementView {
                     Button(actionTitle) {
                         action()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                 }
             }
         }

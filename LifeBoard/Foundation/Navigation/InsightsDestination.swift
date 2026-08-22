@@ -127,7 +127,7 @@ struct InsightsDestination: View {
                     if let planningEvidenceError {
                         Label("Planning history is temporarily unavailable: \(planningEvidenceError)", systemImage: "exclamationmark.triangle")
                             .lifeboardFont(.support)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
 
                     if lens == .experience {
@@ -145,7 +145,7 @@ struct InsightsDestination: View {
                             Button("Record something in Track") {
                                 router.select(.track)
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.lifeBoardPrimaryCompact)
                             .tint(Color(SemanticColorTokens.foundationApricotAccent))
                             .frame(minHeight: 44)
                             .accessibilityIdentifier("insights.empty.openTrack")
@@ -209,7 +209,7 @@ struct InsightsDestination: View {
                     Label("Explore this with Eva", systemImage: "sparkles")
                         .frame(maxWidth: .infinity, minHeight: 48)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .tint(Color(SemanticColorTokens.foundationApricotAccent))
                 Button("Dismiss everywhere", systemImage: "xmark.circle") {
                     EvaInsightStateStore.dismiss(insightID: unifiedInsight.id, kind: "insights_overview")

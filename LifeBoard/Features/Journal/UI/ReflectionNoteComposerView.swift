@@ -78,7 +78,7 @@ struct ReflectionNoteComposerView: View {
                             dismiss()
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .disabled(!viewModel.canSave)
                 }
             }

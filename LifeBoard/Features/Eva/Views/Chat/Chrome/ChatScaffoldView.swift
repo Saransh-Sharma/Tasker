@@ -434,7 +434,7 @@ private struct EvaCloudAccessCard: View {
         switch state {
         case .needsDisclosure:
             Button(hasPendingSend ? "Activate & send" : "Activate Cloud EVA", action: onActivate)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .accessibilityIdentifier("chat.cloudAccess.activate")
             Button("Review context", action: onReviewContext)
                 .buttonStyle(.bordered)
@@ -443,13 +443,13 @@ private struct EvaCloudAccessCard: View {
                 .buttonStyle(.plain)
         case .temporarilyUnavailable:
             Button("Retry", action: onRetry)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .accessibilityIdentifier("chat.cloudAccess.retry")
             Button("Use Offline EVA", action: onUseOffline)
                 .buttonStyle(.bordered)
         case .appleReauthenticationRequired:
             Button("Reconnect with Apple", action: onReconnectApple)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .accessibilityIdentifier("chat.cloudAccess.reconnectApple")
             Button("Use Offline EVA", action: onUseOffline)
                 .buttonStyle(.bordered)

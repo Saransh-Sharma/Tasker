@@ -14,7 +14,7 @@ extension MessageView {
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
                 HStack {
-                    Button("Save") { saveMemoryCandidate(candidate) }.buttonStyle(.borderedProminent)
+                    Button("Save") { saveMemoryCandidate(candidate) }.buttonStyle(.lifeBoardPrimaryCompact)
                     Button("Edit") {
                         memoryCandidateDraft = memoryCandidateDraft.isEmpty ? candidate.text : memoryCandidateDraft
                         isEditingMemoryCandidate = true

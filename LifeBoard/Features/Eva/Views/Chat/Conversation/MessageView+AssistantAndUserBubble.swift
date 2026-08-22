@@ -395,7 +395,7 @@ extension MessageView {
                                 undoAssistantRun(runID, payload: payload)
                             }
                         }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.lifeBoardPrimaryCompact)
                             .disabled(isUndoExpired(payload: payload) || isUndoingEvaRun || payload.runID == nil)
                     }
                 } else if payload.cardType == .proposal {
@@ -409,7 +409,7 @@ extension MessageView {
                                 .buttonStyle(.bordered)
 
                             Button("Apply Changes") {}
-                                .buttonStyle(.borderedProminent)
+                                .buttonStyle(.lifeBoardPrimaryCompact)
                         }
                     } else {
                         Text(payload.message ?? proposalStatusText(payload.status))
@@ -439,7 +439,7 @@ extension MessageView {
                 Button("Open") {
                     onOpenNavigationTargetFromCard?(navigation.target)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
             } else {
                 ForEach(navigation.candidates) { candidate in
                     Button {

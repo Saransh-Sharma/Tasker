@@ -178,7 +178,7 @@ struct LifeManagementAreaDetailView: View {
             Button("Restore") {
                 onRestoreArea(row.id)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.lifeBoardPrimaryCompact)
         } else if row.isGeneral == false {
             Button("Archive Area") {
                 onArchiveArea(row.id)

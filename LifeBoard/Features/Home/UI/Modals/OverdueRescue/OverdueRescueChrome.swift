@@ -561,7 +561,7 @@ struct OverdueRescueErrorView: View {
                 .foregroundStyle(Color.lifeboard.textSecondary)
                 .multilineTextAlignment(.center)
             Button("Try again", action: retry)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
             Button("Close", action: close)
             Spacer()
         }

@@ -16,7 +16,7 @@ struct EvaDayHabitActionButtonView: View {
             Button(title) {
                 actionHandler(action)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.lifeBoardPrimaryCompact)
             .tint(Color.lifeboard(.accentPrimary))
             .disabled(isProcessing)
         } else {

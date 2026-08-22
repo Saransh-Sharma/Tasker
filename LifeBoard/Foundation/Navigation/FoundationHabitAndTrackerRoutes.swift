@@ -18,9 +18,9 @@ struct HabitRouteView: View {
                 LabeledContent("Current streak", value: "\(habit.currentStreak) days")
                 LabeledContent("Best streak", value: "\(habit.bestStreak) days")
                 Label(habit.isPaused ? "Paused" : "Active", systemImage: habit.isPaused ? "pause.circle" : "checkmark.circle")
-                if let notes = habit.notes, notes.isEmpty == false { Text(notes).font(.body).foregroundStyle(.secondary) }
+                if let notes = habit.notes, notes.isEmpty == false { Text(notes).font(.body).foregroundStyle(Color.lifeboard(.textSecondary)) }
                 Button("Open in Track", systemImage: "chart.bar.fill") { router.select(.track) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .tint(Color(SemanticColorTokens.inkPrimary))
             }
         }
@@ -72,7 +72,7 @@ struct TrackerRouteView: View {
                             Text(Self.value(entry, unit: snapshot.definition.unitLabel))
                             Spacer()
                             Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                         }
                         .frame(minHeight: 44)
                     }

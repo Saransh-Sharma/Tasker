@@ -125,7 +125,7 @@ extension MessageView {
                                 .font(.lifeboard(.buttonSmall))
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .tint(Color.lifeboard(.accentPrimary))
                         .disabled(isUndoingEvaRun || undoExpired)
                         .accessibilityIdentifier("eva.proposal.undo")
@@ -151,7 +151,7 @@ extension MessageView {
                                         .font(.lifeboard(.buttonSmall))
                                         .frame(maxWidth: .infinity)
                                 }
-                                .buttonStyle(.borderedProminent)
+                                .buttonStyle(.lifeBoardPrimaryCompact)
                                 .tint(Color.lifeboard(.accentPrimary))
                                 .disabled(isApplyingEvaProposal || selectedEvaCardIDs.isEmpty || payload.runID == nil)
                                 .accessibilityIdentifier("eva.proposal.confirm_apply")
@@ -168,7 +168,7 @@ extension MessageView {
                                 Spacer()
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .tint(Color.lifeboard(.accentPrimary))
                         .disabled(
                             isApplyingEvaProposal

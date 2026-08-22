@@ -49,7 +49,7 @@ struct FocusSurfaceTransportSection: View {
             .font(.body.weight(.semibold))
             .frame(maxWidth: .infinity, minHeight: 52)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.lifeBoardPrimaryCompact)
         .lifeBoardPressResponse(.hero, haptic: .pick)
         .accessibilityIdentifier("focus.surface.pauseResume")
     }

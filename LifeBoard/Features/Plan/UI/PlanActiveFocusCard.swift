@@ -40,10 +40,10 @@ struct PlanActiveFocusCard: View {
                 Group {
                     if session.state == .paused {
                         Button("Resume", systemImage: "play.fill") { Task { await store.resumeFocus() } }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.lifeBoardPrimaryCompact)
                     } else {
                         Button("Pause", systemImage: "pause.fill") { Task { await store.pauseFocus() } }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.lifeBoardPrimaryCompact)
                     }
                 }
                 .frame(maxWidth: .infinity, minHeight: 48)

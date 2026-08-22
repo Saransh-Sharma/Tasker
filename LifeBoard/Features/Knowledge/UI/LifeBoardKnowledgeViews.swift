@@ -246,7 +246,7 @@ public struct KnowledgeModuleView: View {
                             store.searchText = ""
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Clear search")
@@ -388,7 +388,7 @@ public struct KnowledgeModuleView: View {
                 Spacer()
                 if collection != .connections {
                     Text("\(count(for: collection))")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                         .monospacedDigit()
                 }
             }
@@ -428,7 +428,7 @@ public struct KnowledgeModuleView: View {
                         ForEach(store.selectedFolderPath) { folder in
                             Image(systemName: "chevron.right")
                                 .font(.caption2.weight(.bold))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
                             Text(folder.title)
                                 .font(.subheadline.weight(.semibold))
                         }
@@ -452,12 +452,12 @@ public struct KnowledgeModuleView: View {
                                                 .font(.subheadline.weight(.semibold))
                                             Text("\(store.notes.filter { $0.folderID == folder.id && $0.resolvedState == .active }.count) notes")
                                                 .font(.caption2)
-                                                .foregroundStyle(.secondary)
+                                                .foregroundStyle(Color.lifeboard(.textSecondary))
                                         }
                                     }
                                     .padding(.horizontal, 14)
                                     .frame(minHeight: 58)
-                                    .background(.background.opacity(0.7), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+                                    .background(Color.lifeboard(.bgElevated).opacity(0.7), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
                                 .contextMenu { folderMoveMenu(folder) }
@@ -529,7 +529,7 @@ public struct KnowledgeModuleView: View {
                 .font(.headline)
             Text("\(count)")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.lifeboard(.textSecondary))
             Spacer()
         }
     }
@@ -538,7 +538,7 @@ public struct KnowledgeModuleView: View {
     private func selectionMark(for note: KnowledgeNoteValue) -> some View {
         Image(systemName: selectedNoteIDs.contains(note.id) ? "checkmark.circle.fill" : "circle")
             .font(.title3.weight(.semibold))
-            .foregroundStyle(selectedNoteIDs.contains(note.id) ? Color.accentColor : Color.secondary)
+            .foregroundStyle(selectedNoteIDs.contains(note.id) ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textSecondary))
             .symbolEffect(.bounce, value: selectedNoteIDs.contains(note.id))
             .accessibilityLabel(selectedNoteIDs.contains(note.id) ? "Selected" : "Not selected")
     }
@@ -611,12 +611,12 @@ public struct KnowledgeModuleView: View {
                 .lifeboardFont(.sectionTitle)
             Text(emptyMessage)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 330)
             if store.selectedCollection != .trash && store.selectedCollection != .archived {
                 Button("Create a note") { showsTemplates = true }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .controlSize(.large)
             }
         }
@@ -641,13 +641,13 @@ public struct KnowledgeModuleView: View {
                                     .font(.title2)
                                     .foregroundStyle(.tint)
                                     .frame(width: 42, height: 42)
-                                    .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 13))
+                                    .background(Color.lifeboard(.accentPrimary).opacity(0.10), in: RoundedRectangle(cornerRadius: 13))
                                 Text(template.title)
                                     .font(.headline)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(Color.lifeboard(.textPrimary))
                                 Text(template.subtitle)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.lifeboard(.textSecondary))
                                     .multilineTextAlignment(.leading)
                                 Spacer(minLength: 0)
                             }
@@ -888,7 +888,7 @@ private extension KnowledgeModuleView {
                     noteKindMarks(note)
                 }
                 .font(.caption2.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.lifeboard(.textSecondary))
             }
             .frame(maxWidth: .infinity, minHeight: compact ? 154 : 176, alignment: .topLeading)
             .padding(16)
@@ -915,7 +915,7 @@ private extension KnowledgeModuleView {
         Button { openOrSelect(note) } label: {
             HStack(spacing: 14) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.accentColor.opacity(0.10))
+                    .fill(Color.lifeboard(.accentPrimary).opacity(0.10))
                     .frame(width: 46, height: 54)
                     .overlay {
                         Image(systemName: note.blocks.contains(where: { $0.kind == .checklist }) ? "checklist" : "note.text")
@@ -939,18 +939,18 @@ private extension KnowledgeModuleView {
                         if !note.tagIDs.isEmpty { Text("•  \(note.tagIDs.count) tags") }
                     }
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
             }
             .padding(.horizontal, 14)
             .frame(minHeight: 82)
             .background(
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemBackground).opacity(0.84))
+                    .fill(Color.lifeboard(.surfaceSecondary).opacity(0.84))
             )
             .overlay(alignment: .trailing) {
                 if isSelecting {
@@ -1101,7 +1101,7 @@ private struct KnowledgeNoteEditor: View {
                         .accessibilityIdentifier("notes.editor.title")
                     Text(noteDateLine)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                     tagRail
                     if KnowledgeFeatureFlags.textKitEditorEnabled {
                         UnifiedNoteEditor(
@@ -1342,7 +1342,7 @@ private struct KnowledgeNoteEditor: View {
             }
         }
         .font(.caption.weight(.semibold))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.lifeboard(.textSecondary))
         .accessibilityElement(children: .combine)
     }
 
@@ -1713,7 +1713,7 @@ private struct KnowledgeNoteEditor: View {
                         .textFieldStyle(.plain)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 42)
-                        .background(Color.primary.opacity(0.05), in: Capsule())
+                        .background(Color.lifeboard(.textPrimary).opacity(0.05), in: Capsule())
                     Button("Add") {
                         Task {
                             if let tag = await onCreateTag(newTag) {
@@ -1739,7 +1739,7 @@ private struct KnowledgeNoteEditor: View {
                 Button("Connect", systemImage: "link.badge.plus") { showsLinkPicker = true }
             }
             let related = links.filter { $0.sourceNoteID == draft.id || $0.destinationNoteID == draft.id }
-            if related.isEmpty { Text("No linked notes").foregroundStyle(.secondary) }
+            if related.isEmpty { Text("No linked notes").foregroundStyle(Color.lifeboard(.textSecondary)) }
             ForEach(related) { link in
                 let otherID = link.sourceNoteID == draft.id ? link.destinationNoteID : link.sourceNoteID
                 HStack {
@@ -1752,7 +1752,7 @@ private struct KnowledgeNoteEditor: View {
             }
         }
         .padding(16)
-        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        .background(Color.lifeboard(.bgElevated), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var attachmentsSection: some View {
@@ -1791,7 +1791,7 @@ private struct KnowledgeNoteEditor: View {
             }
         }
         .padding(16)
-        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        .background(Color.lifeboard(.bgElevated), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func addBlock(_ kind: KnowledgeBlockKind) {
@@ -1990,22 +1990,22 @@ private struct NoteAIProposalReview: View {
                 VStack(alignment: .leading, spacing: 18) {
                     Label("Review before anything changes", systemImage: "checkmark.shield")
                         .font(.headline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                     Text(proposal.explanation)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                     TextEditor(text: $editedPreview)
                         .font(.body)
                         .scrollContentBackground(.hidden)
                         .frame(minHeight: 260)
                         .padding(16)
                         .background(
-                            Color(uiColor: .secondarySystemBackground),
+                            Color.lifeboard(.surfaceSecondary),
                             in: RoundedRectangle(cornerRadius: 20, style: .continuous)
                         )
                         .overlay {
                             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
+                                .stroke(Color.lifeboard(.textPrimary).opacity(0.07), lineWidth: 1)
                         }
                         .accessibilityLabel("Editable EVA proposal")
                     if isStale {
@@ -2021,7 +2021,7 @@ private struct NoteAIProposalReview: View {
                             systemImage: "hand.raised"
                         )
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
                 }
                 .frame(maxWidth: 680, alignment: .leading)
@@ -2083,7 +2083,7 @@ private struct NoteHistoryView: View {
                                 .font(.headline)
                             Text(revision.createdAt.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                             Button("Restore this version") { onRestore(revision) }
                                 .font(.subheadline.weight(.semibold))
                         }
@@ -2152,7 +2152,7 @@ private struct LockedKnowledgeNoteEditor: View {
                 ToolbarItem(placement: .principal) {
                     Label("Locked", systemImage: "lock.fill")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
             }
             .onChange(of: scenePhase) { _, phase in
@@ -2190,7 +2190,7 @@ private struct LockedKnowledgeNoteEditor: View {
                 .lifeboardFont(.screenTitle)
             Text("Authenticate to read or edit this note. Its title, text, links, and attachments stay out of search and previews.")
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.lifeboard(.textSecondary))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 390)
             Button {
@@ -2248,7 +2248,7 @@ private struct LockedKnowledgeNoteEditor: View {
                     ForEach(current.attachments) { attachment in
                         Label(attachment.fileName, systemImage: "lock.doc")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
                 }
             }
@@ -2301,7 +2301,7 @@ private struct LockedKnowledgeNoteEditor: View {
             Text("Locked note")
                 .font(.headline)
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.lifeboard(.textSecondary))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(SemanticColorTokens.foundationCanvas))
         .accessibilityElement(children: .combine)
@@ -2403,7 +2403,7 @@ private struct KnowledgeBlockEditor: View {
             HStack {
                 Label(blockLabel, systemImage: blockSymbol)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                 Spacer()
                 Menu {
                     ForEach(KnowledgeBlockKind.allCases, id: \.self) { kind in
@@ -2432,7 +2432,7 @@ private struct KnowledgeBlockEditor: View {
                     } label: {
                         Image(systemName: block.isChecked ? "checkmark.circle.fill" : "circle")
                             .font(.title3)
-                            .foregroundStyle(block.isChecked ? Color.accentColor : Color.secondary)
+                            .foregroundStyle(block.isChecked ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textSecondary))
                             .contentTransition(.symbolEffect(.replace))
                             .frame(width: 32, height: 32)
                     }
@@ -2441,7 +2441,7 @@ private struct KnowledgeBlockEditor: View {
                     .accessibilityLabel(block.isChecked ? "Mark incomplete" : "Mark complete")
                     TextField("Checklist item", text: $block.text, axis: .vertical)
                         .strikethrough(block.isChecked, color: .secondary)
-                        .foregroundStyle(block.isChecked ? Color.secondary : Color.primary)
+                        .foregroundStyle(block.isChecked ? Color.lifeboard(.textSecondary) : Color.lifeboard(.textPrimary))
                 }
             case .collapsible:
                 DisclosureGroup(isExpanded: $expanded) {
@@ -2472,7 +2472,7 @@ private struct KnowledgeBlockEditor: View {
                                 Label(bookmark?.title ?? url.host() ?? url.absoluteString, systemImage: "safari")
                                     .font(.headline)
                                 if let summary = bookmark?.summary {
-                                    Text(summary).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                                    Text(summary).font(.caption).foregroundStyle(Color.lifeboard(.textSecondary)).lineLimit(3)
                                 }
                             }
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -2502,7 +2502,7 @@ private struct KnowledgeBlockEditor: View {
                         .accessibilityLabel(attachment.fileName)
                 } else {
                     Label(block.text.isEmpty ? "Unavailable image" : block.text, systemImage: "photo.badge.exclamationmark")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
             case .file:
                 Label(attachmentForBlock?.fileName ?? block.text, systemImage: attachmentForBlock == nil ? "doc.badge.ellipsis" : "doc")
@@ -2516,7 +2516,7 @@ private struct KnowledgeBlockEditor: View {
         .background {
             if usesInsetSurface {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.primary.opacity(0.045))
+                    .fill(Color.lifeboard(.textPrimary).opacity(0.045))
             }
         }
         .task(id: block.text) {
@@ -2966,7 +2966,7 @@ private struct KnowledgeGraphView: View {
                     Button { onOpen(note) } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(note.title.isEmpty ? "Untitled" : note.title).font(.headline)
-                            Text(note.plainText).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                            Text(note.plainText).font(.caption).foregroundStyle(Color.lifeboard(.textSecondary)).lineLimit(2)
                         }
                     }
                 }
@@ -2988,7 +2988,7 @@ private struct KnowledgeGraphView: View {
                         for link in filteredLinks {
                             guard let start = positions[link.sourceNoteID], let end = positions[link.destinationNoteID] else { continue }
                             var path = Path(); path.move(to: start); path.addLine(to: end)
-                            context.stroke(path, with: .color(Color.primary.opacity(0.24)), lineWidth: 1.5)
+                            context.stroke(path, with: .color(Color.lifeboard(.textPrimary).opacity(0.24)), lineWidth: 1.5)
                         }
                     }
                     ForEach(filteredNotes) { note in

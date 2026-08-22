@@ -1121,7 +1121,7 @@ struct TaskListView: View {
                 Button(title) {
                     onEmptyStateAction?()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .tint(Color.lifeboard.accentPrimary)
                 .padding(.top, Theme.Spacing.xs)
             }

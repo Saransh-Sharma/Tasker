@@ -472,7 +472,7 @@ struct LLMPersonalMemorySettingsView: View {
                             .lineLimit(2...4)
                         HStack {
                             Button("Save") { saveCandidate(candidate.id) }
-                                .buttonStyle(.borderedProminent)
+                                .buttonStyle(.lifeBoardPrimaryCompact)
                             Button("Later") { deferCandidate(candidate.id) }
                                 .buttonStyle(.bordered)
                             Button("Dismiss", role: .destructive) { dismissCandidate(candidate.id) }

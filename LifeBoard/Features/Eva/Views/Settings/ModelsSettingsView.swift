@@ -177,7 +177,7 @@ struct ModelsSettingsView: View {
                         Button("Install") {
                             showOnboardingInstallModelView = true
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .tint(Color.lifeboard(.accentPrimary))
                         .accessibilityIdentifier("llmSettings.installModelButton")
                     } else if isInstalled && isActive == false && compatibility.canActivate {
@@ -186,7 +186,7 @@ struct ModelsSettingsView: View {
                                 await switchModel(model.name)
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .tint(Color.lifeboard(.accentPrimary))
                     }
 

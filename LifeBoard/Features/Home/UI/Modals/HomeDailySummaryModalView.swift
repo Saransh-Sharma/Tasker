@@ -354,7 +354,7 @@ struct DailySummaryModalView: View {
             switch summary {
             case .morning(let value):
                 Button("Start Today") { onStartToday() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .lifeboardCTABezel(
                         style: .summaryPrimary,
                         idleMotion: .slowLoop,
@@ -389,7 +389,7 @@ struct DailySummaryModalView: View {
 
             case .nightly(let value):
                 Button("Plan Tomorrow") { onPlanTomorrow() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .lifeboardCTABezel(
                         style: .summaryPrimary,
                         idleMotion: .slowLoop,

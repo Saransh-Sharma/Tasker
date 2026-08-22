@@ -431,7 +431,7 @@ struct EvaRecoveryCard: View {
 
             VStack(spacing: Theme.Spacing.sm) {
                 Button(primaryTitle, action: onPrimary)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .tint(Color.lifeboard(.accentPrimary))
                     .accessibilityIdentifier("eva.activation.recovery.retry")
 

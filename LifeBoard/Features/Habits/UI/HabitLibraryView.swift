@@ -521,7 +521,7 @@ private struct HabitEmptyStateCard: View {
 
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
             }
         }
         .frame(maxWidth: .infinity)

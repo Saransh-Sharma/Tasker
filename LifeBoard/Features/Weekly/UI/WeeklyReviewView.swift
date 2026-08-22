@@ -104,7 +104,7 @@ struct WeeklyReviewView: View {
                             onCompleted(message)
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .disabled(viewModel.isSaving || !viewModel.footerSnapshot.canFinishReview)
                 }
             }
@@ -169,7 +169,7 @@ private struct WeeklyReviewBlockingStateCard: View {
 
                 if let primaryActionTitle, let onPrimaryAction {
                     Button(primaryActionTitle, action: onPrimaryAction)
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

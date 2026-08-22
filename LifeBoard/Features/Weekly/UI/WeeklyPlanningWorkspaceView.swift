@@ -2261,7 +2261,7 @@ private struct WeeklyWorkspaceBriefingSheet: View {
                     Text(WeeklyWorkspaceCopy.spreadAction)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .accessibilityIdentifier("plan.week.workspace.spread")
 
                 Button {

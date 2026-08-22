@@ -853,10 +853,11 @@ private func trackOfferHealthConnect() async {
 /// it carries a VoiceOver description the backdrop does not.
 private struct TrackHeaderSection: View {
     @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let palette = DaypartTokens.palette(for: preferences.resolvedDaypart())
+        let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
         let layout = dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
             : AnyLayout(HStackLayout(alignment: .top, spacing: 16))
@@ -893,9 +894,10 @@ private struct TrackQuickLogStrip: View {
     @Binding var showsSleep: Bool
     @Binding var editingSleep: SleepContextRecord?
     @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let palette = DaypartTokens.palette(for: preferences.resolvedDaypart())
+        let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
         VStack(alignment: .leading, spacing: 10) {
             Text("Quick log")
                 .font(.caption.weight(.semibold))
@@ -997,7 +999,7 @@ private struct TrackDueAndUnresolvedSection: View {
                             Spacer()
                         }
                         HStack {
-                            Button("Taken") { Task { await store.resolveMedication(event: event, status: .taken) } }.buttonStyle(.borderedProminent)
+                            Button("Taken") { Task { await store.resolveMedication(event: event, status: .taken) } }.buttonStyle(.lifeBoardPrimaryCompact)
                             Button("Skipped") { Task { await store.resolveMedication(event: event, status: .skipped) } }.buttonStyle(.bordered)
                             Button("Snooze 15m") { Task { await store.snoozeMedication(event: event) } }.buttonStyle(.bordered)
                         }
@@ -1872,7 +1874,7 @@ struct GoalsDestinationView: View {
                         editingGoal = nil
                         showsComposer = true
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("goals.add")
                 }
@@ -1887,7 +1889,7 @@ struct GoalsDestinationView: View {
                         description: Text(error)
                     )
                     Button("Try again") { Task { await store.load() } }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 } else if store.definitions.isEmpty {
                     ContentUnavailableView(
@@ -1899,7 +1901,7 @@ struct GoalsDestinationView: View {
                         editingGoal = nil
                         showsComposer = true
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .frame(maxWidth: .infinity, minHeight: 48)
                 } else {
                     ForEach(groupedGoals, id: \.status) { group in
@@ -2083,7 +2085,7 @@ struct RoutinesDestinationView: View {
                         description: Text(error)
                     )
                     Button("Try again") { Task { await store.load() } }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 } else {
                     destinationContent
@@ -2170,7 +2172,7 @@ struct RoutinesDestinationView: View {
                 Button("View all routines") {
                     router.openLeaf(.routines(.library), in: .track)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
         }
@@ -2190,7 +2192,7 @@ struct RoutinesDestinationView: View {
                     editingRoutine = nil
                     showsComposer = true
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .frame(minHeight: 44)
             }
 
@@ -2201,7 +2203,7 @@ struct RoutinesDestinationView: View {
                     Label("Continue \(run.versionSnapshot.title)", systemImage: "play.circle.fill")
                         .frame(maxWidth: .infinity, minHeight: 48)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .accessibilityIdentifier("routines.continueActive")
             }
 
@@ -2236,7 +2238,7 @@ struct RoutinesDestinationView: View {
                 Label(primaryRoutineActionTitle(routine), systemImage: "play.fill")
                     .frame(maxWidth: .infinity, minHeight: 48)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.lifeBoardPrimaryCompact)
             .accessibilityIdentifier("routine.primaryAction")
 
             HStack(spacing: 10) {
@@ -2397,6 +2399,8 @@ struct TrackUniversalCaptureView: View {
                     return store.errorMessage == nil
                 }
             case .medicationEvent:
+                // composer-kit:allow-list selection list of due events with swipe
+                // resolution; row semantics are the surface, not chrome.
                 List {
                     if store.snapshot.unresolvedMedicationEvents.isEmpty {
                         ContentUnavailableView("No medication event due", systemImage: "checkmark.circle", description: Text("Scheduled and unresolved events appear here."))
@@ -2919,13 +2923,13 @@ private struct RoutineRunner: View {
                 Button(timerRemaining(duration: duration, at: context.date) > 0 ? "Timer running" : "Continue") {
                     advance(response, false)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .controlSize(.large)
                 .disabled(timerRemaining(duration: duration, at: context.date) > 0)
             }
         } else {
             Button("Continue") { advance(response, false) }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .controlSize(.large)
                 .disabled(step?.kind == .choice && response == nil)
         }
@@ -2963,7 +2967,7 @@ private struct RoutineRunner: View {
         }
         .padding(18)
         .lifeBoardClaySurface(.well, cornerRadius: 20)
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.lifeBoardPrimaryCompact)
     }
 
     private func timerRemaining(duration: TimeInterval, at date: Date) -> TimeInterval {
@@ -3141,6 +3145,8 @@ private struct HabitResilienceLibrary: View {
                         description: Text("Create or resume a habit, then its resilience policy will appear here.")
                     )
                 case .loaded(let habits):
+                    // composer-kit:allow-list navigation list of groups and habits;
+                    // NavigationLink rows and Section headers are load-bearing.
                     List {
                         Section("Groups") {
                             NavigationLink {
@@ -3668,7 +3674,7 @@ private struct HabitResilienceEditor: View {
                         mutatingDays.remove(occurrence.day)
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .tint(Color(SemanticColorTokens.foundationSageAccent))
                 .accessibilityIdentifier("track.habit.recover.\(occurrence.id)")
             }

@@ -189,14 +189,14 @@ struct WeeklyPlannerView: View {
                 Button(viewModel.isSaving ? "Saving..." : WeeklyCopy.savePlan) {
                     viewModel.save()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lifeBoardPrimaryCompact)
                 .disabled(viewModel.isSaving)
             }
         default:
             Button(viewModel.currentStep.nextButtonTitle) {
                 viewModel.moveForward()
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.lifeBoardPrimaryCompact)
             .disabled(viewModel.isLoading || viewModel.canMoveForward == false)
         }
     }
@@ -258,7 +258,7 @@ private struct WeeklyBlockingStateCard: View {
 
                 if let primaryActionTitle, let onPrimaryAction {
                     Button(primaryActionTitle, action: onPrimaryAction)
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1358,13 +1358,13 @@ private struct WeeklyPlannerProposalSheet: View {
                         Button(state.isWorking ? "Working..." : WeeklyCopy.getAISuggestion) {
                             onSuggest()
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .disabled(state.isWorking)
                     } else {
                         Button(state.isWorking ? "Applying..." : "Apply suggestion") {
                             onConfirm()
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lifeBoardPrimaryCompact)
                         .disabled(state.isWorking)
                     }
                 }

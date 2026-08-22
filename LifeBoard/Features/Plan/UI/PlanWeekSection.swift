@@ -71,7 +71,7 @@ struct PlanWeekSection: View {
             }
             HStack(spacing: 10) {
                 Button("Plan the week", systemImage: "arrow.right.circle.fill", action: onOpenWeeklyPlanner)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .lifeBoardTransitionSource("route.weekly.week")
                     .accessibilityIdentifier("plan.week.openWorkspace")
                     .accessibilityHint("Opens outcomes, triage, capacity, and minimum viable week planning")
