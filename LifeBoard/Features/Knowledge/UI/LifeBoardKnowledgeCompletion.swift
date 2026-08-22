@@ -4,6 +4,7 @@ import LifeBoardPersistence
 import LifeBoardTokens
 import LifeBoardUI
 import CryptoKit
+import CoreSpotlight
 import Foundation
 import LifeBoardPersistence
 import Observation
@@ -639,6 +640,7 @@ public final class NoteEditorSession {
     public let undoManager = UndoManager()
 
     private let repository: any KnowledgeRepository
+    private let indexingService: KnowledgeIndexingService
     private var baseline: KnowledgeNoteValue
     private var autosaveTask: Task<Void, Never>?
     private var checkpointTask: Task<Void, Never>?
@@ -653,6 +655,7 @@ public final class NoteEditorSession {
         self.note = note
         baseline = note
         self.repository = repository
+        indexingService = KnowledgeIndexingService(repository: repository)
         self.sceneID = sceneID
         checkpointTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -751,6 +754,7 @@ public final class NoteEditorSession {
         } else {
             try? await repository.deleteKnowledgeDraft(noteID: note.id)
             try? await repository.deleteKnowledgeNote(id: note.id)
+            try? await indexingService.remove(noteID: note.id)
         }
     }
 
@@ -813,6 +817,7 @@ public final class NoteEditorSession {
         }
         do {
             try await repository.saveKnowledgeNote(value)
+            try await indexingService.upsert(value)
             try await repository.deleteKnowledgeDraft(noteID: value.id)
             saveState = .saved(Date())
         } catch {
@@ -843,6 +848,97 @@ public protocol KnowledgeSearchIndex: Sendable {
     func search(_ terms: String, limit: Int) async throws -> [KnowledgeSearchResult]
     func rebuild(_ documents: [KnowledgeSearchDocument]) async throws
     func status() async -> KnowledgeSearchIndexStatus
+}
+
+/// Keeps every derived representation of a note in sync with its canonical
+/// repository write. UI editors, Shortcuts, and Eva capture all call the same
+/// service so a direct save cannot create an unsearchable note.
+public struct KnowledgeIndexingService: Sendable {
+    public static let spotlightPrefix = "lifeboard-note-"
+
+    private let repository: any KnowledgeRepository
+    public let searchIndex: (any KnowledgeSearchIndex)?
+
+    public init(
+        repository: any KnowledgeRepository,
+        searchIndex: (any KnowledgeSearchIndex)? = nil
+    ) {
+        self.repository = repository
+        self.searchIndex = searchIndex ?? (try? LocalKnowledgeSearchIndex())
+    }
+
+    public func upsert(_ note: KnowledgeNoteValue) async throws {
+        guard note.resolvedLockPolicy == .unlocked, note.resolvedState != .trashed else {
+            try await remove(noteID: note.id)
+            return
+        }
+        async let tags = repository.fetchKnowledgeTags()
+        async let attachments = repository.fetchKnowledgeAttachments(noteID: note.id)
+        let (resolvedTags, resolvedAttachments) = try await (tags, attachments)
+        let tagNames = Dictionary(uniqueKeysWithValues: resolvedTags.map { ($0.id, $0.name) })
+        let attachmentText = (
+            note.blocks.compactMap(\.searchableMetadata)
+                + resolvedAttachments.flatMap { [$0.fileName, $0.ocrText, $0.transcript].compactMap { $0 } }
+        ).joined(separator: " ")
+        let namedTags = note.tagIDs.compactMap { tagNames[$0] }
+        try await searchIndex?.upsert(.init(
+            noteID: note.id,
+            title: note.title,
+            body: note.plainText,
+            tags: namedTags.joined(separator: " "),
+            attachments: attachmentText,
+            updatedAt: note.updatedAt,
+            isLocked: false
+        ))
+        await indexInSpotlight(note, tags: namedTags)
+    }
+
+    public func remove(noteID: UUID) async throws {
+        try await searchIndex?.remove(noteID: noteID)
+        try? await CSSearchableIndex.default().deleteSearchableItems(
+            withIdentifiers: [Self.spotlightPrefix + noteID.uuidString]
+        )
+    }
+
+    public func rebuild(_ notes: [KnowledgeNoteValue]) async throws {
+        var documents: [KnowledgeSearchDocument] = []
+        for note in notes {
+            guard note.resolvedLockPolicy == .unlocked, note.resolvedState != .trashed else { continue }
+            let tags = try await repository.fetchKnowledgeTags()
+            let tagNames = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
+            let attachments = try await repository.fetchKnowledgeAttachments(noteID: note.id)
+            documents.append(.init(
+                noteID: note.id,
+                title: note.title,
+                body: note.plainText,
+                tags: note.tagIDs.compactMap { tagNames[$0] }.joined(separator: " "),
+                attachments: (note.blocks.compactMap(\.searchableMetadata)
+                    + attachments.flatMap { [$0.fileName, $0.ocrText, $0.transcript].compactMap { $0 } })
+                    .joined(separator: " "),
+                updatedAt: note.updatedAt,
+                isLocked: false
+            ))
+        }
+        try await searchIndex?.rebuild(documents)
+        for note in notes where note.resolvedLockPolicy == .unlocked && note.resolvedState != .trashed {
+            await indexInSpotlight(note, tags: [])
+        }
+    }
+
+    private func indexInSpotlight(_ note: KnowledgeNoteValue, tags: [String]) async {
+        let attributes = CSSearchableItemAttributeSet(contentType: .text)
+        attributes.title = note.displayTitle
+        attributes.contentDescription = String(note.plainText.prefix(240))
+        attributes.contentModificationDate = note.updatedAt
+        attributes.keywords = ["note", "knowledge"] + tags
+        attributes.contentURL = URL(string: "lifeboard://note/\(note.id.uuidString)")
+        let item = CSSearchableItem(
+            uniqueIdentifier: Self.spotlightPrefix + note.id.uuidString,
+            domainIdentifier: "com.lifeboard.knowledge",
+            attributeSet: attributes
+        )
+        try? await CSSearchableIndex.default().indexSearchableItems([item])
+    }
 }
 
 public actor LocalKnowledgeSearchIndex: KnowledgeSearchIndex {

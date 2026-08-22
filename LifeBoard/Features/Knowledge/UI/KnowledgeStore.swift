@@ -43,6 +43,7 @@ final class KnowledgeStore {
     var undoMessage: String?
     private var undoNotes: [KnowledgeNoteValue] = []
     private let searchIndex: (any KnowledgeSearchIndex)?
+    private let indexingService: KnowledgeIndexingService
     private let secureNotes: (any KnowledgeSecureNoteService)?
     private var didSeedSearchIndex = false
     private var searchTask: Task<Void, Never>?
@@ -57,9 +58,14 @@ final class KnowledgeStore {
     ) {
         self.repository = repository
         self.attachmentFiles = attachmentFiles ?? ProtectedKnowledgeAttachmentFiles()
-        searchIndex = KnowledgeFeatureFlags.searchIndexEnabled
+        let resolvedSearchIndex = KnowledgeFeatureFlags.searchIndexEnabled
             ? try? LocalKnowledgeSearchIndex()
             : nil
+        searchIndex = resolvedSearchIndex
+        indexingService = KnowledgeIndexingService(
+            repository: repository,
+            searchIndex: resolvedSearchIndex
+        )
         secureNotes = KnowledgeFeatureFlags.securityEnabled
             ? DefaultKnowledgeSecureNoteService()
             : nil
@@ -392,7 +398,7 @@ final class KnowledgeStore {
             let attachments = try await repository.fetchKnowledgeAttachments(noteID: note.id)
             let securePayload = try await repository.fetchKnowledgeSecurePayload(noteID: note.id)?.0
             try await repository.deleteKnowledgeNote(id: note.id)
-            try? await searchIndex?.remove(noteID: note.id)
+            try? await indexingService.remove(noteID: note.id)
             for attachment in attachments {
                 try? await attachmentFiles.deleteFile(for: attachment)
             }
@@ -663,20 +669,8 @@ final class KnowledgeStore {
 
     private func rebuildSearchIndex() async {
         guard let searchIndex else { return }
-        let tagNames = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
-        let documents = notes.map { note in
-            KnowledgeSearchDocument(
-                noteID: note.id,
-                title: note.title,
-                body: note.plainText,
-                tags: note.tagIDs.compactMap { tagNames[$0] }.joined(separator: " "),
-                attachments: note.blocks.compactMap(\.searchableMetadata).joined(separator: " "),
-                updatedAt: note.updatedAt,
-                isLocked: note.resolvedLockPolicy != .unlocked || note.resolvedState == .trashed
-            )
-        }
         do {
-            try await searchIndex.rebuild(documents)
+            try await indexingService.rebuild(notes)
             searchIndexStatus = await searchIndex.status()
             if !searchText.isEmpty { search() }
         } catch {
@@ -685,28 +679,8 @@ final class KnowledgeStore {
     }
 
     private func index(_ note: KnowledgeNoteValue) async {
-        guard let searchIndex else { return }
-        if note.resolvedLockPolicy != .unlocked || note.resolvedState == .trashed {
-            try? await searchIndex.remove(noteID: note.id)
-            return
-        }
-        let tagNames = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
-        let attachments = (try? await repository.fetchKnowledgeAttachments(noteID: note.id)) ?? []
-        let metadata = (
-            note.blocks.compactMap(\.searchableMetadata)
-                + attachments.flatMap { [$0.fileName, $0.ocrText, $0.transcript].compactMap { $0 } }
-        ).joined(separator: " ")
-        try? await searchIndex.upsert(
-            .init(
-                noteID: note.id,
-                title: note.title,
-                body: note.plainText,
-                tags: note.tagIDs.compactMap { tagNames[$0] }.joined(separator: " "),
-                attachments: metadata,
-                updatedAt: note.updatedAt,
-                isLocked: false
-            )
-        )
+        guard searchIndex != nil else { return }
+        try? await indexingService.upsert(note)
         if !searchText.isEmpty { search() }
     }
 }

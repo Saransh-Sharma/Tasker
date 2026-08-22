@@ -1211,6 +1211,7 @@ public protocol PhaseIIRepository: KnowledgeRepository, Sendable {
     func deleteTracker(id: UUID) async throws
     func fetchTrackerEntries(trackerID: UUID?) async throws -> [TrackerEntryValue]
     func saveTrackerEntry(_ value: TrackerEntryValue) async throws
+    func deleteTrackerEntry(id: UUID) async throws
 
     func fetchMoodCheckIns(from: Date?, to: Date?) async throws -> [MoodEnergyCheckInValue]
     func saveMoodCheckIn(_ value: MoodEnergyCheckInValue) async throws
@@ -1278,6 +1279,10 @@ public protocol PhaseIIRepository: KnowledgeRepository, Sendable {
 }
 
 public extension PhaseIIRepository {
+    func deleteTrackerEntry(id: UUID) async throws {
+        throw CocoaError(.featureUnsupported)
+    }
+
     func fetchKnowledgeNotes(query: KnowledgeNoteQuery) async throws -> [KnowledgeNoteValue] {
         let values = try await fetchKnowledgeNotes(search: nil, spaceID: query.spaceID)
         let links = try await fetchKnowledgeLinks()

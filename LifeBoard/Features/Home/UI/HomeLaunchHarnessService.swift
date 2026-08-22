@@ -66,6 +66,7 @@ final class HomeLaunchHarnessService {
     private static var hasConsumedUITestRoute = false
     private static var hasConsumedUITestDeepLink = false
     private static var hasConsumedUITestOpenSettings = false
+    private static var hasConsumedUITestOpenSetupCenter = false
 
     func consumeUITestInjectedRouteIfNeeded(routeHandler: (NotificationRoute) -> Void) {
         guard Self.hasConsumedUITestRoute == false else { return }
@@ -109,6 +110,16 @@ final class HomeLaunchHarnessService {
         DispatchQueue.main.async {
             guard canOpenSettings() else { return }
             openSettings()
+        }
+    }
+
+    func consumeUITestOpenSetupCenterIfNeeded(openSetupCenter: @escaping () -> Void) {
+        guard Self.hasConsumedUITestOpenSetupCenter == false else { return }
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_OPEN_SETUP_CENTER") else { return }
+
+        Self.hasConsumedUITestOpenSetupCenter = true
+        DispatchQueue.main.async {
+            openSetupCenter()
         }
     }
 
@@ -245,6 +256,10 @@ final class LaunchCoordinator {
                 canOpenSettings: { true },
                 openSettings: { [router] in router.push(.settings, in: router.selectedDestination) }
             )
+            service.consumeUITestOpenSetupCenterIfNeeded { [router] in
+                router.activateRoot(.home)
+                router.push(.settingsDetail(.setupCenter), in: .home)
+            }
             completion()
         }
     }

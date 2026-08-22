@@ -3720,12 +3720,27 @@ final class JournalStore {
             )
             proactiveFollowUps = result.followUpStates
             savedProactiveInsights = result.insights.filter { proactiveFeedback[$0.feedbackKey]?.saved == true }
-            proactiveInsights = result.insights.filter { insight in
+            let eligible = result.insights.filter { insight in
                 let feedback = proactiveFeedback[insight.feedbackKey]
                 return feedback?.saved != true
                     && feedback?.isDismissed != true
                     && feedback?.isSnoozed(now: now) != true
             }
+            let candidates = eligible.map { insight in
+                let usefulProbability: Double
+                switch insight.confidence {
+                case .low: usefulProbability = 0.65
+                case .medium: usefulProbability = 0.78
+                case .high: usefulProbability = 0.9
+                }
+                return EvaProactiveCandidate(
+                    kind: insight.kind.rawValue,
+                    insight: insight.asUnifiedInsight(),
+                    usefulProbability: usefulProbability
+                )
+            }
+            let admittedIDs = Set(await EvaProactiveCoordinator.shared.admitted(candidates, now: now).map(\.insight.id))
+            proactiveInsights = eligible.filter { admittedIDs.contains($0.id) }
             try await persistProactiveState()
         } catch is CancellationError {
             return
@@ -3765,6 +3780,11 @@ final class JournalStore {
         feedback.snoozedUntil = nil
         feedback.updatedAt = Date()
         proactiveFeedback[insight.feedbackKey] = feedback
+        await EvaProactiveCoordinator.shared.dismiss(.init(
+            kind: insight.kind.rawValue,
+            insight: insight.asUnifiedInsight(),
+            usefulProbability: 1
+        ))
         try? await persistProactiveState()
         await refreshProactiveReflections()
     }
@@ -4243,12 +4263,11 @@ final class JournalStore {
                 if let path = media.relativePath { try? JournalAudioFiles.delete(relativePath: path) }
             }
             try await repository.deleteJournalDay(id: day.id)
-            if let derivedPipeline {
-                try await derivedPipeline.processDeletion(entryID: day.id)
-            } else if let derivedIndex {
-                try await derivedIndex.remove(entryID: day.id)
-            }
-            await JournalSpotlightIndexer.remove(dayID: day.id)
+            try await JournalIndexingService(
+                repository: repository,
+                derivedIndex: derivedIndex,
+                derivedPipeline: derivedPipeline
+            ).remove(dayID: day.id)
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -4257,12 +4276,11 @@ final class JournalStore {
     func save(_ day: JournalDayValue) async -> Bool {
         do {
             try await repository.saveJournalDay(day)
-            if let derivedPipeline {
-                try await derivedPipeline.processCommitted(JournalEntrySnapshot(day: day))
-            } else if let derivedIndex {
-                try await derivedIndex.upsert(entry: JournalEntrySnapshot(day: day))
-            }
-            await JournalSpotlightIndexer.index(day)
+            try await JournalIndexingService(
+                repository: repository,
+                derivedIndex: derivedIndex,
+                derivedPipeline: derivedPipeline
+            ).upsert(day)
             await load()
             return true
         } catch {
@@ -6360,6 +6378,52 @@ enum JournalInsightService {
             averageEnergy: averageEnergy,
             evidenceDayIDs: Array(written.prefix(7).map(\.id))
         )
+    }
+}
+
+struct JournalIndexingService: Sendable {
+    private let derivedIndex: (any JournalDerivedIndexRepository)?
+    private let derivedPipeline: JournalDerivedPipelineCoordinator?
+
+    init(
+        repository: any PhaseIIRepository,
+        derivedIndex: (any JournalDerivedIndexRepository)? = nil,
+        derivedPipeline: JournalDerivedPipelineCoordinator? = nil
+    ) {
+        if let derivedIndex {
+            self.derivedIndex = derivedIndex
+            self.derivedPipeline = derivedPipeline
+            return
+        }
+        let semantic = SemanticJournalDerivedIndexRepository(
+            snapshotProvider: {
+                try await repository
+                    .fetchJournalDays(search: nil, starredOnly: false, mood: nil)
+                    .map(JournalEntrySnapshot.init(day:))
+            }
+        )
+        self.derivedIndex = semantic
+        self.derivedPipeline = (repository as? CoreDataLifeBoardPhaseIIRepository)?
+            .makeJournalDerivedPipeline(derivedIndex: semantic)
+    }
+
+    func upsert(_ day: JournalDayValue) async throws {
+        let snapshot = JournalEntrySnapshot(day: day)
+        if let derivedPipeline {
+            try await derivedPipeline.processCommitted(snapshot)
+        } else if let derivedIndex {
+            try await derivedIndex.upsert(entry: snapshot)
+        }
+        await JournalSpotlightIndexer.index(day)
+    }
+
+    func remove(dayID: UUID) async throws {
+        if let derivedPipeline {
+            try await derivedPipeline.processDeletion(entryID: dayID)
+        } else if let derivedIndex {
+            try await derivedIndex.remove(entryID: dayID)
+        }
+        await JournalSpotlightIndexer.remove(dayID: dayID)
     }
 }
 

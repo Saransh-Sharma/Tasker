@@ -580,6 +580,13 @@ public final class CoreDataLifeBoardPhaseIIRepository: PhaseIIRepository, Journa
         }
     }
 
+    public func deleteTrackerEntry(id: UUID) async throws {
+        try await write { context in
+            guard let entry = try Self.fetchOne(entity: "TrackerEntry", id: id, in: context) else { return }
+            context.delete(entry)
+        }
+    }
+
     // MARK: Mood and energy
 
     public func fetchMoodCheckIns(from: Date?, to: Date?) async throws -> [MoodEnergyCheckInValue] {
