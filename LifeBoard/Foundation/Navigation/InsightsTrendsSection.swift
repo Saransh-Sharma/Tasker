@@ -24,12 +24,12 @@ struct InsightsTrendsSection: View {
                 chart.frame(height: 150)
                 Text(chart.textEquivalent)
                     .lifeboardFont(.meta)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("One day of history so far. A trend needs a few more.")
                     .lifeboardFont(.support)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
 
             Divider()
@@ -40,7 +40,7 @@ struct InsightsTrendsSection: View {
                     Text(item.domain.capitalized)
                     Spacer()
                     Text("\(item.count) \(item.count == 1 ? "record" : "records")")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                         .monospacedDigit()
                 }
                 .lifeBoardScrollEntrance(intensity: 0.5)

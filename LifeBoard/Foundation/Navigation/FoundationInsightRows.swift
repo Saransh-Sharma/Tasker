@@ -40,10 +40,10 @@ struct EvidenceRow: View {
                     .lifeboardFont(.headline)
                 Text(event.provenance)
                     .lifeboardFont(.caption1)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                 Text(event.occurredAt.formatted(date: .abbreviated, time: .shortened))
                     .lifeboardFont(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                 if event.evidence.isEmpty == false {
                     HStack(spacing: 6) {
                         ForEach(event.evidence, id: \.self) { evidence in

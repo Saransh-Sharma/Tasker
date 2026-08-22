@@ -14,7 +14,7 @@ struct InsightsReviewSection: View {
                 .lifeboardFont(.sectionTitle)
             Text(reviewSummary)
                 .lifeboardFont(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.lifeboard(.textSecondary))
             if let report = dayLoopEvidenceReport {
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 132), spacing: 10)],
@@ -33,7 +33,7 @@ struct InsightsReviewSection: View {
                 }
                 Text("Proposal evidence is local and non-authoritative. Missing sidecars stay unknown; undone receipts stop counting.")
                     .lifeboardFont(.caption1)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
             Button("Open weekly review") {
                 router.push(.weeklyReview, in: .insights)

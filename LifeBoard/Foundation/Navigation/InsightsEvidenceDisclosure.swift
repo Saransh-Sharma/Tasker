@@ -16,7 +16,7 @@ struct InsightsEvidenceDisclosure: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(completenessDescription)
                     .lifeboardFont(.caption1)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                 ForEach(events) { event in
                     EvidenceRow(event: event, onOpenEvidence: open) {
                         exclude(event)

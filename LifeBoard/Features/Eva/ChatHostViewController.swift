@@ -802,17 +802,17 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
         newChatBarButtonItem.tintColor = onAccent
     }
 
+    /// Dynamic, not baked: UIKit resolves this appearance itself, and six light hexes painted a near-white bar over a dark chat.
     private func applyCompletedChatNavigationAppearance() {
-        let navBackground = UIColor(lifeboardHex: "#FFFDFC").withAlphaComponent(0.82)
-        let navText = UIColor(lifeboardHex: "#071B52")
-        let navMuted = UIColor(lifeboardHex: "#48607F")
-        let navAccent = UIColor(lifeboardHex: "#6842FF")
-
+        let navBackground = UIColor.lifeboardDynamic(lightHex: "#FFFDFC", darkHex: "#1C2338").withAlphaComponent(0.82)
+        let navText = UIColor.lifeboardDynamic(lightHex: "#071B52", darkHex: "#F4EBDD")
+        let navMuted = UIColor.lifeboardDynamic(lightHex: "#48607F", darkHex: "#C6BBA8")
+        let navAccent = UIColor.lifeboardDynamic(lightHex: "#6842FF", darkHex: "#B9A5FF")
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
         appearance.backgroundEffect = UIBlurEffect(style: .systemThinMaterial)
         appearance.backgroundColor = navBackground
-        appearance.shadowColor = UIColor(lifeboardHex: "#DDE3EE").withAlphaComponent(0.58)
+        appearance.shadowColor = UIColor.lifeboardDynamic(lightHex: "#DDE3EE", darkHex: "#4D526D").withAlphaComponent(0.58)
         appearance.titleTextAttributes = [.foregroundColor: navText]
         appearance.largeTitleTextAttributes = [.foregroundColor: navText]
 
@@ -849,8 +849,8 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
             chatTitleView.configure(
                 title: chatNavigationChromeState.title,
                 subtitle: chatNavigationChromeState.subtitle,
-                titleColor: UIColor(lifeboardHex: "#071B52"),
-                subtitleColor: UIColor(lifeboardHex: "#48607F")
+                titleColor: UIColor.lifeboardDynamic(lightHex: "#071B52", darkHex: "#F4EBDD"),
+                subtitleColor: UIColor.lifeboardDynamic(lightHex: "#48607F", darkHex: "#C6BBA8")
             )
             chatTitleView.frame = CGRect(
                 x: 0,

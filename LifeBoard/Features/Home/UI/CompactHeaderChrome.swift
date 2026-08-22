@@ -352,7 +352,7 @@ struct CompactHeaderChrome: View {
                             Spacer()
                             if let count = taskCounts[quickView] {
                                 Text("\(count)")
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.lifeboard(.textSecondary))
                             }
                             if selectedQuickView == quickView {
                                 Image(systemName: "checkmark")

@@ -56,7 +56,7 @@ struct InsightsExperienceSection: View {
                     .monospacedDigit()
                 Text("An optional view of the existing local ledger—not a score for your day.")
                     .lifeboardFont(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -73,7 +73,7 @@ struct InsightsExperienceSection: View {
                         Text(dayLabel(aggregate.dateKey))
                         Spacer()
                         Text("\(aggregate.totalXP) XP · \(aggregate.eventCount) \(aggregate.eventCount == 1 ? "entry" : "entries")")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                             .monospacedDigit()
                     }
                     .lifeBoardScrollEntrance(intensity: 0.5)

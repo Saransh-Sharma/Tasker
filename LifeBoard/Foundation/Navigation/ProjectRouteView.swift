@@ -73,7 +73,7 @@ struct ProjectRouteView: View {
                     TextField("Milestone", text: $milestoneTitle)
                     Text("A milestone marks progress; it never appears as a task in Today.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
                 .navigationTitle("New Milestone")
                 .toolbar {

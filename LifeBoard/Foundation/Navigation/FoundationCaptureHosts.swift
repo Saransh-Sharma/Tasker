@@ -23,8 +23,13 @@ struct CaptureSheet: View {
             } label: {
                 Image(systemName: "xmark")
                     .lifeboardFont(.headline)
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
                     .frame(width: 44, height: 44)
-                    .background(.regularMaterial, in: Circle())
+                    // The app's own glass, not `.regularMaterial`: this control
+                    // floats over every capture host, so a system material made
+                    // it the one piece of chrome that ignored the warm palette
+                    // in both appearances.
+                    .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Close capture")

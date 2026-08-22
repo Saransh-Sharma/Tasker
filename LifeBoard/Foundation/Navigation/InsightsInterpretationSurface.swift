@@ -15,9 +15,10 @@ struct InsightsInterpretationSurface: View {
     let completenessDescription: String
 
     @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let palette = DaypartTokens.palette(for: preferences.resolvedDaypart())
+        let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
         VStack(alignment: .leading, spacing: 12) {
             Label("What changed", systemImage: "sparkles")
                 .lifeboardFont(.eyebrow)

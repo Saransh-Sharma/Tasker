@@ -24,9 +24,10 @@ struct NutritionTodayHero: View {
     let onLogMeal: () -> Void
 
     @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let palette = DaypartTokens.palette(for: preferences.resolvedDaypart())
+        let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
         VStack(alignment: .leading, spacing: 16) {
             MetricHero(
                 label: "Energy today",
@@ -83,9 +84,10 @@ struct WellnessHero: View {
     let action: () -> Void
 
     @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let palette = DaypartTokens.palette(for: preferences.resolvedDaypart())
+        let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
         VStack(alignment: .leading, spacing: 16) {
             MetricHero(
                 label: label,

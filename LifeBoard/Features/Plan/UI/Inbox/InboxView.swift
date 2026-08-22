@@ -1238,7 +1238,7 @@ private struct InboxCaptureReviewSheet: View {
                     Text(candidate.existing.title)
                     Text("\(Int((candidate.similarity * 100).rounded()))% title match")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
             }
 

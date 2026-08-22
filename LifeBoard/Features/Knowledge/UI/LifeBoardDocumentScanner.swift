@@ -154,7 +154,7 @@ public struct ScanReviewView: View {
                     .lifeboardFont(.metric)
                 Text("Nothing has been saved. Fix any words before placing this in your composer.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                 TextEditor(text: $text)
                     .font(.body)
                     .scrollContentBackground(.hidden)
@@ -167,7 +167,7 @@ public struct ScanReviewView: View {
                     .accessibilityLabel("Scanned text")
                 Text("\(pageCount) scanned page\(pageCount == 1 ? "" : "s") · processed locally")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
             .padding(20)
             .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())

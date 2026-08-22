@@ -267,7 +267,7 @@ struct NeedsReplanCardOverlay: View {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .stroke(Color.lifeboard.strokeHairline.opacity(0.6), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.12), radius: 24, x: 0, y: 12)
+            .lifeboardElevation(.e3)
             .accessibilityIdentifier("home.needsReplan.dragSource")
     }
 

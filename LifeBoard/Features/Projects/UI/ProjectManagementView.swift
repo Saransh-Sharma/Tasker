@@ -124,12 +124,12 @@ struct ProjectManagementView: View {
                     if let description = entry.project.projectDescription, description.isEmpty == false {
                         Text(description)
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
                     HStack(spacing: 8) {
                         Text("\(entry.taskCount) tasks")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                         if entry.project.isArchived {
                             Text("Archived")
                                 .font(.caption2.weight(.semibold))
@@ -159,7 +159,7 @@ struct ProjectManagementView: View {
                         if let description = selected.project.projectDescription, description.isEmpty == false {
                             Text(description)
                                 .font(.body)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                         }
                     }
 
@@ -195,11 +195,11 @@ struct ProjectManagementView: View {
                     if selected.project.id == ProjectConstants.inboxProjectID {
                         Text("Inbox is your capture project and cannot be deleted.")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     } else {
                         Text("Swipe left on the project in the list to delete it.")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
                 }
                 .lifeboardReadableContent(maxWidth: 860, alignment: .center)
@@ -289,7 +289,7 @@ struct ProjectManagementView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.lifeboard(.textSecondary))
             Text(value)
                 .font(.headline)
                 .foregroundColor(.lifeboard(.textPrimary))
@@ -393,7 +393,7 @@ struct ProjectManagementView: View {
             if viewModel.selectedProjectTasks.isEmpty {
                 Text(WeeklyCopy.noProjectTasks)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             } else {
                 VStack(spacing: 10) {
                     ForEach(viewModel.selectedProjectTasks, id: \.id) { task in
@@ -445,14 +445,14 @@ struct ProjectManagementView: View {
             if viewModel.recentReflectionNotes.isEmpty {
                 Text("Project reflections help the weekly review stay grounded in what actually happened.")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             } else {
                 ForEach(viewModel.recentReflectionNotes.prefix(4), id: \.id) { note in
                     VStack(alignment: .leading, spacing: 4) {
                         if let prompt = note.prompt, prompt.isEmpty == false {
                             Text(prompt)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
                         }
                         Text(note.noteText)
                             .font(.callout)
