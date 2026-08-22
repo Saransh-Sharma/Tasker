@@ -168,6 +168,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let taskRepository = state.taskDefinitionRepository,
               let habitRepository = state.habitRuntimeReadRepository,
               let tagRepository = state.tagRepository,
+              let assistantActionRepository = state.assistantActionRepository,
               let coordinator = state.useCaseCoordinator else {
             showBootstrapFailureRoot(message: "LifeBoard’s canonical task and habit services did not finish setup.")
             return nil
@@ -191,7 +192,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         let layoutRepository = CoreDataDashboardLayoutRepository(container: persistentContainer)
         let phaseIIRepository = CoreDataLifeBoardPhaseIIRepository(container: persistentContainer)
+        LLMContextRepositoryFactory.configurePhaseIIRepository(phaseIIRepository)
         let planningRepository = CoreDataPlanningRepository(container: persistentContainer)
+        LLMContextRepositoryFactory.configureInternalTimeBlockRepository(planningRepository)
         let planDependencies: PlanFeatureDependencies? = {
             guard V2FeatureFlags.phase1ExecutionFlagshipEnabled else { return nil }
             return PlanFeatureDependencies(
@@ -211,11 +214,19 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             homeViewModel.configureCanonicalFocusCommands(planDependencies.focusCommands)
         }
         let trackFoundationRepository = CoreDataTrackFoundationRepository(container: persistentContainer)
+        LLMContextRepositoryFactory.configureTrackFoundationRepository(trackFoundationRepository)
         let habitRuntimeReadRepository = CoreDataHabitRuntimeReadRepository(container: persistentContainer)
         let goalSampleProvider = CoreDataGoalSampleRepository(container: persistentContainer)
         let nutritionRepository = CoreDataNutritionRepository(container: persistentContainer)
         let lifeMomentRepository = CoreDataLifeMomentRepository(container: persistentContainer)
         let wellnessRepository = CoreDataWellnessRepository(container: persistentContainer)
+        EvaCaptureLaneFactory.configure(repositories: .init(
+            assistantActions: assistantActionRepository,
+            phaseII: phaseIIRepository,
+            track: trackFoundationRepository,
+            wellness: wellnessRepository,
+            lifeMoments: lifeMomentRepository
+        ))
         #if canImport(WatchConnectivity) && os(iOS)
         WatchConnectivityCoordinator.shared.configure(
             repository: phaseIIRepository,
@@ -641,6 +652,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "scene_did_enter_background")
             FoundationCoordinator.shared.router.journalDidLock()
         }
+        Task { await ProductTelemetry.shared.flush() }
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_enter_background")
     }
 
@@ -662,8 +674,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
               let identifier = userActivity.userInfo?[CSSearchableItemActivityIdentifier] as? String else {
             return
         }
-        if let url = SpotlightRouteTranslator.url(for: identifier) {
-            handleIncomingURL(url)
+        if let reference = SpotlightRouteTranslator.reference(for: identifier) {
+            RecordRouteResolver.open(reference, with: FoundationCoordinator.shared.router)
         } else if identifier.hasPrefix(SpotlightRouteTranslator.journalPrefix) {
             FoundationCoordinator.shared.router.restoreFallbackToHome(
                 message: "That Journal result is incomplete or no longer available."

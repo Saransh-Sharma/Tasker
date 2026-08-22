@@ -35,6 +35,22 @@ struct ProductEventV1: Codable, Sendable {
         case contextSourceExcluded
         case contextSourceRestored
         case contextConsentChanged
+        case evaActivationReviewConfirmed
+        case evaGuestBootstrapStarted
+        case evaGuestBootstrapSucceeded
+        case evaGuestBootstrapFailed
+        case evaFirstPromptSent
+        case evaFirstAnswerCompleted
+        case evaAppleLinkStarted
+        case evaAppleLinkSucceeded
+        case evaAppleLinkFailed
+        case evaQuotaExhausted
+        case evaTrustTierObserved
+        case evaReadinessHydrated
+        case evaInlineActivationShown
+        case evaActivationAutoResumed
+        case evaActivationAndSendCompleted
+        case evaSetupCenterCTAShown
     }
 
     let name: Name
@@ -57,7 +73,31 @@ actor ProductTelemetry {
         let events: [ProductEventV1]
     }
 
-    private var pending: [ProductEventV1] = []
+    private static let pendingStorageKey = "productTelemetry.pending.v1"
+    private static let immediateFlushEvents: Set<ProductEventV1.Name> = [
+        .evaActivationReviewConfirmed,
+        .evaGuestBootstrapSucceeded,
+        .evaGuestBootstrapFailed,
+        .evaFirstPromptSent,
+        .evaFirstAnswerCompleted,
+        .evaAppleLinkSucceeded,
+        .evaAppleLinkFailed,
+        .evaQuotaExhausted,
+        .evaTrustTierObserved,
+        .evaActivationAutoResumed,
+        .evaActivationAndSendCompleted,
+    ]
+
+    private var pending: [ProductEventV1]
+
+    init(defaults: UserDefaults = .standard) {
+        if let data = defaults.data(forKey: Self.pendingStorageKey),
+           let restored = try? JSONDecoder().decode([ProductEventV1].self, from: data) {
+            pending = Array(restored.suffix(32))
+        } else {
+            pending = []
+        }
+    }
 
     static var isEnabled: Bool {
         get { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
@@ -87,7 +127,10 @@ actor ProductTelemetry {
             count: count,
             durationBucket: durationBucket
         ))
-        if pending.count >= 8 { await flush() }
+        persistPending()
+        if pending.count >= 8 || Self.immediateFlushEvents.contains(name) {
+            Task { await self.flush() }
+        }
     }
 
     func flush() async {
@@ -96,6 +139,7 @@ actor ProductTelemetry {
               pending.isEmpty == false else { return }
         let events = pending
         pending.removeAll()
+        persistPending()
         do {
             let batch = Batch(installationId: Self.rotatingInstallationID(), events: events)
             _ = try await EvaCloudTransport.shared.send(
@@ -106,11 +150,26 @@ actor ProductTelemetry {
                 attested: false
             )
         } catch {
-            if Self.isEnabled { pending.insert(contentsOf: events.prefix(32), at: 0) }
+            if Self.isEnabled {
+                pending.insert(contentsOf: events.prefix(32), at: 0)
+                pending = Array(pending.prefix(32))
+                persistPending()
+            }
         }
     }
 
-    private func discardPending() { pending.removeAll() }
+    private func discardPending() {
+        pending.removeAll()
+        persistPending()
+    }
+
+    private func persistPending(defaults: UserDefaults = .standard) {
+        if pending.isEmpty {
+            defaults.removeObject(forKey: Self.pendingStorageKey)
+        } else if let data = try? JSONEncoder().encode(Array(pending.suffix(32))) {
+            defaults.set(data, forKey: Self.pendingStorageKey)
+        }
+    }
 
     private static func rotatingInstallationID(defaults: UserDefaults = .standard) -> UUID {
         let idKey = "productTelemetry.rotatingID"

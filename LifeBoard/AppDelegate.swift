@@ -195,6 +195,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         HealthCoordinator.shared.prepareForLaunch()
 
         EvaFeatureProviderRegistration.install()
+        Task { @MainActor in
+            _ = await EvaCloudAccessCoordinator.shared.resumeConfirmedActivation(source: .appLaunch)
+        }
 
         let launchArguments = ProcessInfo.processInfo.arguments
 
@@ -1502,6 +1505,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             lifeAreaRepository: root.lifeAreaRepository,
             tagRepository: root.tagRepository,
             habitRuntimeReadRepository: root.habitRuntimeReadRepository
+        )
+        LLMContextRepositoryFactory.configureCalendarEventsRepository(root.calendarEventsProvider)
+        LLMContextRepositoryFactory.configureWeeklyRepositories(
+            plan: root.useCaseCoordinator.weeklyPlanRepository,
+            outcome: root.useCaseCoordinator.weeklyOutcomeRepository,
+            review: root.useCaseCoordinator.weeklyReviewRepository
         )
         LLMAssistantPipelineFactory.configure(pipeline: root.useCaseCoordinator.assistantActionPipeline)
         configureSemanticRetrievalLifecycle(stateContainer: root)

@@ -59,6 +59,16 @@
 # composer (+10 lines to its single top-level declaration). Type sizes are
 # unchanged in the file that matters (ChatView's largest type held at 424;
 # the +6 lines are outside it).
+# 2026-08-22, shader readiness observed: every signature-effect modifier gated
+# itself on `SignatureShaders.isReadyForRendering`, a plain `static var` read
+# inside its own body. That read is not observation-tracked, and warm-up is a
+# detached Task, so the first render of each effect took its fallback branch and
+# was never invalidated when the shaders became ready — almost no Metal effect
+# in the app was reaching the screen. The fix is one
+# `@Environment(\.lifeBoardShaderReadiness)` per modifier: 21 irreducible
+# declaration lines plus the rule documented at the definition site. The
+# largest-type column is unchanged at 145, so the -Onone launch-stack budget
+# this ratchet exists to protect is untouched; the growth is declaration count.
 LifeBoard/AppDelegate.swift	2056	15	1666
 LifeBoard/DesignSystem/ComposerScaffold.swift	623	13	106
 LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift	672	1	662
@@ -69,7 +79,7 @@ LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift	672	1	662
 # and cost Eva's composer its pinned dock clearance), which is the nesting the
 # extra lines buy. 423 -> 427 lines, largest type 97 -> 117; type count fell.
 LifeBoard/DesignSystem/ScreenScaffold.swift	427	14	117
-LifeBoard/DesignSystem/LifeBoardSignatureEffects.swift	1946	52	145
+LifeBoard/DesignSystem/LifeBoardSignatureEffects.swift	1977	52	145
 LifeBoard/DesignSystem/LifeBoardValueControls.swift	804	8	178
 LifeBoard/Features/DailyLoop/Data/DayCloseStore.swift	618	3	572
 LifeBoard/Features/DailyLoop/Data/HomeLifeOSProjectionStore.swift	1008	4	875

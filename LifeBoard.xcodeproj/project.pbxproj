@@ -574,6 +574,7 @@
 		A31000000000000000000955 /* SetupCenterStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000954 /* SetupCenterStatus.swift */; };
 		A31000000000000000000957 /* SetupCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000956 /* SetupCenterView.swift */; };
 		A31000000000000000000959 /* SetupCenterHomeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000958 /* SetupCenterHomeCard.swift */; };
+		A3100000000000000000095B /* UIKitHostEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000095A /* UIKitHostEnvironment.swift */; };
 		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
 		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
@@ -1690,6 +1691,7 @@
 		A31000000000000000000954 /* SetupCenterStatus.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterStatus.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterStatus.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000956 /* SetupCenterView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterView.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterView.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000958 /* SetupCenterHomeCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterHomeCard.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterHomeCard.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000095A /* UIKitHostEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UIKitHostEnvironment.swift; path = LifeBoard/Foundation/Design/UIKitHostEnvironment.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTokenBridge.swift; path = LifeBoard/DesignSystem/TokenBridge.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
@@ -3548,6 +3550,7 @@
 				A31000000000000000000514 /* LifeBoardValueControls.swift */,
 				A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */,
 				A31000000000000000000223 /* LifeBoardTokenBridge.swift */,
+				A3100000000000000000095A /* UIKitHostEnvironment.swift */,
 				A31000000000000000000958 /* SetupCenterHomeCard.swift */,
 				A31000000000000000000956 /* SetupCenterView.swift */,
 				A31000000000000000000954 /* SetupCenterStatus.swift */,
@@ -5402,6 +5405,7 @@
 				A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */,
 				A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
+				A3100000000000000000095B /* UIKitHostEnvironment.swift in Sources */,
 				A31000000000000000000959 /* SetupCenterHomeCard.swift in Sources */,
 				A31000000000000000000957 /* SetupCenterView.swift in Sources */,
 				A31000000000000000000955 /* SetupCenterStatus.swift in Sources */,
