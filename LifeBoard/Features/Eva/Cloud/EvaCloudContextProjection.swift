@@ -40,8 +40,9 @@ enum EvaCloudContextProjection {
         guard evidence.availability == .ready else { return [] }
         let grants = Set(consent.grants)
         var values: [EvaCloudContextSection.Category: [EvaEvidenceEventPayload]] = [:]
-        for event in evidence.events.prefix(24)
-        where event.authorization == .authorized && event.allowedDestinations.contains(.eva) {
+        for rawEvent in evidence.events.prefix(24) {
+            let event = EvaEvidenceExclusionStore.applying(to: rawEvent)
+            guard event.authorization == .authorized && event.allowedDestinations.contains(.eva) else { continue }
             guard let category = category(for: event.domain, grants: grants) else { continue }
             let isRedacted = event.redaction == .sensitiveSummary
             let display = event.evidence.first?.display

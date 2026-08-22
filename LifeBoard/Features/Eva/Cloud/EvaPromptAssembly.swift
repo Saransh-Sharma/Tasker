@@ -122,6 +122,9 @@ enum EvaCloudHistoryClipper {
         var usedTokens = 0
         for message in messages.reversed() {
             guard kept.count < maxMessages else { break }
+            // Server-side policy replaces system messages. Do not spend the
+            // history budget on content the request encoder will drop.
+            guard message.role != .system else { continue }
             let content = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
             guard content.isEmpty == false else { continue }
             let tokens = LLMTokenBudgetEstimator.estimatedTokenCount(for: content)
