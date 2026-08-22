@@ -1,4 +1,5 @@
 import Foundation
+import LifeBoardDomain
 import MLXLMCommon
 
 private func uniqueDictionary<Key: Hashable & Sendable, Value>(
@@ -50,6 +51,13 @@ private final class LLMContextRepositoryStorage: @unchecked Sendable {
     private var lifeAreaRepositoryStorage: LifeAreaRepositoryProtocol?
     private var tagRepositoryStorage: TagRepositoryProtocol?
     private var habitRuntimeReadRepositoryStorage: HabitRuntimeReadRepositoryProtocol?
+    private var phaseIIRepositoryStorage: (any PhaseIIRepository)?
+    private var trackFoundationRepositoryStorage: (any TrackFoundationRepository)?
+    private var calendarEventsRepositoryStorage: CalendarEventsRepositoryProtocol?
+    private var internalTimeBlockRepositoryStorage: (any InternalTimeBlockRepository)?
+    private var weeklyPlanRepositoryStorage: WeeklyPlanRepositoryProtocol?
+    private var weeklyOutcomeRepositoryStorage: WeeklyOutcomeRepositoryProtocol?
+    private var weeklyReviewRepositoryStorage: WeeklyReviewRepositoryProtocol?
 
     var taskReadModelRepository: TaskReadModelRepositoryProtocol? {
         lock.lock()
@@ -81,6 +89,43 @@ private final class LLMContextRepositoryStorage: @unchecked Sendable {
         return habitRuntimeReadRepositoryStorage
     }
 
+    var phaseIIRepository: (any PhaseIIRepository)? {
+        lock.lock()
+        defer { lock.unlock() }
+        return phaseIIRepositoryStorage
+    }
+
+    var trackFoundationRepository: (any TrackFoundationRepository)? {
+        lock.lock()
+        defer { lock.unlock() }
+        return trackFoundationRepositoryStorage
+    }
+
+    var calendarEventsRepository: CalendarEventsRepositoryProtocol? {
+        lock.lock()
+        defer { lock.unlock() }
+        return calendarEventsRepositoryStorage
+    }
+
+    var internalTimeBlockRepository: (any InternalTimeBlockRepository)? {
+        lock.lock()
+        defer { lock.unlock() }
+        return internalTimeBlockRepositoryStorage
+    }
+
+    var weeklyRepositories: (
+        WeeklyPlanRepositoryProtocol,
+        WeeklyOutcomeRepositoryProtocol,
+        WeeklyReviewRepositoryProtocol
+    )? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let plan = weeklyPlanRepositoryStorage,
+              let outcome = weeklyOutcomeRepositoryStorage,
+              let review = weeklyReviewRepositoryStorage else { return nil }
+        return (plan, outcome, review)
+    }
+
     func configure(
         taskReadModelRepository: TaskReadModelRepositoryProtocol?,
         projectRepository: ProjectRepositoryProtocol?,
@@ -95,6 +140,42 @@ private final class LLMContextRepositoryStorage: @unchecked Sendable {
         self.lifeAreaRepositoryStorage = lifeAreaRepository
         self.tagRepositoryStorage = tagRepository
         self.habitRuntimeReadRepositoryStorage = habitRuntimeReadRepository
+    }
+
+    func configurePhaseIIRepository(_ repository: any PhaseIIRepository) {
+        lock.lock()
+        phaseIIRepositoryStorage = repository
+        lock.unlock()
+    }
+
+    func configureTrackFoundationRepository(_ repository: any TrackFoundationRepository) {
+        lock.lock()
+        trackFoundationRepositoryStorage = repository
+        lock.unlock()
+    }
+
+    func configureCalendarEventsRepository(_ repository: CalendarEventsRepositoryProtocol?) {
+        lock.lock()
+        calendarEventsRepositoryStorage = repository
+        lock.unlock()
+    }
+
+    func configureInternalTimeBlockRepository(_ repository: any InternalTimeBlockRepository) {
+        lock.lock()
+        internalTimeBlockRepositoryStorage = repository
+        lock.unlock()
+    }
+
+    func configureWeeklyRepositories(
+        plan: WeeklyPlanRepositoryProtocol,
+        outcome: WeeklyOutcomeRepositoryProtocol,
+        review: WeeklyReviewRepositoryProtocol
+    ) {
+        lock.lock()
+        weeklyPlanRepositoryStorage = plan
+        weeklyOutcomeRepositoryStorage = outcome
+        weeklyReviewRepositoryStorage = review
+        lock.unlock()
     }
 
     func makeService(maxTasksPerSlice: Int, compactTaskPayload: Bool) -> LLMContextProjectionService? {
@@ -138,6 +219,15 @@ enum LLMContextRepositoryFactory {
     static var lifeAreaRepository: LifeAreaRepositoryProtocol? { storage.lifeAreaRepository }
     static var tagRepository: TagRepositoryProtocol? { storage.tagRepository }
     static var habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? { storage.habitRuntimeReadRepository }
+    static var phaseIIRepository: (any PhaseIIRepository)? { storage.phaseIIRepository }
+    static var trackFoundationRepository: (any TrackFoundationRepository)? { storage.trackFoundationRepository }
+    static var calendarEventsRepository: CalendarEventsRepositoryProtocol? { storage.calendarEventsRepository }
+    static var internalTimeBlockRepository: (any InternalTimeBlockRepository)? { storage.internalTimeBlockRepository }
+    static var weeklyRepositories: (
+        WeeklyPlanRepositoryProtocol,
+        WeeklyOutcomeRepositoryProtocol,
+        WeeklyReviewRepositoryProtocol
+    )? { storage.weeklyRepositories }
 
     /// Executes configure.
     static func configure(
@@ -154,6 +244,30 @@ enum LLMContextRepositoryFactory {
             tagRepository: tagRepository,
             habitRuntimeReadRepository: habitRuntimeReadRepository
         )
+    }
+
+    static func configurePhaseIIRepository(_ repository: any PhaseIIRepository) {
+        storage.configurePhaseIIRepository(repository)
+    }
+
+    static func configureTrackFoundationRepository(_ repository: any TrackFoundationRepository) {
+        storage.configureTrackFoundationRepository(repository)
+    }
+
+    static func configureCalendarEventsRepository(_ repository: CalendarEventsRepositoryProtocol?) {
+        storage.configureCalendarEventsRepository(repository)
+    }
+
+    static func configureInternalTimeBlockRepository(_ repository: any InternalTimeBlockRepository) {
+        storage.configureInternalTimeBlockRepository(repository)
+    }
+
+    static func configureWeeklyRepositories(
+        plan: WeeklyPlanRepositoryProtocol,
+        outcome: WeeklyOutcomeRepositoryProtocol,
+        review: WeeklyReviewRepositoryProtocol
+    ) {
+        storage.configureWeeklyRepositories(plan: plan, outcome: outcome, review: review)
     }
 
     /// Executes makeService.

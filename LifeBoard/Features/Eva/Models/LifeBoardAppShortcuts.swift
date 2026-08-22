@@ -310,10 +310,19 @@ struct QuickJournalCaptureIntent: AppIntent {
         let saved = day
         _ = try await applyShortcutMutation(
             preview: .init(destination: .track, summary: "Add a Journal moment", changes: ["Journal · Today", content], origin: .appIntent),
-            apply: { try await repository.saveJournalDay(saved); return "Added to today’s Journal." },
+            apply: {
+                try await repository.saveJournalDay(saved)
+                try await JournalIndexingService(repository: repository).upsert(saved)
+                return "Added to today’s Journal."
+            },
             undo: {
-                if let previous { try await repository.saveJournalDay(previous) }
-                else { try await repository.deleteJournalDay(id: saved.id) }
+                if let previous {
+                    try await repository.saveJournalDay(previous)
+                    try await JournalIndexingService(repository: repository).upsert(previous)
+                } else {
+                    try await repository.deleteJournalDay(id: saved.id)
+                    try await JournalIndexingService(repository: repository).remove(dayID: saved.id)
+                }
             }
         )
         return .result(dialog: "Added to today’s Journal.")
@@ -370,9 +379,13 @@ struct QuickNoteCaptureIntent: AppIntent {
             ),
             apply: {
                 try await repository.saveKnowledgeNote(note)
+                try await KnowledgeIndexingService(repository: repository).upsert(note)
                 return "Created \(note.displayTitle)."
             },
-            undo: { try await repository.deleteKnowledgeNote(id: note.id) }
+            undo: {
+                try await repository.deleteKnowledgeNote(id: note.id)
+                try await KnowledgeIndexingService(repository: repository).remove(noteID: note.id)
+            }
         )
         return .result(
             value: note.displayTitle,
@@ -497,6 +510,7 @@ struct CreateNoteIntent: AppIntent {
             contentVersion: 1
         )
         try await repository.saveKnowledgeNote(note)
+        try await KnowledgeIndexingService(repository: repository).upsert(note)
         let entity = NoteAppEntity(id: note.id, title: note.displayTitle, isLocked: false)
         return .result(value: entity, dialog: "Saved a note to LifeBoard.")
     }

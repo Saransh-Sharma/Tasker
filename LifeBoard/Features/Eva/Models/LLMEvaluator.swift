@@ -215,19 +215,56 @@ class LLMEvaluator {
         lastVisibleCharacterCount = 0
         lastSanitizedTemplateArtifacts = false
         let model = ModelConfiguration.getModelByName(modelName) ?? .defaultModel
+        let runtime = turnRuntime ?? (try? EvaTurnRuntime.resolve(
+            localModelName: modelName,
+            offlineModel: model,
+            route: profile.cloudRoute
+        ))
+        let userQuery = thread.sortedMessages.reversed().first(where: { $0.role == .user })?.content ?? ""
+        let resolvedCloudContext: [EvaCloudContextSection]
+        if let runtime, runtime.usesCloud {
+            resolvedCloudContext = await runtime.enrichedContextSections(
+                explicit: cloudContext,
+                userQuery: userQuery
+            )
+        } else {
+            resolvedCloudContext = cloudContext
+        }
         let startedAt = Date()
+        let messages: [Chat.Message]
+        let systemPromptCharacterCount: Int
+        if let runtime, runtime.usesCloud {
+            let contextTokens = resolvedCloudContext.reduce(0) { partial, section in
+                partial + ((try? JSONEncoder.evaCloud.encode(section).count) ?? 0) / 4
+            }
+            messages = EvaCloudHistoryClipper.clip(
+                thread.sortedMessages,
+                maxMessages: runtime.contextBudget.historyMessageLimit,
+                maxTokens: max(
+                    0,
+                    runtime.contextBudget.inputTokens
+                        - runtime.contextBudget.systemPromptTokens
+                        - contextTokens
+                        - 256
+                )
+            )
+            systemPromptCharacterCount = 0
+        } else {
+            messages = model.getChatMessages(thread: thread, systemPrompt: systemPrompt)
+            systemPromptCharacterCount = systemPrompt.count
+        }
         let snapshot = LLMChatPromptSnapshot(
-            messages: model.getChatMessages(thread: thread, systemPrompt: systemPrompt),
-            systemPromptCharacterCount: systemPrompt.count,
+            messages: messages,
+            systemPromptCharacterCount: systemPromptCharacterCount,
             buildDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000),
-            cloudContext: cloudContext
+            cloudContext: resolvedCloudContext
         )
         return await generate(
             modelName: modelName,
             promptSnapshot: snapshot,
             profile: profile,
             requestOptions: requestOptions,
-            turnRuntime: turnRuntime,
+            turnRuntime: runtime,
             onFirstToken: onFirstToken
         )
     }

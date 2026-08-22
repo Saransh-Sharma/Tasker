@@ -35,6 +35,7 @@ struct EvaContextEnvelope: Sendable {
     static let cacheFriendlyOrder: [EvaCloudContextSection.Category] = [
         .personalMemory, .goals, .retrospective, .habits, .dayLoop,
         .capacity, .calendar, .planning,
+        .knowledge,
         .journal, .health, .lifeMoments,
     ]
 
@@ -187,4 +188,91 @@ struct EvaHabitRecord: Encodable, Sendable {
             : Double(resolved.filter { $0.state == .success }.count) / Double(resolved.count)
         self.bestTimeMinutesFromMidnight = nil
     }
+}
+
+struct EvaKnowledgeRecord: Encodable, Sendable {
+    enum MatchReason: String, Encodable, Sendable {
+        case explicitReference
+        case semanticMatch
+        case linkedRecord
+        case recentRecord
+    }
+
+    let id: UUID
+    let title: String
+    let matchedExcerpt: String
+    let modifiedAt: Date
+    let matchReason: MatchReason
+}
+
+struct EvaGoalRecord: Encodable, Sendable {
+    let id: UUID
+    let title: String
+    let whyItMatters: String?
+    let status: String
+    let confidence: String?
+    let targetDate: Date?
+    let progressFraction: Double?
+    let riskReason: String?
+}
+
+struct EvaCalendarRecord: Encodable, Sendable {
+    let title: String?
+    let start: Date
+    let end: Date
+    let isAllDay: Bool
+    let isBusy: Bool
+}
+
+struct EvaCapacityRecord: Encodable, Sendable {
+    struct FreeWindow: Encodable, Sendable {
+        let start: Date
+        let end: Date
+        let minutes: Int
+    }
+
+    let day: Date
+    let workingMinutes: Int
+    let fixedCalendarMinutes: Int
+    let bufferMinutes: Int
+    let usableMinutes: Int
+    let plannedMinutes: Int
+    let overloadMinutes: Int
+    let confidence: String
+    let freeWindows: [FreeWindow]
+}
+
+struct EvaDayLoopRecord: Encodable, Sendable {
+    struct LastClose: Encodable, Sendable {
+        let day: Date
+        let plannedMinutes: Int
+        let focusedMinutes: Int
+        let completedCount: Int
+        let unfinishedCount: Int
+        let focusRatio: Double
+    }
+
+    let eligibleDays: Int
+    let closedDays: Int
+    let openedDays: Int
+    let currentRunLength: Int
+    let reversals: Int
+    let lastClose: LastClose?
+}
+
+struct EvaRetrospectiveRecord: Encodable, Sendable {
+    struct Outcome: Encodable, Sendable {
+        let title: String
+        let whyItMatters: String?
+        let successDefinition: String?
+        let status: String
+    }
+
+    let weekStart: Date?
+    let focusStatement: String?
+    let outcomes: [Outcome]
+    let wins: String?
+    let blockers: String?
+    let lessons: String?
+    let perceivedWeekRating: Int?
 }

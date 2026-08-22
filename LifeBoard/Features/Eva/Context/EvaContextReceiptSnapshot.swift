@@ -104,7 +104,9 @@ struct EvaContextExclusionStore: Codable, Equatable, Sendable {
                     partialReasons: removedAnyRecord
                         ? Array(Set($0.partialReasons + ["userExcludedRecords"])).sorted()
                         : $0.partialReasons,
-                    sourceIDs: includedIDs
+                    sourceIDs: includedIDs,
+                    selectionReasons: $0.selectionReasons,
+                    freshnessAt: $0.freshnessAt
                 )
             }
         )

@@ -1,15 +1,24 @@
 import Foundation
+import LifeBoardDomain
 
 enum AssistantCardType: String, Codable, Sendable {
+    case unknown
     case proposal
     case undo
     case status
     case error
     case commandResult
     case dayOverview
+    case navigation
+
+    init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: value) ?? .unknown
+    }
 }
 
 enum AssistantCardStatus: String, Codable, Sendable {
+    case unknown
     case pending
     case confirmed
     case applied
@@ -20,6 +29,11 @@ enum AssistantCardStatus: String, Codable, Sendable {
     case undoAvailable
     case undoExpired
     case undone
+
+    init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: value) ?? .unknown
+    }
 }
 
 struct AssistantCardPayload: Codable, Equatable, Sendable {
@@ -36,6 +50,8 @@ struct AssistantCardPayload: Codable, Equatable, Sendable {
     var commandResult: SlashCommandExecutionResult?
     var evaProposal: EvaProposalReviewPayload?
     var dayOverview: EvaDayOverviewPayload?
+    var navigation: EvaNavigationCardPayload?
+    var captureReferences: [EvaRecordReference]
 
     enum CodingKeys: String, CodingKey {
         case cardType = "card_type"
@@ -51,6 +67,8 @@ struct AssistantCardPayload: Codable, Equatable, Sendable {
         case commandResult = "command_result"
         case evaProposal = "eva_proposal"
         case dayOverview = "day_overview"
+        case navigation
+        case captureReferences = "capture_references"
     }
 
     /// Initializes a new instance.
@@ -67,7 +85,9 @@ struct AssistantCardPayload: Codable, Equatable, Sendable {
         message: String? = nil,
         commandResult: SlashCommandExecutionResult? = nil,
         evaProposal: EvaProposalReviewPayload? = nil,
-        dayOverview: EvaDayOverviewPayload? = nil
+        dayOverview: EvaDayOverviewPayload? = nil,
+        navigation: EvaNavigationCardPayload? = nil,
+        captureReferences: [EvaRecordReference] = []
     ) {
         self.cardType = cardType
         self.runID = runID
@@ -82,7 +102,35 @@ struct AssistantCardPayload: Codable, Equatable, Sendable {
         self.commandResult = commandResult
         self.evaProposal = evaProposal
         self.dayOverview = dayOverview
+        self.navigation = navigation
+        self.captureReferences = captureReferences
     }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        cardType = try values.decode(AssistantCardType.self, forKey: .cardType)
+        runID = try values.decodeIfPresent(UUID.self, forKey: .runID)
+        threadID = try values.decodeIfPresent(String.self, forKey: .threadID) ?? ""
+        status = try values.decodeIfPresent(AssistantCardStatus.self, forKey: .status) ?? .unknown
+        rationale = try values.decodeIfPresent(String.self, forKey: .rationale)
+        diffLines = try values.decodeIfPresent([AssistantDiffLine].self, forKey: .diffLines) ?? []
+        destructiveCount = try values.decodeIfPresent(Int.self, forKey: .destructiveCount) ?? 0
+        affectedTaskCount = try values.decodeIfPresent(Int.self, forKey: .affectedTaskCount) ?? 0
+        expiresAt = try values.decodeIfPresent(Date.self, forKey: .expiresAt)
+        message = try values.decodeIfPresent(String.self, forKey: .message)
+        commandResult = try values.decodeIfPresent(SlashCommandExecutionResult.self, forKey: .commandResult)
+        evaProposal = try values.decodeIfPresent(EvaProposalReviewPayload.self, forKey: .evaProposal)
+        dayOverview = try values.decodeIfPresent(EvaDayOverviewPayload.self, forKey: .dayOverview)
+        navigation = try values.decodeIfPresent(EvaNavigationCardPayload.self, forKey: .navigation)
+        captureReferences = try values.decodeIfPresent([EvaRecordReference].self, forKey: .captureReferences) ?? []
+    }
+}
+
+struct EvaNavigationCardPayload: Codable, Equatable, Sendable {
+    let target: EvaNavigationTarget
+    let query: String?
+    let candidates: [EvaRecordReference]
+    let message: String
 }
 
 enum AssistantCardCodec {

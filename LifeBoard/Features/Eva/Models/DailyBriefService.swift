@@ -72,7 +72,8 @@ final class DailyBriefService {
             personalMemory: nil,
             habitSignals: resolvedHabitSignals,
             evidence: .notProvided,
-            consent: EvaCloudAccountState.shared.consent
+            consent: EvaCloudAccountState.shared.consent,
+            route: .dailyBrief
         )
         let thread = Thread()
         thread.messages.append(

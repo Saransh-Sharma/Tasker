@@ -898,78 +898,101 @@ final class AssistantPlannerService {
     }
 }
 
-enum EvaTurnRoute: Equatable {
+enum EvaTurnRoute: String, Codable, Equatable, Sendable {
     case chatAnswer
     case readOnlyReview
     case taskMutation
     case habitMutation
+    case capture
+    case navigation
     case dayPlanning
     case weeklyPlanning
     case clarification
 }
 
 enum EvaTurnRouter {
-    static func route(for prompt: String) -> EvaTurnRoute {
-        let lower = normalized(prompt)
-        guard lower.isEmpty == false else { return .clarification }
-
-        let habitMarkers = ["habit", "habits", "streak", "check in", "check-in", "pause habit", "resume habit"]
-        let mutationMarkers = [
-            "add", "create", "schedule", "setup", "set up", "make", "write", "plan", "move", "reschedule", "defer",
-            "drop", "mark", "rename", "complete", "shift", "push", "carry over", "pause", "resume", "log"
-        ]
-        if habitMarkers.contains(where: { lower.contains($0) }) &&
-            mutationMarkers.contains(where: { containsWord(lower, $0) }) {
-            return .habitMutation
-        }
-
-        if lower.contains("week") && (lower.contains("plan") || lower.contains("review")) {
-            return .weeklyPlanning
-        }
-
-        if isReadOnlyReviewPrompt(lower) {
-            return .readOnlyReview
-        }
-
-        if isPlanningCoachingPrompt(lower) {
-            return .chatAnswer
-        }
-
-        if lower.contains("help me plan my day")
-            || lower.contains("plan my day")
-            || lower.contains("plan today")
-            || lower.contains("plan tomorrow")
-            || lower.contains("review today") {
-            return .dayPlanning
-        }
-
-        let updateMarkers = [
-            "move", "reschedule", "defer", "drop", "mark", "rename", "complete", "running late", "shift", "push", "carry over"
-        ]
-        if updateMarkers.contains(where: { containsWord(lower, $0) || lower.contains($0) }) {
-            return .taskMutation
-        }
-
-        if (mentionsTime(lower) || mentionsDuration(lower)) && lower.contains("?") == false {
-            return .taskMutation
-        }
-
-        if lower.contains("help me plan making")
-            || lower.contains("help me plan writing") {
-            return .taskMutation
-        }
-
-        if lower.hasPrefix("i need to ") && lower.contains("?") == false {
-            return .taskMutation
-        }
-
-        let createMarkers = ["add", "create", "schedule", "setup", "set up", "make", "write"]
-        if createMarkers.contains(where: { containsWord(lower, $0) && hasConcreteCreateObject(after: $0, in: lower) }) {
-            return .taskMutation
-        }
-
-        return .chatAnswer
+    private struct Input: Sendable {
+        let text: String
+        let isQuestion: Bool
     }
+
+    private struct Rule: Sendable {
+        let name: String
+        let route: EvaTurnRoute
+        let matches: @Sendable (Input) -> Bool
+    }
+
+    static func route(for prompt: String) -> EvaTurnRoute {
+        let input = Input(text: normalized(prompt), isQuestion: prompt.contains("?"))
+        guard input.text.isEmpty == false else { return .clarification }
+        return rules.first(where: { $0.matches(input) })?.route ?? .chatAnswer
+    }
+
+    /// Ordered, named rules make precedence reviewable and corpus-testable.
+    /// High-specificity domain captures intentionally run before generic words
+    /// such as "log", "show", and "plan".
+    private static let rules: [Rule] = [
+        Rule(name: "body-metric-capture", route: .capture) { input in
+            let action = ["log", "record", "save", "track"].contains { containsWord(input.text, $0) }
+            let metric = ["weight", "body fat", "waist", "bmi"].contains { input.text.contains($0) }
+            return action && metric
+        },
+        Rule(name: "journal-capture", route: .capture) { input in
+            ["journal", "diary"].contains { input.text.contains($0) }
+                && ["add", "append", "capture", "log", "save", "write"].contains { containsWord(input.text, $0) }
+        },
+        Rule(name: "note-capture", route: .capture) { input in
+            input.text.contains("note")
+                && ["add", "capture", "create", "save", "write"].contains { containsWord(input.text, $0) }
+        },
+        Rule(name: "wellness-capture", route: .capture) { input in
+            let action = ["log", "record", "track"].contains { containsWord(input.text, $0) }
+            return action && ["hydration", "water", "mood", "feeling", "sleep"].contains { input.text.contains($0) }
+        },
+        Rule(name: "life-moment-capture", route: .capture) { input in
+            ["capture", "save", "remember"].contains { containsWord(input.text, $0) }
+                && ["life moment", "memory", "moment"].contains { input.text.contains($0) }
+        },
+        Rule(name: "navigation", route: .navigation) { input in
+            let action = ["open", "show", "find", "go to", "take me to"].contains { input.text.contains($0) }
+            let target = ["notes", "note about", "journal", "goals", "habits", "projects", "settings", "insights", "track", "backlog"].contains { input.text.contains($0) }
+            // “Show today's tasks and habits” is a review, while “show my
+            // habits” is product navigation. Preserve the more specific
+            // read-only intent before accepting generic navigation verbs.
+            return action && target && isReadOnlyReviewPrompt(input.text) == false
+        },
+        Rule(name: "habit-mutation", route: .habitMutation) { input in
+            let habit = ["habit", "habits", "streak", "check in", "pause habit", "resume habit"].contains { input.text.contains($0) }
+            let mutation = ["add", "create", "schedule", "setup", "set up", "make", "move", "pause", "resume", "log"].contains { containsWord(input.text, $0) }
+            return habit && mutation
+        },
+        Rule(name: "weekly-planning", route: .weeklyPlanning) { input in
+            input.text.contains("week") && (input.text.contains("plan") || input.text.contains("review"))
+        },
+        Rule(name: "planning-coaching", route: .chatAnswer) { isPlanningCoachingPrompt($0.text) },
+        Rule(name: "day-planning", route: .dayPlanning) { input in
+            ["help me plan my day", "plan my day", "plan today", "plan tomorrow", "review today"].contains { input.text.contains($0) }
+        },
+        Rule(name: "read-only-review", route: .readOnlyReview) { isReadOnlyReviewPrompt($0.text) },
+        Rule(name: "task-update", route: .taskMutation) { input in
+            ["move", "reschedule", "defer", "drop", "mark", "rename", "complete", "running late", "shift", "push", "carry over"]
+                .contains { containsWord(input.text, $0) || input.text.contains($0) }
+        },
+        Rule(name: "timed-task", route: .taskMutation) { input in
+            input.isQuestion == false && (mentionsTime(input.text) || mentionsDuration(input.text))
+        },
+        Rule(name: "task-planning", route: .taskMutation) { input in
+            input.text.contains("help me plan making") || input.text.contains("help me plan writing")
+        },
+        Rule(name: "need-to-task", route: .taskMutation) { input in
+            input.isQuestion == false && input.text.hasPrefix("i need to ")
+        },
+        Rule(name: "task-create", route: .taskMutation) { input in
+            ["add", "create", "schedule", "setup", "set up", "make", "write"].contains {
+                containsWord(input.text, $0) && hasConcreteCreateObject(after: $0, in: input.text)
+            }
+        }
+    ]
 
     private static func isPlanningCoachingPrompt(_ text: String) -> Bool {
         let asksHow = text.hasPrefix("how do i ")
@@ -1043,7 +1066,9 @@ enum EvaTurnRouter {
             "tasks", "task", "habits", "habit", "open work", "open items", "open tasks", "plate",
             "agenda", "day", "today", "pending", "due", "left", "focus", "work on", "attention"
         ]
-        return workTargets.contains(where: text.contains)
+        return workTargets.contains { target in
+            target.contains(" ") ? text.contains(target) : containsWord(text, target)
+        }
     }
 
     private static let dayReviewPhrases: [String] = [
@@ -1092,6 +1117,125 @@ enum EvaTurnRouter {
     ]
 }
 
+enum EvaLocalNavigationResolver {
+    static func resolve(_ prompt: String) async -> EvaNavigationCardPayload {
+        let normalized = prompt.lowercased()
+        let target = target(for: normalized)
+        let query = recordQuery(in: normalized, target: target)
+        let candidates = await candidates(target: target, query: query)
+        let message: String
+        if candidates.count > 1 {
+            message = "I found a few matches. Which one did you mean?"
+        } else if candidates.count == 1 {
+            message = "I found the matching \(candidates[0].kind.rawValue)."
+        } else if query != nil {
+            message = "I couldn't find a confident record match. You can open the section and choose it there."
+        } else {
+            message = "Open \(target.rawValue.replacingOccurrences(of: #"([a-z])([A-Z])"#, with: "$1 $2", options: .regularExpression).lowercased())."
+        }
+        return EvaNavigationCardPayload(target: target, query: query, candidates: candidates, message: message)
+    }
+
+    private static func target(for text: String) -> EvaNavigationTarget {
+        if text.contains("note") { return .notes }
+        if text.contains("journal") || text.contains("diary") { return .journal }
+        if text.contains("goal") { return .goals }
+        if text.contains("habit") { return .habits }
+        if text.contains("project") { return .backlog }
+        if text.contains("setting") { return .settings }
+        if text.contains("insight") { return .insights }
+        if text.contains("backlog") { return .backlog }
+        if text.contains("routine") { return .routines }
+        if text.contains("tracker") || text.contains("track") { return .trackers }
+        return .home
+    }
+
+    private static func recordQuery(in text: String, target: EvaNavigationTarget) -> String? {
+        let markers: [String]
+        switch target {
+        case .notes: markers = ["note about ", "notes about ", "note called ", "note named "]
+        case .journal: markers = ["journal about ", "journal entry about ", "diary entry about "]
+        default: return nil
+        }
+        guard let marker = markers.first(where: text.contains),
+              let range = text.range(of: marker) else { return nil }
+        let value = text[range.upperBound...]
+            .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        return value.isEmpty ? nil : String(value.prefix(240))
+    }
+
+    private static func candidates(
+        target: EvaNavigationTarget,
+        query: String?
+    ) async -> [EvaRecordReference] {
+        guard let query, let repository = LLMContextRepositoryFactory.phaseIIRepository else { return [] }
+        let terms = Set(query.split(whereSeparator: { $0.isWhitespace }).map { $0.lowercased() })
+        guard terms.isEmpty == false else { return [] }
+        switch target {
+        case .notes:
+            let notes = (try? await repository.fetchKnowledgeNotes(search: nil, spaceID: nil)) ?? []
+            return ranked(
+                notes.filter { $0.resolvedState == .active && $0.resolvedLockPolicy == .unlocked }.map { note in
+                    (
+                        reference: EvaRecordReference(
+                            kind: .note,
+                            recordID: note.id,
+                            title: note.displayTitle,
+                            subtitle: String(note.plainText.prefix(100)),
+                            occurredAt: note.updatedAt
+                        ),
+                        title: note.title,
+                        text: note.plainText
+                    )
+                },
+                terms: terms
+            )
+        case .journal:
+            let days = (try? await repository.fetchJournalDays(search: nil, starredOnly: false, mood: nil)) ?? []
+            return ranked(
+                days.filter { $0.aiExclusion.permitsSemanticIndexing }.map { day in
+                    (
+                        reference: EvaRecordReference(
+                            kind: .journal,
+                            recordID: day.id,
+                            title: day.day.formatted(date: .abbreviated, time: .omitted),
+                            subtitle: String(day.displayText.prefix(100)),
+                            occurredAt: day.day
+                        ),
+                        title: day.summary ?? "",
+                        text: day.displayText
+                    )
+                },
+                terms: terms
+            )
+        default:
+            return []
+        }
+    }
+
+    private static func ranked(
+        _ values: [(reference: EvaRecordReference, title: String, text: String)],
+        terms: Set<String>
+    ) -> [EvaRecordReference] {
+        values.compactMap { value -> (EvaRecordReference, Int)? in
+            let title = value.title.lowercased()
+            let text = value.text.lowercased()
+            let score = terms.reduce(into: 0) { score, term in
+                if title.contains(term) { score += 4 }
+                if text.contains(term) { score += 1 }
+            }
+            return score > 0 ? (value.reference, score) : nil
+        }
+        .sorted {
+            $0.1 == $1.1
+                ? ($0.0.occurredAt ?? .distantPast) > ($1.0.occurredAt ?? .distantPast)
+                : $0.1 > $1.1
+        }
+        .prefix(5)
+        .map(\.0)
+    }
+}
+
 enum EvaContextPolicy {
     struct Result: Equatable {
         let requiredContextReady: Bool
@@ -1123,7 +1267,7 @@ enum EvaContextPolicy {
                     && (context.hasHabit || isPartial == false),
                 optionalContextPartial: isPartial
             )
-        case .taskMutation, .clarification, .chatAnswer:
+        case .taskMutation, .capture, .navigation, .clarification, .chatAnswer:
             return Result(requiredContextReady: true, optionalContextPartial: isPartial)
         }
     }
@@ -1200,7 +1344,7 @@ enum EvaPlannerIntent: Equatable {
                 return .readOnlyReview
             case .taskMutation, .habitMutation, .dayPlanning, .weeklyPlanning:
                 break
-            case .chatAnswer, .clarification:
+            case .chatAnswer, .capture, .navigation, .clarification:
                 return .ambiguous
             }
         }

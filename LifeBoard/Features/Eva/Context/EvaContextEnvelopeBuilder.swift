@@ -66,7 +66,14 @@ struct EvaContextEnvelopeBuilder: Sendable {
         personalMemory: String?,
         evidence: EvaAuthorizedEvidenceContext,
         consent: EvaConsentPolicy?,
-        now: Date = Date()
+        now: Date = Date(),
+        knowledge: [EvaKnowledgeRecord] = [],
+        goals: [EvaGoalRecord] = [],
+        calendar: [EvaCalendarRecord] = [],
+        calendarSourceIDs: [String] = [],
+        capacity: EvaCapacityRecord? = nil,
+        dayLoop: EvaDayLoopRecord? = nil,
+        retrospective: EvaRetrospectiveRecord? = nil
     ) -> EvaContextEnvelope {
         guard mode == .rich else {
             return EvaContextEnvelope(sections: EvaCloudContextProjection.sections(
@@ -95,6 +102,66 @@ struct EvaContextEnvelopeBuilder: Sendable {
             sections.append(.init(category: .habits, payload: .encoding(Array(habits.prefix(40)))))
         }
 
+        if goals.isEmpty == false {
+            sections.append(.init(category: .goals, payload: .encoding(Array(goals.prefix(30)))))
+        }
+
+        if calendar.isEmpty == false {
+            sections.append(.init(
+                category: .calendar,
+                payload: .encoding(Array(calendar.prefix(60))),
+                metadata: .init(
+                    availability: calendar.count > 60 ? "partial" : "complete",
+                    availableCount: calendar.count,
+                    includedCount: min(calendar.count, 60),
+                    partialReasons: calendar.count > 60 ? ["recordLimit"] : [],
+                    sourceIDs: Array(calendarSourceIDs.prefix(60)),
+                    selectionReasons: ["routeBaseline"],
+                    freshnessAt: now
+                )
+            ))
+        }
+
+        if let capacity {
+            sections.append(.init(category: .capacity, payload: .encoding(capacity)))
+        }
+
+        if let dayLoop {
+            sections.append(.init(
+                category: .dayLoop,
+                payload: .encoding(dayLoop),
+                metadata: .init(
+                    availability: "partial",
+                    availableCount: nil,
+                    includedCount: nil,
+                    partialReasons: ["openAndReversalHistoryUnavailable"],
+                    sourceIDs: [],
+                    selectionReasons: ["routeBaseline"],
+                    freshnessAt: now
+                )
+            ))
+        }
+
+        if let retrospective {
+            sections.append(.init(category: .retrospective, payload: .encoding(retrospective)))
+        }
+
+        if knowledge.isEmpty == false {
+            sections.append(.init(
+                category: .knowledge,
+                payload: .encoding(Array(knowledge.prefix(24))),
+                metadata: .init(
+                    availability: "complete",
+                    availableCount: knowledge.count,
+                    includedCount: min(knowledge.count, 24),
+                    partialReasons: knowledge.count > 24 ? ["recordLimit"] : [],
+                    sourceIDs: Array(knowledge.prefix(24)).map { $0.id.uuidString.lowercased() },
+                    selectionReasons: ["semanticMatch"],
+                    freshnessAt: knowledge.map(\.modifiedAt).max()
+                )
+            ))
+        }
+
         let confirmedMemory = EvaMemoryDefaultsStoreV3.load().contextPayload()
         if consent?.grants.contains(.personalMemory) == true,
            let section = EvaContextSectionFactory.personalMemory(statements: confirmedMemory) {
@@ -121,10 +188,16 @@ struct EvaContextEnvelopeBuilder: Sendable {
     private func fitting(_ tasks: [EvaTaskRecord]) -> [EvaTaskRecord] {
         let characterBudget = budget.taskContextCharacters
         guard characterBudget > 0 else { return [] }
-        let ranked = tasks.sorted { $0.retentionScore > $1.retentionScore }
         var kept: [EvaTaskRecord] = []
         var used = 0
-        for record in ranked {
+        // Preserve the assembler's semantic order within each class, while
+        // guaranteeing that overdue, maximum-priority, and repeatedly replanned
+        // work is considered before a long merely-relevant backlog. The builder
+        // is also used directly in tests and feature adapters, so this invariant
+        // cannot live only in the assembler.
+        let operationalRisk = tasks.filter(isOperationalRisk)
+        let remainingTasks = tasks.filter { isOperationalRisk($0) == false }
+        for record in operationalRisk + remainingTasks {
             let cost = (try? JSONEncoder.evaCloud.encode(record).count) ?? 400
             guard used + cost <= characterBudget, kept.count < 200 else { continue }
             used += cost
@@ -137,6 +210,12 @@ struct EvaContextEnvelopeBuilder: Sendable {
             }
             return (lhs.due ?? .distantFuture) < (rhs.due ?? .distantFuture)
         }
+    }
+
+    private func isOperationalRisk(_ record: EvaTaskRecord) -> Bool {
+        record.bucket == .overdue
+            || record.priority == "max"
+            || record.deferredCount + record.replanCount >= 3
     }
 
     private func bucketOrder(_ bucket: EvaTaskRecord.Bucket) -> Int {

@@ -19,34 +19,68 @@ enum EvaEnvelopeAllocator {
         for section in sections.sorted(by: { priority($0.category) < priority($1.category) }) {
             var payload = section.payload
             let originalIDs = sourceIDs(in: payload)
-            var cost = encodedCost(payload)
+            let originalRecordCount = recordCount(in: payload)
+            var candidate = sectionWithBudgetMetadata(
+                section,
+                payload: payload,
+                originalIDs: originalIDs,
+                originalRecordCount: originalRecordCount
+            )
+            var cost = encodedCost(candidate)
             while cost > remaining, payload.dropLowestPriorityRecord() {
-                cost = encodedCost(payload)
+                candidate = sectionWithBudgetMetadata(
+                    section,
+                    payload: payload,
+                    originalIDs: originalIDs,
+                    originalRecordCount: originalRecordCount
+                )
+                cost = encodedCost(candidate)
             }
             guard cost <= remaining, payload != .null else { continue }
             remaining -= cost
-            let includedIDs = sourceIDs(in: payload)
-            let partial = includedIDs.count < originalIDs.count
-            admitted.append(EvaCloudContextSection(
-                category: section.category,
-                payload: payload,
-                metadata: EvaContextSectionMetadata(
-                    availability: partial ? "partial" : "complete",
-                    availableCount: originalIDs.isEmpty ? nil : originalIDs.count,
-                    includedCount: includedIDs.isEmpty ? nil : includedIDs.count,
-                    partialReasons: partial ? ["encodedEnvelopeBudget"] : [],
-                    sourceIDs: includedIDs
-                )
-            ))
+            admitted.append(candidate)
         }
         return EvaContextEnvelope(sections: admitted).ordered()
+    }
+
+    private static func sectionWithBudgetMetadata(
+        _ section: EvaCloudContextSection,
+        payload: EvaJSONValue,
+        originalIDs: [String],
+        originalRecordCount: Int
+    ) -> EvaCloudContextSection {
+        let includedIDs = sourceIDs(in: payload)
+        let includedRecordCount = recordCount(in: payload)
+        let partial = includedIDs.count < originalIDs.count
+            || includedRecordCount < originalRecordCount
+        let originalMetadata = section.metadata
+        let partialReasons = Array(Set(
+            (originalMetadata?.partialReasons ?? [])
+                + (partial ? ["encodedEnvelopeBudget"] : [])
+        )).sorted()
+        return EvaCloudContextSection(
+            category: section.category,
+            payload: payload,
+            metadata: EvaContextSectionMetadata(
+                availability: partial ? "partial" : (originalMetadata?.availability ?? "complete"),
+                availableCount: originalMetadata?.availableCount
+                    ?? (originalRecordCount == 0 ? nil : originalRecordCount),
+                includedCount: partial
+                    ? (includedRecordCount == 0 ? nil : includedRecordCount)
+                    : (originalMetadata?.includedCount ?? (includedRecordCount == 0 ? nil : includedRecordCount)),
+                partialReasons: partialReasons,
+                sourceIDs: includedIDs.isEmpty ? (originalMetadata?.sourceIDs ?? []) : includedIDs,
+                selectionReasons: originalMetadata?.selectionReasons ?? ["routeBaseline"],
+                freshnessAt: originalMetadata?.freshnessAt
+            )
+        )
     }
 
     private static func priority(_ category: EvaCloudContextSection.Category) -> Int {
         switch category {
         case .planning: 0
         case .capacity, .calendar: 1
-        case .goals, .habits, .personalMemory: 2
+        case .goals, .habits, .personalMemory, .knowledge: 2
         case .dayLoop, .retrospective: 3
         case .journal, .health, .lifeMoments: 4
         }
@@ -54,6 +88,24 @@ enum EvaEnvelopeAllocator {
 
     private static func encodedCost(_ payload: EvaJSONValue) -> Int {
         (try? JSONEncoder.evaCloud.encode(payload).count) ?? Int.max
+    }
+
+    private static func encodedCost(_ section: EvaCloudContextSection) -> Int {
+        (try? JSONEncoder.evaCloud.encode(section).count) ?? Int.max
+    }
+
+    private static func recordCount(in value: EvaJSONValue) -> Int {
+        switch value {
+        case .array(let values):
+            return values.count
+        case .object(let object):
+            return ["tasks", "calendar", "events", "records", "projects", "lifeAreas"]
+                .reduce(into: 0) { count, key in
+                    if case .array(let values) = object[key] { count += values.count }
+                }
+        default:
+            return 0
+        }
     }
 
     private static func sourceIDs(in value: EvaJSONValue) -> [String] {
