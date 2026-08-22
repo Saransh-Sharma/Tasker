@@ -1,8 +1,10 @@
-# EVA Runtime, Context, Memory, Receipts, and Telemetry v3
+# Eva runtime, context, memory, receipts, and telemetry v4
 
-**Classification:** Canonical engineering and privacy architecture
+**Classification:** Migration and implementation summary
 **Audience:** iOS, backend, security, privacy, QA, operations
-**Last verified:** 2026-08-20
+**Last verified:** 2026-08-21
+
+> The filename is retained to preserve existing links from the v3 migration. This document now describes the v4 baseline. For normative detail, use [Context and prompt architecture](CONTEXT_AND_PROMPT_ARCHITECTURE.md), [Memory, evidence, and proactivity](MEMORY_EVIDENCE_AND_PROACTIVITY.md), and [Evaluation and observability](EVALUATION_AND_OBSERVABILITY.md).
 
 ## Turn authority
 
@@ -19,13 +21,13 @@ Cloud responses receive server safety, schema validation, whitespace normalizati
 
 Control-plane requests use short sessions. SSE inference has a route-aware resource deadline beyond the Worker execution window plus first-byte/inactivity policy. Cancellation closes the stream; backend reservations are released on cancellation, timeout, moderation rejection, invalid output, and provider failure.
 
-## Contract v3
+## Contract v4
 
-The Worker continues to decode v1/v2 while signed configuration advertises supported versions. The client negotiates the highest mutually supported major and does not send v3 fields to an older Worker.
+The Worker continues to decode versions 1–3 while the current signed configuration advertises versions 1–4. The client negotiates the highest mutually supported major and does not send newer required fields to an older Worker.
 
-V3 carries typed sections for planning, capacity, goals, habits, day loop, retrospective, calendar, journal, Health, Life Moments, and personal memory. Every section includes availability (`complete`, `partial`, or `unavailable`), optional available/included counts, bounded partial reasons, and stable source identifiers. Unknown planning counts remain unknown rather than becoming zero. Conversation summaries are forbidden in v3.
+V3 introduced typed sections and required availability metadata for planning, capacity, goals, habits, day loop, retrospective, calendar, journal, Health, Life Moments, personal memory, and Knowledge. V4 requires temporal/surface `turnContext` plus one or more closed selection reasons for every admitted section. Unknown planning counts remain unknown rather than becoming zero. Conversation summaries are forbidden in v3 and later.
 
-Sensitive category grants and local per-record exclusions are applied before budgeting. Whole records are dropped at limits; identifiers and structured values are never truncated. The Worker validates the final `modelInput(request)`, including wrappers and user instructions, before reserving credit. Cache keys include prompt-policy, route, and contract major; the account-independent developer prefix remains stable before the cache breakpoint.
+Sensitive category grants, route manifests, protection rules, and local per-record exclusions are applied before budgeting. Typed and semantic retrieval rank eligible records. Whole records are dropped at limits; identifiers and structured values are never truncated. Metadata is recomputed after admission. The Worker validates the final `modelInput(request)`, including wrappers and user instructions, before reserving credit. Cache keys include prompt-policy, route, and contract major; the account-independent doctrine remains stable before the cache breakpoint.
 
 ## User-owned memory
 
@@ -42,13 +44,13 @@ After an eligible successful Cloud turn, the non-billable `memoryCandidate` rout
 - Pending candidates expire after 30 days.
 - At cap, saving replaces an inferred/old entry before a stated entry.
 
-No conversation-summary request, store, or v3 field exists.
+No conversation-summary request, store, or v3+ field exists.
 
 ## Immutable context receipts and exclusions
 
 Every persisted Cloud assistant message may carry `EvaContextReceiptSnapshot`; Offline and historical messages may have none. A receipt records provider, route, timestamp, consent/config revisions, categories, availability/counts, and stable source keys. It does not contain prompt text, journal/Health/Life Moment bodies, or the serialized envelope.
 
-The **Context used** sheet provides category status, redacted per-record labels, future-turn **Don’t use in EVA**/Undo controls, category consent controls, and an EVA privacy/settings route. `EvaContextExclusionStore` is local and keyed by category plus stable source ID. Excluding a record never deletes its canonical source. It invalidates the next projection, updates included counts/partial reasons, and removes derived planning overview text that could otherwise retain the excluded record. Historical receipts remain byte-immutable.
+The **Context used** sheet provides category status, redacted per-record labels, future-turn **Don’t use in Eva**/Undo controls, category consent controls, and an Eva privacy/settings route. `EvaContextExclusionStore` is local and keyed by category plus stable source ID. Excluding a record never deletes its canonical source. It invalidates the next projection, updates included counts/partial reasons, and removes derived content that could otherwise retain the excluded record. The same projection exclusion governs Eva, Insights, and Home. Historical receipts remain byte-immutable.
 
 ## Worker safety and product telemetry
 
@@ -58,15 +60,16 @@ The Worker moderates normalized messages, projected context, and fenced user ins
 
 ## Deployment and rollback order
 
-1. Deploy shared schemas and a Worker that accepts v1/v2/v3, including the disabled-by-default `memoryCandidate` policy.
-2. Publish and verify a signed policy advertising `[1,2,3]` and explicit app runtime controls.
-3. Ship the client; it negotiates down until the signed policy is available.
-4. Enable routes in staging, run contract, moderation, budget, cancellation, receipt, exclusion, and privacy tests.
-5. Enable production by signed route policy. Roll back a route or presentation independently; never alter provider preference or delete local records during rollback.
+1. Deploy shared schemas and a Worker that accepts versions 1–4, including closed capture/navigation schemas and the disabled-by-default `memoryCandidate` policy.
+2. Publish and verify a schema-v2 signed policy advertising `[1,2,3,4]` and explicit app runtime controls.
+3. Ship the client; it negotiates the highest compatible version and fails cloud context closed when runtime authority cannot be verified.
+4. Enable routes in staging; run contract, manifest, selection, moderation, whole-budget, cancellation, receipt, exclusion, authority, and privacy tests.
+5. Qualify navigation, each capture domain, memory candidate, Evidence Lens, and proactive governor independently.
+6. Enable production by signed route policy. Roll back a route or presentation independently; never alter provider preference or delete local records during rollback.
 
 ## Verification map
 
-- iOS: runtime authority drift, Cloud/Offline matrix, MLX byte-baseline, long Cloud output, SSE cancellation, V1/V2 memory migration, candidate actions/expiry/suppression, receipt immutability, exclusions, consent CAS, and telemetry opt-out.
-- Contracts: every route fixture, v1/v2/v3 admission, v3 metadata, summary rejection, source identifiers, and strict structured candidate shape.
+- iOS: runtime authority drift, Cloud/Offline matrix, MLX byte-baseline, long Cloud output, SSE cancellation, V1/V2 memory migration, candidate actions/expiry/suppression, receipt immutability, exclusions, consent CAS, navigation/capture authority, and telemetry opt-out.
+- Contracts: every route fixture, v1–v4 admission, v3 metadata, v4 turn context and selection reasons, summary rejection, source identifiers, and strict structured candidate/capture/navigation shapes.
 - Worker: moderation coverage, exact model-input budget, credit release, cache versioning, product-event allowlist, signed config validation, expiry/cache/offline behavior.
-- Manual: VoiceOver/Dynamic Type, denied permissions, offline launch, low-memory MLX, delayed stream, Apple physical-device trust, and Settings recovery routes.
+- Manual: VoiceOver/Dynamic Type, denied permissions, offline launch, low-memory MLX, delayed stream, Apple physical-device trust, capture receipts/undo, protected navigation, memory correction, proactive delivery, and Settings recovery routes.

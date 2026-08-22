@@ -3,15 +3,15 @@
 **Service:** Cloudflare Worker in `Services/EVACloud`
 **Contract:** `Shared/EVACloudContracts`
 **Production API:** `https://api.getlifeboard.app`
-**Last verified:** 2026-08-17
+**Last verified:** 2026-08-21
 
 ## Current environment state
 
 | Environment | Client | Policy | Text routes | TTS | Notes |
 |---|---|---|---|---|---|
 | Development | Local Worker/manual clients | Fail closed unless explicitly seeded | Operator controlled | Operator controlled | Local secrets only in ignored `.dev.vars` |
-| Staging | Debug iOS/Catalyst | Signed v2, version 2 | **All enabled** | **Enabled** | Explicit Debug end-to-end qualification policy; Worker version `360709f0-74d6-4eaf-8be4-6ad967fd2fd2` |
-| Production | Release iOS/Catalyst | Signed v2-compatible disabled policy, version 1 | Disabled | Disabled | Custom domain live; no production model traffic |
+| Staging | Debug iOS/Catalyst | Signed schema v2; contract versions 1–4 | **All enabled** | **Enabled** | Explicit Debug end-to-end qualification policy |
+| Production | Release iOS/Catalyst | Signed schema v2 disabled policy; contract versions 1–4 | Disabled | Disabled | Custom domain live; no production model traffic |
 
 Staging is intentionally fully enabled so Debug builds can exercise authentication, age, trust, Luna, and spoken output end to end. Production remains disabled until the release gates pass. Do not copy staging policy to production as a convenience.
 
@@ -20,14 +20,14 @@ The production zone also serves the GitHub Pages marketing site. EVA changes may
 ## Architecture and state ownership
 
 - Hono owns routing, request IDs, headers, body ceilings, authentication middleware, and stable error envelopes.
-- `AuthChallengeDO` owns one-time, expiring nonce/challenge records and atomic replay rejection.
-- `EvaAccountDO` owns pseudonymous account status, encrypted Apple refresh credentials, session families, device trust, age leases, consent revisions, credits, request/speech lifecycles, rolling account cost, and deletion state.
+- `AuthChallengeDO` owns one-time nonce/challenge records, atomic replay rejection, the server-random idempotent guest-ID mapping, canonical Apple-link locks, and durable cross-object guest-link reconciliation.
+- `EvaAccountDO` owns guest/Apple identity state, encrypted Apple refresh credentials, session families, device risk/trust, optional age evidence, consent revisions/review state, rolling quota reservations, request/speech lifecycles, rolling account cost, and deletion state.
 - `GlobalBudgetDO` owns account-scoped maximum-cost reservations, actual commitments/releases, daily budget, threshold signals, and the emergency gate.
 - `EVA_CONFIG` KV owns a durable signed-policy source. It does not own secrets or account data.
 - Analytics Engine receives content-free operational and cost events.
 - OpenAI receives moderated, bounded requests with `store: false`; no tools, web/file search, or server conversation chain is enabled.
 
-There is no D1, R2, Queues, Redis, or server conversation/audio persistence in v1.
+There is no D1, R2, Queues, Redis, or server conversation/audio persistence in the current architecture.
 
 ## Local verification
 
@@ -52,6 +52,9 @@ Required secret names are declared in Wrangler and mirrored by `.dev.vars.exampl
 
 - `OPENAI_API_KEY`
 - `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_P8`, `APPLE_CLIENT_IDS`
+  for Sign in with Apple
+- `APPLE_DEVICECHECK_KEY_ID`, `APPLE_DEVICECHECK_PRIVATE_KEY_P8` from a
+  separate Apple private key with DeviceCheck enabled
 - `APPLE_ROOT_CERTIFICATES_BASE64`
 - `ACCOUNT_HMAC_KEY`
 - `SESSION_SIGNING_PRIVATE_KEY`
@@ -92,9 +95,11 @@ KV key `runtime-config-v2` contains the durable policy revision:
 - Luna/TTS model and voice;
 - route budgets, structured/billable flags, supported contract versions, and minimum client version;
 - maintenance and Offline EVA recovery policy;
-- credit policy and versioned price schedule.
+- independent guest bootstrap, guest inference, Apple linking, rollout percentage, 20-answer quota, 100-helper quota, age-policy mode, and versioned price schedule.
 
 Enabled/degraded cloud requires `priceSchedule.approved: true`. TTS cannot be enabled while cloud is disabled. Missing, malformed, wrong-environment, future-dated, rolled-back, unapproved, or otherwise invalid policy returns a signed disabled fallback.
+
+The current model identifiers are `gpt-5.6-luna` for text and `tts-1` with `nova` for speech. The worker's fail-closed route ceilings are documented in [Context and prompt architecture](CONTEXT_AND_PROMPT_ARCHITECTURE.md). Runtime policy may reduce those caps but may not increase them beyond code. `capture` and `navigation` are independent switches and should be disabled independently when only the authority surface is affected.
 
 KV policy persistence and client signed-document freshness are intentionally distinct. The Worker accepts an old but otherwise valid monotonic KV policy and stamps a fresh `issuedAt` whenever it signs a response. Clients cache a verified response for six hours and may use the last verified response for seven days. Activation forces a network configuration refresh, so an earlier cached disabled response cannot mask a newly enabled staging policy.
 
@@ -129,17 +134,35 @@ Authenticated CLI smoke/evaluation may use a short-lived session exported from a
 
 Physical iOS qualification must prove, in order:
 
-1. Apple challenge/sheet/code exchange and session persistence.
-2. App Attest key registration and fresh assertion.
-3. Declared Age Range 18+ lease.
-4. Credits and authoritative consent load.
-5. Token refresh rotation.
-6. Chat plus every structured route, refusal/moderation, cancellation, replay, and credit reconciliation.
+1. One-action guest activation with confirmed context and no Apple sheet.
+2. Low-trust and high-trust App Attest/DeviceCheck paths with the same 20-answer allowance.
+3. Optional Apple link, usage union, consent intersection/re-review, guest-session revocation, and reinstall recovery.
+4. Known-under-13 denial, ordinary unknown-age access, and mandatory-region fail-closed behavior.
+5. Token refresh rotation and guest/Apple deletion.
+6. Exactly 20 rolling successful answers, 100 rolling helper successes, 10/minute helper burst, plus refusal/moderation/cancellation/replay reconciliation.
 7. TTS ticket, PCM first audio, cancellation, playback completion, and accounting.
+8. Navigation general target, named resolution, ambiguity, protected/no-match behavior, and schema drift fixtures.
+9. Deterministic and cloud capture across every allowlisted family, prohibited-domain rejection, duplicate retry, persisted receipt, and 30-minute undo.
+10. Contract-v4 route manifest, turn context, selection reasons, whole-record budget drops, and sensitive/excluded-data subtraction cases.
+
+`ACCOUNT_HMAC_KEY` is also the secret guest-rollout cohort key. An empty key must fail provisioning; never replace it with an unkeyed hash or a client-visible salt. Cohorts must remain stable for the same bootstrap ID and unpredictable before a request reaches the Worker.
+
+DeviceCheck bit ownership is developer-team-wide: Cloud EVA reserves bit 0 for “this Apple device has previously bootstrapped a guest account” and preserves bit 1. The query and update run after bootstrap through `waitUntil`, never on the activation critical path. A query failure must not update either bit and never changes the selected rolling allowance.
+
+DeviceCheck uses its dedicated capability-enabled private key. Development and
+staging App Attest environments call Apple's development DeviceCheck host;
+production calls the production host. The deployment preflight requires both
+DeviceCheck secrets so a silently misconfigured abuse signal cannot ship.
+
+Apple-link qualification must inject a failure after each of: pending-record creation, guest freeze, canonical bootstrap, quota/consent import, guest tombstone, and guest-mapping deletion. A normal Apple exchange must finish the pending reconciliation without granting a second allowance. Also verify that Apple deletion reauthentication rejects a different Apple subject while preserving the original session.
 
 Simulator may validate UI navigation and request construction but cannot satisfy production-like App Attest. Do not add a bypass to make simulator smoke appear complete.
 
 Production deployment uploads a Worker version from the protected branch with environment approval. Runtime policy remains disabled until staging, privacy, security, evaluation, load, and TestFlight gates pass. Application secrets remain in Cloudflare; GitHub Actions needs only scoped Cloudflare deployment credentials.
+
+These requirements are the operational part of roadmap P0. [Eva roadmap status and gap analysis](EVA_ROADMAP_STATUS.md) owns the consolidated exit criteria; this runbook owns the executable deployment and rollback procedure.
+
+Guest rollout is server-compatible first: deploy the Worker with `guestAccess.bootstrapEnabled: false`, then ship the client. Enable bootstrap and inference at 1%, 10%, 50%, and 100% using monotonic signed-policy versions. At each stage hold on activation-review-to-first-answer conversion, bootstrap failures, cost per successful completion, accounts per network/device signal, quota rejection, moderation, and deletion success. Bootstrap and guest inference are separate switches so acquisition can stop without stranding existing guest sessions.
 
 ## Context envelope and budgets
 
@@ -162,29 +185,42 @@ effect on the next request without an app release.
 - Input moderation chunks oversized envelopes and evaluates chunks concurrently.
   A flagged chunk fails the whole request, so `input_rejected` can rise from
   projected content rather than from what the person typed.
+- Version 4 requests must contain valid turn context and at least one valid
+  selection reason on every section. A rise in `schema_invalid` immediately after
+  a client rollout should be split by contract version and the missing-field path.
+- The route manifest is a privacy boundary. Unexpected category/route pairs,
+  sensitive grant mismatch, or excluded-record influence require privacy-incident
+  handling even when provider output appears benign.
 
 ## Operational signals
 
 Monitor by environment and route:
 
-- challenge/exchange/refresh stage and stable error;
-- App Attest/App Transaction/age lease outcomes;
+- activation review, guest bootstrap, Apple link, refresh stage, trust tier, and stable error;
+- App Attest/DeviceCheck/App Transaction/age-policy outcomes;
 - consent conflicts and cloud readiness reason;
 - accepted, completed, refused, rejected, cancelled, repaired, and failed requests;
+- contract/prompt/config versions, section counts, category counts, selection reasons, and budget-drop counts;
+- navigation resolution outcome and capture policy/execution/receipt/undo outcome, without queries or command bodies;
 - TTFT, total latency, token/cache use, output size, and TTS first-audio latency;
-- credit reserves/commits/releases/expirations and speech ticket transitions;
+- quota reserves/commits/releases/individual expirations and speech ticket transitions;
 - account/global estimated and actual cost plus 50/75/90% thresholds;
 - Offline EVA recovery offers and explicit selections.
 
-Never add payload sampling to improve observability. Use request IDs and content-free stages.
+Never add payload sampling to improve observability. Correlate a network `requestID`, logical `runID`, and conversation `threadID` using content-free stages. See [Evaluation and observability](EVALUATION_AND_OBSERVABILITY.md) for event definitions and release gates.
 
 ## Rollback and kill switches
 
 - Speech incident: publish a higher policy with `ttsEnabled: false`.
+- Guest acquisition incident: set `guestAccess.bootstrapEnabled: false` while existing guest inference remains available.
+- Guest inference incident: set `guestAccess.inferenceEnabled: false`; Apple-linked Cloud EVA and Offline EVA remain available.
+- Apple-link incident: set `guestAccess.appleLinkingEnabled: false` without disabling guest answers.
 - Route incident: disable only the affected route.
+- Context incident: disable the affected route and, where available, remove the implicated category from eligibility through a higher signed policy; do not rely on prompt wording as containment.
+- Capture/navigation incident: disable the affected route. Deterministic local behavior remains governed by the app's local feature and authority policy and may require a client-side kill switch or release if it is the source.
 - Partial outage: use `cloudState: degraded` with a localized maintenance message.
 - Privacy, auth, accounting, or broad safety incident: publish `cloudState: disabled` immediately.
 - Code regression: keep the higher disabled policy, then restore the prior Worker version.
 - Cost spike: close the global budget, disable cloud, and reconcile before re-enable.
 
-Never reduce a configuration version already accepted by clients. Never weaken authentication, adult eligibility, consent, attestation, credit, or budget gates to restore availability. Follow `INCIDENT_RUNBOOK.md` for severity, containment, and recovery.
+Never reduce a configuration version already accepted by clients. Never weaken session binding, age policy, consent, quota, or budget gates to restore availability. Low-trust access is an intentional policy tier, not a bypass. Follow `INCIDENT_RUNBOOK.md` for severity, containment, and recovery.

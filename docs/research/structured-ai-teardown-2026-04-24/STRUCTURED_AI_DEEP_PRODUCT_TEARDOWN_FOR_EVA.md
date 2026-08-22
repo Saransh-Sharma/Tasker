@@ -1,7 +1,9 @@
 # Structured AI Deep Product Teardown for LifeBoard / EVA
 
-Research date: 2026-04-24  
-Research surface: Structured iPhone app via iPhone Mirroring  
+> **Classification:** Historical competitive research snapshot. Observed competitor behavior does not define current Eva capability or authority. Eva's current direct-capture exception, local execution boundary, and proposal rules are defined in [Navigation and capture authority](../../eva/NAVIGATION_AND_CAPTURE_AUTHORITY.md).
+
+Research date: 2026-04-24
+Research surface: Structured iPhone app via iPhone Mirroring
 Pass scope: Text create/edit flows, AI entry discovery, no-op state, privacy/pro gating from official docs. Voice and scan/image were intentionally skipped in this pass.
 
 Sources:

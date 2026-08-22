@@ -1,8 +1,12 @@
 # EVA and the Ultimate Life OS — Product Roadmap
 
+> **Implementation companion:** [Eva Intelligence Roadmap — from chat box to Life OS layer](./EVA_INTELLIGENCE_ROADMAP.md) defines the actuation, navigation, retrieval, evidence, and proactivity spine beneath these horizons.
+
+> **Current-state report:** [Eva roadmap status and gap analysis](./EVA_ROADMAP_STATUS.md) distinguishes implemented foundations, production qualification, and future product arcs.
+
 > **Classification:** Future product strategy. Nothing below is shipped unless the current Feature Catalog says so.  
 > **Horizon:** 24 months, sequenced by trust and evidence rather than calendar promises  
-> **Last grounded in code and product documentation:** 2026-08-17
+> **Last grounded in code and product documentation:** 2026-08-21
 
 ## North star
 
@@ -18,7 +22,7 @@ The north-star outcome is not time-in-app. It is: **people keep more of the comm
 
 1. **Evidence before inference.** Recorded facts, source provenance, and uncertainty must be distinguishable from model interpretation.
 2. **Capacity before ambition.** EVA should subtract, defer, and renegotiate before manufacturing a denser plan.
-3. **Proposal before action.** Consequential changes use a visible diff, Apply/Edit/Not Now, receipt, and Undo.
+3. **Authority follows risk.** Consequential changes use a visible diff and explicit Apply/Edit/Not Now. A narrow capture class may auto-apply only locally allow-listed, today-only, reversible batches of at most three same-kind writes, followed by a visible receipt and Undo.
 4. **Local by default, cloud by choice.** Deterministic and local flows stay strong; remote categories remain independently granted.
 5. **One life graph, many views.** Home, Plan, Track, Insights, EVA, widgets, Watch, and Shortcuts project canonical records rather than create rival truth.
 6. **Calm over compulsion.** Optimize for relief, clarity, follow-through, and return-to-life—not streak anxiety, alerts, or chat dependency.
@@ -41,6 +45,12 @@ flowchart LR
 
 The foundational technical bet is a privacy-classified, provenance-rich Life Graph composed from existing canonical repositories. It is not a giant cloud profile. Local graph edges describe relationships such as “task advances goal,” “habit supports outcome,” “meeting constrains day,” and “evidence changed this recommendation.” Remote projection remains narrow and request-scoped.
 
+### Platform spine already implemented
+
+The roadmap begins from an implemented contract-v4 spine: route-scoped typed context, hybrid Knowledge and authorized Journal retrieval, selection provenance, whole-record budgeting, closed navigation and capture schemas, durable record references, local authority policy, receipts and undo, correctable memory, cross-surface evidence exclusions, and a deterministic proactive governor. “Implemented” does not mean production-qualified; physical-device, privacy, quality, load, and staged rollout gates remain part of Horizon 0.
+
+Portfolio reporting uses the labels defined in the current-state report: defined, implemented, staging-qualified, production-enabled, and graduated. Horizon descriptions are intended outcomes, not release claims.
+
 ## Horizon 0 — Make Cloud EVA boringly trustworthy
 
 **Timing:** Now to six weeks  
@@ -48,8 +58,8 @@ The foundational technical bet is a privacy-classified, provenance-rich Life Gra
 
 | Initiative | User outcome | Product/technical work | Success gate |
 |---|---|---|---|
-| Activation closure | Sign in once and understand every gate | Physical iOS Apple/App Attest/18+/consent/credits/refresh test; Catalyst trust qualification; exact readiness UI | Qualified activation and first-answer completion; no generic dead ends |
-| Route quality baseline | Every existing EVA job behaves at least as well as accepted local behavior | Privacy-safe corpus by semantic route; structured/semantic validity; refusal and cancellation tests | ≥99.5% valid structured results after one repair |
+| Activation closure | Activate as a guest and understand every gate; optionally Protect & Sync with Apple | Physical iOS guest/App Attest/13+-policy/consent/quota/refresh test; optional Apple-link and Catalyst trust qualification; exact readiness UI | Qualified activation and first-answer completion; no generic dead ends |
+| Route quality baseline | Every existing Eva job behaves at least as well as accepted local behavior | Privacy-safe corpus by semantic route; retrieval/subtraction/exclusion; authority; structured/semantic validity; refusal and cancellation tests | Approved route bands, no privacy/authority hard failures, and ≥99.5% valid repair-eligible structured results after one repair |
 | Operational confidence | Failures are contained without app releases | Dashboards, alert thresholds, key-rotation drill, kill-switch drill, request/account reconciliation | Incident simulation passes; zero content in logs |
 | Trust completion | Product claims match processor reality | ZDR decision, privacy labels/report, threat model, account deletion/revocation, consent comprehension test | Privacy/security/App Store approval |
 | Controlled launch | Learn before broad exposure | Internal → 5% → 25% → 100% for text; TTS independently later | Latency, safety, cost, helpfulness, and recovery thresholds hold |
@@ -217,6 +227,8 @@ Privacy, safety, accessibility, data migration, and rollback are pass/fail gates
 - Proposal accept/edit/decline rate and successful Undo.
 - Repeat correction rate by recommendation type.
 - Explicit Offline EVA use and successful recovery from cloud failure.
+- Navigation success/disambiguation and capture correction/undo rates.
+- Memory correction/deletion and proactive helpful-action-per-interruption.
 - Safety/refusal/schema-repair rates by route.
 
 ### System health measures
@@ -262,4 +274,3 @@ An initiative moves from roadmap to current capability only when it has:
 7. Product evidence that it improves a meaningful outcome without unacceptable burden or trust cost.
 
 This roadmap complements the broader `docs/product/LIFEOS_FUTURE_BLUEPRINT.md`. The blueprint defines complete future domains; this document sequences EVA and intelligence investments that compound the LifeBoard system already present in code.
-

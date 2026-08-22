@@ -2,6 +2,10 @@
 
 This file is the implementation ledger for the Luna text and spoken-output migration. A task is checked only after the stronger production-readiness gate for that task passes. External console and production rollout tasks remain unchecked until they are actually completed.
 
+**Current baseline:** contract v4, signed runtime-configuration schema v2, guest-first activation, and a 13+ product policy. Earlier dated incident entries are retained as historical evidence and may mention the superseded Apple-first/18+ design that was active when those tests ran; they are not the current product contract. Current behavior is defined by [the product and technical guide](CLOUD_EVA_PRODUCT_AND_TECHNICAL_GUIDE.md).
+
+Portfolio state, consolidated priorities, and exit criteria live in [Eva roadmap status and gap analysis](EVA_ROADMAP_STATUS.md). This ledger retains historical evidence, so several unchecked items describe the same P0 release gate. Count the consolidated status report, not raw unchecked boxes, when reporting roadmap progress.
+
 ## Production-readiness correction — 2026-08-14
 
 The first implementation pass established the end-to-end architecture, but its original checkboxes treated a working skeleton as completion. The remaining work below is authoritative. Earlier phase summaries are retained as implementation history and no longer imply production readiness.
@@ -13,7 +17,7 @@ The first implementation pass established the end-to-end architecture, but its o
 - [x] Add content-free contract-rejection telemetry that records only endpoint and field names.
 - [x] Add TypeScript Worker/contract regressions and a Swift Apple exchange fixture compatibility test.
 - [x] Deploy the UUID contract fix to staging and verify the live HTTP boundary: valid Apple exchange UUIDs reach challenge verification, malformed UUIDs remain `schema_invalid`, and a valid refresh request reaches session lookup. Staging Worker version `be990909-ffb2-4c8c-a07e-36a0f8fdfa71`.
-- [ ] Verify staging on a physical iPhone through Apple exchange, App Attest, 18+ eligibility, credits, consent, and refresh.
+- [x] Superseded this Apple-first/18+ qualification step when activation moved to the guest-first 13+ product contract; current physical-device qualification is tracked in the contract-v4 section below.
 - [x] Deploy the same code to production while keeping the production Luna/TTS switches disabled until staging acceptance. Production Worker version `44ebe167-8863-4962-a663-c181a705e285`; `api.getlifeboard.app` health and schema boundaries passed, while the GitHub Pages apex and `www` remained healthy.
 - [x] Diagnose the second live-device failure: Swift re-encoded the issued UUID in uppercase and selected a different case-sensitive `AuthChallengeDO` name during exchange.
 - [x] Canonicalize challenge Durable Object names and add an HTTP issue→uppercase-exchange regression test.
@@ -36,7 +40,7 @@ The first implementation pass established the end-to-end architecture, but its o
 - [x] Pass the complete 43-test `LifeBoardPlanningTrackFoundationTests` suite and a generic iOS device build.
 - [x] Re-run the focused planning, activation-default, and age-contract regressions after extraction; pass Xcode target-membership, file-size, no-`print`, and diff guardrails.
 - [x] Reset only the dedicated test simulator's stale app container and verify Cloud Setup reaches Apple's native authorization flow without reproducing the persistence crash. App Attest remains intentionally unavailable in Simulator.
-- [ ] Install the corrected signed build on the physical iPhone and repeat Apple sign-in, App Attest, 18+ eligibility, credits, consent, refresh, first Luna response, and spoken output. The iPhone is now connected; completion still requires interacting with Apple's system sheet and sharing the eligible range.
+- [x] Superseded this Apple-first/18+ rerun by the guest-first 13+ qualification matrix. Optional Apple linking remains a separate recovery/sync test.
 
 ### Debug signed-configuration readiness incident — 2026-08-17
 
@@ -57,6 +61,20 @@ The first implementation pass established the end-to-end architecture, but its o
 - [x] Expand the Cloud EVA API, backend, privacy/data-flow, and incident runbooks to match the current implementation and environment state.
 - [x] Add a combined product/technical guide, scored risk register, and evidence-gated 24-month EVA/Life OS roadmap.
 - [x] Reconcile product, onboarding, Universal Input, repository, and EVA provider-architecture documentation with the Cloud Luna / Offline MLX seam and removal of Apple Foundation Models.
+
+### Contract-v4 Life OS intelligence spine — 2026-08-21
+
+- [x] Add required turn context and explicit per-section selection reasons while retaining versions 1–3 for negotiated compatibility.
+- [x] Add deny-by-default route manifests, typed/semantic Knowledge retrieval, authorized Journal retrieval, and one whole-turn allocator that drops complete records.
+- [x] Add closed navigation targets, durable record references, local resolution/disambiguation, and Swift/TypeScript drift fixtures.
+- [x] Add deterministic-first and cloud-assisted capture for body mass, notes, Journal append, hydration, mood, tracker deltas, and life moments.
+- [x] Enforce today-only, same-kind, maximum-three direct capture with prohibited-domain escalation, typed persisted receipts, and 30-minute undo.
+- [x] Add correctable provenance-rich memory, confirmed candidates, Evidence Lens exclusions across Eva/Insights/Home, the shared Insight model, and the deterministic proactive governor.
+- [x] Rewrite the canonical product, API, context/prompt, authority, memory/evidence, evaluation, privacy, backend, incident, risk, provider, and roadmap documentation for the v4 baseline.
+- [ ] Run the complete seeded context evaluation: relevance, subtraction, irrelevant-record resistance, sensitive omission, Evidence Lens exclusion, and prompt injection.
+- [ ] Run physical-device navigation and every capture family through success, ambiguity/escalation, relaunch, duplicate retry, receipt, and undo.
+- [ ] Qualify memory correction/deletion, cross-surface exclusion propagation, and proactive daily/quiet-hour/dormancy behavior in staged product flows.
+- [ ] Observe v4 context, authority, quality, latency, cache, and cost dashboards during limited staging traffic before production enablement.
 
 ### Context and prompt rebuild for a reasoning model — 2026-08-19
 
@@ -212,7 +230,7 @@ broken on the cloud path.
 - [x] Implement account identifiers, sessions, rotation, logout, and Apple events.
 - [x] Production-harden App Attest registration and assertions for iOS, including release entitlement, exact environment matching, certificate validity, and adversarial fixture verification.
 - [x] Implement the stricter Catalyst risk policy.
-- [x] Production-harden per-device adult eligibility with 24-hour expiry/revalidation.
+- [x] Production-harden per-device age eligibility with 24-hour expiry/revalidation. The current product threshold is 13+; earlier incident notes record the superseded 18+ policy.
 - [x] Implement recent-authenticated cloud-account deletion.
 
 ## Phase 3 — Credits, consent, and budgets
@@ -255,8 +273,8 @@ broken on the cloud path.
 
 ## Phase 8 — Product experience
 
-- [x] Add cloud activation, 18+ gate, context selection, and existing-user notice.
-- [x] Add just-in-time sign-in, credits, Settings, and account deletion.
+- [x] Add guest-first cloud activation, 13+ policy gate, context selection, and existing-user notice.
+- [x] Add optional Protect & Sync with Apple, just-in-time account recovery, quota, Settings, and account deletion.
 - [x] Pass localization, accessibility, and design-system guardrails.
 
 ## Phase 9 — Release

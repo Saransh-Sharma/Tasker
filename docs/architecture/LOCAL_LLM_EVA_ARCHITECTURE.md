@@ -4,14 +4,14 @@
 
 > Audience: Engineering, product, privacy/safety, and QA
 > Capability status: Current workspace; runtime/model availability varies
-> Source authority: EVA provider router, cloud/local runtimes, context policy, proposal validators, and action pipeline
-> Last verified: 2026-08-17
+> Source authority: Eva provider router, immutable turn runtime, cloud/local context policy, local authority, proposal validators, and action pipeline
+> Last verified: 2026-08-21
 
-EVA is LifeBoard's user-controlled assistant layer for chat, day review, Chief of Staff planning, and planner-assisted task changes. `EvaProviderRouter` selects Cloud EVA through OpenAI Luna when the signed policy, account, device trust, per-device 18+ eligibility, consent, credits, and network are ready; it selects an installed MLX model when Offline EVA is explicit; otherwise deterministic behavior preserves supported workflows. Apple Foundation Models are no longer an EVA inference provider. Every path uses schema-validated output, bounded context projection, and the canonical task/action pipeline.
+Eva is LifeBoard's user-controlled intelligence layer for chat, day review, navigation, capture, Chief of Staff planning, and planner-assisted changes. `EvaProviderRouter` selects Cloud Eva through OpenAI Luna when signed policy, guest or Apple-linked account, device trust, applicable 13+ policy, consent, rolling quota, and network are ready; it selects an installed MLX model when Offline Eva is explicit; otherwise deterministic behavior preserves supported workflows. Apple Foundation Models are no longer an Eva inference provider. Model-backed paths use schema-validated output and bounded context projection; every action path ends at local domain authority.
 
 User-visible assistant identity is separate from the EVA architecture name. Eva remains the default Chief of Staff persona, but the app can render the assistant as the user's selected mascot persona while keeping internal EVA route, planner, telemetry, and persistence names where they are implementation details.
 
-Product-wise, Eva's job is to help the user manage the day: understand load, decide what to do next, repair overloaded windows, use or protect free gaps, recover after interruption, and review carry-over. Eva should feel like a Chief of Staff, not an autonomous scheduler. The assistant can explain and propose, but meaningful mutations stay behind explicit confirmation and undo where supported.
+Product-wise, Eva's job is to help the user manage the day: understand load, decide what to do next, reach the right record, capture small facts, repair overloaded windows, use or protect free gaps, recover after interruption, and review carry-over. Eva should feel like a Chief of Staff, not an autonomous scheduler. Broader mutations stay behind explicit confirmation. A narrow local capture allowlist may execute immediately only when it is today-only, bounded, and reversible, followed by a receipt and undo.
 
 ## Use Cases
 
@@ -24,6 +24,9 @@ Product-wise, Eva's job is to help the user manage the day: understand load, dec
 - Proposal review: show schema v3 task command cards, allow selected apply, and avoid cards for empty command runs.
 - Context shortcuts: include slash-command context and task projections in prompts.
 - Lightweight assistance: daily brief, top three, task breakdown, dynamic chips, and task suggestions.
+- Navigation: closed general destinations and locally resolved named records, including ambiguity and protected-record handling.
+- Direct capture: deterministic-first body mass, notes, Journal append, hydration, mood, tracker, and life-moment writes under local policy.
+- Personalization: user-confirmed, provenance-rich memory candidates and evidence exclusions.
 
 Voice, scan, inline timeline diff, and full applied-run history surfaces are feature-flagged as unfinished surfaces. They must not be described as complete user workflows until their end-to-end paths are implemented.
 
@@ -31,7 +34,7 @@ Voice, scan, inline timeline diff, and full applied-run history surfaces are fea
 
 The chat UI accepts a prompt in `ChatView`, assigns a run ID, clears stale evaluator turn state with `LLMEvaluator.beginUserTurn(runID:)`, and routes the prompt. `EvaTurnRouter` identifies the semantic job, while `EvaProviderRouter` selects one eligible provider for the complete request. Cloud uses `EvaCloudProvider` and normalized URLSession SSE; Offline uses `EvaMLXProvider` and the installed local runtime. A request never silently changes provider after acceptance.
 
-Context is built through the LLM context projection and envelope builders, with bounded budgets for chat-style turns. Required context failures are fail-closed: EVA persists a visible assistant message explaining the missing context instead of silently dropping the turn.
+Context is built through the contract-v4 route manifest, typed/semantic retrieval, projection factories, consent/protection/exclusion checks, selection provenance, and one whole-turn budget. Required context failures are fail-closed: Eva persists a visible assistant message explaining the missing context instead of silently dropping the turn. Navigation and input classification receive no stored-life context; sensitive categories require explicit grants.
 
 Timeline-aware turns add a schedule context receipt when available. The receipt is derived from LifeBoard's calendar and timeline projections rather than raw EventKit data. It can include authorization state, selected-calendar state, next meeting, in-progress meeting, busy blocks, free gaps, overloaded flocks, task-fit hints, and stale/partial/timeout flags. This keeps Eva aligned with the visible Home timeline and gives the assistant enough metadata to disclose uncertainty.
 
@@ -39,7 +42,9 @@ Timeline-aware turns add a schedule context receipt when available. The receipt 
 
 `EvaPlanResponseDelivery` is the testable delivery gate. It allows deterministic text and proposal delivery when the task is still active and the run ID matches. It checks `llm.cancelled` only for model-backed planner results. Delivery logs terminal events for persisted responses and explicit drops.
 
-Proposal cards are built from schema v3 assistant command envelopes. Non-empty commands that can be applied are reviewed and selectively applied. The apply path goes through `AssistantActionPipelineUseCase`, repository validation, transactional persistence, and undo command storage; UI code does not mutate task state directly.
+Proposal cards are built from schema-v3 planner command envelopes; this planner-schema version is independent of the cloud wire contract v4. Non-empty commands that can be applied are reviewed and selectively applied. The apply path goes through `AssistantActionPipelineUseCase`, repository validation, transactional persistence, and undo command storage; UI code does not mutate task state directly.
+
+Navigation and capture are sibling paths. Cloud navigation returns a closed target and optional query, after which the device resolves protection, ambiguity, and destination. Capture first attempts a deterministic parser. Cloud capture may return one to three strict commands, but `EvaCaptureLaneUseCase` and its domain executors decide whether a command can execute, escalate, or fail. Successful writes persist an assistant-action run and typed 30-minute undo.
 
 Read-only day review now has a parallel card contract. `AssistantCardType.dayOverview` carries `EvaDayOverviewPayload`, which contains `summaryMarkdown`, `contextReceipt`, `isPartialContext`, and ordered sections for overdue tasks, today tasks, focus candidates, due habits, recovery habits, quiet tracking, or an empty/degraded state. These cards persist as assistant messages, but post-render quick-action state is maintained as chat-local overlay state so the transcript remains immutable.
 
@@ -51,7 +56,7 @@ Chat messages and threads are persisted through the chat message flow. Assistant
 
 - Explicit hybrid inference: Cloud EVA uses Luna only after account/trust/age/consent/configuration/credit gates. Offline EVA uses MLX and stays on device. The UI identifies the provider and cloud processing boundary.
 - **The two runtimes do not share a context budget.** `EvaContextBudget` is the single place a budget is produced. Cloud reads `RoutePolicy.inputTokenCap` from the signed configuration; offline reads the per-model `LLMTokenBudget` table. It fails closed to offline whenever a cloud turn cannot be positively confirmed — no verified configuration, a disabled route or cloud state, an unready account, or a model name that is not the cloud sentinel. Handing a cloud-sized envelope to an on-device model is the one failure mode that would exhaust memory on a phone, so ambiguity resolves downward.
-- **The provider is resolved before context is built, not after the model is prepared.** Discovering it later would size the projection against the wrong runtime, and the router can still fall back to MLX or deterministic mid-turn.
+- **The provider is resolved before context is built, not after the model is prepared.** Discovering it later would size the projection against the wrong runtime. After acceptance, a cloud failure never silently resends the turn to MLX; deterministic behavior is used only where the semantic route independently supports it without pretending the cloud answer completed.
 - **One envelope builder, two render modes.** `.compact` reproduces the v1 plain-text projection byte for byte and never consults the rich projectors, so nothing extra is computed, allocated, or fetched on the device path — which also protects the 450 ms projection deadline. `.rich` emits typed sections and drops whole records on overflow rather than truncating, because a half-written identifier is worse than an absent one.
 - **`cloud-eva` is a routing sentinel, not an installed model.** It never resolves through `ModelConfiguration.getModelByName`, so anything treating a model name as proof of a local runtime must test for it explicitly. Not doing so is what made every non-chat route fail before reaching the network.
 - No silent fallback: automatic policy may choose cloud before a request, but a cloud failure offers “Try Offline” rather than resending the same private context to MLX or another provider without an explicit user action.
@@ -61,7 +66,7 @@ Chat messages and threads are persisted through the chat message flow. Assistant
 - Day overview is a dedicated read-only surface: review prompts return `dayOverview` cards instead of proposal cards or plain no-op text.
 - Chief of Staff is a behavior contract: Eva should summarize, sequence, repair, defer, protect focus, and clarify next action, but should not imply autonomous control.
 - Timeline context comes from projection receipts: assistant schedule guidance should use the same projected day model as Home and timeline surfaces.
-- Schema v3 planner contracts: task mutations flow through structured command envelopes, proposal cards, validation, selected apply, and undo.
+- Contract v4 context and schema-v3 planner contracts are separate: cloud context carries turn metadata and selection reasons; task mutations flow through planner command envelopes, proposal cards, validation, selected apply, and undo.
 - Calendar remains read-only: schedule-aware planning can propose changes to LifeBoard-owned tasks, reminders, habits, or planning metadata, but must not create, edit, delete, or RSVP to external calendar events.
 - Quick actions stay first-party: task and habit buttons on day overview cards invoke existing task and habit use cases directly because the user tapped them; they do not enter propose -> apply -> undo.
 - Empty commands are text-only: zero-command planner results persist assistant text and do not create proposal cards or apply buttons.

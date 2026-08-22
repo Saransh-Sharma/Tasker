@@ -5,7 +5,7 @@
 > Audience: Product, design, engineering, and QA
 > Capability status: Current selected-persona presentation
 > Source authority: Mascot assets, persona selection, and placement code
-> Last verified: 2026-08-13
+> Last verified: 2026-08-21
 
 LifeBoard's visual Chief of Staff is a selectable mascot persona. Eva remains the default, but users can choose a different assistant identity during onboarding or from Settings. The selected mascot communicates product state: present, planning, thinking, reviewing, suggesting, warning, celebrating, helping, or encouraging rest. Mascots should make the app feel guided and humane without becoming a decorative sticker layer.
 
@@ -19,7 +19,7 @@ This guide owns mascot placement philosophy, persona catalog, asset contracts, a
 - Keep mascots out of repeated rows, dense lists, and every prompt chip.
 - Reserve large mascot artwork for onboarding, empty states, success screens, and full-screen planning experiences.
 - Warning poses must feel supportive, not punitive.
-- Mascot animation must never imply that the assistant has mutated user data without explicit confirmation.
+- Mascot animation must never imply that a proposal or network interpretation completed a mutation. Celebration is allowed only after canonical local persistence succeeds—after explicit proposal confirmation or an allowlisted reversible direct capture.
 
 ## Persona Catalog
 
@@ -97,6 +97,10 @@ The following `eva_*` assets apply only to Eva's static PNG fallback mapping. Sp
 - Chief of Staff guide and proposal review: `eva_clipboard`.
 - Day overview and recommendation cards: `eva_idea`.
 - Applied proposal: `eva_celebration`.
+- Successful direct capture receipt: `eva_celebration` only after local persistence; the receipt remains the semantic source of completion and Undo.
+- Capture proposal or policy escalation: `eva_clipboard`, never a completion pose.
+- Ambiguous navigation: `eva_clipboard` or neutral identity; artwork must not suggest a destination was opened.
+- Memory candidate: `eva_idea`; confirmed save may use a restrained success transition.
 - Prompt chips keep SF Symbols for scanning; Eva is not repeated in every chip.
 
 ### Home And Timeline
@@ -180,6 +184,7 @@ The following `eva_*` assets apply only to Eva's static PNG fallback mapping. Sp
 - Do not put the mascot inside every prompt chip, task row, habit row, or repeated list item.
 - Do not show multiple conflicting mascot emotions in the same screen region.
 - Reserve `eva_celebration` for completed work or confirmed apply success.
+- A successful allowlisted direct capture counts as completed work only after the local action run and undo receipt are persisted.
 - Reserve `eva_excited` for activation, feature reveals, first successful plan generation, and major milestones.
 - Use `eva_worried` only for true risk states and pair it with supportive copy.
 - Use `eva_surprised` for noteworthy discoveries; it does not always mean something is wrong.
@@ -194,4 +199,6 @@ The following `eva_*` assets apply only to Eva's static PNG fallback mapping. Sp
 - Interactive mascot controls have explicit accessibility labels using the selected persona's visible name.
 - iPad split layouts keep mascot artwork aligned with the relevant screen region.
 - High contrast and reduced transparency keep text and controls readable around mascot placements.
-- Chat empty state, active generation, proposal review, onboarding success, calendar permission, focus start, habit empty state, missed-streak recovery, and weekly completion are manually checked before release.
+- Chat empty state, active generation, proposal review, direct-capture success/escalation/failure, ambiguous navigation, memory candidate, onboarding success, calendar permission, focus start, habit empty state, missed-streak recovery, and weekly completion are manually checked before release.
+
+For state semantics, use [Insights and Eva](../product/INSIGHTS_AND_EVA.md) and [Navigation and capture authority](../eva/NAVIGATION_AND_CAPTURE_AUTHORITY.md). Mascot presentation never changes route, consent, or mutation authority.

@@ -1,18 +1,20 @@
 # Cloud EVA Product and Technical Guide
 
 **Product role:** LifeBoard's user-controlled Chief of Staff  
-**Implementation status:** Complete architecture; staging end-to-end qualification in progress  
+**Implementation status:** Contract v4 architecture implemented; staging end-to-end qualification in progress
 **Text provider:** OpenAI [`gpt-5.6-luna`](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
 **Spoken output:** OpenAI [`tts-1`](https://developers.openai.com/api/docs/models/tts-1), `nova`; no cloud speech-to-text or full duplex
-**Last verified:** 2026-08-20
+**Last verified:** 2026-08-21
 
 ## Product promise
 
-EVA helps a person understand what matters, turn ambiguity into a workable plan, and recover when reality changes. It is not an autonomous operator. It explains, answers, classifies, breaks work down, and prepares bounded proposals; the person reviews meaningful changes through LifeBoard's canonical Apply/Edit/Not Now, receipt, and Undo paths.
+Eva helps a person understand what matters, turn ambiguity into a workable plan, capture small facts without friction, and recover when reality changes. It is not an autonomous operator. It explains, answers, classifies, navigates, breaks work down, and prepares bounded proposals. A narrow set of today-only, reversible captures may execute locally and immediately; broader or consequential changes use LifeBoard's canonical review and apply path.
 
-Cloud EVA extends that experience with Luna while preserving Offline EVA through MLX and deterministic fallbacks. Cloud is explicit, 18+, account-based, consent-scoped, credit-controlled, and independently disableable. Ordinary LifeBoard remains useful without it.
+Cloud EVA extends that experience with Luna while preserving Offline EVA through MLX and deterministic fallbacks. Cloud is explicit, 13+, guest-first, consent-scoped, rolling-quota controlled, and independently disableable. Ordinary LifeBoard remains useful without it.
 
 ## What ships in the implementation
+
+Implementation availability is not production availability. The current source contains the contract-v4 platform spine, navigation/capture authority, memory/evidence controls, and proactive governor. Production Cloud Eva and TTS remain disabled pending physical-device, quality, privacy, operations, load, and staged-rollout gates. The maintained comparison is [Eva roadmap status and gap analysis](EVA_ROADMAP_STATUS.md).
 
 ### Text intelligence
 
@@ -24,10 +26,13 @@ Cloud EVA extends that experience with Luna while preserving Offline EVA through
 - A daily brief that separates what is fixed from what is suggested, names one
   explicit tradeoff, and cites the records it rests on.
 - Universal-input classification after submission; live preview stays deterministic.
+- Typed navigation intent that is resolved against eligible destinations and records on-device.
+- One to three strict capture commands, with deterministic local parsing for common cases and local policy as the final execution boundary.
+- Correctable memory candidates that require local user confirmation before persistence.
 - Journal, Knowledge, and Siri/Shortcuts answers using only authorized projections.
 - A debug smoke route for qualified non-production environments.
 
-All structured routes use route-specific schemas and semantic validation. Model output cannot invent context identifiers or obtain mutation authority. No OpenAI tools, browsing, file search, or autonomous app actions are enabled.
+All structured routes use route-specific schemas and semantic validation. Model output cannot invent context identifiers or obtain mutation authority. No OpenAI tools, browsing, file search, or autonomous app actions are enabled. Direct capture is not a cloud write: the cloud returns a typed candidate command, then the device checks the allowlist, value bounds, today-only and batch policy, idempotency, and persistence before it can create a receipt.
 
 ### Spoken output
 
@@ -35,18 +40,18 @@ The person may request an AI-generated reading of a successful answer. The first
 
 ### Account and trust
 
-- Sign in with Apple, rotating 15-minute access/30-day refresh sessions, reuse detection, logout, revocation observation, and recently reauthenticated deletion.
-- App Attest on physical iOS, with exact request binding and counter replay protection.
-- Signed App Transaction risk evidence and lower limits on Catalyst.
-- Apple Declared Age Range with a per-device 18+ lease, refreshed within 24 hours.
-- Account-wide consent revisions, credits, and request/speech idempotency.
+- Server-random guest accounts with rotating 15-minute access/30-day refresh sessions, reuse detection, active-session deletion, and unrecoverable-by-default reinstall semantics.
+- Optional Protect & Sync with Apple, including quota union, consent intersection/re-review, session migration, revocation observation, and recently reauthenticated Apple-account deletion.
+- App Attest exact-request binding, DeviceCheck/App Transaction risk signals, and low-trust fallback without quota reduction.
+- Optional 13+ age-band evidence with known-under-13 denial and signed mandatory-region fail-closed mode.
+- Account-wide consent revisions, 20-answer rolling quota, 100-helper rolling quota, and request/speech idempotency.
 
 ### Context controls
 
 Base context may include the prompt, typed task records, projects and life areas,
 habits with their recent history, capacity for the day, goals, the day-loop
 state, the weekly retrospective the person wrote, a read-only calendar
-projection, executive/slash-command state, and bounded chat history. Journal,
+  projection, relevant Knowledge excerpts, executive/slash-command state, and bounded chat history. Journal,
 health, Life Moments, and personal memory remain separate grants. Activation
 preselects them for review, but the person can disable any category before the
 single explicit confirmation.
@@ -63,6 +68,13 @@ overstate and the second is easy to miss:
   `RoutePolicy.inputTokenCap` from the signed configuration. Offline EVA keeps its
   own, much smaller per-model budgets, and the resolver fails closed to those
   whenever a cloud turn cannot be positively confirmed.
+- **Relevance is route-scoped and auditable.** Contract v4 requires turn context
+  and explicit selection reasons on every included section. A manifest prevents
+  routes such as navigation and classification from receiving stored-life data
+  they do not need.
+- **More model capacity does not relax minimization.** The allocator reserves the
+  complete turn budget, admits whole records in priority order, and drops records
+  rather than truncating IDs or structured evidence.
 
 ## User journeys
 
@@ -72,12 +84,11 @@ Activation happens in post-onboarding Setup Center. Core Life Weave completion
 never activates EVA. The ordinary Setup Center path presents Cloud EVA only;
 Offline EVA remains an advanced Settings option and explicit recovery route.
 
-1. The person acts on one standard Sign in with Apple button.
-2. Sign in with Apple establishes a pseudonymous account; explanatory copy appears only if they try to dismiss.
-3. The app qualifies device trust and asks Apple for an 18+ age-range result.
-4. The app force-refreshes signed configuration, then loads consent and credits.
-5. Sensitive-context grants are preselected but editable, then written together through one compare-and-swap confirmation.
-6. If all gates pass, Cloud EVA becomes available and onboarding stages opening prompts composed from the person's own Life Map answers. Otherwise the exact failed gate is shown with an explicit recovery path; Offline EVA remains available from Settings.
+1. The person reviews the cloud processor disclosure and preselected sensitive-context grants.
+2. One **Continue with Cloud EVA** action confirms those grants and creates/resumes a server-random guest account; no Apple sheet appears.
+3. App Attest registration follows bootstrap and assigns high or low trust without changing the 20-answer allowance.
+4. The app force-refreshes signed configuration, consent, and rolling quota. Mandatory-region age policy may require a 13+ system decision; ordinary unknown-age users continue.
+5. Cloud EVA becomes available and onboarding stages opening prompts composed from the person's own Life Map answers. Protect & Sync with Apple remains an optional Settings upgrade.
 
 Declining or deferring is a first-class outcome: the prompts are staged either
 way, and the EVA tab offers connection inline rather than reopening setup.
@@ -86,35 +97,48 @@ way, and the EVA tab offers connection inline rather than reopening setup.
 
 1. The app builds a bounded context projection using the current consent revision.
 2. One immutable turn runtime selects Cloud or explicitly selected Offline before context assembly.
-3. The Worker validates body, identity, trust, age, policy, route, consent, rate, credits, and budget.
+3. The Worker validates body, session/device binding, age policy, route, consent, rate, rolling quota, and budget.
 4. Input plus projected context is moderated as untrusted content.
 5. Luna streams safe text or returns one validated structured object.
-6. Credits commit only for a nonempty, nonrefusal, valid result.
-7. The Cloud message persists an immutable context receipt; any consequential proposal still passes through LifeBoard's review/apply boundary.
+6. One rolling timestamp commits only for a nonempty, nonrefusal, valid result.
+7. The Cloud message persists an immutable context receipt. Proposals pass through review/apply; eligible direct captures pass through local policy and produce a reversible receipt.
 
-Contract v3 adds typed availability/count metadata and stable source identifiers,
-forbids conversation summaries, and supports per-record exclusions. User-owned
+Contract v3 added typed availability/count metadata and stable source identifiers
+and forbade conversation summaries. Contract v4 adds required turn context and
+per-section selection provenance. User-owned
 memory is capped at 30 confirmed 240-character statements. A non-billable route
 may propose one inactive memory after a Cloud turn; Save/Edit/Later/Dismiss keep
 the user as the activation boundary.
 
+### Navigate and capture
+
+1. The app handles exact, deterministic navigation or capture locally when it can do so safely.
+2. Otherwise it sends the narrow `navigation` or `capture` route with only manifest-eligible context.
+3. Navigation returns a closed target plus an optional query; the device resolves general, exact, ambiguous, protected, and missing destinations.
+4. Capture returns a strict command. The local authority policy either rejects it, converts it to review, or executes an allowlisted today-only write.
+5. A successful write persists an assistant-action run and shows a receipt with **Open** where available and **Undo** for 30 minutes.
+
+The immediate allowlist currently covers body mass, notes, journal appends, hydration, mood, tracker deltas, and life moments. Medication/dose, nutrition/calories/fasting, historical or future entries, destructive operations, and broader mixed batches never execute in the direct lane.
+
 ### Recover
 
-- Expired session: refresh or sign in again.
-- Stale age lease: request a new Apple range.
+- Expired guest session: resume with the rotating device credential; after reinstall, activate a new guest unless Apple protection was linked.
+- Mandatory regional age decision: request a current 13+ range; ordinary unknown-age access needs no recovery.
 - Stale consent: reload the authoritative revision.
 - Disabled/degraded policy: show its maintenance reason and offer explicit Offline EVA.
-- No credits: show balance and refill time; never loop retries.
-- Provider/cancellation/schema failure: release credit/cost reservations and preserve settled client state.
+- No quota: show the next individually expiring timestamp; never loop retries.
+- Provider/cancellation/schema/refusal failure: release quota/cost reservations and preserve settled client state.
 - TTS unavailable: keep text fully usable.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-    UI["LifeBoard EVA UI / LLMEvaluator façade"] --> Router["EvaProviderRouter"]
+    UI["LifeBoard Eva UI / LLMEvaluator façade"] --> Runtime["Immutable turn runtime"]
+    Runtime --> Context["Route manifest + consent + retrieval + whole-turn budget"]
+    Context --> Router["EvaProviderRouter"]
     Router -->|"explicit Offline selection"| MLX["EvaMLXProvider"]
-    Router -->|"authenticated + trusted + 18+ + consent + credits + signed policy"| Cloud["EvaCloudProvider"]
+    Router -->|"guest/Apple session + age policy + consent + quota + signed policy"| Cloud["EvaCloudProvider"]
     Router -->|"no eligible model provider"| Deterministic["Deterministic recovery"]
     Cloud --> Transport["URLSession + normalized SSE"]
     Transport --> Worker["Cloudflare Hono Worker"]
@@ -124,6 +148,8 @@ flowchart TB
     Worker --> Config["Signed KV runtime policy"]
     Worker --> OpenAI["Luna / moderation / tts-1"]
     Worker --> Analytics["Content-free Analytics Engine"]
+    UI --> Authority["Local navigation resolver / proposal executor / capture policy"]
+    Authority --> Store["LifeBoard store + action run + undo"]
 ```
 
 `LLMEvaluator` remains the observable UI façade, limiting feature churn. The router never switches provider mid-response. Offline MLX is permanent and explicit, not an invisible error fallback.
@@ -131,10 +157,10 @@ flowchart TB
 ## Request admission model
 
 ```text
-body ceiling → schema → rate limit → access token → platform trust → age lease
-→ signed policy/route → consent revision → credit reserve → cost reserve
+body ceiling → schema → network rate limit → access token/device binding → age policy
+→ signed policy/route → consent revision → rolling quota reserve → cost reserve
 → moderation → Luna/repair → output moderation/schema/semantics
-→ credit and cost commit → optional speech ticket
+→ quota timestamp and cost commit → optional speech ticket
 ```
 
 Any failed gate returns a stable error and avoids billable upstream work. Request IDs make the account lifecycle idempotent across replay, disconnect, retry, repair, and Durable Object alarms.
@@ -146,19 +172,19 @@ Any failed gate returns a stable error and avoids billable upstream work. Reques
 - High-risk self-harm content uses a dedicated supportive policy; EVA does not monitor, diagnose, or contact emergency services.
 - Streaming text is held in bounded segments and moderated before release; structured output is buffered and moderated completely.
 - Refusal, incomplete output, final schema/semantic failure, cancellation, or provider failure releases reservations.
-- Luna has no mutation tools. LifeBoard canonical validators and explicit user approval remain the action boundary.
+- Luna has no mutation tools. LifeBoard canonical validators, local authority policy, and either explicit review or the narrow reversible-capture allowlist remain the action boundary.
 
-## Economics and credits
+## Economics and rolling quota
 
-Credits make use understandable; cost fuses protect the service. A new account has 100 credits and gains 20 per complete elapsed 24-hour interval, capped at 100. User credits and dollar budgets are independent ledgers: one successful billable answer commits one user credit, while maximum attempt-graph cost is reserved globally/account-wide and actual usage is committed from provider telemetry.
+The product exposes 20 successful billable answers during the preceding rolling 24 hours; cost fuses protect the service independently. Active reservations count with committed timestamps, timestamps expire one by one, and linking unions both accounts' usage. Background model helpers have a separate 100-success rolling cap and 10/minute burst. Maximum attempt-graph cost is reserved globally/account-wide and actual usage is committed from provider telemetry.
 
-Classification, suggestions, chips, repairs, retries, failures, cancellation, deterministic work, and Offline EVA are unmetered. Current pricing is versioned server policy and must be verified against the real OpenAI project before an environment is enabled.
+Repairs, retries, failures, refusals, moderation responses, cancellation, deterministic work, and Offline EVA do not consume the 20-answer quota. Successful background classification, suggestions, chips, and other helpers consume only their separate helper allowance. Current pricing is versioned server policy and must be verified against the real OpenAI project before an environment is enabled.
 
 ## Environment and rollout posture
 
 - Debug builds use the staging `workers.dev` origin and staging Ed25519 pin. As of 2026-08-17, all staging text routes and TTS are enabled for end-to-end testing.
 - Release builds use `https://api.getlifeboard.app` and the production pin. Production cloud and TTS remain disabled.
-- Runtime policy controls text state, every route, and TTS independently. A higher-version signed policy is the first rollback mechanism.
+- Runtime policy independently controls guest bootstrap, guest inference, Apple linking, quota values, helper limits, age-policy mode, text routes, and TTS. A higher-version signed policy is the first rollback mechanism.
 - The marketing apex and `www` continue to serve GitHub Pages and are operationally separate from the `api` Worker hostname.
 
 ## Product quality scorecard
@@ -166,7 +192,7 @@ Classification, suggestions, chips, repairs, retries, failures, cancellation, de
 | Dimension | Launch measure | Guardrail |
 |---|---|---|
 | Activation | Qualified users reaching first answer | Exact gate-specific recovery; no trust bypass |
-| Utility | Answer helpfulness, proposal accept/edit rate | No autonomous mutation |
+| Utility | Useful completion, proposal accept/edit, navigation success, capture correction/undo | No mutation outside local authority policy |
 | Grounding | Share of answers naming a real task, project, or habit from the supplied context | An answer that cannot cite a supplied signal is a generic answer, and token count alone does not detect it |
 | Subtraction | Share of over-committed days where the answer proposes deferring or dropping work | Capacity before ambition: a denser plan for an impossible day is a failure, not a helpful response |
 | Reliability | Completion, cancellation reconciliation, schema validity | ≥99.5% structured validity after one repair |
@@ -177,10 +203,21 @@ Classification, suggestions, chips, repairs, retries, failures, cancellation, de
 
 ## Known release gaps
 
-- Complete a fresh physical-iPhone staging run through current 18+ lease, credits, consent, refresh, first Luna response, and TTS.
+- Complete a fresh physical-iPhone staging run through guest consent confirmation, bootstrap, optional App Attest/DeviceCheck signals, the first Luna response, rolling-quota exhaustion, optional Apple linking, refresh, deletion, and TTS.
+- Complete regional age-assurance and legal review before enabling guest access outside approved launch regions.
 - Qualify real Sandbox and Production Catalyst App Transaction chains.
 - Observe live route evaluation and 10× launch load thresholds.
 - Record OpenAI Zero Data Retention status and complete privacy/threat-model/App Store/TestFlight gates.
+- Approve and document an inactive-guest retention period; automatic guest creation must not imply indefinite abandoned-account storage.
 - Observe the protected remote CI and staged production rollout.
 
-See `EVA_CLOUD_MIGRATION_TODO.md` for the authoritative ledger, `API_CONTRACT.md` for the wire boundary, `BACKEND_RUNBOOK.md` for operation, `PRIVACY_AND_DATA_FLOW.md` for data controls, `INCIDENT_RUNBOOK.md` for response, and `RISK_REGISTER.md` for open exposure.
+These gaps form roadmap P0. Differentiated decision loops such as Commitment Realism, Renegotiation, Drift Report, Weekly Reset, and Scenario Studio begin only after the platform spine is qualified; they are not implied by the presence of supporting context or authority primitives.
+
+## Documentation map
+
+- [API contract](API_CONTRACT.md) defines the wire boundary.
+- [Context and prompt architecture](CONTEXT_AND_PROMPT_ARCHITECTURE.md) defines retrieval, selection provenance, budgeting, and prompt construction.
+- [Navigation and capture authority](NAVIGATION_AND_CAPTURE_AUTHORITY.md) defines local resolution, execution, receipts, and undo.
+- [Memory, evidence, and proactivity](MEMORY_EVIDENCE_AND_PROACTIVITY.md) defines durable personalization and proactive trust controls.
+- [Evaluation and observability](EVALUATION_AND_OBSERVABILITY.md) defines quality measurement and release gates.
+- [Backend runbook](BACKEND_RUNBOOK.md), [privacy and data flow](PRIVACY_AND_DATA_FLOW.md), [incident runbook](INCIDENT_RUNBOOK.md), [migration TODO](EVA_CLOUD_MIGRATION_TODO.md), and [risk register](RISK_REGISTER.md) cover operation and readiness.
