@@ -1,5 +1,6 @@
 import XCTest
 import MLXLMCommon
+import LifeBoardDomain
 @testable import LifeBoard
 
 @MainActor
@@ -24,6 +25,89 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(EvaTurnRouter.route(for: "Create a habit to drink water"), .habitMutation)
         XCTAssertEqual(EvaTurnRouter.route(for: "Plan next week"), .weeklyPlanning)
         XCTAssertEqual(EvaTurnRouter.route(for: "How do I plan my day better?"), .chatAnswer)
+    }
+
+    func testEvaTurnRouterGoldenCorpus() throws {
+        struct Example: Decodable { let utterance: String; let route: EvaTurnRoute }
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let url = repositoryRoot.appendingPathComponent("Services/EVACloud/eval/eva-turn-router-corpus.json")
+        let examples = try JSONDecoder().decode([Example].self, from: Data(contentsOf: url))
+        XCTAssertEqual(examples.count, 120)
+        for example in examples {
+            XCTAssertEqual(
+                EvaTurnRouter.route(for: example.utterance),
+                example.route,
+                "Unexpected route for: \(example.utterance)"
+            )
+        }
+    }
+
+    func testEvaCaptureParserKeepsCanonicalWeightLocalAndTyped() async throws {
+        switch await EvaCaptureCommandParser.parse("log my weight at 78kg") {
+        case .commands(let commands):
+            guard commands.count == 1, case .logBodyMetric(let sample) = commands[0] else {
+                return XCTFail("Expected one typed body metric command")
+            }
+            XCTAssertEqual(sample.kind, .bodyMass)
+            XCTAssertEqual(sample.normalizedValue, 78, accuracy: 0.001)
+        default:
+            XCTFail("Expected one typed body metric command")
+        }
+    }
+
+    func testEvaCaptureParserEscalatesMedicationInsteadOfAutoApplying() async {
+        switch await EvaCaptureCommandParser.parse("log my medication dose") {
+        case .review(let message): XCTAssertTrue(message.localizedCaseInsensitiveContains("safety"))
+        default: XCTFail("Medication must always require review")
+        }
+    }
+
+    func testEvaCaptureBatchPolicyEscalatesMixedVolumeAndBackdates() {
+        let now = Date()
+        let note = EvaCaptureCommand.captureNote(title: "A", text: "A", capturedAt: now)
+        let journal = EvaCaptureCommand.appendJournal(text: "B", capturedAt: now)
+        let policy = EvaCaptureBatchPolicy(calendar: .current)
+        XCTAssertNotNil(policy.reviewReason(commands: [note, journal], now: now))
+        XCTAssertNotNil(policy.reviewReason(commands: [note, note, note, note], now: now))
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: now)!
+        XCTAssertNotNil(policy.reviewReason(
+            commands: [.captureNote(title: "Past", text: "Past", capturedAt: yesterday)],
+            now: now
+        ))
+    }
+
+    func testEvaProactiveGovernorEnforcesBudgetQuietHoursAndDormancy() {
+        let now = Date()
+        let insight = Insight(
+            id: "test",
+            claim: "A pattern",
+            evidence: [],
+            confidence: .medium,
+            provenance: .deterministic,
+            createdAt: now
+        )
+        let candidate = EvaProactiveCandidate(kind: "drift", insight: insight, usefulProbability: 0.9)
+        let governor = EvaProactiveGovernor()
+        XCTAssertEqual(governor.evaluate(candidate, history: .init(), quietHours: nil, now: now), .deliver)
+        XCTAssertEqual(
+            governor.evaluate(candidate, history: .init(deliveries: [
+                .init(kind: "a", deliveredAt: now), .init(kind: "b", deliveredAt: now),
+            ]), quietHours: nil, now: now),
+            .suppress(reason: "Daily proactive budget exhausted")
+        )
+        let minute = Calendar.current.component(.hour, from: now) * 60 + Calendar.current.component(.minute, from: now)
+        XCTAssertEqual(
+            governor.evaluate(candidate, history: .init(), quietHours: .init(startMinute: minute, endMinute: minute), now: now),
+            .suppress(reason: "Quiet hours")
+        )
+        XCTAssertEqual(
+            governor.evaluate(candidate, history: .init(dismissals: [
+                .init(kind: "drift", dismissedAt: now), .init(kind: "drift", dismissedAt: now),
+            ]), quietHours: nil, now: now),
+            .suppress(reason: "This nudge type is silently dormant after repeated dismissals")
+        )
     }
 
     func testEvaContextPolicyAllowsTodayReviewWithOptionalPartialContext() {

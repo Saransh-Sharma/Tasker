@@ -210,6 +210,103 @@ import UIKit
 
 @MainActor
 final class EvaActivationTests: XCTestCase {
+    func testCloudActivationReceiptRoundTripsConfirmedGrants() throws {
+        let suite = "eva.activation.receipt.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let grants: Set<EvaConsentPolicy.Grant> = [.journal, .personalMemory]
+
+        let saved = EvaCloudActivationReceiptStore.save(
+            grants: grants,
+            defaults: defaults,
+            now: Date(timeIntervalSince1970: 1_777_000_000)
+        )
+        let loaded = try XCTUnwrap(EvaCloudActivationReceiptStore.load(defaults: defaults))
+
+        XCTAssertEqual(saved, loaded)
+        XCTAssertEqual(Set(loaded.grants), grants)
+        XCTAssertTrue(loaded.isCurrent)
+    }
+
+    func testCloudActivationReceiptRejectsStaleDisclosureRevision() throws {
+        let suite = "eva.activation.receipt.stale.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let stale = EvaCloudActivationReceiptV1(
+            grants: [.journal],
+            disclosureRevision: EvaCloudActivationReceiptV1.currentDisclosureRevision - 1
+        )
+        defaults.set(try JSONEncoder.evaCloud.encode(stale), forKey: EvaCloudActivationReceiptStore.key)
+
+        XCTAssertNil(EvaCloudActivationReceiptStore.load(defaults: defaults))
+    }
+
+    func testChatReadinessGateLeavesLocalCaptureAndNavigationAvailable() {
+        XCTAssertFalse(EvaChatCloudReadinessPolicy.requiresCloud(preference: .cloud, route: .capture))
+        XCTAssertFalse(EvaChatCloudReadinessPolicy.requiresCloud(preference: .cloud, route: .navigation))
+        XCTAssertFalse(EvaChatCloudReadinessPolicy.requiresCloud(preference: .offline, route: .chatAnswer))
+        XCTAssertTrue(EvaChatCloudReadinessPolicy.requiresCloud(preference: .cloud, route: .chatAnswer))
+        XCTAssertTrue(EvaChatCloudReadinessPolicy.requiresCloud(preference: .automatic, route: nil))
+    }
+
+    func testCloudAccessStateMapsAuthenticationByIdentityKind() {
+        XCTAssertEqual(
+            EvaCloudAccessCoordinator.resolveState(
+                readinessError: .authenticationRequired,
+                previousIdentityKind: .guest,
+                nextAvailableAt: nil
+            ),
+            .needsDisclosure
+        )
+        XCTAssertEqual(
+            EvaCloudAccessCoordinator.resolveState(
+                readinessError: .authenticationRequired,
+                previousIdentityKind: .apple,
+                nextAvailableAt: nil
+            ),
+            .appleReauthenticationRequired
+        )
+    }
+
+    func testCloudAccessStatePreservesQuotaAndPolicyRecovery() {
+        let nextAvailableAt = Date(timeIntervalSince1970: 1_777_100_000)
+        XCTAssertEqual(
+            EvaCloudAccessCoordinator.resolveState(
+                readinessError: .creditsExhausted(nil),
+                previousIdentityKind: .guest,
+                nextAvailableAt: nextAvailableAt
+            ),
+            .quotaExhausted(nextAvailableAt)
+        )
+        XCTAssertEqual(
+            EvaCloudAccessCoordinator.resolveState(
+                readinessError: .adultEligibilityRequired,
+                previousIdentityKind: nil,
+                nextAvailableAt: nil
+            ),
+            .ageBlocked(EvaProviderError.adultEligibilityRequired.localizedDescription)
+        )
+    }
+
+    func testProviderChoiceDoesNotAutoResumeCloudAfterOfflineSelection() async throws {
+        let suite = "eva.activation.preference.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        EvaCloudActivationReceiptStore.save(grants: [.journal], defaults: defaults)
+        let coordinator = EvaCloudAccessCoordinator(
+            account: EvaCloudAccountState(),
+            defaults: defaults
+        )
+
+        coordinator.selectOffline()
+        XCTAssertEqual(EvaProviderRouter.Preference.resolvedStoredPreference(defaults: defaults), .offline)
+        let resumedWhileOffline = await coordinator.resumeConfirmedActivation(source: .appLaunch)
+        XCTAssertFalse(resumedWhileOffline)
+
+        coordinator.selectCloud()
+        XCTAssertEqual(EvaProviderRouter.Preference.resolvedStoredPreference(defaults: defaults), .cloud)
+    }
+
     private let defaultAssistantIdentity = AssistantIdentitySnapshot(mascotID: .eva)
 
     func testCloudReadinessPreservesDisabledConfigurationMaintenanceReason() {
@@ -475,6 +572,56 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertTrue(EvaStubURLProtocol.recordedPaths.isEmpty, "A dead refresh token needs no round trip.")
     }
 
+    func testConcurrentAuthenticatedRequestsShareOneRefreshRotation() async throws {
+        let sessionStore = EvaCloudSessionStore(inMemory: true)
+        try await seedStoredSession(in: sessionStore, accessTokenExpired: true, refreshTokenExpired: false)
+        let formatter = ISO8601DateFormatter()
+        let refresh = try JSONSerialization.data(withJSONObject: [
+            "accessToken": "fresh-access-token",
+            "accessTokenExpiresAt": formatter.string(from: Date().addingTimeInterval(900)),
+            "refreshToken": "fresh-refresh-token",
+            "refreshTokenExpiresAt": formatter.string(from: Date().addingTimeInterval(86_400)),
+        ])
+        let quota = try JSONSerialization.data(withJSONObject: [
+            "limit": 20,
+            "used": 0,
+            "remaining": 20,
+            "windowSeconds": 86_400,
+            "nextAvailableAt": NSNull(),
+        ])
+        EvaStubURLProtocol.reset()
+        EvaStubURLProtocol.respond { attempt in
+            if attempt == 1 {
+                Thread.sleep(forTimeInterval: 0.08)
+                return .success((200, refresh))
+            }
+            return .success((200, quota))
+        }
+        let transport = EvaCloudTransport(sessionStore: sessionStore, session: EvaStubURLProtocol.makeSession())
+
+        async let first = transport.quota()
+        async let second = transport.quota()
+        _ = try await (first, second)
+
+        XCTAssertEqual(EvaStubURLProtocol.recordedPaths.filter { $0 == "/v1/auth/refresh" }.count, 1)
+        XCTAssertEqual(EvaStubURLProtocol.recordedPaths.filter { $0 == "/v1/eva/quota" }.count, 2)
+    }
+
+    func testGuestBootstrapIdentityIsStableOnlyForOneInstallation() async throws {
+        let sessionStore = EvaCloudSessionStore(inMemory: true)
+        let firstInstallation = UUID()
+        let first = try await sessionStore.guestBootstrapID(for: firstInstallation)
+        let repeated = try await sessionStore.guestBootstrapID(for: firstInstallation)
+
+        XCTAssertEqual(repeated, first)
+
+        let second = try await sessionStore.guestBootstrapID(for: UUID())
+        XCTAssertNotEqual(second, first)
+        try await sessionStore.clearGuestBootstrapID()
+        let afterClear = try await sessionStore.guestBootstrapID(for: firstInstallation)
+        XCTAssertNotEqual(afterClear, first)
+    }
+
     func testOnlyServerAuthenticationVerdictsRequestReauthentication() {
         XCTAssertTrue(EvaProviderError.authenticationRequired.evaRequiresReauthentication)
         XCTAssertTrue(Self.envelope(code: "session_expired").evaRequiresReauthentication)
@@ -514,7 +661,7 @@ final class EvaActivationTests: XCTestCase {
             accessTokenExpiresAt: Date().addingTimeInterval(accessTokenExpired ? -60 : 900),
             refreshToken: "stale-refresh-token",
             refreshTokenExpiresAt: Date().addingTimeInterval(refreshTokenExpired ? -60 : 86_400),
-            installationId: UUID(),
+            installationId: EvaInstallationIdentity.current,
             platform: "ios",
             appleUserIdentifier: "000123.abc.456"
         ))
@@ -1514,6 +1661,56 @@ final class EvaContextEnvelopeTests: XCTestCase {
         ])
         XCTAssertEqual(envelope.ordered().map(\.category), [.personalMemory, .goals, .planning])
     }
+
+    func testRichModeCarriesPreviouslyDeclaredButMissingDomains() throws {
+        let now = Date(timeIntervalSince1970: 1_777_000_000)
+        let builder = EvaContextEnvelopeBuilder(budget: .cloud(inputTokenCap: 16_000, outputTokenCap: 2_048))
+        let result = builder.build(
+            compactProjection: "",
+            tasks: [],
+            summary: .init(overdue: 0, today: 0, tomorrow: 0, thisWeek: 0, unscheduled: 0, completedToday: 0),
+            projects: [], lifeAreas: [], habits: [], partialSections: [],
+            personalMemory: nil, evidence: emptyEvidence, consent: consent, now: now,
+            knowledge: [.init(
+                id: UUID(), title: "Pricing decision", matchedExcerpt: "Annual billing won.",
+                modifiedAt: now, matchReason: .semanticMatch
+            )],
+            goals: [.init(
+                id: UUID(), title: "Ship beta", whyItMatters: "Customer learning",
+                status: "active", confidence: "confident", targetDate: now,
+                progressFraction: 0.5, riskReason: nil
+            )],
+            calendar: [.init(title: "Design review", start: now, end: now.addingTimeInterval(3_600), isAllDay: false, isBusy: true)],
+            calendarSourceIDs: ["calendar-1"],
+            capacity: .init(
+                day: now, workingMinutes: 480, fixedCalendarMinutes: 60,
+                bufferMinutes: 30, usableMinutes: 390, plannedMinutes: 450,
+                overloadMinutes: 60, confidence: "high", freeWindows: []
+            ),
+            dayLoop: .init(
+                eligibleDays: 14, closedDays: 9, openedDays: 0,
+                currentRunLength: 3, reversals: 0, lastClose: nil
+            ),
+            retrospective: .init(
+                weekStart: now, focusStatement: "Finish the beta",
+                outcomes: [], wins: "Prototype worked", blockers: nil,
+                lessons: nil, perceivedWeekRating: 8
+            )
+        )
+        let categories = Set(result.sections.map(\.category))
+        XCTAssertTrue([.knowledge, .goals, .calendar, .capacity, .dayLoop, .retrospective]
+            .allSatisfy(categories.contains))
+        XCTAssertNoThrow(try JSONSerialization.jsonObject(with: JSONEncoder.evaCloud.encode(result.sections)))
+    }
+
+    func testRouteManifestUsesAdaptiveMinimumInsteadOfEveryDomain() {
+        XCTAssertEqual(EvaContextRouteManifest.categories(for: .knowledgeAnswer), [.knowledge])
+        XCTAssertEqual(EvaContextRouteManifest.categories(for: .journalAnswer), [.journal])
+        XCTAssertTrue(EvaContextRouteManifest.categories(for: .dailyBrief).contains(.capacity))
+        XCTAssertFalse(EvaContextRouteManifest.categories(for: .dailyBrief).contains(.knowledge))
+        XCTAssertTrue(EvaContextRouteManifest.categories(for: .chat).contains(.retrospective))
+        XCTAssertTrue(EvaContextRouteManifest.categories(for: .debugSmoke).isEmpty)
+    }
 }
 
 final class EvaContextBudgetTests: XCTestCase {
@@ -1635,6 +1832,17 @@ final class EvaContextBudgetTests: XCTestCase {
         XCTAssertEqual(EvaCloudHistoryClipper.clip(sorted, maxMessages: 3, maxTokens: 100_000).count, 3)
         XCTAssertTrue(EvaCloudHistoryClipper.clip(sorted, maxMessages: 0, maxTokens: 1_000).isEmpty)
         XCTAssertTrue(EvaCloudHistoryClipper.clip(sorted, maxMessages: 64, maxTokens: 0).isEmpty)
+    }
+
+    func testCloudHistoryDoesNotBudgetForSystemMessagesTheWireDrops() {
+        let thread = LifeBoard.Thread()
+        thread.messages = [
+            Message(role: .system, content: String(repeating: "policy", count: 1_000), thread: thread),
+            Message(role: .user, content: "Keep this question", thread: thread),
+        ]
+        let clipped = EvaCloudHistoryClipper.clip(thread.sortedMessages, maxMessages: 64, maxTokens: 20)
+        XCTAssertEqual(clipped.map(\.content), ["Keep this question"])
+        XCTAssertFalse(clipped.contains { $0.role == .system })
     }
 
     func testLegacyAutomaticPreferenceMigratesToCloud() {

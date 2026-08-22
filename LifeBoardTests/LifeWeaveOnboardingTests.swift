@@ -15,7 +15,7 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertEqual(LifeWeaveStep.core.count, 6)
         XCTAssertEqual(LifeWeaveStep.core.first, .arrival)
         XCTAssertEqual(LifeWeaveStep.core.last, .reveal)
-        XCTAssertEqual(LifeWeaveDraft().schemaVersion, 9)
+        XCTAssertEqual(LifeWeaveDraft().schemaVersion, 10)
     }
 
     func testStepEnumContainsOnlyTheSixCoreStages() {
@@ -107,8 +107,23 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         var written = editing
         written.commitPhase = .captureWritten
         let migrated = LifeWeaveMigration.draft(fromV8: written)
-        XCTAssertEqual(migrated.schemaVersion, 9)
+        XCTAssertEqual(migrated.schemaVersion, 10)
         XCTAssertEqual(migrated.lifecyclePhase, .captureWritten)
+    }
+
+    func testSchemaNineMigrationAddsCloudActivationDefaultsWithoutChangingEarlierAnswers() {
+        var earlier = LifeWeaveDraft()
+        earlier.schemaVersion = 9
+        earlier.intent = .reduceMentalLoad
+        earlier.evaSelectedGrantIDs = nil
+        earlier.evaActivationPending = nil
+
+        let migrated = LifeWeaveMigration.draft(fromEarlierSchema: earlier)
+
+        XCTAssertEqual(migrated.schemaVersion, 10)
+        XCTAssertEqual(migrated.intent, .reduceMentalLoad)
+        XCTAssertEqual(migrated.resolvedEvaGrants, Set(EvaConsentPolicy.Grant.allCases))
+        XCTAssertEqual(migrated.evaActivationPending, false)
     }
 
     /// Resuming earlier than the user reached is the safe direction: they

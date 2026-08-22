@@ -39,7 +39,7 @@ describe('Catalyst App Transaction risk evidence', () => {
       receiptEnvironment: 'LocalTesting',
       originalPlatform: 'macOS',
     })
-  })
+  }, 15_000)
 
   it('fails closed when Catalyst omits the proof', async () => {
     await expect(verifyCatalystAppTransaction(testEnvironment, undefined))

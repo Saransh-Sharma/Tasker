@@ -2817,6 +2817,36 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertNil(SpotlightRouteTranslator.url(for: "third-party-result"))
     }
 
+    func testRecordRouteResolverCoversEveryDurableRecordKind() {
+        let id = UUID()
+        let resolved = RecordKind.allCases.map { kind in
+            RecordRouteResolver.resolve(.init(kind: kind, recordID: id, title: kind.rawValue))
+        }
+
+        XCTAssertEqual(resolved.count, RecordKind.allCases.count)
+        XCTAssertEqual(Set(RecordKind.allCases).count, resolved.count)
+        let journal = RecordRouteResolver.resolve(.init(kind: .journal, recordID: id, title: "Journal"))
+        XCTAssertEqual(journal.destination, .track)
+        XCTAssertEqual(journal.route, .journalDay(id))
+        XCTAssertTrue(journal.requiresProtectedJournalOpen)
+        XCTAssertFalse(resolved.filter { $0.route != .journalDay(id) }.contains(where: \.requiresProtectedJournalOpen))
+    }
+
+    func testSwiftRecordAndNavigationEnumsMatchSharedCloudFixture() throws {
+        struct Fixture: Decodable {
+            let recordKinds: [String]
+            let navigationTargets: [String]
+        }
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let url = repositoryRoot
+            .appendingPathComponent("Shared/EVACloudContracts/fixtures/eva-record-navigation-v1.json")
+        let fixture = try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: url))
+        XCTAssertEqual(Set(fixture.recordKinds), Set(RecordKind.allCases.map(\.rawValue)))
+        XCTAssertEqual(Set(fixture.navigationTargets), Set(EvaNavigationTarget.allCases.map(\.rawValue)))
+    }
+
     @MainActor
     func testNotificationRoutesTranslateDirectlyIntoFoundationDestinations() throws {
         let suite = "LifeOSFoundationNotificationRoutes.\(UUID().uuidString)"

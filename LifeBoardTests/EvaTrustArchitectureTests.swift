@@ -108,7 +108,9 @@ final class EvaContextReceiptAndExclusionTests: XCTestCase {
                 availableCount: 2,
                 includedCount: 2,
                 partialReasons: [],
-                sourceIDs: ["task-1", "task-2"]
+                sourceIDs: ["task-1", "task-2"],
+                selectionReasons: ["semanticMatch"],
+                freshnessAt: Date(timeIntervalSince1970: 1_000)
             )
         )
 
@@ -119,6 +121,26 @@ final class EvaContextReceiptAndExclusionTests: XCTestCase {
         XCTAssertTrue(encoded.contains("task-2"))
         XCTAssertTrue(encoded.contains("userExcludedRecords"))
         XCTAssertEqual(filtered.metadata?.includedCount, 1)
+        XCTAssertEqual(filtered.metadata?.selectionReasons, ["semanticMatch"])
+        XCTAssertEqual(filtered.metadata?.freshnessAt, Date(timeIntervalSince1970: 1_000))
+    }
+
+    func testAllocatorPreservesProviderPartialReasonsAndSelectionProvenance() {
+        let section = EvaCloudContextSection(
+            category: .dayLoop,
+            payload: .object(["closedDays": .number(4)]),
+            metadata: .init(
+                availability: "partial", availableCount: nil, includedCount: nil,
+                partialReasons: ["openHistoryUnavailable"], sourceIDs: [],
+                selectionReasons: ["routeBaseline"], freshnessAt: Date(timeIntervalSince1970: 2_000)
+            )
+        )
+        let allocated = EvaEnvelopeAllocator.allocate(
+            [section], budget: .cloud(inputTokenCap: 4_000, outputTokenCap: 500)
+        )
+        XCTAssertEqual(allocated.first?.metadata?.availability, "partial")
+        XCTAssertEqual(allocated.first?.metadata?.partialReasons, ["openHistoryUnavailable"])
+        XCTAssertEqual(allocated.first?.metadata?.selectionReasons, ["routeBaseline"])
     }
 
     func testHistoricalReceiptRemainsImmutableWhenFutureExclusionsChange() throws {

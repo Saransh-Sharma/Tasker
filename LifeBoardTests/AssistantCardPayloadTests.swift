@@ -2,6 +2,16 @@ import XCTest
 @testable import LifeBoard
 
 final class AssistantCardPayloadTests: XCTestCase {
+    func testUnknownFutureCardTypeAndStatusDecodeWithReadableMessage() throws {
+        let content = AssistantCardCodec.prefix + #"{"card_type":"future_insight","thread_id":"thread","status":"future_state","message":"A useful future card"}"#
+
+        let decoded = try XCTUnwrap(AssistantCardCodec.decode(from: content))
+
+        XCTAssertEqual(decoded.cardType, .unknown)
+        XCTAssertEqual(decoded.status, .unknown)
+        XCTAssertEqual(decoded.message, "A useful future card")
+    }
+
     func testCardCodecRoundTripPreservesCriticalFields() {
         let payload = AssistantCardPayload(
             cardType: .proposal,

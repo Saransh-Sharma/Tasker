@@ -298,6 +298,7 @@ final class EvaCloudWireContractTests: XCTestCase {
             contractVersion: EvaInferenceRequest.maximumContractVersion,
             locale: "en_US",
             timeZone: "Asia/Kolkata",
+            turnContext: .current(surface: .evaTab),
             messages: [.init(role: .user, content: "Help me plan today.")],
             context: [.init(category: .planning, payload: .object(["tasks": .array([])]))],
             userInstructions: userInstructions,
@@ -319,7 +320,8 @@ final class EvaCloudWireContractTests: XCTestCase {
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(object["requestId"] as? String, requestID.uuidString)
         XCTAssertEqual(object["route"] as? String, "chat")
-        XCTAssertEqual(object["contractVersion"] as? Int, 3)
+        XCTAssertEqual(object["contractVersion"] as? Int, 4)
+        XCTAssertNotNil(object["turnContext"])
         XCTAssertEqual(object["installationId"] as? String, installationID.uuidString)
         // The client still names no model and composes no system prompt: both
         // live in the Worker so they can be corrected without an app release.

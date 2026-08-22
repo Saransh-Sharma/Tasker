@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Env } from '../src/environment.js'
-import { failClosedRuntimeConfig, runtimeConfig } from '../src/config/runtime-config.js'
+import { failClosedRuntimeConfig, requiresAgeDecision, runtimeConfig } from '../src/config/runtime-config.js'
 
 const bindings = env as unknown as Env
 
@@ -12,6 +12,15 @@ describe.sequential('signed runtime configuration source', () => {
     await expect(runtimeConfig(bindings)).resolves.toMatchObject({ version: 0, cloudState: 'disabled', ttsEnabled: false })
     await bindings.EVA_CONFIG.put('runtime-config-v2', JSON.stringify({ cloudState: 'enabled' }))
     await expect(runtimeConfig(bindings)).resolves.toMatchObject({ version: 0, cloudState: 'disabled', ttsEnabled: false })
+  })
+
+  it('does not turn a disabled cloud into an age-verification dead end', () => {
+    const disabled = failClosedRuntimeConfig(bindings)
+    expect(disabled.agePolicy?.requiredRegionFailClosed).toBe(true)
+    expect(requiresAgeDecision(disabled)).toBe(false)
+
+    disabled.cloudState = 'enabled'
+    expect(requiresAgeDecision(disabled)).toBe(true)
   })
 
   it('rejects future, rolled-back, and unapproved enabled documents', async () => {

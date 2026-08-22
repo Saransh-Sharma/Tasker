@@ -5,6 +5,8 @@ import {
   EvaErrorEnvelopeSchema,
   EvaAdultEligibilityRequestV1Schema,
   EvaAppleExchangeRequestV1Schema,
+  EvaGuestBootstrapRequestV1Schema,
+  EvaQuotaStateV1Schema,
   EvaInferenceRequestV1Schema,
   EvaRefreshRequestV1Schema,
   EvaStreamEventSchema,
@@ -15,9 +17,23 @@ import {
   sensitiveContextCategories,
   contextPayloadError,
   structuredSchemaForRoute,
+  EvaRecordKindSchema,
+  EvaNavigationTargetSchema,
 } from './index.js'
 
 describe('EVA cloud v1 contracts', () => {
+  it('keeps record kinds and navigation targets aligned with the shared drift fixture', () => {
+    const fixture = JSON.parse(readFileSync(
+      new URL('../fixtures/eva-record-navigation-v1.json', import.meta.url),
+      'utf8',
+    )) as { recordKinds: string[]; navigationTargets: string[] }
+    const literals = (schema: unknown): string[] => ((schema as { anyOf: Array<{ const: string }> }).anyOf)
+      .map((item) => item.const)
+      .sort()
+    expect(literals(EvaRecordKindSchema)).toEqual([...fixture.recordKinds].sort())
+    expect(literals(EvaNavigationTargetSchema)).toEqual([...fixture.navigationTargets].sort())
+  })
+
   it('accepts Apple auth UUIDs without relying on an ambient format registry', () => {
     const exchange = JSON.parse(readFileSync(
       new URL('../fixtures/apple-auth-exchange-v1.json', import.meta.url),
@@ -33,6 +49,29 @@ describe('EVA cloud v1 contracts', () => {
       refreshToken: 'r'.repeat(32),
       installationId: exchange.installationId,
       platform: exchange.platform,
+    })).toBe(true)
+  })
+
+  it('accepts strict guest bootstrap consent and rolling quota state', () => {
+    expect(Value.Check(EvaGuestBootstrapRequestV1Schema, {
+      bootstrapId: '11111111-1111-4111-8111-111111111111',
+      installationId: '22222222-2222-4222-8222-222222222222',
+      platform: 'ios',
+      grants: ['journal', 'health'],
+      deviceCheckToken: 'd'.repeat(32),
+    })).toBe(true)
+    expect(Value.Check(EvaGuestBootstrapRequestV1Schema, {
+      bootstrapId: '11111111-1111-4111-8111-111111111111',
+      installationId: '22222222-2222-4222-8222-222222222222',
+      platform: 'ios',
+      grants: ['journal', 'journal'],
+    })).toBe(false)
+    expect(Value.Check(EvaQuotaStateV1Schema, {
+      limit: 20,
+      used: 7,
+      remaining: 13,
+      windowSeconds: 86_400,
+      nextAvailableAt: '2026-08-21T00:00:00.000Z',
     })).toBe(true)
   })
 
@@ -349,6 +388,57 @@ describe('EVA cloud v1 contracts', () => {
       category: 'conversationSummary', payload: { summarizedTurnCount: 2, summary: 'Old turns' },
       metadata: { availability: 'complete', partialReasons: [], sourceIDs: [] },
     }])).toContain('not part of contract v3')
+  })
+
+  it('requires temporal turn context and selection provenance in contract v4', () => {
+    const payload = {
+      generatedAt: '2026-08-21T09:00:00Z',
+      summary: { overdue: 0, today: 0, tomorrow: 0, thisWeek: 0, unscheduled: 0, completedToday: 0 },
+      tasks: [], projects: [], lifeAreas: [], partialSections: [],
+    }
+    const metadata = {
+      availability: 'complete', partialReasons: [], sourceIDs: [],
+      selectionReasons: ['routeBaseline'], freshnessAt: '2026-08-21T09:00:00Z',
+    }
+    const turnContext = {
+      requestedAt: '2026-08-21T09:00:00Z',
+      localDate: '2026-08-21',
+      calendarIdentifier: 'gregorian',
+      firstWeekday: 2,
+      surface: 'evaTab',
+    }
+
+    expect(contextPayloadError(4, [{ category: 'planning', payload, metadata }]))
+      .toContain('requires a valid turnContext')
+    expect(contextPayloadError(4, [{ category: 'planning', payload, metadata }], turnContext))
+      .toBeUndefined()
+    expect(contextPayloadError(4, [{
+      category: 'planning', payload,
+      metadata: { availability: 'complete', partialReasons: [], sourceIDs: [] },
+    }], turnContext)).toContain('selection reasons')
+  })
+
+  it('accepts query-bounded Knowledge without adding a consent grant', () => {
+    const turnContext = {
+      requestedAt: '2026-08-21T09:00:00Z', localDate: '2026-08-21',
+      calendarIdentifier: 'gregorian', firstWeekday: 2, surface: 'knowledge',
+    }
+    const knowledge = [{
+      id: '11111111-1111-4111-8111-111111111111',
+      title: 'Pricing decision',
+      matchedExcerpt: 'We chose annual billing after the customer interviews.',
+      modifiedAt: '2026-08-20T09:00:00Z',
+      matchReason: 'semanticMatch',
+    }]
+    expect(contextPayloadError(4, [{
+      category: 'knowledge', payload: knowledge,
+      metadata: {
+        availability: 'complete', availableCount: 1, includedCount: 1,
+        partialReasons: [], sourceIDs: [knowledge[0]!.id],
+        selectionReasons: ['semanticMatch'], freshnessAt: knowledge[0]!.modifiedAt,
+      },
+    }], turnContext)).toBeUndefined()
+    expect([...sensitiveContextCategories]).not.toContain('knowledge')
   })
 
   it('validates every shared structured fixture against its route schema', () => {

@@ -48,6 +48,7 @@ extension XCUIApplication {
         case testCalendarStub = "-LIFEBOARD_TEST_CALENDAR_STUB"
         case testCalendarMode = "-LIFEBOARD_TEST_CALENDAR_MODE"
         case testEvaActivationCompleted = "-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED"
+        case testOpenSetupCenter = "-LIFEBOARD_TEST_OPEN_SETUP_CENTER"
         /// Retired: the standalone cloud-setup screen no longer exists. Cloud
         /// EVA is activated inside onboarding's power-up chain. Kept as a case
         /// only so older recorded launch arguments still decode.

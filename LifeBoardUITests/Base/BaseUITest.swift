@@ -73,11 +73,13 @@ class BaseUITest: XCTestCase {
         }
 
         if !shouldSkipOnboarding {
+            let lifeWeaveFlow = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.flow]
             let onboardingFlow = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.flow]
             let onboardingPrompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
             let onboardingFinish = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.finish]
             let onboardingExists =
-                onboardingFlow.waitForExistence(timeout: 20)
+                lifeWeaveFlow.waitForExistence(timeout: 20)
+                || onboardingFlow.waitForExistence(timeout: 4)
                 || onboardingPrompt.waitForExistence(timeout: 4)
                 || onboardingFinish.waitForExistence(timeout: 4)
             if onboardingExists {

@@ -53,6 +53,7 @@ final class LifeWeaveOnboardingUITests: BaseUITest {
 
         XCTAssertTrue(step("firstCapture").waitForExistence(timeout: 10))
         secondary.tap() // Skip for now
+        primary.tap() // Finish setup
 
         XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
         XCTAssertTrue(
@@ -71,6 +72,7 @@ final class LifeWeaveOnboardingUITests: BaseUITest {
         }
         try walkToCapture()
         secondary.tap()
+        primary.tap()
 
         XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
         let receipt = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.revealReceipt]
@@ -142,6 +144,42 @@ final class OnboardingPresentationUITests: BaseUITest {
         let legacy = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeMap.flow]
         XCTAssertFalse(flow.waitForExistence(timeout: 4))
         XCTAssertFalse(legacy.exists)
+    }
+}
+
+/// Guards the exact regression where the shell composer covered EVA's Setup
+/// Center action. The route is deterministic and does not depend on a live
+/// Cloud EVA backend, so layout coverage stays useful in CI.
+final class SetupCenterEvaReachabilityUITests: BaseUITest {
+    override var additionalLaunchArguments: [String] {
+        [
+            XCUIApplication.LaunchArgumentKey.testSeedEstablishedWorkspace.rawValue,
+            XCUIApplication.LaunchArgumentKey.testOpenSetupCenter.rawValue,
+            "-UIPreferredContentSizeCategoryName",
+            "UICTContentSizeCategoryAccessibilityXXXL"
+        ]
+    }
+
+    func testCloudEvaActionClearsDockWithoutGlobalComposerAtAccessibilityXXXL() {
+        let privacyAcknowledgement = app.buttons["Got it"]
+        if privacyAcknowledgement.waitForExistence(timeout: 3) {
+            privacyAcknowledgement.tap()
+        }
+        XCTAssertTrue(app.navigationBars["Setup Center"].waitForExistence(timeout: 15))
+        XCTAssertFalse(
+            app.descendants(matching: .any)["home.lifeThread.composer"].exists,
+            "utility routes must not mount the global LifeThread composer"
+        )
+
+        let action = app.buttons["setupCenter.eva.activate"]
+        XCTAssertTrue(action.waitForExistence(timeout: 10))
+        for _ in 0..<6 where action.isHittable == false {
+            // The identified SwiftUI ScrollView can disappear from the XCTest
+            // hierarchy at Accessibility XXXL even though it still receives
+            // gestures. A window-level swipe reaches that scroll plane reliably.
+            app.swipeUp()
+        }
+        XCTAssertTrue(action.isHittable, "Cloud EVA action must remain tappable above the navigation dock")
     }
 }
 
