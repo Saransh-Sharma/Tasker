@@ -23,6 +23,24 @@ public struct ComposerReceipt: Equatable, Sendable {
 /// The commit lifecycle of a composer, spelled once.
 public typealias LifeBoardComposerPhase = AsyncActionPhase<ComposerReceipt>
 
+/// How a composer lays its content out.
+///
+/// Every composer in the product scrolls a stack of clay sections, and that is
+/// the default. But a capture interaction sized by a `GeometryReader` — a dial,
+/// a canvas, a camera preview — gets an undefined height inside a `ScrollView`
+/// and collapses. Such a surface still wants the composer's *chrome* contract:
+/// the editor presentation, the warm canvas, the cancel item, the glass commit
+/// bar, the detents and the privacy redaction. `.filling` is that contract
+/// without the scroll container.
+public enum ComposerContentFit: Sendable {
+    /// A scrolling stack of sections at the standard 20pt measure. The default,
+    /// and byte-identical to the behaviour every existing composer already has.
+    case scrolling
+    /// Content fills the editor canvas directly. No scroll view and no
+    /// horizontal inset — the content owns its own layout.
+    case filling
+}
+
 // MARK: - Scaffold
 
 /// Sheet chrome, canvas, cancel and commit for a LifeBoard data-entry surface.
@@ -58,6 +76,8 @@ public struct ComposerScaffold<Content: View, Commit: View>: View {
     private let isPrivacySensitive: Bool
     private let identifier: String?
     private let isDismissBlocked: Bool
+    private let contentFit: ComposerContentFit
+    private let cancelIdentifier: String?
     private let onCancel: (() -> Void)?
     private let content: Content
     private let commit: Commit
@@ -76,6 +96,8 @@ public struct ComposerScaffold<Content: View, Commit: View>: View {
         isPrivacySensitive: Bool = false,
         identifier: String? = nil,
         isDismissBlocked: Bool = false,
+        contentFit: ComposerContentFit = .scrolling,
+        cancelIdentifier: String? = nil,
         onCancel: (() -> Void)? = nil,
         @ViewBuilder content: () -> Content,
         @ViewBuilder commit: () -> Commit
@@ -88,6 +110,8 @@ public struct ComposerScaffold<Content: View, Commit: View>: View {
         self.isPrivacySensitive = isPrivacySensitive
         self.identifier = identifier
         self.isDismissBlocked = isDismissBlocked
+        self.contentFit = contentFit
+        self.cancelIdentifier = cancelIdentifier
         self.onCancel = onCancel
         self.content = content()
         self.commit = commit()
@@ -102,7 +126,7 @@ public struct ComposerScaffold<Content: View, Commit: View>: View {
                 // near-white instead of warm paper.
                 ZStack {
                     ComposerCanvas()
-                    scroll
+                    layout
                 }
                     .navigationTitle(title)
                     .navigationBarTitleDisplayMode(titleDisplayMode)
@@ -112,6 +136,7 @@ public struct ComposerScaffold<Content: View, Commit: View>: View {
                                 onCancel?()
                                 dismiss()
                             }
+                            .modifier(FieldIdentity(identifier: cancelIdentifier))
                         }
                         if let confirmation {
                             ToolbarItem(placement: .confirmationAction) {
@@ -125,6 +150,46 @@ public struct ComposerScaffold<Content: View, Commit: View>: View {
         }
         .presentationDetents(detents)
         .interactiveDismissDisabled(isDismissBlocked)
+    }
+
+    private var layout: some View {
+        ComposerLayout(
+            fit: contentFit,
+            subtitle: subtitle,
+            isPrivacySensitive: isPrivacySensitive,
+            identifier: identifier,
+            content: content
+        )
+    }
+}
+
+/// The scaffold's content plane, in its own frame.
+///
+/// Extracted rather than left as two computed properties on `ComposerScaffold`:
+/// the file-size ratchet tracks the largest top-level declaration because that
+/// is the `-Onone` launch-stack proxy, and this is the same "one struct per
+/// section" rule the scaffold asks of its own callers.
+private struct ComposerLayout<Content: View>: View {
+    let fit: ComposerContentFit
+    let subtitle: String?
+    let isPrivacySensitive: Bool
+    let identifier: String?
+    let content: Content
+
+    var body: some View {
+        switch fit {
+        case .scrolling: scroll
+        case .filling: filling
+        }
+    }
+
+    /// The chrome contract without the scroll container. Privacy redaction and
+    /// the identifier still apply — they are not scrolling concerns.
+    private var filling: some View {
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .modifier(ComposerPrivacy(isSensitive: isPrivacySensitive))
+            .modifier(ComposerIdentity(identifier: identifier))
     }
 
     private var scroll: some View {
@@ -172,6 +237,8 @@ public extension ComposerScaffold where Commit == EmptyView {
         detents: Set<PresentationDetent> = [.large],
         isPrivacySensitive: Bool = false,
         identifier: String? = nil,
+        contentFit: ComposerContentFit = .scrolling,
+        cancelIdentifier: String? = nil,
         onCancel: (() -> Void)? = nil,
         onConfirm: @escaping () -> Void,
         @ViewBuilder content: () -> Content
@@ -184,6 +251,8 @@ public extension ComposerScaffold where Commit == EmptyView {
             detents: detents,
             isPrivacySensitive: isPrivacySensitive,
             identifier: identifier,
+            contentFit: contentFit,
+            cancelIdentifier: cancelIdentifier,
             onCancel: onCancel,
             content: content,
             commit: { EmptyView() }

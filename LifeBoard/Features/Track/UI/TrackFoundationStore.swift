@@ -253,7 +253,10 @@ final class TrackFoundationStore {
         await saveMood(.init(mood: mood, energy: energy))
     }
 
-    func saveMood(_ checkIn: MoodEnergyCheckInValue) async {
+    /// Reports whether the check-in reached disk, so a composer can show a
+    /// truthful commit phase. `@discardableResult` keeps Void call sites intact.
+    @discardableResult
+    func saveMood(_ checkIn: MoodEnergyCheckInValue) async -> Bool {
         do {
             if let previous = checkIns.first(where: { $0.id == checkIn.id }), previous != checkIn {
                 try await applyCorrection(previous: .mood(previous), corrected: .mood(checkIn))
@@ -261,7 +264,11 @@ final class TrackFoundationStore {
                 try await phaseIIRepository.saveMoodCheckIn(checkIn)
             }
             await load()
-        } catch { errorMessage = error.localizedDescription }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
     }
 
     func deleteMood(_ checkIn: MoodEnergyCheckInValue) async {

@@ -44,6 +44,7 @@ struct TrackFastingSection: View {
     var isHero = false
 
     @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.colorScheme) private var colorScheme
 
     private var activeFast: FastingSessionValue? {
         sessions.first { $0.endedAt == nil }
@@ -137,7 +138,7 @@ struct TrackFastingSection: View {
             }
             .padding(isHero ? 20 : 16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .modifier(TrackFastingSurface(isHero: isHero, palette: DaypartTokens.palette(for: preferences.resolvedDaypart())))
+            .modifier(TrackFastingSurface(isHero: isHero, palette: DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)))
             .accessibilityIdentifier("track.fasting")
         }
     }
@@ -155,6 +156,7 @@ struct FastingDestinationView: View {
     @State private var finishedUndoSession: FastingSessionValue?
     @State private var correctionReceipts: [UUID: FastingSessionMutationReceipt] = [:]
     @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.colorScheme) private var colorScheme
 
     init(repository: any FastingSessionRepository) {
         store = FastingTimerStore(repository: repository)
@@ -213,7 +215,7 @@ struct FastingDestinationView: View {
     /// a fast is running and is simply absent otherwise. `DESIGN.md` — "if it is
     /// animating, something is happening right now".
     private var statusSection: some View {
-        let palette = DaypartTokens.palette(for: preferences.resolvedDaypart())
+        let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
         return VStack(alignment: .leading, spacing: 16) {
             SectionHeader("Current session")
             if let activeFast {
