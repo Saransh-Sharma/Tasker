@@ -31,6 +31,13 @@
 #             corner radius the call site knows and a grep does not, and
 #             `lifeboardElevation` draws a border by default, so a mechanical
 #             pass would add 39 strokes that were never there.
+# 2026-08-22  shadow 39 -> 37, uicolor 26 -> 19 (dark-mode conformance pass).
+#             Ratcheted DOWN, which this gate treats as a failure just like a
+#             regression because it compares for exact equality. The shadows are
+#             `CardPressEffect` and two replan overlays moving off literal black
+#             onto the warm appearance-aware token; the UIColor constructors are
+#             Eva's UIKit navigation bar and `MoodDialTheme.neutral`, which were
+#             baked light-only values and are now `lifeboardDynamic` pairs.
 token_law_font_system	27
-token_law_shadow_usage	39
-token_law_uicolor_constructor	26
+token_law_shadow_usage	37
+token_law_uicolor_constructor	19

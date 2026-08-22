@@ -66,6 +66,13 @@ fi
 MIGRATED_COMPOSER_FILES=(
   LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift
   LifeBoard/Features/Health/UI/LifeBoardPhaseVIViews.swift
+  LifeBoard/Features/Health/HealthSync/HealthLogComposers.swift
+  LifeBoard/Features/Health/HealthSync/HealthHubSections.swift
+  LifeBoard/Features/Journal/UI/JournalCaptureComposers.swift
+  LifeBoard/Features/Journal/UI/JournalMoodCaptureView.swift
+  LifeBoard/Features/Settings/SetupCenter/SetupCenterView.swift
+  LifeBoard/Features/Settings/SetupCenter/SetupCenterSections.swift
+  LifeBoard/Features/Settings/SetupCenter/SetupCenterHealthDisclosureSheet.swift
 )
 
 for file in "${MIGRATED_COMPOSER_FILES[@]}"; do
@@ -80,21 +87,40 @@ for file in "${MIGRATED_COMPOSER_FILES[@]}"; do
   allow_count=${allow_count:-0}
   if [[ "$form_count" -gt "$allow_count" ]]; then
     echo "❌ Clay composer kit: $file has $form_count Form(s) but only $allow_count documented allowance(s)."
-    echo "   Use LifeBoardComposerScaffold (presented) or LifeBoardComposerPage (pushed),"
+    echo "   Use ComposerScaffold (presented) or ComposerPage (pushed),"
     echo "   or add '// composer-kit:allow-form <reason>' above a deliberate exception."
     rg -n '^\s*Form \{' "$file"
     FAILED=1
   fi
 done
 
+# `List` regresses a migrated composer just as surely as `Form` does — the Setup
+# Center health disclosure and both health log sheets were `List`/`Form` before
+# this pass, and nothing else stops one drifting back. Same escape hatch: state
+# the reason, as RoutineComposer does for its `.onDelete`/`.onMove` semantics.
+for file in "${MIGRATED_COMPOSER_FILES[@]}"; do
+  [[ -f "$file" ]] || continue
+  list_count=$(rg -c '^\s*List \{' "$file" || true)
+  allow_count=$(rg -c 'composer-kit:allow-list' "$file" || true)
+  list_count=${list_count:-0}
+  allow_count=${allow_count:-0}
+  if [[ "$list_count" -gt "$allow_count" ]]; then
+    echo "❌ Clay composer kit: $file has $list_count List(s) but only $allow_count documented allowance(s)."
+    echo "   Use ComposerScaffold + ComposerSection, or add"
+    echo "   '// composer-kit:allow-list <reason>' above a deliberate exception."
+    rg -n '^\s*List \{' "$file"
+    FAILED=1
+  fi
+done
+
 # The scaffold's content closure should reference section structs, not build
-# controls inline. A `LifeBoardComposerSection(` opening directly inside a
+# controls inline. A `ComposerSection(` opening directly inside a
 # scaffold's trailing closure is the inlining pattern rule 2 forbids.
-if rg -qU 'LifeBoardComposerScaffold\([^)]*\)\s*\{\s*\n\s*LifeBoardComposerSection\(' \
+if rg -qU 'ComposerScaffold\([^)]*\)\s*\{\s*\n\s*ComposerSection\(' \
      LifeBoard/Foundation LifeBoard/Features 2>/dev/null; then
-  echo "❌ Clay composer kit: a composer inlines LifeBoardComposerSection into its scaffold closure."
+  echo "❌ Clay composer kit: a composer inlines ComposerSection into its scaffold closure."
   echo "   Extract one 'private struct <Name>Section: View' per section (stack-budget rule)."
-  rg -nU 'LifeBoardComposerScaffold\([^)]*\)\s*\{\s*\n\s*LifeBoardComposerSection\(' \
+  rg -nU 'ComposerScaffold\([^)]*\)\s*\{\s*\n\s*ComposerSection\(' \
      LifeBoard/Foundation LifeBoard/Features 2>/dev/null | head -5
   FAILED=1
 fi

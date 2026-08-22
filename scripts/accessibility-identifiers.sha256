@@ -124,5 +124,24 @@
 # `eva.memoryCandidate.inline` identifies the explicit Save/Edit/Later/Dismiss
 # proposal boundary. Neither identifier contains a source-record identifier.
 
-count=869
-sha256=e6fdca5be9c7b004229e94fc496d44d58f5b6fbad0fed44fd04d2b6ee9c1d945
+# 2026-08-22 — claymorphic conformance pass. Four additions, two moves, zero
+# removals of a runtime value.
+#
+#   + "health.hero", "health.hero.logWater"/"health.hero.connect" — the Health
+#     hub's new dominant object and its capture action.
+#   + "health.connections.logWeight" — the weight log, previously an unlabelled
+#     system button.
+#   + "journal.audio.record", "journal.audio.transcribes" — the audio composer's
+#     controls, which had no identifiers at all before the migration.
+#   + "journalParity.moodCapture.includesEnergy" — the energy toggle.
+#
+# The two apparent removals are moves, not losses. "journalParity.moodCapture"
+# and "journalParity.moodCapture.cancel" are now passed to `ComposerScaffold`
+# as `identifier:` and the new `cancelIdentifier:` rather than spelled as
+# `.accessibilityIdentifier(...)` at the call site. The resolved runtime values
+# are byte-identical, so the UI-test contract still matches; only the expression
+# text this snapshot records has moved into the primitive — the same pattern
+# every other migrated composer already follows.
+
+count=885
+sha256=8273b771a3c1513d15b7aad6d77c4febcd81f938f62b78f2e79d479fb0ee4f52

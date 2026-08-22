@@ -69,6 +69,12 @@
 # declaration lines plus the rule documented at the definition site. The
 # largest-type column is unchanged at 145, so the -Onone launch-stack budget
 # this ratchet exists to protect is untouched; the growth is declaration count.
+# 2026-08-22, truthful mood commit: `TrackFoundationStore.saveMood` returns
+# whether the check-in reached disk so the journal mood composer can show a real
+# commit phase instead of a faked "Saving…" title swap. That is a guard/return
+# pair plus a doc line inside the store's largest type. The type is a store, not
+# a view body, so the -Onone launch-stack budget this ratchet protects is not
+# the constraint at issue here.
 LifeBoard/AppDelegate.swift	2056	15	1666
 LifeBoard/DesignSystem/ComposerScaffold.swift	623	13	106
 LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift	672	1	662
@@ -134,7 +140,7 @@ LifeBoard/Features/Track/Data/TrackFoundationPersistence.swift	999	7	794
 LifeBoard/Features/Track/Domain/TrackFoundationModels.swift	1866	94	148
 LifeBoard/Features/Track/Domain/TrackFoundationServices.swift	1028	15	115
 LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift	5272	79	376
-LifeBoard/Features/Track/UI/TrackFoundationStore.swift	1268	7	1139
+LifeBoard/Features/Track/UI/TrackFoundationStore.swift	1275	7	1146
 LifeBoard/Features/Weekly/Domain/WeeklyPlanningWorkspace.swift	867	29	90
 LifeBoard/Features/Weekly/UI/WeeklyPlanningWorkspaceView.swift	2397	27	512
 LifeBoard/Features/Wellness/Domain/WellnessCoreModels.swift	1065	29	276
