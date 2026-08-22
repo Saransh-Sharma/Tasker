@@ -1,25 +1,13 @@
-import AuthenticationServices
 import SwiftUI
 
 struct SetupCenterView: View {
-    private enum EvaSetupPhase {
-        case signIn
-        case chooseGrants
-        case ready
-    }
-
     @ObservedObject var settingsViewModel: SettingsViewModel
     let onOpenCalendarChooser: () -> Void
     let onNavigate: (SettingsDetailRoute) -> Void
 
     @Environment(\.lifeboardTokens) private var tokens
     @State private var healthStore = HealthCoordinator.shared.connectionStore
-    @State private var evaAccount = EvaCloudAccountState.shared
-    @State private var evaPhase: EvaSetupPhase = .signIn
-    @State private var preparedAppleSignIn: EvaAppleIdentityService.PreparedSignIn?
-    @State private var selectedGrants = Set(EvaConsentPolicy.Grant.allCases)
-    @State private var isEvaWorking = false
-    @State private var evaErrorMessage: String?
+    @StateObject private var evaAccess = EvaCloudAccessCoordinator.shared
     @State private var showsHealthDisclosure = false
     @State private var showsEvaDismissNudge = false
 
@@ -32,7 +20,7 @@ struct SetupCenterView: View {
             notificationPermissionDenied: settingsViewModel.isPermissionDenied,
             healthStatuses: healthStore.statuses,
             healthHasObservableData: healthStore.aggregates.isEmpty == false,
-            evaIsActivated: EvaActivationDefaultsStore.load().isComplete && evaAccount.canUseCloud
+            evaIsActivated: evaAccess.state == .ready
         )
     }
 
@@ -40,10 +28,11 @@ struct SetupCenterView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: spacing.s16) {
                 header
+                if evaAccess.state != .ready { evaCard }
                 calendarCard
                 healthCard
                 remindersCard
-                evaCard
+                if evaAccess.state == .ready { evaCard }
             }
             .padding(.horizontal, spacing.screenHorizontal)
             .padding(.top, spacing.s12)
@@ -57,14 +46,9 @@ struct SetupCenterView: View {
             await ProductTelemetry.shared.record(.setupCenterOpened)
             settingsViewModel.reload()
             await healthStore.bootstrap()
-            await evaAccount.refresh()
-            if EvaActivationDefaultsStore.load().isComplete, evaAccount.canUseCloud {
-                evaPhase = .ready
-            } else if evaAccount.isAuthenticated, evaAccount.consent != nil {
-                selectedGrants = Set(EvaConsentPolicy.Grant.allCases)
-                evaPhase = .chooseGrants
-            } else {
-                await prepareAppleSignIn()
+            let accessState = await evaAccess.hydrate()
+            if accessState != .ready {
+                await ProductTelemetry.shared.record(.evaSetupCenterCTAShown)
             }
         }
         .sheet(isPresented: $showsHealthDisclosure) {
@@ -75,9 +59,10 @@ struct SetupCenterView: View {
             isPresented: $showsEvaDismissNudge,
             titleVisibility: .visible
         ) {
-            Button("Sign in with Apple") {}
+            Button("Continue with Cloud EVA") { activateGuestEva() }
             Button("Set up Offline EVA") {
                 Task { await ProductTelemetry.shared.record(.evaActivationDismissed, outcome: "offline_settings") }
+                evaAccess.selectOffline()
                 onNavigate(.llm)
             }
             Button("Not now", role: .cancel) {
@@ -171,58 +156,76 @@ struct SetupCenterView: View {
 
     @ViewBuilder
     private var evaSetupContent: some View {
-        switch evaPhase {
-        case .signIn:
+        switch evaAccess.state {
+        case .needsDisclosure:
             VStack(alignment: .leading, spacing: spacing.s12) {
-                SignInWithAppleButton(.signIn, onRequest: { request in
-                    guard let preparedAppleSignIn else { return }
-                    EvaAppleIdentityService.shared.configure(request, for: preparedAppleSignIn)
-                }, onCompletion: { result in
-                    completeAppleSignIn(result)
-                })
-                .signInWithAppleButtonStyle(.black)
-                .frame(maxWidth: 320, minHeight: 48)
-                .disabled(isEvaWorking || preparedAppleSignIn == nil)
-                .accessibilityIdentifier("setupCenter.eva.signIn")
-
-                if let caption = evaAccount.activationStage.progressCaption, isEvaWorking {
-                    ProgressView(caption)
-                        .lifeboardFont(.caption1)
-                }
-
+                evaDisclosureAndGrants
+                Button("Continue with Cloud EVA") { activateGuestEva() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(evaAccess.isWorking)
+                    .accessibilityIdentifier("setupCenter.eva.activate")
                 Button("Not now") { showsEvaDismissNudge = true }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             }
-        case .chooseGrants:
+        case .hydrating, .activating:
+            ProgressView(evaAccess.account.activationStage.progressCaption ?? "Checking Cloud EVA…")
+                .lifeboardFont(.caption1)
+                .accessibilityIdentifier("setupCenter.eva.progress")
+        case .temporarilyUnavailable(let message):
             VStack(alignment: .leading, spacing: spacing.s12) {
-                Text("Choose what EVA can use")
-                    .lifeboardFont(.headline)
-                    .foregroundStyle(Color.lifeboard(.textPrimary))
-                Text("Everything starts selected. Turn off any category before confirming.")
+                Text(evaAccess.errorMessage ?? message)
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(Color.lifeboard(.statusWarning))
+                Button("Retry Cloud EVA") { retryGuestEva() }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("setupCenter.eva.retry")
+                Button("Use Offline EVA") { chooseOfflineEva() }
+                    .buttonStyle(.bordered)
+            }
+        case .appleReauthenticationRequired:
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                Text("Apple confirmation restores this linked account. LifeBoard won't replace it with a new guest.")
                     .lifeboardFont(.caption1)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
-                ForEach(EvaConsentPolicy.Grant.allCases, id: \.self) { grant in
-                    Toggle(grantTitle(grant), isOn: grantBinding(grant))
-                        .accessibilityIdentifier("setupCenter.eva.grant.\(grant.rawValue)")
-                }
-                Button("Confirm EVA access") { confirmEvaGrants() }
+                Button("Reconnect with Apple") { reconnectAppleEva() }
                     .buttonStyle(.borderedProminent)
-                    .disabled(isEvaWorking)
-                    .accessibilityIdentifier("setupCenter.eva.confirm")
+                    .accessibilityIdentifier("setupCenter.eva.reconnectApple")
+                Button("Use Offline EVA") { chooseOfflineEva() }
+                    .buttonStyle(.bordered)
+            }
+        case .quotaExhausted(let nextAvailableAt):
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                Text(quotaMessage(nextAvailableAt))
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                Button("Use Offline EVA") { chooseOfflineEva() }
+                    .buttonStyle(.bordered)
+            }
+        case .ageBlocked(let message):
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                Text(message)
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(Color.lifeboard(.statusWarning))
+                Button("Use Offline EVA") { chooseOfflineEva() }
+                    .buttonStyle(.bordered)
             }
         case .ready:
             Label("Cloud EVA is ready", systemImage: "checkmark.circle.fill")
                 .lifeboardFont(.bodyStrong)
                 .foregroundStyle(Color.lifeboard(.statusSuccess))
         }
+    }
 
-        if let evaErrorMessage {
-            Text(evaErrorMessage)
+    private var evaDisclosureAndGrants: some View {
+        Group {
+            Text("Prompts and the context you confirm pass through LifeBoard's Cloudflare service to OpenAI. Guest credentials stay on this device; protect EVA with Apple to recover the cloud account after reinstalling.")
                 .lifeboardFont(.caption1)
-                .foregroundStyle(Color.lifeboard(.statusWarning))
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("setupCenter.eva.error")
+                .foregroundStyle(Color.lifeboard(.textSecondary))
+            ForEach(EvaConsentPolicy.Grant.allCases, id: \.self) { grant in
+                Toggle(grantTitle(grant), isOn: grantBinding(grant))
+                    .accessibilityIdentifier("setupCenter.eva.grant.\(grant.rawValue)")
+            }
         }
     }
 }
@@ -322,88 +325,49 @@ private extension SetupCenterView {
 }
 
 private extension SetupCenterView {
-    private func prepareAppleSignIn() async {
-        guard preparedAppleSignIn == nil, isEvaWorking == false else { return }
-        isEvaWorking = true
-        evaErrorMessage = nil
-        defer { isEvaWorking = false }
-        do {
-            preparedAppleSignIn = try await EvaAppleIdentityService.shared.prepareSignIn()
-        } catch {
-            evaErrorMessage = LifeWeaveEvaActivation.message(for: error)
-        }
-    }
-
-    private func completeAppleSignIn(_ result: Result<ASAuthorization, Error>) {
-        guard isEvaWorking == false, let preparedAppleSignIn else { return }
-        Task { await ProductTelemetry.shared.record(.evaActivationStarted) }
-        switch result {
-        case .failure(let error as ASAuthorizationError) where error.code == .canceled:
-            evaErrorMessage = "Sign in was cancelled. You can try again or finish later."
-            self.preparedAppleSignIn = nil
-            Task { await prepareAppleSignIn() }
-        case .failure(let error):
-            evaErrorMessage = LifeWeaveEvaActivation.message(for: error)
-            Task { await ProductTelemetry.shared.record(.evaActivationFailed, errorCode: "apple_sign_in") }
-            self.preparedAppleSignIn = nil
-            Task { await prepareAppleSignIn() }
-        case .success(let authorization):
-            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                evaErrorMessage = "Apple did not return a usable sign-in credential. Please try again."
-                return
-            }
-            isEvaWorking = true
-            evaErrorMessage = nil
-            Task { @MainActor in
-                defer { isEvaWorking = false }
-                do {
-                    try await evaAccount.activateCloud(
-                        credential: credential,
-                        preparedSignIn: preparedAppleSignIn
-                    )
-                    selectedGrants = Set(EvaConsentPolicy.Grant.allCases)
-                    evaPhase = .chooseGrants
-                    self.preparedAppleSignIn = nil
-                } catch {
-                    evaErrorMessage = LifeWeaveEvaActivation.message(for: error)
-                    self.preparedAppleSignIn = nil
-                    await prepareAppleSignIn()
-                }
-            }
-        }
-    }
-
-    private func confirmEvaGrants() {
-        guard isEvaWorking == false, let policy = evaAccount.consent else {
-            evaErrorMessage = "EVA consent could not be loaded. Refresh and try again."
-            return
-        }
-        isEvaWorking = true
-        evaErrorMessage = nil
+    private func activateGuestEva() {
+        guard evaAccess.isWorking == false else { return }
+        evaAccess.clearError()
         Task { @MainActor in
-            defer { isEvaWorking = false }
-            do {
-                _ = try await EvaCloudTransport.shared.updateConsent(
-                    expectedRevision: policy.revision,
-                    grants: selectedGrants.sorted { $0.rawValue < $1.rawValue }
-                )
-                await evaAccount.refresh(forceConfigurationRefresh: true)
-                if let readinessError = evaAccount.readinessError() { throw readinessError }
-                EvaActivationDefaultsStore.markCompleted()
-                evaPhase = .ready
-                await ProductTelemetry.shared.record(.evaActivationSucceeded)
-            } catch {
-                evaErrorMessage = LifeWeaveEvaActivation.message(for: error)
-                await ProductTelemetry.shared.record(.evaActivationFailed, errorCode: "consent_or_readiness")
-            }
+            _ = await evaAccess.confirmAndActivate(
+                grants: evaAccess.selectedGrants,
+                source: .setupCenter
+            )
         }
+    }
+
+    private func retryGuestEva() {
+        guard evaAccess.isWorking == false else { return }
+        evaAccess.selectCloud()
+        Task { @MainActor in
+            _ = await evaAccess.resumeConfirmedActivation(source: .setupCenter)
+        }
+    }
+
+    private func reconnectAppleEva() {
+        guard evaAccess.isWorking == false else { return }
+        Task { @MainActor in
+            _ = await evaAccess.reconnectApple()
+        }
+    }
+
+    private func chooseOfflineEva() {
+        evaAccess.selectOffline()
+        onNavigate(.llm)
+    }
+
+    private func quotaMessage(_ nextAvailableAt: Date?) -> String {
+        nextAvailableAt.map {
+            "Your rolling Cloud EVA allowance begins returning \($0.formatted(date: .omitted, time: .shortened))."
+        } ?? "Your rolling Cloud EVA allowance is currently used."
     }
 
     private func grantBinding(_ grant: EvaConsentPolicy.Grant) -> Binding<Bool> {
         Binding(
-            get: { selectedGrants.contains(grant) },
+            get: { evaAccess.selectedGrants.contains(grant) },
             set: { enabled in
-                if enabled { selectedGrants.insert(grant) } else { selectedGrants.remove(grant) }
+                if enabled { evaAccess.selectedGrants.insert(grant) }
+                else { evaAccess.selectedGrants.remove(grant) }
             }
         )
     }

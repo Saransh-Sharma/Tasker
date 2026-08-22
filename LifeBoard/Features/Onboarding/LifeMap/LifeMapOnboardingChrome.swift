@@ -180,6 +180,8 @@ struct LifeMapBottomDock: View {
     let clayTrigger: Int
     let onPrimary: () -> Void
     let onSecondary: () -> Void
+    var primaryAccessibilityID = LifeMapAccessibilityID.primaryAction
+    var secondaryAccessibilityID = LifeMapAccessibilityID.secondaryAction
 
     var body: some View {
         HStack(spacing: Theme.Spacing.sm) {
@@ -187,13 +189,13 @@ struct LifeMapBottomDock: View {
                 Button(secondaryTitle, action: onSecondary)
                     .buttonStyle(LifeMapSecondaryButtonStyle())
                     .frame(maxWidth: .infinity)
-                    .accessibilityIdentifier(LifeMapAccessibilityID.secondaryAction)
+                    .accessibilityIdentifier(secondaryAccessibilityID)
             }
             Button(primaryTitle, action: onPrimary)
                 .buttonStyle(LifeMapPrimaryButtonStyle())
                 .frame(maxWidth: .infinity)
                 .disabled(isPrimaryDisabled)
-                .accessibilityIdentifier(LifeMapAccessibilityID.primaryAction)
+                .accessibilityIdentifier(primaryAccessibilityID)
         }
         .padding(10)
         .frame(maxWidth: .infinity)

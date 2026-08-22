@@ -28,7 +28,7 @@ struct LifeMapOnboardingView: View {
     @State private var evaIsWorking = false
     @State private var evaErrorMessage: String?
     @State private var evaActivationTask: Task<Void, Never>?
-    @State private var evaGrants: Set<EvaConsentPolicy.Grant> = []
+    @State private var evaGrants = Set(EvaConsentPolicy.Grant.allCases)
     @State private var tourIndex = 0
     @State private var contentSafeAreaInsets = LifeMapOnboardingView.windowSafeAreaInsets
     @State private var bridgedScenePhase: ScenePhase =
@@ -356,7 +356,7 @@ extension LifeMapOnboardingView {
         case .eva:
             if evaIsWorking { "Connecting…" }
             else if evaAccount.canUseCloud { "Continue" }
-            else { "Sign in with Apple" }
+            else { "Continue with Cloud EVA" }
         case .tour: tourIndex + 1 < Destination.allCases.count ? "Next" : "Meet EVA"
         case .firstWin: evaAccount.canUseCloud ? "Open EVA" : "Go to LifeBoard"
         default: "Continue"
@@ -444,7 +444,9 @@ extension LifeMapOnboardingView {
                 evaActivationTask = nil
             }
             do {
-                try await evaAccount.activateCloud()
+                try await evaAccount.activateCloud(
+                    grants: evaGrants.sorted { $0.rawValue < $1.rawValue }
+                )
                 if let readinessError = evaAccount.readinessError() { throw readinessError }
                 model.feedback.successSignature()
             } catch is CancellationError {
@@ -481,9 +483,13 @@ extension LifeMapOnboardingView {
     /// one toggle at a time and never retried — a replayed write would fail the
     /// CAS and read to the user as the switch refusing to move.
     private func toggleEvaGrant(_ grant: EvaConsentPolicy.Grant, enabled: Bool) {
-        guard evaIsWorking == false, let policy = evaAccount.consent else { return }
+        guard evaIsWorking == false else { return }
         var replacement = evaGrants
         if enabled { replacement.insert(grant) } else { replacement.remove(grant) }
+        guard let policy = evaAccount.consent else {
+            evaGrants = replacement
+            return
+        }
         evaIsWorking = true
         evaActivationTask = Task { @MainActor in
             defer {

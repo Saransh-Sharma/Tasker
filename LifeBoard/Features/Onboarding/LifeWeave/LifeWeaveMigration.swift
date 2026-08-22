@@ -78,12 +78,22 @@ enum LifeWeaveMigration {
 
     /// Schema 8 had no explicit lifecycle. Infer only from durable facts, then
     /// persist the result as schema 9 before the flow renders.
-    static func draft(fromV8 snapshot: LifeWeaveDraft) -> LifeWeaveDraft {
+    static func draft(fromEarlierSchema snapshot: LifeWeaveDraft) -> LifeWeaveDraft {
         var migrated = snapshot
         migrated.schemaVersion = LifeWeaveDraft.currentSchemaVersion
-        migrated.lifecyclePhase = lifecyclePhase(forV8: snapshot)
+        if migrated.evaSelectedGrantIDs == nil {
+            migrated.evaSelectedGrantIDs = EvaConsentPolicy.Grant.allCases.map(\.rawValue)
+        }
+        if migrated.evaActivationPending == nil {
+            migrated.evaActivationPending = false
+        }
+        migrated.lifecyclePhase = snapshot.lifecyclePhase ?? lifecyclePhase(forV8: snapshot)
         if migrated.lifecyclePhase == .revealReady { migrated.step = .reveal }
         return migrated
+    }
+
+    static func draft(fromV8 snapshot: LifeWeaveDraft) -> LifeWeaveDraft {
+        draft(fromEarlierSchema: snapshot)
     }
 
     static func lifecyclePhase(forV8 snapshot: LifeWeaveDraft) -> LifeWeaveLifecyclePhase {

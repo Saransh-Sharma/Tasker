@@ -68,12 +68,16 @@ enum LifeWeaveRevealCopy {
 
 /// The payoff.
 ///
-/// One dominant action — `Start my day` — because the point of the reveal is to
-/// end onboarding, not to begin a second one. v5 offered "Power it up" and "Show
-/// me around" here and both led onwards; the connect chain is now a quiet
-/// secondary, and there is nothing after it.
+/// One dominant action confirms Cloud EVA and ends onboarding. The disclosure
+/// stays in the reveal rather than becoming a second wizard, and the local-only
+/// alternative remains explicit.
 struct LifeWeaveRevealStep: View {
     @ObservedObject var model: LifeWeaveOnboardingModel
+    let cloudState: EvaCloudAccessState
+    let isWorking: Bool
+    let errorMessage: String?
+    let onToggleGrant: (EvaConsentPolicy.Grant, Bool) -> Void
+    let onUseOffline: () -> Void
 
     private var draft: LifeWeaveDraft { model.draft }
 
@@ -99,6 +103,8 @@ struct LifeWeaveRevealStep: View {
 
             receipt
 
+            cloudConsentCard
+
             if draft.stagedCapture?.isReviewed != true {
                 Text("Start with an empty day. Add something whenever it becomes useful.")
                     .lifeboardFont(.caption1)
@@ -106,12 +112,68 @@ struct LifeWeaveRevealStep: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text("Nothing else was connected.")
-                .lifeboardFont(.caption1)
-                .foregroundStyle(Color.lifeboard(.textTertiary))
-                .padding(.top, Theme.Spacing.xs)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var cloudConsentCard: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                Image(systemName: "cloud.sun.fill")
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Cloud EVA with Luna")
+                        .lifeboardFont(.bodyStrong)
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                    Text("Continuing creates a pseudonymous guest session. Prompts and the context below pass through LifeBoard's Cloudflare service to OpenAI.")
+                        .lifeboardFont(.caption1)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Text("EVA MAY ALSO USE")
+                .lifeboardFont(.eyebrow)
+                .foregroundStyle(Color.lifeboard(.textTertiary))
+            ForEach(EvaConsentPolicy.Grant.allCases, id: \.self) { grant in
+                Toggle(grant.onboardingTitle, isOn: binding(for: grant))
+                .tint(Color.lifeboard(.accentPrimary))
+                .disabled(isWorking)
+                .accessibilityIdentifier("onboarding.lifeWeave.eva.grant.\(grant.rawValue)")
+            }
+
+            if isWorking || cloudState == .activating {
+                ProgressView("Creating your guest session…")
+                    .lifeboardFont(.caption1)
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
+
+            if let errorMessage {
+                Text("Cloud setup will resume safely in EVA. \(errorMessage)")
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(Color.lifeboard(.statusWarning))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button("Use Offline EVA instead", action: onUseOffline)
+                .buttonStyle(.plain)
+                .lifeboardFont(.button)
+                .foregroundStyle(Color.lifeboard(.accentPrimary))
+                .disabled(isWorking)
+                .accessibilityIdentifier("onboarding.lifeWeave.eva.offline")
+        }
+        .padding(Theme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.raised, cornerRadius: 20)
+        .accessibilityIdentifier("onboarding.lifeWeave.eva.disclosure")
+    }
+
+    private func binding(for grant: EvaConsentPolicy.Grant) -> Binding<Bool> {
+        Binding(
+            get: { model.draft.resolvedEvaGrants.contains(grant) },
+            set: { onToggleGrant(grant, $0) }
+        )
     }
 
     private var receipt: some View {

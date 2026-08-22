@@ -5,6 +5,7 @@ struct EvaCloudActivationView: View {
     @State private var account = EvaCloudAccountState.shared
     @State private var isWorking = false
     @State private var errorMessage: String?
+    @State private var selectedGrants = Set(EvaConsentPolicy.Grant.allCases)
 
     let onBack: () -> Void
     let onCloudReady: () -> Void
@@ -27,19 +28,32 @@ struct EvaCloudActivationView: View {
             VStack(alignment: .leading, spacing: spacing.sectionGap) {
                 EvaContentHeader(
                     title: String(localized: "Connect Cloud EVA"),
-                    bodyText: String(localized: "Sign in with Apple, confirm an 18+ age range, and start with 100 account-wide credits. Your LifeBoard data stays local unless it is part of the bounded context you authorize."),
+                    bodyText: String(localized: "Continue once to create a private guest session and activate Luna. Successful answers use a rolling allowance shown in EVA settings."),
                     eyebrow: String(localized: "POWERED BY LUNA")
                 )
 
                 EvaSectionCard(
                     title: String(localized: "What happens next"),
-                    subtitle: String(localized: "LifeBoard completes these checks before the first cloud request."),
+                    subtitle: String(localized: "No prompt or LifeBoard context leaves this device until you confirm."),
                     accessibilityIdentifier: "eva.activation.cloud.requirements"
                 ) {
                     VStack(alignment: .leading, spacing: spacing.s12) {
-                        requirement(String(localized: "Sign in privately with Apple"), icon: "apple.logo")
-                        requirement(String(localized: "Share an Apple 18+ age-range result"), icon: "checkmark.shield.fill")
-                        requirement(String(localized: "Review sensitive-context permissions in Settings"), icon: "hand.raised.fill")
+                        requirement(String(localized: "Create a pseudonymous guest account"), icon: "person.crop.circle.badge.plus")
+                        requirement(String(localized: "Keep credentials only on this device"), icon: "iphone.gen3")
+                        requirement(String(localized: "Optionally protect and sync with Apple later"), icon: "apple.logo")
+                    }
+                }
+
+                EvaSectionCard(
+                    title: String(localized: "Choose cloud context"),
+                    subtitle: String(localized: "These sensitive categories are preselected. Turn off anything you do not want included in bounded EVA requests."),
+                    accessibilityIdentifier: "eva.activation.cloud.consent"
+                ) {
+                    VStack(spacing: spacing.s12) {
+                        grantToggle(.journal, title: String(localized: "Journal"))
+                        grantToggle(.health, title: String(localized: "Health"))
+                        grantToggle(.lifeMoments, title: String(localized: "Life Moments"))
+                        grantToggle(.personalMemory, title: String(localized: "Personal Memory"))
                     }
                 }
 
@@ -48,7 +62,7 @@ struct EvaCloudActivationView: View {
                     subtitle: String(localized: "Cloud EVA is for text answers and optional spoken output—not a full-duplex voice assistant."),
                     accessibilityIdentifier: "eva.activation.cloud.boundaries"
                 ) {
-                    Text("Prompts and authorized context pass through LifeBoard's Cloudflare service to OpenAI. LifeBoard does not keep cloud chat or audio history. Dictation continues to use Apple's stack, and spoken output is clearly disclosed as AI-generated.")
+                    Text("Prompts and the context you confirm pass through LifeBoard's Cloudflare service to OpenAI. LifeBoard does not keep cloud chat or audio history. Guest access cannot be recovered after reinstall unless you later protect it with Apple.")
                         .font(.lifeboard(.callout))
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
@@ -77,7 +91,7 @@ struct EvaCloudActivationView: View {
 
     private var primaryTitle: String {
         if isWorking { return String(localized: "Connecting…") }
-        return account.canUseCloud ? String(localized: "Continue to First Win") : String(localized: "Continue with Apple")
+        return account.canUseCloud ? String(localized: "Continue to First Win") : String(localized: "Continue with Cloud EVA")
     }
 
     private func requirement(_ title: String, icon: String) -> some View {
@@ -85,6 +99,19 @@ struct EvaCloudActivationView: View {
             .font(.lifeboard(.callout))
             .foregroundStyle(Color.lifeboard(.textPrimary))
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func grantToggle(_ grant: EvaConsentPolicy.Grant, title: String) -> some View {
+        Toggle(title, isOn: Binding(
+            get: { selectedGrants.contains(grant) },
+            set: { enabled in
+                if enabled { selectedGrants.insert(grant) }
+                else { selectedGrants.remove(grant) }
+            }
+        ))
+        .font(.lifeboard(.callout))
+        .tint(Color.lifeboard(.accentPrimary))
+        .accessibilityIdentifier("eva.activation.cloud.consent.\(grant.rawValue)")
     }
 
     private func activate() {
@@ -98,7 +125,9 @@ struct EvaCloudActivationView: View {
         Task { @MainActor in
             defer { isWorking = false }
             do {
-                try await account.activateCloud()
+                try await account.activateCloud(
+                    grants: selectedGrants.sorted { $0.rawValue < $1.rawValue }
+                )
                 if let readinessError = account.readinessError() { throw readinessError }
                 onCloudReady()
             } catch {

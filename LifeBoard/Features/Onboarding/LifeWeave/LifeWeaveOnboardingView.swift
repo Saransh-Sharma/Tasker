@@ -16,6 +16,8 @@ struct LifeWeaveOnboardingView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var clayTrigger = 0
+    @StateObject private var evaAccess = EvaCloudAccessCoordinator.shared
+    @State private var isFinishingWithEva = false
 
     /// The map yields before the copy does, always.
     ///
@@ -80,7 +82,9 @@ struct LifeWeaveOnboardingView: View {
                         isPrimaryDisabled: isPrimaryDisabled,
                         clayTrigger: clayTrigger,
                         onPrimary: performPrimary,
-                        onSecondary: performSecondary
+                        onSecondary: performSecondary,
+                        primaryAccessibilityID: LifeWeaveAccessibilityID.primaryAction,
+                        secondaryAccessibilityID: LifeWeaveAccessibilityID.secondaryAction
                     )
                 }
                 .padding(.horizontal, Theme.Spacing.lg)
@@ -89,6 +93,7 @@ struct LifeWeaveOnboardingView: View {
                 .frame(maxWidth: .infinity)
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(LifeWeaveAccessibilityID.flow)
     }
 
@@ -107,9 +112,17 @@ struct LifeWeaveOnboardingView: View {
             case .firstCapture:
                 LifeWeaveCaptureStep(model: model)
             case .reveal:
-                LifeWeaveRevealStep(model: model)
+                LifeWeaveRevealStep(
+                    model: model,
+                    cloudState: evaAccess.state,
+                    isWorking: isFinishingWithEva,
+                    errorMessage: evaAccess.errorMessage,
+                    onToggleGrant: model.toggleEvaGrant,
+                    onUseOffline: finishWithOfflineEva
+                )
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(LifeWeaveAccessibilityID.step(model.step))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -123,7 +136,7 @@ struct LifeWeaveOnboardingView: View {
         case .lifeAreas: "Shape my map"
         case .dayShape: "Use this rhythm"
         case .firstCapture: capturePrimaryTitle
-        case .reveal: "Start my day"
+        case .reveal: isFinishingWithEva ? "Activating Cloud EVA…" : "Start with Cloud EVA"
         }
     }
 
@@ -165,6 +178,7 @@ struct LifeWeaveOnboardingView: View {
                 || (model.draft.isCaptureResolved == false
                     && model.draft.stagedCapture == nil
                     && model.captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        case .reveal: model.isCommitting || isFinishingWithEva || evaAccess.isWorking
         default: model.isCommitting
         }
     }
@@ -194,8 +208,7 @@ struct LifeWeaveOnboardingView: View {
             }
 
             if model.step == .reveal {
-                guard model.finalize(destination: .home) else { return }
-                onComplete(.home)
+                finishWithCloudEva(destination: .home)
                 return
             }
 
@@ -208,11 +221,33 @@ struct LifeWeaveOnboardingView: View {
         case .firstCapture:
             model.skipCapture()
         case .reveal:
-            guard model.finalize(destination: .setupCenter) else { return }
-            onComplete(.setupCenter)
+            finishWithCloudEva(destination: .setupCenter)
         default:
             break
         }
+    }
+
+    private func finishWithCloudEva(destination: LifeWeaveCompletionDestination) {
+        guard isFinishingWithEva == false else { return }
+        isFinishingWithEva = true
+        Task { @MainActor in
+            let ready = await evaAccess.confirmAndActivate(
+                grants: model.draft.resolvedEvaGrants,
+                source: .onboarding
+            )
+            model.recordEvaActivation(ready: ready, pending: ready == false)
+            isFinishingWithEva = false
+            guard model.finalize(destination: destination) else { return }
+            onComplete(destination)
+        }
+    }
+
+    private func finishWithOfflineEva() {
+        guard isFinishingWithEva == false else { return }
+        evaAccess.selectOffline()
+        model.recordEvaActivation(ready: false, pending: false)
+        guard model.finalize(destination: .home) else { return }
+        onComplete(.home)
     }
 }
 

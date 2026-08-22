@@ -1,4 +1,5 @@
 import MLXLMCommon
+import LifeBoardDomain
 import SwiftUI
 
 struct EvaActivationRootView: View {
@@ -10,6 +11,8 @@ struct EvaActivationRootView: View {
     private let onComposerFocusChange: ((Bool) -> Void)?
     private let onOpenTaskDetail: (TaskDefinition) -> Void
     private let onOpenHabitDetail: ((UUID) -> Void)?
+    private let onOpenRecordFromCard: ((EvaRecordReference) -> Void)?
+    private let onOpenNavigationTargetFromCard: ((EvaNavigationTarget) -> Void)?
     private let onPerformDayTaskAction: EvaDayTaskActionHandler?
     private let onPerformDayHabitAction: EvaDayHabitActionHandler?
 
@@ -20,6 +23,8 @@ struct EvaActivationRootView: View {
         onComposerFocusChange: ((Bool) -> Void)? = nil,
         onOpenTaskDetail: @escaping (TaskDefinition) -> Void,
         onOpenHabitDetail: ((UUID) -> Void)? = nil,
+        onOpenRecordFromCard: ((EvaRecordReference) -> Void)? = nil,
+        onOpenNavigationTargetFromCard: ((EvaNavigationTarget) -> Void)? = nil,
         onPerformDayTaskAction: EvaDayTaskActionHandler? = nil,
         onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
     ) {
@@ -29,6 +34,8 @@ struct EvaActivationRootView: View {
         self.onComposerFocusChange = onComposerFocusChange
         self.onOpenTaskDetail = onOpenTaskDetail
         self.onOpenHabitDetail = onOpenHabitDetail
+        self.onOpenRecordFromCard = onOpenRecordFromCard
+        self.onOpenNavigationTargetFromCard = onOpenNavigationTargetFromCard
         self.onPerformDayTaskAction = onPerformDayTaskAction
         self.onPerformDayHabitAction = onPerformDayHabitAction
     }
@@ -129,6 +136,8 @@ struct EvaActivationRootView: View {
                 onComposerFocusChange: onComposerFocusChange,
                 onOpenTaskDetail: onOpenTaskDetail,
                 onOpenHabitDetail: onOpenHabitDetail,
+                onOpenRecordFromCard: onOpenRecordFromCard,
+                onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
                 onPerformDayTaskAction: onPerformDayTaskAction,
                 onPerformDayHabitAction: onPerformDayHabitAction
             ))

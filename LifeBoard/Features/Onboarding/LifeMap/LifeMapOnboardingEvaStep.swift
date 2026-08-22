@@ -9,10 +9,11 @@ import SwiftUI
 /// checklist below is the honest version of the old one: its third row used to
 /// claim "Choose EVA's boundaries" was satisfied by cloud readiness, while no
 /// consent surface was ever shown. Sensitive-context grants are now real,
-/// visible, and off by default.
+/// visible, and explicitly confirmed before bootstrap.
 ///
-/// Skipping them is the expected path, not a degraded one — a fresh account
-/// bootstraps with revision 0 and no grants, which is already enough for chat.
+/// The visible activation action confirms the selected grants and creates the
+/// guest account in one transaction; no prompt or LifeBoard context is sent
+/// before that confirmation.
 struct LifeMapEvaStep: View {
     let isAuthenticated: Bool
     let isAdultEligible: Bool
@@ -27,23 +28,21 @@ struct LifeMapEvaStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
             LifeMapEyebrow("OPTIONAL · PRIVATE · RESUMABLE")
-            Text(isCloudReady ? "EVA is connected." : "Enable EVA with Apple.")
+            Text(isCloudReady ? "EVA is connected." : "Enable Cloud EVA.")
                 .font(.lifeboard(.heroDisplay))
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .minimumScaleFactor(0.75)
                 .fixedSize(horizontal: false, vertical: true)
             Text(isCloudReady
-                 ? "Your private cloud session is ready, with 100 credits to start. Choose anything extra EVA may look at — or continue and decide later."
-                 : "Sign in with Apple enables Cloud EVA without sharing your name or email. Apple confirms an 18+ age range; LifeBoard never asks for your birth date.")
+                 ? "Your private cloud session is ready, with a rolling allowance for successful answers."
+                 : "One confirmation creates a pseudonymous guest session. You can protect and sync it with Apple later.")
                 .font(.lifeboard(.title3))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
 
             requirements
 
-            if isCloudReady {
-                consentList
-            }
+            consentList
 
             if isWorking {
                 HStack(spacing: Theme.Spacing.sm) {
@@ -80,21 +79,21 @@ struct LifeMapEvaStep: View {
     private var requirements: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             LifeMapEvaRequirement(
-                symbol: "apple.logo",
-                title: "Sign in privately with Apple",
-                detail: "A nonce-bound session for this device",
+                symbol: "person.crop.circle.badge.plus",
+                title: "Create a private guest session",
+                detail: "No name, email, or installation ID becomes the account ID",
                 isComplete: isAuthenticated
             )
             LifeMapEvaRequirement(
                 symbol: "checkmark.shield.fill",
-                title: "Confirm adult eligibility",
-                detail: "Apple shares only an 18+ result",
+                title: "Available for ages 13+",
+                detail: "Known under-13 accounts are blocked",
                 isComplete: isAdultEligible
             )
             LifeMapEvaRequirement(
-                symbol: "creditcard.fill",
-                title: "Start with 100 credits",
-                detail: "Refills by 20 a day, capped at 100",
+                symbol: "clock.arrow.circlepath",
+                title: "Successful answers are limited",
+                detail: "Rolling window; failures do not count",
                 isComplete: isCloudReady
             )
         }
@@ -103,7 +102,7 @@ struct LifeMapEvaStep: View {
         .accessibilityIdentifier(LifeMapAccessibilityID.evaRequirements)
     }
 
-    /// Off by default, every one of them.
+    /// Preselected, but never sent until the activation button confirms them.
     ///
     /// These are the four categories that never travel with a normal request.
     /// Base context — tasks, projects, habits, a read-only calendar projection —

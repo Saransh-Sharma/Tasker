@@ -80,8 +80,8 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     ) {
         if let snapshot, snapshot.schemaVersion == LifeWeaveDraft.currentSchemaVersion {
             draft = snapshot
-        } else if let snapshot, snapshot.schemaVersion == 8 {
-            draft = LifeWeaveMigration.draft(fromV8: snapshot)
+        } else if let snapshot, (8..<LifeWeaveDraft.currentSchemaVersion).contains(snapshot.schemaVersion) {
+            draft = LifeWeaveMigration.draft(fromEarlierSchema: snapshot)
         } else if let legacySnapshot, legacySnapshot.schemaVersion == LifeMapDraft.currentSchemaVersion {
             draft = LifeWeaveMigration.draft(fromV5: legacySnapshot)
             // The v5 snapshot is left on disk deliberately. Turning the flag back
@@ -368,10 +368,27 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         update(&draft)
         persist()
     }
+
+    func toggleEvaGrant(_ grant: EvaConsentPolicy.Grant, enabled: Bool) {
+        var grants = draft.resolvedEvaGrants
+        if enabled { grants.insert(grant) }
+        else { grants.remove(grant) }
+        mutateDraft {
+            $0.evaSelectedGrantIDs = grants.map(\.rawValue).sorted()
+        }
+    }
+
+    func recordEvaActivation(ready: Bool, pending: Bool) {
+        mutateDraft {
+            $0.evaCloudReady = ready
+            $0.evaDeferred = ready == false
+            $0.evaActivationPending = pending
+        }
+    }
 }
 
 /// Seeds bounded local context and starter prompts after canonical onboarding
-/// writes. Provider activation belongs to the post-onboarding Setup Center.
+/// writes. Cloud activation is confirmed on the reveal after these local writes.
 @MainActor
 extension LifeWeaveOnboardingModel {
     func performEvaHandoff() async {

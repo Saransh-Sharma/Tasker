@@ -56,7 +56,7 @@ struct LifeWeaveDraft: Codable, Equatable {
     static let maximumLifeAreas = 5
     static let maximumBlockers = 2
 
-    static let currentSchemaVersion = 9
+    static let currentSchemaVersion = 10
 
     var schemaVersion = Self.currentSchemaVersion
     var step: LifeWeaveStep = .arrival
@@ -112,6 +112,11 @@ struct LifeWeaveDraft: Codable, Equatable {
     var healthWriteBackDomainIDs: [String] = []
     var evaCloudReady = false
     var evaDeferred = false
+    /// Optional for synthesized decoding of schema 8/9 drafts. New writes always
+    /// persist the selected grant identifiers so an interrupted reveal resumes
+    /// with exactly the choices the person saw.
+    var evaSelectedGrantIDs: [String]? = EvaConsentPolicy.Grant.allCases.map(\.rawValue)
+    var evaActivationPending: Bool? = false
 
     /// Guards the one-shot Life Map -> EVA profile write.
     var didWriteEvaProfile = false
@@ -132,6 +137,11 @@ struct LifeWeaveDraft: Codable, Equatable {
 
     /// The v5 vocabulary the commit path and the EVA mapper still speak.
     var desiredChange: LifeMapDesiredChange? { intent?.desiredChange }
+
+    var resolvedEvaGrants: Set<EvaConsentPolicy.Grant> {
+        let identifiers = evaSelectedGrantIDs ?? EvaConsentPolicy.Grant.allCases.map(\.rawValue)
+        return Set(identifiers.compactMap(EvaConsentPolicy.Grant.init(rawValue:)))
+    }
 
     var resolvedLifecyclePhase: LifeWeaveLifecyclePhase {
         lifecyclePhase ?? LifeWeaveMigration.lifecyclePhase(forV8: self)

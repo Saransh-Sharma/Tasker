@@ -112,7 +112,7 @@ struct EvaActivationIntroView: View {
             }
             .enhancedStaggeredAppearance(index: 2)
 
-            Text("Cloud EVA requires Sign in with Apple and an Apple 18+ age-range result. You choose which sensitive context may be shared.")
+            Text("Cloud EVA starts with a private guest session. You confirm which sensitive context may be shared, and can protect and sync EVA with Apple later.")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: .leading)
