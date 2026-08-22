@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [secrets]
-required = ["OPENAI_API_KEY", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY_P8", "APPLE_CLIENT_IDS", "APPLE_ROOT_CERTIFICATES_BASE64", "ACCOUNT_HMAC_KEY", "SESSION_SIGNING_PRIVATE_KEY", "TOKEN_ENCRYPTION_KEY", "CONFIG_SIGNING_PRIVATE_KEY", "APP_ATTEST_ENVIRONMENT"]
+required = ["OPENAI_API_KEY", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY_P8", "APPLE_DEVICECHECK_KEY_ID", "APPLE_DEVICECHECK_PRIVATE_KEY_P8", "APPLE_CLIENT_IDS", "APPLE_ROOT_CERTIFICATES_BASE64", "ACCOUNT_HMAC_KEY", "SESSION_SIGNING_PRIVATE_KEY", "TOKEN_ENCRYPTION_KEY", "CONFIG_SIGNING_PRIVATE_KEY", "APP_ATTEST_ENVIRONMENT"]
 
 [vars]
 ENVIRONMENT = "development"
@@ -59,6 +59,11 @@ name = "APPLE_EXCHANGE_RATE_LIMITER"
 namespace_id = "1004"
 simple = { limit = 5, period = 60 }
 
+[[ratelimits]]
+name = "GUEST_BOOTSTRAP_RATE_LIMITER"
+namespace_id = "1005"
+simple = { limit = 5, period = 60 }
+
 [[analytics_engine_datasets]]
 binding = "EVA_ANALYTICS"
 dataset = "eva_cloud_development"
@@ -68,7 +73,7 @@ name = "eva-cloud-staging"
 workers_dev = true
 
 [env.staging.secrets]
-required = ["OPENAI_API_KEY", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY_P8", "APPLE_CLIENT_IDS", "APPLE_ROOT_CERTIFICATES_BASE64", "ACCOUNT_HMAC_KEY", "SESSION_SIGNING_PRIVATE_KEY", "TOKEN_ENCRYPTION_KEY", "CONFIG_SIGNING_PRIVATE_KEY", "APP_ATTEST_ENVIRONMENT"]
+required = ["OPENAI_API_KEY", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY_P8", "APPLE_DEVICECHECK_KEY_ID", "APPLE_DEVICECHECK_PRIVATE_KEY_P8", "APPLE_CLIENT_IDS", "APPLE_ROOT_CERTIFICATES_BASE64", "ACCOUNT_HMAC_KEY", "SESSION_SIGNING_PRIVATE_KEY", "TOKEN_ENCRYPTION_KEY", "CONFIG_SIGNING_PRIVATE_KEY", "APP_ATTEST_ENVIRONMENT"]
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
@@ -118,6 +123,11 @@ name = "APPLE_EXCHANGE_RATE_LIMITER"
 namespace_id = "1104"
 simple = { limit = 5, period = 60 }
 
+[[env.staging.ratelimits]]
+name = "GUEST_BOOTSTRAP_RATE_LIMITER"
+namespace_id = "1105"
+simple = { limit = 5, period = 60 }
+
 [[env.staging.analytics_engine_datasets]]
 binding = "EVA_ANALYTICS"
 dataset = "eva_cloud_staging"
@@ -128,7 +138,7 @@ workers_dev = false
 routes = [{ pattern = "api.getlifeboard.app", custom_domain = true }]
 
 [env.production.secrets]
-required = ["OPENAI_API_KEY", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY_P8", "APPLE_CLIENT_IDS", "APPLE_ROOT_CERTIFICATES_BASE64", "ACCOUNT_HMAC_KEY", "SESSION_SIGNING_PRIVATE_KEY", "TOKEN_ENCRYPTION_KEY", "CONFIG_SIGNING_PRIVATE_KEY", "APP_ATTEST_ENVIRONMENT"]
+required = ["OPENAI_API_KEY", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY_P8", "APPLE_DEVICECHECK_KEY_ID", "APPLE_DEVICECHECK_PRIVATE_KEY_P8", "APPLE_CLIENT_IDS", "APPLE_ROOT_CERTIFICATES_BASE64", "ACCOUNT_HMAC_KEY", "SESSION_SIGNING_PRIVATE_KEY", "TOKEN_ENCRYPTION_KEY", "CONFIG_SIGNING_PRIVATE_KEY", "APP_ATTEST_ENVIRONMENT"]
 
 [env.production.vars]
 ENVIRONMENT = "production"
@@ -176,6 +186,11 @@ simple = { limit = 10, period = 60 }
 [[env.production.ratelimits]]
 name = "APPLE_EXCHANGE_RATE_LIMITER"
 namespace_id = "1204"
+simple = { limit = 5, period = 60 }
+
+[[env.production.ratelimits]]
+name = "GUEST_BOOTSTRAP_RATE_LIMITER"
+namespace_id = "1205"
 simple = { limit = 5, period = 60 }
 
 [[env.production.analytics_engine_datasets]]

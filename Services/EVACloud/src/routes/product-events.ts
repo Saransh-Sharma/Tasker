@@ -13,6 +13,9 @@ const eventNames = [
   'evaActivationFailed', 'evaActivationDismissed', 'memoryProposalShown', 'memoryProposalSaved',
   'memoryProposalEdited', 'memoryProposalDeferred', 'memoryProposalDismissed', 'contextReceiptOpened',
   'contextSourceExcluded', 'contextSourceRestored', 'contextConsentChanged',
+  'evaActivationReviewConfirmed', 'evaGuestBootstrapStarted', 'evaGuestBootstrapSucceeded',
+  'evaGuestBootstrapFailed', 'evaFirstPromptSent', 'evaFirstAnswerCompleted', 'evaAppleLinkStarted',
+  'evaAppleLinkSucceeded', 'evaAppleLinkFailed', 'evaQuotaExhausted', 'evaTrustTierObserved',
 ] as const
 
 const ProductEventSchema = Type.Object({

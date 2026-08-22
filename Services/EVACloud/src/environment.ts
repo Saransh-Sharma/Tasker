@@ -11,6 +11,7 @@ export interface Env {
   CONFIG_RATE_LIMITER: RateLimitBinding
   AUTH_CHALLENGE_RATE_LIMITER: RateLimitBinding
   APPLE_EXCHANGE_RATE_LIMITER: RateLimitBinding
+  GUEST_BOOTSTRAP_RATE_LIMITER: RateLimitBinding
   EVA_ANALYTICS: AnalyticsEngineDataset
 
   ENVIRONMENT: 'development' | 'staging' | 'production'
@@ -28,6 +29,8 @@ export interface Env {
   APPLE_TEAM_ID: string
   APPLE_KEY_ID: string
   APPLE_PRIVATE_KEY_P8: string
+  APPLE_DEVICECHECK_KEY_ID: string
+  APPLE_DEVICECHECK_PRIVATE_KEY_P8: string
   APPLE_CLIENT_IDS: string
   APPLE_ROOT_CERTIFICATES_BASE64: string
   ACCOUNT_HMAC_KEY: string
@@ -43,6 +46,7 @@ export interface SessionPrincipal {
   installationId: string
   platform: 'ios' | 'catalyst'
   authenticatedAt: number
+  identityKind: 'guest' | 'apple'
 }
 
 export type AppVariables = {

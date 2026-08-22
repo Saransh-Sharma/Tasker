@@ -30,11 +30,16 @@ app.use('*', async (context, next) => {
   if (context.req.method === 'OPTIONS') {
     throw new EvaHttpError(405, 'input_rejected', 'Cross-origin preflight requests are not supported.')
   }
-  const limiter = limiterForPath(context.env, context.req.path)
-  const limited = await limiter.limit({
-    key: `${context.req.header('CF-Connecting-IP') ?? 'unknown'}:${new URL(context.req.url).pathname}`,
-  })
-  if (!limited.success) {
+  const ip = context.req.header('CF-Connecting-IP') ?? 'unknown'
+  const path = new URL(context.req.url).pathname
+  const edge = await context.env.EDGE_RATE_LIMITER.limit({ key: `${ip}:${path}` })
+  const specialized = limiterForPath(context.env, context.req.path)
+  const specializedResult = specialized === undefined
+    ? edge
+    : await specialized.limit({
+      key: path === '/v1/auth/guest/bootstrap' ? `${networkPrefix(ip)}:${path}` : `${ip}:${path}`,
+    })
+  if (!edge.success || !specializedResult.success) {
     throw new EvaHttpError(429, 'rate_limited', 'Too many requests. Try again shortly.', {
       retryable: true, retryAfter: 60, recoveryAction: 'wait',
     })
@@ -107,9 +112,19 @@ app.onError((error, context) => {
 
 export default app
 
-function limiterForPath(env: Env, path: string): Env['EDGE_RATE_LIMITER'] {
+function limiterForPath(env: Env, path: string): Env['EDGE_RATE_LIMITER'] | undefined {
   if (path === '/v1/eva/config') return env.CONFIG_RATE_LIMITER
   if (path === '/v1/auth/challenge') return env.AUTH_CHALLENGE_RATE_LIMITER
+  if (path === '/v1/auth/refresh') return env.AUTH_CHALLENGE_RATE_LIMITER
   if (path === '/v1/auth/apple/exchange') return env.APPLE_EXCHANGE_RATE_LIMITER
-  return env.EDGE_RATE_LIMITER
+  if (path === '/v1/auth/guest/bootstrap') return env.GUEST_BOOTSTRAP_RATE_LIMITER
+  if (path === '/v1/auth/apple/link') return env.APPLE_EXCHANGE_RATE_LIMITER
+  if (path === '/v1/auth/apple/reauthenticate') return env.APPLE_EXCHANGE_RATE_LIMITER
+  return undefined
+}
+
+function networkPrefix(ip: string): string {
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/u.test(ip)) return ip.split('.').slice(0, 3).join('.') + '.0/24'
+  if (ip.includes(':')) return ip.split(':').slice(0, 4).join(':') + '::/64'
+  return ip
 }

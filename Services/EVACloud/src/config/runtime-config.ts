@@ -26,7 +26,7 @@ const RoutePolicySchema = Type.Object({
 }, { additionalProperties: false })
 
 const routes = [
-  'chat', 'plan', 'planRepair', 'fieldSuggestion', 'topThree', 'taskBreakdown', 'dailyBrief',
+  'chat', 'capture', 'navigation', 'plan', 'planRepair', 'fieldSuggestion', 'topThree', 'taskBreakdown', 'dailyBrief',
   'universalInputClassification', 'dynamicChips', 'journalAnswer', 'knowledgeAnswer',
   'shortcutsAnswer', 'debugSmoke', 'memoryCandidate',
 ] as const satisfies readonly EvaRoute[]
@@ -48,13 +48,29 @@ export const EvaRuntimeConfigSchema = Type.Object({
   speechModel: Type.Literal('tts-1'),
   speechVoice: Type.Literal('nova'),
   minimumClientVersion: Type.String({ minLength: 1, maxLength: 64 }),
-  contractVersions: Type.Tuple([Type.Literal(1), Type.Literal(2), Type.Literal(3)]),
+  contractVersions: Type.Tuple([Type.Literal(1), Type.Literal(2), Type.Literal(3), Type.Literal(4)]),
   appRuntime: Type.Object({
     onboardingLifeWeaveV6Enabled: Type.Boolean(),
     existingUserRefreshVersion: Type.Integer({ minimum: 1, maximum: 100 }),
     existingUserRefreshEnabled: Type.Boolean(),
     productEventsEnabled: Type.Boolean(),
   }, { additionalProperties: false }),
+  guestAccess: Type.Optional(Type.Object({
+    bootstrapEnabled: Type.Boolean(),
+    inferenceEnabled: Type.Boolean(),
+    appleLinkingEnabled: Type.Boolean(),
+    rolloutPercent: Type.Integer({ minimum: 0, maximum: 100 }),
+  }, { additionalProperties: false })),
+  usagePolicy: Type.Optional(Type.Object({
+    billableLimit: Type.Integer({ minimum: 1, maximum: 100 }),
+    helperLimit: Type.Integer({ minimum: 1, maximum: 1_000 }),
+    rollingWindowSeconds: Type.Integer({ minimum: 3_600, maximum: 604_800 }),
+  }, { additionalProperties: false })),
+  agePolicy: Type.Optional(Type.Object({
+    minimumAge: Type.Literal(13),
+    unknownAgeAllowed: Type.Boolean(),
+    requiredRegionFailClosed: Type.Boolean(),
+  }, { additionalProperties: false })),
   creditPolicy: Type.Object({
     initial: Type.Literal(100),
     capacity: Type.Literal(100),
@@ -76,6 +92,18 @@ export const EvaRuntimeConfigSchema = Type.Object({
 }, { $id: 'EvaRuntimeConfigurationV2', additionalProperties: false })
 
 export type EvaRuntimeConfig = Static<typeof EvaRuntimeConfigSchema>
+
+/** The server owns this decision. Clients may present regional age UI, but a
+ * modified or stale client cannot relax an enabled fail-closed policy. */
+export function requiresAgeDecision(config: EvaRuntimeConfig): boolean {
+  // A disabled cloud configuration must stay disabled without turning account
+  // recovery/deletion screens into an age-verification dead end. Inference
+  // routes reject the disabled state before authorization.
+  return config.cloudState !== 'disabled' && (
+    config.agePolicy?.requiredRegionFailClosed === true
+    || config.agePolicy?.unknownAgeAllowed === false
+  )
+}
 
 const route = (
   inputTokenCap: number,
@@ -104,13 +132,21 @@ export function failClosedRuntimeConfig(env: Env): EvaRuntimeConfig {
     speechModel: 'tts-1',
     speechVoice: 'nova',
     minimumClientVersion: env.MINIMUM_CLIENT_VERSION,
-    contractVersions: [1, 2, 3],
+    contractVersions: [1, 2, 3, 4],
     appRuntime: {
       onboardingLifeWeaveV6Enabled: true,
       existingUserRefreshVersion: 1,
       existingUserRefreshEnabled: true,
       productEventsEnabled: true,
     },
+    guestAccess: {
+      bootstrapEnabled: false,
+      inferenceEnabled: false,
+      appleLinkingEnabled: false,
+      rolloutPercent: 0,
+    },
+    usagePolicy: { billableLimit: 20, helperLimit: 100, rollingWindowSeconds: 86_400 },
+    agePolicy: { minimumAge: 13, unknownAgeAllowed: true, requiredRegionFailClosed: true },
     creditPolicy: { initial: 100, capacity: 100, refillAmount: 20, refillPeriodSeconds: 86_400 },
     // Values mirror the official model pages fetched on 2026-08-16, but stay
     // unapproved until checked against the actual OpenAI project billing page.
@@ -130,6 +166,8 @@ export function failClosedRuntimeConfig(env: Env): EvaRuntimeConfig {
       // reasoning work rather than retrieval; 'low' was chosen when the client
       // could only send ~1,500 tokens and there was nothing to reason over.
       chat: route(16_000, 2_048, 'medium', true, false),
+      capture: route(8_000, 1_200, 'low', true, true),
+      navigation: route(4_000, 512, 'none', false, true),
       plan: route(32_000, 4_096, 'medium', true, true),
       planRepair: route(32_000, 4_096, 'low', false, true),
       fieldSuggestion: route(8_000, 1_200, 'low', false, true),

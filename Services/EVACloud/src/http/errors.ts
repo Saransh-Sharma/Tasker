@@ -1,4 +1,4 @@
-import type { EvaCreditState, EvaErrorCode, EvaErrorEnvelope } from '@lifeboard/eva-contracts'
+import type { EvaCreditState, EvaErrorCode, EvaErrorEnvelope, EvaQuotaStateV1 } from '@lifeboard/eva-contracts'
 
 export class EvaHttpError extends Error {
   constructor(
@@ -9,6 +9,7 @@ export class EvaHttpError extends Error {
       retryable?: boolean
       retryAfter?: number
       credits?: EvaCreditState
+      quota?: EvaQuotaStateV1
       recoveryAction?: EvaErrorEnvelope['recoveryAction']
       /** Top-level schema field names only. Never include field values. */
       rejectedFields?: readonly string[]
@@ -25,6 +26,7 @@ export class EvaHttpError extends Error {
       retryable: this.options.retryable ?? false,
       ...(this.options.retryAfter === undefined ? {} : { retryAfter: this.options.retryAfter }),
       ...(this.options.credits === undefined ? {} : { credits: this.options.credits }),
+      ...(this.options.quota === undefined ? {} : { quota: this.options.quota }),
       ...(this.options.recoveryAction === undefined ? {} : { recoveryAction: this.options.recoveryAction }),
     }
   }
