@@ -8,6 +8,7 @@ struct InsightsEvidenceDisclosure: View {
     let events: [NormalizedLifeEvent]
     let focusedEvidenceID: UUID?
     let open: (EvidenceReference) -> Void
+    let exclude: (NormalizedLifeEvent) -> Void
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
@@ -17,7 +18,9 @@ struct InsightsEvidenceDisclosure: View {
                     .lifeboardFont(.caption1)
                     .foregroundStyle(.secondary)
                 ForEach(events) { event in
-                    EvidenceRow(event: event) { evidence in open(evidence) }
+                    EvidenceRow(event: event, onOpenEvidence: open) {
+                        exclude(event)
+                    }
                         .id(event.sourceID)
                         .background {
                             if event.sourceID == focusedEvidenceID {

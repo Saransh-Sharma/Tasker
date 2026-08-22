@@ -462,6 +462,7 @@ public struct FoundationShell: View {
         destination != .eva
             && activeScreenMode != .focused
             && activeScreenMode != .editor
+            && activeScreenMode != .utility
             && (destination != .home || dynamicTypeSize.isAccessibilitySize == false)
     }
 

@@ -257,6 +257,16 @@ public enum SignatureShaders {
     /// See `SignatureShaderComfortGate.swift` for why the comfort gate is folded
     /// in here and not into `performancePermits`, and for what is deliberately
     /// left to the individual modifiers.
+    ///
+    /// **Never read this from a `View` or `ViewModifier` body.** It is a plain
+    /// `static var`, so a read from a body is not an observation-tracked access.
+    /// Warm-up is a detached `Task`, so the first render of every effect saw
+    /// `preloadDidFinish == false`, took its fallback branch, and was never
+    /// invalidated when the shaders became available — which is why almost none
+    /// of the signature effects in this file were reaching the screen. Bodies
+    /// read `\.lifeBoardShaderReadiness` instead; `ResolvedMotionRootModifier`
+    /// owns the one observation-tracked read of the store and republishes it
+    /// into the environment, invalidating everything below it.
     public static var isReadyForRendering: Bool {
         performancePermits && ShaderReadiness.comfortPermits && preloadDidFinish
     }
@@ -359,6 +369,7 @@ struct DaypartBloomModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     @State private var startDate: Date?
 
@@ -368,14 +379,14 @@ struct DaypartBloomModifier: ViewModifier {
         content
             .overlay { bloomOverlay }
             .onChange(of: trigger) { _, _ in
-                guard sceneIsActive, SignatureShaders.isReadyForRendering else { return }
+                guard sceneIsActive, shaderReadiness else { return }
                 startDate = Date()
             }
     }
 
     @ViewBuilder
     private var bloomOverlay: some View {
-        if let startDate, sceneIsActive, SignatureShaders.isReadyForRendering, reduceMotion == false, reduceTransparency == false {
+        if let startDate, sceneIsActive, shaderReadiness, reduceMotion == false, reduceTransparency == false {
             TimelineView(.animation) { context in
                 let elapsed = context.date.timeIntervalSince(startDate)
                 if elapsed <= duration {
@@ -441,6 +452,7 @@ struct EvaInkRevealModifier: ViewModifier, @preconcurrency Animatable {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     @State private var appearDate = Date()
 
@@ -450,7 +462,7 @@ struct EvaInkRevealModifier: ViewModifier, @preconcurrency Animatable {
     }
 
     func body(content: Content) -> some View {
-        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
+        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || shaderReadiness == false {
             // Settled or degraded: fully static text, no shimmer.
             content
         } else if reduceMotion {
@@ -490,6 +502,7 @@ struct JournalMediaRevealModifier: ViewModifier, @preconcurrency Animatable {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     var animatableData: Double {
         get { progress }
@@ -497,7 +510,7 @@ struct JournalMediaRevealModifier: ViewModifier, @preconcurrency Animatable {
     }
 
     func body(content: Content) -> some View {
-        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
+        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || shaderReadiness == false {
             content
         } else if reduceMotion {
             // Reduce Motion: simple cross-fade instead of an aperture.
@@ -523,6 +536,7 @@ private struct MemoryDevelopRevealModifier: ViewModifier, @preconcurrency Animat
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     var animatableData: Double {
         get { progress }
@@ -531,7 +545,7 @@ private struct MemoryDevelopRevealModifier: ViewModifier, @preconcurrency Animat
 
     func body(content: Content) -> some View {
         let settled = min(1, max(0, progress))
-        if settled >= 1 || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
+        if settled >= 1 || reduceTransparency || sceneIsActive == false || shaderReadiness == false {
             content
         } else if reduceMotion {
             content.opacity(settled)
@@ -555,9 +569,10 @@ private struct FastingEmberRingModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     func body(content: Content) -> some View {
-        if reduceMotion || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
+        if reduceMotion || reduceTransparency || sceneIsActive == false || shaderReadiness == false {
             content
         } else {
             TimelineView(.animation(minimumInterval: 1 / 30, paused: sceneIsActive == false)) { context in
@@ -597,6 +612,7 @@ private struct HealthSyncPulseModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
     @State private var startDate: Date?
 
     func body(content: Content) -> some View {
@@ -605,7 +621,7 @@ private struct HealthSyncPulseModifier: ViewModifier {
                 if let startDate {
                     TimelineView(.animation) { context in
                         let progress = min(1, context.date.timeIntervalSince(startDate) / 0.52)
-                        if reduceMotion || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
+                        if reduceMotion || reduceTransparency || sceneIsActive == false || shaderReadiness == false {
                             Color.lifeboard(.statusSuccess)
                                 .opacity(0.12 * (1 - progress))
                                 .scaleEffect(0.98 + progress * 0.02)
@@ -642,6 +658,7 @@ private struct VitalOrbWarpModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
     @State private var startDate: Date?
     /// Resolved once, when the trigger fires. Reading `usesFallback` from inside
     /// the timeline let a pass that mounted before `SignatureShaders.warmUp()`
@@ -694,7 +711,7 @@ private struct VitalOrbWarpModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 
@@ -709,6 +726,7 @@ private struct ContextLensModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
     @State private var startDate: Date?
     /// Resolved once, when the trigger fires — see `VitalOrbWarpModifier`.
     @State private var usesShader = false
@@ -759,7 +777,7 @@ private struct ContextLensModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 
@@ -937,6 +955,7 @@ struct TriageSettleModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     @State private var startDate: Date?
     private let duration: TimeInterval = 0.48
@@ -991,7 +1010,7 @@ struct TriageSettleModifier: ViewModifier {
         true
 #else
         reduceMotion || reduceTransparency
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
 #endif
     }
 }
@@ -1025,6 +1044,7 @@ struct TaskLandingCausticModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     @State private var startDate: Date?
     private let duration: TimeInterval = 0.42
@@ -1074,7 +1094,7 @@ struct TaskLandingCausticModifier: ViewModifier {
     }
 
     private var usesFallback: Bool {
-        reduceMotion || reduceTransparency || SignatureShaders.isReadyForRendering == false
+        reduceMotion || reduceTransparency || shaderReadiness == false
     }
 }
 
@@ -1097,6 +1117,7 @@ struct ChartRevealSweepModifier: ViewModifier {
     let progress: Double
     let reduceMotion: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     func body(content: Content) -> some View {
         // A settled chart carries no shader at all, so there is no residual
@@ -1120,7 +1141,7 @@ struct ChartRevealSweepModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 
@@ -1152,6 +1173,7 @@ struct LiquidGlassRefractModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     func body(content: Content) -> some View {
         if usesFallback || strength <= 0.001 {
@@ -1176,7 +1198,7 @@ struct LiquidGlassRefractModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 
@@ -1205,6 +1227,7 @@ struct CardMorphWarpModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
     @State private var startDate: Date?
 
     private let duration: TimeInterval = 0.38
@@ -1246,7 +1269,7 @@ struct CardMorphWarpModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 
@@ -1269,11 +1292,12 @@ struct PaperGrainModifier: ViewModifier {
     let intensity: Double
     let reduceTransparency: Bool
     let increasedContrast: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     func body(content: Content) -> some View {
         // Grain is texture, not information. Increased Contrast removes it so
         // it can never eat into a text/background ratio.
-        if increasedContrast || reduceTransparency || SignatureShaders.isReadyForRendering == false {
+        if increasedContrast || reduceTransparency || shaderReadiness == false {
             content
         } else {
             content.layerEffect(
@@ -1327,10 +1351,11 @@ private struct AmbientDriftModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 
     func body(content: Content) -> some View {
@@ -1380,6 +1405,7 @@ struct DissolveAwayModifier: ViewModifier {
     let tint: Color
     let reduceMotion: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     func body(content: Content) -> some View {
         if usesFallback {
@@ -1405,7 +1431,7 @@ struct DissolveAwayModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 
@@ -1539,6 +1565,7 @@ private struct ClayPressBloomModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
     @State private var startDate: Date?
 
     private static let duration: TimeInterval = 0.44
@@ -1582,7 +1609,7 @@ private struct ClayPressBloomModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 
@@ -1598,6 +1625,7 @@ private struct DaypartCrossDissolveModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
     @State private var startDate: Date?
 
     private static let duration: TimeInterval = 0.9
@@ -1647,7 +1675,7 @@ private struct DaypartCrossDissolveModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 
@@ -1662,6 +1690,7 @@ private struct CompletionBurstModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
     @State private var startDate: Date?
 
     private static let duration: TimeInterval = 0.6
@@ -1704,7 +1733,7 @@ private struct CompletionBurstModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 
@@ -1823,6 +1852,7 @@ struct FirstLightModifier: ViewModifier {
     let tint: Color
     let reduceMotion: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     /// Matches `LifeBoardAnimation.firstLight` so the sweep and whatever the
     /// caller animates alongside it finish together.
@@ -1874,7 +1904,7 @@ struct FirstLightModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 
@@ -1904,6 +1934,7 @@ struct ValueDrumWarpModifier: ViewModifier {
     let reduceMotion: Bool
     let reduceTransparency: Bool
     let sceneIsActive: Bool
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     func body(content: Content) -> some View {
         // No `TimelineView`, unlike every other travelling effect in this file.
@@ -1931,7 +1962,7 @@ struct ValueDrumWarpModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 }
 public extension View {

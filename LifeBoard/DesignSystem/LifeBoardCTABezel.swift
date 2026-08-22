@@ -306,6 +306,9 @@ private struct CTABezelOverlay: View {
     let highContrast: Bool
     let reduceMotion: Bool
 
+    /// Observed, not static — see `SignatureShaders.isReadyForRendering`.
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
+
     private var reduceTransparency: Bool {
         UIAccessibility.isReduceTransparencyEnabled
     }
@@ -558,7 +561,7 @@ private struct CTABezelOverlay: View {
             // never verified it existed at all. Both are fixed together: adding
             // the name makes preload all-or-nothing, which is only safe once the
             // call site actually waits for that verdict.
-            if reduceTransparency == false, SignatureShaders.isReadyForRendering {
+            if reduceTransparency == false, shaderReadiness {
                 let shader = Shader(
                     function: ShaderFunction(library: .default, name: "LifeBoardLiquidMetalBezel"),
                     arguments: [

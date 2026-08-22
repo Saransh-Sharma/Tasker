@@ -1,4 +1,5 @@
 import Foundation
+import LifeBoardDomain
 import Observation
 
 public enum RoutineCollectionFocus: Codable, Hashable, Sendable {
@@ -121,6 +122,129 @@ public enum AppRoute: Codable, Hashable, Sendable {
             .focused
         default:
             .detail
+        }
+    }
+}
+
+public struct ResolvedRecordRoute: Equatable, Sendable {
+    public let destination: Destination
+    public let route: AppRoute
+    public let requiresProtectedJournalOpen: Bool
+}
+
+/// The single translation boundary from durable domain references to UI routes.
+/// Cloud output and persisted cards never carry `AppRoute` values directly.
+public enum RecordRouteResolver {
+    public static func resolve(_ reference: EvaRecordReference) -> ResolvedRecordRoute {
+        let id = reference.recordID
+        switch reference.kind {
+        case .task:
+            return .init(destination: .home, route: .taskDetail(id), requiresProtectedJournalOpen: false)
+        case .project:
+            return .init(destination: .plan, route: .project(id), requiresProtectedJournalOpen: false)
+        case .habit:
+            return .init(destination: .track, route: .habitDetail(id), requiresProtectedJournalOpen: false)
+        case .tracker:
+            return .init(destination: .track, route: .trackerDetail(id), requiresProtectedJournalOpen: false)
+        case .routine:
+            return .init(destination: .track, route: .routine(id), requiresProtectedJournalOpen: false)
+        case .goal:
+            return .init(destination: .track, route: .goal(id), requiresProtectedJournalOpen: false)
+        case .journal:
+            return .init(destination: .track, route: .journalDay(id), requiresProtectedJournalOpen: true)
+        case .note:
+            return .init(destination: .track, route: .note(id), requiresProtectedJournalOpen: false)
+        case .knowledgeFolder:
+            return .init(destination: .track, route: .notesLibrary(.folder(id)), requiresProtectedJournalOpen: false)
+        case .focusSession:
+            return .init(destination: .plan, route: .focusSession(id), requiresProtectedJournalOpen: false)
+        case .lifeMoment:
+            return .init(destination: .track, route: .lifeMoments(.moment(id)), requiresProtectedJournalOpen: false)
+        case .bodyMetric:
+            return .init(destination: .track, route: .wellness(.bodyMetric(.bodyMass)), requiresProtectedJournalOpen: false)
+        case .hydration, .mood, .sleep, .medication:
+            return .init(destination: .track, route: .trackHistory, requiresProtectedJournalOpen: false)
+        case .insight:
+            return .init(destination: .insights, route: .insightEvidence(id), requiresProtectedJournalOpen: false)
+        }
+    }
+
+    @MainActor
+    public static func open(_ reference: EvaRecordReference, with router: AppRouter) {
+        let resolved = resolve(reference)
+        if resolved.requiresProtectedJournalOpen {
+            router.openProtectedJournalRoute(resolved.route, in: resolved.destination)
+        } else {
+            router.openLeaf(resolved.route, in: resolved.destination)
+        }
+    }
+
+    public static func reference(for evidence: EvidenceReference) -> EvaRecordReference? {
+        let kind: RecordKind
+        switch evidence.kind.lowercased() {
+        case "task", "plan": kind = .task
+        case "habit": kind = .habit
+        case "tracker", "care": kind = .tracker
+        case "routine": kind = .routine
+        case "goal": kind = .goal
+        case "journal": kind = .journal
+        case "focus": kind = .focusSession
+        case "hydration": kind = .hydration
+        case "mood": kind = .mood
+        case "sleep": kind = .sleep
+        case "medication": kind = .medication
+        default: return nil
+        }
+        return EvaRecordReference(
+            kind: kind,
+            recordID: evidence.routeID ?? evidence.sourceID,
+            title: evidence.display
+        )
+    }
+}
+
+public struct ResolvedEvaNavigationTarget: Equatable, Sendable {
+    public let destination: Destination
+    public let route: AppRoute?
+    public let requiresProtectedJournalOpen: Bool
+}
+
+public enum EvaNavigationTargetResolver {
+    public static func resolve(_ target: EvaNavigationTarget) -> ResolvedEvaNavigationTarget {
+        switch target {
+        case .home, .today: .init(destination: .home, route: nil, requiresProtectedJournalOpen: false)
+        case .dayPlan: .init(destination: .plan, route: .planDay, requiresProtectedJournalOpen: false)
+        case .weekPlan: .init(destination: .plan, route: .planWeek, requiresProtectedJournalOpen: false)
+        case .weeklyReview: .init(destination: .plan, route: .weeklyReview, requiresProtectedJournalOpen: false)
+        case .backlog: .init(destination: .plan, route: .backlog, requiresProtectedJournalOpen: false)
+        case .focus: .init(destination: .plan, route: .focusSession(nil), requiresProtectedJournalOpen: false)
+        case .habits: .init(destination: .track, route: .habitBoard, requiresProtectedJournalOpen: false)
+        case .trackers: .init(destination: .track, route: .careLibrary, requiresProtectedJournalOpen: false)
+        case .journal: .init(destination: .track, route: .journalSearch, requiresProtectedJournalOpen: true)
+        case .notes: .init(destination: .track, route: .notesLibrary(.collection(.all)), requiresProtectedJournalOpen: false)
+        case .goals: .init(destination: .track, route: .goals, requiresProtectedJournalOpen: false)
+        case .routines: .init(destination: .track, route: .routines(.library), requiresProtectedJournalOpen: false)
+        case .lifeMoments: .init(destination: .track, route: .lifeMoments(.overview), requiresProtectedJournalOpen: false)
+        case .wellness: .init(destination: .track, route: .wellness(.bodyMetric(.bodyMass)), requiresProtectedJournalOpen: false)
+        case .nutrition: .init(destination: .track, route: .nutrition(.dailySummary), requiresProtectedJournalOpen: false)
+        case .fasting: .init(destination: .track, route: .fasting, requiresProtectedJournalOpen: false)
+        case .insights: .init(destination: .insights, route: nil, requiresProtectedJournalOpen: false)
+        case .settings: .init(destination: .eva, route: .settings, requiresProtectedJournalOpen: false)
+        case .eva: .init(destination: .eva, route: nil, requiresProtectedJournalOpen: false)
+        }
+    }
+
+    @MainActor
+    public static func open(_ target: EvaNavigationTarget, with router: AppRouter) {
+        let resolved = resolve(target)
+        guard let route = resolved.route else {
+            router.activateRoot(resolved.destination)
+            return
+        }
+        if resolved.requiresProtectedJournalOpen {
+            router.openProtectedJournalRoute(route, in: resolved.destination)
+        } else {
+            router.openLeaf(route, in: resolved.destination)
         }
     }
 }
@@ -625,7 +749,7 @@ public final class AppRouter {
                     restoreFallbackToHome(message: "That habit link is incomplete or no longer available.")
                     return true
                 }
-                push(.habitDetail(id), in: .track)
+                RecordRouteResolver.open(.init(kind: .habit, recordID: id, title: "Habit"), with: self)
             default:
                 restoreFallbackToHome(message: "That habit destination is unavailable. Opened Home instead.")
             }
@@ -634,7 +758,7 @@ public final class AppRouter {
                 restoreFallbackToHome(message: "That habit link is incomplete or no longer available.")
                 return true
             }
-            push(.habitDetail(id), in: .track)
+            RecordRouteResolver.open(.init(kind: .habit, recordID: id, title: "Habit"), with: self)
         case "insights":
             select(.insights)
         case "chat", "eva":
@@ -644,7 +768,7 @@ public final class AppRouter {
                 push(.journalSearch, in: .track)
                 return true
             }
-            openProtectedJournalRoute(.journalDay(id), in: .track)
+            RecordRouteResolver.open(.init(kind: .journal, recordID: id, title: "Journal entry"), with: self)
         case "reflection":
             let weekStart = url.queryValue(named: "weekStart")
                 .flatMap(Self.deepLinkDateFormatter.date(from:))
@@ -655,7 +779,7 @@ public final class AppRouter {
                 push(.careLibrary, in: .track)
                 return true
             }
-            push(.trackerDetail(id), in: .track)
+            RecordRouteResolver.open(.init(kind: .tracker, recordID: id, title: "Tracker"), with: self)
         case "care":
             push(.careLibrary, in: .track)
         case "wellness":
@@ -706,7 +830,7 @@ public final class AppRouter {
                 )
                 return true
             }
-            push(.note(id), in: .track)
+            RecordRouteResolver.open(.init(kind: .note, recordID: id, title: "Note"), with: self)
         case "notes":
             let collection = url.queryValue(named: "collection")
                 .flatMap(KnowledgeNoteCollection.init(rawValue:))
@@ -732,7 +856,7 @@ public final class AppRouter {
                 select(.plan)
                 return true
             }
-            push(.project(id), in: .plan)
+            RecordRouteResolver.open(.init(kind: .project, recordID: id, title: "Project"), with: self)
         case "routines":
             let focus = url.queryValue(named: "daypart")
                 .flatMap(ResolvedDaypart.init(rawValue:))
@@ -744,7 +868,7 @@ public final class AppRouter {
                 openLeaf(.routines(.library), in: .track)
                 return true
             }
-            openLeaf(.routine(id), in: .track)
+            RecordRouteResolver.open(.init(kind: .routine, recordID: id, title: "Routine"), with: self)
         case "goals":
             openLeaf(.goals, in: .track)
         case "goal":
@@ -752,7 +876,7 @@ public final class AppRouter {
                 openLeaf(.goals, in: .track)
                 return true
             }
-            openLeaf(.goal(id), in: .track)
+            RecordRouteResolver.open(.init(kind: .goal, recordID: id, title: "Goal"), with: self)
         case "moments":
             let focus: LifeMomentsFocus = segments.first?.lowercased() == "add" ? .add : .overview
             openLeaf(.lifeMoments(focus), in: .track)
@@ -761,7 +885,7 @@ public final class AppRouter {
                 openLeaf(.lifeMoments(.overview), in: .track)
                 return true
             }
-            openLeaf(.lifeMoments(.moment(id)), in: .track)
+            RecordRouteResolver.open(.init(kind: .lifeMoment, recordID: id, title: "Life moment"), with: self)
         case "settings":
             push(.settings, in: selectedDestination)
         case "quickadd":
@@ -771,7 +895,7 @@ public final class AppRouter {
                 restoreFallbackToHome(message: "That task link is incomplete or no longer available.")
                 return true
             }
-            push(.taskDetail(id), in: .home)
+            RecordRouteResolver.open(.init(kind: .task, recordID: id, title: "Task"), with: self)
         case "tasks":
             switch segments.first?.lowercased() {
             case nil, "today":
@@ -935,11 +1059,16 @@ private extension URL {
 public enum SpotlightRouteTranslator {
     public static let journalPrefix = "lifeboard-journal-"
 
-    public static func url(for searchableItemIdentifier: String) -> URL? {
+    public static func reference(for searchableItemIdentifier: String) -> EvaRecordReference? {
         guard searchableItemIdentifier.hasPrefix(journalPrefix) else { return nil }
         let rawID = String(searchableItemIdentifier.dropFirst(journalPrefix.count))
         guard let id = UUID(uuidString: rawID) else { return nil }
-        return URL(string: "lifeboard://journal/\(id.uuidString)")
+        return EvaRecordReference(kind: .journal, recordID: id, title: "Journal entry")
+    }
+
+    public static func url(for searchableItemIdentifier: String) -> URL? {
+        guard let reference = reference(for: searchableItemIdentifier) else { return nil }
+        return URL(string: "lifeboard://journal/\(reference.recordID.uuidString)")
     }
 }
 

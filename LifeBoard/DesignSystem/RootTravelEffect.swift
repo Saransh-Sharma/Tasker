@@ -26,12 +26,14 @@ private struct RootTravelModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.scenePhase) private var scenePhase
+    /// Observed, not static — see `SignatureShaders.isReadyForRendering`.
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
     private var usesFallback: Bool {
         MotionOverride.resolve(reduceMotion)
             || reduceTransparency
             || scenePhase != .active
-            || SignatureShaders.isReadyForRendering == false
+            || shaderReadiness == false
     }
 
     func body(content: Content) -> some View {

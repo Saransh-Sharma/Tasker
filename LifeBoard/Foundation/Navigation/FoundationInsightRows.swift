@@ -28,6 +28,7 @@ struct InsightMetric: View {
 struct EvidenceRow: View {
     let event: NormalizedLifeEvent
     let onOpenEvidence: (EvidenceReference) -> Void
+    let onExclude: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -56,6 +57,15 @@ struct EvidenceRow: View {
             }
             Spacer(minLength: 8)
             if let value = event.numericValue { Text(value.formatted()).font(.headline.monospacedDigit()) }
+            Menu {
+                Button("Don't use this signal", systemImage: "eye.slash", role: .destructive) {
+                    onExclude()
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .frame(width: 32, height: 32)
+            }
+            .accessibilityLabel("Evidence controls")
         }
         .padding(.vertical, 12)
         .overlay(alignment: .bottom) { Divider().opacity(0.55) }

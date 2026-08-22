@@ -157,6 +157,10 @@ public struct HeroSurfaceModifier: ViewModifier {
                     .background(scrim, in: shape)
                     .lifeBoardSystemGlass(.regular, in: shape)
                     .lifeBoardSpecularRim(.floating, cornerRadius: cornerRadius)
+                    // Only the glass arm settles. The effect is *about* glass
+                    // arriving, so the opaque fallback staying still is correct
+                    // rather than a degradation.
+                    .modifier(HeroGlassSettleModifier())
             } else {
                 content
                     .lifeBoardClaySurface(.floating, cornerRadius: cornerRadius)
@@ -212,5 +216,80 @@ public extension View {
         cornerRadius: CGFloat = Radius.hero
     ) -> some View {
         modifier(HeroSurfaceModifier(palette: palette, cornerRadius: cornerRadius))
+    }
+}
+
+
+// MARK: - heroGlassSettle
+
+/// The one-shot refraction a hero plays as its glass arrives.
+///
+/// `DESIGN.md` names `heroGlassSettle` in the signature vocabulary — "once, when
+/// a hero surface arrives or commits; never on scroll, and never while its
+/// content is still loading" — but nothing in the app implemented it, so the one
+/// material the product reserves for its most important object appeared with no
+/// acknowledgement at all.
+///
+/// It is built from `liquidGlassRefract`, which `DESIGN.md` already approves for
+/// "dock, lens, composer, and hero-surface transitions", rather than from a new
+/// Metal function. That is deliberate: `SignatureShaders.warmUp()` materializes
+/// `functionNames` all-or-nothing, so a new entry that failed to load would
+/// disable *every* effect in the app. Reusing a function the preload already
+/// verifies costs nothing and cannot regress the rest.
+///
+/// Applied by `HeroSurfaceModifier` itself rather than offered to callers, so no
+/// screen can forget it and no screen can double it.
+private struct HeroGlassSettleModifier: ViewModifier {
+    /// Matches the settle half of the spatial-transition budget (280-500ms).
+    private static let duration: TimeInterval = 0.42
+    private static let peakStrength: Double = 0.5
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
+
+    /// Latched, not a counter. A hero settles when it arrives; a `LazyVStack`
+    /// recycling its host must not read as a second arrival, which is what
+    /// "never on scroll" rules out.
+    @State private var hasSettled = false
+    @State private var startDate: Date?
+
+    func body(content: Content) -> some View {
+        Group {
+            if let startDate, usesFallback == false {
+                TimelineView(.animation) { context in
+                    let elapsed = context.date.timeIntervalSince(startDate)
+                    let progress = min(1, max(0, elapsed / Self.duration))
+                    if progress >= 1 {
+                        content
+                    } else {
+                        // Decays to identity: the settle is the glass coming to
+                        // rest, so the last frame it draws must be the same
+                        // picture as no effect at all.
+                        let eased = 1 - pow(1 - progress, 3)
+                        content.lifeboardLiquidGlassRefract(
+                            center: .center,
+                            radius: 0.9,
+                            strength: Self.peakStrength * (1 - eased)
+                        )
+                    }
+                }
+            } else {
+                content
+            }
+        }
+        .onAppear {
+            guard hasSettled == false, usesFallback == false else { return }
+            hasSettled = true
+            startDate = Date()
+        }
+    }
+
+    private var usesFallback: Bool {
+        MotionOverride.resolve(reduceMotion)
+            || reduceTransparency
+            || scenePhase != .active
+            || shaderReadiness == false
     }
 }

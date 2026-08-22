@@ -1,4 +1,5 @@
 import Foundation
+import LifeBoardDomain
 
 /// Turns authorized life events into one honest interpretation.
 ///
@@ -43,6 +44,64 @@ public struct InsightsInterpretationService: Sendable {
     public static let minimumRecordsForDescription = 3
 
     public init() {}
+
+    public func unifiedInsight(
+        events: [NormalizedLifeEvent],
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Insight {
+        let interpretation = interpret(events: events, now: now, calendar: calendar)
+        let supporting = events.filter { interpretation.evidenceReferences.contains($0.sourceID) }
+        let evidence = supporting.compactMap { event -> Insight.Evidence? in
+            let source = event.evidence.first
+            guard let kind = recordKind(for: source?.kind ?? event.kind) else { return nil }
+            return .init(
+                reference: EvaRecordReference(
+                    kind: kind,
+                    recordID: source?.routeID ?? event.sourceID,
+                    title: source?.display ?? event.provenance,
+                    occurredAt: event.occurredAt
+                ),
+                reason: "Contributed to the \(event.domain) pattern",
+                signalKey: "\(event.domain):\(event.sourceID.uuidString)"
+            )
+        }
+        let confidence: Insight.Confidence = switch interpretation.completeness ?? 0 {
+        case 0.8...: .high
+        case 0.5...: .medium
+        default: .low
+        }
+        return Insight(
+            id: "insights.overview.\(interpretation.evidenceReferences.map(\.uuidString).sorted().joined(separator: "."))",
+            claim: interpretation.claim,
+            evidence: evidence,
+            confidence: confidence,
+            suggestedAction: interpretation.recommendedAction,
+            provenance: .deterministic,
+            createdAt: now,
+            expiresAt: calendar.date(byAdding: .day, value: 1, to: now)
+        )
+    }
+
+    private func recordKind(for raw: String) -> RecordKind? {
+        switch raw.lowercased() {
+        case "task", "plan": .task
+        case "project": .project
+        case "habit": .habit
+        case "tracker", "care": .tracker
+        case "routine": .routine
+        case "goal": .goal
+        case "journal": .journal
+        case "note", "knowledge": .note
+        case "focus": .focusSession
+        case "hydration": .hydration
+        case "mood": .mood
+        case "sleep": .sleep
+        case "medication": .medication
+        case "lifemoment", "life_moment", "moment": .lifeMoment
+        default: nil
+        }
+    }
 
     public func interpret(
         events: [NormalizedLifeEvent],

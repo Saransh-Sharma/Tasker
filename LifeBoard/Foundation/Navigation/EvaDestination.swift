@@ -58,7 +58,9 @@ struct EvaDestination: View {
                     onDismiss: { router.select(.home) },
                     onComposerFocusChange: onComposerFocusChange,
                     onOpenTaskDetail: { router.push(.taskDetail($0.id), in: .eva) },
-                    onOpenHabitDetail: { router.push(.habitDetail($0), in: .eva) }
+                    onOpenHabitDetail: { router.push(.habitDetail($0), in: .eva) },
+                    onOpenRecordFromCard: { RecordRouteResolver.open($0, with: router) },
+                    onOpenNavigationTargetFromCard: { EvaNavigationTargetResolver.open($0, with: router) }
                 )
                 .environmentObject(appManager)
                 .environment(LLMRuntimeCoordinator.shared.evaluator)
@@ -75,6 +77,9 @@ struct EvaDestination: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("foundation.eva")
         .task { await loadAuthorizedEvidence() }
+        .task {
+            _ = await EvaCloudAccessCoordinator.shared.resumeConfirmedActivation(source: .evaEntry)
+        }
         .task {
             // The derived journal pipeline broadcasts after commits and
             // deletions; refresh Eva's authorized evidence live instead of
@@ -250,17 +255,10 @@ struct EvaDestination: View {
     }
 
     private func openEvidence(_ evidence: EvidenceReference) {
-        let id = evidence.routeID ?? evidence.sourceID
-        switch evidence.kind {
-        case "habit": router.push(.habitDetail(id), in: .eva)
-        case "tracker": router.push(.trackerDetail(id), in: .eva)
-        case "routine": router.push(.routine(id), in: .eva)
-        case "goal": router.push(.goal(id), in: .eva)
-        case "journal": router.openProtectedJournalRoute(.journalDay(id), in: .eva)
-        case "focus": router.push(.focusSession(id), in: .eva)
-        case "plan", "task": router.select(.plan)
-        case "hydration", "mood", "sleep", "medication", "care": router.select(.track)
-        default: router.select(.track)
+        guard let reference = RecordRouteResolver.reference(for: evidence) else {
+            router.select(.track)
+            return
         }
+        RecordRouteResolver.open(reference, with: router)
     }
 }

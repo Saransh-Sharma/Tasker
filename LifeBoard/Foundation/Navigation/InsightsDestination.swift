@@ -26,6 +26,8 @@ struct InsightsDestination: View {
     /// user had to find the record again themselves.
     private let focusedEvidenceID: UUID?
     @State private var evidenceExpanded = false
+    @State private var evidenceExclusionRevision = 0
+    @State private var insightStateRevision = 0
 
     init(
         repository: CoreDataTrackFoundationRepository,
@@ -57,8 +59,11 @@ struct InsightsDestination: View {
     }
 
     private var authorizedEvents: [NormalizedLifeEvent] {
-        SnapshotLifeEventProjectionRepository(events: store.snapshot.normalizedEvents + persistedPlanningEvents + wellnessEvents)
+        _ = evidenceExclusionRevision
+        return SnapshotLifeEventProjectionRepository(events: store.snapshot.normalizedEvents + persistedPlanningEvents + wellnessEvents)
             .authorizedEvents(for: .insights, journalConsentGranted: false)
+            .map { event in EvaEvidenceExclusionStore.applying(to: event) }
+            .filter { $0.allowedDestinations.contains(.insights) }
     }
 
     private var events: [NormalizedLifeEvent] {
@@ -181,18 +186,37 @@ struct InsightsDestination: View {
         switch lens {
         case .overview:
             InsightsHealthSection(healthStore: healthStore, router: router)
-            InsightsInterpretationSurface(
-                interpretation: interpretation,
-                completenessDescription: evidenceCompletenessDescription
-            )
-            Button {
-                askEva()
-            } label: {
-                Label("Explore this with Eva", systemImage: "sparkles")
-                    .frame(maxWidth: .infinity, minHeight: 48)
+            if isUnifiedInsightDismissed {
+                SurfaceCard {
+                    HStack {
+                        Text("This insight is dismissed everywhere.")
+                            .lifeboardFont(.support)
+                        Spacer()
+                        Button("Restore") {
+                            EvaInsightStateStore.restore(insightID: unifiedInsight.id)
+                            insightStateRevision += 1
+                        }
+                    }
+                }
+            } else {
+                InsightsInterpretationSurface(
+                    interpretation: interpretation,
+                    completenessDescription: evidenceCompletenessDescription
+                )
+                Button {
+                    askEva()
+                } label: {
+                    Label("Explore this with Eva", systemImage: "sparkles")
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(SemanticColorTokens.foundationApricotAccent))
+                Button("Dismiss everywhere", systemImage: "xmark.circle") {
+                    EvaInsightStateStore.dismiss(insightID: unifiedInsight.id, kind: "insights_overview")
+                    insightStateRevision += 1
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Color(SemanticColorTokens.foundationApricotAccent))
         case .trends:
             InsightsTrendsSection(
                 interpretation: interpretation,
@@ -221,9 +245,15 @@ struct InsightsDestination: View {
                 completenessDescription: evidenceCompletenessDescription,
                 events: events,
                 focusedEvidenceID: focusedEvidenceID,
-                open: open
+                open: open,
+                exclude: exclude
             )
         }
+    }
+
+    private func exclude(_ event: NormalizedLifeEvent) {
+        EvaEvidenceExclusionStore.exclude(event)
+        evidenceExclusionRevision += 1
     }
 
     /// Ranked by how consistently something is recorded, not how often. The
@@ -233,6 +263,15 @@ struct InsightsDestination: View {
         InsightsInterpretationService().interpret(events: events)
     }
 
+    private var unifiedInsight: Insight {
+        InsightsInterpretationService().unifiedInsight(events: events)
+    }
+
+    private var isUnifiedInsightDismissed: Bool {
+        _ = insightStateRevision
+        return EvaInsightStateStore.isDismissed(unifiedInsight.id)
+    }
+
     private var evidenceCompletenessDescription: String {
         guard let confidence else { return "Completeness is not available yet." }
         let formatted = confidence.formatted(.percent.precision(.fractionLength(0)))
@@ -240,14 +279,14 @@ struct InsightsDestination: View {
     }
 
     private func askEva() {
-        let resolved = interpretation
+        let resolved = unifiedInsight
         // Hand over the interpretation Insights actually made, not a generic
         // "help me understand this pattern" — Eva was being asked to re-derive
         // a claim the user had just read.
         let context = EvaEntryContext(
             origin: .insights,
-            evidenceReferences: resolved.evidenceReferences,
-            requestedAssistance: resolved.supportsClaim
+            evidenceReferences: resolved.evidence.map(\.reference.recordID),
+            requestedAssistance: resolved.confidence != .low
                 ? "Insights found: \(resolved.claim) Help me understand what that suggests and choose one safe next step."
                 : "Help me understand what my recorded history so far suggests, without over-reading it."
         )
@@ -343,20 +382,10 @@ struct InsightsDestination: View {
     }
 
     private func open(_ evidence: EvidenceReference) {
-        let id = evidence.routeID ?? evidence.sourceID
-        switch evidence.kind {
-        case "habit": router.push(.habitDetail(id), in: .insights)
-        case "tracker": router.push(.trackerDetail(id), in: .insights)
-        // Hydration, sleep and mood have no detail route of their own; Track's
-        // History lens is where those records actually live, so they open it
-        // directly instead of dropping the user on Track's Today lens.
-        case "hydration", "sleep", "mood": router.push(.trackHistory, in: .insights)
-        case "routine": router.push(.routine(id), in: .insights)
-        case "goal": router.push(.goal(id), in: .insights)
-        case "journal": router.openProtectedJournalRoute(.journalDay(id), in: .insights)
-        case "plan", "task": router.select(.plan)
-        case "focus": router.push(.focusSession(id), in: .insights)
-        default: router.push(.trackHistory, in: .insights)
+        guard let reference = RecordRouteResolver.reference(for: evidence) else {
+            router.push(.trackHistory, in: .insights)
+            return
         }
+        RecordRouteResolver.open(reference, with: router)
     }
 }
