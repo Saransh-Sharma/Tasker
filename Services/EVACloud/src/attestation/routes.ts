@@ -6,7 +6,7 @@ import { durableJson } from '../durable-objects/helpers.js'
 import { readJson } from '../http/body.js'
 import { EvaHttpError } from '../http/errors.js'
 import { requireSession } from '../auth/middleware.js'
-import { validateAttestationRegistration } from './app-attest.js'
+import { validateAttestationRegistration, verifyRequestAttestation } from './app-attest.js'
 
 const RegistrationSchema = Type.Object({
   challenge: Type.String({ minLength: 20, maxLength: 256 }),
@@ -40,6 +40,13 @@ attestationRoutes.post('/register', async (context) => {
   if (principal.platform !== 'ios') {
     throw new EvaHttpError(409, 'attestation_required', 'App Attest is available only on iOS.')
   }
+  const authorization = await authorizeAccount(context.env, principal, {
+    requireAdult: false,
+    requireAttestation: false,
+  })
+  if (!authorization.authorized) {
+    throw new EvaHttpError(401, 'session_expired', 'Your EVA session has expired.', { recoveryAction: 'signIn' })
+  }
   const body = await readJson<{ challenge: string; keyId: string; attestation: string }>(
     context.req.raw,
     RegistrationSchema,
@@ -55,4 +62,13 @@ attestationRoutes.post('/register', async (context) => {
     }),
   })
   return context.json({ registered: true })
+})
+
+attestationRoutes.post('/verify', async (context) => {
+  const principal = context.get('principal')
+  if (principal.platform !== 'ios') {
+    throw new EvaHttpError(409, 'attestation_required', 'App Attest is available only on iOS.')
+  }
+  await verifyRequestAttestation(context.env, principal, context.req.raw)
+  return context.json({ verified: true })
 })

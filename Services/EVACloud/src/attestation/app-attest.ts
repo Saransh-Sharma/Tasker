@@ -80,8 +80,13 @@ export async function verifyRequestAttestation(
   env: Env,
   principal: SessionPrincipal,
   request: Request,
+  options: { allowAgeManagement?: boolean } = {},
 ): Promise<void> {
-  const authorization = await authorizeAccount(env, principal, { requireAdult: false, requireAttestation: true })
+  const authorization = await authorizeAccount(env, principal, {
+    requireAdult: false,
+    requireAttestation: true,
+    allowAgeManagement: options.allowAgeManagement ?? false,
+  })
   if (!authorization.authorized) {
     throw new EvaHttpError(401, 'attestation_required', 'Verify this device to use Cloud EVA.', {
       recoveryAction: 'signIn',
