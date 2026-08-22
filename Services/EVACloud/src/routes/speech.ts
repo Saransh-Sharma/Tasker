@@ -11,7 +11,7 @@ import { readJson } from '../http/body.js'
 import { EvaHttpError } from '../http/errors.js'
 import { commitCost, markRequestRunning, releaseCost, reserveCost, speechCostMicroUsd } from '../openai/accounting.js'
 import { openAIClient } from '../openai/client.js'
-import { runtimeConfig } from '../config/runtime-config.js'
+import { requiresAgeDecision, runtimeConfig } from '../config/runtime-config.js'
 import { sha256 } from '../security/crypto.js'
 
 export const speechRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>()
@@ -19,16 +19,23 @@ speechRoutes.use('*', requireSession)
 
 speechRoutes.post('/speech', async (context) => {
   const principal = context.get('principal')
-  await verifyRequestAttestation(context.env, principal, context.req.raw)
+  if (principal.platform === 'ios' && context.req.header('X-EVA-Attest-Assertion')) {
+    await verifyRequestAttestation(context.env, principal, context.req.raw)
+  }
   const request = await readJson<EvaSpeechRequest>(context.req.raw, EvaSpeechRequestSchema)
   const config = await runtimeConfig(context.env)
   if (!config.ttsEnabled) {
     throw new EvaHttpError(503, 'configuration_unavailable', 'Spoken output is temporarily unavailable.')
   }
-  const authorization = await authorizeAccount(context.env, principal)
+  if (principal.identityKind === 'guest' && !config.guestAccess?.inferenceEnabled) {
+    throw new EvaHttpError(503, 'configuration_unavailable', 'Guest Cloud EVA is temporarily unavailable.')
+  }
+  const authorization = await authorizeAccount(context.env, principal, {
+    requireAdult: requiresAgeDecision(config),
+  })
   if (!authorization.authorized) {
-    throw new EvaHttpError(401, 'attestation_required', 'Verify this device before using spoken output.', {
-      recoveryAction: 'signIn',
+    throw new EvaHttpError(401, 'session_expired', 'Your EVA session has expired.', {
+      recoveryAction: 'wait',
     })
   }
   const limit = principal.platform === 'catalyst' ? 5 : 10
@@ -68,7 +75,7 @@ speechRoutes.post('/speech', async (context) => {
     }),
   })
   if (!claim.claimed) {
-    throw new EvaHttpError(402, 'insufficient_credits', 'Re-generating spoken audio uses one cloud credit.', {
+    throw new EvaHttpError(429, 'daily_quota_exhausted', 'Spoken-output regeneration has reached its current limit.', {
       recoveryAction: 'wait',
     })
   }

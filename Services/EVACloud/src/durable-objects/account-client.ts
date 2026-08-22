@@ -1,4 +1,4 @@
-import type { EvaConsentPolicy, EvaCreditState } from '@lifeboard/eva-contracts'
+import type { EvaConsentPolicy, EvaCreditState, EvaQuotaStateV1 } from '@lifeboard/eva-contracts'
 import type { Env, SessionPrincipal } from '../environment.js'
 import { durableJson, durableObjectStub } from './helpers.js'
 import type { AccountAuthorization, EvaDeviceState } from './account-model.js'
@@ -10,7 +10,7 @@ export function accountStub(env: Env, accountId: string): DurableObjectStub {
 export function authorizeAccount(
   env: Env,
   principal: SessionPrincipal,
-  options: { requireAdult?: boolean; requireAttestation?: boolean } = {},
+  options: { requireAdult?: boolean; requireAttestation?: boolean; allowAgeManagement?: boolean } = {},
 ): Promise<AccountAuthorization> {
   return durableJson(accountStub(env, principal.accountId), '/authorize', {
     method: 'POST',
@@ -18,14 +18,19 @@ export function authorizeAccount(
       familyId: principal.sessionFamilyId,
       installationId: principal.installationId,
       platform: principal.platform,
-      requireAdult: options.requireAdult ?? true,
-      requireAttestation: options.requireAttestation ?? true,
+      requireAdult: options.requireAdult ?? false,
+      requireAttestation: options.requireAttestation ?? false,
+      allowAgeManagement: options.allowAgeManagement ?? false,
     }),
   })
 }
 
 export function getCredits(env: Env, accountId: string): Promise<EvaCreditState> {
   return durableJson(accountStub(env, accountId), '/credits')
+}
+
+export function getQuota(env: Env, accountId: string): Promise<EvaQuotaStateV1> {
+  return durableJson(accountStub(env, accountId), '/quota')
 }
 
 export function getConsent(env: Env, accountId: string): Promise<EvaConsentPolicy> {
@@ -50,6 +55,8 @@ export function registerDeviceAge(
   body: Pick<EvaDeviceState, 'installationId' | 'platform'> & {
     eligibleAdult: boolean
     declaration: string
+    lowerBound?: number
+    policyRequired?: boolean
   },
 ): Promise<{ eligibleAdult: boolean }> {
   return durableJson(accountStub(env, accountId), '/device/age', {

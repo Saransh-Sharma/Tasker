@@ -19,7 +19,8 @@ export async function issueAccessToken(env: Env, principal: SessionPrincipal): P
     sid: principal.sessionFamilyId,
     installation_id: principal.installationId,
     platform: principal.platform,
-    auth_time: Math.floor(principal.authenticatedAt / 1_000),
+      auth_time: Math.floor(principal.authenticatedAt / 1_000),
+      identity_kind: principal.identityKind,
   })
     .setProtectedHeader({ alg: 'EdDSA', kid: 'eva-session-v1' })
     .setIssuer('https://api.getlifeboard.app')
@@ -49,20 +50,34 @@ export async function verifyAccessToken(env: Env, token: string): Promise<Sessio
     installationId: payload.installation_id,
     platform: payload.platform,
     authenticatedAt: payload.auth_time * 1_000,
+    identityKind: payload.identity_kind === 'guest' ? 'guest' : 'apple',
   }
 }
 
-export async function newRefreshToken(): Promise<{
+export async function newRefreshToken(generation = 0): Promise<{
   token: string
   hash: string
   expiresAt: number
+  generation: number
 }> {
-  const token = randomToken(48)
+  const normalizedGeneration = Math.max(0, Math.floor(generation))
+  // The generation is not an authenticator; the random suffix is. Keeping a
+  // monotonic value inside the opaque token lets the account DO recognize an
+  // arbitrarily old exact-token replay without retaining thousands of hashes.
+  const token = `r1.${normalizedGeneration}.${randomToken(48)}`
   return {
     token,
     hash: await sha256(token),
     expiresAt: Date.now() + refreshLifetimeSeconds * 1_000,
+    generation: normalizedGeneration,
   }
+}
+
+export function refreshTokenGeneration(token: string): number | undefined {
+  const match = /^r1\.(\d{1,6})\.[A-Za-z0-9_-]{32,}$/u.exec(token)
+  if (!match?.[1]) return undefined
+  const value = Number(match[1])
+  return Number.isSafeInteger(value) ? value : undefined
 }
 
 export function accessTokenExpiresAt(): string {

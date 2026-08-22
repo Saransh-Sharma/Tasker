@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { EvaCreditState, EvaInferenceRequestV1, EvaStreamEvent } from '@lifeboard/eva-contracts'
+import type { EvaCreditState, EvaInferenceRequestV1, EvaQuotaStateV1, EvaStreamEvent } from '@lifeboard/eva-contracts'
 import {
   EvaInferenceRequestSchema,
   contextPayloadError,
@@ -29,7 +29,7 @@ import {
 import { openAIClient } from '../openai/client.js'
 import { modelInput, structuredTextFormat } from '../openai/prompts.js'
 import { moderateText, supportiveSafetyResponse } from '../safety/moderation.js'
-import { runtimeConfig, type EvaRoutePolicy, type EvaRuntimeConfig } from '../config/runtime-config.js'
+import { requiresAgeDecision, runtimeConfig, type EvaRoutePolicy, type EvaRuntimeConfig } from '../config/runtime-config.js'
 import { sha256 } from '../security/crypto.js'
 import { recordTelemetry } from '../telemetry/events.js'
 
@@ -41,15 +41,22 @@ responseRoutes.use('*', requireSession)
 responseRoutes.post('/responses', async (context) => {
   const startedAt = Date.now()
   const principal = context.get('principal')
-  await verifyRequestAttestation(context.env, principal, context.req.raw)
+  if (principal.platform === 'ios' && context.req.header('X-EVA-Attest-Assertion')) {
+    await verifyRequestAttestation(context.env, principal, context.req.raw)
+  }
   const request = await readJson<EvaInferenceRequestV1>(context.req.raw, EvaInferenceRequestSchema)
   validatePrincipal(request, principal)
-  const payloadError = contextPayloadError(request.contractVersion, request.context)
+  const payloadError = contextPayloadError(request.contractVersion, request.context, request.turnContext)
   if (payloadError) throw new EvaHttpError(400, 'schema_invalid', payloadError)
 
   const config = await runtimeConfig(context.env)
   if (config.cloudState === 'disabled') {
     throw new EvaHttpError(503, 'configuration_unavailable', 'Cloud EVA is temporarily unavailable.', {
+      recoveryAction: 'tryOffline',
+    })
+  }
+  if (principal.identityKind === 'guest' && !config.guestAccess?.inferenceEnabled) {
+    throw new EvaHttpError(503, 'configuration_unavailable', 'Guest Cloud EVA is temporarily unavailable.', {
       recoveryAction: 'tryOffline',
     })
   }
@@ -65,10 +72,22 @@ responseRoutes.post('/responses', async (context) => {
     })
   }
   enforceInputBudget(request, policy)
-  const authorization = await authorizeAccount(context.env, principal)
+  if (config.usagePolicy) {
+    await durableJson(accountStub(context.env, principal.accountId), '/quota/configure', {
+      method: 'POST', body: JSON.stringify(config.usagePolicy),
+    })
+  }
+  const authorization = await authorizeAccount(context.env, principal, {
+    requireAdult: requiresAgeDecision(config),
+  })
   if (!authorization.authorized) throw authorizationError(authorization.reason)
   if (!authorization.consent || authorization.consent.revision !== request.consentRevision) {
     throw new EvaHttpError(409, 'consent_revision_conflict', 'Cloud context consent changed. Review it and try again.', {
+      recoveryAction: 'reviewConsent',
+    })
+  }
+  if (authorization.consent.reviewRequired === true) {
+    throw new EvaHttpError(409, 'consent_required', 'Review Cloud EVA context again after protecting this account.', {
       recoveryAction: 'reviewConsent',
     })
   }
@@ -94,9 +113,11 @@ responseRoutes.post('/responses', async (context) => {
     throw new EvaHttpError(400, 'input_rejected', 'I can’t help with that request, but I can help with a safer alternative.')
   }
 
-  const accountLimit = principal.platform === 'catalyst'
-    ? Math.floor((policy.billable ? 30 : 60) / 2)
-    : policy.billable ? 30 : 60
+  const accountLimit = !policy.billable
+    ? 10
+    : principal.identityKind === 'guest'
+      ? 10
+      : principal.platform === 'catalyst' ? 15 : 30
   const rate = await durableJson<{ allowed: boolean; retryAfter?: number }>(
     accountStub(context.env, principal.accountId),
     '/rate/consume',
@@ -108,27 +129,33 @@ responseRoutes.post('/responses', async (context) => {
     })
   }
 
-  let creditReserved = false
+  let quotaReserved = false
   let costReserved = false
   try {
-    if (policy.billable) {
-      const reservation = await durableJson<{ reserved: boolean; status: string; credits: EvaCreditState }>(
-        accountStub(context.env, principal.accountId),
-        '/credits/reserve',
-        { method: 'POST', body: JSON.stringify({ requestId: request.requestId, amount: 1 }) },
-      )
-      if (!reservation.reserved) {
-        if (reservation.status !== 'insufficient') {
-          throw new EvaHttpError(409, 'request_replayed', 'This request ID has already been used. Start a new request to regenerate.', {
-            credits: reservation.credits,
-          })
-        }
-        throw new EvaHttpError(402, 'insufficient_credits', 'No cloud credits are available yet.', {
-          credits: reservation.credits, recoveryAction: 'tryOffline',
+    const reservation = await durableJson<{
+      reserved: boolean
+      status: string
+      quota: EvaQuotaStateV1
+      credits: EvaCreditState
+    }>(accountStub(context.env, principal.accountId), '/quota/reserve', {
+      method: 'POST',
+      body: JSON.stringify({ requestId: request.requestId, kind: policy.billable ? 'billable' : 'helper' }),
+    })
+    if (!reservation.reserved) {
+      if (reservation.status !== 'exhausted') {
+        throw new EvaHttpError(409, 'request_replayed', 'This request ID has already been used. Start a new request to regenerate.', {
+          credits: reservation.credits, quota: reservation.quota,
         })
       }
-      creditReserved = true
+      const hours = Math.max(1, Math.round(reservation.quota.windowSeconds / 3_600))
+      const message = policy.billable
+        ? `You have used ${reservation.quota.limit} Cloud EVA answers in the last ${hours} hours.`
+        : 'Cloud EVA background assistance has reached its current limit.'
+      throw new EvaHttpError(429, 'daily_quota_exhausted', message, {
+        credits: reservation.credits, quota: reservation.quota, recoveryAction: 'tryOffline',
+      })
     }
+    quotaReserved = true
 
     const estimate = estimatedLunaCostMicroUsd(
       policy.inputTokenCap,
@@ -155,20 +182,21 @@ responseRoutes.post('/responses', async (context) => {
         request,
         policy,
         initialCredits: authorization.credits,
-        creditReserved,
+        initialQuota: authorization.quota,
+        quotaReserved,
         clientSignal: context.req.raw.signal,
         priceSchedule: config.priceSchedule,
       })
-      creditReserved = false
+      quotaReserved = false
       costReserved = false
       return response
     }
 
     const result = await generateResponse(context.env, principal, request, policy)
     if (!result.billableSuccess) {
-      if (creditReserved) await releaseCredit(context.env, principal.accountId, request.requestId)
+      if (quotaReserved) await releaseQuota(context.env, principal.accountId, request.requestId)
       await releaseCost(context.env, principal.accountId, request.requestId)
-      return sseResponse(eventsForSafeResponse(request.requestId, result.text, authorization.credits))
+      return sseResponse(eventsForSafeResponse(request.requestId, result.text, authorization.credits, authorization.quota))
     }
 
     const actualCost = actualLunaCostMicroUsd(result.usage, config.priceSchedule)
@@ -176,31 +204,35 @@ responseRoutes.post('/responses', async (context) => {
     await commitCost(context.env, principal.accountId, request.requestId, actualCost)
     costReserved = false
     let credits = authorization.credits
+    let quota = authorization.quota
     let ticket: string | undefined
-    if (creditReserved) {
-      const ticketId = crypto.randomUUID()
-      const textHash = await sha256(result.text)
-      const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1_000
-      const commit = await durableJson<{ credits: EvaCreditState }>(accountStub(context.env, principal.accountId), '/credits/commit', {
+    if (quotaReserved) {
+      const ticketId = policy.billable ? crypto.randomUUID() : undefined
+      const textHash = ticketId ? await sha256(result.text) : undefined
+      const expiresAt = ticketId ? Date.now() + 30 * 24 * 60 * 60 * 1_000 : undefined
+      const commit = await durableJson<{ credits: EvaCreditState; quota: EvaQuotaStateV1 }>(accountStub(context.env, principal.accountId), '/quota/commit', {
         method: 'POST',
         body: JSON.stringify({
           requestId: request.requestId,
-          speechTicket: { ticketId, textHash, expiresAt },
+          ...(ticketId && textHash && expiresAt ? { speechTicket: { ticketId, textHash, expiresAt } } : {}),
         }),
       })
-      creditReserved = false
+      quotaReserved = false
       credits = commit.credits
-      ticket = await issueSpeechTicket(context.env, {
-        accountId: principal.accountId,
-        ticketId,
-        responseRequestId: request.requestId,
-        textHash,
-        expiresAt,
-      })
+      quota = commit.quota
+      if (ticketId && textHash && expiresAt) {
+        ticket = await issueSpeechTicket(context.env, {
+          accountId: principal.accountId,
+          ticketId,
+          responseRequestId: request.requestId,
+          textHash,
+          expiresAt,
+        })
+      }
     }
-    return sseResponse(eventsForResult(request, result, credits, ticket))
+    return sseResponse(eventsForResult(request, result, credits, ticket, quota))
   } catch (error) {
-    if (creditReserved) await releaseCredit(context.env, principal.accountId, request.requestId)
+    if (quotaReserved) await releaseQuota(context.env, principal.accountId, request.requestId)
     if (costReserved) await releaseCost(context.env, principal.accountId, request.requestId)
     recordTelemetry(context.env, {
       event: 'model.failed', requestId: request.requestId, accountId: principal.accountId, route: request.route,
@@ -224,26 +256,27 @@ interface StreamingTextArguments {
   request: EvaInferenceRequestV1
   policy: EvaRoutePolicy
   initialCredits: EvaCreditState | undefined
-  creditReserved: boolean
+  initialQuota: EvaQuotaStateV1 | undefined
+  quotaReserved: boolean
   clientSignal: AbortSignal
   priceSchedule: EvaRuntimeConfig['priceSchedule']
 }
 
 function streamingTextResponse(arguments_: StreamingTextArguments): Response {
-  const { env, principal, request, policy, initialCredits, clientSignal, priceSchedule } = arguments_
+  const { env, principal, request, policy, initialCredits, initialQuota, clientSignal, priceSchedule } = arguments_
   const client = openAIClient(env)
   const startedAt = Date.now()
   const abortController = new AbortController()
-  let creditActive = arguments_.creditReserved
+  let quotaActive = arguments_.quotaReserved
   let costActive = true
   let settled = false
 
   const cleanup = async (): Promise<void> => {
     if (settled) return
     settled = true
-    if (creditActive) await releaseCredit(env, principal.accountId, request.requestId)
+    if (quotaActive) await releaseQuota(env, principal.accountId, request.requestId)
     if (costActive) await releaseCost(env, principal.accountId, request.requestId)
-    creditActive = false
+    quotaActive = false
     costActive = false
   }
 
@@ -258,6 +291,7 @@ function streamingTextResponse(arguments_: StreamingTextArguments): Response {
       let visibleDeltaSent = false
       let pendingText = ''
       let fullText = ''
+      let moderationCarry = ''
       let firstDeltaAt: number | undefined
       const enqueue = (event: EvaStreamEvent): void => {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
@@ -270,7 +304,10 @@ function streamingTextResponse(arguments_: StreamingTextArguments): Response {
           const segment = pendingText.slice(0, cut)
           pendingText = pendingText.slice(cut)
           if (!segment) break
-          const decision = await moderateText(client, segment)
+          // Keep approved overlap so unsafe meaning split across streaming
+          // boundaries is still evaluated as one piece of language.
+          const moderationWindow = moderationCarry + segment
+          const decision = await moderateText(client, moderationWindow)
           if (!decision.allowed) {
             throw new EvaHttpError(422, 'output_rejected', 'I can’t provide that response, but I can help with a safer alternative.')
           }
@@ -280,11 +317,15 @@ function streamingTextResponse(arguments_: StreamingTextArguments): Response {
             sequence: sequence++,
             delta: segment,
           })
+          moderationCarry = moderationWindow.slice(-512)
           visibleDeltaSent = true
         }
       }
 
-      enqueue({ type: 'response.accepted', requestId: request.requestId, sequence: sequence++, credits: initialCredits })
+      enqueue({
+        type: 'response.accepted', requestId: request.requestId, sequence: sequence++,
+        credits: initialCredits, quota: initialQuota,
+      })
       const timeout = setTimeout(() => abortController.abort(), 60_000)
       try {
         let completedResponse: Responses.Response | undefined
@@ -344,27 +385,31 @@ function streamingTextResponse(arguments_: StreamingTextArguments): Response {
         costActive = false
 
         let credits = initialCredits
+        let quota = initialQuota
         let ticket: string | undefined
-        if (creditActive) {
-          const ticketId = crypto.randomUUID()
-          const textHash = await sha256(fullText)
-          const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1_000
-          const commit = await durableJson<{ credits: EvaCreditState }>(accountStub(env, principal.accountId), '/credits/commit', {
+        if (quotaActive) {
+          const ticketId = policy.billable ? crypto.randomUUID() : undefined
+          const textHash = ticketId ? await sha256(fullText) : undefined
+          const expiresAt = ticketId ? Date.now() + 30 * 24 * 60 * 60 * 1_000 : undefined
+          const commit = await durableJson<{ credits: EvaCreditState; quota: EvaQuotaStateV1 }>(accountStub(env, principal.accountId), '/quota/commit', {
             method: 'POST',
             body: JSON.stringify({
               requestId: request.requestId,
-              speechTicket: { ticketId, textHash, expiresAt },
+              ...(ticketId && textHash && expiresAt ? { speechTicket: { ticketId, textHash, expiresAt } } : {}),
             }),
           })
-          creditActive = false
+          quotaActive = false
           credits = commit.credits
-          ticket = await issueSpeechTicket(env, {
-            accountId: principal.accountId,
-            ticketId,
-            responseRequestId: request.requestId,
-            textHash,
-            expiresAt,
-          })
+          quota = commit.quota
+          if (ticketId && textHash && expiresAt) {
+            ticket = await issueSpeechTicket(env, {
+              accountId: principal.accountId,
+              ticketId,
+              responseRequestId: request.requestId,
+              textHash,
+              expiresAt,
+            })
+          }
         }
         settled = true
         enqueue({
@@ -383,6 +428,7 @@ function streamingTextResponse(arguments_: StreamingTextArguments): Response {
           sequence,
           ...(ticket ? { speechTicket: ticket } : {}),
           ...(credits ? { credits } : {}),
+          ...(quota ? { quota } : {}),
         })
         controller.close()
       } catch (error) {
@@ -587,10 +633,11 @@ function eventsForResult(
   result: GeneratedResult,
   credits: EvaCreditState | undefined,
   ticket: string | undefined,
+  quota: EvaQuotaStateV1 | undefined,
 ): EvaStreamEvent[] {
   let sequence = 0
   const events: EvaStreamEvent[] = [{
-    type: 'response.accepted', requestId: request.requestId, sequence: sequence++, credits,
+    type: 'response.accepted', requestId: request.requestId, sequence: sequence++, credits, quota,
   }]
   if (result.structured !== undefined) {
     events.push({ type: 'response.structured', requestId: request.requestId, sequence: sequence++, value: result.structured })
@@ -614,15 +661,21 @@ function eventsForResult(
     speechTicket: ticket,
     ...(ticket ? { speechSource: result.text } : {}),
     credits,
+    quota,
   })
   return events
 }
 
-function eventsForSafeResponse(requestId: string, text: string, credits: EvaCreditState | undefined): EvaStreamEvent[] {
+function eventsForSafeResponse(
+  requestId: string,
+  text: string,
+  credits: EvaCreditState | undefined,
+  quota?: EvaQuotaStateV1,
+): EvaStreamEvent[] {
   return [
-    { type: 'response.accepted', requestId, sequence: 0, credits },
+    { type: 'response.accepted', requestId, sequence: 0, credits, quota },
     { type: 'response.text.delta', requestId, sequence: 1, delta: text },
-    { type: 'response.completed', requestId, sequence: 2, credits },
+    { type: 'response.completed', requestId, sequence: 2, credits, quota },
   ]
 }
 
@@ -648,8 +701,8 @@ function chunkText(text: string, size: number): string[] {
   return chunks
 }
 
-async function releaseCredit(env: Env, accountId: string, requestId: string): Promise<void> {
-  await durableJson(accountStub(env, accountId), '/credits/release', {
+async function releaseQuota(env: Env, accountId: string, requestId: string): Promise<void> {
+  await durableJson(accountStub(env, accountId), '/quota/release', {
     method: 'POST', body: JSON.stringify({ requestId }),
   })
 }
@@ -682,7 +735,7 @@ function compareVersions(left: string, right: string): number {
 }
 
 function authorizationError(reason: 'session' | 'age' | 'attestation' | 'deleted' | undefined): EvaHttpError {
-  if (reason === 'age') return new EvaHttpError(403, 'adult_eligibility_required', 'Confirm 18+ eligibility to use Cloud EVA.', { recoveryAction: 'verifyAge' })
+  if (reason === 'age') return new EvaHttpError(403, 'adult_eligibility_required', 'Cloud EVA is available to people age 13 and older.', { recoveryAction: 'verifyAge' })
   if (reason === 'attestation') return new EvaHttpError(401, 'attestation_required', 'Verify this device to use Cloud EVA.', { recoveryAction: 'signIn' })
   return new EvaHttpError(401, 'session_expired', 'Your EVA session has expired.', { recoveryAction: 'signIn' })
 }
