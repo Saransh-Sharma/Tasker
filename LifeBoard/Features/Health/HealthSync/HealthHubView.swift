@@ -12,6 +12,8 @@ struct HealthHubView: View {
     @State private var vitalOrbWarpTrigger = 0
     @AppStorage("healthPrivacyLocalOnlyNoticeAcknowledged") private var didAcknowledgeHealthPrivacyNotice = false
     @State private var showsHealthPrivacyNotice = false
+    @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.colorScheme) private var colorScheme
     private let trackRepository: CoreDataTrackFoundationRepository
     private let wellnessRepository: any WellnessRepository
     private let nutritionRepository: any NutritionRepository
@@ -31,17 +33,30 @@ struct HealthHubView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 16) {
-                connectionCard
-                metricRings
-                hydrationCard
-                nutritionCard
-                fastingSuggestionCard
-                accessibleMetricTable
-                domainConnections
+                HealthHubHeroSection(
+                    isConnected: isConnected,
+                    statusLine: connectionSubtitle,
+                    palette: DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme),
+                    onConnect: { educationDomain = .hydration },
+                    onLogWater: { showsWaterLog = true },
+                    pulseTrigger: healthSyncPulseTrigger
+                )
+                HealthHubMovementSection(store: store, warpTrigger: vitalOrbWarpTrigger)
+                HealthHubHydrationSection(store: store, onLogWater: { showsWaterLog = true })
+                HealthHubNutritionSection(store: store)
+                HealthHubFastingSection(suggestion: fastingSuggestionDate, source: fastingSuggestionSource)
+                HealthHubValuesSection(store: store)
+                HealthHubConnectionsSection(
+                    store: store,
+                    onEducate: { educationDomain = $0 },
+                    onLogWeight: { showsWeightLog = true }
+                )
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            // Measured clearance for the floating dock and composer.
+            .padding(.bottom, ClayLayoutMetrics.bottomDockClearance)
         }
-        .background(Color.lifeboard(.bgCanvas).ignoresSafeArea())
         .navigationTitle("Health")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -100,203 +115,10 @@ struct HealthHubView: View {
         }
     }
 
-    private var connectionCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "heart.text.clipboard.fill")
-                    .font(.title2)
-                    .foregroundStyle(Color.lifeboard(.accentPrimary))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Apple Health")
-                        .font(.headline)
-                    Text(connectionSubtitle)
-                        .font(.caption)
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
-                }
-                Spacer()
-            }
-            if store.statuses.values.allSatisfy({ $0.readRequestState == .neverRequested }) {
-                Text("Choose what LifeBoard may share. Read access stays private—Apple does not reveal whether you denied a read category.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.lifeboard(.textSecondary))
-                Button("Connect") {
-                    educationDomain = .hydration
-                }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
-            }
-        }
-        .healthWarmCard()
-        .lifeboardHealthSyncPulse(trigger: healthSyncPulseTrigger)
-    }
-
-    private var metricRings: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            healthSectionHeader("Today from Apple Health", symbol: "clock")
-            HStack(spacing: 12) {
-                metricRing(metric: .steps, target: 10_000, label: "Steps")
-                metricRing(metric: .activeEnergy, target: 500, label: "Active kcal")
-                metricRing(metric: .walkingRunningDistance, target: 5_000, label: "Distance")
-            }
-        }
-        .healthWarmCard()
-    }
-
-    private func metricRing(metric: HealthMetric, target: Double, label: String) -> some View {
-        let value = store.aggregates[metric]?.value
-        return VStack(spacing: 8) {
-            Gauge(value: min(value ?? 0, target), in: 0...target) {
-                Text(label)
-            } currentValueLabel: {
-                Text(value.map { metricValue($0, metric: metric) } ?? "—")
-                    .font(.caption2.weight(.semibold))
-            }
-            .gaugeStyle(.accessoryCircular)
-            .tint(Color.lifeboard(.accentPrimary))
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
-        .accessibilityValue(value.map { metricValue($0, metric: metric) } ?? "Unavailable")
-    }
-
-    private var hydrationCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                healthSectionHeader("Hydration", symbol: "drop.fill")
-                Spacer()
-                Button("Log water") { showsWaterLog = true }
-                    .buttonStyle(.bordered)
-            }
-            let value = store.aggregates[.water]?.value
-            GeometryReader { proxy in
-                let progress = min(max((value ?? 0) / 2_000, 0), 1)
-                ZStack(alignment: .bottom) {
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(Color.lifeboard(.bgElevated))
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(Color.lifeboard(.accentPrimary).opacity(0.42))
-                        .frame(height: proxy.size.height * progress)
-                }
-            }
-            .frame(height: 92)
-            .accessibilityHidden(true)
-            .lifeboardVitalOrbWarp(trigger: vitalOrbWarpTrigger)
-            Text(value.map { "\(Int($0)) mL today · Apple Health + LifeBoard" } ?? "No hydration data available")
-                .font(.subheadline)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-        }
-        .healthWarmCard()
-    }
-
-    private var nutritionCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            healthSectionHeader("Nutrition aggregate", symbol: "fork.knife")
-            Text("Apple Health entries stay aggregated. LifeBoard never reconstructs them into meals.")
-                .font(.caption)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-            Chart(nutritionValues) { item in
-                BarMark(
-                    x: .value("Nutrient", item.label),
-                    y: .value("Value", item.value)
-                )
-                .foregroundStyle(Color.lifeboard(.accentSecondary))
-            }
-            .frame(height: 150)
-            .accessibilityHidden(true)
-            if let last = store.aggregates[.dietaryEnergy]?.lastSampleAt {
-                Text("Last dietary energy: \(last.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption)
-            }
-        }
-        .healthWarmCard()
-    }
-
-    private var accessibleMetricTable: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            healthSectionHeader("Accessible values", symbol: "tablecells")
-            ForEach(store.aggregates.values.sorted { $0.metric.rawValue < $1.metric.rawValue }) { item in
-                HStack {
-                    Text(metricTitle(item.metric))
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(metricValue(item.value, metric: item.metric))
-                            .font(.body.monospacedDigit())
-                        Text("\(item.sourceLabel) · Today")
-                            .font(.caption2)
-                            .foregroundStyle(Color.lifeboard(.textSecondary))
-                    }
-                }
-                .accessibilityElement(children: .combine)
-                Divider()
-            }
-        }
-        .healthWarmCard()
-    }
-
-    private var fastingSuggestionCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            healthSectionHeader("Fasting context", symbol: "hourglass")
-            Text("Suggestion only · LifeBoard never auto-starts a fast or writes fasting to Apple Health.")
-                .font(.caption)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-            if let suggestion = fastingSuggestionDate {
-                Text("Suggested start: \(suggestion.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.body.weight(.semibold))
-                Text(fastingSuggestionSource)
-                    .font(.caption)
-                    .foregroundStyle(Color.lifeboard(.textSecondary))
-            } else {
-                Text("Log a meal or connect dietary energy to receive a start suggestion.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.lifeboard(.textSecondary))
-            }
-        }
-        .healthWarmCard()
-    }
-
-    private var domainConnections: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            healthSectionHeader("Connections", symbol: "switch.2")
-            ForEach(HealthDomain.allCases) { domain in
-                let status = store.statuses[domain] ?? .init(domain: domain)
-                HStack(spacing: 12) {
-                    Image(systemName: domain.symbolName)
-                        .frame(width: 28)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(domain.title)
-                        Text(domainStatusText(status))
-                            .font(.caption)
-                            .foregroundStyle(Color.lifeboard(.textSecondary))
-                    }
-                    Spacer()
-                    if domain.supportsWriteBack {
-                        Toggle("", isOn: Binding(
-                            get: { status.writeEnabled },
-                            set: { enabled in
-                                if enabled && status.readRequestState == .neverRequested {
-                                    educationDomain = domain
-                                } else {
-                                    Task { await store.setWriteEnabled(enabled, for: domain) }
-                                }
-                            }
-                        ))
-                        .labelsHidden()
-                    } else if status.readRequestState == .neverRequested {
-                        Button("Connect") { educationDomain = domain }
-                            .buttonStyle(.bordered)
-                    }
-                }
-                .frame(minHeight: 48)
-            }
-            Button("Log weight") { showsWeightLog = true }
-                .buttonStyle(.bordered)
-        }
-        .healthWarmCard()
+    /// Connected once any domain has actually been asked for. Apple never
+    /// reveals a read denial, so "requested" is the strongest honest claim.
+    private var isConnected: Bool {
+        store.statuses.values.contains { $0.readRequestState != .neverRequested }
     }
 
     private var connectionSubtitle: String {
@@ -304,15 +126,6 @@ struct HealthHubView: View {
             return "Last synced \(date.formatted(date: .omitted, time: .shortened))"
         }
         return store.isRefreshing ? "Syncing…" : "Not synced yet"
-    }
-
-    private var nutritionValues: [NutritionChartValue] {
-        [
-            .init(label: "kcal", value: store.aggregates[.dietaryEnergy]?.value ?? 0),
-            .init(label: "Protein", value: store.aggregates[.dietaryProtein]?.value ?? 0),
-            .init(label: "Carbs", value: store.aggregates[.dietaryCarbohydrates]?.value ?? 0),
-            .init(label: "Fat", value: store.aggregates[.dietaryFat]?.value ?? 0)
-        ]
     }
 
     private var fastingSuggestionDate: Date? {
@@ -327,48 +140,6 @@ struct HealthHubView: View {
         if latest == latestLocalMealAt { return "Based on your latest LifeBoard meal." }
         return "Based on the latest external dietary-energy timestamp in Apple Health."
     }
-
-    private func domainStatusText(_ status: HealthDomainStatus) -> String {
-        if status.hasPartialWriteAuthorization { return "Partially allowed" }
-        if status.writeAuthorizations.values.contains(.denied) { return "Writing denied · local logging still works" }
-        if status.readRequestState == .neverRequested { return "Not requested" }
-        return status.writeEnabled ? "Future LifeBoard entries sync" : "Read only"
-    }
-
-    private func metricTitle(_ metric: HealthMetric) -> String {
-        metric.rawValue
-            .replacingOccurrences(of: "walkingRunning", with: "walking running ")
-            .replacingOccurrences(of: "dietary", with: "")
-            .replacingOccurrences(of: "body", with: "body ")
-            .capitalized
-    }
-
-    private func metricValue(_ value: Double, metric: HealthMetric) -> String {
-        switch metric {
-        case .steps: "\(Int(value))"
-        case .walkingRunningDistance: String(format: "%.1f km", value / 1_000)
-        case .water: "\(Int(value)) mL"
-        case .bodyMass: String(format: "%.1f kg", value)
-        case .bodyFatPercentage: String(format: "%.1f%%", value)
-        case .waistCircumference: String(format: "%.1f cm", value)
-        case .restingHeartRate: "\(Int(value)) bpm"
-        case .dietaryProtein, .dietaryCarbohydrates, .dietaryFat: String(format: "%.0f g", value)
-        case .activeEnergy, .restingEnergy, .dietaryEnergy: "\(Int(value)) kcal"
-        default: String(format: "%.1f", value)
-        }
-    }
-
-    private func healthSectionHeader(_ title: String, symbol: String) -> some View {
-        Label(title, systemImage: symbol)
-            .font(.headline)
-            .foregroundStyle(Color.lifeboard(.textPrimary))
-    }
-}
-
-private struct NutritionChartValue: Identifiable {
-    let label: String
-    let value: Double
-    var id: String { label }
 }
 
 /// The warm, contextual "Connect Apple Health" priming sheet. Presented both by
@@ -592,17 +363,5 @@ private struct SyncBridgeChannel: View {
             .foregroundStyle(Color.lifeboard(.accentPrimary))
             .frame(height: 34)
             .accessibilityHidden(true)
-    }
-}
-
-private extension View {
-    func healthWarmCard() -> some View {
-        self
-            .padding(16)
-            .background(Color.lifeboard(.bgElevated), in: RoundedRectangle(cornerRadius: 20))
-            .overlay {
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.lifeboard(.strokeHairline).opacity(0.5), lineWidth: 1)
-            }
     }
 }

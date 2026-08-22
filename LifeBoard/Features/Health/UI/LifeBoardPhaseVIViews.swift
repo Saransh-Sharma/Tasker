@@ -686,6 +686,8 @@ private struct NutritionBarcodeReviewSheet: View {
 
     var body: some View {
         NavigationStack {
+            // composer-kit:allow-list read-only review of a scanned barcode;
+            // LabeledContent rows are a table, not a capture form.
             List {
                 Section {
                     LabeledContent("Barcode", value: review.barcode)
@@ -1972,18 +1974,7 @@ private struct SleepNoteCaptureView: View {
             identifier: "wellness.sleep.capture",
             onConfirm: save
         ) {
-            ComposerSection("Sleep") {
-                DateCapsuleRow("Sleep time", selection: $startedAt, identifier: "wellness.sleep.started")
-                DateCapsuleRow("Wake time", selection: $endedAt, minimum: startedAt, identifier: "wellness.sleep.ended")
-                OptionRail(
-                    "Quality",
-                    selection: $quality,
-                    values: Array(0...5),
-                    identifierPrefix: "wellness.sleep.quality",
-                    title: { $0 == 0 ? "Not rated" : "\($0)" }
-                )
-                ComposerField("Note", prompt: "Optional context", text: $note, shape: .prose(lineLimit: 2...6), identifier: "wellness.sleep.note")
-            }
+            SleepNoteSection(startedAt: $startedAt, endedAt: $endedAt, quality: $quality, note: $note)
             CaptureErrorSection(message: errorMessage)
         }
     }
@@ -2004,6 +1995,54 @@ private struct SleepNoteCaptureView: View {
             onSave(value)
             dismiss()
         } catch { errorMessage = error.localizedDescription }
+    }
+}
+
+private struct SleepNoteSection: View {
+    @Binding var startedAt: Date
+    @Binding var endedAt: Date
+    @Binding var quality: Int
+    @Binding var note: String
+
+    var body: some View {
+        ComposerSection("Sleep") {
+            DateCapsuleRow("Sleep time", selection: $startedAt, identifier: "wellness.sleep.started")
+            DateCapsuleRow("Wake time", selection: $endedAt, minimum: startedAt, identifier: "wellness.sleep.ended")
+            OptionRail(
+                "Quality",
+                selection: $quality,
+                values: Array(0...5),
+                identifierPrefix: "wellness.sleep.quality",
+                title: { $0 == 0 ? "Not rated" : "\($0)" }
+            )
+            ComposerField("Note", prompt: "Optional context", text: $note, shape: .prose(lineLimit: 2...6), identifier: "wellness.sleep.note")
+        }
+    }
+}
+
+private struct MovementIntervalSection: View {
+    @Binding var startedAt: Date
+    @Binding var endedAt: Date
+
+    var body: some View {
+        ComposerSection("Interval") {
+            DateCapsuleRow("Started", selection: $startedAt, identifier: "wellness.movement.started")
+            DateCapsuleRow("Ended", selection: $endedAt, minimum: startedAt, identifier: "wellness.movement.ended")
+        }
+    }
+}
+
+private struct MovementMeasurementsSection: View {
+    @Binding var steps: Double
+    @Binding var distanceKilometers: Double
+    @Binding var energyKilocalories: Double
+
+    var body: some View {
+        ComposerSection("Measurements", footer: "Enter at least one value. Zero or unknown fields are not saved.") {
+            ComposerNumberField("Steps", value: $steps, format: .number.precision(.fractionLength(0)), unit: "steps", identifier: "wellness.movement.steps")
+            ComposerNumberField("Distance", value: $distanceKilometers, unit: "km", identifier: "wellness.movement.distance")
+            ComposerNumberField("Active energy", value: $energyKilocalories, unit: "kcal", identifier: "wellness.movement.energy")
+        }
     }
 }
 
@@ -2040,15 +2079,12 @@ private struct MovementCaptureView: View {
             identifier: "wellness.movement.capture",
             onConfirm: save
         ) {
-            ComposerSection("Interval") {
-                DateCapsuleRow("Started", selection: $startedAt, identifier: "wellness.movement.started")
-                DateCapsuleRow("Ended", selection: $endedAt, minimum: startedAt, identifier: "wellness.movement.ended")
-            }
-            ComposerSection("Measurements", footer: "Enter at least one value. Zero or unknown fields are not saved.") {
-                ComposerNumberField("Steps", value: $steps, format: .number.precision(.fractionLength(0)), unit: "steps", identifier: "wellness.movement.steps")
-                ComposerNumberField("Distance", value: $distanceKilometers, unit: "km", identifier: "wellness.movement.distance")
-                ComposerNumberField("Active energy", value: $energyKilocalories, unit: "kcal", identifier: "wellness.movement.energy")
-            }
+            MovementIntervalSection(startedAt: $startedAt, endedAt: $endedAt)
+            MovementMeasurementsSection(
+                steps: $steps,
+                distanceKilometers: $distanceKilometers,
+                energyKilocalories: $energyKilocalories
+            )
             CaptureErrorSection(message: errorMessage)
         }
     }
