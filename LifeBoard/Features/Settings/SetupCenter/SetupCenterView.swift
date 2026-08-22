@@ -20,10 +20,12 @@ struct SetupCenterView: View {
     let onNavigate: (SettingsDetailRoute) -> Void
 
     @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.colorScheme) private var colorScheme
     @State private var healthStore = HealthCoordinator.shared.connectionStore
     @StateObject private var evaAccess = EvaCloudAccessCoordinator.shared
     @State private var showsHealthDisclosure = false
     @State private var showsEvaDismissNudge = false
+    @State private var completionTrigger = 0
 
     private var status: SetupCenterStatus {
         SetupCenterStatus.resolve(
@@ -41,15 +43,17 @@ struct SetupCenterView: View {
     // `FoundationShellDestinations`. Adding a second one here would nest a
     // scaffold inside a scaffold, which resolves to an inert canvas and buys
     // nothing — the same doctrine `TrackFoundationRootView` states at length.
+    private var focus: SetupCenterFocus { SetupCenterFocus.resolve(status) }
+
     var body: some View {
         let status = status
-        let focus = SetupCenterFocus.resolve(status)
+        let focus = focus
 
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
                 SetupCenterFocusSection(
                     focus: focus,
-                    palette: DaypartTokens.palette(for: preferences.resolvedDaypart()),
+                    palette: DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme),
                     action: focusAction(for: focus)
                 )
                 SetupCenterCalendarSection(
@@ -85,6 +89,14 @@ struct SetupCenterView: View {
             .padding(.bottom, ClayLayoutMetrics.bottomDockClearance)
         }
         .scrollIndicators(.hidden)
+        // `completionBurst`, not `firstLight`: reaching the end of setup is a
+        // persisted completion, which is exactly what the burst is reserved
+        // for. `firstLight` belongs to the first daily commitment.
+        .lifeboardCompletionBurst(trigger: completionTrigger)
+        .onChange(of: focus.target) { previous, current in
+            guard current == .complete, previous != .complete else { return }
+            completionTrigger &+= 1
+        }
         .navigationTitle("Setup Center")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("setupCenter.root")

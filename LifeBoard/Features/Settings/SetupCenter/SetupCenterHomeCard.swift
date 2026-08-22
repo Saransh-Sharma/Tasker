@@ -37,11 +37,7 @@ struct SetupCenterHomeCard: View {
             HStack(spacing: SwiftUITokens.spacing.s12) {
                 Button(action: onOpen) {
                     HStack(spacing: SwiftUITokens.spacing.s12) {
-                        Image(systemName: "slider.horizontal.3")
-                            .lifeboardFont(.headline)
-                            .foregroundStyle(Color.lifeboard(.accentPrimary))
-                            .frame(width: 38, height: 38)
-                            .background(Color.lifeboard(.accentWash), in: RoundedRectangle(cornerRadius: 12))
+                        SettingsRowIcon(iconName: "slider.horizontal.3", tone: .accent)
 
                         VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s4) {
                             Text("Finish personalizing")
@@ -68,7 +64,7 @@ struct SetupCenterHomeCard: View {
                     Task { await ProductTelemetry.shared.record(.setupCenterDismissed, outcome: "home_card") }
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.caption.weight(.bold))
+                        .lifeboardFont(.meta)
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -78,11 +74,14 @@ struct SetupCenterHomeCard: View {
                 .accessibilityIdentifier("home.setupCenter.dismiss")
             }
             .padding(SwiftUITokens.spacing.s12)
-            .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.lifeboard(.borderSubtle), lineWidth: 1)
-            }
+            // `Radius.hero`, matching `SetupCenterFocusSurface` in *both* its
+            // glass and clay arms. That single number is the continuity
+            // `DESIGN.md` asks for: the card on Home and the hero it opens into
+            // share a silhouette, so the destination reads as this object
+            // growing rather than a different screen replacing it.
+            //
+            // Clay, never glass — this sits on Home, which already has a hero.
+            .lifeBoardClaySurface(.raised, cornerRadius: Radius.hero)
             .padding(.horizontal, 20)
             .padding(.vertical, 6)
             .accessibilityElement(children: .contain)
