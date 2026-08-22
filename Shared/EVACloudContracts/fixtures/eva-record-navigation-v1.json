@@ -1,0 +1,12 @@
+{
+  "recordKinds": [
+    "task", "project", "habit", "tracker", "routine", "goal", "journal", "note",
+    "knowledgeFolder", "focusSession", "lifeMoment", "bodyMetric", "hydration", "mood",
+    "sleep", "medication", "insight"
+  ],
+  "navigationTargets": [
+    "home", "today", "dayPlan", "weekPlan", "weeklyReview", "backlog", "focus", "habits",
+    "trackers", "journal", "notes", "goals", "routines", "lifeMoments", "wellness", "nutrition",
+    "fasting", "insights", "settings", "eva"
+  ]
+}

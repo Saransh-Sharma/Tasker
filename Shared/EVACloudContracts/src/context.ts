@@ -41,6 +41,31 @@ const NullableInteger = (options: Parameters<typeof Type.Integer>[0]) =>
   Type.Optional(Type.Union([Type.Integer(options), Type.Null()]))
 const NullableFraction = Type.Optional(Type.Union([Type.Number({ minimum: 0, maximum: 1 }), Type.Null()]))
 
+export const EvaContextSelectionReasonSchema = Type.Union([
+  Type.Literal('routeBaseline'),
+  Type.Literal('explicitReference'),
+  Type.Literal('semanticMatch'),
+  Type.Literal('linkedRecord'),
+  Type.Literal('operationalRisk'),
+])
+
+export const EvaTurnContextSchema = Type.Object({
+  requestedAt: ISODateTime,
+  localDate: Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' }),
+  calendarIdentifier: ShortText(64),
+  firstWeekday: Type.Integer({ minimum: 1, maximum: 7 }),
+  surface: Type.Union([
+    Type.Literal('evaTab'),
+    Type.Literal('globalComposer'),
+    Type.Literal('home'),
+    Type.Literal('dailyBrief'),
+    Type.Literal('knowledge'),
+    Type.Literal('journal'),
+    Type.Literal('shortcut'),
+    Type.Literal('background'),
+  ]),
+}, { additionalProperties: false })
+
 export const EvaPrioritySchema = Type.Union([
   Type.Literal('none'), Type.Literal('low'), Type.Literal('high'), Type.Literal('max'),
 ])
@@ -253,6 +278,22 @@ export const EvaEvidenceContextSchema = Type.Array(Type.Object({
   value: Type.Optional(Type.Number()),
 }, { additionalProperties: false }), { maxItems: 120 })
 
+/** Query-selected Knowledge records. Knowledge is ordinary LifeBoard context,
+ *  not a sensitive grant category, but only bounded matched excerpts cross the
+ *  cloud boundary and every record remains individually excludable. */
+export const EvaKnowledgeContextSchema = Type.Array(Type.Object({
+  id: EvaUUIDSchema,
+  title: ShortText(200),
+  matchedExcerpt: ShortText(1_200),
+  modifiedAt: ISODateTime,
+  matchReason: Type.Union([
+    Type.Literal('explicitReference'),
+    Type.Literal('semanticMatch'),
+    Type.Literal('linkedRecord'),
+    Type.Literal('recentRecord'),
+  ]),
+}, { additionalProperties: false }), { maxItems: 24 })
+
 export const EvaContextPayloadSchemas = {
   planning: EvaPlanningContextSchema,
   capacity: EvaCapacityContextSchema,
@@ -266,6 +307,7 @@ export const EvaContextPayloadSchemas = {
   journal: EvaEvidenceContextSchema,
   health: EvaEvidenceContextSchema,
   lifeMoments: EvaEvidenceContextSchema,
+  knowledge: EvaKnowledgeContextSchema,
 } as const
 
 export type EvaContextCategoryName = keyof typeof EvaContextPayloadSchemas
@@ -280,8 +322,12 @@ export type EvaContextCategoryName = keyof typeof EvaContextPayloadSchemas
 export function contextPayloadError(
   contractVersion: number,
   context: readonly { category: string; payload: unknown; metadata?: unknown }[],
+  turnContext?: unknown,
 ): string | undefined {
   if (contractVersion < 2) return undefined
+  if (contractVersion >= 4 && !Value.Check(EvaTurnContextSchema, turnContext)) {
+    return 'Contract v4 requires a valid turnContext.'
+  }
   const seen = new Set<string>()
   for (const section of context) {
     if (seen.has(section.category)) return `Duplicate context section: ${section.category}`
@@ -291,6 +337,13 @@ export function contextPayloadError(
     }
     if (contractVersion >= 3 && section.metadata === undefined) {
       return `Context section ${section.category} is missing v3 availability metadata.`
+    }
+    if (contractVersion >= 4) {
+      const selectionReasons = (section.metadata as { selectionReasons?: unknown } | undefined)?.selectionReasons
+      if (!Array.isArray(selectionReasons) || selectionReasons.length === 0 ||
+          !selectionReasons.every((reason) => Value.Check(EvaContextSelectionReasonSchema, reason))) {
+        return `Context section ${section.category} is missing v4 selection reasons.`
+      }
     }
     const schema = EvaContextPayloadSchemas[section.category as EvaContextCategoryName]
     if (!schema) return `Unknown context category: ${section.category}`

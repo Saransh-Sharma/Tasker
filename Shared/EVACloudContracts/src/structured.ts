@@ -1,5 +1,5 @@
 import { type Static, type TSchema, Type } from '@sinclair/typebox'
-import type { EvaInferenceRequestV1, EvaRoute } from './index.js'
+import { EvaNavigationTargetSchema, EvaRecordKindSchema, type EvaInferenceRequestV1, type EvaRoute } from './index.js'
 import { EvaUUIDSchema } from './primitives.js'
 
 const ISODateTimePattern = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$'
@@ -141,7 +141,63 @@ export const EvaDynamicChipsResultSchema = Type.Object({
   chips: Type.Array(Type.String({ minLength: 1, maxLength: 60 }), { minItems: 3, maxItems: 6, uniqueItems: true }),
 }, { $id: 'EvaDynamicChipsResultV1', additionalProperties: false })
 
+const CaptureTimestamp = Type.String({ pattern: ISODateTimePattern })
+export const EvaCaptureResultSchema = Type.Object({
+  commands: Type.Array(Type.Union([
+    Type.Object({
+      type: Type.Literal('logBodyMetric'),
+      metric: Type.Literal('bodyMass'),
+      value: Type.Number({ minimum: 20, maximum: 350 }),
+      unit: Type.Literal('kg'),
+      occurredAt: CaptureTimestamp,
+      note: Type.Union([Type.String({ maxLength: 500 }), Type.Null()]),
+    }, { additionalProperties: false }),
+    Type.Object({
+      type: Type.Literal('captureNote'),
+      title: Type.String({ minLength: 1, maxLength: 200 }),
+      body: Type.String({ minLength: 1, maxLength: 8_000 }),
+    }, { additionalProperties: false }),
+    Type.Object({
+      type: Type.Literal('appendJournal'),
+      text: Type.String({ minLength: 1, maxLength: 8_000 }),
+      occurredAt: CaptureTimestamp,
+    }, { additionalProperties: false }),
+    Type.Object({
+      type: Type.Literal('logHydration'),
+      milliliters: Type.Integer({ minimum: 1, maximum: 5_000 }),
+      occurredAt: CaptureTimestamp,
+    }, { additionalProperties: false }),
+    Type.Object({
+      type: Type.Literal('logMood'),
+      score: Type.Integer({ minimum: 1, maximum: 5 }),
+      note: Type.Union([Type.String({ maxLength: 500 }), Type.Null()]),
+      occurredAt: CaptureTimestamp,
+    }, { additionalProperties: false }),
+    Type.Object({
+      type: Type.Literal('recordTrackerValue'),
+      trackerID: UUID,
+      value: Type.Number({ minimum: -1_000_000, maximum: 1_000_000 }),
+      occurredAt: CaptureTimestamp,
+    }, { additionalProperties: false }),
+    Type.Object({
+      type: Type.Literal('captureLifeMoment'),
+      title: Type.String({ minLength: 1, maxLength: 200 }),
+      note: Type.Union([Type.String({ maxLength: 2_000 }), Type.Null()]),
+      occurredAt: CaptureTimestamp,
+    }, { additionalProperties: false }),
+  ]), { minItems: 1, maxItems: 3 }),
+  rationaleText: Type.String({ minLength: 1, maxLength: 600 }),
+}, { $id: 'EvaCaptureResultV1', additionalProperties: false })
+
+export const EvaNavigationResultSchema = Type.Object({
+  target: EvaNavigationTargetSchema,
+  recordKind: Type.Union([EvaRecordKindSchema, Type.Null()]),
+  query: Type.Union([Type.String({ minLength: 1, maxLength: 240 }), Type.Null()]),
+}, { $id: 'EvaNavigationResultV1', additionalProperties: false })
+
 export const EvaStructuredRouteSchemas = {
+  capture: EvaCaptureResultSchema,
+  navigation: EvaNavigationResultSchema,
   plan: EvaPlanResultSchema,
   planRepair: EvaPlanResultSchema,
   fieldSuggestion: EvaFieldSuggestionResultSchema,
@@ -159,14 +215,17 @@ export function structuredSchemaForRoute(route: EvaRoute): TSchema | undefined {
   return EvaStructuredRouteSchemas[route as keyof typeof EvaStructuredRouteSchemas]
 }
 
-const identifierFields = new Set(['taskID', 'task_id', 'projectID', 'targetProjectID', 'lifeAreaID', 'evidenceTaskIDs'])
+const identifierFields = new Set([
+  'taskID', 'task_id', 'projectID', 'targetProjectID', 'lifeAreaID', 'evidenceTaskIDs',
+  'habitID', 'trackerID', 'spaceID', 'noteID',
+])
 
 export function semanticValidationError(
   route: EvaRoute,
   value: unknown,
   request: Pick<EvaInferenceRequestV1, 'context'>,
 ): string | undefined {
-  if (route !== 'plan' && route !== 'planRepair' && route !== 'topThree' && route !== 'dailyBrief') return undefined
+  if (route !== 'plan' && route !== 'planRepair' && route !== 'topThree' && route !== 'dailyBrief' && route !== 'capture') return undefined
   const allowed = identifiersIn(request.context)
   const referenced = referencedIdentifiers(value)
   for (const identifier of referenced) {
