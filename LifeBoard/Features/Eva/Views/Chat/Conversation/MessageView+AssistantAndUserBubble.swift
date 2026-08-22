@@ -318,7 +318,17 @@ extension MessageView {
 
     @ViewBuilder
     func assistantCardView(payload: AssistantCardPayload) -> some View {
-        if let evaProposal = payload.evaProposal {
+        if payload.cardType == .unknown {
+            // Chat history can outlive an app version. A newer card therefore
+            // degrades to its human-readable message instead of exposing the
+            // persisted wire marker and JSON as a chat bubble.
+            Text(payload.message ?? "This card was created by a newer version of LifeBoard.")
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else if let navigation = payload.navigation {
+            navigationCardView(navigation)
+        } else if let evaProposal = payload.evaProposal {
             evaProposalCardView(payload: payload, proposal: evaProposal)
         } else if let dayOverview = payload.dayOverview {
             dayOverviewCardView(payload: payload, overview: dayOverview)
@@ -362,6 +372,18 @@ extension MessageView {
                     }
                 }
 
+                if payload.captureReferences.isEmpty == false {
+                    ForEach(payload.captureReferences, id: \.recordID) { reference in
+                        Button {
+                            onOpenRecordFromCard?(reference)
+                        } label: {
+                            Label(reference.title, systemImage: "arrow.up.forward.app")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+
                 if payload.cardType == .undo {
                     HStack {
                         Text(undoLabel(payload: payload))
@@ -370,7 +392,7 @@ extension MessageView {
                         Spacer()
                         Button("Undo") {
                             if let runID = payload.runID {
-                                undoEvaRun(runID, payloadRunID: payload.runID)
+                                undoAssistantRun(runID, payload: payload)
                             }
                         }
                             .buttonStyle(.borderedProminent)
@@ -401,5 +423,48 @@ extension MessageView {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func navigationCardView(_ navigation: EvaNavigationCardPayload) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            Label("Open in LifeBoard", systemImage: "arrow.up.forward.app")
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard(.textPrimary))
+            Text(navigation.message)
+                .font(.lifeboard(.callout))
+                .foregroundStyle(Color.lifeboard(.textSecondary))
+
+            if navigation.candidates.isEmpty {
+                Button("Open") {
+                    onOpenNavigationTargetFromCard?(navigation.target)
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                ForEach(navigation.candidates) { candidate in
+                    Button {
+                        onOpenRecordFromCard?(candidate)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(candidate.title)
+                                    .foregroundStyle(Color.lifeboard(.textPrimary))
+                                if let subtitle = candidate.subtitle {
+                                    Text(subtitle)
+                                        .font(.lifeboard(.caption1))
+                                        .foregroundStyle(Color.lifeboard(.textTertiary))
+                                }
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("chat.navigation_card")
     }
 }

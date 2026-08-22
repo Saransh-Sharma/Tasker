@@ -1,5 +1,6 @@
 import Combine
 import MarkdownUI
+import LifeBoardDomain
 import MLXLMCommon
 import SwiftData
 import SwiftUI
@@ -7,6 +8,22 @@ import os
 
 private struct EvaAuthorizedEvidenceContextEnvironmentKey: EnvironmentKey {
     static let defaultValue = EvaAuthorizedEvidenceContext.notProvided
+}
+
+enum EvaChatCloudReadinessPolicy {
+    static func requiresCloud(
+        preference: EvaProviderRouter.Preference,
+        route: EvaTurnRoute?
+    ) -> Bool {
+        guard preference != .offline else { return false }
+        switch route {
+        case .capture, .navigation:
+            return false
+        case .chatAnswer, .readOnlyReview, .taskMutation, .habitMutation,
+             .dayPlanning, .weeklyPlanning, .clarification, .none:
+            return true
+        }
+    }
 }
 struct EvaEvidenceOpenAction {
     var open: @MainActor (EvidenceReference) -> Void
@@ -570,6 +587,8 @@ struct ChatView: View {
     var onActivationChatEvent: ((EvaActivationChatEvent) -> Void)? = nil
     var onOpenTaskDetail: ((TaskDefinition) -> Void)? = nil
     var onOpenHabitDetail: ((UUID) -> Void)? = nil
+    var onOpenRecordFromCard: ((EvaRecordReference) -> Void)? = nil
+    var onOpenNavigationTargetFromCard: ((EvaNavigationTarget) -> Void)? = nil
     var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
     var onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
     var showsHistoryAction: Bool = true
@@ -603,10 +622,19 @@ struct ChatView: View {
     @State private var hasCompletedInitialTranscriptRender = false
     @State private var consumedPromptFocusRequestID: UInt64 = 0
     @StateObject private var contextCoordinator = ChatContextCoordinator()
+    @StateObject private var cloudAccess = EvaCloudAccessCoordinator.shared
+    @State private var providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
+    @State private var pendingCloudSend: PendingCloudSend?
+    @State private var cloudReadinessTask: _Concurrency.Task<Void, Never>?
     @FocusState private var isProjectFieldFocused: Bool
 
     private struct EvaSubmittedDraft: Equatable {
         let runID: UUID
+        let text: String
+    }
+
+    private struct PendingCloudSend: Equatable {
+        let id: UUID
         let text: String
     }
 
@@ -671,6 +699,10 @@ struct ChatView: View {
 
     private var isActivationPresentation: Bool {
         activationConfiguration != nil
+    }
+
+    private var showsCloudAccessCard: Bool {
+        providerPreference != .offline && cloudAccess.state != .ready
     }
 
     /// Starter prompts for the empty state.
@@ -752,6 +784,9 @@ struct ChatView: View {
 
     var body: some View {
         ChatScaffoldView(
+            cloudAccess: cloudAccess,
+            showsCloudAccessCard: showsCloudAccessCard,
+            hasPendingCloudSend: pendingCloudSend != nil,
             currentThread: $currentThread,
             transcriptSnapshot: transcriptSnapshot,
             liveOutput: liveOutputState,
@@ -779,6 +814,8 @@ struct ChatView: View {
             showsHistoryAction: showsHistoryAction,
             onOpenTaskDetail: onOpenTaskDetail,
             onOpenHabitDetail: onOpenHabitDetail,
+            onOpenRecordFromCard: onOpenRecordFromCard,
+            onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
             onPerformDayTaskAction: onPerformDayTaskAction,
             onPerformDayHabitAction: onPerformDayHabitAction,
             starterPrompts: activationStarterPrompts,
@@ -806,6 +843,18 @@ struct ChatView: View {
             onRemoveAttachment: { attachment in
                 contextCoordinator.remove(attachment)
             },
+            onActivateCloud: {
+                confirmCloudAccessAndResume()
+            },
+            onRetryCloud: {
+                retryCloudAccessAndResume()
+            },
+            onReconnectApple: {
+                reconnectAppleAndResume()
+            },
+            onUseOffline: {
+                useOfflineEvaForPendingSend()
+            },
             onGenerate: {
                 clearStagedOpeningPromptsIfNeeded()
                 submitPromptFromSendButton()
@@ -824,6 +873,7 @@ struct ChatView: View {
         )
         .onAppear {
             handleChatViewAppear()
+            providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
             handlePromptFocusRequestIfNeeded()
             if activationConfiguration == nil, stagedOpeningPrompts.isEmpty {
                 stagedOpeningPrompts = EvaOpeningPromptStore.load()
@@ -852,7 +902,12 @@ struct ChatView: View {
             handlePromptFocusRequestIfNeeded()
         }
         .onDisappear {
+            cloudReadinessTask?.cancel()
+            cloudReadinessTask = nil
             handleChatViewDisappear()
+        }
+        .task {
+            _ = await cloudAccess.resumeConfirmedActivation(source: .evaEntry)
         }
         .onReceive(contextInvalidationPublisher) { _ in
             scheduleContextInvalidationForCurrentThread()
@@ -1277,7 +1332,7 @@ extension ChatView {
 extension ChatView {
     /// Executes generate.
     @MainActor
-    private func generate() {
+    private func generate(bypassingCloudReadiness: Bool = false) {
         guard canSubmit else { return }
 
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1355,11 +1410,19 @@ extension ChatView {
             break
         }
 
+        let message = prompt
+        let evaRoute = V2FeatureFlags.evaPlanWithText ? EvaTurnRouter.route(for: message) : nil
+        if bypassingCloudReadiness == false,
+           requiresCloudReadiness(for: evaRoute),
+           gateCloudSendUntilReady(message: message) {
+            return
+        }
+        pendingCloudSend = nil
+
         guard let thread = ensureCurrentThread() else { return }
         let threadID = thread.id
         generatingThreadID = threadID
 
-        let message = prompt
         activationFocusTask?.cancel()
         activationFocusTask = nil
         projectLookupTask?.cancel()
@@ -1370,7 +1433,6 @@ extension ChatView {
         generationRunID = runID
         llm.beginUserTurn(runID: runID)
         promptSubmitTraceInterval = PerformanceTrace.begin("ChatPromptSubmitToFirstStateChange")
-        let evaRoute = V2FeatureFlags.evaPlanWithText ? EvaTurnRouter.route(for: message) : nil
         if let evaRoute, evaRoute != .chatAnswer {
             rememberEvaSubmittedDraft(message, runID: runID)
         }
@@ -1387,11 +1449,200 @@ extension ChatView {
                 switch route {
                 case .chatAnswer:
                     await runStandardGeneration(message: message, threadID: threadID, runID: runID)
+                case .capture:
+                    await runLocalCapture(message: message, threadID: threadID, runID: runID)
+                case .navigation:
+                    await runLocalNavigation(message: message, threadID: threadID, runID: runID)
                 case .readOnlyReview, .taskMutation, .habitMutation, .dayPlanning, .weeklyPlanning, .clarification:
                     await runEvaPlanGeneration(message: message, threadID: threadID, traceContext: traceContext)
                 }
             } else {
                 await runStandardGeneration(message: message, threadID: threadID, runID: runID)
+            }
+        }
+    }
+
+    private func requiresCloudReadiness(for route: EvaTurnRoute?) -> Bool {
+        EvaChatCloudReadinessPolicy.requiresCloud(
+            preference: providerPreference,
+            route: route
+        )
+    }
+
+    @MainActor
+    private func gateCloudSendUntilReady(message: String) -> Bool {
+        guard cloudAccess.state != .ready else { return false }
+        let pending = PendingCloudSend(id: UUID(), text: message)
+        pendingCloudSend = pending
+        cloudReadinessTask?.cancel()
+        cloudReadinessTask = _Concurrency.Task { @MainActor in
+            let ready = await cloudAccess.ensureReadyForSend(promptID: pending.id)
+            guard Task.isCancelled == false, ready else { return }
+            resumePendingCloudSend(pending)
+        }
+        return true
+    }
+
+    @MainActor
+    private func confirmCloudAccessAndResume() {
+        let pending = pendingCloudSend
+        cloudReadinessTask?.cancel()
+        cloudReadinessTask = _Concurrency.Task { @MainActor in
+            let ready = await cloudAccess.confirmAndActivate(
+                grants: cloudAccess.selectedGrants,
+                source: .chatInlineAction
+            )
+            guard Task.isCancelled == false, ready, let pending else { return }
+            resumePendingCloudSend(pending)
+        }
+    }
+
+    @MainActor
+    private func retryCloudAccessAndResume() {
+        let pending = pendingCloudSend
+        cloudReadinessTask?.cancel()
+        cloudReadinessTask = _Concurrency.Task { @MainActor in
+            let ready = await cloudAccess.resumeConfirmedActivation(source: .chatInlineAction)
+            guard Task.isCancelled == false, ready, let pending else { return }
+            resumePendingCloudSend(pending)
+        }
+    }
+
+    @MainActor
+    private func reconnectAppleAndResume() {
+        let pending = pendingCloudSend
+        cloudReadinessTask?.cancel()
+        cloudReadinessTask = _Concurrency.Task { @MainActor in
+            let ready = await cloudAccess.reconnectApple()
+            guard Task.isCancelled == false, ready, let pending else { return }
+            resumePendingCloudSend(pending)
+        }
+    }
+
+    @MainActor
+    private func useOfflineEvaForPendingSend() {
+        guard appManager.installedModels.isEmpty == false else {
+            showSettings = true
+            return
+        }
+        providerPreference = .offline
+        cloudAccess.selectOffline()
+        guard let pending = pendingCloudSend else { return }
+        resumePendingCloudSend(pending)
+    }
+
+    @MainActor
+    private func resumePendingCloudSend(_ pending: PendingCloudSend) {
+        guard pendingCloudSend == pending else { return }
+        pendingCloudSend = nil
+        cloudReadinessTask = nil
+        // If the person edited while activation was running, preserve the new
+        // draft and wait for another explicit send instead of submitting stale text.
+        guard prompt == pending.text else { return }
+        Task {
+            await ProductTelemetry.shared.record(
+                .evaActivationAndSendCompleted,
+                outcome: providerPreference.rawValue
+            )
+        }
+        generate(bypassingCloudReadiness: true)
+    }
+}
+
+extension ChatView {
+    private func runLocalCapture(message: String, threadID: UUID, runID: UUID) async {
+        await MainActor.run {
+            prompt = ""
+            appManager.playHaptic()
+            updatePendingResponsePhase(.buildingContext, for: runID)
+            _ = sendMessage(role: .user, content: message, threadID: threadID)
+        }
+
+        let result: EvaCaptureLaneResult
+        switch await EvaCaptureCommandParser.parse(message) {
+        case .review(let review):
+            result = .review(message: review)
+        case .commands(let commands):
+            guard let lane = EvaCaptureLaneFactory.lane else {
+                result = .review(message: "Capture is still starting up. Try again in a moment.")
+                break
+            }
+            do {
+                result = try await lane.apply(threadID: threadID.uuidString, commands: commands)
+            } catch {
+                result = .review(message: "I couldn't save that safely: \(error.localizedDescription)")
+            }
+        }
+        guard Task.isCancelled == false, generationRunID == runID else { return }
+        await MainActor.run {
+            let payload: AssistantCardPayload
+            switch result {
+            case .review(let message):
+                payload = AssistantCardPayload(
+                    cardType: .status,
+                    threadID: threadID.uuidString,
+                    status: .pending,
+                    message: message
+                )
+            case .applied(let run, let references, let message):
+                payload = AssistantCardPayload(
+                    cardType: .undo,
+                    runID: run.id,
+                    threadID: threadID.uuidString,
+                    status: .undoAvailable,
+                    diffLines: references.map { .init(text: "Captured \($0.title)", isDestructive: false) },
+                    expiresAt: (run.appliedAt ?? Date()).addingTimeInterval(30 * 60),
+                    message: message,
+                    captureReferences: references
+                )
+            }
+            _ = sendMessage(
+                role: .assistant,
+                content: AssistantCardCodec.encode(payload),
+                threadID: threadID,
+                sourceModelName: "LifeBoard Safe Capture"
+            )
+            clearEvaSubmittedDraft(runID: runID, reason: "capture_card_persisted")
+            if generationRunID == runID {
+                generationTask = nil
+                generationRunID = nil
+                if generatingThreadID == threadID { generatingThreadID = nil }
+                pendingResponsePhase = .idle
+                llm.isThinking = false
+            }
+        }
+    }
+
+    private func runLocalNavigation(message: String, threadID: UUID, runID: UUID) async {
+        await MainActor.run {
+            prompt = ""
+            appManager.playHaptic()
+            updatePendingResponsePhase(.buildingContext, for: runID)
+            _ = sendMessage(role: .user, content: message, threadID: threadID)
+        }
+        let navigation = await EvaLocalNavigationResolver.resolve(message)
+        guard Task.isCancelled == false, generationRunID == runID else { return }
+        await MainActor.run {
+            let payload = AssistantCardPayload(
+                cardType: .navigation,
+                threadID: threadID.uuidString,
+                status: .applied,
+                message: navigation.message,
+                navigation: navigation
+            )
+            _ = sendMessage(
+                role: .assistant,
+                content: AssistantCardCodec.encode(payload),
+                threadID: threadID,
+                sourceModelName: "LifeBoard Local Navigation"
+            )
+            clearEvaSubmittedDraft(runID: runID, reason: "navigation_card_persisted")
+            if generationRunID == runID {
+                generationTask = nil
+                generationRunID = nil
+                if generatingThreadID == threadID { generatingThreadID = nil }
+                pendingResponsePhase = .idle
+                llm.isThinking = false
             }
         }
     }

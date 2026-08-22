@@ -3,6 +3,7 @@
 //
 
 import MarkdownUI
+import LifeBoardDomain
 import SwiftUI
 
 struct ConversationView: View {
@@ -21,6 +22,10 @@ struct ConversationView: View {
     var onOpenTaskFromCard: ((TaskDefinition) -> Void)?
 
     var onOpenHabitFromCard: ((UUID) -> Void)?
+
+    var onOpenRecordFromCard: ((EvaRecordReference) -> Void)?
+
+    var onOpenNavigationTargetFromCard: ((EvaNavigationTarget) -> Void)?
 
     var onPerformDayTaskAction: EvaDayTaskActionHandler?
 
@@ -44,6 +49,8 @@ struct ConversationView: View {
                             now: now,
                             onOpenTaskFromCard: onOpenTaskFromCard,
                             onOpenHabitFromCard: onOpenHabitFromCard,
+                            onOpenRecordFromCard: onOpenRecordFromCard,
+                            onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
                             onPerformDayTaskAction: onPerformDayTaskAction,
                             onPerformDayHabitAction: onPerformDayHabitAction
                         )
@@ -64,6 +71,8 @@ struct ConversationView: View {
                             pendingStatusText: liveOutput.pendingStatusText,
                             onOpenTaskFromCard: onOpenTaskFromCard,
                             onOpenHabitFromCard: onOpenHabitFromCard,
+                            onOpenRecordFromCard: onOpenRecordFromCard,
+                            onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
                             onPerformDayTaskAction: onPerformDayTaskAction,
                             onPerformDayHabitAction: onPerformDayHabitAction
                         )

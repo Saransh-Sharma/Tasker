@@ -3,6 +3,8 @@
 //
 
 import MarkdownUI
+import LifeBoardDomain
+import SwiftData
 import SwiftUI
 
 struct MessageView: View {
@@ -13,6 +15,8 @@ struct MessageView: View {
     @Environment(\.evaAuthorizedEvidenceContext) var authorizedLifeEvidence
 
     @Environment(\.evaEvidenceOpenAction) var evidenceOpenAction
+
+    @Environment(\.modelContext) var modelContext
 
     @State var collapsed = true
 
@@ -54,6 +58,8 @@ struct MessageView: View {
 
     @State var memoryCandidateRevision = 0
 
+    @State var createdTaskReferencesByCardID: [UUID: EvaRecordReference] = [:]
+
     let renderModel: ChatMessageRenderModel
 
     let now: Date
@@ -71,6 +77,10 @@ struct MessageView: View {
     var onOpenTaskFromCard: ((TaskDefinition) -> Void)?
 
     var onOpenHabitFromCard: ((UUID) -> Void)?
+
+    var onOpenRecordFromCard: ((EvaRecordReference) -> Void)?
+
+    var onOpenNavigationTargetFromCard: ((EvaNavigationTarget) -> Void)?
 
     var onPerformDayTaskAction: EvaDayTaskActionHandler?
 

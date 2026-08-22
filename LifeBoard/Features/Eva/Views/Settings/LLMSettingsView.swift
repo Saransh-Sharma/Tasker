@@ -145,7 +145,7 @@ struct LLMSettingsView: View {
         VStack(spacing: 0) {
             SettingsSectionHeader(
                 title: "Cloud & Offline EVA",
-                subtitle: "Connect Luna, review credits and consent, or keep using an installed local model."
+                subtitle: "Connect Luna, review rolling quota and consent, or keep using an installed local model."
             )
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
@@ -189,9 +189,9 @@ struct LLMSettingsView: View {
                         descriptor: SettingsDestinationDescriptor(
                             iconName: "cloud.fill",
                             title: "Cloud EVA",
-                            subtitle: "Sign in with Apple, verify 18+, choose context, and manage Luna credits.",
+                            subtitle: "Start as a guest, choose context, manage Luna's rolling quota, and optionally protect EVA with Apple.",
                             trailingStatus: cloudAccount.isAuthenticated ? "Connected" : "Set up",
-                            inlineBadge: cloudAccount.credits.map { SettingsInlineBadge(title: "\($0.balance) credits") },
+                            inlineBadge: cloudAccount.quota.map { SettingsInlineBadge(title: "\($0.remaining) answers") },
                             tone: cloudAccount.canUseCloud ? .success : .accent,
                             accessibilityIdentifier: "llmSettings.cloudEvaRow"
                         )
@@ -369,6 +369,7 @@ struct LLMSettingsView: View {
 struct LLMPersonalMemorySettingsView: View {
     @State private var store = EvaMemoryDefaultsStoreV3.load()
     @State private var candidateInbox = EvaMemoryCandidateDefaultsStore.load()
+    @State private var excludedEvidence = EvaEvidenceExclusionStore.all()
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
     @StateObject private var assistantIdentity = AssistantIdentityModel()
@@ -388,6 +389,10 @@ struct LLMPersonalMemorySettingsView: View {
 
                 VStack(spacing: spacing.cardStackVertical) {
                     helperCopy
+
+                    if excludedEvidence.isEmpty == false {
+                        excludedEvidenceCard
+                    }
 
                     if candidateInbox.pending.isEmpty == false {
                         pendingMemoryCard
@@ -412,7 +417,7 @@ struct LLMPersonalMemorySettingsView: View {
             .padding(.bottom, spacing.s24)
         }
         .background(Color.lifeboard(.bgCanvas))
-        .navigationTitle("Personal Memory")
+        .navigationTitle("What Eva knows about you")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -420,10 +425,37 @@ struct LLMPersonalMemorySettingsView: View {
 
     private var helperCopy: some View {
         SettingsCard {
-            Text("Up to \(EvaMemoryStoreV3.maxStatements) memories, \(EvaMemoryStoreV3.maxStatementCharacters) characters each. EVA only uses items you saved.")
+            Text("Every memory is editable. ‘You told me’ is kept separate from ‘Eva noticed,’ and a noticed pattern is never promoted without your confirmation.")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var excludedEvidenceCard: some View {
+        SettingsFieldCard(
+            title: "Signals Eva won't use",
+            subtitle: "Excluded from Eva, Insights, and smart Home suggestions until you restore them."
+        ) {
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                ForEach(excludedEvidence) { item in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.display)
+                                .font(.lifeboard(.callout))
+                            Text(item.kind.replacingOccurrences(of: "_", with: " ").capitalized)
+                                .font(.lifeboard(.caption2))
+                                .foregroundStyle(Color.lifeboard(.textTertiary))
+                        }
+                        Spacer()
+                        Button("Use again") {
+                            EvaEvidenceExclusionStore.restore(id: item.id)
+                            excludedEvidence = EvaEvidenceExclusionStore.all()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
         }
     }
 
@@ -515,7 +547,7 @@ struct LLMPersonalMemorySettingsView: View {
                             .foregroundStyle(Color.lifeboard(.textPrimary))
                             .lineLimit(2...4)
 
-                            Text(entry.provenance == .userStated ? "Saved by you" : "Confirmed suggestion")
+                            Text(entry.provenance == .userStated ? "You told me" : "Eva noticed · confirmed")
                                 .font(.lifeboard(.caption2))
                                 .foregroundStyle(Color.lifeboard(.textTertiary))
 

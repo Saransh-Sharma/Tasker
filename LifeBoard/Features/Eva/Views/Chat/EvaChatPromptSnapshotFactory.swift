@@ -21,10 +21,35 @@ enum EvaChatPromptSnapshotFactory {
             return nil
         }
         let startedAt = Date()
+        let messages: [Chat.Message]
+        let systemPromptCharacterCount: Int
+        if let budget, budget.isCloud {
+            // Cloud owns its developer prompt. Counting the large local system
+            // prompt here used to evict useful conversation history and the
+            // request builder then discarded that prompt before transmission.
+            let contextTokens = cloudContext.reduce(0) { partial, section in
+                partial + ((try? JSONEncoder.evaCloud.encode(section).count) ?? 0) / 4
+            }
+            let instructionTokens = userInstructions.map {
+                LLMTokenBudgetEstimator.estimatedTokenCount(for: $0.persona + " " + ($0.tone ?? ""))
+            } ?? 0
+            let historyTokens = max(
+                0,
+                budget.inputTokens - budget.systemPromptTokens - contextTokens - instructionTokens - 256
+            )
+            messages = EvaCloudHistoryClipper.clip(
+                thread.sortedMessages,
+                maxMessages: budget.historyMessageLimit,
+                maxTokens: historyTokens
+            )
+            systemPromptCharacterCount = 0
+        } else {
+            messages = model.getChatMessages(thread: thread, systemPrompt: systemPrompt)
+            systemPromptCharacterCount = systemPrompt.count
+        }
         return LLMChatPromptSnapshot(
-            messages: budget.map { model.getChatMessages(thread: thread, systemPrompt: systemPrompt, budget: $0) }
-                ?? model.getChatMessages(thread: thread, systemPrompt: systemPrompt),
-            systemPromptCharacterCount: systemPrompt.count,
+            messages: messages,
+            systemPromptCharacterCount: systemPromptCharacterCount,
             buildDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000),
             cloudContext: cloudContext,
             userInstructions: userInstructions

@@ -1,4 +1,5 @@
 import SwiftUI
+import LifeBoardDomain
 
 private struct EvaComposerBottomClearanceKey: EnvironmentKey {
     static let defaultValue: CGFloat = 0
@@ -18,6 +19,8 @@ struct ChatScaffoldView: View {
 
     @Environment(LLMEvaluator.self) var llm
 
+    @ObservedObject var cloudAccess: EvaCloudAccessCoordinator
+
     @Environment(\.lifeboardLayoutClass) var layoutClass
 
     @Environment(\.evaComposerBottomClearance) var composerBottomClearance
@@ -25,7 +28,13 @@ struct ChatScaffoldView: View {
 
     @State var showEvaGuide = false
 
+    @State private var showsCloudContextReview = false
+
     @StateObject var assistantIdentity = AssistantIdentityModel()
+
+    let showsCloudAccessCard: Bool
+
+    let hasPendingCloudSend: Bool
 
     @Binding var currentThread: Thread?
 
@@ -81,6 +90,10 @@ struct ChatScaffoldView: View {
 
     let onOpenHabitDetail: ((UUID) -> Void)?
 
+    let onOpenRecordFromCard: ((EvaRecordReference) -> Void)?
+
+    let onOpenNavigationTargetFromCard: ((EvaNavigationTarget) -> Void)?
+
     let onPerformDayTaskAction: EvaDayTaskActionHandler?
 
     let onPerformDayHabitAction: EvaDayHabitActionHandler?
@@ -100,6 +113,14 @@ struct ChatScaffoldView: View {
     let onCancelDraft: () -> Void
 
     let onRemoveAttachment: (ThreadContextAttachmentRecord) -> Void
+
+    let onActivateCloud: () -> Void
+
+    let onRetryCloud: () -> Void
+
+    let onReconnectApple: () -> Void
+
+    let onUseOffline: () -> Void
 
     let onGenerate: () -> Void
 
@@ -123,6 +144,8 @@ struct ChatScaffoldView: View {
                         onOpenTaskDetail?(task)
                     },
                     onOpenHabitFromCard: onOpenHabitDetail,
+                    onOpenRecordFromCard: onOpenRecordFromCard,
+                    onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
                     onPerformDayTaskAction: onPerformDayTaskAction,
                     onPerformDayHabitAction: onPerformDayHabitAction
                 )
@@ -174,6 +197,19 @@ struct ChatScaffoldView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 VStack(spacing: Theme.Spacing.xs) {
+                    if showsCloudAccessCard {
+                        EvaCloudAccessCard(
+                            state: cloudAccess.state,
+                            errorMessage: cloudAccess.errorMessage,
+                            hasPendingSend: hasPendingCloudSend,
+                            selectedGrantCount: cloudAccess.selectedGrants.count,
+                            onActivate: onActivateCloud,
+                            onRetry: onRetryCloud,
+                            onReconnectApple: onReconnectApple,
+                            onReviewContext: { showsCloudContextReview = true },
+                            onUseOffline: onUseOffline
+                        )
+                    }
                     if let storageDegradedReason {
                         ChatStorageDegradedBanner(reason: storageDegradedReason)
                     }
@@ -311,6 +347,16 @@ struct ChatScaffoldView: View {
             .presentationDetents([.large])
             #endif
         }
+        .sheet(isPresented: $showsCloudContextReview) {
+            EvaCloudContextReviewSheet(
+                grants: $cloudAccess.selectedGrants,
+                isWorking: cloudAccess.isWorking,
+                onConfirm: {
+                    showsCloudContextReview = false
+                    onActivateCloud()
+                }
+            )
+        }
         .alert("Clear this chat?", isPresented: showClearConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Clear", role: .destructive) {
@@ -331,5 +377,196 @@ struct ChatScaffoldView: View {
             }
             #endif
         }
+    }
+}
+
+private struct EvaCloudAccessCard: View {
+    let state: EvaCloudAccessState
+    let errorMessage: String?
+    let hasPendingSend: Bool
+    let selectedGrantCount: Int
+    let onActivate: () -> Void
+    let onRetry: () -> Void
+    let onReconnectApple: () -> Void
+    let onReviewContext: () -> Void
+    let onUseOffline: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                Image(systemName: symbolName)
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(title)
+                        .font(.lifeboard(.bodyStrong))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                    Text(detail)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if state == .hydrating || state == .activating {
+                    ProgressView()
+                        .tint(Color.lifeboard(.accentPrimary))
+                        .accessibilityLabel(title)
+                }
+            }
+
+            if showsActions {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Theme.Spacing.sm) { actions }
+                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) { actions }
+                }
+            }
+        }
+        .padding(Theme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.raised, cornerRadius: 18)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("chat.cloudAccess.card")
+    }
+
+    @ViewBuilder
+    private var actions: some View {
+        switch state {
+        case .needsDisclosure:
+            Button(hasPendingSend ? "Activate & send" : "Activate Cloud EVA", action: onActivate)
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("chat.cloudAccess.activate")
+            Button("Review context", action: onReviewContext)
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("chat.cloudAccess.review")
+            Button("Use Offline EVA", action: onUseOffline)
+                .buttonStyle(.plain)
+        case .temporarilyUnavailable:
+            Button("Retry", action: onRetry)
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("chat.cloudAccess.retry")
+            Button("Use Offline EVA", action: onUseOffline)
+                .buttonStyle(.bordered)
+        case .appleReauthenticationRequired:
+            Button("Reconnect with Apple", action: onReconnectApple)
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("chat.cloudAccess.reconnectApple")
+            Button("Use Offline EVA", action: onUseOffline)
+                .buttonStyle(.bordered)
+        case .quotaExhausted, .ageBlocked:
+            Button("Use Offline EVA", action: onUseOffline)
+                .buttonStyle(.bordered)
+        case .hydrating, .ready, .activating:
+            EmptyView()
+        }
+    }
+
+    private var showsActions: Bool {
+        switch state {
+        case .needsDisclosure, .temporarilyUnavailable, .quotaExhausted,
+             .ageBlocked, .appleReauthenticationRequired:
+            true
+        case .hydrating, .ready, .activating:
+            false
+        }
+    }
+
+    private var title: String {
+        switch state {
+        case .hydrating: "Checking Cloud EVA…"
+        case .ready: "Cloud EVA is ready"
+        case .needsDisclosure: "Activate Cloud EVA"
+        case .activating: "Activating Cloud EVA…"
+        case .temporarilyUnavailable: "Cloud EVA needs attention"
+        case .quotaExhausted: "Cloud EVA limit reached"
+        case .ageBlocked: "Cloud EVA isn't available"
+        case .appleReauthenticationRequired: "Reconnect protected EVA"
+        }
+    }
+
+    private var detail: String {
+        switch state {
+        case .hydrating:
+            "Restoring the protected session on this device."
+        case .ready:
+            "Luna is ready."
+        case .needsDisclosure:
+            "Prompts and the context you confirm pass through LifeBoard's Cloudflare service to OpenAI. \(selectedGrantCount) sensitive context categories are selected."
+        case .activating:
+            "Your draft is safe. It will send once the guest session is ready."
+        case .temporarilyUnavailable(let message):
+            errorMessage ?? message
+        case .quotaExhausted(let nextAvailableAt):
+            nextAvailableAt.map { "Your rolling allowance begins returning \($0.formatted(date: .omitted, time: .shortened))." }
+                ?? "Your rolling answer allowance is currently used."
+        case .ageBlocked(let message):
+            message
+        case .appleReauthenticationRequired:
+            "Apple confirmation restores this linked account. LifeBoard won't replace it with a new guest."
+        }
+    }
+
+    private var symbolName: String {
+        switch state {
+        case .hydrating, .activating: "cloud"
+        case .ready: "checkmark.circle.fill"
+        case .needsDisclosure: "cloud.sun.fill"
+        case .temporarilyUnavailable: "exclamationmark.triangle.fill"
+        case .quotaExhausted: "clock.arrow.circlepath"
+        case .ageBlocked: "hand.raised.fill"
+        case .appleReauthenticationRequired: "apple.logo"
+        }
+    }
+}
+
+private struct EvaCloudContextReviewSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var grants: Set<EvaConsentPolicy.Grant>
+    let isWorking: Bool
+    let onConfirm: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text("Prompts and the context you confirm pass through LifeBoard's Cloudflare service to OpenAI. No LifeBoard content leaves this device until you activate Cloud EVA.")
+                } header: {
+                    Text("Cloud processing")
+                }
+                Section("Sensitive context") {
+                    ForEach(EvaConsentPolicy.Grant.allCases, id: \.self) { grant in
+                        Toggle(grant.onboardingTitle, isOn: binding(for: grant))
+                            .accessibilityIdentifier("chat.cloudAccess.grant.\(grant.rawValue)")
+                    }
+                }
+                Section {
+                    Text("You can change these choices later in EVA settings. Server consent is checked before every request.")
+                }
+            }
+            .navigationTitle("Review Cloud EVA")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Activate", action: onConfirm)
+                        .disabled(isWorking)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .accessibilityIdentifier("chat.cloudAccess.reviewSheet")
+    }
+
+    private func binding(for grant: EvaConsentPolicy.Grant) -> Binding<Bool> {
+        Binding(
+            get: { grants.contains(grant) },
+            set: { enabled in
+                if enabled { grants.insert(grant) }
+                else { grants.remove(grant) }
+            }
+        )
     }
 }

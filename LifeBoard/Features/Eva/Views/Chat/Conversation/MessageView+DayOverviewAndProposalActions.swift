@@ -3,6 +3,7 @@
 //
 
 import MarkdownUI
+import SwiftData
 import SwiftUI
 
 extension MessageView {
@@ -255,6 +256,16 @@ extension MessageView {
     }
 
     func evaTaskDefinition(for card: EvaProposalCard) -> TaskDefinition? {
+        if let reference = createdTaskReferencesByCardID[card.id], reference.kind == .task {
+            return TaskDefinition(
+                id: reference.recordID,
+                title: reference.title,
+                dueDate: card.after?.dueDate,
+                scheduledStartAt: card.after?.scheduledStartAt,
+                scheduledEndAt: card.after?.scheduledEndAt,
+                estimatedDuration: card.after?.estimatedDuration
+            )
+        }
         guard let snapshot = card.after ?? card.before,
               let taskID = snapshot.taskID else {
             return nil
@@ -387,7 +398,13 @@ extension MessageView {
                             switch applyResult {
                             case .failure(let error):
                                 finishEvaApply(message: error.localizedDescription)
-                            case .success:
+                            case .success(let appliedRun):
+                                persistAppliedProposalReferences(
+                                    appliedRun: appliedRun,
+                                    payload: payload,
+                                    proposal: proposal,
+                                    selectedCards: selectedCards
+                                )
                                 recordEvaAppliedRunHistory(
                                     runID: runID,
                                     payload: payload,
@@ -404,6 +421,50 @@ extension MessageView {
                     }
                 }
             }
+        }
+    }
+
+    @MainActor
+    func persistAppliedProposalReferences(
+        appliedRun: AssistantActionRunDefinition,
+        payload: AssistantCardPayload,
+        proposal: EvaProposalReviewPayload,
+        selectedCards: [EvaProposalCard]
+    ) {
+        guard let traceData = appliedRun.executionTraceData,
+              let trace = try? JSONDecoder().decode(AssistantExecutionTrace.self, from: traceData),
+              trace.createdReferences.isEmpty == false else { return }
+
+        let createCards = selectedCards.filter { $0.kind == .create }
+        for (card, reference) in zip(createCards, trace.createdReferences) where reference.kind == .task {
+            createdTaskReferencesByCardID[card.id] = reference
+        }
+
+        var updatedPayload = payload
+        updatedPayload.status = .applied
+        var updatedProposal = proposal
+        updatedProposal.appliedCardIDs = selectedCards.map(\.id)
+        var references = trace.createdReferences.makeIterator()
+        updatedProposal.cards = proposal.cards.map { card in
+            guard selectedCards.contains(where: { $0.id == card.id }), card.kind == .create,
+                  let reference = references.next(), reference.kind == .task else { return card }
+            var updated = card
+            if var after = updated.after {
+                after.taskID = reference.recordID
+                updated.after = after
+            }
+            return updated
+        }
+        updatedPayload.evaProposal = updatedProposal
+
+        let messageID = renderModel.id
+        var descriptor = FetchDescriptor<Message>(predicate: #Predicate<Message> { message in
+            message.id == messageID
+        })
+        descriptor.fetchLimit = 1
+        if let message = try? modelContext.fetch(descriptor).first {
+            message.content = AssistantCardCodec.encode(updatedPayload)
+            try? modelContext.save()
         }
     }
 }

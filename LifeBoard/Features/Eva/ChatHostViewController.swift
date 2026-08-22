@@ -6,6 +6,7 @@
 //
 
 import Combine
+import LifeBoardDomain
 import SwiftData
 import SwiftUI
 import UIKit
@@ -203,7 +204,7 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
             )
         }
 
-        return AnyView(rootView.lifeBoardTokenEnvironment(for: layoutClass))
+        return AnyView(rootView.lifeBoardUIKitHostEnvironment(for: layoutClass))
     }
 
     private func refreshLayoutClassIfNeeded() {
@@ -422,7 +423,7 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
                 )
 
                 let layoutClass = LayoutResolver.classify(view: self.view)
-                let hostingController = UIHostingController(rootView: detailView.lifeBoardTokenEnvironment(for: layoutClass))
+                let hostingController = UIHostingController(rootView: detailView.lifeBoardUIKitHostEnvironment(for: layoutClass))
                 hostingController.view.backgroundColor = ThemeStore.shared.currentTheme.tokens.color.bgCanvas
                 hostingController.modalPresentationStyle = .pageSheet
 
@@ -474,7 +475,7 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
                         onMutation: {}
                     )
                     let layoutClass = LayoutResolver.classify(view: self.view)
-                    let hostingController = UIHostingController(rootView: detailView.lifeBoardTokenEnvironment(for: layoutClass))
+                    let hostingController = UIHostingController(rootView: detailView.lifeBoardUIKitHostEnvironment(for: layoutClass))
                     hostingController.view.backgroundColor = ThemeStore.shared.currentTheme.tokens.color.bgCanvas
                     hostingController.modalPresentationStyle = .pageSheet
 
@@ -499,7 +500,7 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
 
     private func presentSunriseUnavailableSheet(title: String, message: String) {
         let sheetView = ChatUnavailableSheet(title: title, message: message)
-            .lifeBoardTokenEnvironment(for: currentLayoutClass)
+            .lifeBoardUIKitHostEnvironment(for: currentLayoutClass)
         let hostingController = UIHostingController(rootView: sheetView)
         hostingController.view.backgroundColor = ThemeStore.shared.currentTheme.tokens.color.bgCanvas
         hostingController.modalPresentationStyle = .pageSheet
@@ -1263,6 +1264,8 @@ struct ChatContainerView: View {
     var onComposerFocusChange: ((Bool) -> Void)? = nil
     var onOpenTaskDetail: (TaskDefinition) -> Void
     var onOpenHabitDetail: ((UUID) -> Void)? = nil
+    var onOpenRecordFromCard: ((EvaRecordReference) -> Void)? = nil
+    var onOpenNavigationTargetFromCard: ((EvaNavigationTarget) -> Void)? = nil
     var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
     var onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
 
@@ -1295,6 +1298,8 @@ struct ChatContainerView: View {
                         onActivationChatEvent: onActivationChatEvent,
                         onOpenTaskDetail: onOpenTaskDetail,
                         onOpenHabitDetail: onOpenHabitDetail,
+                        onOpenRecordFromCard: onOpenRecordFromCard,
+                        onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
                         onPerformDayTaskAction: onPerformDayTaskAction,
                         onPerformDayHabitAction: onPerformDayHabitAction,
                         showsHistoryAction: false,
@@ -1317,6 +1322,8 @@ struct ChatContainerView: View {
                     onActivationChatEvent: onActivationChatEvent,
                     onOpenTaskDetail: onOpenTaskDetail,
                     onOpenHabitDetail: onOpenHabitDetail,
+                    onOpenRecordFromCard: onOpenRecordFromCard,
+                    onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
                     onPerformDayTaskAction: onPerformDayTaskAction,
                     onPerformDayHabitAction: onPerformDayHabitAction,
                     showsHistoryAction: true,

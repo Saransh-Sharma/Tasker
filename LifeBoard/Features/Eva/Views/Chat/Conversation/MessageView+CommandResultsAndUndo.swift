@@ -6,6 +6,29 @@ import MarkdownUI
 import SwiftUI
 
 extension MessageView {
+    func undoAssistantRun(_ runID: UUID, payload: AssistantCardPayload) {
+        if payload.captureReferences.isEmpty == false, let lane = EvaCaptureLaneFactory.lane {
+            isUndoingEvaRun = true
+            evaApplyMessage = "Undoing capture..."
+            Task {
+                do {
+                    _ = try await lane.undo(runID: runID)
+                    await MainActor.run {
+                        isUndoingEvaRun = false
+                        evaApplyMessage = "Capture reverted."
+                    }
+                } catch {
+                    await MainActor.run {
+                        isUndoingEvaRun = false
+                        evaApplyMessage = error.localizedDescription
+                    }
+                }
+            }
+            return
+        }
+        undoEvaRun(runID, payloadRunID: payload.runID)
+    }
+
     func recordEvaAppliedRunHistory(
         runID: UUID,
         payload: AssistantCardPayload,
