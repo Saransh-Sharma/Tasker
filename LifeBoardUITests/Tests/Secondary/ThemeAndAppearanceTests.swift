@@ -215,6 +215,56 @@ class ThemeAndAppearanceTests: BaseUITest {
         }
     }
 
+    /// Every root, in both appearances.
+    ///
+    /// Before this, the repo's only automated dark capture was a single Home
+    /// screen at a single phase — so an appearance regression anywhere else was
+    /// invisible to CI. Feature-layer code that bypasses the token layer is
+    /// exactly the class of bug this walks into: the tokens themselves are
+    /// already covered by `AccessibilityContractTests`.
+    func testEveryRootRendersInBothAppearances() throws {
+        for root in ["home", "plan", "track", "insights", "eva"] {
+            for appearance in ["light", "dark"] {
+                app.terminate()
+                app.launchVisualFixture(
+                    root: root,
+                    state: "populated",
+                    appearance: appearance
+                )
+
+                XCTAssertTrue(
+                    app.descendants(matching: .any).firstMatch.waitForExistence(timeout: 8),
+                    "\(root) should render in \(appearance) appearance"
+                )
+                takeScreenshot(named: "appearance_\(root)_\(appearance)")
+            }
+        }
+    }
+
+    /// The states where absent data is easiest to render as a void.
+    ///
+    /// `no record`, `denied` and `empty` are the states a dark canvas punishes:
+    /// a track drawn at zero, or a placeholder tuned for warm paper, reads as a
+    /// hole rather than as an honest absence.
+    func testAbsentDataStatesRenderInBothAppearances() throws {
+        for state in ["empty", "denied", "stale"] {
+            for appearance in ["light", "dark"] {
+                app.terminate()
+                app.launchVisualFixture(
+                    root: "track",
+                    state: state,
+                    appearance: appearance
+                )
+
+                XCTAssertTrue(
+                    app.descendants(matching: .any).firstMatch.waitForExistence(timeout: 8),
+                    "track/\(state) should render in \(appearance) appearance"
+                )
+                takeScreenshot(named: "appearance_track_\(state)_\(appearance)")
+            }
+        }
+    }
+
     func testCelestialAccessibilityAppearanceFallbackMatrix() throws {
         let appearances = [
             "light", "dark", "high-contrast-light", "high-contrast-dark",
