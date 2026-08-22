@@ -37,16 +37,16 @@ colors:
   hero-scrim-dark: "rgba(21, 26, 42, 0.58)"
   specular-rim: "rgba(255, 253, 247, 0.60)"
   specular-rim-dark: "rgba(248, 238, 220, 0.22)"
-  dark-canvas: "#151A2A"
+  dark-canvas: "#151B2D"
   dark-canvas-muted: "#111624"
-  dark-surface: "#20263B"
-  dark-surface-raised: "#282F47"
-  dark-surface-recessed: "#191F32"
-  dark-text-primary: "#F8EEDC"
-  dark-text-secondary: "#D0C3AD"
-  dark-text-tertiary: "#B8AA94"
-  dark-border: "#4E536B"
-  dark-border-strong: "#858AA2"
+  dark-surface: "#202741"
+  dark-surface-raised: "#1C2338"
+  dark-surface-recessed: "#262E4A"
+  dark-text-primary: "#F4EBDD"
+  dark-text-secondary: "#C6BBA8"
+  dark-text-tertiary: "#96907F"
+  dark-border: "#4D526D"
+  dark-border-strong: "#667390"
 typography:
   display:
     fontFamily: "SF Pro"
@@ -372,6 +372,16 @@ Premium quality comes from exact spacing, excellent typography, stable geometry,
 ## Colors
 
 The palette is warm paper and cocoa ink by day, warm indigo and parchment by night. Use semantic token roles rather than literal values in feature work so appearance, contrast, and accessibility can adapt without changing meaning.
+
+The `dark-*` values above were transcribed by hand and drifted: nine of the ten
+disagreed with what actually ships, by one or two digits per channel — close
+enough that a swatch diff eyeballs as passing, which is worse than an absent
+table. They are now the values `SemanticColorTokens` resolves at runtime, which
+are the ones the WCAG contract test measures. Dark appearance and daypart are
+independent axes: a night scene in light appearance keeps the light canvas, and
+dark appearance at noon keeps a morning scene — resolve both together through
+`DaypartTokens.appearancePalette(for:colorScheme:)`, never the light-only
+`palette(for:)`.
 
 - **Canvas** carries atmosphere and negative space. It is not a card background repeated around every section.
 - **Surface** groups content only when a boundary helps comprehension. Raised surface is reserved for the hero, a movable object, a proposal, or a receipt.

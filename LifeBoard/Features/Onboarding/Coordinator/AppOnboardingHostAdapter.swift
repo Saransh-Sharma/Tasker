@@ -45,6 +45,19 @@ final class ApplicationHostController: UIViewController, AppOnboardingHostAdapte
     override func viewDidLoad() {
         super.viewDidLoad()
         let host = UIHostingController(rootView: root)
+        // The one place a high-contrast *trait* can actually be forced.
+        //
+        // `\.colorSchemeContrast` is read-only in SwiftUI, so the appearance
+        // fixture could previously only fake it with `.contrast(1.16)` — a
+        // post-render filter that multiplies the finished image and never sets
+        // `UITraitCollection.accessibilityContrast`. That is the value every
+        // `adaptive(...)` token provider branches on, so the `high-contrast-*`
+        // fixtures had never once exercised a high-contrast token, including the
+        // `strokeHairline` values added specifically to fix separator
+        // visibility under that setting.
+        if VisualAppearanceFixture.active?.usesHighContrast == true {
+            host.traitOverrides.accessibilityContrast = .high
+        }
         addChild(host)
         view.addSubview(host.view)
         host.view.translatesAutoresizingMaskIntoConstraints = false

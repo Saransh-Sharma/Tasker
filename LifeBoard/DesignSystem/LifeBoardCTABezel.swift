@@ -309,9 +309,13 @@ private struct CTABezelOverlay: View {
     /// Observed, not static — see `SignatureShaders.isReadyForRendering`.
     @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
 
-    private var reduceTransparency: Bool {
-        UIAccessibility.isReduceTransparencyEnabled
-    }
+    /// Observed, not polled. `UIAccessibility.isReduceTransparencyEnabled` is a
+    /// plain global read, so — exactly like the shader-readiness `static var`
+    /// this file used to gate on — SwiftUI cannot know when it changes. The
+    /// bezel kept whichever value happened to be true at first render until
+    /// something unrelated invalidated the view, so toggling Reduce
+    /// Transparency did not take effect on screens already on display.
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var timelineAnimationEnabled: Bool {
         guard reduceMotion == false else { return false }

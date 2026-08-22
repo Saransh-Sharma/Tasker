@@ -358,6 +358,13 @@ public struct FoundationShell: View {
             MotionOverride.fullMotionEnabled = isEnabled
         }
         .preferredColorScheme(visualAppearanceFixture?.preferredColorScheme)
+        // The high-contrast *trait* is applied on the hosting controller via
+        // `traitOverrides` (see `ApplicationHostController`), because
+        // `\.colorSchemeContrast` is read-only in SwiftUI — it is derived from
+        // the trait collection and cannot be set from here. This filter stays
+        // only as a visual nudge for the screenshot fixtures; it is the trait,
+        // not the filter, that makes `adaptive(...)` take its high-contrast
+        // branch.
         .contrast(visualAppearanceFixture?.usesHighContrast == true ? 1.16 : 1)
         .saturation(visualAppearanceFixture?.usesGrayscale == true ? 0 : 1)
         // Presentation modifiers live outside the shell's visual subtree. Keep

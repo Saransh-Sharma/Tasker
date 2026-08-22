@@ -360,10 +360,9 @@ public struct CardPressEffect: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .scaleEffect(isPressed ? 0.98 : 1.0)
-            .shadow(
-                color: .black.opacity(isPressed ? 0.04 : 0.08),
-                radius: isPressed ? 4 : 8
-            )
+            // Warm and appearance-aware: literal black is a cool bruise on warm paper and invisible on a dark canvas.
+            .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(isPressed ? 0.5 : 1),
+                    radius: isPressed ? 4 : 8)
             .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.feedbackFast, value: isPressed)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)

@@ -160,8 +160,13 @@ public struct HeaderGradient {
 
     /// Executes scrimColors.
     private static func scrimColors(traits: UITraitCollection) -> [CGColor] {
-        let topAlpha: CGFloat = 0.18
-        let midAlpha: CGFloat = 0.10
+        // `traits` was accepted and then ignored, so the scrim was identical in
+        // both appearances. A scrim exists to hold contrast between content and
+        // whatever is behind it; on an already-dark canvas the same black wash
+        // only crushes the artwork further, so dark leans lighter.
+        let isDark = traits.userInterfaceStyle == .dark
+        let topAlpha: CGFloat = isDark ? 0.12 : 0.18
+        let midAlpha: CGFloat = isDark ? 0.06 : 0.10
         return [
             UIColor.black.withAlphaComponent(topAlpha).cgColor,
             UIColor.black.withAlphaComponent(midAlpha).cgColor,
