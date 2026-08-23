@@ -7,11 +7,12 @@ import VisionKit
 struct FoundationCompactChromeVisibilityPolicy {
     static func isVisible(
         destination: Destination,
+        screenMode: ScreenMode,
         isPhoneInterface: Bool,
         isEvaComposerFocused: Bool,
         showsGlobalChrome: Bool
     ) -> Bool {
-        guard showsGlobalChrome else { return false }
+        guard showsGlobalChrome, screenMode != .utility else { return false }
         return destination != .eva || isPhoneInterface == false || isEvaComposerFocused == false
     }
 }
@@ -188,7 +189,10 @@ public struct FoundationShell: View {
                     // The four one-time root cues that replaced v6's root
                     // tour. No-ops for anyone who finished under v5, who has
                     // already been told these things once.
-                    .lifeBoardOnboardingTip(destination: router.selectedDestination)
+                    .lifeBoardOnboardingTip(
+                        destination: router.selectedDestination,
+                        isRootVisible: router.path(for: router.selectedDestination).isEmpty
+                    )
                     .onChange(of: atmosphereSnapshot.semanticDaypart) { oldValue, newValue in
                         guard oldValue != newValue else { return }
                         // Dragging the atmosphere slider from Auto to Night
@@ -480,6 +484,7 @@ public struct FoundationShell: View {
     func showsCompactChrome(for destination: Destination) -> Bool {
         FoundationCompactChromeVisibilityPolicy.isVisible(
             destination: destination,
+            screenMode: activeScreenMode,
             isPhoneInterface: usesPhoneChromeBehavior,
             isEvaComposerFocused: isEvaComposerFocused,
             showsGlobalChrome: showsGlobalChrome(for: destination)
