@@ -5,6 +5,8 @@ struct SetupCenterHomeCard: View {
 
     @StateObject private var settingsViewModel: SettingsViewModel
     @State private var healthStore: HealthConnectionStore
+    @StateObject private var evaAccess = EvaCloudAccessCoordinator.shared
+    @State private var providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
     @State private var isDismissed = SetupCenterHomeCardPreference.isDismissed
 
     init(
@@ -24,12 +26,25 @@ struct SetupCenterHomeCard: View {
     private var status: SetupCenterStatus {
         SetupCenterStatus.resolve(
             calendarAuthorization: settingsViewModel.calendarAuthorizationStatus,
-            notificationPermissionRequested: PermissionPromptState.hasRequested(.notifications),
-            notificationPermissionDenied: settingsViewModel.isPermissionDenied,
+            selectedCalendarCount: SetupCenterStatus.validCalendarSelectionCount(
+                selectedIDs: settingsViewModel.selectedCalendarIDs,
+                availableIDs: settingsViewModel.calendarService.snapshot.availableCalendars.map(\.id)
+            ),
+            calendarIsLoading: settingsViewModel.calendarService.snapshot.isLoading,
+            calendarError: settingsViewModel.calendarService.snapshot.errorMessage,
             healthStatuses: healthStore.statuses,
             healthHasObservableData: healthStore.aggregates.isEmpty == false,
-            evaIsActivated: EvaActivationDefaultsStore.load().isComplete
+            healthIsRefreshing: healthStore.isRefreshing,
+            healthErrorCode: healthStore.nonSensitiveErrorCode,
+            evaAccessState: evaAccess.state,
+            evaUsesOfflineProvider: providerPreference == .offline,
+            offlineModelReady: offlineModelReady
         )
+    }
+
+    private var offlineModelReady: Bool {
+        guard let current = settingsViewModel.assistantAppManager.currentModelName else { return false }
+        return settingsViewModel.assistantAppManager.installedModels.contains(current)
     }
 
     var body: some View {
@@ -74,13 +89,8 @@ struct SetupCenterHomeCard: View {
                 .accessibilityIdentifier("home.setupCenter.dismiss")
             }
             .padding(SwiftUITokens.spacing.s12)
-            // `Radius.hero`, matching `SetupCenterFocusSurface` in *both* its
-            // glass and clay arms. That single number is the continuity
-            // `DESIGN.md` asks for: the card on Home and the hero it opens into
-            // share a silhouette, so the destination reads as this object
-            // growing rather than a different screen replacing it.
-            //
-            // Clay, never glass — this sits on Home, which already has a hero.
+            // Clay, never glass — this invitation sits on Home, which already
+            // owns the screen's hero.
             .lifeBoardClaySurface(.raised, cornerRadius: Radius.hero)
             .padding(.horizontal, 20)
             .padding(.vertical, 6)
@@ -88,7 +98,9 @@ struct SetupCenterHomeCard: View {
             .accessibilityIdentifier("home.setupCenter.card")
             .task {
                 settingsViewModel.reload()
+                providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
                 await healthStore.bootstrap()
+                _ = await evaAccess.hydrate()
             }
             .onReceive(NotificationCenter.default.publisher(for: SetupCenterHomeCardPreference.didChange)) { _ in
                 isDismissed = SetupCenterHomeCardPreference.isDismissed

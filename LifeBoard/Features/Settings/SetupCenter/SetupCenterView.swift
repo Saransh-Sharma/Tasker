@@ -1,294 +1,350 @@
 import SwiftUI
-
-/// One action a connector offers, resolved once by the screen.
-///
-/// The screen hands this to whichever surface should own it: the hero when the
-/// connector is the focus, its own card otherwise. That is what keeps the
-/// primary action singular — the same button never appears twice — and what
-/// keeps each accessibility identifier existing exactly once no matter which
-/// connector is currently being asked about.
-struct SetupCenterAction {
-    let title: String
-    let identifier: String
-    let isEnabled: Bool
-    let perform: () -> Void
-}
+import UIKit
 
 struct SetupCenterView: View {
     @ObservedObject var settingsViewModel: SettingsViewModel
+    @ObservedObject private var appManager: AppManager
     let onOpenCalendarChooser: () -> Void
     let onNavigate: (SettingsDetailRoute) -> Void
 
-    @Environment(PresentationPreferences.self) private var preferences
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var healthStore = HealthCoordinator.shared.connectionStore
     @StateObject private var evaAccess = EvaCloudAccessCoordinator.shared
-    @State private var showsHealthDisclosure = false
-    @State private var showsEvaDismissNudge = false
-    @State private var completionTrigger = 0
+    @State private var expandedIntegration: SetupCenterIntegration?
+    @State private var scrollTarget: String?
+    @State private var showsHealthPrompt = false
+    @State private var providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
+
+    init(
+        settingsViewModel: SettingsViewModel,
+        onOpenCalendarChooser: @escaping () -> Void,
+        onNavigate: @escaping (SettingsDetailRoute) -> Void
+    ) {
+        self.settingsViewModel = settingsViewModel
+        _appManager = ObservedObject(wrappedValue: settingsViewModel.assistantAppManager)
+        self.onOpenCalendarChooser = onOpenCalendarChooser
+        self.onNavigate = onNavigate
+    }
+
+    private var offlineModelReady: Bool {
+        guard let current = appManager.currentModelName else { return false }
+        return appManager.installedModels.contains(current)
+    }
 
     private var status: SetupCenterStatus {
         SetupCenterStatus.resolve(
             calendarAuthorization: settingsViewModel.calendarAuthorizationStatus,
-            notificationPermissionRequested: PermissionPromptState.hasRequested(.notifications),
-            notificationPermissionDenied: settingsViewModel.isPermissionDenied,
+            selectedCalendarCount: SetupCenterStatus.validCalendarSelectionCount(
+                selectedIDs: settingsViewModel.selectedCalendarIDs,
+                availableIDs: settingsViewModel.calendarService.snapshot.availableCalendars.map(\.id)
+            ),
+            calendarIsLoading: settingsViewModel.calendarService.snapshot.isLoading,
+            calendarError: settingsViewModel.calendarService.snapshot.errorMessage,
             healthStatuses: healthStore.statuses,
-            healthHasObservableData: healthStore.aggregates.isEmpty == false,
-            evaIsActivated: evaAccess.state == .ready
+            healthHasObservableData: !healthStore.aggregates.isEmpty,
+            healthIsRefreshing: healthStore.isRefreshing,
+            healthErrorCode: healthStore.nonSensitiveErrorCode,
+            evaAccessState: evaAccess.state,
+            evaUsesOfflineProvider: providerPreference == .offline,
+            offlineModelReady: offlineModelReady
         )
     }
 
-    // The screen does not paint its own canvas or scaffold: pushed routes are
-    // already wrapped in `ScreenScaffold` and the daypart atmosphere by
-    // `FoundationShellDestinations`. Adding a second one here would nest a
-    // scaffold inside a scaffold, which resolves to an inert canvas and buys
-    // nothing — the same doctrine `TrackFoundationRootView` states at length.
-    private var focus: SetupCenterFocus { SetupCenterFocus.resolve(status) }
-
     var body: some View {
-        let status = status
-        let focus = focus
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Connect what helps")
+                        .lifeboardFont(.screenTitle)
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                    Text("All integrations are optional and can be changed later.")
+                        .lifeboardFont(.support)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                    Text(status.summary)
+                        .lifeboardFont(.meta)
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
+                        .padding(.top, 4)
+                        .accessibilityIdentifier("setupCenter.summary")
+                }
+                .padding(.bottom, 4)
 
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                SetupCenterFocusSection(
-                    focus: focus,
-                    palette: DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme),
-                    action: focusAction(for: focus)
-                )
-                SetupCenterCalendarSection(
-                    state: status.calendar,
-                    summary: settingsViewModel.calendarStatusSummary,
-                    action: focus.target == .calendar ? nil : calendarAction(focus)
-                )
-                SetupCenterHealthSection(
-                    state: status.health,
-                    access: status.healthAccess,
-                    action: focus.target == .health ? nil : healthAction(focus)
-                )
-                SetupCenterRemindersSection(
-                    state: status.reminders,
-                    action: focus.target == .reminders ? nil : remindersAction(focus)
-                )
-                SetupCenterEvaSection(
-                    state: status.eva,
-                    accessState: evaAccess.state,
-                    progressCaption: evaAccess.account.activationStage.progressCaption,
-                    errorMessage: evaAccess.errorMessage,
-                    grants: grantBindings,
-                    action: focus.target == .eva ? nil : evaAction,
-                    onDecline: { showsEvaDismissNudge = true },
-                    onChooseOffline: chooseOfflineEva
-                )
+                calendarCard(status.calendar).id(SetupCenterIntegration.calendar.rawValue)
+                healthCard(status.health).id(SetupCenterIntegration.health.rawValue)
+                evaCard(status.eva).id(SetupCenterIntegration.eva.rawValue)
+                }
+                .scrollTargetLayout()
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 32)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            // Measured clearance for the floating dock. `DESIGN.md`: "content
-            // must never disappear behind the dock or composer." At 32pt the
-            // Reminders and EVA cards sat underneath it.
-            .padding(.bottom, ClayLayoutMetrics.bottomDockClearance)
-        }
-        .scrollIndicators(.hidden)
-        // `completionBurst`, not `firstLight`: reaching the end of setup is a
-        // persisted completion, which is exactly what the burst is reserved
-        // for. `firstLight` belongs to the first daily commitment.
-        .lifeboardCompletionBurst(trigger: completionTrigger)
-        .onChange(of: focus.target) { previous, current in
-            guard current == .complete, previous != .complete else { return }
-            completionTrigger &+= 1
+            .scrollIndicators(.hidden)
+            .onChange(of: scrollTarget) { _, target in
+                guard let target else { return }
+                withAnimation(reduceMotion ? nil : .snappy) {
+                    proxy.scrollTo(target, anchor: .center)
+                }
+            }
         }
         .navigationTitle("Setup Center")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("setupCenter.root")
-        .task {
-            await ProductTelemetry.shared.record(.setupCenterOpened)
-            settingsViewModel.reload()
-            await healthStore.bootstrap()
-            let accessState = await evaAccess.hydrate()
-            if accessState != .ready {
-                await ProductTelemetry.shared.record(.evaSetupCenterCTAShown)
+        .task { await refreshAll(selectRecommended: true) }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task {
+                await ProductTelemetry.shared.record(.connectorResult, outcome: "settings_recovery_return")
+                await refreshAll(selectRecommended: false)
             }
         }
-        .sheet(isPresented: $showsHealthDisclosure) {
+        .onChange(of: status) { previous, current in
+            let completed = previous.snapshots.first { $0.integration == expandedIntegration }?.state.isReady == false
+                && current.snapshots.first { $0.integration == expandedIntegration }?.state.isReady == true
+            guard completed else { return }
+            UIAccessibility.post(notification: .announcement, argument: "Integration ready")
+            withAnimation(reduceMotion ? nil : .snappy) {
+                expandedIntegration = current.recommendedNextAction
+                scrollTarget = current.recommendedNextAction?.rawValue
+            }
+        }
+        .sheet(isPresented: $showsHealthPrompt) {
             SetupCenterHealthDisclosureSheet(
-                readState: status.healthAccess.readState,
-                onCancel: { showsHealthDisclosure = false },
-                onConfirm: {
-                    showsHealthDisclosure = false
-                    Task {
-                        await healthStore.connect(
-                            domains: Set(HealthDomain.allCases),
-                            enableWriteBack: true
-                        )
-                    }
-                }
+                initialWritableDomains: Set(healthStore.statuses.values.filter(\.writeEnabled).map(\.domain)),
+                onCancel: { showsHealthPrompt = false },
+                onConfirm: connectHealth
             )
-        }
-        .confirmationDialog(
-            "Use EVA’s smart layer?",
-            isPresented: $showsEvaDismissNudge,
-            titleVisibility: .visible
-        ) {
-            Button("Continue with Cloud EVA") { activateGuestEva() }
-            Button("Set up Offline EVA") {
-                Task { await ProductTelemetry.shared.record(.evaActivationDismissed, outcome: "offline_settings") }
-                evaAccess.selectOffline()
-                onNavigate(.llm)
-            }
-            Button("Not now", role: .cancel) {
-                Task { await ProductTelemetry.shared.record(.evaActivationDismissed, outcome: "not_now") }
-            }
-        } message: {
-            Text("Cloud EVA can plan with the LifeBoard context you choose, ground suggestions in your day, and carry forward only memories you approve.")
         }
     }
 }
 
-// MARK: - Actions
-
 private extension SetupCenterView {
-    /// The hero's action is whichever connector it is asking about.
-    func focusAction(for focus: SetupCenterFocus) -> SetupCenterAction? {
-        switch focus.target {
-        case .calendar: calendarAction(focus)
-        case .health: healthAction(focus)
-        case .reminders: remindersAction(focus)
-        case .eva: evaAction
-        case .complete: nil
-        }
-    }
-
-    func calendarAction(_ focus: SetupCenterFocus) -> SetupCenterAction {
-        let isAuthorized = settingsViewModel.calendarAuthorizationStatus.isAuthorizedForRead
-        return SetupCenterAction(
-            title: focus.target == .calendar
-                ? (focus.primaryTitle ?? "Connect Calendar")
-                : (isAuthorized ? "Choose calendars" : "Connect Calendar"),
-            identifier: "setupCenter.calendar.action",
-            isEnabled: true
-        ) {
-            if isAuthorized {
-                onOpenCalendarChooser()
-            } else {
-                settingsViewModel.requestCalendarPermission()
+    func calendarCard(_ snapshot: SetupCenterIntegrationSnapshot) -> some View {
+        SetupCenterDisclosureCard(snapshot: snapshot, isExpanded: expandedIntegration == .calendar, onToggle: { toggle(.calendar) }) {
+            VStack(alignment: .leading, spacing: 14) {
+                explanation(snapshot)
+                SetupCenterPrimaryAction(
+                    title: snapshot.recoveryAction.isEmpty ? "Checking calendars…" : snapshot.recoveryAction,
+                    identifier: "setupCenter.calendar.action",
+                    isEnabled: snapshot.state != .checking,
+                    action: handleCalendarAction
+                )
+                .id("calendar.action")
             }
         }
     }
 
-    func healthAction(_ focus: SetupCenterFocus) -> SetupCenterAction {
-        SetupCenterAction(
-            title: focus.target == .health
-                ? (focus.primaryTitle ?? "Review Health access")
-                : (status.healthAccess.readState == .notRequested ? "Review Health access" : "Review Health settings"),
-            identifier: "setupCenter.health.action",
-            isEnabled: true
-        ) {
-            showsHealthDisclosure = true
+    func healthCard(_ snapshot: SetupCenterIntegrationSnapshot) -> some View {
+        SetupCenterDisclosureCard(snapshot: snapshot, isExpanded: expandedIntegration == .health, onToggle: { toggle(.health) }) {
+            VStack(alignment: .leading, spacing: 14) {
+                explanation(snapshot)
+                Text("Health data stays on this device and is not shared with Cloud EVA unless you separately enable Health in EVA’s grants.")
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+                if healthStore.isRefreshing {
+                    ProgressView("Syncing Apple Health…")
+                        .accessibilityIdentifier("setupCenter.health.loading")
+                } else {
+                    SetupCenterPrimaryAction(title: snapshot.recoveryAction, identifier: "setupCenter.health.action") {
+                        showsHealthPrompt = true
+                    }
+                    .id("health.action")
+                }
+            }
         }
     }
 
-    func remindersAction(_ focus: SetupCenterFocus) -> SetupCenterAction {
-        SetupCenterAction(
-            title: "Open Reminders",
-            identifier: "setupCenter.reminders.action",
-            isEnabled: true
-        ) {
-            onNavigate(.reminders)
+    func evaCard(_ snapshot: SetupCenterIntegrationSnapshot) -> some View {
+        SetupCenterDisclosureCard(snapshot: snapshot, isExpanded: expandedIntegration == .eva, onToggle: { toggle(.eva) }) {
+            VStack(alignment: .leading, spacing: 14) {
+                explanation(snapshot)
+                if providerPreference == .cloud, evaAccess.state == .needsDisclosure {
+                    SetupCenterEvaGrantsSection(grants: grantBindings)
+                }
+                if evaAccess.isWorking && providerPreference == .cloud {
+                    ProgressView(evaAccess.account.activationStage.progressCaption ?? "Connecting Cloud EVA…")
+                        .accessibilityIdentifier("setupCenter.eva.loading")
+                } else {
+                    evaPrimaryAction(snapshot)
+                        .id("eva.action")
+                }
+                if let error = evaAccess.errorMessage {
+                    Text(error)
+                        .lifeboardFont(.caption1)
+                        .foregroundStyle(Color.lifeboard(.statusWarning))
+                        .accessibilityIdentifier("setupCenter.eva.error")
+                }
+                evaAlternativeActions
+            }
         }
     }
 
-    /// EVA's action is whatever its activation state currently affords, so the
-    /// hero and the card can never disagree about what pressing it does.
-    /// `nil` while a request is in flight or once it is ready: neither state has
-    /// an action, and inventing one would be a button that does nothing.
-    var evaAction: SetupCenterAction? {
-        switch evaAccess.state {
-        case .needsDisclosure:
-            SetupCenterAction(
-                title: "Continue with Cloud EVA",
-                identifier: "setupCenter.eva.activate",
-                isEnabled: evaAccess.isWorking == false,
-                perform: activateGuestEva
-            )
-        case .temporarilyUnavailable:
-            SetupCenterAction(
-                title: "Retry Cloud EVA",
-                identifier: "setupCenter.eva.retry",
-                isEnabled: evaAccess.isWorking == false,
-                perform: retryGuestEva
-            )
-        case .appleReauthenticationRequired:
-            SetupCenterAction(
-                title: "Reconnect with Apple",
-                identifier: "setupCenter.eva.reconnectApple",
-                isEnabled: evaAccess.isWorking == false,
-                perform: reconnectAppleEva
-            )
-        case .quotaExhausted, .ageBlocked:
-            SetupCenterAction(
-                title: "Use Offline EVA",
-                identifier: "setupCenter.eva.offline",
-                isEnabled: true,
-                perform: chooseOfflineEva
-            )
-        case .hydrating, .activating, .ready:
-            nil
+    func explanation(_ snapshot: SetupCenterIntegrationSnapshot) -> some View {
+        Text(snapshot.explanation)
+            .lifeboardFont(.support)
+            .foregroundStyle(Color.lifeboard(.textSecondary))
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    func evaPrimaryAction(_ snapshot: SetupCenterIntegrationSnapshot) -> some View {
+        if providerPreference == .offline {
+            SetupCenterPrimaryAction(title: offlineModelReady ? "Manage Offline EVA" : "Choose a local model", identifier: "setupCenter.eva.offline") {
+                onNavigate(.llm)
+            }
+        } else {
+            switch evaAccess.state {
+            case .needsDisclosure:
+                SetupCenterPrimaryAction(title: "Continue with Cloud EVA", identifier: "setupCenter.eva.activate", action: activateCloudEva)
+            case .temporarilyUnavailable:
+                SetupCenterPrimaryAction(title: "Retry Cloud EVA", identifier: "setupCenter.eva.retry", action: retryCloudEva)
+            case .appleReauthenticationRequired:
+                SetupCenterPrimaryAction(title: "Reconnect with Apple", identifier: "setupCenter.eva.reconnectApple", action: reconnectAppleEva)
+            case .quotaExhausted, .ageBlocked:
+                SetupCenterPrimaryAction(title: "Use Offline EVA", identifier: "setupCenter.eva.offline", action: chooseOfflineEva)
+            case .ready:
+                SetupCenterPrimaryAction(title: "Manage EVA", identifier: "setupCenter.eva.manage") { onNavigate(.llm) }
+            case .hydrating, .activating:
+                EmptyView()
+            }
         }
+    }
+
+    @ViewBuilder
+    var evaAlternativeActions: some View {
+        if providerPreference == .cloud {
+            Button("Use Offline EVA", action: chooseOfflineEva)
+                .buttonStyle(.lifeBoardChip)
+                .accessibilityIdentifier("setupCenter.eva.provider.offline")
+            if evaAccess.state == .needsDisclosure {
+                Button("Not now") { expandedIntegration = nil }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("setupCenter.eva.notNow")
+            }
+        } else {
+            Button("Use Cloud EVA") {
+                evaAccess.selectCloud()
+                providerPreference = .cloud
+                Task { _ = await evaAccess.hydrate() }
+            }
+            .buttonStyle(.lifeBoardChip)
+            .accessibilityIdentifier("setupCenter.eva.provider.cloud")
+        }
+    }
+
+    func toggle(_ integration: SetupCenterIntegration) {
+        withAnimation(reduceMotion ? nil : .snappy) {
+            expandedIntegration = expandedIntegration == integration ? nil : integration
+            if expandedIntegration != nil {
+                scrollTarget = integration.rawValue
+                Task { @MainActor in
+                    await Task.yield()
+                    await Task.yield()
+                    scrollTarget = "\(integration.rawValue).action"
+                }
+            }
+        }
+    }
+
+    func handleCalendarAction() {
+        Task { await ProductTelemetry.shared.record(.connectorResult, outcome: "calendar_started") }
+        if settingsViewModel.calendarAuthorizationStatus.isAuthorizedForRead {
+            onOpenCalendarChooser()
+        } else {
+            settingsViewModel.requestCalendarPermission { granted in
+                Task { await ProductTelemetry.shared.record(.connectorResult, outcome: granted ? "calendar_permission_completed" : "calendar_permission_failed") }
+                guard granted else { return }
+                settingsViewModel.calendarService.refreshContext(reason: "setup_center_permission_granted")
+                onOpenCalendarChooser()
+            }
+        }
+    }
+
+    func connectHealth(_ selectedWritableDomains: Set<HealthDomain>) {
+        showsHealthPrompt = false
+        Task {
+            await ProductTelemetry.shared.record(.connectorResult, outcome: "health_started")
+            await healthStore.connect(domains: selectedWritableDomains, enableWriteBack: true)
+            for domain in HealthDomain.allCases where domain.supportsWriteBack && !selectedWritableDomains.contains(domain) {
+                await healthStore.setWriteEnabled(false, for: domain)
+            }
+            await ProductTelemetry.shared.record(
+                .connectorResult,
+                outcome: healthStore.nonSensitiveErrorCode == nil ? "health_completed" : "health_failed",
+                errorCode: healthStore.nonSensitiveErrorCode
+            )
+        }
+    }
+
+    func activateCloudEva() {
+        Task {
+            await ProductTelemetry.shared.record(.connectorResult, outcome: "eva_cloud_started")
+            let succeeded = await evaAccess.confirmAndActivate(grants: evaAccess.selectedGrants, source: .setupCenter)
+            await ProductTelemetry.shared.record(.connectorResult, outcome: succeeded ? "eva_cloud_completed" : "eva_cloud_failed")
+        }
+    }
+    func retryCloudEva() {
+        evaAccess.selectCloud()
+        Task { _ = await evaAccess.resumeConfirmedActivation(source: .setupCenter) }
+    }
+    func reconnectAppleEva() { Task { _ = await evaAccess.reconnectApple() } }
+    func chooseOfflineEva() {
+        evaAccess.selectOffline()
+        providerPreference = .offline
+        if !offlineModelReady { onNavigate(.llm) }
     }
 
     var grantBindings: [(grant: EvaConsentPolicy.Grant, title: String, isOn: Binding<Bool>)] {
         EvaConsentPolicy.Grant.allCases.map { grant in
-            (grant, grantTitle(grant), grantBinding(grant))
+            (grant, grantTitle(grant), Binding(
+                get: { evaAccess.selectedGrants.contains(grant) },
+                set: { enabled in
+                    if enabled { evaAccess.selectedGrants.insert(grant) }
+                    else { evaAccess.selectedGrants.remove(grant) }
+                }
+            ))
         }
     }
-
-    func activateGuestEva() {
-        guard evaAccess.isWorking == false else { return }
-        evaAccess.clearError()
-        Task { @MainActor in
-            _ = await evaAccess.confirmAndActivate(
-                grants: evaAccess.selectedGrants,
-                source: .setupCenter
-            )
-        }
-    }
-
-    func retryGuestEva() {
-        guard evaAccess.isWorking == false else { return }
-        evaAccess.selectCloud()
-        Task { @MainActor in
-            _ = await evaAccess.resumeConfirmedActivation(source: .setupCenter)
-        }
-    }
-
-    func reconnectAppleEva() {
-        guard evaAccess.isWorking == false else { return }
-        Task { @MainActor in
-            _ = await evaAccess.reconnectApple()
-        }
-    }
-
-    func chooseOfflineEva() {
-        evaAccess.selectOffline()
-        onNavigate(.llm)
-    }
-
-    func grantBinding(_ grant: EvaConsentPolicy.Grant) -> Binding<Bool> {
-        Binding(
-            get: { evaAccess.selectedGrants.contains(grant) },
-            set: { enabled in
-                if enabled { evaAccess.selectedGrants.insert(grant) }
-                else { evaAccess.selectedGrants.remove(grant) }
-            }
-        )
-    }
-
     func grantTitle(_ grant: EvaConsentPolicy.Grant) -> String {
-        switch grant {
-        case .journal: "Journal"
-        case .health: "Health"
-        case .lifeMoments: "Life Moments"
-        case .personalMemory: "Personal Memory"
+        switch grant { case .journal: "Journal"; case .health: "Health"; case .lifeMoments: "Life Moments"; case .personalMemory: "Personal Memory" }
+    }
+
+    func refreshAll(selectRecommended: Bool) async {
+        settingsViewModel.reload()
+        providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
+        await healthStore.bootstrap()
+        _ = await evaAccess.hydrate()
+        if selectRecommended && expandedIntegration == nil {
+            expandedIntegration = status.recommendedNextAction
+            scrollTarget = status.recommendedNextAction?.rawValue
+            if let recommendation = status.recommendedNextAction {
+                Task { @MainActor in
+                    await Task.yield()
+                    await Task.yield()
+                    scrollTarget = "\(recommendation.rawValue).action"
+                }
+            }
+        }
+        let resolved = status
+        let outcome = resolved.snapshots
+            .map { "\($0.integration.rawValue)_\(telemetryLabel($0.state))" }
+            .joined(separator: "_")
+        await ProductTelemetry.shared.record(.connectorResult, outcome: "final_state_\(outcome)")
+        await ProductTelemetry.shared.record(.setupCenterOpened)
+    }
+
+    func telemetryLabel(_ state: SetupCenterConnectorState) -> String {
+        switch state {
+        case .notStarted: "not_started"
+        case .actionRequired: "action_required"
+        case .checking: "checking"
+        case .waiting: "waiting"
+        case .ready: "ready"
+        case .limited: "limited"
+        case .attention: "attention"
         }
     }
 }
