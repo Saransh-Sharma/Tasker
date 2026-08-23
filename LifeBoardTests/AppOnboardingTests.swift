@@ -147,20 +147,21 @@ final class AppOnboardingTests: XCTestCase {
     }
 
     @MainActor
-    func testSetupCenterDefersNotificationPermissionUntilAlertCreation() {
+    func testSetupCenterExcludesDeferredNotificationsFromItsConnectionModel() {
         let statuses = Dictionary(uniqueKeysWithValues: HealthDomain.allCases.map {
             ($0, HealthDomainStatus(domain: $0, readRequestState: .requestCompleted))
         })
         let status = SetupCenterStatus.resolve(
             calendarAuthorization: .authorized,
-            notificationPermissionRequested: false,
-            notificationPermissionDenied: false,
+            selectedCalendarCount: 1,
             healthStatuses: statuses,
             healthHasObservableData: false,
-            evaIsActivated: true
+            evaAccessState: .ready,
+            evaUsesOfflineProvider: false,
+            offlineModelReady: false
         )
 
-        XCTAssertEqual(status.reminders, .deferred)
+        XCTAssertEqual(status.snapshots.map(\.integration), [.calendar, .health, .eva])
         XCTAssertTrue(status.allRowsHandled)
     }
 

@@ -1,121 +1,125 @@
 import XCTest
 @testable import LifeBoard
 
-/// The hero's ranking, exercised without a simulator.
-///
-/// Setup Center's hero is whatever `SetupCenterFocus.resolve` nominates, so the
-/// decision the screen exists to present is a pure function and is tested here
-/// rather than by looking at it.
 final class SetupCenterFocusTests: XCTestCase {
+    private func snapshot(_ integration: SetupCenterIntegration, _ state: SetupCenterConnectorState) -> SetupCenterIntegrationSnapshot {
+        .init(integration: integration, state: state, status: "Status", explanation: "Detail", recoveryAction: "Action")
+    }
 
     private func status(
         calendar: SetupCenterConnectorState = .ready,
         health: SetupCenterConnectorState = .ready,
-        reminders: SetupCenterConnectorState = .deferred,
-        eva: SetupCenterConnectorState = .ready,
-        readState: HealthReadAccessState = .dataAvailable
+        eva: SetupCenterConnectorState = .ready
     ) -> SetupCenterStatus {
-        SetupCenterStatus(
-            calendar: calendar,
-            health: health,
-            reminders: reminders,
-            eva: eva,
-            healthAccess: HealthAccessState(
-                readState: readState,
-                writeAuthorizationByCategory: [:]
-            )
+        .init(calendar: snapshot(.calendar, calendar), health: snapshot(.health, health), eva: snapshot(.eva, eva))
+    }
+
+    func testBrokenIntegrationOutranksNewSetup() {
+        XCTAssertEqual(status(calendar: .attention, eva: .notStarted).recommendedNextAction, .calendar)
+    }
+
+    func testUnstartedPriorityIsCalendarThenHealthThenEva() {
+        XCTAssertEqual(status(calendar: .notStarted, health: .notStarted, eva: .notStarted).recommendedNextAction, .calendar)
+        XCTAssertEqual(status(health: .notStarted, eva: .notStarted).recommendedNextAction, .health)
+        XCTAssertEqual(status(eva: .notStarted).recommendedNextAction, .eva)
+    }
+
+    func testWaitingHealthIsHandledAndSkipped() {
+        let value = status(health: .waiting)
+        XCTAssertTrue(value.allRowsHandled)
+        XCTAssertNil(value.recommendedNextAction)
+    }
+
+    func testTruthfulSummarySeparatesReadyWaitingAndActionable() {
+        XCTAssertEqual(status(calendar: .ready, health: .waiting, eva: .notStarted).summary, "3 integrations · 1 ready · 1 waiting · 1 to set up")
+    }
+
+    func testOfflineEvaRequiresUsableInstalledModel() {
+        let missing = SetupCenterStatus.resolve(
+            calendarAuthorization: .authorized,
+            selectedCalendarCount: 1,
+            healthStatuses: [:],
+            healthHasObservableData: true,
+            evaAccessState: .needsDisclosure,
+            evaUsesOfflineProvider: true,
+            offlineModelReady: false
+        )
+        let ready = SetupCenterStatus.resolve(
+            calendarAuthorization: .authorized,
+            selectedCalendarCount: 1,
+            healthStatuses: [:],
+            healthHasObservableData: true,
+            evaAccessState: .needsDisclosure,
+            evaUsesOfflineProvider: true,
+            offlineModelReady: true
+        )
+        XCTAssertEqual(missing.eva.state, .attention)
+        XCTAssertEqual(ready.eva.status, "Offline ready")
+    }
+
+    func testCalendarAuthorizationWithoutSelectionIsNotReady() {
+        let value = SetupCenterStatus.resolve(
+            calendarAuthorization: .authorized,
+            selectedCalendarCount: 0,
+            healthStatuses: [:],
+            healthHasObservableData: false,
+            evaAccessState: .needsDisclosure,
+            evaUsesOfflineProvider: false,
+            offlineModelReady: false
+        )
+        XCTAssertEqual(value.calendar.state, .actionRequired)
+        XCTAssertEqual(value.calendar.status, "Choose calendars")
+    }
+
+    func testStaleCalendarSelectionsDoNotCountAsUsable() {
+        XCTAssertEqual(
+            SetupCenterStatus.validCalendarSelectionCount(
+                selectedIDs: ["deleted-calendar", "work"],
+                availableIDs: ["work", "personal"]
+            ),
+            1
+        )
+        XCTAssertEqual(
+            SetupCenterStatus.validCalendarSelectionCount(
+                selectedIDs: ["deleted-calendar"],
+                availableIDs: ["work", "personal"]
+            ),
+            0
         )
     }
 
-    // MARK: - Ranking
-
-    func testBrokenConnectionOutranksOneNeverStarted() {
-        // Calendar denied *and* EVA never set up: the thing that stopped working
-        // is the more useful thing to say, because the person already asked for it.
-        let focus = SetupCenterFocus.resolve(status(calendar: .attention, eva: .notStarted))
-
-        XCTAssertEqual(focus.target, .calendar)
-        XCTAssertEqual(focus.title, "Calendar needs attention")
+    func testRequestedHealthIsWaitingNotProofOfAccess() {
+        let health = HealthDomainStatus(domain: .activity, readRequestState: .requestCompleted, signal: .noRecord)
+        let value = SetupCenterStatus.resolve(
+            calendarAuthorization: .authorized,
+            selectedCalendarCount: 1,
+            healthStatuses: [.activity: health],
+            healthHasObservableData: false,
+            evaAccessState: .ready,
+            evaUsesOfflineProvider: false,
+            offlineModelReady: false
+        )
+        XCTAssertEqual(value.health.state, .waiting)
+        XCTAssertEqual(value.health.status, "Access requested")
     }
 
-    func testEvaOutranksOtherUnstartedConnectors() {
-        let focus = SetupCenterFocus.resolve(status(calendar: .notStarted, health: .notStarted, eva: .notStarted))
-
-        XCTAssertEqual(focus.target, .eva)
-    }
-
-    func testCalendarOutranksHealthWhenBothUnstarted() {
-        let focus = SetupCenterFocus.resolve(status(calendar: .notStarted, health: .notStarted))
-
-        XCTAssertEqual(focus.target, .calendar)
-    }
-
-    // MARK: - Honest states
-
-    func testRequestedHealthIsNotReportedAsComplete() {
-        // Apple never reveals a read denial. Counting "requested" as done would
-        // be inferring completion from missing evidence.
-        let focus = SetupCenterFocus.resolve(status(health: .requested, readState: .requestPresented))
-
-        XCTAssertEqual(focus.target, .health)
-        XCTAssertNotNil(focus.primaryTitle)
-    }
-
-    func testDeferredRemindersNeverBecomeTheFocus() {
-        // Notification permission is deliberately deferred to the first alert,
-        // so it is not a task and must not be presented as one.
-        let focus = SetupCenterFocus.resolve(status(reminders: .deferred))
-
-        XCTAssertEqual(focus.target, .complete)
-    }
-
-    func testDeniedRemindersDoBecomeTheFocus() {
-        let focus = SetupCenterFocus.resolve(status(reminders: .attention))
-
-        XCTAssertEqual(focus.target, .reminders)
-    }
-
-    // MARK: - Withdrawal
-
-    func testCompleteStateOffersNoPrimaryAction() {
-        // The hero is withdrawn when there is nothing to decide; a hero with no
-        // action is a card, and the screen becomes clay throughout.
-        let focus = SetupCenterFocus.resolve(status())
-
-        XCTAssertEqual(focus.target, .complete)
-        XCTAssertNil(focus.primaryTitle)
-        XCTAssertNil(focus.alternativeTitle)
-    }
-
-    // MARK: - Budget
-
-    func testStatusIsOneLineAndCountsOnlyConnected() {
-        let focus = SetupCenterFocus.resolve(status(calendar: .ready, health: .notStarted, reminders: .deferred, eva: .ready))
-
-        XCTAssertEqual(focus.status, "2 of 4 connected")
-        XCTAssertFalse(focus.status.contains("\n"))
-    }
-
-    func testEveryFocusFillsTheHeroBudgetExactlyOnce() {
-        // One title, one line of context, one status. A hero that grew a second
-        // metric has become a dashboard.
-        let cases = [
-            status(calendar: .attention),
-            status(reminders: .attention),
-            status(health: .attention),
-            status(eva: .notStarted),
-            status(calendar: .notStarted),
-            status(health: .notStarted),
-            status(health: .requested, readState: .requestPresented),
-            status()
-        ]
-
-        for state in cases {
-            let focus = SetupCenterFocus.resolve(state)
-            XCTAssertFalse(focus.title.isEmpty)
-            XCTAssertFalse(focus.context.isEmpty)
-            XCTAssertFalse(focus.context.contains("\n"), "context must stay one line")
-            XCTAssertEqual(focus.status, focus.status.trimmingCharacters(in: .whitespacesAndNewlines))
-        }
+    func testEnabledDeniedHealthWriteIsActionable() {
+        let health = HealthDomainStatus(
+            domain: .hydration,
+            readRequestState: .requestCompleted,
+            writeAuthorizations: [.water: .denied],
+            writeEnabled: true,
+            signal: .writeDenied
+        )
+        let value = SetupCenterStatus.resolve(
+            calendarAuthorization: .authorized,
+            selectedCalendarCount: 1,
+            healthStatuses: [.hydration: health],
+            healthHasObservableData: false,
+            evaAccessState: .ready,
+            evaUsesOfflineProvider: false,
+            offlineModelReady: false
+        )
+        XCTAssertEqual(value.health.state, .attention)
     }
 }

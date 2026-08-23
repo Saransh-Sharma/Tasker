@@ -160,7 +160,7 @@ final class SetupCenterEvaReachabilityUITests: BaseUITest {
         ]
     }
 
-    func testCloudEvaActionClearsDockWithoutGlobalComposerAtAccessibilityXXXL() {
+    func testRecommendedActionClearsRootChromeAtAccessibilityXXXL() {
         let privacyAcknowledgement = app.buttons["Got it"]
         if privacyAcknowledgement.waitForExistence(timeout: 3) {
             privacyAcknowledgement.tap()
@@ -170,16 +170,33 @@ final class SetupCenterEvaReachabilityUITests: BaseUITest {
             app.descendants(matching: .any)["home.lifeThread.composer"].exists,
             "utility routes must not mount the global LifeThread composer"
         )
+        XCTAssertFalse(
+            app.descendants(matching: .any)["LifeBoardCompactChrome"].exists,
+            "utility routes must not mount the root dock"
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)["onboarding.tip.home"].exists,
+            "a root-only onboarding tip must be cleared when Setup Center is pushed"
+        )
 
-        let action = app.buttons["setupCenter.eva.activate"]
-        XCTAssertTrue(action.waitForExistence(timeout: 10))
-        for _ in 0..<6 where action.isHittable == false {
-            // The identified SwiftUI ScrollView can disappear from the XCTest
-            // hierarchy at Accessibility XXXL even though it still receives
-            // gestures. A window-level swipe reaches that scroll plane reliably.
-            app.swipeUp()
+        let actionIdentifiers = [
+            "setupCenter.calendar.action",
+            "setupCenter.health.action",
+            "setupCenter.eva.activate",
+            "setupCenter.eva.retry",
+            "setupCenter.eva.reconnectApple",
+            "setupCenter.eva.offline"
+        ]
+        var recommendedAction: XCUIElement?
+        for identifier in actionIdentifiers {
+            let candidate = app.buttons[identifier]
+            if candidate.waitForExistence(timeout: 2) {
+                recommendedAction = candidate
+                break
+            }
         }
-        XCTAssertTrue(action.isHittable, "Cloud EVA action must remain tappable above the navigation dock")
+        XCTAssertNotNil(recommendedAction, "Setup Center must expose its recommended action")
+        XCTAssertTrue(recommendedAction?.isHittable == true, "the recommended action must be visible without a window-level swipe workaround")
     }
 }
 

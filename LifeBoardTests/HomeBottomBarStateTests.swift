@@ -6,33 +6,45 @@ final class HomeBottomBarStateTests: XCTestCase {
     func testFoundationCompactChromeVisibilityTracksOnlyPhoneEvaComposerFocus() {
         XCTAssertTrue(FoundationCompactChromeVisibilityPolicy.isVisible(
             destination: .eva,
+            screenMode: .detail,
             isPhoneInterface: true,
             isEvaComposerFocused: false,
             showsGlobalChrome: true
         ))
         XCTAssertFalse(FoundationCompactChromeVisibilityPolicy.isVisible(
             destination: .eva,
+            screenMode: .detail,
             isPhoneInterface: true,
             isEvaComposerFocused: true,
             showsGlobalChrome: true
         ))
         XCTAssertTrue(FoundationCompactChromeVisibilityPolicy.isVisible(
             destination: .plan,
+            screenMode: .detail,
             isPhoneInterface: true,
             isEvaComposerFocused: true,
             showsGlobalChrome: true
         ))
         XCTAssertTrue(FoundationCompactChromeVisibilityPolicy.isVisible(
             destination: .eva,
+            screenMode: .detail,
             isPhoneInterface: false,
             isEvaComposerFocused: true,
             showsGlobalChrome: true
         ))
         XCTAssertFalse(FoundationCompactChromeVisibilityPolicy.isVisible(
             destination: .home,
+            screenMode: .detail,
             isPhoneInterface: true,
             isEvaComposerFocused: false,
             showsGlobalChrome: false
+        ))
+        XCTAssertFalse(FoundationCompactChromeVisibilityPolicy.isVisible(
+            destination: .home,
+            screenMode: .utility,
+            isPhoneInterface: true,
+            isEvaComposerFocused: false,
+            showsGlobalChrome: true
         ))
     }
 
