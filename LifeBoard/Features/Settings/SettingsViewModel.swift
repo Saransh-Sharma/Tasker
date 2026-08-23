@@ -471,8 +471,20 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     func requestCalendarPermission() {
+        requestCalendarPermission { _ in }
+    }
+
+    func requestCalendarPermission(completion: @escaping @MainActor @Sendable (Bool) -> Void) {
         HapticFeedback.medium()
-        _ = calendarIntegrationService.performAccessAction(source: "settings", openSystemSettings: openSystemSettings)
+        _ = calendarIntegrationService.performAccessAction(
+            source: "settings",
+            openSystemSettings: openSystemSettings
+        ) { [weak self] granted in
+            Task { @MainActor in
+                self?.refreshCalendarState()
+                completion(granted)
+            }
+        }
     }
 
     #if DEBUG

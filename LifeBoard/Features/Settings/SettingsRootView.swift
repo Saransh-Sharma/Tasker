@@ -71,6 +71,7 @@ struct SettingsRootView: View {
     /// index is not something a view body should do on every layout pass.
     @State private var recoveryStatus = RecoveryStatusService.live().status()
     @State private var showsCalendarChooser = false
+    @State private var calendarChooserRequiresSelection = false
     @State private var copiedVersion = false
     init(
         viewModel: SettingsViewModel,
@@ -172,10 +173,17 @@ struct SettingsRootView: View {
             } message: {
                 Text("LifeBoard wellness records are stored locally. They are not uploaded to LifeBoard’s CloudKit store, analytics, or logs.")
             }
-            .sheet(isPresented: $showsCalendarChooser) {
+            .sheet(isPresented: $showsCalendarChooser, onDismiss: {
+                calendarChooserRequiresSelection = false
+            }) {
                 EventKitCalendarChooserContainerView(
                     service: viewModel.calendarService,
                     initialSelectedCalendarIDs: viewModel.selectedCalendarIDs,
+                    requiresAtLeastOneSelection: calendarChooserRequiresSelection,
+                    onCancel: {
+                        guard calendarChooserRequiresSelection else { return }
+                        Task { await ProductTelemetry.shared.record(.connectorResult, outcome: "calendar_chooser_cancelled") }
+                    },
                     onCommit: viewModel.updateSelectedCalendarIDs
                 )
                 .presentationDetents([.medium, .large])
@@ -274,7 +282,10 @@ struct SettingsRootView: View {
     private func premiumDestination(_ route: SettingsDetailRoute) -> some View {
         switch route {
         case .setupCenter:
-            SetupCenterView(settingsViewModel: viewModel, onOpenCalendarChooser: { showsCalendarChooser = true }, onNavigate: navigate)
+            SetupCenterView(settingsViewModel: viewModel, onOpenCalendarChooser: {
+                calendarChooserRequiresSelection = true
+                showsCalendarChooser = true
+            }, onNavigate: navigate)
         case .llm:
             LLMSettingsView(currentThread: .constant(nil))
                 .environmentObject(viewModel.assistantAppManager)
@@ -557,6 +568,7 @@ private extension SettingsRootView {
             viewModel.requestCalendarPermission()
             return
         }
+        calendarChooserRequiresSelection = false
         showsCalendarChooser = true
     }
 
