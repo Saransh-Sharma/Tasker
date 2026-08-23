@@ -6,6 +6,7 @@ import LifeBoardUI
 public struct EventKitCalendarChooserSheet: View {
     @ObservedObject var service: CalendarIntegrationService
     let initialSelectedCalendarIDs: [String]
+    let requiresAtLeastOneSelection: Bool
     let onCancel: () -> Void
     let onCommit: ([String]) -> Void
 
@@ -17,11 +18,13 @@ public struct EventKitCalendarChooserSheet: View {
     public init(
         service: CalendarIntegrationService,
         initialSelectedCalendarIDs: [String],
+        requiresAtLeastOneSelection: Bool = false,
         onCancel: @escaping () -> Void,
         onCommit: @escaping ([String]) -> Void
     ) {
         self.service = service
         self.initialSelectedCalendarIDs = initialSelectedCalendarIDs
+        self.requiresAtLeastOneSelection = requiresAtLeastOneSelection
         self.onCancel = onCancel
         self.onCommit = onCommit
         _selectedCalendarIDs = State(initialValue: Set(initialSelectedCalendarIDs))
@@ -73,6 +76,12 @@ public struct EventKitCalendarChooserSheet: View {
                                 }
                             }
                         }
+                        if requiresAtLeastOneSelection && selectedCalendarIDs.isEmpty {
+                            Text(String(localized: "Choose at least one calendar to continue."))
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard.statusWarning)
+                                .accessibilityIdentifier("schedule.chooser.validation")
+                        }
                     }
                 }
                 .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 900 : .infinity, alignment: .center)
@@ -93,6 +102,7 @@ public struct EventKitCalendarChooserSheet: View {
                         onCommit(selectedCalendarIDs.sorted())
                     }
                     .bold()
+                    .disabled(requiresAtLeastOneSelection && selectedCalendarIDs.isEmpty)
                     .accessibilityIdentifier("schedule.chooser.done")
                 }
             }
@@ -181,6 +191,8 @@ public struct EventKitCalendarChooserSheet: View {
 public struct EventKitCalendarChooserContainerView: View {
     @ObservedObject var service: CalendarIntegrationService
     let initialSelectedCalendarIDs: [String]
+    let requiresAtLeastOneSelection: Bool
+    let onCancel: (() -> Void)?
     let onCommit: ([String]) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -188,10 +200,14 @@ public struct EventKitCalendarChooserContainerView: View {
     public init(
         service: CalendarIntegrationService,
         initialSelectedCalendarIDs: [String],
+        requiresAtLeastOneSelection: Bool = false,
+        onCancel: (() -> Void)? = nil,
         onCommit: @escaping ([String]) -> Void
     ) {
         self.service = service
         self.initialSelectedCalendarIDs = initialSelectedCalendarIDs
+        self.requiresAtLeastOneSelection = requiresAtLeastOneSelection
+        self.onCancel = onCancel
         self.onCommit = onCommit
     }
 
@@ -199,7 +215,9 @@ public struct EventKitCalendarChooserContainerView: View {
         EventKitCalendarChooserSheet(
             service: service,
             initialSelectedCalendarIDs: initialSelectedCalendarIDs,
+            requiresAtLeastOneSelection: requiresAtLeastOneSelection,
             onCancel: {
+                onCancel?()
                 dismiss()
             },
             onCommit: { selectedIDs in
