@@ -57,6 +57,7 @@ struct OnboardingContextualTipCard: View {
 /// exists to avoid.
 struct OnboardingContextualTipModifier: ViewModifier {
     let destination: Destination
+    let isRootVisible: Bool
 
     @State private var activeTip: OnboardingContextualTip?
     /// Read once rather than on every body evaluation — the shell re-renders on
@@ -66,7 +67,7 @@ struct OnboardingContextualTipModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay(alignment: .bottom) {
-                if let activeTip {
+                if isRootVisible, let activeTip {
                     OnboardingContextualTipCard(tip: activeTip) {
                         withAnimation(MotionProfile.contentInsertion.animation(
                             reduceMotion: MotionOverride.effectiveReduceMotion
@@ -90,10 +91,15 @@ struct OnboardingContextualTipModifier: ViewModifier {
                 activeTip = nil
                 evaluate(for: newValue)
             }
+            .onChange(of: isRootVisible) { _, isVisible in
+                activeTip = nil
+                if isVisible { evaluate(for: destination) }
+            }
     }
 
     private func evaluate(for destination: Destination) {
-        guard let tip = OnboardingContextualTip(destination: destination),
+        guard isRootVisible,
+              let tip = OnboardingContextualTip(destination: destination),
               OnboardingContextualTipState.shouldShow(tip, hasCompletedLifeWeave: hasCompletedLifeWeave)
         else { return }
         OnboardingContextualTipState.markSeen(tip)
@@ -107,7 +113,7 @@ struct OnboardingContextualTipModifier: ViewModifier {
 
 extension View {
     /// Attaches the one-time root cue that replaced the v6 root tour.
-    func lifeBoardOnboardingTip(destination: Destination) -> some View {
-        modifier(OnboardingContextualTipModifier(destination: destination))
+    func lifeBoardOnboardingTip(destination: Destination, isRootVisible: Bool = true) -> some View {
+        modifier(OnboardingContextualTipModifier(destination: destination, isRootVisible: isRootVisible))
     }
 }

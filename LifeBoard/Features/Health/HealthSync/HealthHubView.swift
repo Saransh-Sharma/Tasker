@@ -160,6 +160,7 @@ struct HealthConnectPromptSheet: View {
 
     init(
         leadDomain: HealthDomain,
+        initialWritableDomains: Set<HealthDomain>? = nil,
         onConnect: @escaping (Set<HealthDomain>) -> Void,
         onDecline: @escaping () -> Void
     ) {
@@ -167,7 +168,7 @@ struct HealthConnectPromptSheet: View {
         self.onConnect = onConnect
         self.onDecline = onDecline
         _selectedWritableDomains = State(
-            initialValue: leadDomain.supportsWriteBack ? [leadDomain] : []
+            initialValue: initialWritableDomains ?? (leadDomain.supportsWriteBack ? [leadDomain] : [])
         )
     }
 
