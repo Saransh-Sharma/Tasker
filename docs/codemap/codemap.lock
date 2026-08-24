@@ -1,0 +1,573 @@
+{
+  "lockVersion": 2,
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-24T15:04:16.673Z",
+  "snapshot": {
+    "scope": "working-tree",
+    "branch": "master",
+    "head": "a75d7a610d233bcec20724d24f124f070832f514",
+    "shortHead": "a75d7a610d",
+    "dirtyFiles": []
+  },
+  "coverage": {
+    "repositoryFileCount": 2230,
+    "inventoriedFileCount": 1488,
+    "primaryNodeCount": 19,
+    "edgeCount": 39,
+    "flowCount": 5,
+    "evidenceFileCount": 133,
+    "redistributedCatchAllFiles": 127,
+    "swiftModuleCount": 29,
+    "swiftAdjacencyEdgeCount": 148,
+    "inventoryDigestAlgorithm": "sha256(sorted nodeId<TAB>repoRelativePath, newline-terminated)",
+    "inventorySha256": "4282792bf1d341e1db1574a8d41f99f150b3d895bf712a44c13d706ccad59435"
+  },
+  "evidence": [
+    {
+      "path": "LifeBoard.xcodeproj/project.pbxproj",
+      "sha256": "1adec40ebee1ee2a4502e34281fd49c25e32c68f7a31876bc7c49a31ac7cfc71"
+    },
+    {
+      "path": "LifeBoard.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+      "sha256": "403669b9c81d49d56484f16eec85c83f69eda66d1dc0537be4a78d44b5728756"
+    },
+    {
+      "path": "LifeBoard/App/DI/CompositionRoot.swift",
+      "sha256": "6f2cae7e00741fa0693a8e6e7e4d7b586e9605257ec32dcbe12290254b6fcaca"
+    },
+    {
+      "path": "LifeBoard/AppDelegate.swift",
+      "sha256": "f339e30d83d86e81327ffc02acf28e2e84ee450f1bafb7bd8b16671fb69e9728"
+    },
+    {
+      "path": "LifeBoard/Features/Eva/Cloud/EvaCloudContextProjection.swift",
+      "sha256": "884d179c2a5eb7ef1705efa8c7c44878b1f6a4fd9327192bd89206a0853292f1"
+    },
+    {
+      "path": "LifeBoard/Features/Eva/Cloud/EvaCloudContracts.swift",
+      "sha256": "6a10c0c3cc98b1f485e07be884677f9105d805e2ba04e41147b7ff9430ccd3ab"
+    },
+    {
+      "path": "LifeBoard/Features/Eva/Cloud/EvaCloudInference.swift",
+      "sha256": "f518157ad7f09312a0592c80e3a29b2159e2bcd3232e4c0f96cf8e3cfc4d2728"
+    },
+    {
+      "path": "LifeBoard/Features/Eva/Cloud/EvaCloudTransport.swift",
+      "sha256": "e3d5a3ca8f5b54a3546296157c09e7a221937ec10250c63f5d6cc5c7a7e04563"
+    },
+    {
+      "path": "LifeBoard/Features/Eva/Context/EvaTurnContextAssembler.swift",
+      "sha256": "4ac2ee4c9f5aee1d00552897b93dba8d2c78d1132a6c9304f364860ff5bd3bc4"
+    },
+    {
+      "path": "LifeBoard/Features/Eva/Models/AssistantPlannerService.swift",
+      "sha256": "e81f163ac271323f46aa31857eb01bc23fdf1412d61281476ca31a1bfadea081"
+    },
+    {
+      "path": "LifeBoard/Features/Eva/Models/EvaProposalCard.swift",
+      "sha256": "95ccda65a6704f627f739b0aeb43e8bc25626f0a39b95c3862cf7013cec8b7c3"
+    },
+    {
+      "path": "LifeBoard/Features/Eva/Models/LLMInferenceEngine.swift",
+      "sha256": "c9b5ec9da597037c16a565ccdf7bb3b7e4092905a0c5f50aaebc65a6b5d246be"
+    },
+    {
+      "path": "LifeBoard/Features/Focus/Domain/FocusLiveActivityCoordinator.swift",
+      "sha256": "07631af1fe9155a4d94b5730243a5ccaed019c9892d9c11555a3b699cdb5c175"
+    },
+    {
+      "path": "LifeBoard/Features/Gamification/Domain/FocusSessionUseCase.swift",
+      "sha256": "b1b7fc8374243732aa2063a9bdaf84b65b124f8e01193e6ca18c030dd57c5475"
+    },
+    {
+      "path": "LifeBoard/Features/Gamification/Domain/GamificationEngine.swift",
+      "sha256": "dec1382624a9ce768e5c32455130cb9c8da36dfad3ade0e858469db1e54f3eaa"
+    },
+    {
+      "path": "LifeBoard/Features/Gamification/Domain/RecordXPUseCase.swift",
+      "sha256": "5190c894f368e01bcf384f43f2075d6007724285891d1e5b43af66d4bc3e2c97"
+    },
+    {
+      "path": "LifeBoard/Features/Habits/Domain/HabitRuntimeUseCases.swift",
+      "sha256": "48282f36d848fa27bbe5af0569ba5135251be1b4a3c5f18de2e51edf14542ad8"
+    },
+    {
+      "path": "LifeBoard/Features/Health/Domain/SystemSurfaceProjectionCoordinator.swift",
+      "sha256": "7336832485ecad592558d25988ed310b14f307369427e9471e0badba4d85a25e"
+    },
+    {
+      "path": "LifeBoard/Features/Health/HealthSync/HealthConnectionStore.swift",
+      "sha256": "c60c2e8e32e3a60658096274add942066c2342b2fb67b893502339d2cf68cc63"
+    },
+    {
+      "path": "LifeBoard/Features/Health/HealthSync/HealthKitGateway.swift",
+      "sha256": "38e06b05e971b111dfc176fa20d537e459ceec0f2f92cec8cc410c9b96d50971"
+    },
+    {
+      "path": "LifeBoard/Features/Health/HealthSync/HealthProjectionRepository.swift",
+      "sha256": "1bfdb7c3da926dda0ecc76a848d55cec9eabb008ecb99a571353c97a1c0ebddb"
+    },
+    {
+      "path": "LifeBoard/Features/Health/HealthSync/HealthRuntime.swift",
+      "sha256": "d3d9bec923576df59bd6f851b6d769807d947af65e0645511cc748150671a1ba"
+    },
+    {
+      "path": "LifeBoard/Features/Health/HealthSync/HealthSyncEngine.swift",
+      "sha256": "c3798a225c5499a891caa2cbfa09589a7210f53336a2a3c8585926c039db6e8f"
+    },
+    {
+      "path": "LifeBoard/Features/Home/UI/ViewModels/HomeTaskListWidgetSnapshotService.swift",
+      "sha256": "3bc882a9c9d3e9d3f2f60239e72bbcd64d6f47103cec2ef9ff5ddf14322d842f"
+    },
+    {
+      "path": "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+InitialLoading.swift",
+      "sha256": "14036c1f4d2e35d29e3808097930fda0f4de3b2adf8f42769e5a8c4186582f3f"
+    },
+    {
+      "path": "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+ReloadPipeline.swift",
+      "sha256": "7efc83fda5577b7ecd594eeacc1e80e0ab901a0de29e7b0c1c5e2930a87edeb4"
+    },
+    {
+      "path": "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+TaskActions.swift",
+      "sha256": "1de0389aa83b0b66ca2345b903e94e561195f87b07d336897546713b273da301"
+    },
+    {
+      "path": "LifeBoard/Features/Home/UI/ViewModels/HomeViewModelRoot.swift",
+      "sha256": "57804a3766701d2358245f89d8c04b2c3c344ec2a371bd84ab1839d4d2d169a4"
+    },
+    {
+      "path": "LifeBoard/Features/Insights/Domain/CalculateAnalyticsUseCase.swift",
+      "sha256": "93123da979ba9edb9ad531ccc12227c427e3d11bde42547b7d0409ed831029e8"
+    },
+    {
+      "path": "LifeBoard/Features/Insights/UI/ViewModels/InsightsViewModel.swift",
+      "sha256": "c334213fcf2bbf221396641b7fe5b0e0e8a8ba3804c06a8fc98c5ed2c7651751"
+    },
+    {
+      "path": "LifeBoard/Features/Journal/Domain/HybridSearch.swift",
+      "sha256": "a2c896b50d1b2d7f0e3b0d8ed4c81085ad982d8671c7764e0c2189cd570fdb54"
+    },
+    {
+      "path": "LifeBoard/Features/Journal/Domain/JournalEvidenceService.swift",
+      "sha256": "49bf37f6167afb50fc63b51381461f255c906a6bece055ad6ed51893933688d7"
+    },
+    {
+      "path": "LifeBoard/Features/Knowledge/Data/JournalKnowledgeGraphStoreAdapter.swift",
+      "sha256": "f85672280a935a84858a9b3ee45c307c187a39387c4a83a134de216642313f30"
+    },
+    {
+      "path": "LifeBoard/Features/Knowledge/Data/KnowledgeStorageServices.swift",
+      "sha256": "f3da4e4abe820aa3a3c3da25c44854ddb6fcfa9bb861de971b002ac51032aba7"
+    },
+    {
+      "path": "LifeBoard/Features/Onboarding/Coordinator/AppOnboardingCoordinator.swift",
+      "sha256": "9a1a18f07eb8d9c12e97a7f348ca1d4c54f2f375d4247d94481f24c3578104e3"
+    },
+    {
+      "path": "LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpCalendar.swift",
+      "sha256": "41539ab52911a243ebc26501d884d89e14a7e24eec51a4eed176c0b5634e8b20"
+    },
+    {
+      "path": "LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpEva.swift",
+      "sha256": "bc729129ee06f42cd9f33e9bec480443e56cc26ff1e6295946cc487ec8a20f08"
+    },
+    {
+      "path": "LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpFlow.swift",
+      "sha256": "898ef61382a24086415bf91812671d857ec49e68ef143293d0302bb3c3e5b864"
+    },
+    {
+      "path": "LifeBoard/Features/Plan/Data/PlanningCorePersistence.swift",
+      "sha256": "dfba87e6b7f252789df04a07a0c4aa0489d9397e7f3e472cfc3d58dc8e4571bf"
+    },
+    {
+      "path": "LifeBoard/Features/Plan/Domain/PlanStore.swift",
+      "sha256": "795994d58195290a3388342b525327b3e081b8df186dc227ae48c58b88be976b"
+    },
+    {
+      "path": "LifeBoard/Features/Plan/UI/PlanRootView.swift",
+      "sha256": "374d6d595e2e0e5d87ec09720acaa5337056c1d0bc4bec6eaa3cea570593255f"
+    },
+    {
+      "path": "LifeBoard/Features/Settings/SetupCenter/SetupCenterStatus.swift",
+      "sha256": "5d54ce2f070fd9590ebf7ba6d40057ba3b3da6fd3614384329a29227383cdc82"
+    },
+    {
+      "path": "LifeBoard/Features/Track/Data/TrackFoundationPersistence.swift",
+      "sha256": "80db85d710227fcdd209659b8116bb6b458575b4cc535841aaa1fff40c166192"
+    },
+    {
+      "path": "LifeBoard/Features/Track/Domain/TrackFoundationServices.swift",
+      "sha256": "d480ac6185629cd116b556b770c54d447b17bfdc7cb33b5dd55353ecbc997259"
+    },
+    {
+      "path": "LifeBoard/Features/Track/UI/TrackFoundationStore.swift",
+      "sha256": "41d8c0f19c71dcf397d34a821b3a05bca8d0ec0d6442a1e2d427d4faae60828a"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/AppRouter.swift",
+      "sha256": "d021904b8ecccbfe5fed93c85dc60602e1309ab91b52af3df9e1722c8516b9d4"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/EvaDestination.swift",
+      "sha256": "0d3ab4f941b13abbd86998de4ee51ac48c51e193f5c6c2545058f174b9eb4ee1"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/FoundationCaptureHosts.swift",
+      "sha256": "96fdb91f1c340177a783f7125db1b80bbd7f3dbf7a5ee774fb4d3428c154abb0"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/FoundationJournalRoutes.swift",
+      "sha256": "9b6f468a91aaa5f44bacf6cbddde2fa3df74dea565b878fac5f4c60d19327a8f"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/FoundationRouteFactory.swift",
+      "sha256": "8cf47284891a72024834492a0e6b7cfa2a466a0efefacd570da180ddbffa6911"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/FoundationShell.swift",
+      "sha256": "d2f5ea56c600a76653b52954fd5170ef70d35aa95476b1189bfe80470522a79e"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/FoundationShellDestinations.swift",
+      "sha256": "ffe958d160c4a64db45957783e6089c0c789a551663a9cb75f37acef6c59f45d"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/InsightsDestination.swift",
+      "sha256": "620dbceffc878e437f581f4e84974b4874a348cc908170d2651adee06fa3c4a3"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/InsightsHealthSection.swift",
+      "sha256": "c5789fce36469722fa2627a2b17e8196898ccaf1ec88171e62d219c4bb93c07f"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/LifeThreadComposerIntent.swift",
+      "sha256": "6b568326dbcd288c5ea0fc6c64cf411278cc5204989545314ba893688f564683"
+    },
+    {
+      "path": "LifeBoard/Foundation/Navigation/LifeThreadComposerTools.swift",
+      "sha256": "b5c3b6f84b1df9c50cfad6458a31f251ae34d08a2588cbd98bda472156ab8dc0"
+    },
+    {
+      "path": "LifeBoard/Persistence/Bootstrap/LifeBoardPersistenceModel.swift",
+      "sha256": "a8beef8aabf97891d37b40f776bc37243ac0810ad1033af181f2cb57beeee05b"
+    },
+    {
+      "path": "LifeBoard/Persistence/Bootstrap/PersistentStoreBootstrapService.swift",
+      "sha256": "7fcf99a21e44fa02244a42294cd0c375623a90dd8b1aebe471e4b59c719c7b0e"
+    },
+    {
+      "path": "LifeBoard/Persistence/Repositories/CoreDataAssistantActionRepository.swift",
+      "sha256": "5dd2d1ba60b97432b8213bbf034fc0a82933aa5ede4fbb2afe8b2d66873fda52"
+    },
+    {
+      "path": "LifeBoard/Persistence/Repositories/CoreDataTaskDefinitionRepository.swift",
+      "sha256": "9d5442cff387a1af762a62664b56fc92e624d46d9d3ab25cf63beb68c0f538ad"
+    },
+    {
+      "path": "LifeBoard/Persistence/Resources/TaskModelV3.xcdatamodeld/TaskModelV3_TaskStartDay.xcdatamodel/contents",
+      "sha256": "da10ba7d37314695e425991e660e9abe1f600587e4b604c5060c128964315569"
+    },
+    {
+      "path": "LifeBoard/PrivacyInfo.xcprivacy",
+      "sha256": "1659ce3c2291b8c67600f5122edb5840d463098031729942e5dfee9fa1f60642"
+    },
+    {
+      "path": "LifeBoard/SceneDelegate.swift",
+      "sha256": "ffd9e080dc5759a21d23f864ed151401849241bf9c3a76042156b24957bf3955"
+    },
+    {
+      "path": "LifeBoard/Services/LocalNotificationService.swift",
+      "sha256": "83d9fe88bec5e138e41fbeca9562e8d524fe3c0e4fd0ea7b13e143c979d7e867"
+    },
+    {
+      "path": "LifeBoard/UseCases/Coordinator/UseCaseCoordinator.swift",
+      "sha256": "58283a239a88403a6e744a39dace2eb05ca780ce725998f363a43c9c85f1aba2"
+    },
+    {
+      "path": "LifeBoard/UseCases/Home/BuildHomeAgendaUseCase.swift",
+      "sha256": "953787ff7375ea11cca7448e00a6c6c48c0ba308a7dde35613f6993050a16478"
+    },
+    {
+      "path": "LifeBoardTests/AppOnboardingTests.swift",
+      "sha256": "3e8c3e9b18bc2f6c529fdb25bda516250d23235857546ea0d19306f31ef0a3b3"
+    },
+    {
+      "path": "LifeBoardTests/AssistantPlannerServiceTests.swift",
+      "sha256": "34e1abf48e6e4d0d0686b1e6fab8817ed83d19131577edad7a30460c4c5a1438"
+    },
+    {
+      "path": "LifeBoardTests/CalendarComputationUseCasesTests.swift",
+      "sha256": "9521ca3078a554f26153804c7d9a8ac3416cd1d9c5687a55a52365bb7eabc3af"
+    },
+    {
+      "path": "LifeBoardTests/CalendarIntegrationServiceTests.swift",
+      "sha256": "3a8bf4535361e8f250f9131a19a195aa049769fd5b1069d7627cd88945a21ac9"
+    },
+    {
+      "path": "LifeBoardTests/CoreDataMigrationChainTests.swift",
+      "sha256": "c68aac3466f898396a52179ed0cc4ef194a35010d582faca1e7c0c9a2bffe761"
+    },
+    {
+      "path": "LifeBoardTests/EvaTrustArchitectureTests.swift",
+      "sha256": "60cb75e5c2665c7a72f3900fa5095438332f250b8f1a364a7aa88b6ce17ee60f"
+    },
+    {
+      "path": "LifeBoardTests/FocusClockTests.swift",
+      "sha256": "799b56c0bb401961f0c5ef8ed20dcba9c76f3fefe2b6bcc1446e29f0fdbad070"
+    },
+    {
+      "path": "LifeBoardTests/HabitLastCellRuntimeTests.swift",
+      "sha256": "9d968c46879306684e55981076105a1ca7a03a485ba2c359e0a1279b9f918321"
+    },
+    {
+      "path": "LifeBoardTests/HealthSyncTests.swift",
+      "sha256": "ba942aae86d017f3920d2722703a0b08edccd10f68168283b9081322459a3137"
+    },
+    {
+      "path": "LifeBoardTests/HomeBottomBarStateTests.swift",
+      "sha256": "ff600cad8060a2554f97a4ea9d2680cca5bb787d07bf4943a36cec6fdf99874e"
+    },
+    {
+      "path": "LifeBoardTests/HomeChromeSnapshotPresentationTests.swift",
+      "sha256": "f35f39cf88e9e65785261cc28b3b3a1391c0ef1c11aa22253df8ad30f752c1a7"
+    },
+    {
+      "path": "LifeBoardTests/HomeTaskSectionBuilderTests.swift",
+      "sha256": "7f39a9dee4b9fe1e136b1a4b2a9406f8bb3dddb2b438dbe71ab49de8859a3566"
+    },
+    {
+      "path": "LifeBoardTests/HomeViewModelPersistenceTests.swift",
+      "sha256": "095ad64f04c2c4ab7b55f5c60f2ab5d23c61e2c1e1052050bf45e243f32d75be"
+    },
+    {
+      "path": "LifeBoardTests/InsightsModuleVisibilityPlannerTests.swift",
+      "sha256": "c5f1489c7c12a7ef411fb4092a587c0af167ce3bbab9a31b5612485840240eff"
+    },
+    {
+      "path": "LifeBoardTests/LifeBoardAppShortcutsTests.swift",
+      "sha256": "59e74e1d61a6b36b190ad4d4618f433cc7bc1b90b0ee37eedbb9e231ee43655f"
+    },
+    {
+      "path": "LifeBoardTests/LifeBoardApplicationLifecycleTests.swift",
+      "sha256": "04cf2e2cd17e53b98bd47e081c821370c67d9fd3d0250672d149f7834f4a6983"
+    },
+    {
+      "path": "LifeBoardTests/LifeBoardPlanningTrackFoundationTests.swift",
+      "sha256": "ea925b56360fd5cc87f1a5daf7832a9a9bfc2f03ad9da84fde55490218f245ca"
+    },
+    {
+      "path": "LifeBoardTests/LifeWeaveOnboardingTests.swift",
+      "sha256": "d3ef6c6dfd18f9bdadd0f335578be664a6a25005522ca747d2d614e8cdc92487"
+    },
+    {
+      "path": "LifeBoardTests/PlanDriftResolverTests.swift",
+      "sha256": "fd4185a7901bace05d56884fc9944f668a981edc38bc3befbf2e1e5cf7d1f341"
+    },
+    {
+      "path": "LifeBoardTests/TaskCaptureParserTests.swift",
+      "sha256": "7bb27fbe0bc64ba29030aa2066ba336f17b93da493da10b1cc611c2ad984863f"
+    },
+    {
+      "path": "LifeBoardTests/TaskSemanticRetrievalServiceTests.swift",
+      "sha256": "354f3ff64ee1cb7dd88a7aa84ac028b8eb91e99fa5d87352d3a621b1f7504d34"
+    },
+    {
+      "path": "LifeBoardTests/WeeklyPlanningWorkspaceTests.swift",
+      "sha256": "7d546ce2dfc4da1e26c3c0d6b80f8dfa972c6d7feb931f249afa3f80e398537e"
+    },
+    {
+      "path": "LifeBoardTests/XPCalculationEngineWeeklyCategoryTests.swift",
+      "sha256": "e370e8845a7d30d15124096c2de626527d943c90790ab9c0aa78d3e8163da5d8"
+    },
+    {
+      "path": "LifeBoardUITests/AddTaskSuggestionFlowTests.swift",
+      "sha256": "7a3dbd522163a2a3f3a04665a18a8277c245758f82b349f625dc079b71c309c3"
+    },
+    {
+      "path": "LifeBoardUITests/AppStoreScreenshotUITests.swift",
+      "sha256": "d72572dcb9c215154628a7e4ec49397c5d3896e5507960c25acd4b1c3a29821a"
+    },
+    {
+      "path": "LifeBoardUITests/ChatPlanApplyUndoTests.swift",
+      "sha256": "4a0714d09b1f2461d9400fcf0158570629519b0d2bb285d2b00a6c6f8768b032"
+    },
+    {
+      "path": "LifeBoardUITests/FocusNowSeededUITests.swift",
+      "sha256": "7357255f42f81f91a42188bddc66b7eee3e34b53c9dc5c8a14f35abf228b7ea6"
+    },
+    {
+      "path": "LifeBoardUITests/OnboardingUITests.swift",
+      "sha256": "f5083df2937f851de36533b7f18c79ce236148432901ddde66618790b086e865"
+    },
+    {
+      "path": "LifeBoardUITests/SettingsUITests.swift",
+      "sha256": "25e59a795f9c387309894f4079d6a5f5f54392006bd10da085f0bd36bbeb47a2"
+    },
+    {
+      "path": "LifeBoardUITests/Tests/Critical/TaskCompletionTests.swift",
+      "sha256": "15f9b4709be1cf97999ad04646d7b4a48a19d7e12f97f0cd1e5c6fcd3f91effe"
+    },
+    {
+      "path": "LifeBoardUITests/Tests/Critical/TaskCreationTests.swift",
+      "sha256": "398e95abc673f83974d9aec8ec2e5010877b0858a8b627783041cbda469d870e"
+    },
+    {
+      "path": "LifeBoardUITests/Tests/Secondary/HabitBoardUITests.swift",
+      "sha256": "e2cafac3ba9c3bd1a3f155f17bc67fccca6d5c9c52edaed6db8144f4196a9b60"
+    },
+    {
+      "path": "LifeBoardUITests/Tests/Secondary/WellnessCaptureUITests.swift",
+      "sha256": "a62cc39c9e3c35cc1b71168bc9fa2fe877ef426636985d972a0f200cec3cb357"
+    },
+    {
+      "path": "LifeBoardWatch/WatchSnapshotReceiver.swift",
+      "sha256": "aedeb8a624fdfb139618d578a86b89a3dbfd3f170d6f33b6841a5c0f8702cd49"
+    },
+    {
+      "path": "LifeBoardWidgets/LifeBoardWidgetBundle.swift",
+      "sha256": "13cb3e1b5facdb7b6a324664bbe1cca581314c7018f6f1454fe28a4e442c7d4d"
+    },
+    {
+      "path": "Package.swift",
+      "sha256": "35c88f62afb789585db26675b83909e640681322f07a9193ca72c0bf1b39dc17"
+    },
+    {
+      "path": "Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/CalendarComputationUseCases.swift",
+      "sha256": "e062b47b137ab22716bbcd3d70cc189990619e975aced48769cb51f7530567c2"
+    },
+    {
+      "path": "Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/CalendarIntegrationService.swift",
+      "sha256": "a26d35354efcab61ab6f8fe05569b5ae576222120daf191984bd3125d2991515"
+    },
+    {
+      "path": "Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/EventKitCalendarEventsRepository.swift",
+      "sha256": "7968cf638a9ad5c52e04c67ee639d49ffd2651bc9bdb8b4af95ea63429dab8c1"
+    },
+    {
+      "path": "Packages/LifeBoardContracts/Sources/LifeBoardContracts/AppGroupConstants.swift",
+      "sha256": "966e52fc59c420438be8a9a72e35502b50e763318a851a293fe1d03938268ea0"
+    },
+    {
+      "path": "Packages/LifeBoardContracts/Tests/LifeBoardContractsTests/WatchCaptureContractTests.swift",
+      "sha256": "fe87b7df552535d8bcaa5717c18c65ac2f8920297fcaf7eac62c0568c97211f4"
+    },
+    {
+      "path": "Packages/LifeBoardDomain/Sources/LifeBoardDomain/EvaRecordReference.swift",
+      "sha256": "52e1c8de197ed5b8d7fd44b8b60c0c7f10dda81d12853e370983879932f6015a"
+    },
+    {
+      "path": "Packages/LifeBoardDomain/Sources/LifeBoardDomain/Interfaces_V2RepositoryProtocols.swift",
+      "sha256": "fa4d52b760ddc805321acc777ab2166b9d5aee95bcf8700faf933660bccd0aa2"
+    },
+    {
+      "path": "Packages/LifeBoardTranscription/Sources/LifeBoardTranscription/SpeechAnalyzerEngine.swift",
+      "sha256": "d0ea4edf5df134ed6e5d98b4615f6c0c0bfa4cb1282e58c7526d82635cf8a0ea"
+    },
+    {
+      "path": "Services/EVACloud/src/durable-objects/EvaAccountDO.ts",
+      "sha256": "181bc6ec87b290eea77abfd764a014ed7c9facff691ab5880d619f695257288a"
+    },
+    {
+      "path": "Services/EVACloud/src/environment.ts",
+      "sha256": "eaa965332c60c7fcb568b395bc8b9d19f5cbdd8ad0285f666e1ddf09d3761752"
+    },
+    {
+      "path": "Services/EVACloud/src/openai/client.ts",
+      "sha256": "7fb0d95a78f35844c1c6ea314a8b3502ff8a86ac96f3792f4588f2075a847791"
+    },
+    {
+      "path": "Services/EVACloud/src/routes/responses.ts",
+      "sha256": "42885825650f6cd6ef5bc2f04cae0666b781a022c0cebb8587f310aa10cd55b6"
+    },
+    {
+      "path": "Services/EVACloud/src/routes/speech.ts",
+      "sha256": "4031072878974d6417d0be681bb739d3be5234032e4b218d3bc9913d6b503c4a"
+    },
+    {
+      "path": "Services/EVACloud/src/worker.ts",
+      "sha256": "2f94a92bb7fbfa5b279446fd9dc769fb2884920d6345f4e6f3cdba1bb75ba2f3"
+    },
+    {
+      "path": "Services/EVACloud/test/app-attest.test.ts",
+      "sha256": "53fd4d6ce1ddffdb15d400d19155fba1e3594f7ea8df0e7adc1bf0d0cf963a6d"
+    },
+    {
+      "path": "Services/EVACloud/test/openai.test.ts",
+      "sha256": "d0ff625b4febb514318241b187311aa2a4b4549a8d41e68946831114fbcaa34e"
+    },
+    {
+      "path": "Services/EVACloud/test/worker.test.ts",
+      "sha256": "242beed94792096115a316df89633c0b132dc288612f8f98d81c870b562788b4"
+    },
+    {
+      "path": "Services/EVACloud/wrangler.toml",
+      "sha256": "30ea7e0a3e7490f029499dafc136f419f0299306b76b82b1b81a665018bd4bc5"
+    },
+    {
+      "path": "Shared/EVACloudContracts/fixtures/eva-record-navigation-v1.json",
+      "sha256": "ab902ea0d20b95ead9ad80855d461347e5b0710ef3bd012063bf05c6f3460a7e"
+    },
+    {
+      "path": "Shared/EVACloudContracts/src/contracts.test.ts",
+      "sha256": "f0f345d11e27bd2738d7b5aed265559055f263d945f6b1b00ce6d74d7fba3367"
+    },
+    {
+      "path": "Shared/EVACloudContracts/src/index.ts",
+      "sha256": "92f1d1cb4cad3d64cf37beec5b2edfa1381ac6d75756eb889a7491d1108d5b4e"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "c27ecefbe90a0a67b5ca32872ae3682c78cba447d10244ed208b2beac2fd00ef"
+    },
+    {
+      "path": "package.json",
+      "sha256": "7005cd347b3b052ca96f93908820d8d8cfc7642807f974d986374b61cd25fe9d"
+    },
+    {
+      "path": "scripts/check-marketing-site.mjs",
+      "sha256": "5bab4a511ea855dc2f672d8dc20ab485f396843673f1002e633784b07a778585"
+    },
+    {
+      "path": "scripts/check-module-boundaries.sh",
+      "sha256": "ef6190b313e13cce389522510c8c4d070a6ebb6daf464758e4798fbd5b22797a"
+    },
+    {
+      "path": "scripts/check-xcode-target-membership.sh",
+      "sha256": "53573034f2f8775d76ae598bdc5079485eb373231570585e5b074f7df18fa069"
+    },
+    {
+      "path": "scripts/generate-marketing-routes.mjs",
+      "sha256": "9a01a6d67fc56bd9e0d0adb55e58b3151164b6d37b50065022fb09f3c0a764ad"
+    },
+    {
+      "path": "scripts/generate_marketing_screenshots.mjs",
+      "sha256": "befe71809a53540e48883beac59717ff44b9a1d2305e31dd0d38ef4269cca756"
+    },
+    {
+      "path": "scripts/module-adjacency.tsv",
+      "sha256": "21b1ef2e611b248a695f716b8ca023ab4b89d5262e055b24a4755897f7696141"
+    },
+    {
+      "path": "src/App.tsx",
+      "sha256": "2df3c7f4e868277e3579b27d0d78071324d5329bc74f88e65e1c14d458ad48e2"
+    },
+    {
+      "path": "src/content/marketing.ts",
+      "sha256": "bf7e60ca6a8e8cc9579534b99b71c51b5185e1b838307ab73e88b8e9a5038bf2"
+    }
+  ],
+  "artifacts": {
+    "docs/codemap/codemap.json": "f1a94329815844db34adae49e7a6ddcac5b7c6c311e7b68f27756749cb8a2793",
+    "docs/codemap/codemap.html": "a2c2d67c2d6fab0a62a5c8550081433ca3907c358a8432d7d64a163682bfd3dc"
+  },
+  "validation": {
+    "primaryNodeCap": 20,
+    "expectedFlowCount": 5,
+    "embeddedDataMatchesJson": true,
+    "pathsResolved": true,
+    "uniqueInventoryOwnership": true,
+    "transitiveImpactComputed": true,
+    "searchableInventory": true,
+    "compilerTopologyIncluded": true
+  }
+}
