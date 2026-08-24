@@ -62,7 +62,7 @@ Portfolio reporting uses the labels defined in the current-state report: defined
 | Route quality baseline | Every existing Eva job behaves at least as well as accepted local behavior | Privacy-safe corpus by semantic route; retrieval/subtraction/exclusion; authority; structured/semantic validity; refusal and cancellation tests | Approved route bands, no privacy/authority hard failures, and ≥99.5% valid repair-eligible structured results after one repair |
 | Operational confidence | Failures are contained without app releases | Dashboards, alert thresholds, key-rotation drill, kill-switch drill, request/account reconciliation | Incident simulation passes; zero content in logs |
 | Trust completion | Product claims match processor reality | ZDR decision, privacy labels/report, threat model, account deletion/revocation, consent comprehension test | Privacy/security/App Store approval |
-| Controlled launch | Learn before broad exposure | Internal → 5% → 25% → 100% for text; TTS independently later | Latency, safety, cost, helpfulness, and recovery thresholds hold |
+| Controlled launch | Contain a release-owner-approved broad exposure | Default internal → 5% → 25% → 100%; current exception requests direct 100% after staging and zero-tolerance checks, with signed rollback and a seven-day review | Latency, safety, cost, helpfulness, and recovery thresholds hold before graduation |
 
 Do not start a broad proactive-agent initiative before Horizon 0 closes. Reliability and trust are product features.
 
@@ -98,6 +98,8 @@ Every recommendation exposes the small evidence bundle behind it: calendar const
 ### Weekly Reset with EVA
 
 EVA prepares a reflection—not a report card—connecting planned versus actual work, unfinished commitments, wins, friction, and a proposed next-week shape.
+
+**Implementation status (25 August 2026):** Implemented and enabled by default in Debug and Release together with Make It Fit Today and Friction Detective. Each retains an independent signed runtime kill switch. Review completion and next-week planning are separate commits. Cloud production publication and outcome graduation remain distinct; see [EVA Decision Loops implementation](./EVA_DECISION_LOOPS_IMPLEMENTATION.md).
 
 - Enablers: This Week workspace, weekly reflection, Journal, goal and habit evidence.
 - KPI: weekly plan completion quality and fewer endlessly carried items.

@@ -3,9 +3,9 @@
 **Classification:** Canonical feature contract
 
 **Audience:** Users, support, product, design, engineering, safety/privacy review, and QA
-**Capability status:** Current workspace; Cloud Eva production rollout remains disabled
+**Capability status:** Current workspace; local decision loops enabled, Cloud Eva production publication blocked
 **Source authority:** Insight services, Eva runtime/coordinator, local authority policy, and canonical proposal pipeline
-**Last verified:** 2026-08-21
+**Last verified:** 2026-08-25
 
 **Roots:** Insights and EVA
 **Related:** [Journal and Reflection](./JOURNAL_NOTES_AND_REFLECTION.md), [Local EVA architecture](../architecture/LOCAL_LLM_EVA_ARCHITECTURE.md), [Eva roadmap status](../eva/EVA_ROADMAP_STATUS.md)
@@ -29,7 +29,7 @@ Users come here to:
 
 ## Delivery status
 
-The shared intelligence, navigation, capture, memory, evidence, and proactive-policy foundations are implemented. Cloud Eva remains production-disabled while physical-device, seeded-quality, privacy, cost, load, accessibility, and operational gates are completed. The differentiated decision loops described by the roadmap remain future product arcs even where their supporting primitives already exist.
+The shared intelligence, navigation, capture, memory, evidence, proactive-policy, and first three decision-loop foundations are implemented. Make It Fit Today, Friction Detective, and Weekly Reset default on in Debug and Release and remain useful locally when Cloud Eva is unavailable. The signed 100% production policy is prepared but not published: remote preflight found the dedicated DeviceCheck secrets missing in staging and production. Physical-device, seeded-quality, privacy, cost, load, accessibility, and operational evidence remains open, so production enablement and graduation must be reported separately.
 
 Use [Eva roadmap status and gap analysis](../eva/EVA_ROADMAP_STATUS.md) for the maintained “where we are / done / decisions / left” view. Product copy and support material must not describe an implemented primitive as production-enabled or a future arc as shipped.
 

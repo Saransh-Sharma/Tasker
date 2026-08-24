@@ -1365,6 +1365,24 @@ final class FeatureFlagPromotionTests: XCTestCase {
         )
     }
 
+    func testEvaDecisionLoopsShipOnAndRetainIndependentSignedKillSwitches() throws {
+        let source = try flagSource()
+        let block = try promotedBlock(source)
+        let controls = [
+            ("feature.eva.make_it_fit_today_v1", "evaMakeItFitTodayV1Enabled"),
+            ("feature.eva.friction_detective_v1", "evaFrictionDetectiveV1Enabled"),
+            ("feature.eva.weekly_reset_v1", "evaWeeklyResetV1Enabled")
+        ]
+
+        for (key, runtimeProperty) in controls {
+            XCTAssertTrue(block.contains("\"\(key)\": true"), "\(key) must ship on in Release")
+            XCTAssertTrue(
+                source.contains("AppRuntimeConfigurationStore.current.\(runtimeProperty)"),
+                "\(key) must retain its signed production kill switch"
+            )
+        }
+    }
+
     /// Flags whose Release default is deliberately `false` because their rollout
     /// is still in progress.
     ///

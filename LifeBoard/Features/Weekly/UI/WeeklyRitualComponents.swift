@@ -944,7 +944,7 @@ extension WeeklyReviewTaskDisposition {
         case .later:
             return "Move later"
         case .drop:
-            return "Drop"
+            return "Release"
         }
     }
 

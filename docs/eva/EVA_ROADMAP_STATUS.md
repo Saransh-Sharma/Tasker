@@ -2,13 +2,15 @@
 
 **Classification:** Canonical current-state report
 **Audience:** Product, design, engineering, privacy/security, QA, release, support, and leadership
-**Status date:** 21 August 2026
+**Status date:** 25 August 2026
 **Roadmap authority:** [Eva intelligence roadmap](EVA_INTELLIGENCE_ROADMAP.md) and [Life OS product roadmap](LIFE_OS_PRODUCT_ROADMAP.md)
 **Delivery authority:** [Cloud migration TODO](EVA_CLOUD_MIGRATION_TODO.md)
 
 ## Executive summary
 
-Eva is at the roadmap's **qualify the platform spine** stage. The core intelligence and authority architecture is implemented and documented, but it has not completed production qualification. Production Cloud Eva and TTS therefore remain disabled through signed runtime configuration.
+Eva is at the roadmap's **production enablement prepared; qualification exception requested** stage. The core intelligence and authority architecture is implemented and documented. Make It Fit Today, Friction Detective, and Weekly Reset now default on in Debug and Release and each also respects an independent signed `appRuntime` kill switch. Version-controlled staging policy v3 and production policy v2 are validated for all supported routes, TTS, and 100% guest rollout, with higher-version disabled rollback policies prepared.
+
+Cloud publication is not complete. The 25 August remote preflight found that both Cloudflare environments lack `APPLE_DEVICECHECK_KEY_ID` and `APPLE_DEVICECHECK_PRIVATE_KEY_P8`. The runbook treats that as an authentication/trust deployment blocker, so the current staging v2 policy and production disabled fallback remain live. The requested 100% exposure is therefore prepared, not claimed as production-enabled.
 
 The roadmap should be read as follows:
 
@@ -17,7 +19,7 @@ The roadmap should be read as follows:
 | Intelligence and authority foundation | Implemented in code and documented |
 | A — Navigator and actuator | Implemented; full physical-device and adversarial qualification remains |
 | B — Ask my life | Retrieval/evidence foundation implemented; answer-quality graduation remains |
-| C — Differentiated intelligence | Defined; product arcs are not shipped |
+| C — Differentiated intelligence | First three decision loops implemented and presentation-enabled by default; cloud qualification and rollout remain |
 | Horizon 0 — Trustworthy production launch | In progress |
 | Horizons 1–4 | Future product delivery |
 
@@ -71,14 +73,18 @@ The remaining gate is a seeded evaluation showing that richer context improves d
 
 #### C — Differentiated intelligence
 
-**State: defined, not shipped.**
+**State: first connected arc implemented and presentation-enabled by default; Cloud EVA not production-enabled.**
 
-Commitment Realism, Renegotiation, Drift Report, “Why did this fall off?”, habit timing coaching, Weekly Reset, Scenario Studio, Life Moments pressure, and onboarding continuity still need to become independent product arcs. The platform can support them, but platform capability is not product completion.
+Make It Fit Today, Friction Detective, and Weekly Reset with EVA now exist as local-first product rituals that default on in both app configurations. Their promoted local flags and signed runtime switches must both permit presentation, preserving three independent remote kill switches without making offline use depend on Cloud EVA. They use canonical capacity and weekly planning, evidence/choice/preview/receipt states, IDs-only draft restoration, local-only structured friction findings, corrected Carry/Later/Release semantics, and deterministic Undo. See [EVA Decision Loops implementation](EVA_DECISION_LOOPS_IMPLEMENTATION.md).
+
+Drift Report, habit timing coaching, Scenario Studio, Life Moments pressure, onboarding continuity, and broader orchestration remain defined future arcs.
 
 ### Production posture
 
-- Staging is the qualification environment for Cloud Eva text and speech.
-- Production Cloud Eva and TTS remain disabled.
+- Debug continues to use staging; Release continues to use production. There is no separate Production Xcode configuration.
+- The desired staging v3 policy enables all 16 routes including `debugSmoke`; the desired production v2 policy enables the 15 supported user/helper routes and excludes `debugSmoke`.
+- The live production endpoint remains fail-closed until the missing DeviceCheck secrets are provisioned and staging verification passes.
+- Production enablement is requested at 100%, but will be recorded as production-enabled—not graduated—only after the signed policy is actually published and verified.
 - The worker supports contract versions 1–4 and emits contract v4 for current clients.
 - Signed runtime configuration schema v2 owns provider, route, quota, model, rollout, and kill-switch policy.
 - Offline Eva remains explicit; a failed cloud turn never silently switches providers.
@@ -242,27 +248,28 @@ P0 is the critical path to any production cohort.
 - Accounting and provider usage reconcile.
 - Dashboards and alerts lead to rehearsed runbook actions.
 - Each capability can be disabled independently.
-- Product, engineering, privacy/security, QA, and release owners approve a limited cohort.
+- Product, engineering, privacy/security, QA, and release owners approve exposure, or the accountable release owner records a time-bounded exception that still preserves every zero-tolerance gate.
 
-### P1 — Limited production rollout
+### P1 — Production enablement exception
 
-- [ ] Enable internal text traffic.
-- [ ] Hold against quality, privacy, latency, cost, correction, and authority thresholds.
-- [ ] Expand text through 5%, 25%, and 100% cohorts using monotonic signed policy.
-- [ ] Roll out TTS independently after text stability.
+- [ ] Provision the missing DeviceCheck secrets and pass the staging v3 deployment/smoke gate.
+- [ ] Deploy production while fail-closed, verify the tested Worker, then publish production policy v2 directly at the release-owner-requested 100% guest rollout.
+- [ ] Verify signature, environment, route/TTS policy, quota/accounting, telemetry, and rollback readiness immediately after publication.
+- [ ] Hold the production-enabled, not-graduated state to a seven-day review on 1 September 2026.
 - [ ] Preserve explicit Offline Eva and ordinary LifeBoard recovery throughout.
 
-Rollout progression is an evidence decision, not a calendar commitment.
+The direct 100% request is a time-bounded release exception to the normal internal → 5% → 25% progression. It does not waive signature, authentication, privacy, accounting, schema, or mutation-authority gates.
 
 ### P2 — Differentiated decision loops
 
-Recommended sequence:
+Implementation sequence and current state:
 
-1. **Commitment Realism and Renegotiation:** compare ambition with capacity and turn overload into explicit keep/drop/defer choices.
-2. **Day Compass and Momentum Rescue:** make the morning plan believable and recover calmly after disruption.
-3. **Weekly Reset:** connect outcomes, carry-over, friction, and next-week shape.
-4. **Drift Report and “Why did this fall off?”:** explain repeated deferral and habit/task drift without moral judgment.
-5. **Scenario Studio:** compare bounded alternatives without mutating canonical state.
+1. [x] **Make It Fit Today:** compare ambition with capacity and turn overload into explicit keep/move/release choices.
+2. [x] **Friction Detective:** explain repeated task replanning without causal overclaim and change one reversible condition.
+3. [x] **Weekly Reset with EVA:** connect outcomes, carry-over, friction, and a separately confirmed next-week shape.
+4. [ ] **Manual dogfood and qualification:** complete device, accessibility, privacy, migration, contract, and telemetry gates per ritual.
+5. [ ] **Proactive EVA:** enable governed overload and friction suggestions only after manual reliability is demonstrated.
+6. [ ] **Scenario Studio and broader drift coaching:** compare bounded alternatives and extend evidence-led diagnosis without mutating canonical state.
 
 Each arc requires:
 
@@ -298,12 +305,14 @@ flowchart LR
     A[Contract-v4 implementation] --> B[Seeded quality evaluation]
     A --> C[Physical-device authority matrix]
     A --> D[Privacy and operational qualification]
-    B --> E[Limited production cohort]
+    B --> E[Production enablement]
     C --> E
     D --> E
     E --> F[Graduate platform spine]
-    F --> G[First differentiated decision loop]
-    G --> H[Broader Life OS orchestration]
+    A --> G[Local-first decision loops behind flags]
+    F --> I[Decision-loop outcome review]
+    G --> I
+    I --> H[Broader Life OS orchestration]
 ```
 
 Quality, authority, and privacy/operations are parallel P0 workstreams. None can be replaced by success in another workstream.
@@ -345,3 +354,4 @@ Use [the migration TODO](EVA_CLOUD_MIGRATION_TODO.md) for detailed evidence task
 - [Evaluation and observability](EVALUATION_AND_OBSERVABILITY.md)
 - [Privacy and data flow](PRIVACY_AND_DATA_FLOW.md)
 - [Risk register](RISK_REGISTER.md)
+- [EVA Decision Loops implementation](EVA_DECISION_LOOPS_IMPLEMENTATION.md)

@@ -1,10 +1,10 @@
 # Cloud EVA Product and Technical Guide
 
 **Product role:** LifeBoard's user-controlled Chief of Staff  
-**Implementation status:** Contract v4 architecture implemented; staging end-to-end qualification in progress
+**Implementation status:** Contract v4 and full-exposure policies implemented; remote publication blocked at DeviceCheck preflight
 **Text provider:** OpenAI [`gpt-5.6-luna`](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
 **Spoken output:** OpenAI [`tts-1`](https://developers.openai.com/api/docs/models/tts-1), `nova`; no cloud speech-to-text or full duplex
-**Last verified:** 2026-08-21
+**Last verified:** 2026-08-25
 
 ## Product promise
 
@@ -14,7 +14,7 @@ Cloud EVA extends that experience with Luna while preserving Offline EVA through
 
 ## What ships in the implementation
 
-Implementation availability is not production availability. The current source contains the contract-v4 platform spine, navigation/capture authority, memory/evidence controls, and proactive governor. Production Cloud Eva and TTS remain disabled pending physical-device, quality, privacy, operations, load, and staged-rollout gates. The maintained comparison is [Eva roadmap status and gap analysis](EVA_ROADMAP_STATUS.md).
+Implementation availability is not production availability. The current source contains the contract-v4 platform spine, navigation/capture authority, memory/evidence controls, proactive governor, and three enabled-by-default decision loops. Validated signed policies prepare every supported route, TTS, and guest access at 100%. Production Cloud Eva and TTS remain disabled because the required DeviceCheck secrets are absent in both remote environments; physical-device, quality, privacy, operations, and load evidence also remains open. The maintained comparison is [Eva roadmap status and gap analysis](EVA_ROADMAP_STATUS.md).
 
 ### Text intelligence
 
@@ -182,8 +182,9 @@ Repairs, retries, failures, refusals, moderation responses, cancellation, determ
 
 ## Environment and rollout posture
 
-- Debug builds use the staging `workers.dev` origin and staging Ed25519 pin. As of 2026-08-17, all staging text routes and TTS are enabled for end-to-end testing.
-- Release builds use `https://api.getlifeboard.app` and the production pin. Production cloud and TTS remain disabled.
+- Debug builds use the staging `workers.dev` origin and staging Ed25519 pin. The live v2 policy enables its older 13-route set and TTS; desired v3 adds the current capture, navigation, and memory-candidate routes.
+- Release builds use `https://api.getlifeboard.app` and the production pin. Desired production v2 enables the 15 supported routes, TTS, and guest rollout at 100%, while excluding `debugSmoke`; it has not been published.
+- Make It Fit Today, Friction Detective, and Weekly Reset default on locally in both configurations and each also requires a matching signed `appRuntime` Boolean.
 - Runtime policy independently controls guest bootstrap, guest inference, Apple linking, quota values, helper limits, age-policy mode, text routes, and TTS. A higher-version signed policy is the first rollback mechanism.
 - The marketing apex and `www` continue to serve GitHub Pages and are operationally separate from the `api` Worker hostname.
 
@@ -203,6 +204,7 @@ Repairs, retries, failures, refusals, moderation responses, cancellation, determ
 
 ## Known release gaps
 
+- Provision `APPLE_DEVICECHECK_KEY_ID` and `APPLE_DEVICECHECK_PRIVATE_KEY_P8` in both staging and production, then rerun remote preflight before deployment.
 - Complete a fresh physical-iPhone staging run through guest consent confirmation, bootstrap, optional App Attest/DeviceCheck signals, the first Luna response, rolling-quota exhaustion, optional Apple linking, refresh, deletion, and TTS.
 - Complete regional age-assurance and legal review before enabling guest access outside approved launch regions.
 - Qualify real Sandbox and Production Catalyst App Transaction chains.

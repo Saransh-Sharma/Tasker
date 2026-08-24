@@ -2,7 +2,7 @@
 
 **Owner:** Cross-functional EVA release group  
 **Review cadence:** Weekly before launch; monthly after stable rollout; immediately after an incident or provider/policy change  
-**Last reviewed:** 2026-08-21
+**Last reviewed:** 2026-08-25
 
 ## Scoring
 
@@ -51,10 +51,11 @@ Likelihood and impact are scored 1–5. Exposure is `likelihood × impact`: Low 
 | R37 | A model inference is silently promoted into durable personal memory | 2 | 5 | 10 | Candidate/confirmed state separation; explicit local confirmation; provenance; inspect/edit/delete controls | Later-correction/deletion or unconfirmed-save signal → disable candidate route, audit local state transitions | Product + Privacy + Apple Platform | Controlled; usability and persistence audit open |
 | R38 | Proactive Eva becomes noisy, coercive, or exposes sensitive content on the lock screen | 3 | 4 | 12 | ≤2/day; 0.65 floor; quiet hours; 21-day dormancy after two dismissals; least-interruptive surface; protected previews | Dismissal/disable/complaint spike or governor breach → disable proactive delivery, inspect content-free decisions | Product + Design + Privacy | Open: live usefulness qualification |
 | R39 | Contract v4 selection metadata is present but misleading after budget drops | 2 | 4 | 8 | Whole-record allocator recomputes counts/source IDs/selection reasons; boundary fixtures; max 13 sections | Included-count/source-ID mismatch → disable affected route, allocator regression | Apple Platform + Backend | Controlled; retain boundary suite |
+| R40 | DeviceCheck abuse signal silently ships without its dedicated Apple key | 3 | 4 | 12 | Required Wrangler declarations; deployment preflight verifies remote names; dedicated capability-enabled key; guest path remains low-trust on advisory failure | Either secret missing or DeviceCheck observation absent → block deployment, provision both environments, rerun physical smoke | Security + Release Engineering | Open launch blocker: both staging and production secrets missing on 2026-08-25 |
 
 ## Top launch decisions
 
-The current highest-priority open risks are R02 (ZDR truth), R05 (real Catalyst evidence), R10 (high-stakes safety), R13 (pricing drift), R19 (consent comprehension), R34 (cross-surface exclusion), R38 (proactive usefulness and privacy), and the live evidence portions of R11/R14/R17/R35/R36. Production Luna must remain disabled until these launch gates are accepted or an accountable owner records a time-bounded exception with compensating controls.
+The current highest-priority open risks are R02 (ZDR truth), R05 (real Catalyst evidence), R10 (high-stakes safety), R13 (pricing drift), R19 (consent comprehension), R34 (cross-surface exclusion), R38 (proactive usefulness and privacy), R40 (missing DeviceCheck secrets), and the live evidence portions of R11/R14/R17/R35/R36. The release owner requested a 100% production exception with a seven-day review on 1 September 2026 and compensating signed route/appRuntime kill switches, quotas, deterministic local authority, and content-free telemetry. That exception cannot override R40 or any signature, auth, privacy, accounting, schema, or mutation-authority failure; production remains disabled until those zero-tolerance checks pass.
 
 ## Review protocol
 

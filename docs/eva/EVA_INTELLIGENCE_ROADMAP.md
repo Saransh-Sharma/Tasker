@@ -34,8 +34,8 @@ The differentiation is not the chat surface or the provider name. It is the qual
 | Platform spine | Implemented | Integrated quality, authority, privacy, and operations qualification |
 | A — Navigator and actuator | Implemented | Physical-device and adversarial matrix |
 | B — Ask my life | Foundation implemented | Seeded grounding, subtraction, irrelevance, and exclusion evaluation |
-| C — Differentiated intelligence | Defined | Select and ship the first independently evaluated decision loop |
-| Production Cloud Eva | Disabled | P0 release gates and limited cohort approval |
+| C — Differentiated intelligence | First connected arc implemented; presentation defaults on | Per-ritual qualification and outcome review |
+| Production Cloud Eva | 100% policy prepared; publication blocked by missing DeviceCheck secrets | Provision secrets, pass staging, publish and verify production v2 |
 
 “Implemented” is not “production-enabled.” The maintained evidence and critical path are in [Eva roadmap status and gap analysis](EVA_ROADMAP_STATUS.md).
 
@@ -66,7 +66,7 @@ Hybrid lexical/semantic retrieval extends across tasks, Knowledge, and authorize
 
 ### C — Differentiated intelligence
 
-Ship Commitment Realism, Drift Report, Renegotiation, “Why did this fall off?”, habit timing coaching, Scenario Studio, Life Moments pressure, onboarding continuity, and Weekly Reset as separate evaluated product arcs. Deterministic services calculate; Eva explains, compares, and adjudicates.
+The first connected arc—Make It Fit Today, Friction Detective, and Weekly Reset with EVA—is implemented and defaults on in Debug and Release. Each surface still requires its promoted local flag and matching signed runtime control. Deterministic services calculate; Eva explains, compares, and adjudicates. The next work is live qualification and independent outcome review, followed by Scenario Studio, broader drift/habit coaching, Life Moments pressure, and onboarding continuity. See [the implementation contract](EVA_DECISION_LOOPS_IMPLEMENTATION.md).
 
 ## Workstreams and dependencies
 
@@ -85,21 +85,22 @@ Ship Commitment Realism, Drift Report, Renegotiation, “Why did this fall off?�
 
 ### Now — qualify the platform spine
 
+- Provision the dedicated DeviceCheck key ID and private key in staging and production; remote preflight must pass before either Worker is promoted.
 - Complete physical-device and staged cloud qualification for contract v4, navigation, capture, memory, Evidence Lens, and proactive policy.
 - Establish route-level dashboards and a versioned offline evaluation baseline for the current model and prompt policy.
 - Close production privacy/ZDR, consent-comprehension, accessibility, pricing, load, and rollback gates.
 - Treat correction, undo, disambiguation, exclusion, and unavailable-source outcomes as first-class product signals.
 
-**Exit:** the platform can be enabled for a limited cohort without unresolved zero-tolerance privacy or authority failures, and each capability can be disabled independently.
+**Exit:** the platform can be enabled at its approved exposure without unresolved zero-tolerance privacy or authority failures, and each capability can be disabled independently.
 
 This work is P0. Quality evaluation, physical-device authority validation, and privacy/operational qualification are parallel mandatory workstreams; success in one does not compensate for a failure in another.
 
-### Next — ship differentiated decision loops
+### Next — qualify and roll out differentiated decision loops
 
-- Commitment Realism: compare stated priorities with capacity and actual follow-through.
-- Renegotiation: turn an overloaded plan into explicit keep/drop/defer choices.
-- Drift Report and “Why did this fall off?”: connect plan changes, deferrals, habits, and reflections without moral judgment.
-- Weekly Reset: synthesize evidence into a reviewable next-week proposal.
+- Dogfood Make It Fit Today, Friction Detective, and Weekly Reset through their independent feature flags.
+- Qualify stale previews, partial apply, deterministic Undo, accessibility, privacy, migration, and content-free telemetry for each ritual.
+- Review and graduate each ritual independently after the shared Cloud EVA gate closes; production exposure alone is not graduation evidence.
+- Extend task friction into broader Drift Report and habit timing coaching only after seven-day outcome evidence is reliable.
 - Scenario Studio: compare bounded alternatives without applying any of them.
 
 Each loop ships as a product feature with a dedicated route or deterministic service, evaluation rubric, evidence model, and authority level—not as another system-prompt paragraph.

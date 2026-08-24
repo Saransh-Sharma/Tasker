@@ -233,7 +233,10 @@ public final class WeeklyReviewViewModel: ObservableObject {
         }
     }
 
-    public func completeReview(completion: (@MainActor @Sendable (String) -> Void)? = nil) {
+    public func completeReview(
+        mutationMode: WeeklyReviewMutationMode = .applyImmediately,
+        completion: (@MainActor @Sendable (String) -> Void)? = nil
+    ) {
         guard let plan = snapshot?.plan else {
             errorMessage = "Create the weekly plan before reviewing it."
             return
@@ -256,7 +259,8 @@ public final class WeeklyReviewViewModel: ObservableObject {
                 nextWeekPrepNotes: nextWeekPrepNotes.nilIfBlank,
                 perceivedWeekRating: perceivedWeekRating,
                 taskDecisions: decisions,
-                outcomeStatusesByOutcomeID: outcomeStatusesByID
+                outcomeStatusesByOutcomeID: outcomeStatusesByID,
+                mutationMode: mutationMode
             )
         ) { result in
             Task { @MainActor in

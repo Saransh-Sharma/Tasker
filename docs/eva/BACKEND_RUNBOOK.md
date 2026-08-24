@@ -3,17 +3,17 @@
 **Service:** Cloudflare Worker in `Services/EVACloud`
 **Contract:** `Shared/EVACloudContracts`
 **Production API:** `https://api.getlifeboard.app`
-**Last verified:** 2026-08-21
+**Last verified:** 2026-08-25
 
 ## Current environment state
 
 | Environment | Client | Policy | Text routes | TTS | Notes |
 |---|---|---|---|---|---|
 | Development | Local Worker/manual clients | Fail closed unless explicitly seeded | Operator controlled | Operator controlled | Local secrets only in ignored `.dev.vars` |
-| Staging | Debug iOS/Catalyst | Signed schema v2; contract versions 1–4 | **All enabled** | **Enabled** | Explicit Debug end-to-end qualification policy |
-| Production | Release iOS/Catalyst | Signed schema v2 disabled policy; contract versions 1–4 | Disabled | Disabled | Custom domain live; no production model traffic |
+| Staging | Debug iOS/Catalyst | Live policy v2; desired v3 | Live older 13-route set | Live enabled | Current Worker/policy promotion blocked by missing DeviceCheck secrets |
+| Production | Release iOS/Catalyst | Live disabled fallback; desired v2 | Disabled | Disabled | 15-route/100% policy validated but not published |
 
-Staging is intentionally fully enabled so Debug builds can exercise authentication, age, trust, Luna, and spoken output end to end. Production remains disabled until the release gates pass. Do not copy staging policy to production as a convenience.
+The desired policies are `config/runtime-config.staging.json` (v3) and `config/runtime-config.production.json` (v2). Staging enables all 16 routes including `debugSmoke`; production enables the 15 supported routes and keeps `debugSmoke` off. Both enable Cloud EVA, TTS, guest bootstrap/inference, Apple linking, and guest rollout at 100%. On 25 August 2026 remote preflight stopped deployment because both environments lacked the two dedicated DeviceCheck secrets. Until they are provisioned and staging passes, production remains fail-closed. Do not publish a policy merely to make documentation match an intended state.
 
 The production zone also serves the GitHub Pages marketing site. EVA changes may touch only `api.getlifeboard.app` and the Worker/custom-domain configuration. Never alter or proxy the apex `getlifeboard.app` or `www.getlifeboard.app` records during an EVA deploy or rollback.
 
@@ -78,7 +78,7 @@ Provision a new environment as follows:
 5. Seed a disabled schema-v2 policy, validate it remotely, then enable capabilities only through a higher-version approved policy.
 6. For production, attach only `api.getlifeboard.app`, validate TLS, and register Apple's server-notification endpoint at `/v1/auth/apple/events`.
 
-Deployment preflight checks public bindings, origins, pins, price policy, and—when requested—remote secret names without reading values:
+Deployment preflight checks public bindings, origins, pins, and all declared remote secret names without reading values. The npm commands always include remote verification:
 
 ```sh
 npm run backend:preflight:staging
@@ -96,6 +96,16 @@ KV key `runtime-config-v2` contains the durable policy revision:
 - route budgets, structured/billable flags, supported contract versions, and minimum client version;
 - maintenance and Offline EVA recovery policy;
 - independent guest bootstrap, guest inference, Apple linking, rollout percentage, 20-answer quota, 100-helper quota, age-policy mode, and versioned price schedule.
+- signed `appRuntime` presentation controls, including independent switches for Make It Fit Today, Friction Detective, and Weekly Reset.
+
+The reviewed desired state is version-controlled in `config/runtime-config.<environment>.json`. Validate it with the Worker test suite before publication. Generate ignored, mode-0600 higher-version disabled policies with:
+
+```sh
+npm --workspace @lifeboard/eva-cloud run config:prepare-rollback:staging
+npm --workspace @lifeboard/eva-cloud run config:prepare-rollback:production
+```
+
+For the current desired revisions these produce staging v4 and production v3 rollback documents under `.eva-provisioning/`. Prepare them before any remote mutation; do not publish them unless containment is required.
 
 Enabled/degraded cloud requires `priceSchedule.approved: true`. TTS cannot be enabled while cloud is disabled. Missing, malformed, wrong-environment, future-dated, rolled-back, unapproved, or otherwise invalid policy returns a signed disabled fallback.
 
@@ -103,7 +113,7 @@ The current model identifiers are `gpt-5.6-luna` for text and `tts-1` with `nova
 
 KV policy persistence and client signed-document freshness are intentionally distinct. The Worker accepts an old but otherwise valid monotonic KV policy and stamps a fresh `issuedAt` whenever it signs a response. Clients cache a verified response for six hours and may use the last verified response for seven days. Activation forces a network configuration refresh, so an earlier cached disabled response cannot mask a newly enabled staging policy.
 
-Before any enablement, compare the price schedule with the OpenAI project's actual billing view and the official [Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna) and [`tts-1`](https://developers.openai.com/api/docs/models/tts-1) model pages. The schedule approved for staging on 2026-08-17 is:
+Before any enablement, compare the price schedule with the OpenAI project's actual billing view and the official [Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna) and [`tts-1`](https://developers.openai.com/api/docs/models/tts-1) model pages. The schedule reconfirmed on 2026-08-24 is:
 
 - Luna uncached input: $0.20 per million tokens.
 - Luna cached input: $0.02 per million tokens.
@@ -120,6 +130,7 @@ Deploy staging first:
 ```sh
 npm run backend:preflight:staging
 npm run backend:deploy:staging
+npm run backend:config:publish:staging
 ```
 
 Then verify health and the signed policy with the non-secret public JWK:
@@ -158,7 +169,9 @@ Apple-link qualification must inject a failure after each of: pending-record cre
 
 Simulator may validate UI navigation and request construction but cannot satisfy production-like App Attest. Do not add a bypass to make simulator smoke appear complete.
 
-Production deployment uploads a Worker version from the protected branch with environment approval. Runtime policy remains disabled until staging, privacy, security, evaluation, load, and TestFlight gates pass. Application secrets remain in Cloudflare; GitHub Actions needs only scoped Cloudflare deployment credentials.
+Production deployment uploads an inactive Worker version from the protected branch with environment approval. Deploy that tested version while the production policy remains disabled, verify health/bindings/pins/schema, then publish `runtime-config.production.json` only under the approved release decision. Application secrets remain in Cloudflare; GitHub Actions needs only scoped Cloudflare deployment credentials.
+
+The requested launch policy is 100% immediately after staging verification. That release-owner exception does not waive signature, authentication, privacy, accounting, schema, or mutation-authority checks. Any such failure publishes the prepared higher-version disabled policy first. The state is then **production-enabled, not graduated**, with a seven-day review; open outcome and qualification gates remain visible.
 
 These requirements are the operational part of roadmap P0. [Eva roadmap status and gap analysis](EVA_ROADMAP_STATUS.md) owns the consolidated exit criteria; this runbook owns the executable deployment and rollback procedure.
 

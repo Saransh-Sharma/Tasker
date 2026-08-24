@@ -4,7 +4,7 @@
 > Audience: Users, support, product, design, engineering, and QA
 > Capability status: Current workspace; limitations are called out per entry
 > Source authority: Runtime routes, models, repositories, feature flags, targets, and system extensions
-> Last verified: 2026-08-13
+> Last verified: 2026-08-24
 
 This catalog accounts for the current user-visible product. “Current” means represented in this workspace; it does not by itself mean freshly exercised on a device. The [future blueprint](./LIFEOS_FUTURE_BLUEPRINT.md) is intentionally excluded. Public language, platform qualifiers, and screenshot use are separately gated by the [Public Capability Matrix](./PUBLIC_CAPABILITY_MATRIX.md).
 
@@ -117,6 +117,15 @@ device-unverified behavior into an unqualified promise.
 - **Actions/Undo:** Navigate days; search/filter; place/move/unschedule; inspect capacity; use readiness, context, energy, duration, and project filters; select and batch mutate; open a daily summary. Receipts describe before/after placement and Undo.
 - **States/accessibility:** Permission-denied calendar still permits internal planning. Conflicts, over-capacity, stale calendars, and explicit free time are labeled. Timeline always has an agenda/text equivalent.
 - **Evidence:** Plan root/views, Calendar package, and [calendar reference](../calendar/README.md).
+
+### EVA decision loops
+
+- **Outcome and use:** Make an overloaded day honest, change one condition behind repeated task friction, and close the week into a viable next-week shape.
+- **Entry points/status:** Make It Fit Today from Plan capacity; Friction Detective from Task Detail; Weekly Reset from the weekly review route. Implemented and enabled by default in Debug and Release; three promoted local flags and three signed runtime controls remain independent kill switches.
+- **Authority/actions:** Canonical capacity and repositories supply facts. Every task disposition is previewed; calendar events and deadlines are not edited. Make It Fit and Weekly planning create reversible receipts. Friction Detective restores the original task or removes its created split step and deletes the linked local finding on Undo.
+- **Privacy:** Structured `FrictionFinding` records are local-only and contain no custom prose. Optional custom text lives in a linked reflection note. Journal evidence is never sent without a per-ritual explicit grant.
+- **States/accessibility:** IDs-only drafts restore by refetching records. Stale previews revalidate, unknown estimates never count as free work, sparse histories remain uncertain, and reduced-motion/VoiceOver/Dynamic Type states preserve meaning.
+- **Limitations/evidence:** Local/degraded rituals do not require Cloud EVA. The 100% production cloud policy is prepared but not live while DeviceCheck provisioning and staging verification remain open. See [EVA Decision Loops implementation](../eva/EVA_DECISION_LOOPS_IMPLEMENTATION.md).
 
 ### This Week workspace
 
@@ -267,7 +276,7 @@ device-unverified behavior into an unqualified promise.
 ### EVA assistant
 
 - **Outcome and use:** Understand context, explore options, and safely apply reviewed changes.
-- **Entry points/status:** EVA root, persistent composer fallback, Home conversation card, selected context attachments, Siri request, and evidence follow-ups. Current in source; Cloud EVA production policy remains disabled while staging qualification continues.
+- **Entry points/status:** EVA root, persistent composer fallback, Home conversation card, selected context attachments, Siri request, and evidence follow-ups. Current in source; Cloud EVA production remains fail-closed while missing DeviceCheck secrets block the prepared staging v3/production v2 promotion.
 - **Authority/actions:** Activation selects guide/mascot and Cloud EVA or Offline EVA. The provider router chooses Luna only when account, trust, per-device 18+, consent, credits, network, and signed policy are ready; explicitly selected Offline EVA uses installed MLX. Chats/threads, chips, slash commands, attachments, day overview cards, task/habit actions, semantic retrieval, and user-controlled memory feed a working/streaming response. Stop, Continue, Retry, and edit remain available. Consequential output becomes a proposal with diff, Apply/Edit/Not Now, partial-application disclosure, receipt, and Undo.
 - **Privacy:** Context is bounded and category-scoped. Cloud context requires explicit minimization and authoritative consent; Journal, Health, Life Moments, and personal memory are independently off by default. Offline prompts remain on device. Cloud prompts and authorized projections transit LifeBoard's Cloudflare Worker to OpenAI with `store: false`; the Worker retains no conversation/audio history.
 - **States/accessibility:** Signing in, device trust, age eligibility, consent, credits, configuration disabled/degraded, downloading, unavailable model, offline, working, streaming, stopped, partial, failed, and stale context are distinct. Text remains selectable/readable and streaming does not steal VoiceOver focus. TTS is optional and independently disableable.

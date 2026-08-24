@@ -194,14 +194,17 @@ broken on the cloud path.
 ### F — Staging, evaluation, and release
 
 - [x] Provision real KV namespaces and replace placeholder IDs for development, staging, and production.
-- [x] Provision environment-isolated Cloudflare, OpenAI, and Apple secrets/keys. OpenAI, generated signing/encryption/HMAC material, Apple team/client IDs, Apple trust roots, App Attest environment, and the Sign in with Apple key for Team ID `CJ43UNM3AR` are uploaded in development, staging, and production. Private values remain only in Cloudflare secret storage.
+- [ ] Complete environment-isolated Cloudflare, OpenAI, and Apple secret provisioning. Existing OpenAI, generated signing/encryption/HMAC material, Apple team/client IDs, Apple trust roots, App Attest environment, and Sign in with Apple key remain remote-only, but the 2026-08-25 preflight found `APPLE_DEVICECHECK_KEY_ID` and `APPLE_DEVICECHECK_PRIVATE_KEY_P8` missing from staging and production.
 - [x] Add executable staging smoke, privacy-safe Luna eval, and load-test tools.
-- [x] Add deployment preflight and environment-isolated key-generation tooling that never prints private values.
+- [x] Add deployment preflight and environment-isolated key-generation tooling that never prints private values; npm deployment preflights now always verify the actual remote secret-name set.
 - [x] Deploy staging first in fail-closed mode and observe a clean remote workflow; later explicitly enable all staging routes/TTS for Debug qualification through signed policy version 2. `/health`, signature, route policy, and Apple exchange/refresh schema boundaries are verified remotely.
 - [ ] Pass real-device iOS, signed Catalyst, Luna, moderation, and TTS staging smoke tests.
 - [ ] Meet structured-validity and latency acceptance thresholds at 10× launch load.
 - [ ] Complete ZDR, privacy, threat-model, App Store, and TestFlight gates. Cloudflare imported the existing GitHub Pages records, the GoDaddy nameserver cutover completed, the production custom domain is attached, and the marketing apex/www paths were verified through Cloudflare without changing their GitHub Pages targets. The Apple App ID server-notification configuration was submitted for `https://api.getlifeboard.app/v1/auth/apple/events`; Apple portal propagation remains a final console verification.
-- [ ] Roll out text internal → 5% → 25% → 100%, then roll out TTS independently.
+- [ ] Publish the release-owner-requested direct 100% text/TTS policy only after DeviceCheck provisioning, staging verification, and production fail-closed Worker verification; review after seven days.
+- [x] Add validated version-controlled staging v3 and production v2 policy sources, 100% guest rollout, exact supported-route assertions, signed decision-loop runtime controls, and prepared higher-version disabled rollback policies.
+- [ ] Provision the dedicated DeviceCheck keys, deploy current Worker to staging, publish v3, and pass route/signed-config smoke.
+- [ ] Upload and deploy the tested Worker to production while fail-closed, then publish production v2 at 100% and verify signature, health, routes, TTS, accounting, telemetry, and rollback readiness.
 
 ## Phase 0 — Repository and contracts
 
@@ -279,11 +282,11 @@ broken on the cloud path.
 
 ## Phase 9 — Release
 
-- [x] Provision Cloudflare, OpenAI, and Apple secrets and console configuration. Environment secrets, KV, Analytics Engine datasets, and the Apple Sign in with Apple key are provisioned; production custom-domain attachment is complete and Apple server callback propagation remains a console verification gate.
+- [ ] Finish Cloudflare, OpenAI, and Apple secret/console provisioning. KV, Analytics Engine, Sign in with Apple, and the production custom domain are present, but dedicated DeviceCheck secrets are missing from staging and production; Apple server callback propagation also remains a console verification gate.
 - [x] Configure `api.getlifeboard.app`. The Cloudflare zone is active, the production Worker custom domain is attached, and `/health` plus signed `/v1/eva/config` return successfully through the production hostname.
 - [ ] Obtain OpenAI Zero Data Retention approval.
 - [ ] Complete privacy, security, load, evaluation, and TestFlight gates.
-- [ ] Roll out internal, 5%, 25%, and 100% stages.
+- [ ] Execute the approved direct 100% exception after staging, then perform the seven-day production-enabled/not-graduated review.
 
 ## Verification evidence — 2026-08-15
 
@@ -302,7 +305,7 @@ broken on the cloud path.
 - [x] Production custom domain responds through Cloudflare: `https://api.getlifeboard.app/health` returns the production Worker health response and signed `/v1/eva/config` is reachable.
 - [x] Plists, entitlements, privacy manifest, accessibility identifiers, localization (1,066 keys), file-size ratchets, module boundaries, directory structure, documentation, frozen contracts, App Intent descriptions, SwiftLint debt, and no-print logging checks pass.
 - [x] Offline-provider regression fixtures explicitly select Offline EVA; automatic/cloud production routing still never silently falls back to MLX.
-- [x] Staging and production deployment preflight passes local configuration checks and verifies the required remote secret names without reading secret values.
+- [ ] Restore passing staging and production deployment preflight. Local configuration checks pass, but remote secret-name verification on 2026-08-25 found both dedicated DeviceCheck secrets absent in both environments.
 - [x] Staging signed configuration version 2 reports `cloudState: enabled`, `ttsEnabled: true`, approved pricing, and no disabled semantic routes; production remains signed version 1 with text and TTS disabled.
 - [ ] Install the watchOS 26.5 simulator runtime to complete the final watch target-membership build probe. This is a local Xcode component prerequisite, not a source or EVA failure.
 - [ ] `swift test` remains unsuitable for this iOS-only package graph because `LifeBoardTokens` imports UIKit; Xcode iOS/Catalyst builds and the 2,274-test XCTest run are the authoritative Apple-platform verification.

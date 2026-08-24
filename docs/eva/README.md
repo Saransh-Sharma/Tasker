@@ -25,6 +25,7 @@ This directory is the canonical product and engineering documentation set for Ev
 ## Strategy and delivery
 
 - [Roadmap status and gap analysis](EVA_ROADMAP_STATUS.md) — current stage, completed foundation, decisions, critical path, and remaining work
+- [EVA Decision Loops implementation](EVA_DECISION_LOOPS_IMPLEMENTATION.md) — product, authority, persistence, Undo, flags, and rollout contract for Make It Fit Today, Friction Detective, and Weekly Reset
 - [Life OS product roadmap](LIFE_OS_PRODUCT_ROADMAP.md)
 - [Eva intelligence roadmap](EVA_INTELLIGENCE_ROADMAP.md)
 - [Cloud migration TODO](EVA_CLOUD_MIGRATION_TODO.md)
@@ -47,14 +48,16 @@ Every change to a route, context category, mutation family, memory field, or tel
 
 ## Current implementation baseline
 
-As of 21 August 2026:
+As of 25 August 2026:
 
 - The worker emits contract version 4 and accepts compatible client requests for versions 1 through 4.
 - The current prompt policy identifier is `eva-cloud-v3`; prompt-policy versioning is independent of the wire-contract version.
 - Signed runtime configuration uses schema version 2.
 - The cloud provider is configured for `gpt-5.6-luna`; speech uses `tts-1` with the `nova` voice.
 - Context version 4 requires turn context plus explicit selection reasons for every admitted section. `conversationSummary` is prohibited for version 3 and later requests.
-- Production cloud enablement remains gated by qualification and signed configuration. Offline and unavailable states are explicit product states, not silent substitutions.
+- Make It Fit Today, Friction Detective, and Weekly Reset with EVA default on in Debug and Release and retain matching signed runtime kill switches.
+- Staging v3 and production v2 policies are version-controlled and validated for full supported capability exposure, TTS, and 100% guest rollout. Publication is blocked by missing dedicated DeviceCheck secrets in both Cloudflare environments; the live production endpoint remains fail-closed.
+- Offline and unavailable states are explicit product states, not silent substitutions. Prepared policy is not production availability.
 
 ## Terminology
 
