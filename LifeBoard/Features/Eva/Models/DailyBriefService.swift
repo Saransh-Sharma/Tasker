@@ -2,9 +2,41 @@ import Foundation
 import MLXLMCommon
 
 struct DailyBriefOutput {
+    struct Tradeoff: Equatable {
+        let drop: String
+        let because: String
+    }
+
     let brief: String
     let modelName: String?
     let routeBanner: String?
+    let fixedCommitments: [String]
+    let nextMove: String?
+    let tradeoff: Tradeoff?
+    let evidenceTaskIDs: [UUID]
+    /// Advisory model output. Capacity-aware surfaces must use their local
+    /// `CapacityBudget` as the source of truth.
+    let modelSaysOvercommitted: Bool?
+
+    init(
+        brief: String,
+        modelName: String?,
+        routeBanner: String?,
+        fixedCommitments: [String] = [],
+        nextMove: String? = nil,
+        tradeoff: Tradeoff? = nil,
+        evidenceTaskIDs: [UUID] = [],
+        modelSaysOvercommitted: Bool? = nil
+    ) {
+        self.brief = brief
+        self.modelName = modelName
+        self.routeBanner = routeBanner
+        self.fixedCommitments = fixedCommitments
+        self.nextMove = nextMove
+        self.tradeoff = tradeoff
+        self.evidenceTaskIDs = evidenceTaskIDs
+        self.modelSaysOvercommitted = modelSaysOvercommitted
+    }
 }
 
 @MainActor
@@ -96,14 +128,19 @@ final class DailyBriefService {
             You write concise morning planning briefs.
             Return ONLY JSON, no markdown and no prose.
             Schema:
-            {"brief":"4 short bullets with one clear next action"}
+            {"brief":"4 short bullets with one clear next action","fixedCommitments":["read-only commitment"],"nextMove":"one action","tradeoff":{"drop":"work to move","because":"capacity fact"},"evidenceTaskIDs":["uuid"],"isOvercommitted":false}
+            Omit optional fields when the supplied context cannot support them.
             """,
             profile: .dailyBrief,
             requestOptions: .structuredOutput(for: ModelConfiguration.getModelByName(modelName) ?? .defaultModel),
             cloudContext: cloudContext
         )
-        if let brief = decodeBrief(from: output) {
-            return DailyBriefOutput(brief: brief, modelName: modelName, routeBanner: route.bannerMessage)
+        if let structured = decodeStructuredOutput(
+            from: output,
+            modelName: modelName,
+            routeBanner: route.bannerMessage
+        ) {
+            return structured
         }
 
         return DailyBriefOutput(
@@ -174,8 +211,34 @@ final class DailyBriefService {
         let isOvercommitted: Bool?
     }
 
+    /// Decodes the structured daily-brief contract into the client model used
+    /// by capacity-aware surfaces. Kept internal so contract tests can pin every
+    /// field without constructing a model-provider session.
+    func decodeStructuredOutput(
+        from raw: String,
+        modelName: String? = nil,
+        routeBanner: String? = nil
+    ) -> DailyBriefOutput? {
+        guard let envelope = decodeBrief(from: raw) else { return nil }
+        return DailyBriefOutput(
+            brief: envelope.brief,
+            modelName: modelName,
+            routeBanner: routeBanner,
+            fixedCommitments: envelope.fixedCommitments ?? [],
+            nextMove: envelope.nextMove.flatMap { value in
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            },
+            tradeoff: envelope.tradeoff.map {
+                DailyBriefOutput.Tradeoff(drop: $0.drop, because: $0.because)
+            },
+            evidenceTaskIDs: envelope.evidenceTaskIDs ?? [],
+            modelSaysOvercommitted: envelope.isOvercommitted
+        )
+    }
+
     /// Executes decodeBrief.
-    private func decodeBrief(from raw: String) -> String? {
+    private func decodeBrief(from raw: String) -> BriefEnvelope? {
         let candidates = [
             raw.trimmingCharacters(in: .whitespacesAndNewlines),
             repairJSON(raw)
@@ -185,7 +248,14 @@ final class DailyBriefService {
             if let envelope = try? JSONDecoder().decode(BriefEnvelope.self, from: data) {
                 let trimmed = envelope.brief.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty == false {
-                    return trimmed
+                    return BriefEnvelope(
+                        brief: trimmed,
+                        fixedCommitments: envelope.fixedCommitments,
+                        nextMove: envelope.nextMove,
+                        tradeoff: envelope.tradeoff,
+                        evidenceTaskIDs: envelope.evidenceTaskIDs,
+                        isOvercommitted: envelope.isOvercommitted
+                    )
                 }
             }
         }
