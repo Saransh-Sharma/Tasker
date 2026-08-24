@@ -552,6 +552,14 @@
 		A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091E /* EvaMemoryStoreV2.swift */; };
 		A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000924 /* LifeWeaveIntent.swift */; };
 		A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000926 /* LifeWeaveDraft.swift */; };
+		A31000000000000000000973 /* CalendarPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000972 /* CalendarPowerUpView.swift */; };
+		A31000000000000000000975 /* HealthPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000974 /* HealthPowerUpView.swift */; };
+		A31000000000000000000977 /* EvaPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000976 /* EvaPowerUpView.swift */; };
+		A31000000000000000000979 /* PowerUpSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000978 /* PowerUpSummaryView.swift */; };
+		A3100000000000000000097B /* LifeWeavePowerUpFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097A /* LifeWeavePowerUpFlow.swift */; };
+		A3100000000000000000097D /* LifeWeavePowerUpCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097C /* LifeWeavePowerUpCalendar.swift */; };
+		A3100000000000000000097F /* LifeWeavePowerUpHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097E /* LifeWeavePowerUpHealth.swift */; };
+		A31000000000000000000981 /* LifeWeavePowerUpEva.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000980 /* LifeWeavePowerUpEva.swift */; };
 		A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000928 /* LifeWeaveMigration.swift */; };
 		A3100000000000000000092B /* LifeWeaveCommitBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092A /* LifeWeaveCommitBridge.swift */; };
 		A3100000000000000000092D /* LifeWeaveOnboardingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */; };
@@ -1675,6 +1683,14 @@
 		A3100000000000000000091E /* EvaMemoryStoreV2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaMemoryStoreV2.swift; path = LifeBoard/Features/Eva/Context/EvaMemoryStoreV2.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000924 /* LifeWeaveIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveIntent.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveIntent.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000926 /* LifeWeaveDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveDraft.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveDraft.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000972 /* CalendarPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CalendarPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/CalendarPowerUpView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000974 /* HealthPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/HealthPowerUpView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000976 /* EvaPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/EvaPowerUpView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000978 /* PowerUpSummaryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PowerUpSummaryView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/PowerUpSummaryView.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000097A /* LifeWeavePowerUpFlow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpFlow.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpFlow.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000097C /* LifeWeavePowerUpCalendar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpCalendar.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpCalendar.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000097E /* LifeWeavePowerUpHealth.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpHealth.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpHealth.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000980 /* LifeWeavePowerUpEva.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpEva.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpEva.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000928 /* LifeWeaveMigration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveMigration.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveMigration.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000092A /* LifeWeaveCommitBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCommitBridge.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCommitBridge.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveOnboardingModel.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveOnboardingModel.swift; sourceTree = SOURCE_ROOT; };
@@ -3592,6 +3608,14 @@
 				A3100000000000000000092A /* LifeWeaveCommitBridge.swift */,
 				A31000000000000000000928 /* LifeWeaveMigration.swift */,
 				A31000000000000000000926 /* LifeWeaveDraft.swift */,
+				A31000000000000000000972 /* CalendarPowerUpView.swift */,
+				A31000000000000000000974 /* HealthPowerUpView.swift */,
+				A31000000000000000000976 /* EvaPowerUpView.swift */,
+				A31000000000000000000978 /* PowerUpSummaryView.swift */,
+				A3100000000000000000097A /* LifeWeavePowerUpFlow.swift */,
+				A3100000000000000000097C /* LifeWeavePowerUpCalendar.swift */,
+				A3100000000000000000097E /* LifeWeavePowerUpHealth.swift */,
+				A31000000000000000000980 /* LifeWeavePowerUpEva.swift */,
 				A31000000000000000000924 /* LifeWeaveIntent.swift */,
 				A3100000000000000000091E /* EvaMemoryStoreV2.swift */,
 				A3200000000000000000000F /* EvaEnvelopeAllocator.swift */,
@@ -5452,6 +5476,14 @@
 				A3100000000000000000092B /* LifeWeaveCommitBridge.swift in Sources */,
 				A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */,
 				A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */,
+				A31000000000000000000973 /* CalendarPowerUpView.swift in Sources */,
+				A31000000000000000000975 /* HealthPowerUpView.swift in Sources */,
+				A31000000000000000000977 /* EvaPowerUpView.swift in Sources */,
+				A31000000000000000000979 /* PowerUpSummaryView.swift in Sources */,
+				A3100000000000000000097B /* LifeWeavePowerUpFlow.swift in Sources */,
+				A3100000000000000000097D /* LifeWeavePowerUpCalendar.swift in Sources */,
+				A3100000000000000000097F /* LifeWeavePowerUpHealth.swift in Sources */,
+				A31000000000000000000981 /* LifeWeavePowerUpEva.swift in Sources */,
 				A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */,
 				A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */,
 				A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */,
