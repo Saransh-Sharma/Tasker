@@ -69,6 +69,7 @@ public final class CompositionRoot: @unchecked Sendable {
     public private(set) var weeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol?
     public private(set) var weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol?
     public private(set) var reflectionNoteRepository: ReflectionNoteRepositoryProtocol?
+    public private(set) var frictionFindingRepository: FrictionFindingRepositoryProtocol?
     public private(set) var gamificationRepository: GamificationRepositoryProtocol?
     public private(set) var assistantActionRepository: AssistantActionRepositoryProtocol?
     public private(set) var externalSyncRepository: ExternalSyncRepositoryProtocol?
@@ -135,6 +136,7 @@ public final class CompositionRoot: @unchecked Sendable {
         self.weeklyReviewMutationRepository = repositories.weeklyReviewMutation
         self.weeklyReviewDraftStore = repositories.weeklyReviewDraftStore
         self.reflectionNoteRepository = repositories.reflectionNote
+        self.frictionFindingRepository = repositories.frictionFinding
         self.gamificationRepository = repositories.gamification
         self.assistantActionRepository = repositories.assistantAction
         self.externalSyncRepository = repositories.externalSync

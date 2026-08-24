@@ -241,6 +241,40 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.day_close_v1") }
     }
 
+    /// EVA's capacity-renegotiation ritual. Presentation-only; all writes use
+    /// Plan's existing receipt and Undo ledger.
+    public static var evaMakeItFitTodayV1Enabled: Bool {
+        get {
+            stagedFeatureEnabled(
+                key: "feature.eva.make_it_fit_today_v1",
+                argument: "EVA_MAKE_IT_FIT_TODAY_V1"
+            ) && AppRuntimeConfigurationStore.current.evaMakeItFitTodayV1Enabled
+        }
+        set { setStagedFeature(newValue, key: "feature.eva.make_it_fit_today_v1") }
+    }
+
+    /// User-confirmed, evidence-led diagnosis of repeated task friction.
+    public static var evaFrictionDetectiveV1Enabled: Bool {
+        get {
+            stagedFeatureEnabled(
+                key: "feature.eva.friction_detective_v1",
+                argument: "EVA_FRICTION_DETECTIVE_V1"
+            ) && AppRuntimeConfigurationStore.current.evaFrictionDetectiveV1Enabled
+        }
+        set { setStagedFeature(newValue, key: "feature.eva.friction_detective_v1") }
+    }
+
+    /// EVA's reflective weekly close and separately-confirmed next-week plan.
+    public static var evaWeeklyResetV1Enabled: Bool {
+        get {
+            stagedFeatureEnabled(
+                key: "feature.eva.weekly_reset_v1",
+                argument: "EVA_WEEKLY_RESET_V1"
+            ) && AppRuntimeConfigurationStore.current.evaWeeklyResetV1Enabled
+        }
+        set { setStagedFeature(newValue, key: "feature.eva.weekly_reset_v1") }
+    }
+
     /// Phase 2 umbrella gate for the behavior, goal, medication, and tracker
     /// flagship surfaces. The additive schema remains readable when this is
     /// disabled; only the new presentation and mutation entry points disappear.
@@ -332,6 +366,11 @@ public enum V2FeatureFlags {
         "feature.life_os.day_open_commit_v1": true,
         // Home as the loop spine over a pinned dashboard. Presentation only.
         "feature.life_os.home_loop_spine_v1": true,
+        // EVA decision loops. Each remains independently suppressible through
+        // signed app-runtime policy while local/offline behavior defaults on.
+        "feature.eva.make_it_fit_today_v1": true,
+        "feature.eva.friction_detective_v1": true,
+        "feature.eva.weekly_reset_v1": true,
         // Universal input. Routing ships on so the home capture box stops
         // routing every typed line to Eva and instead opens the right
         // activity. Live dictation ships on (SpeechAnalyzer is the modern

@@ -7,13 +7,73 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
             onboardingLifeWeaveV6Enabled: true,
             existingUserRefreshVersion: 1,
             existingUserRefreshEnabled: true,
-            productEventsEnabled: true
+            productEventsEnabled: true,
+            evaMakeItFitTodayV1Enabled: true,
+            evaFrictionDetectiveV1Enabled: true,
+            evaWeeklyResetV1Enabled: true
         )
 
         let onboardingLifeWeaveV6Enabled: Bool
         let existingUserRefreshVersion: Int
         let existingUserRefreshEnabled: Bool
         let productEventsEnabled: Bool
+        let evaMakeItFitTodayV1Enabled: Bool
+        let evaFrictionDetectiveV1Enabled: Bool
+        let evaWeeklyResetV1Enabled: Bool
+
+        init(
+            onboardingLifeWeaveV6Enabled: Bool,
+            existingUserRefreshVersion: Int,
+            existingUserRefreshEnabled: Bool,
+            productEventsEnabled: Bool,
+            evaMakeItFitTodayV1Enabled: Bool,
+            evaFrictionDetectiveV1Enabled: Bool,
+            evaWeeklyResetV1Enabled: Bool
+        ) {
+            self.onboardingLifeWeaveV6Enabled = onboardingLifeWeaveV6Enabled
+            self.existingUserRefreshVersion = existingUserRefreshVersion
+            self.existingUserRefreshEnabled = existingUserRefreshEnabled
+            self.productEventsEnabled = productEventsEnabled
+            self.evaMakeItFitTodayV1Enabled = evaMakeItFitTodayV1Enabled
+            self.evaFrictionDetectiveV1Enabled = evaFrictionDetectiveV1Enabled
+            self.evaWeeklyResetV1Enabled = evaWeeklyResetV1Enabled
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case onboardingLifeWeaveV6Enabled
+            case existingUserRefreshVersion
+            case existingUserRefreshEnabled
+            case productEventsEnabled
+            case evaMakeItFitTodayV1Enabled
+            case evaFrictionDetectiveV1Enabled
+            case evaWeeklyResetV1Enabled
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            onboardingLifeWeaveV6Enabled = try container.decode(
+                Bool.self,
+                forKey: .onboardingLifeWeaveV6Enabled
+            )
+            existingUserRefreshVersion = try container.decode(Int.self, forKey: .existingUserRefreshVersion)
+            existingUserRefreshEnabled = try container.decode(Bool.self, forKey: .existingUserRefreshEnabled)
+            productEventsEnabled = try container.decode(Bool.self, forKey: .productEventsEnabled)
+            // Schema-v2 policies published before the decision loops did not
+            // carry these presentation controls. Missing keys preserve the
+            // Release default instead of hiding local-first features.
+            evaMakeItFitTodayV1Enabled = try container.decodeIfPresent(
+                Bool.self,
+                forKey: .evaMakeItFitTodayV1Enabled
+            ) ?? true
+            evaFrictionDetectiveV1Enabled = try container.decodeIfPresent(
+                Bool.self,
+                forKey: .evaFrictionDetectiveV1Enabled
+            ) ?? true
+            evaWeeklyResetV1Enabled = try container.decodeIfPresent(
+                Bool.self,
+                forKey: .evaWeeklyResetV1Enabled
+            ) ?? true
+        }
     }
 
     enum CloudState: String, Codable, Sendable {
