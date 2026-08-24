@@ -291,6 +291,52 @@ final class HealthSyncTests: XCTestCase {
         await fulfillment(of: [completed], timeout: 1)
     }
 
+    /// Onboarding's Health primer promises LifeBoard will read what the user
+    /// already logs. `connect(enableWriteBack: false)` did not keep that promise:
+    /// it skipped the ledger preference but still handed Apple the full writable
+    /// set, so the system sheet asked for write access anyway.
+    @MainActor
+    func testConnectReadOnlyAsksAppleForNoWriteAccessAtAll() async {
+        HealthAuthorizationPromptState.reset()
+        defer { HealthAuthorizationPromptState.reset() }
+        let gateway = HealthGatewayFake()
+        let store = HealthConnectionStore(
+            gateway: gateway,
+            engineProvider: { nil },
+            ledgerProvider: { InMemoryHealthSyncLedger() }
+        )
+
+        await store.connectReadOnly()
+
+        XCTAssertEqual(gateway.requestedWriteDomains.count, 1)
+        XCTAssertEqual(gateway.requestedWriteDomains.first, [], "read-only must request an empty share set")
+    }
+
+    /// The ordinary in-app affordance is unchanged: a surface that named writing
+    /// explicitly still asks for it.
+    @MainActor
+    func testConnectStillRequestsWritableDomainsWhenWriteBackIsWanted() async {
+        HealthAuthorizationPromptState.reset()
+        defer { HealthAuthorizationPromptState.reset() }
+        let gateway = HealthGatewayFake()
+        let store = HealthConnectionStore(
+            gateway: gateway,
+            engineProvider: { nil },
+            ledgerProvider: { InMemoryHealthSyncLedger() }
+        )
+
+        let domains = Set(HealthDomain.allCases)
+        await store.connect(domains: domains, enableWriteBack: true)
+
+        XCTAssertEqual(gateway.requestedWriteDomains.count, 1)
+        XCTAssertEqual(
+            gateway.requestedWriteDomains.first,
+            Set(domains.filter(\.supportsWriteBack)),
+            "the writable domains are still requested when the user asked to write"
+        )
+        XCTAssertFalse(gateway.requestedWriteDomains.first?.isEmpty ?? true)
+    }
+
     @MainActor
     func testConnectionStoreRestoresDurableReadRequestState() {
         HealthAuthorizationPromptState.reset()
@@ -652,7 +698,10 @@ private final class HealthGatewayFake: HealthKitGatewayProtocol, @unchecked Send
 
     var anchoredRequestCount: Int { requestLock.withLock { anchoredRequests.count } }
 
+    private(set) var requestedWriteDomains: [Set<HealthDomain>] = []
+
     func requestAuthorization(writeDomains: Set<HealthDomain>) async throws {
+        requestLock.withLock { requestedWriteDomains.append(writeDomains) }
         if let authorizationRequestError { throw authorizationRequestError }
     }
 

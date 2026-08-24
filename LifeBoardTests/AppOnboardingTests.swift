@@ -457,6 +457,87 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertNil(finalized.lifeWeaveJourneySnapshot)
     }
 
+    /// The whole reason the boundary is split.
+    ///
+    /// Core is a promise that a finished LifeBoard needs no permission, account,
+    /// or network — so it has to be recorded *before* the first connector is
+    /// offered. Between here and finalization a journey is legitimately both
+    /// completed and resumable, which is what puts someone who force-quits during
+    /// Calendar back on Calendar rather than on Home with the phase lost.
+    @MainActor
+    func testCompleteCoreRecordsCompletionButKeepsTheJourneyResumable() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        var draft = LifeWeaveDraft()
+        draft.step = .reveal
+        draft.lifecyclePhase = .poweringUp
+        draft.powerUpStep = .calendar
+        context.store.storeLifeWeaveJourney(draft)
+
+        context.store.completeCore(entryContext: .freshFlow)
+
+        let state = context.store.load()
+        XCTAssertEqual(state.outcome, .completed)
+        XCTAssertEqual(state.completedVersion, AppOnboardingState.currentVersion)
+        XCTAssertEqual(state.completedLifeWeave, true)
+        XCTAssertNotNil(state.lifeWeaveJourneySnapshot, "the power-up phase is still resumable")
+        XCTAssertEqual(state.lifeWeaveJourneySnapshot?.powerUpStep, .calendar)
+        XCTAssertTrue(state.hasResumableJourney)
+        XCTAssertNil(state.finalizedLifeWeaveDestination, "nothing has ended yet")
+        XCTAssertNil(state.needsFinalizedDestinationDelivery)
+    }
+
+    /// Re-entering the reveal must not record a second core completion.
+    @MainActor
+    func testCompleteCoreIsIdempotent() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        XCTAssertTrue(context.store.completeCore(entryContext: .freshFlow))
+        XCTAssertFalse(context.store.completeCore(entryContext: .freshFlow))
+        XCTAssertEqual(context.store.load().completedVersion, AppOnboardingState.currentVersion)
+    }
+
+    /// Finishing after a power-up phase clears the snapshot and names where the
+    /// user lands, without disturbing the completion already on record.
+    @MainActor
+    func testFinalizationAfterCompleteCoreClearsTheSnapshotAndNamesADestination() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        var draft = LifeWeaveDraft()
+        draft.powerUpStep = .complete
+        context.store.storeLifeWeaveJourney(draft)
+        context.store.completeCore(entryContext: .freshFlow)
+        context.store.finalizeLifeWeave(entryContext: .freshFlow, destination: .eva)
+
+        let state = context.store.load()
+        XCTAssertEqual(state.outcome, .completed)
+        XCTAssertEqual(state.finalizedLifeWeaveDestination, .eva)
+        XCTAssertEqual(state.needsFinalizedDestinationDelivery, true)
+        XCTAssertNil(state.lifeWeaveJourneySnapshot)
+        XCTAssertFalse(state.hasResumableJourney)
+    }
+
+    /// The version bump to 7 must not drag finished users back through setup.
+    /// Eligibility asks whether a completion exists, never whether it matches
+    /// the current number.
+    @MainActor
+    func testAUserWhoFinishedUnderVersionSixIsNotReOnboarded() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+        context.store.markHandled(outcome: .completed, version: 6)
+
+        let state = context.store.load()
+        XCTAssertNotNil(state.completedVersion)
+        XCTAssertNotNil(state.outcome)
+        XCTAssertFalse(state.hasHandledCurrentVersion, "not the current version…")
+        XCTAssertNotEqual(state.completedVersion, AppOnboardingState.currentVersion)
+        // …but eligibility keys off existence, which is what keeps them finished.
+        XCTAssertTrue(state.completedVersion != nil && state.outcome != nil)
+    }
+
     @MainActor
     func testRefreshFinalizationDoesNotRewriteCoreCompletion() {
         let context = makeStoreContext()
@@ -503,12 +584,12 @@ final class AppOnboardingTests: XCTestCase {
 final class LifeMapOnboardingTests: XCTestCase {
     /// Core still ends at the reveal.
     ///
-    /// The connect chain and EVA activation were deliberately left *outside*
-    /// core when they moved into this flow: the product contract is that core
-    /// completion never depends on a permission, a download, or the network,
-    /// and promoting them would have broken it.
+    /// The connect chain and EVA activation stay *outside* core. Version 7 adds
+    /// an optional Power-Up phase after the commit, which does not weaken this:
+    /// core completion is recorded by `completeCore` before the first connector
+    /// is offered, so it still depends on no permission, download, or network.
     func testDraftUsesV5SnapshotSchemaAndCoreStillEndsAtReveal() {
-        XCTAssertEqual(AppOnboardingState.currentVersion, 6)
+        XCTAssertEqual(AppOnboardingState.currentVersion, 7)
         XCTAssertEqual(LifeMapDraft().schemaVersion, 7)
         XCTAssertEqual(LifeMapOnboardingStep.core.first, .welcome)
         XCTAssertEqual(LifeMapOnboardingStep.core.last, .reveal)

@@ -15,7 +15,7 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertEqual(LifeWeaveStep.core.count, 6)
         XCTAssertEqual(LifeWeaveStep.core.first, .arrival)
         XCTAssertEqual(LifeWeaveStep.core.last, .reveal)
-        XCTAssertEqual(LifeWeaveDraft().schemaVersion, 10)
+        XCTAssertEqual(LifeWeaveDraft().schemaVersion, 11)
     }
 
     func testStepEnumContainsOnlyTheSixCoreStages() {
@@ -107,7 +107,7 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         var written = editing
         written.commitPhase = .captureWritten
         let migrated = LifeWeaveMigration.draft(fromV8: written)
-        XCTAssertEqual(migrated.schemaVersion, 10)
+        XCTAssertEqual(migrated.schemaVersion, 11)
         XCTAssertEqual(migrated.lifecyclePhase, .captureWritten)
     }
 
@@ -120,7 +120,7 @@ final class LifeWeaveOnboardingTests: XCTestCase {
 
         let migrated = LifeWeaveMigration.draft(fromEarlierSchema: earlier)
 
-        XCTAssertEqual(migrated.schemaVersion, 10)
+        XCTAssertEqual(migrated.schemaVersion, 11)
         XCTAssertEqual(migrated.intent, .reduceMentalLoad)
         XCTAssertEqual(migrated.resolvedEvaGrants, Set(EvaConsentPolicy.Grant.allCases))
         XCTAssertEqual(migrated.evaActivationPending, false)
@@ -348,5 +348,126 @@ final class LifeWeaveOnboardingTests: XCTestCase {
             LifeAreaAccentRole(lifeAreaTemplateID: "a-user-created-area"),
             "a custom area has no role and keeps its own stored colour"
         )
+    }
+
+    // MARK: - Power-Up phase shape
+
+    /// The core promise is six steps that need no permission. Power Up must be a
+    /// second axis, never four more cases on `LifeWeaveStep` — that would turn
+    /// "3 of 6" into "3 of 10" and recast an optional phase as mandatory.
+    func testPowerUpIsASeparateAxisFromTheCoreSteps() {
+        XCTAssertEqual(LifeWeaveStep.allCases.count, 6)
+        XCTAssertEqual(LifeWeavePowerUpStep.connectors, [.calendar, .health, .eva])
+        XCTAssertEqual(LifeWeavePowerUpStep.connectorCount, 3)
+    }
+
+    /// Only the three connectors are counted. `intro` and `complete` are framing,
+    /// and numbering them would overstate what is being asked of the user.
+    func testOnlyConnectorsCarryAPosition() {
+        XCTAssertEqual(LifeWeavePowerUpStep.calendar.connectorIndex, 1)
+        XCTAssertEqual(LifeWeavePowerUpStep.health.connectorIndex, 2)
+        XCTAssertEqual(LifeWeavePowerUpStep.eva.connectorIndex, 3)
+        XCTAssertNil(LifeWeavePowerUpStep.complete.connectorIndex)
+    }
+
+    func testPowerUpAdvancesThroughEveryConnectorToTheReceipt() {
+        var visited: [LifeWeavePowerUpStep] = [.calendar]
+        var cursor = LifeWeavePowerUpStep.calendar
+        while let next = cursor.next {
+            visited.append(next)
+            cursor = next
+        }
+        XCTAssertEqual(visited, [.calendar, .health, .eva, .complete])
+        XCTAssertNil(LifeWeavePowerUpStep.complete.next)
+    }
+
+    /// The reveal already carries the invitation, so there is no separate intro
+    /// screen to walk through before the first connector.
+    func testThePhaseStartsAtTheFirstConnectorWithNoIntroScreen() {
+        XCTAssertEqual(LifeWeavePowerUpStep.allCases, [.calendar, .health, .eva, .complete])
+    }
+
+    func testEveryPowerUpStepPublishesAStableUniqueIdentifierSuffix() {
+        let suffixes = LifeWeavePowerUpStep.allCases.map(\.identifierSuffix)
+        XCTAssertEqual(Set(suffixes).count, suffixes.count)
+        XCTAssertFalse(suffixes.contains { $0.isEmpty })
+    }
+
+    // MARK: - Route derivation
+
+    /// Entering Power Up must not rewrite the core position. The reveal is still
+    /// where the user was, which is what makes the phase genuinely additive.
+    func testRouteFollowsThePowerUpStepWithoutDisturbingTheCoreStep() {
+        var draft = LifeWeaveDraft()
+        draft.step = .reveal
+        XCTAssertEqual(draft.route, .core(.reveal))
+        XCTAssertFalse(draft.isPoweringUp)
+
+        draft.powerUpStep = .calendar
+        XCTAssertEqual(draft.route, .powerUp(.calendar))
+        XCTAssertTrue(draft.isPoweringUp)
+        XCTAssertEqual(draft.step, .reveal, "core position survives the phase change")
+    }
+
+    func testDeferralsResolveFromRawValuesAndIgnoreUnknownOnes() {
+        var draft = LifeWeaveDraft()
+        XCTAssertTrue(draft.resolvedDeferredPowerUps.isEmpty)
+        draft.deferredPowerUpIDs = ["calendar", "eva", "not-a-connector"]
+        XCTAssertEqual(draft.resolvedDeferredPowerUps, [.calendar, .eva])
+    }
+
+    // MARK: - Progress vocabulary
+
+    /// Two vocabularies, deliberately. The core track shows segments and no
+    /// number; the power-up track names itself so an optional phase never reads
+    /// as a continuation of a mandatory one.
+    func testCoreAndPowerUpUseDifferentProgressVocabularies() {
+        let core = LifeWeaveProgressModel.resolve(.core(.lifeAreas))
+        XCTAssertEqual(core.index, 3)
+        XCTAssertEqual(core.total, 6)
+        XCTAssertNil(core.eyebrow, "the core phase deliberately shows no number")
+        XCTAssertEqual(core.spokenLabel, "Core setup, step 3 of 6, Life areas")
+
+        let powerUp = LifeWeaveProgressModel.resolve(.powerUp(.health))
+        XCTAssertEqual(powerUp.index, 2)
+        XCTAssertEqual(powerUp.total, 3)
+        XCTAssertEqual(powerUp.eyebrow, "POWER UP 2 OF 3")
+        XCTAssertEqual(powerUp.spokenLabel, "Power up, step 2 of 3, Apple Health")
+    }
+
+    func testFramingScreensCarryNoProgress() {
+        XCTAssertEqual(LifeWeaveProgressModel.resolve(.powerUp(.complete)), .none)
+        XCTAssertNil(LifeWeaveProgressModel.resolve(.powerUp(.complete)).index)
+    }
+
+    // MARK: - Schema 11 migration
+
+    /// A schema-10 draft predates the power-up phase entirely. It must decode,
+    /// keep every answer, and arrive with the phase simply not yet entered —
+    /// never with a half-initialised one.
+    func testSchemaTenMigrationAddsThePowerUpPhaseWithoutDisturbingEarlierAnswers() {
+        var snapshot = LifeWeaveDraft()
+        snapshot.schemaVersion = 10
+        snapshot.step = .reveal
+        snapshot.lifecyclePhase = .revealReady
+        snapshot.intent = .clarityToday
+        snapshot.orderedLifeAreaTemplateIDs = ["work", "health"]
+        snapshot.primaryLifeAreaTemplateID = "work"
+        snapshot.selectedCalendarIDs = ["cal-1"]
+        snapshot.commitPhase = .captureWritten
+        snapshot.powerUpStep = nil
+        snapshot.deferredPowerUpIDs = nil
+
+        let migrated = LifeWeaveMigration.draft(fromEarlierSchema: snapshot)
+
+        XCTAssertEqual(migrated.schemaVersion, 11)
+        XCTAssertNil(migrated.powerUpStep, "an old draft never entered the phase")
+        XCTAssertEqual(migrated.deferredPowerUpIDs, [], "seeded so later writes append")
+        XCTAssertEqual(migrated.route, .core(.reveal))
+        XCTAssertEqual(migrated.intent, .clarityToday)
+        XCTAssertEqual(migrated.orderedLifeAreaTemplateIDs, ["work", "health"])
+        XCTAssertEqual(migrated.primaryLifeAreaTemplateID, "work")
+        XCTAssertEqual(migrated.selectedCalendarIDs, ["cal-1"])
+        XCTAssertEqual(migrated.commitPhase, .captureWritten)
     }
 }

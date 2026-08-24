@@ -362,7 +362,10 @@ enum AccessibilityIdentifiers {
         static let captureField = "onboarding.lifeweave.capture.field"
         static let revealReceipt = "onboarding.lifeweave.reveal.receipt"
 
+        static let revealPowerUpInvitation = "onboarding.lifeweave.reveal.powerUpInvitation"
+
         static func step(_ suffix: String) -> String { "onboarding.lifeweave.step.\(suffix)" }
+        static func powerUpStep(_ suffix: String) -> String { "onboarding.lifeweave.powerup.\(suffix)" }
         static func intent(_ id: String) -> String { "onboarding.lifeweave.intent.\(id)" }
         static func lifeArea(_ id: String) -> String { "onboarding.lifeweave.area.\(id)" }
         static func primaryArea(_ id: String) -> String { "onboarding.lifeweave.primaryArea.\(id)" }

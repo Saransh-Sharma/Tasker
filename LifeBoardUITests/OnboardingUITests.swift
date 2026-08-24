@@ -21,6 +21,10 @@ final class LifeWeaveOnboardingUITests: BaseUITest {
         app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.step(suffix)]
     }
 
+    private func powerUpStep(_ suffix: String) -> XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.powerUpStep(suffix)]
+    }
+
     /// Six decisions, then Home. The point of the walk is that each step accepts
     /// a real answer and the flow ends — not that any particular pixel appears.
     func testCoreFlowReachesTheRevealInSixSteps() throws {
@@ -60,9 +64,57 @@ final class LifeWeaveOnboardingUITests: BaseUITest {
             app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.revealReceipt].exists,
             "the reveal must show what was actually saved"
         )
+        // "Start now" — the explicit decline. Core is already committed, so this
+        // has to end the flow without asking for a single permission.
+        secondary.tap()
+
+        XCTAssertTrue(flow.waitForNonExistence(timeout: 15), "Start now must leave onboarding")
+    }
+
+    /// The optional phase is reachable, named, and does not begin until the user
+    /// asks for it — the reveal's primary is an invitation, not a permission.
+    func testPowerUpBeginsOnlyWhenInvitedAndStartsAtCalendar() throws {
+        guard flow.waitForExistence(timeout: 20) else {
+            throw XCTSkip("Onboarding did not present; this test needs a clean install. \(app.debugDescription)")
+        }
+        try walkToCapture()
+        secondary.tap() // Skip for now
+        primary.tap()   // Finish setup
+
+        XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
+        XCTAssertTrue(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.revealPowerUpInvitation].exists,
+            "the reveal must name the optional phase before entering it"
+        )
         primary.tap()
 
-        XCTAssertTrue(flow.waitForNonExistence(timeout: 15), "Start my day must leave onboarding")
+        XCTAssertTrue(
+            powerUpStep("calendar").waitForExistence(timeout: 15),
+            "powering up starts at the first connector, with no second intro screen"
+        )
+        XCTAssertTrue(flow.exists, "the host stays mounted through the optional phase")
+    }
+
+    /// Every connector is skippable, and skipping one must not end the journey.
+    func testNotNowAdvancesThroughEveryConnectorWithoutEndingTheFlow() throws {
+        guard flow.waitForExistence(timeout: 20) else {
+            throw XCTSkip("Onboarding did not present. \(app.debugDescription)")
+        }
+        try walkToCapture()
+        secondary.tap()
+        primary.tap()
+
+        XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
+        primary.tap()
+
+        XCTAssertTrue(powerUpStep("calendar").waitForExistence(timeout: 15))
+        secondary.tap() // Not now
+        XCTAssertTrue(powerUpStep("health").waitForExistence(timeout: 10))
+        secondary.tap() // Not now
+        XCTAssertTrue(powerUpStep("eva").waitForExistence(timeout: 10))
+        secondary.tap() // Not now
+        XCTAssertTrue(powerUpStep("complete").waitForExistence(timeout: 10))
+        XCTAssertTrue(flow.exists, "declining every connector still lands on the receipt")
     }
 
     /// A skipped capture is an honest empty state, never a fabricated task.
