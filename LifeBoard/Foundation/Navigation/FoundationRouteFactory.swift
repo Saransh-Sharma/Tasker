@@ -67,7 +67,15 @@ extension FoundationShell {
             // Insights pushes this into its own stack; popping `.plan`
             // unconditionally meant Close did nothing when opened from there.
             WeeklyReviewRoute(
-                onClose: { runtime.router.pop(in: runtime.router.selectedDestination) }
+                onClose: { runtime.router.pop(in: runtime.router.selectedDestination) },
+                onOpenWeeklyPlanner: {
+                    runtime.router.select(.plan)
+                    runtime.router.popToRoot(in: .plan)
+                    runtime.router.push(.weeklyPlanningWorkspace(.week), in: .plan)
+                },
+                onOpenTask: { taskID in
+                    runtime.router.push(.taskDetail(taskID), in: runtime.router.selectedDestination)
+                }
             )
         case .trackHistory:
             if V2FeatureFlags.trackBehaviorFlagshipV1Enabled {

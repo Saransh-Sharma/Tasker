@@ -7,6 +7,7 @@ import UIKit
 struct PlanCapacityCard: View {
     let capacity: CapacityBudget
     @Binding var showsWorkingHours: Bool
+    var onMakeItFit: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -50,6 +51,19 @@ struct PlanCapacityCard: View {
             }
             .font(.caption)
             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            if V2FeatureFlags.evaMakeItFitTodayV1Enabled, let onMakeItFit {
+                Button(action: onMakeItFit) {
+                    Label(
+                        capacity.overloadDuration > 0 ? "Make it fit" : "Renegotiate today",
+                        systemImage: "arrow.left.and.right.circle.fill"
+                    )
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 46)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityHint("Opens EVA's capacity decision ritual without changing deadlines")
+                .accessibilityIdentifier("plan.capacity.makeItFit")
+            }
         }
         .foundationClayCard()
         .accessibilityIdentifier("plan.capacity")

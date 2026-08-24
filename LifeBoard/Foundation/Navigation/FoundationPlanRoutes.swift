@@ -283,21 +283,44 @@ struct WeeklyPlanningWorkspaceRoute: View {
 @MainActor
 struct WeeklyReviewRoute: View {
     let onClose: () -> Void
+    let onOpenWeeklyPlanner: () -> Void
+    let onOpenTask: (UUID) -> Void
     @StateObject private var viewModel: WeeklyReviewViewModel
 
-    init(onClose: @escaping () -> Void) {
+    init(
+        onClose: @escaping () -> Void,
+        onOpenWeeklyPlanner: @escaping () -> Void,
+        onOpenTask: @escaping (UUID) -> Void
+    ) {
         self.onClose = onClose
+        self.onOpenWeeklyPlanner = onOpenWeeklyPlanner
+        self.onOpenTask = onOpenTask
         _viewModel = StateObject(
             wrappedValue: CompositionRoot.shared.makeWeeklyReviewViewModel()
         )
     }
 
     var body: some View {
-        WeeklyReviewView(
-            viewModel: viewModel,
-            onClose: onClose,
-            onCompleted: { _ in onClose() }
-        )
+        Group {
+            if V2FeatureFlags.evaWeeklyResetV1Enabled,
+               let frictionRepository = CompositionRoot.shared.frictionFindingRepository,
+               let taskRepository = CompositionRoot.shared.taskDefinitionRepository {
+                WeeklyResetView(
+                    viewModel: viewModel,
+                    frictionRepository: frictionRepository,
+                    taskRepository: taskRepository,
+                    onClose: onClose,
+                    onOpenWeeklyPlanner: onOpenWeeklyPlanner,
+                    onOpenTask: onOpenTask
+                )
+            } else {
+                WeeklyReviewView(
+                    viewModel: viewModel,
+                    onClose: onClose,
+                    onCompleted: { _ in onClose() }
+                )
+            }
+        }
         .accessibilityIdentifier("plan.weeklyReview.route")
     }
 }

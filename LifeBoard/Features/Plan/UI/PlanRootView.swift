@@ -26,6 +26,7 @@ struct PlanRootView: View {
     @State private var showsWorkingHours = false
     @State private var showsTaskLibrary = false
     @State private var showsProjectTemplates = false
+    @State private var showsMakeItFitToday = false
     @State private var projectTemplateReceipt: ProjectTemplateCreationReceipt?
     @State private var projectTemplateError: String?
     @State private var selectedTaskIDs: Set<UUID> = []
@@ -164,6 +165,7 @@ struct PlanRootView: View {
                             focusReflectionEnergy: $focusReflectionEnergy,
                             focusReflectionNote: $focusReflectionNote,
                             onAskEva: onAskEva,
+                            onMakeItFit: { showsMakeItFitToday = true },
                             onOpenTask: onOpenTask,
                             onOpenOverdueRescue: onOpenOverdueRescue
                         )
@@ -275,6 +277,16 @@ struct PlanRootView: View {
                     projectTemplateReceipt = receipt
                     showsProjectTemplates = false
                 }
+            }
+            .fullScreenCover(isPresented: $showsMakeItFitToday) {
+                MakeItFitTodayView(
+                    store: store,
+                    onOpenTask: { taskID in
+                        showsMakeItFitToday = false
+                        onOpenTask(taskID)
+                    },
+                    onClose: { showsMakeItFitToday = false }
+                )
             }
             .sheet(item: $pendingFocusSetup) { context in
                 FocusSetupSheet(

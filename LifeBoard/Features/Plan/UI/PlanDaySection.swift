@@ -22,6 +22,7 @@ struct PlanDaySection: View {
     @Binding var focusReflectionEnergy: Int
     @Binding var focusReflectionNote: String
     let onAskEva: () -> Void
+    let onMakeItFit: () -> Void
     let onOpenTask: (UUID) -> Void
     let onOpenOverdueRescue: (OverdueRescueLaunchContext) -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -148,7 +149,11 @@ struct PlanDaySection: View {
             // the capacity card holds the only entry to the working-hours
             // composer, so hiding it on a calm day would strand the editor for
             // the very inputs capacity is computed from.
-            PlanCapacityCard(capacity: snapshot.capacity, showsWorkingHours: $showsWorkingHours)
+            PlanCapacityCard(
+                capacity: snapshot.capacity,
+                showsWorkingHours: $showsWorkingHours,
+                onMakeItFit: onMakeItFit
+            )
         }
     }
 
