@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 2,
+  "version": 2,
+  "issuedAt": "2026-08-24T18:00:00.000Z",
+  "environment": "production",
+  "cloudState": "enabled",
+  "ttsEnabled": true,
+  "maintenanceMessage": null,
+  "offlineRecoveryPolicy": "offerTryOffline",
+  "textModel": "gpt-5.6-luna",
+  "speechModel": "tts-1",
+  "speechVoice": "nova",
+  "minimumClientVersion": "1.0.0",
+  "contractVersions": [1, 2, 3, 4],
+  "appRuntime": {
+    "onboardingLifeWeaveV6Enabled": true,
+    "existingUserRefreshVersion": 1,
+    "existingUserRefreshEnabled": true,
+    "productEventsEnabled": true,
+    "evaMakeItFitTodayV1Enabled": true,
+    "evaFrictionDetectiveV1Enabled": true,
+    "evaWeeklyResetV1Enabled": true
+  },
+  "guestAccess": {
+    "bootstrapEnabled": true,
+    "inferenceEnabled": true,
+    "appleLinkingEnabled": true,
+    "rolloutPercent": 100
+  },
+  "usagePolicy": {
+    "billableLimit": 20,
+    "helperLimit": 100,
+    "rollingWindowSeconds": 86400
+  },
+  "agePolicy": {
+    "minimumAge": 13,
+    "unknownAgeAllowed": true,
+    "requiredRegionFailClosed": true
+  },
+  "creditPolicy": {
+    "initial": 100,
+    "capacity": 100,
+    "refillAmount": 20,
+    "refillPeriodSeconds": 86400
+  },
+  "priceSchedule": {
+    "version": "openai-official-2026-08-24",
+    "effectiveAt": "2026-08-24T00:00:00.000Z",
+    "approved": true,
+    "lunaInputMicroUsdPerMillion": 200000,
+    "lunaCachedInputMicroUsdPerMillion": 20000,
+    "lunaCacheWriteMicroUsdPerMillion": 250000,
+    "lunaOutputMicroUsdPerMillion": 1200000,
+    "moderationMicroUsdPerMillion": 0,
+    "ttsMicroUsdPerMillionCharacters": 15000000
+  },
+  "routes": {
+    "chat": { "enabled": true, "inputTokenCap": 16000, "outputTokenCap": 2048, "reasoning": "medium", "billable": true, "structured": false },
+    "capture": { "enabled": true, "inputTokenCap": 8000, "outputTokenCap": 1200, "reasoning": "low", "billable": true, "structured": true },
+    "navigation": { "enabled": true, "inputTokenCap": 4000, "outputTokenCap": 512, "reasoning": "none", "billable": false, "structured": true },
+    "plan": { "enabled": true, "inputTokenCap": 32000, "outputTokenCap": 4096, "reasoning": "medium", "billable": true, "structured": true },
+    "planRepair": { "enabled": true, "inputTokenCap": 32000, "outputTokenCap": 4096, "reasoning": "low", "billable": false, "structured": true },
+    "fieldSuggestion": { "enabled": true, "inputTokenCap": 8000, "outputTokenCap": 1200, "reasoning": "low", "billable": false, "structured": true },
+    "memoryCandidate": { "enabled": true, "inputTokenCap": 2000, "outputTokenCap": 320, "reasoning": "none", "billable": false, "structured": true },
+    "topThree": { "enabled": true, "inputTokenCap": 8000, "outputTokenCap": 1200, "reasoning": "low", "billable": true, "structured": true },
+    "taskBreakdown": { "enabled": true, "inputTokenCap": 8000, "outputTokenCap": 1200, "reasoning": "low", "billable": true, "structured": true },
+    "dailyBrief": { "enabled": true, "inputTokenCap": 16000, "outputTokenCap": 1600, "reasoning": "medium", "billable": true, "structured": true },
+    "universalInputClassification": { "enabled": true, "inputTokenCap": 2000, "outputTokenCap": 512, "reasoning": "none", "billable": false, "structured": true },
+    "dynamicChips": { "enabled": true, "inputTokenCap": 2000, "outputTokenCap": 512, "reasoning": "none", "billable": false, "structured": true },
+    "journalAnswer": { "enabled": true, "inputTokenCap": 16000, "outputTokenCap": 1600, "reasoning": "low", "billable": true, "structured": false },
+    "knowledgeAnswer": { "enabled": true, "inputTokenCap": 16000, "outputTokenCap": 1600, "reasoning": "low", "billable": true, "structured": false },
+    "shortcutsAnswer": { "enabled": true, "inputTokenCap": 8000, "outputTokenCap": 1200, "reasoning": "low", "billable": true, "structured": false },
+    "debugSmoke": { "enabled": false, "inputTokenCap": 2000, "outputTokenCap": 256, "reasoning": "none", "billable": false, "structured": false }
+  }
+}

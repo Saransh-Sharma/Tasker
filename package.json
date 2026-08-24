@@ -22,6 +22,8 @@
     "backend:deploy:staging": "npm run deploy:staging --workspace @lifeboard/eva-cloud",
     "backend:preflight:staging": "npm run preflight:staging --workspace @lifeboard/eva-cloud",
     "backend:preflight:production": "npm run preflight:production --workspace @lifeboard/eva-cloud",
+    "backend:config:publish:staging": "npm run config:publish:staging --workspace @lifeboard/eva-cloud",
+    "backend:config:publish:production": "npm run config:publish:production --workspace @lifeboard/eva-cloud",
     "check": "npm run lint && npm run build && npm run check:marketing && npm run contracts:check && npm run backend:typecheck && npm run backend:test",
     "screenshots:marketing": "bash scripts/generate_readme_screenshots.sh && node scripts/generate_marketing_screenshots.mjs",
     "lint": "eslint .",

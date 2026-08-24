@@ -54,6 +54,9 @@ export const EvaRuntimeConfigSchema = Type.Object({
     existingUserRefreshVersion: Type.Integer({ minimum: 1, maximum: 100 }),
     existingUserRefreshEnabled: Type.Boolean(),
     productEventsEnabled: Type.Boolean(),
+    evaMakeItFitTodayV1Enabled: Type.Boolean(),
+    evaFrictionDetectiveV1Enabled: Type.Boolean(),
+    evaWeeklyResetV1Enabled: Type.Boolean(),
   }, { additionalProperties: false }),
   guestAccess: Type.Optional(Type.Object({
     bootstrapEnabled: Type.Boolean(),
@@ -138,6 +141,9 @@ export function failClosedRuntimeConfig(env: Env): EvaRuntimeConfig {
       existingUserRefreshVersion: 1,
       existingUserRefreshEnabled: true,
       productEventsEnabled: true,
+      evaMakeItFitTodayV1Enabled: true,
+      evaFrictionDetectiveV1Enabled: true,
+      evaWeeklyResetV1Enabled: true,
     },
     guestAccess: {
       bootstrapEnabled: false,
