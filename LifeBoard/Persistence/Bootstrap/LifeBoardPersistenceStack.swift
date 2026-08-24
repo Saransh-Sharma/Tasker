@@ -57,6 +57,7 @@ public struct LifeBoardRepositoryBundle: Sendable {
     public let weeklyReviewMutation: any WeeklyReviewMutationRepositoryProtocol
     public let weeklyReviewDraftStore: any WeeklyReviewDraftStoreProtocol
     public let reflectionNote: any ReflectionNoteRepositoryProtocol
+    public let frictionFinding: any FrictionFindingRepositoryProtocol
     public let gamification: any GamificationRepositoryProtocol
     public let assistantAction: any AssistantActionRepositoryProtocol
     public let externalSync: any ExternalSyncRepositoryProtocol
@@ -141,6 +142,10 @@ public enum LifeBoardRepositoryFactory {
             base: CoreDataReflectionNoteRepository(container: container),
             gate: gate
         )
+        let frictionFinding = WriteClosedFrictionFindingRepositoryAdapter(
+            base: CoreDataFrictionFindingRepository(container: container),
+            gate: gate
+        )
         let gamification = WriteClosedGamificationRepositoryAdapter(
             base: CoreDataGamificationRepository(container: container),
             gate: gate
@@ -182,6 +187,7 @@ public enum LifeBoardRepositoryFactory {
             weeklyReviewMutation: weeklyReviewMutation,
             weeklyReviewDraftStore: UserDefaultsWeeklyReviewDraftStore(),
             reflectionNote: reflectionNote,
+            frictionFinding: frictionFinding,
             gamification: gamification,
             assistantAction: assistantAction,
             externalSync: externalSync,

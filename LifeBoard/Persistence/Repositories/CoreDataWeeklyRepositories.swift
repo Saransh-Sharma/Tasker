@@ -661,6 +661,142 @@ public final class CoreDataReflectionNoteRepository: ReflectionNoteRepositoryPro
     }
 }
 
+public final class CoreDataFrictionFindingRepository: FrictionFindingRepositoryProtocol, @unchecked Sendable {
+    private let viewContext: NSManagedObjectContext
+    private let backgroundContext: NSManagedObjectContext
+
+    public init(container: NSPersistentContainer) {
+        self.viewContext = container.viewContext
+        self.backgroundContext = container.newBackgroundContext()
+        self.backgroundContext.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
+    }
+
+    public func fetchFindings(
+        query: FrictionFindingQuery,
+        completion: @escaping @Sendable (Result<[FrictionFinding], Error>) -> Void
+    ) {
+        let callback = WeeklyRepositoryCompletion(completion)
+        viewContext.perform {
+            do {
+                let request = NSFetchRequest<NSManagedObject>(entityName: "FrictionFinding")
+                request.predicate = Self.predicate(for: query)
+                request.sortDescriptors = [NSSortDescriptor(key: "detectedAt", ascending: false)]
+                if let limit = query.limit, limit > 0 { request.fetchLimit = limit }
+                callback.deliver(.success(try self.viewContext.fetch(request).compactMap(Self.map)))
+            } catch {
+                callback.deliver(.failure(error))
+            }
+        }
+    }
+
+    public func saveFinding(
+        _ finding: FrictionFinding,
+        completion: @escaping @Sendable (Result<FrictionFinding, Error>) -> Void
+    ) {
+        let callback = WeeklyRepositoryCompletion(completion)
+        backgroundContext.perform {
+            do {
+                let object = try V2CoreDataRepositorySupport.upsertByID(
+                    in: self.backgroundContext,
+                    entityName: "FrictionFinding",
+                    id: finding.id
+                )
+                try Self.apply(finding, to: object)
+                try self.backgroundContext.save()
+                guard let saved = Self.map(object) else {
+                    throw NSError(
+                        domain: "CoreDataFrictionFindingRepository",
+                        code: 500,
+                        userInfo: [NSLocalizedDescriptionKey: "The friction finding could not be read after saving."]
+                    )
+                }
+                callback.deliver(.success(saved))
+            } catch {
+                callback.deliver(.failure(error))
+            }
+        }
+    }
+
+    public func deleteFinding(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        let callback = WeeklyRepositoryCompletion(completion)
+        backgroundContext.perform {
+            do {
+                if let object = try V2CoreDataRepositorySupport.fetchObject(
+                    in: self.backgroundContext,
+                    entityName: "FrictionFinding",
+                    predicate: NSPredicate(format: "id == %@", id as CVarArg)
+                ) {
+                    self.backgroundContext.delete(object)
+                    try self.backgroundContext.save()
+                }
+                callback.deliver(.success(()))
+            } catch {
+                callback.deliver(.failure(error))
+            }
+        }
+    }
+
+    private static func predicate(for query: FrictionFindingQuery) -> NSPredicate? {
+        var predicates: [NSPredicate] = []
+        if let taskID = query.taskID {
+            predicates.append(NSPredicate(format: "taskID == %@", taskID as CVarArg))
+        }
+        if query.outcomes.isEmpty == false {
+            predicates.append(NSPredicate(format: "outcomeRaw IN %@", query.outcomes.map(\.rawValue)))
+        }
+        if let due = query.reviewDueBefore {
+            predicates.append(NSPredicate(format: "reviewAfter <= %@", due as NSDate))
+        }
+        return predicates.isEmpty ? nil : NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+    }
+
+    private static func map(_ object: NSManagedObject) -> FrictionFinding? {
+        guard let id = object.value(forKey: "id") as? UUID,
+              let taskID = object.value(forKey: "taskID") as? UUID,
+              let reasonRaw = object.value(forKey: "selectedReasonRaw") as? String,
+              let reason = FrictionReason(rawValue: reasonRaw),
+              let interventionRaw = object.value(forKey: "interventionRaw") as? String,
+              let intervention = FrictionIntervention(rawValue: interventionRaw) else {
+            return nil
+        }
+        let evidence = (object.value(forKey: "evidenceData") as? Data)
+            .flatMap { try? JSONDecoder().decode([Insight.Evidence].self, from: $0) } ?? []
+        return FrictionFinding(
+            id: id,
+            taskID: taskID,
+            detectedAt: (object.value(forKey: "detectedAt") as? Date) ?? Date(),
+            deferredCountAtDetection: Int((object.value(forKey: "deferredCount") as? Int32) ?? 0),
+            replanCountAtDetection: Int((object.value(forKey: "replanCount") as? Int32) ?? 0),
+            evidence: evidence,
+            selectedReason: reason,
+            customReflectionNoteID: object.value(forKey: "customReflectionNoteID") as? UUID,
+            intervention: intervention,
+            actionRunID: object.value(forKey: "actionRunID") as? UUID,
+            reviewAfter: (object.value(forKey: "reviewAfter") as? Date) ?? Date(),
+            outcome: FrictionFindingOutcome(
+                rawValue: (object.value(forKey: "outcomeRaw") as? String) ?? ""
+            ) ?? .pending,
+            updatedAt: (object.value(forKey: "updatedAt") as? Date) ?? Date()
+        )
+    }
+
+    private static func apply(_ finding: FrictionFinding, to object: NSManagedObject) throws {
+        object.setValue(finding.id, forKey: "id")
+        object.setValue(finding.taskID, forKey: "taskID")
+        object.setValue(finding.detectedAt, forKey: "detectedAt")
+        object.setValue(Int32(finding.deferredCountAtDetection), forKey: "deferredCount")
+        object.setValue(Int32(finding.replanCountAtDetection), forKey: "replanCount")
+        object.setValue(try JSONEncoder().encode(finding.evidence), forKey: "evidenceData")
+        object.setValue(finding.selectedReason.rawValue, forKey: "selectedReasonRaw")
+        object.setValue(finding.customReflectionNoteID, forKey: "customReflectionNoteID")
+        object.setValue(finding.intervention.rawValue, forKey: "interventionRaw")
+        object.setValue(finding.actionRunID, forKey: "actionRunID")
+        object.setValue(finding.reviewAfter, forKey: "reviewAfter")
+        object.setValue(finding.outcome.rawValue, forKey: "outcomeRaw")
+        object.setValue(finding.updatedAt, forKey: "updatedAt")
+    }
+}
+
 public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol, @unchecked Sendable {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
@@ -698,11 +834,13 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
                 let taskResolution = try self.resolveTaskDecisions(
                     request.taskDecisions.sorted { $0.taskID.uuidString < $1.taskID.uuidString }
                 )
-                try self.applyTaskDecisions(
-                    taskResolution.validDecisions,
-                    taskObjectsByID: taskResolution.taskObjectsByID,
-                    weekStartDate: weekStartDate
-                )
+                if request.mutationMode == .applyImmediately {
+                    try self.applyTaskDecisions(
+                        taskResolution.validDecisions,
+                        taskObjectsByID: taskResolution.taskObjectsByID,
+                        weekStartDate: weekStartDate
+                    )
+                }
 
                 let outcomeResolution = try self.resolveOutcomeStatuses(
                     request.outcomeStatusesByOutcomeID,
@@ -814,8 +952,13 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
                     switch decision.disposition {
                     case .carry:
                         return .thisWeek
-                    case .later, .drop:
+                    case .later:
                         return .later
+                    case .drop:
+                        // Persisted raw value stays `drop` for compatibility,
+                        // while the product now means the non-destructive
+                        // "Release" destination rather than another Later.
+                        return .someday
                     }
                 }(),
                 weeklyOutcomeID: nil,
@@ -1088,6 +1231,9 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
             perceivedWeekRating: draft.perceivedWeekRating,
             taskDecisions: draft.taskDecisions,
             outcomeStatuses: draft.outcomeStatuses,
+            evaResetChapterRaw: draft.evaResetChapterRaw,
+            selectedFrictionFindingIDs: draft.selectedFrictionFindingIDs,
+            evaProposalActionRunID: draft.evaProposalActionRunID,
             updatedAt: draft.updatedAt
         )
     }

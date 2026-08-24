@@ -652,6 +652,38 @@ final class WriteClosedReflectionNoteRepositoryAdapter: ReflectionNoteRepository
     }
 }
 
+final class WriteClosedFrictionFindingRepositoryAdapter: FrictionFindingRepositoryProtocol {
+    private let base: FrictionFindingRepositoryProtocol
+    private let gate: SyncWriteGate
+
+    init(base: FrictionFindingRepositoryProtocol, gate: SyncWriteGate) {
+        self.base = base
+        self.gate = gate
+    }
+
+    func fetchFindings(
+        query: FrictionFindingQuery,
+        completion: @escaping @Sendable (Result<[FrictionFinding], Error>) -> Void
+    ) {
+        base.fetchFindings(query: query, completion: completion)
+    }
+
+    func saveFinding(
+        _ finding: FrictionFinding,
+        completion: @escaping @Sendable (Result<FrictionFinding, Error>) -> Void
+    ) {
+        gate.performWrite(operation: "FrictionFindingRepository.saveFinding", completion: completion) {
+            self.base.saveFinding(finding, completion: completion)
+        }
+    }
+
+    func deleteFinding(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        gate.performWrite(operation: "FrictionFindingRepository.deleteFinding", completion: completion) {
+            self.base.deleteFinding(id: id, completion: completion)
+        }
+    }
+}
+
 final class WriteClosedGamificationRepositoryAdapter: GamificationRepositoryProtocol {
     private let base: GamificationRepositoryProtocol
     private let gate: SyncWriteGate

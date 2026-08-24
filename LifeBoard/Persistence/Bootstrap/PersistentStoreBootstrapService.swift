@@ -2100,6 +2100,18 @@ public final class PersistentStoreBootstrapService: @unchecked Sendable {
                 "createdAt"
             ]
         )
+        requireAttributes(
+            entityName: "FrictionFinding",
+            attributes: [
+                "id",
+                "taskID",
+                "evidenceData",
+                "selectedReasonRaw",
+                "interventionRaw",
+                "reviewAfter",
+                "outcomeRaw"
+            ]
+        )
 
         guard missingRequirements.isEmpty == false else {
             return nil
