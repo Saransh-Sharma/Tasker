@@ -1,11 +1,11 @@
 {
   "storage_keys": {
-    "count": 569,
-    "sha256": "a7df161017d3ceb8f857af3f3c3492b47f487bd74d0a77c45f6748476d1137bf"
+    "count": 573,
+    "sha256": "0b16a0bad6d4d63102e0cdd67dd44f8a070e27f8ccd6b483d7df8e3ffb125410"
   },
   "coding_and_raw_values": {
-    "count": 250,
-    "sha256": "e2d6c453860afad79687f37f5392c9b104e9089e23bbf4c375e981106fd56b10"
+    "count": 251,
+    "sha256": "2ee0e83e5cba2867b418991f8ac66ddcb02c0132881fa085b57933f11da5a77e"
   },
   "core_data_names": {
     "count": 3953,
@@ -20,7 +20,7 @@
     "sha256": "5f28f5dd28a1fc80db20d2fd1d0505a47aad323b965f97b599fe39b135b3c9fa"
   },
   "app_router_literals": {
-    "count": 94,
-    "sha256": "f0e1cbbf856e578bb90948a1d0432c2b504f11cd75eaa6be3af422016314f954"
+    "count": 107,
+    "sha256": "4a26d9fc38743211cf7f19b27514f8f5de05c9605dfe71261dc7753a60d13da8"
   }
 }

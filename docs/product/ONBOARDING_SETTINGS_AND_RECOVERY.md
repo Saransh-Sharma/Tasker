@@ -50,11 +50,20 @@ six-stage graph without losing confirmed answers.
    saved, and explicit **Start my day** and **Personalize more** exits. Both
    finalize; the second opens Home and then Setup Center.
 
-Calendar, Apple Health, Reminders, and Cloud EVA live in post-onboarding Setup
-Center. They are never onboarding steps or completion gates. Setup Center is
-reachable from Reveal, a dismissible Home card, and a permanent Settings row;
-dismissal changes no connector state. There is no closing phase and **no root
-tour**.
+Calendar, Apple Health, and Cloud EVA are offered in an optional **Power-Up
+phase** that begins *after* core completion has been recorded, and are also
+permanently available in Setup Center. Reminders stay contextual and are still
+never requested during first run.
+
+They remain **completion gates for nothing**. `AppOnboardingStateStore.completeCore`
+writes the completion before the first connector is offered, so a denied
+permission, a dead network, or a force-quit mid-phase all leave a finished
+LifeBoard. Every connector is skippable, and an explicit "Not now" is recorded as
+a decision — it suppresses the Home resume card rather than provoking it.
+
+Setup Center is reachable from the Power-Up summary, a Home card shown only for
+genuinely *interrupted* setup, and a permanent Settings row; dismissal changes no
+connector state. There is no closing phase and **no root tour**.
 
 The modules screen is gone. What Home contains is derived from the intent and the
 chosen areas rather than asked for, so removing the question does not mean every

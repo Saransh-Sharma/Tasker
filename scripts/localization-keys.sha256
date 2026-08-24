@@ -1,5 +1,20 @@
 # Aggregate LifeBoard/ + Packages/ string-catalog snapshot. Intentional key or
 # translation changes require updating this file in the same reviewed change.
-count=1092
-sha256=67c1b0d6c79dbd4bd79b2e5f97ef6ef9ecf398008fc2f5d4df59c044798dd396
-content_sha256=47a04e6e981573872aded48e038a50812a26de74411dd5e49dd14b177e4dc3e6
+#
+# 2026-08-23, the optional Power-Up phase: 1092 -> 1111. Xcode extracted these
+# on build; the catalog was not hand-edited.
+#
+# Additions are the Calendar/Health/EVA primer, chooser, sync-receipt and
+# summary copy. The removals are the reveal's Cloud EVA card, which moved out of
+# core entirely - "Cloud EVA with Luna", "EVA MAY ALSO USE", the Cloudflare
+# processing sentence, and "Cloud setup will resume safely in EVA. %@". Those
+# strings have no remaining call site.
+#
+# "Step %@ of %@, %@" is replaced rather than removed: the progress bar now
+# speaks two vocabularies, so VoiceOver says "Core setup, step 3 of 6, Life
+# areas" or "Power up, step 1 of 3, Calendar" - an optional phase must not be
+# announced as a continuation of a mandatory one.
+
+count=1111
+sha256=fdd5f10bab68564b3a46e1f2516cd3c0bb70a402f50ed2a8228b2b29e6d4f321
+content_sha256=59427a0a6336611ec33e27f78c1521b1c040b2263c61d3047d54a7e4e4d4e188

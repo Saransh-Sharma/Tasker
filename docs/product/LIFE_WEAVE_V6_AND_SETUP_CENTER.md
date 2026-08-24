@@ -9,7 +9,7 @@
 
 ## Outcome
 
-Life Weave creates the minimum useful LifeBoard system without requiring an account, network, permission, calendar, Health access, notifications, or an EVA model. Setup Center is a separate post-onboarding surface for optional personalization.
+Life Weave creates the minimum useful LifeBoard system without requiring an account, network, permission, calendar, Health access, notifications, or an EVA model. That guarantee is unchanged by the Power-Up phase, because core completion is recorded before the phase begins. Setup Center remains the permanent surface for the same optional connections.
 
 The canonical core has six stages:
 
@@ -18,9 +18,9 @@ The canonical core has six stages:
 3. **Life areas:** select two to five and choose the leading area.
 4. **Day shape:** choose a preset or explicitly edit working hours.
 5. **First Capture:** optionally interpret and confirm one real Task or Journal entry; Skip is always available.
-6. **Reveal:** read the deterministic result and explicitly choose **Start my day** or **Personalize more**.
+6. **Reveal:** read the deterministic result and explicitly choose **Power up LifeBoard** or **Start now**. The Reveal carries no connector setup and no consent controls of its own.
 
-Calendar, Apple Health, Reminders, and EVA are not steps, progress items, restoration destinations, or completion requirements.
+Calendar, Apple Health, and EVA are not *core* steps, core progress items, or completion requirements. They form the optional Power-Up phase that follows the Reveal, counted in its own vocabulary ("POWER UP 1 OF 3") so an optional phase is never mistaken for four more mandatory steps. Reminders remain contextual and are not part of first run at all.
 
 ## Audience policy
 

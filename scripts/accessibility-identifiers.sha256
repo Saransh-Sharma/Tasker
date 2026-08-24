@@ -143,5 +143,27 @@
 # text this snapshot records has moved into the primitive — the same pattern
 # every other migrated composer already follows.
 
-count=885
-sha256=8273b771a3c1513d15b7aad6d77c4febcd81f938f62b78f2e79d479fb0ee4f52
+# 2026-08-23 - the optional Power-Up phase. Additive only, zero removals.
+#
+# Namespaced under the existing `onboarding.lifeweave.*` family, so no core
+# identifier moved and the six-step UI-test contract still matches exactly:
+#
+#   onboarding.lifeweave.powerup.<calendar|health|eva|complete>  the phase's steps,
+#     derived from `LifeWeavePowerUpStep.identifierSuffix` - hand-written per case
+#     for the same reason its core counterpart is, so renaming a case cannot
+#     silently rename a published value.
+#   onboarding.lifeweave.reveal.powerUpInvitation                the reveal's invitation
+#   onboarding.lifeweave.powerup.summary{,.rows,.grounding}      the closing receipt
+#   CalendarPowerUpID.*, HealthPowerUpID.*, EvaPowerUpAccessibilityID.*
+#     the three connectors' own controls. These live in per-connector enums
+#     rather than in `LifeWeaveAccessibilityID` because the connectors were
+#     built in parallel against a shared-file freeze; folding them into the
+#     central enum is a follow-up that will move expression text without
+#     changing a single resolved runtime value.
+#
+# The removals you might expect are absent because they already happened: the
+# reveal's `onboarding.lifeWeave.eva.{disclosure,offline,grant.*}` went when
+# Cloud EVA moved out of the reveal, and nothing referenced them.
+
+count=921
+sha256=0368c1d0b43cc181ef42b53f2095dad61a7285f146dd29b74936b783ca666b50
