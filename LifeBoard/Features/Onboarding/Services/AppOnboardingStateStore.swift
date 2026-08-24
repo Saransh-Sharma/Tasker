@@ -56,30 +56,79 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         save(state)
     }
 
-    func finalizeLifeWeave(
-        entryContext: OnboardingEntryContext,
-        destination: LifeWeaveCompletionDestination
-    ) {
+    /// Core is complete and durable. The journey may still be running.
+    ///
+    /// Split out of `finalizeLifeWeave` because the optional Power-Up phase runs
+    /// *after* the product's completion promise has already been kept. The
+    /// promise is that a finished LifeBoard depends on no permission, account, or
+    /// network — so completion has to be recorded before the first connector is
+    /// offered, not after the last one resolves. A person who force-quits midway
+    /// through Calendar has a finished LifeBoard, and must not be re-onboarded.
+    ///
+    /// Deliberately keeps the journey snapshot. Between this and
+    /// `finalizeLifeWeave` a journey is legitimately both *completed* and
+    /// *resumable*, which is what lets the launch path put someone back on the
+    /// power-up step they left rather than on Home with the phase silently lost.
+    ///
+    /// Idempotent, including its telemetry: re-entering the reveal must not
+    /// record a second core completion.
+    @discardableResult
+    func completeCore(entryContext: OnboardingEntryContext) -> Bool {
         var state = load()
+        let wasAlreadyComplete = state.outcome == .completed
+            && state.completedVersion == AppOnboardingState.currentVersion
+            && state.completedLifeWeave == true
+
         if entryContext == .establishedWorkspace {
             state.completedRefreshVersion = AppOnboardingState.currentLifeWeaveRefreshVersion
-            state.refreshDraft = nil
         } else {
             SetupCenterHomeCardPreference.resetForNewOnboarding()
             state.outcome = .completed
             state.completedVersion = AppOnboardingState.currentVersion
             state.completedLifeWeave = true
             state.completedRefreshVersion = AppOnboardingState.currentLifeWeaveRefreshVersion
-            state.lifeWeaveJourneySnapshot = nil
         }
+        // The v5 payloads are cleared here rather than at finalization: the
+        // canonical commit has already succeeded, so there is no v5 journey left
+        // to resume even if the power-up phase is abandoned.
         state.journeySnapshot = nil
         state.lifeMapJourneySnapshot = nil
+        save(state)
+
+        guard entryContext != .establishedWorkspace, wasAlreadyComplete == false else { return false }
+        Task {
+            await ProductTelemetry.shared.record(
+                .coreFinalized,
+                flowVersion: AppOnboardingState.currentVersion,
+                audience: "fresh"
+            )
+        }
+        return true
+    }
+
+    /// The journey is over and the host may be dismissed.
+    ///
+    /// Distinct from `completeCore`: this is what clears the resumable snapshot
+    /// and names where the user lands. Calling it without a prior `completeCore`
+    /// still completes core, so the "Start now" exit straight off the reveal
+    /// behaves exactly as it did before the power-up phase existed.
+    func finalizeLifeWeave(
+        entryContext: OnboardingEntryContext,
+        destination: LifeWeaveCompletionDestination
+    ) {
+        completeCore(entryContext: entryContext)
+        var state = load()
+        if entryContext == .establishedWorkspace {
+            state.refreshDraft = nil
+        } else {
+            state.lifeWeaveJourneySnapshot = nil
+        }
         state.finalizedLifeWeaveDestination = destination
         state.needsFinalizedDestinationDelivery = true
         save(state)
         Task {
             await ProductTelemetry.shared.record(
-                entryContext == .establishedWorkspace ? .refreshCompleted : .coreFinalized,
+                entryContext == .establishedWorkspace ? .refreshCompleted : .onboardingStepCompleted,
                 flowVersion: AppOnboardingState.currentVersion,
                 audience: entryContext == .establishedWorkspace ? "existing" : "fresh",
                 outcome: destination.rawValue

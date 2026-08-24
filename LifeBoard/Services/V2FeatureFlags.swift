@@ -257,6 +257,14 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.onboarding.life_weave_v6") }
     }
 
+    /// The optional Power-Up phase after core commit. Independent of
+    /// `onboardingLifeWeaveV6Enabled`: off, the journey ends at the reveal as it
+    /// did before, and every existing connection survives untouched.
+    public static var onboardingPowerUpsEnabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.onboarding.power_ups", argument: "ONBOARDING_POWER_UPS") }
+        set { setStagedFeature(newValue, key: "feature.onboarding.power_ups") }
+    }
+
     /// Route-level Phase 1 gate. New Plan roots and their stores are composed
     /// only when both halves of the execution flagship are enabled. This is
     /// deliberately stronger than sprinkling flags over individual buttons:
@@ -337,7 +345,8 @@ public enum V2FeatureFlags {
         // path whose off state preserves canonical records and deterministic
         // behavior.
         "feature.life_os.track_behavior_flagship_v1": true,
-        "feature.onboarding.life_weave_v6": true
+        "feature.onboarding.life_weave_v6": true,
+        "feature.onboarding.power_ups": true
     ]
 
     private static func stagedFeatureEnabled(key: String, argument: String) -> Bool {
