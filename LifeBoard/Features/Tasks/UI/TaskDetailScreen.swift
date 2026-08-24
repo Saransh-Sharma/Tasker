@@ -41,6 +41,7 @@ struct TaskDetailScreen: View {
     @State private var showBreakdownSheet = false
     @State private var selectedBreakdownSteps: Set<String> = []
     @State private var showingReflectionComposer = false
+    @State private var showingFrictionDetective = false
     @State private var newStepTitle = ""
     @State private var showRefine = false
     @State private var completionBurstTrigger = 0
@@ -117,6 +118,7 @@ struct TaskDetailScreen: View {
                 planDisclosure
                 stepsDisclosure
                 refineReveal
+                frictionDisclosure
                 deleteDisclosure
                 metadataFooter
             }
@@ -144,6 +146,93 @@ struct TaskDetailScreen: View {
         }
         .sheet(isPresented: $showingReflectionComposer) {
             reflectionComposerSheet
+        }
+        .fullScreenCover(isPresented: $showingFrictionDetective) {
+            FrictionDetectiveView(
+                task: viewModel.persistedTask,
+                repository: CompositionRoot.shared.frictionFindingRepository,
+                onSaveReflectionNote: onSaveReflectionNote,
+                onApply: { intervention, experimentText, completion in
+                    viewModel.applyFrictionIntervention(
+                        intervention,
+                        experimentText: experimentText,
+                        completion: completion
+                    )
+                },
+                onUndo: { receipt, completion in
+                    undoFrictionIntervention(receipt, completion: completion)
+                },
+                onClose: { showingFrictionDetective = false }
+            )
+        }
+    }
+
+    private func undoFrictionIntervention(
+        _ receipt: FrictionInterventionReceipt,
+        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
+    ) {
+        guard let taskRepository = CompositionRoot.shared.taskDefinitionRepository else {
+            completion(.failure(NSError(
+                domain: "FrictionDetective",
+                code: 503,
+                userInfo: [NSLocalizedDescriptionKey: "Task storage is unavailable."]
+            )))
+            return
+        }
+
+        let finishTaskRestore: @MainActor @Sendable (Result<Void, Error>) -> Void = { result in
+            switch result {
+            case .failure:
+                completion(result)
+            case .success:
+                deleteFrictionReceiptRecords(receipt, completion: completion)
+            }
+        }
+
+        if let childID = receipt.createdChildTaskID {
+            taskRepository.delete(id: childID) { result in
+                Task { @MainActor in
+                    if case .success = result { viewModel.acceptFrictionUndo(receipt) }
+                    finishTaskRestore(result)
+                }
+            }
+        } else {
+            taskRepository.update(receipt.originalTask) { result in
+                Task { @MainActor in
+                    if case .success = result { viewModel.acceptFrictionUndo(receipt) }
+                    finishTaskRestore(result.map { _ in () })
+                }
+            }
+        }
+    }
+
+    private func deleteFrictionReceiptRecords(
+        _ receipt: FrictionInterventionReceipt,
+        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
+    ) {
+        let deleteNote: @MainActor @Sendable () -> Void = {
+            guard let noteID = receipt.reflectionNoteID,
+                  let notes = CompositionRoot.shared.reflectionNoteRepository else {
+                completion(.success(()))
+                return
+            }
+            notes.deleteNote(id: noteID) { result in
+                Task { @MainActor in completion(result) }
+            }
+        }
+
+        guard let findingID = receipt.findingID,
+              let findings = CompositionRoot.shared.frictionFindingRepository else {
+            deleteNote()
+            return
+        }
+        findings.deleteFinding(id: findingID) { result in
+            Task { @MainActor in
+                switch result {
+                case .success: deleteNote()
+                case .failure: completion(result)
+                }
+            }
         }
     }
 
@@ -559,6 +648,44 @@ struct TaskDetailScreen: View {
                     projectMotivationCard(motivation)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var frictionDisclosure: some View {
+        if V2FeatureFlags.evaFrictionDetectiveV1Enabled {
+            let analysis = FrictionEvidenceIndex.analyze(task: viewModel.persistedTask)
+            Button {
+                HapticFeedback.light()
+                showingFrictionDetective = true
+            } label: {
+                HStack(spacing: spacing.s12) {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .font(.title3)
+                        .foregroundStyle(Color.lifeboard.accentPrimary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Friction Detective")
+                            .font(.lifeboard(.callout).weight(.semibold))
+                            .foregroundStyle(Color.lifeboard.textPrimary)
+                        Text(
+                            analysis.isProactivelyEligible
+                                ? "This task has repeated planning friction. Inspect the evidence without blame."
+                                : "Explore what is making this task harder to start or finish."
+                        )
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .multilineTextAlignment(.leading)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(Color.lifeboard.textTertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foundationClayCard()
+            .accessibilityHint("Opens an evidence-led task experiment")
+            .accessibilityIdentifier("taskDetail.frictionDetective")
         }
     }
 

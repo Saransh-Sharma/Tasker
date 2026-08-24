@@ -1031,6 +1031,101 @@ public final class TaskDetailViewModel: ObservableObject {
         childSteps.swapAt(index, index + 1)
     }
 
+    /// Applies the single user-selected experiment from Friction Detective.
+    /// The assistant never calls this directly; the ritual previews the exact
+    /// intervention and the user confirms it first.
+    public func applyFrictionIntervention(
+        _ intervention: FrictionIntervention,
+        experimentText: String?,
+        completion: @escaping @MainActor @Sendable (Result<FrictionInterventionReceipt, Error>) -> Void
+    ) {
+        let originalTask = persistedTask
+        let trimmed = experimentText?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if [.clarifyNextAction, .splitTask, .noteDependency].contains(intervention),
+           trimmed?.isEmpty != false {
+            completion(.failure(NSError(
+                domain: "FrictionDetective",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "Name the small change before starting this experiment."]
+            )))
+            return
+        }
+        if intervention == .splitTask {
+            let childTitle = trimmed ?? "First step: \(persistedTask.title)"
+            onCreateTask(
+                CreateTaskDefinitionRequest(
+                    title: childTitle,
+                    projectID: persistedTask.projectID,
+                    projectName: persistedTask.projectName,
+                    lifeAreaID: persistedTask.lifeAreaID,
+                    sectionID: persistedTask.sectionID,
+                    parentTaskID: persistedTask.id,
+                    priority: persistedTask.priority,
+                    type: persistedTask.type,
+                    energy: persistedTask.energy,
+                    category: persistedTask.category,
+                    context: persistedTask.context,
+                    estimatedDuration: 15 * 60,
+                    planningBucket: persistedTask.planningBucket,
+                    weeklyOutcomeID: persistedTask.weeklyOutcomeID
+                )
+            ) { result in
+                if case .success = result { self.refreshChildren() }
+                completion(result.map { child in
+                    FrictionInterventionReceipt(
+                        originalTask: originalTask,
+                        createdChildTaskID: child.id
+                    )
+                })
+            }
+            return
+        }
+
+        let appendedDetails: String? = {
+            guard let trimmed, trimmed.isEmpty == false else { return nil }
+            let prefix = intervention == .noteDependency ? "Waiting on" : "Next action"
+            let existing = persistedTask.details?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return [existing, "\(prefix): \(trimmed)"]
+                .compactMap { $0?.isEmpty == false ? $0 : nil }
+                .joined(separator: "\n\n")
+        }()
+        let reducedEstimate = max(15 * 60, min(persistedTask.estimatedDuration ?? 30 * 60, 30 * 60))
+        let request = UpdateTaskDefinitionRequest(
+            id: persistedTask.id,
+            details: appendedDetails,
+            estimatedDuration: intervention == .reduceScope ? reducedEstimate : nil,
+            planningBucket: {
+                switch intervention {
+                case .moveToBetterWindow: return .nextWeek
+                case .moveLater: return .later
+                case .releaseToSomeday: return .someday
+                default: return nil
+                }
+            }(),
+            replanCount: max(0, persistedTask.replanCount) + 1,
+            updatedAt: Date()
+        )
+        onUpdate(persistedTask.id, request) { [weak self] result in
+            if case .success(let task) = result { self?.syncDraftFromTask(task) }
+            completion(result.map { _ in
+                FrictionInterventionReceipt(
+                    originalTask: originalTask,
+                    createdChildTaskID: nil
+                )
+            })
+        }
+    }
+
+    /// Refreshes the task detail after the receipt's inverse operation succeeds.
+    public func acceptFrictionUndo(_ receipt: FrictionInterventionReceipt) {
+        if receipt.createdChildTaskID != nil {
+            refreshChildren()
+        } else {
+            syncDraftFromTask(receipt.originalTask)
+        }
+    }
+
     /// Executes performAutosave.
     private func performAutosave() {
         guard !suppressAutosave else { return }
