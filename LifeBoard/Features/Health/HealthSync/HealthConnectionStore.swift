@@ -68,12 +68,38 @@ public final class HealthConnectionStore {
     ///   answer. Without this the first run silently enabled write-back for
     ///   every writable domain the user had never been asked about.
     public func connect(domains: Set<HealthDomain>, enableWriteBack: Bool = true) async {
+        await connect(
+            domains: domains,
+            writableDomains: Set(domains.filter(\.supportsWriteBack)),
+            enableWriteBack: enableWriteBack
+        )
+    }
+
+    /// Asks for read access and nothing else.
+    ///
+    /// `enableWriteBack: false` was never enough on its own: it skipped the
+    /// ledger preference but still handed the full writable set to the gateway,
+    /// so Apple's sheet still offered write toggles for categories the user had
+    /// not been asked about. A primer that promises "we'll read what you already
+    /// log" followed by a sheet asking for write permission is the kind of small
+    /// dishonesty that costs the whole permission.
+    ///
+    /// Write-back stays a separate, later, explicit opt-in.
+    public func connectReadOnly(domains: Set<HealthDomain> = Set(HealthDomain.allCases)) async {
+        await connect(domains: domains, writableDomains: [], enableWriteBack: false)
+    }
+
+    private func connect(
+        domains: Set<HealthDomain>,
+        writableDomains: Set<HealthDomain>,
+        enableWriteBack: Bool
+    ) async {
         guard V2FeatureFlags.healthIntegrationsV1Enabled else { return }
         // Durably record that we've asked (across launches) before the system
         // sheet appears, so the just-in-time invitation never re-fires regardless
         // of how this connect was reached (onboarding, Settings, hub, or JIT).
         HealthAuthorizationPromptState.recordRequested()
-        let writable = Set(domains.filter(\.supportsWriteBack))
+        let writable = writableDomains
         do {
             try await gateway.requestAuthorization(writeDomains: writable)
             readRequestState = .requestCompleted
