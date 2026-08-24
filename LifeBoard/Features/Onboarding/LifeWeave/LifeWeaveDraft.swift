@@ -42,7 +42,7 @@ enum LifeWeaveDayShapePreset: String, Codable, CaseIterable, Sendable {
 
 /// The v6 persisted journey.
 ///
-/// Schema 9. Schemas 6 and 7 were the v5 Life Map drafts; a v5 draft is not
+/// Schema 11. Schemas 6 and 7 were the v5 Life Map drafts; a v5 draft is not
 /// decoded into this type directly but translated by `LifeWeaveMigration`, which
 /// is why this has no legacy fields and no hand-written decoder.
 ///
@@ -56,7 +56,7 @@ struct LifeWeaveDraft: Codable, Equatable {
     static let maximumLifeAreas = 5
     static let maximumBlockers = 2
 
-    static let currentSchemaVersion = 10
+    static let currentSchemaVersion = 11
 
     var schemaVersion = Self.currentSchemaVersion
     var step: LifeWeaveStep = .arrival
@@ -118,6 +118,26 @@ struct LifeWeaveDraft: Codable, Equatable {
     var evaSelectedGrantIDs: [String]? = EvaConsentPolicy.Grant.allCases.map(\.rawValue)
     var evaActivationPending: Bool? = false
 
+    // MARK: Power-Up journey
+    //
+    // Position and explicit deferrals only. Every power-up *result* already has
+    // a home above (`selectedCalendarIDs`, `healthWriteBackDomainIDs`,
+    // `evaCloudReady`, the granted/denied permission lists), and the canonical
+    // truth for each connector lives in its own service. A second copy here
+    // would be a cache that can disagree with the thing it caches.
+    //
+    // Optional for the same reason `evaActivationPending` is: a schema-10 draft
+    // has no such key, and synthesized decoding requires every non-optional
+    // property to be present. A throw here would strand the whole journey
+    // before `LifeWeaveMigration` ever ran.
+
+    /// Where the user is in the optional second phase. `nil` means never entered.
+    var powerUpStep: LifeWeavePowerUpStep?
+    /// Connectors the user explicitly said "Not now" to. Distinct from "not
+    /// reached" and from "denied in the system sheet": only this one means the
+    /// person made a choice, and it is why Setup Center must not nag afterwards.
+    var deferredPowerUpIDs: [String]?
+
     /// Guards the one-shot Life Map -> EVA profile write.
     var didWriteEvaProfile = false
 
@@ -146,6 +166,27 @@ struct LifeWeaveDraft: Codable, Equatable {
     var resolvedLifecyclePhase: LifeWeaveLifecyclePhase {
         lifecyclePhase ?? LifeWeaveMigration.lifecyclePhase(forV8: self)
     }
+
+    var resolvedDeferredPowerUps: Set<LifeWeavePowerUpStep> {
+        Set((deferredPowerUpIDs ?? []).compactMap(LifeWeavePowerUpStep.init(rawValue:)))
+    }
+
+    /// The one place the flow decides which screen it is on.
+    ///
+    /// Derived rather than stored so the two axes cannot drift: `step` remains
+    /// the core position the user can go back through, and entering the
+    /// power-up phase never rewrites it.
+    var route: LifeWeaveRoute {
+        powerUpStep.map(LifeWeaveRoute.powerUp) ?? .core(step)
+    }
+
+    var isPoweringUp: Bool { powerUpStep != nil }
+}
+
+/// Which screen the flow shows, across both phases.
+enum LifeWeaveRoute: Equatable {
+    case core(LifeWeaveStep)
+    case powerUp(LifeWeavePowerUpStep)
 }
 
 enum LifeWeaveLifecyclePhase: String, Codable, Equatable, Sendable {
@@ -153,12 +194,19 @@ enum LifeWeaveLifecyclePhase: String, Codable, Equatable, Sendable {
     case committing
     case captureWritten
     case revealReady
+    /// Core is committed *and* recorded as complete; the optional power-up phase
+    /// is in flight. A journey killed here resumes into Power Up, and the
+    /// LifeBoard behind it is already usable.
+    case poweringUp
     case finalized
 }
 
 enum LifeWeaveCompletionDestination: String, Codable, Equatable, Sendable {
     case home
     case setupCenter
+    /// Only offered when Cloud EVA actually reached a ready state. Routing to a
+    /// planning partner that cannot answer would be a worse ending than Home.
+    case eva
 }
 
 /// The v6 first run: six decisions that build and commit the user's Life Map.
@@ -191,6 +239,66 @@ enum LifeWeaveStep: Int, CaseIterable, Codable, Identifiable {
         case .dayShape: "dayShape"
         case .firstCapture: "firstCapture"
         case .reveal: "reveal"
+        }
+    }
+}
+
+
+/// The optional second phase: three connectors, each skippable, none of which
+/// can invalidate the LifeBoard that was committed before it started.
+///
+/// Deliberately *not* additional `LifeWeaveStep` cases. Core is a promise the
+/// product keeps offline; folding optional connectors into the same enum would
+/// make "3 of 6" become "3 of 10" and quietly recast an optional phase as
+/// mandatory — and it would break `LifeWeaveStep.core == allCases`.
+enum LifeWeavePowerUpStep: String, Codable, CaseIterable, Identifiable, Sendable {
+    case calendar
+    case health
+    case eva
+    case complete
+
+    var id: String { rawValue }
+
+    /// The three that are actually connectors. `complete` is the receipt, and
+    /// counting it would overstate what is being asked.
+    ///
+    /// There is deliberately no separate intro step: the reveal already carries
+    /// the invitation, and a second "here is what Power Up is" screen would be
+    /// the same page twice.
+    static let connectors: [Self] = [.calendar, .health, .eva]
+    static var connectorCount: Int { connectors.count }
+
+    /// 1-based position among the connectors, or `nil` for the framing screens.
+    var connectorIndex: Int? {
+        Self.connectors.firstIndex(of: self).map { $0 + 1 }
+    }
+
+    var next: Self? {
+        switch self {
+        case .calendar: .health
+        case .health: .eva
+        case .eva: .complete
+        case .complete: nil
+        }
+    }
+
+    /// Stable accessibility-identifier suffixes must not drift with case names.
+    var identifierSuffix: String {
+        switch self {
+        case .calendar: "calendar"
+        case .health: "health"
+        case .eva: "eva"
+        case .complete: "complete"
+        }
+    }
+
+    /// Human names, not case names. VoiceOver reads this aloud.
+    var spokenName: String {
+        switch self {
+        case .calendar: "Calendar"
+        case .health: "Apple Health"
+        case .eva: "EVA"
+        case .complete: "All set"
         }
     }
 }

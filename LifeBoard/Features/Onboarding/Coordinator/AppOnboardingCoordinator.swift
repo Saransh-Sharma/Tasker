@@ -181,6 +181,10 @@ final class AppOnboardingCoordinator: NSObject {
                 calendarService.refreshContext(reason: "onboarding_calendar_step")
                 return await Self.awaitLoadedCalendars(from: calendarService)
             },
+            calendarAuthorizationStatus: {
+                calendarService.refreshAuthorizationStatus()
+                return calendarService.snapshot.authorizationStatus
+            },
             updateSelectedCalendarIDs: { ids in
                 calendarService.updateSelectedCalendarIDs(ids)
             },
@@ -192,11 +196,18 @@ final class AppOnboardingCoordinator: NSObject {
                 guard let service = CompositionRoot.shared.notificationService else { return false }
                 return await service.requestPermissionAsync()
             },
+            // `false` routes to the genuinely read-only request rather than to
+            // `connect(enableWriteBack: false)`. The latter skipped the ledger
+            // preference but still handed Apple the full writable set, so the
+            // system sheet asked for write access the primer had just promised
+            // not to want.
             connectHealth: { domains, enableWriteBack in
-                await HealthCoordinator.shared.connectionStore.connect(
-                    domains: domains,
-                    enableWriteBack: enableWriteBack
-                )
+                let store = HealthCoordinator.shared.connectionStore
+                if enableWriteBack {
+                    await store.connect(domains: domains, enableWriteBack: true)
+                } else {
+                    await store.connectReadOnly(domains: domains)
+                }
             },
             setHealthWriteEnabled: { enabled, domain in
                 await HealthCoordinator.shared.connectionStore.setWriteEnabled(enabled, for: domain)

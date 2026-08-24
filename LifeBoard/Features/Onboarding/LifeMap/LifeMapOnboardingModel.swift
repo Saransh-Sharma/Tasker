@@ -17,6 +17,14 @@ struct LifeMapPowerUpDependencies {
     var requestCalendarAccess: () async -> Bool = { false }
     /// Every calendar EventKit reports, after access was granted.
     var availableCalendars: () async -> [CalendarSourceSnapshot] = { [] }
+    /// The real authorization status, read back rather than inferred.
+    ///
+    /// Without this the only readable signal is "did a fetch return calendars",
+    /// which collapses `restricted` and `writeOnly` into `denied` — so a device
+    /// under a configuration profile was told to open Settings and turn on a
+    /// switch it does not have, and a write-only grant was never offered the
+    /// upgrade to full access that would actually fix it.
+    var calendarAuthorizationStatus: () async -> CalendarAuthorizationStatus = { .notDetermined }
     var updateSelectedCalendarIDs: ([String]) async -> Void = { _ in }
     /// Events in the coming week, used only to decide whether the opening
     /// prompt may mention the calendar at all.

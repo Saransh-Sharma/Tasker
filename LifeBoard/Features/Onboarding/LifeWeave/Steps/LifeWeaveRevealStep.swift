@@ -68,16 +68,15 @@ enum LifeWeaveRevealCopy {
 
 /// The payoff.
 ///
-/// One dominant action confirms Cloud EVA and ends onboarding. The disclosure
-/// stays in the reveal rather than becoming a second wizard, and the local-only
-/// alternative remains explicit.
+/// Reward and invitation, nothing else. This screen used to carry Cloud EVA's
+/// disclosure, four protected-context toggles, a progress spinner, an error
+/// line, and an offline escape hatch — so the emotional high point of the first
+/// run was buried under infrastructure the user had no reason to read yet, and
+/// the dominant action ran a network call that could fail on the last screen of
+/// setup. All of it moved into the optional Power-Up phase, which begins only
+/// after this LifeBoard is committed and recorded as complete.
 struct LifeWeaveRevealStep: View {
     @ObservedObject var model: LifeWeaveOnboardingModel
-    let cloudState: EvaCloudAccessState
-    let isWorking: Bool
-    let errorMessage: String?
-    let onToggleGrant: (EvaConsentPolicy.Grant, Bool) -> Void
-    let onUseOffline: () -> Void
 
     private var draft: LifeWeaveDraft { model.draft }
 
@@ -103,7 +102,9 @@ struct LifeWeaveRevealStep: View {
 
             receipt
 
-            cloudConsentCard
+            if model.isPowerUpAvailable {
+                powerUpInvitation
+            }
 
             if draft.stagedCapture?.isReviewed != true {
                 Text("Start with an empty day. Add something whenever it becomes useful.")
@@ -116,64 +117,48 @@ struct LifeWeaveRevealStep: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var cloudConsentCard: some View {
+    /// Names the second phase, its cost, and that it is optional — before the
+    /// user commits attention to it. Three plain rows, no toggles: the decision
+    /// here is only "do I want to spend another minute", and every consent
+    /// question belongs to the connector that actually needs it.
+    private var powerUpInvitation: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                Image(systemName: "cloud.sun.fill")
-                    .foregroundStyle(Color.lifeboard(.accentPrimary))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Cloud EVA with Luna")
-                        .lifeboardFont(.bodyStrong)
-                        .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text("Continuing creates a pseudonymous guest session. Prompts and the context below pass through LifeBoard's Cloudflare service to OpenAI.")
-                        .lifeboardFont(.caption1)
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
-                        .fixedSize(horizontal: false, vertical: true)
+            LifeMapEyebrow("POWER UP · OPTIONAL, ABOUT A MINUTE")
+            Text("Bring your real world in.")
+                .lifeboardFont(.bodyStrong)
+                .foregroundStyle(Color.lifeboard(.textPrimary))
+            HStack(spacing: Theme.Spacing.md) {
+                ForEach(LifeWeavePowerUpStep.connectors) { connector in
+                    HStack(spacing: 6) {
+                        Image(systemName: Self.symbolName(for: connector))
+                            .lifeboardFont(.caption1)
+                            .foregroundStyle(Color.lifeboard(.accentPrimary))
+                            .accessibilityHidden(true)
+                        Text(connector.spokenName)
+                            .lifeboardFont(.caption1)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
+                    }
                 }
             }
-
-            Text("EVA MAY ALSO USE")
-                .lifeboardFont(.eyebrow)
+            Text("Your LifeBoard is already saved. You can add these now or any time from Settings.")
+                .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textTertiary))
-            ForEach(EvaConsentPolicy.Grant.allCases, id: \.self) { grant in
-                Toggle(grant.onboardingTitle, isOn: binding(for: grant))
-                .tint(Color.lifeboard(.accentPrimary))
-                .disabled(isWorking)
-                .accessibilityIdentifier("onboarding.lifeWeave.eva.grant.\(grant.rawValue)")
-            }
-
-            if isWorking || cloudState == .activating {
-                ProgressView("Creating your guest session…")
-                    .lifeboardFont(.caption1)
-                    .accessibilityAddTraits(.updatesFrequently)
-            }
-
-            if let errorMessage {
-                Text("Cloud setup will resume safely in EVA. \(errorMessage)")
-                    .lifeboardFont(.caption1)
-                    .foregroundStyle(Color.lifeboard(.statusWarning))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Button("Use Offline EVA instead", action: onUseOffline)
-                .buttonStyle(.plain)
-                .lifeboardFont(.button)
-                .foregroundStyle(Color.lifeboard(.accentPrimary))
-                .disabled(isWorking)
-                .accessibilityIdentifier("onboarding.lifeWeave.eva.offline")
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .lifeBoardClaySurface(.raised, cornerRadius: 20)
-        .accessibilityIdentifier("onboarding.lifeWeave.eva.disclosure")
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("onboarding.lifeweave.reveal.powerUpInvitation")
     }
 
-    private func binding(for grant: EvaConsentPolicy.Grant) -> Binding<Bool> {
-        Binding(
-            get: { model.draft.resolvedEvaGrants.contains(grant) },
-            set: { onToggleGrant(grant, $0) }
-        )
+    private static func symbolName(for connector: LifeWeavePowerUpStep) -> String {
+        switch connector {
+        case .calendar: "calendar"
+        case .health: "heart.fill"
+        case .eva: "sparkles"
+        case .complete: "circle"
+        }
     }
 
     private var receipt: some View {

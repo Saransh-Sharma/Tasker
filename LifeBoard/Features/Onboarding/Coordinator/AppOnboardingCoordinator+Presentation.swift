@@ -209,9 +209,20 @@ extension AppOnboardingCoordinator {
     }
 
     private func deliverFinalizedDestination(_ destination: LifeWeaveCompletionDestination) {
+        // Home is posted first in every case, so the shell has a root to land on
+        // before a secondary destination pushes onto it.
         notificationCenter.post(name: .lifeboardOpenHomeDeepLink, object: nil)
-        if destination == .setupCenter {
+        switch destination {
+        case .home:
+            break
+        case .setupCenter:
             notificationCenter.post(name: .lifeboardOpenSetupCenterDeepLink, object: nil)
+        // The real EVA root, not an onboarding mock. The personalised opening
+        // prompts are already staged in `EvaOpeningPromptStore`, so no prompt is
+        // passed here — chat drains them once and the user sees their own
+        // context rather than a generic "How can I help?".
+        case .eva:
+            notificationCenter.post(name: .lifeboardOpenChatDeepLink, object: nil)
         }
         stateStore.markFinalizedDestinationDelivered()
     }

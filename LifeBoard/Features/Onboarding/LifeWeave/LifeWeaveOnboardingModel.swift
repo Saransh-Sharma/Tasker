@@ -320,7 +320,11 @@ final class LifeWeaveOnboardingModel: ObservableObject {
 
     @discardableResult
     func finalize(destination: LifeWeaveCompletionDestination) -> Bool {
+        // `.poweringUp` is a finishable phase: the optional connectors run after
+        // core is already committed and recorded, so ending from inside them is
+        // an ordinary exit rather than an abandoned setup.
         guard draft.resolvedLifecyclePhase == .revealReady
+                || draft.resolvedLifecyclePhase == .poweringUp
                 || draft.resolvedLifecyclePhase == .finalized else { return false }
         if draft.resolvedLifecyclePhase != .finalized {
             draft.selectedCompletionDestination = destination
@@ -362,6 +366,15 @@ final class LifeWeaveOnboardingModel: ObservableObject {
 
     func recordOpeningPrompts(_ prompts: [EvaStarterPrompt]) {
         openingPrompts = prompts
+    }
+
+    /// Records core completion without ending the journey.
+    ///
+    /// A deliberately narrow seam: the power-up extensions need this one effect
+    /// on `stateStore` and nothing else, so the store itself stays private and
+    /// no connector can start writing onboarding state directly.
+    func recordCoreCompletion() {
+        stateStore.completeCore(entryContext: draft.entryContext)
     }
 
     func mutateDraft(_ update: (inout LifeWeaveDraft) -> Void) {

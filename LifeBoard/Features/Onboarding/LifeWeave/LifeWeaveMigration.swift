@@ -77,7 +77,7 @@ enum LifeWeaveMigration {
     }
 
     /// Schema 8 had no explicit lifecycle. Infer only from durable facts, then
-    /// persist the result as schema 9 before the flow renders.
+    /// persist the result at the current schema before the flow renders.
     static func draft(fromEarlierSchema snapshot: LifeWeaveDraft) -> LifeWeaveDraft {
         var migrated = snapshot
         migrated.schemaVersion = LifeWeaveDraft.currentSchemaVersion
@@ -86,6 +86,12 @@ enum LifeWeaveMigration {
         }
         if migrated.evaActivationPending == nil {
             migrated.evaActivationPending = false
+        }
+        // Schema 10 and earlier had no power-up phase. `nil` is already the
+        // correct answer for `powerUpStep` — never entered — but the deferral
+        // list is seeded empty so later writes append rather than resurrect nil.
+        if migrated.deferredPowerUpIDs == nil {
+            migrated.deferredPowerUpIDs = []
         }
         migrated.lifecyclePhase = snapshot.lifecyclePhase ?? lifecyclePhase(forV8: snapshot)
         if migrated.lifecyclePhase == .revealReady { migrated.step = .reveal }

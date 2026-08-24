@@ -10,16 +10,27 @@ import SwiftUI
 /// a six-segment track instead, and gives VoiceOver the exact position that the
 /// sighted UI deliberately no longer spells out.
 struct LifeWeaveTopBar: View {
-    let step: LifeWeaveStep
+    let route: LifeWeaveRoute
     let canGoBack: Bool
     let onBack: () -> Void
 
+    private var progress: LifeWeaveProgressModel { .resolve(route) }
+
     private var showsBack: Bool {
+        switch route {
         // Nothing sits behind Arrival, and the reveal is past a successful
         // commit — stepping back into capture from there would offer to re-stage
         // a record that is already persisted.
-        guard step != .arrival, step != .reveal else { return false }
-        return canGoBack
+        case .core(let step):
+            guard step != .arrival, step != .reveal else { return false }
+            return canGoBack
+        // The first connector has the reveal behind it — a commit boundary — and
+        // the summary has a resolved system prompt behind it. Neither is
+        // somewhere to return to.
+        case .powerUp(let step):
+            guard step != .calendar, step != .complete else { return false }
+            return canGoBack
+        }
     }
 
     var body: some View {
@@ -36,17 +47,81 @@ struct LifeWeaveTopBar: View {
                 .accessibilityIdentifier(LifeWeaveAccessibilityID.backButton)
             }
             Spacer(minLength: 0)
-            if let index = step.coreIndex {
-                LifeWeaveProgressTrack(index: index, total: LifeWeaveStep.coreCount)
+            if let eyebrow = progress.eyebrow {
+                Text(eyebrow)
+                    .lifeboardFont(.eyebrow)
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
+                    .accessibilityHidden(true)
+            }
+            if let index = progress.index, let total = progress.total {
+                LifeWeaveProgressTrack(index: index, total: total)
                     .accessibilityIdentifier(LifeWeaveAccessibilityID.progress)
-                    .accessibilityLabel(Text("Step \(index) of \(LifeWeaveStep.coreCount), \(Self.stepName(step))"))
+                    .accessibilityLabel(Text(progress.spokenLabel ?? ""))
             }
         }
         .frame(height: 44)
     }
+}
 
-    /// Human names, not case names. VoiceOver reads this aloud.
-    private static func stepName(_ step: LifeWeaveStep) -> String {
+/// Position, in whichever vocabulary the current phase uses.
+///
+/// Two vocabularies rather than one running count. Continuing the core track as
+/// "7 of 10" would recast an explicitly optional phase as four more mandatory
+/// steps, which is the precise impression the Power-Up phase must not give. The
+/// core track stays six anonymous segments; the power-up track names itself.
+enum LifeWeaveProgressModel: Equatable {
+    case none
+    case core(index: Int, total: Int, name: String)
+    case powerUp(index: Int, total: Int, name: String)
+
+    static func resolve(_ route: LifeWeaveRoute) -> Self {
+        switch route {
+        case .core(let step):
+            guard let index = step.coreIndex else { return .none }
+            return .core(index: index, total: LifeWeaveStep.coreCount, name: coreName(step))
+        case .powerUp(let step):
+            guard let index = step.connectorIndex else { return .none }
+            return .powerUp(
+                index: index,
+                total: LifeWeavePowerUpStep.connectorCount,
+                name: step.spokenName
+            )
+        }
+    }
+
+    var index: Int? {
+        switch self {
+        case .none: nil
+        case .core(let index, _, _), .powerUp(let index, _, _): index
+        }
+    }
+
+    var total: Int? {
+        switch self {
+        case .none: nil
+        case .core(_, let total, _), .powerUp(_, let total, _): total
+        }
+    }
+
+    /// Shown only for the power-up phase. The core phase deliberately shows no
+    /// number at all — six segments say "nearly there" without implying a score.
+    var eyebrow: String? {
+        switch self {
+        case .none, .core: nil
+        case .powerUp(let index, let total, _): "POWER UP \(index) OF \(total)"
+        }
+    }
+
+    /// VoiceOver is told the exact position the sighted UI declines to spell out.
+    var spokenLabel: String? {
+        switch self {
+        case .none: nil
+        case .core(let index, let total, let name): "Core setup, step \(index) of \(total), \(name)"
+        case .powerUp(let index, let total, let name): "Power up, step \(index) of \(total), \(name)"
+        }
+    }
+
+    private static func coreName(_ step: LifeWeaveStep) -> String {
         switch step {
         case .arrival: "Welcome"
         case .intent: "What would feel lighter"
@@ -143,6 +218,17 @@ enum LifeWeaveAccessibilityID {
 
     static func step(_ step: LifeWeaveStep) -> String {
         "onboarding.lifeweave.step.\(step.identifierSuffix)"
+    }
+
+    static func powerUpStep(_ step: LifeWeavePowerUpStep) -> String {
+        "onboarding.lifeweave.powerup.\(step.identifierSuffix)"
+    }
+
+    static func route(_ route: LifeWeaveRoute) -> String {
+        switch route {
+        case .core(let coreStep): step(coreStep)
+        case .powerUp(let powerUp): powerUpStep(powerUp)
+        }
     }
 
     static func intent(_ id: String) -> String { "onboarding.lifeweave.intent.\(id)" }

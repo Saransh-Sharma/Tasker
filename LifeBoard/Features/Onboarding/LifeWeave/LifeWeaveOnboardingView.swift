@@ -16,8 +16,14 @@ struct LifeWeaveOnboardingView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var clayTrigger = 0
+    // The dock's titles are derived from connector state, and connector state
+    // does not live in the draft. Without these three the primary button would
+    // keep a stale label through a permission return, a first sync, or an EVA
+    // activation completing — none of which is a draft write.
     @StateObject private var evaAccess = EvaCloudAccessCoordinator.shared
-    @State private var isFinishingWithEva = false
+    @StateObject private var calendarSession = CalendarPowerUpSession.shared
+    @State private var healthStore = HealthCoordinator.shared.connectionStore
+    @State private var healthPowerUp = LifeWeaveHealthPowerUpState.shared
 
     /// The map yields before the copy does, always.
     ///
@@ -27,12 +33,17 @@ struct LifeWeaveOnboardingView: View {
     private var weaveHeightFraction: CGFloat {
         if dynamicTypeSize >= .accessibility3 { return 0 }
         if dynamicTypeSize >= .accessibility1 { return 0.11 }
-        switch model.step {
+        switch model.draft.route {
         // Arrival and Reveal are the two beats where the map *is* the content,
         // so they keep a little more room. Every question screen gives it back:
         // the map is there to acknowledge the answer, not to compete with it.
-        case .arrival, .reveal: return 0.22
-        default: return 0.16
+        case .core(.arrival), .core(.reveal): return 0.22
+        case .core: return 0.16
+        // The summary is a receipt about the map, so it earns the taller frame.
+        // The connectors are dense — primer, chooser, sync states — and the map
+        // has nothing to say about a permission sheet.
+        case .powerUp(.complete): return 0.22
+        case .powerUp: return 0.12
         }
     }
 
@@ -46,7 +57,9 @@ struct LifeWeaveOnboardingView: View {
     private func weaveHeight(in size: CGSize) -> CGFloat {
         let proportional = size.height * weaveHeightFraction
         guard horizontalSizeClass == .regular else { return proportional }
-        return min(proportional, model.step == .reveal ? 240 : 200)
+        let isTallBeat = model.draft.route == .core(.reveal)
+            || model.draft.route == .powerUp(.complete)
+        return min(proportional, isTallBeat ? 240 : 200)
     }
 
     var body: some View {
@@ -55,9 +68,9 @@ struct LifeWeaveOnboardingView: View {
             GeometryReader { proxy in
                 VStack(spacing: Theme.Spacing.md) {
                     LifeWeaveTopBar(
-                        step: model.step,
-                        canGoBack: model.previousStep != nil,
-                        onBack: model.goBack
+                        route: model.draft.route,
+                        canGoBack: model.canGoBackInFlow,
+                        onBack: model.goBackInFlow
                     )
 
                     if weaveHeightFraction > 0 {
@@ -100,44 +113,64 @@ struct LifeWeaveOnboardingView: View {
     @ViewBuilder
     private var stepContent: some View {
         Group {
-            switch model.step {
-            case .arrival:
-                LifeWeaveArrivalStep()
-            case .intent:
-                LifeWeaveIntentStep(model: model)
-            case .lifeAreas:
-                LifeWeaveLifeAreasStep(model: model)
-            case .dayShape:
-                LifeWeaveDayShapeStep(model: model)
-            case .firstCapture:
-                LifeWeaveCaptureStep(model: model)
-            case .reveal:
-                LifeWeaveRevealStep(
-                    model: model,
-                    cloudState: evaAccess.state,
-                    isWorking: isFinishingWithEva,
-                    errorMessage: evaAccess.errorMessage,
-                    onToggleGrant: model.toggleEvaGrant,
-                    onUseOffline: finishWithOfflineEva
-                )
+            switch model.draft.route {
+            case .core(let step): coreContent(step)
+            case .powerUp(let step): powerUpContent(step)
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(LifeWeaveAccessibilityID.step(model.step))
+        .accessibilityIdentifier(LifeWeaveAccessibilityID.route(model.draft.route))
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func coreContent(_ step: LifeWeaveStep) -> some View {
+        switch step {
+        case .arrival: LifeWeaveArrivalStep()
+        case .intent: LifeWeaveIntentStep(model: model)
+        case .lifeAreas: LifeWeaveLifeAreasStep(model: model)
+        case .dayShape: LifeWeaveDayShapeStep(model: model)
+        case .firstCapture: LifeWeaveCaptureStep(model: model)
+        case .reveal: LifeWeaveRevealStep(model: model)
+        }
+    }
+
+    @ViewBuilder
+    private func powerUpContent(_ step: LifeWeavePowerUpStep) -> some View {
+        switch step {
+        case .calendar: CalendarPowerUpView(model: model)
+        case .health: HealthPowerUpView(model: model)
+        case .eva: EvaPowerUpView(model: model)
+        case .complete: PowerUpSummaryView(model: model)
+        }
     }
 
     // MARK: - Dock
 
     private var primaryTitle: String {
-        switch model.step {
-        case .arrival: "Shape my LifeBoard"
-        case .intent: "Continue"
-        case .lifeAreas: "Shape my map"
-        case .dayShape: "Use this rhythm"
-        case .firstCapture: capturePrimaryTitle
-        case .reveal: isFinishingWithEva ? "Activating Cloud EVA…" : "Start with Cloud EVA"
+        switch model.draft.route {
+        case .core(.arrival): "Build my LifeBoard"
+        case .core(.intent): "Continue"
+        case .core(.lifeAreas): "Shape my map"
+        case .core(.dayShape): "Use this rhythm"
+        case .core(.firstCapture): capturePrimaryTitle
+        // No longer "Start with Cloud EVA". The reveal's job is to hand over a
+        // finished LifeBoard, not to spend the one dominant action on a network
+        // call that can fail.
+        case .core(.reveal): model.isPowerUpAvailable ? "Power up LifeBoard" : "Start my day"
+        // Each connector owns its own verbs, because the primary means something
+        // different in every one of its states.
+        case .powerUp(.calendar): model.calendarPrimaryTitle
+        case .powerUp(.health): model.healthPrimaryTitle
+        case .powerUp(.eva): model.evaPrimaryTitle
+        case .powerUp(.complete): summaryPrimaryTitle
         }
+    }
+
+    /// Only offered when EVA can actually answer. Routing someone to a planning
+    /// partner that is not ready would be a worse ending than Home.
+    private var summaryPrimaryTitle: String {
+        model.draft.evaCloudReady ? "Ask EVA where to start" : "Start my day"
     }
 
     /// The capture step's primary means three different things in sequence, and
@@ -158,19 +191,26 @@ struct LifeWeaveOnboardingView: View {
     }
 
     private var secondaryTitle: String? {
-        switch model.step {
-        case .firstCapture:
+        switch model.draft.route {
+        case .core(.firstCapture):
             model.draft.stagedCapture == nil && model.draft.skippedCapture == false ? "Skip for now" : nil
-        case .reveal: "Personalize more"
+        case .core(.reveal): model.isPowerUpAvailable ? "Start now" : nil
+        // Every connector is skippable — but each decides when offering "Not now"
+        // still makes sense. Once a system permission has been answered there is
+        // nothing left for this screen to decline.
+        case .powerUp(.calendar): model.calendarSecondaryTitle
+        case .powerUp(.health): model.healthSecondaryTitle
+        case .powerUp(.eva): model.evaSecondaryTitle
+        case .powerUp(.complete): model.draft.evaCloudReady ? "Start my day" : nil
         default: nil
         }
     }
 
     private var isPrimaryDisabled: Bool {
-        switch model.step {
-        case .intent: model.draft.intent == nil
-        case .lifeAreas: model.draft.isLifeAreaSelectionValid == false
-        case .firstCapture:
+        switch model.draft.route {
+        case .core(.intent): model.draft.intent == nil
+        case .core(.lifeAreas): model.draft.isLifeAreaSelectionValid == false
+        case .core(.firstCapture):
             // A resolved step — skipped, or reviewed — can always continue. Without
             // the `isCaptureResolved` term, "Skip for now" left the primary
             // disabled and stranded the user on the screen they had just declined.
@@ -178,7 +218,9 @@ struct LifeWeaveOnboardingView: View {
                 || (model.draft.isCaptureResolved == false
                     && model.draft.stagedCapture == nil
                     && model.captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        case .reveal: model.isCommitting || isFinishingWithEva || evaAccess.isWorking
+        case .powerUp(.calendar): model.isCalendarPrimaryDisabled
+        case .powerUp(.health): model.isHealthPrimaryDisabled
+        case .powerUp(.eva): model.isEvaPrimaryDisabled
         default: model.isCommitting
         }
     }
@@ -207,8 +249,17 @@ struct LifeWeaveOnboardingView: View {
                 }
             }
 
+            if case .powerUp(let powerUpStep) = model.draft.route {
+                await performPowerUpPrimary(powerUpStep)
+                return
+            }
+
             if model.step == .reveal {
-                finishWithCloudEva(destination: .home)
+                if model.isPowerUpAvailable {
+                    model.beginPowerUp()
+                } else if model.finalize(destination: .home) {
+                    onComplete(.home)
+                }
                 return
             }
 
@@ -216,39 +267,43 @@ struct LifeWeaveOnboardingView: View {
         }
     }
 
+    private func performPowerUpPrimary(_ step: LifeWeavePowerUpStep) async {
+        switch step {
+        case .calendar: await model.performCalendarPrimary()
+        case .health: await model.performHealthPrimary()
+        case .eva: await model.performEvaPrimary()
+        case .complete:
+            finishJourney(destination: model.draft.evaCloudReady ? .eva : .home)
+        }
+    }
+
+    private func finishJourney(destination: LifeWeaveCompletionDestination) {
+        // Reaching the summary having declined all three is still a decision,
+        // not an interruption, so Home must not ask again.
+        model.suppressHomeCardIfEverythingWasDeclined()
+        guard model.finalize(destination: destination) else { return }
+        onComplete(destination)
+    }
+
     private func performSecondary() {
-        switch model.step {
-        case .firstCapture:
+        switch model.draft.route {
+        case .core(.firstCapture):
             model.skipCapture()
-        case .reveal:
-            finishWithCloudEva(destination: .setupCenter)
+        case .core(.reveal):
+            // An explicit "not now" for everything, so Home shows no nag card.
+            if model.deferAllPowerUpsAndFinish() { onComplete(.home) }
+        // Not always a plain deferral: a connector may need to record an outcome
+        // or step out of a recovery state, so each owns what its secondary means.
+        case .powerUp(.calendar): model.performCalendarSecondary()
+        case .powerUp(.health): model.performHealthSecondary()
+        case .powerUp(.eva): model.performEvaSecondary()
+        case .powerUp(.complete):
+            finishJourney(destination: .home)
         default:
             break
         }
     }
 
-    private func finishWithCloudEva(destination: LifeWeaveCompletionDestination) {
-        guard isFinishingWithEva == false else { return }
-        isFinishingWithEva = true
-        Task { @MainActor in
-            let ready = await evaAccess.confirmAndActivate(
-                grants: model.draft.resolvedEvaGrants,
-                source: .onboarding
-            )
-            model.recordEvaActivation(ready: ready, pending: ready == false)
-            isFinishingWithEva = false
-            guard model.finalize(destination: destination) else { return }
-            onComplete(destination)
-        }
-    }
-
-    private func finishWithOfflineEva() {
-        guard isFinishingWithEva == false else { return }
-        evaAccess.selectOffline()
-        model.recordEvaActivation(ready: false, pending: false)
-        guard model.finalize(destination: .home) else { return }
-        onComplete(.home)
-    }
 }
 
 /// Failure keeps the user's work mounted and says what can be retried.
