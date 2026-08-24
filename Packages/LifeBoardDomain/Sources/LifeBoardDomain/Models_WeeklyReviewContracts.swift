@@ -13,6 +13,14 @@ public enum WeeklyReviewTaskDisposition: String, Codable, CaseIterable, Equatabl
     case drop
 }
 
+public enum WeeklyReviewMutationMode: String, Codable, CaseIterable, Equatable, Hashable, Sendable {
+    /// Legacy behavior: completing the review also applies every task decision.
+    case applyImmediately
+    /// EVA Weekly Reset behavior: record the review and build a separately
+    /// previewable, reversible planning proposal from its decisions.
+    case recordOnly
+}
+
 public struct WeeklyReviewTaskDecision: Codable, Equatable, Hashable, Sendable {
     public let taskID: UUID
     public let disposition: WeeklyReviewTaskDisposition
@@ -33,6 +41,7 @@ public struct CompleteWeeklyReviewRequest: Equatable, Sendable {
     public let taskDecisions: [WeeklyReviewTaskDecision]
     public let outcomeStatusesByOutcomeID: [UUID: WeeklyOutcomeStatus]
     public let completedAt: Date
+    public let mutationMode: WeeklyReviewMutationMode
 
     public init(
         weeklyPlanID: UUID,
@@ -43,7 +52,8 @@ public struct CompleteWeeklyReviewRequest: Equatable, Sendable {
         perceivedWeekRating: Int? = nil,
         taskDecisions: [WeeklyReviewTaskDecision] = [],
         outcomeStatusesByOutcomeID: [UUID: WeeklyOutcomeStatus] = [:],
-        completedAt: Date = Date()
+        completedAt: Date = Date(),
+        mutationMode: WeeklyReviewMutationMode = .applyImmediately
     ) {
         self.weeklyPlanID = weeklyPlanID
         self.wins = wins
@@ -54,6 +64,7 @@ public struct CompleteWeeklyReviewRequest: Equatable, Sendable {
         self.taskDecisions = taskDecisions
         self.outcomeStatusesByOutcomeID = outcomeStatusesByOutcomeID
         self.completedAt = completedAt
+        self.mutationMode = mutationMode
     }
 }
 

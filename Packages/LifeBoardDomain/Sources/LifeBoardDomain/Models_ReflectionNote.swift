@@ -5,6 +5,9 @@ public enum ReflectionNoteKind: String, Codable, CaseIterable, Hashable, Sendabl
     case weeklyReview
     case projectReflection
     case habitRecovery
+    /// Optional private prose captured while the user confirms a Friction
+    /// Detective finding. The structured reason lives in `FrictionFinding`.
+    case frictionFinding
     case freeform
     /// The one line written when a day is closed.
     ///

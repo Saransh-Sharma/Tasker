@@ -370,6 +370,18 @@ public protocol ReflectionNoteRepositoryProtocol: Sendable {
     func deleteNote(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
 }
 
+public protocol FrictionFindingRepositoryProtocol: Sendable {
+    func fetchFindings(
+        query: FrictionFindingQuery,
+        completion: @escaping @Sendable (Result<[FrictionFinding], Error>) -> Void
+    )
+    func saveFinding(
+        _ finding: FrictionFinding,
+        completion: @escaping @Sendable (Result<FrictionFinding, Error>) -> Void
+    )
+    func deleteFinding(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
+}
+
 public enum GamificationRepositoryWriteError: Error, Equatable {
     case idempotentReplay(idempotencyKey: String)
 }

@@ -46,6 +46,9 @@ public struct WeeklyReviewDraft: Codable, Equatable, Hashable, Sendable {
     public var perceivedWeekRating: Int?
     public var taskDecisions: [UUID: WeeklyReviewTaskDisposition]
     public var outcomeStatuses: [UUID: WeeklyOutcomeStatus]
+    public var evaResetChapterRaw: String?
+    public var selectedFrictionFindingIDs: [UUID]?
+    public var evaProposalActionRunID: UUID?
     public var updatedAt: Date
 
     public init(
@@ -57,6 +60,9 @@ public struct WeeklyReviewDraft: Codable, Equatable, Hashable, Sendable {
         perceivedWeekRating: Int? = nil,
         taskDecisions: [UUID: WeeklyReviewTaskDisposition] = [:],
         outcomeStatuses: [UUID: WeeklyOutcomeStatus] = [:],
+        evaResetChapterRaw: String? = nil,
+        selectedFrictionFindingIDs: [UUID]? = nil,
+        evaProposalActionRunID: UUID? = nil,
         updatedAt: Date = Date()
     ) {
         self.weekStartDate = weekStartDate
@@ -67,6 +73,9 @@ public struct WeeklyReviewDraft: Codable, Equatable, Hashable, Sendable {
         self.perceivedWeekRating = perceivedWeekRating
         self.taskDecisions = taskDecisions
         self.outcomeStatuses = outcomeStatuses
+        self.evaResetChapterRaw = evaResetChapterRaw
+        self.selectedFrictionFindingIDs = selectedFrictionFindingIDs
+        self.evaProposalActionRunID = evaProposalActionRunID
         self.updatedAt = updatedAt
     }
 }
