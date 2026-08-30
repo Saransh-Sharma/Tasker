@@ -62,16 +62,14 @@ struct HealthPowerUpView: View {
             // connected Health from a just-in-time prompt before reaching this
             // screen should see their receipt, not a primer for work they did.
             await healthStore.bootstrap()
+            if isFirstSyncRunning {
+                powerUpState.beginHandoffDeadline()
+            }
         }
-        .task(id: isFirstSyncRunning) {
-            guard isFirstSyncRunning else { return }
-            // One sleep, not a poll. The import runs under the store's own
-            // managed task and is not tied to this screen, so the only thing
-            // being timed here is how long we are willing to make someone wait
-            // before offering them the way out.
-            try? await Task.sleep(for: .seconds(8))
-            guard Task.isCancelled == false else { return }
-            powerUpState.isHandoffOffered = true
+        .onChange(of: isFirstSyncRunning) { _, isRunning in
+            if isRunning == false {
+                powerUpState.cancelHandoffDeadline()
+            }
         }
         .onChange(of: settledSummary) { _, summary in
             // One announcement when the screen settles. Announcing each metric as

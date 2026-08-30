@@ -38,7 +38,7 @@ struct LifeMapTourStep: View {
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .lifeBoardClaySurface(.raised, cornerRadius: 22)
+            .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)

@@ -34,7 +34,7 @@ struct LifeMapRevealStep: View {
                     .foregroundStyle(Color.lifeboard(.textPrimary))
                     .padding(Theme.Spacing.md + 2)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .lifeBoardClaySurface(.resting, cornerRadius: 18)
+                    .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
             }
 
             LifeMapHomePreview(placements: placements)
@@ -87,7 +87,7 @@ private struct LifeMapHomePreview: View {
         }
         .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.raised, cornerRadius: 22)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(LifeMapAccessibilityID.homePreview)
     }

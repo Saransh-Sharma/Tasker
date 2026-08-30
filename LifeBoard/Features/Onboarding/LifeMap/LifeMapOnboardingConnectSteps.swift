@@ -271,7 +271,7 @@ struct LifeMapConnectPitch: View {
                 .font(.lifeboard(.title1))
                 .foregroundStyle(Color.lifeboard(.accentPrimary))
                 .frame(width: 54, height: 54)
-                .lifeBoardClaySurface(.well, cornerRadius: 18)
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
             Text(headline)
                 .font(.lifeboard(.bodyStrong))
                 .foregroundStyle(Color.lifeboard(.textPrimary))
@@ -283,6 +283,6 @@ struct LifeMapConnectPitch: View {
         }
         .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.raised, cornerRadius: 22)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
     }
 }

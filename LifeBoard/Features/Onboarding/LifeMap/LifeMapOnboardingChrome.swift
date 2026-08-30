@@ -135,7 +135,7 @@ struct LifeMapTopBar: View {
                         .lifeboardFont(.headline)
                         .foregroundStyle(Color.lifeboard(.textPrimary))
                         .frame(width: 44, height: 44)
-                        .lifeBoardClaySurface(.resting, cornerRadius: 22)
+                        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
                 }
                 .accessibilityLabel("Back")
                 .accessibilityIdentifier(LifeMapAccessibilityID.backButton)
@@ -214,23 +214,19 @@ struct LifeMapPressButtonStyle: ButtonStyle {
     }
 }
 
+/// Onboarding's primary action, which is the app's primary action.
+///
+/// This drew a flat `Capsule` fill — the same defect the canonical
+/// `PrimaryActionStyle` had: the most important control on the screen was the
+/// flattest object on it, in a system whose premise is tactile material. It was
+/// also 52pt tall against the contract's 48 and faded to `.opacity(0.45)` when
+/// disabled, which drags the label under the contrast floor.
+///
+/// It delegates now, so onboarding's CTA and the rest of the app's are the same
+/// object rather than two things that happen to look similar.
 struct LifeMapPrimaryButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .lifeboardFont(.button)
-            .foregroundStyle(Color.lifeboard(.accentOnPrimary))
-            .frame(minHeight: 52)
-            .padding(.horizontal, Theme.Spacing.lg)
-            .frame(maxWidth: .infinity)
-            .background(
-                Color.lifeboard(configuration.isPressed ? .accentPrimaryPressed : .accentPrimary),
-                in: Capsule(style: .continuous)
-            )
-            .opacity(isEnabled ? 1 : 0.45)
-            .scaleEffect(configuration.isPressed ? 0.965 : 1)
-            .lifeBoardMotion(.press, value: configuration.isPressed)
+        PrimaryActionStyle().makeBody(configuration: configuration)
     }
 }
 
@@ -239,10 +235,13 @@ struct LifeMapSecondaryButtonStyle: ButtonStyle {
         configuration.label
             .lifeboardFont(.button)
             .foregroundStyle(Color.lifeboard(.textPrimary))
-            .frame(minHeight: 52)
-            .padding(.horizontal, Theme.Spacing.lg)
+            // Was 52pt tall at `cornerRadius: 26` — a radius the shape
+            // vocabulary does not contain, on a control that is visibly a
+            // capsule.
+            .frame(minHeight: 48)
+            .padding(.horizontal, 24)
             .frame(maxWidth: .infinity)
-            .lifeBoardClaySurface(.resting, cornerRadius: 26, isPressed: configuration.isPressed)
+            .lifeBoardClaySurface(.resting, cornerRadius: Radius.pill, isPressed: configuration.isPressed)
             .lifeBoardMotion(.press, value: configuration.isPressed)
     }
 }

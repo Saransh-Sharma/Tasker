@@ -75,7 +75,7 @@ struct LifeWeaveDayShapeStep: View {
             .foregroundStyle(Color.lifeboard(.textPrimary))
         }
         .padding(Theme.Spacing.md)
-        .lifeBoardClaySurface(.well, cornerRadius: 18)
+        .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
     }
 
     /// Derived from the locale, shown as a fact with a way to change it.
@@ -149,9 +149,9 @@ struct LifeWeaveCaptureStep: View {
                     // the text line itself, which is both unhittable in practice
                     // and under the 44-point target floor. Focus is driven
                     // explicitly so the whole well behaves like one control.
-                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                     .onTapGesture { isFocused = true }
-                    .lifeBoardClaySurface(.well, cornerRadius: 18)
+                    .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
                     .accessibilityIdentifier(LifeWeaveAccessibilityID.captureField)
                     .disabled(model.isResolvingCapture)
 

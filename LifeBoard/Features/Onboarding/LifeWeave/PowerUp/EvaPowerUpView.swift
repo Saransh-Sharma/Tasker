@@ -504,7 +504,7 @@ private struct EvaPowerUpDisclosureSection: View {
         }
         .tint(Color.lifeboard(.accentPrimary))
         .padding(Theme.Spacing.md)
-        .lifeBoardClaySurface(.resting, cornerRadius: 18)
+        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
         .accessibilityIdentifier(EvaPowerUpAccessibilityID.processing)
     }
 

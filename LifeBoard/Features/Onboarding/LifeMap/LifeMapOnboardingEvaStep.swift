@@ -98,7 +98,7 @@ struct LifeMapEvaStep: View {
             )
         }
         .padding(Theme.Spacing.lg)
-        .lifeBoardClaySurface(.resting, cornerRadius: 22)
+        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
         .accessibilityIdentifier(LifeMapAccessibilityID.evaRequirements)
     }
 

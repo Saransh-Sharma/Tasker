@@ -4,7 +4,6 @@ import UIKit
 struct SetupCenterView: View {
     @ObservedObject var settingsViewModel: SettingsViewModel
     @ObservedObject private var appManager: AppManager
-    let onOpenCalendarChooser: () -> Void
     let onNavigate: (SettingsDetailRoute) -> Void
 
     @Environment(\.scenePhase) private var scenePhase
@@ -14,16 +13,15 @@ struct SetupCenterView: View {
     @State private var expandedIntegration: SetupCenterIntegration?
     @State private var scrollTarget: String?
     @State private var showsHealthPrompt = false
+    @State private var showsCalendarChooser = false
     @State private var providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
 
     init(
         settingsViewModel: SettingsViewModel,
-        onOpenCalendarChooser: @escaping () -> Void,
         onNavigate: @escaping (SettingsDetailRoute) -> Void
     ) {
         self.settingsViewModel = settingsViewModel
         _appManager = ObservedObject(wrappedValue: settingsViewModel.assistantAppManager)
-        self.onOpenCalendarChooser = onOpenCalendarChooser
         self.onNavigate = onNavigate
     }
 
@@ -115,6 +113,19 @@ struct SetupCenterView: View {
                 onConfirm: connectHealth
             )
         }
+        .sheet(isPresented: $showsCalendarChooser) {
+            EventKitCalendarChooserContainerView(
+                service: settingsViewModel.calendarService,
+                initialSelectedCalendarIDs: settingsViewModel.selectedCalendarIDs,
+                requiresAtLeastOneSelection: true,
+                onCancel: {
+                    Task { await ProductTelemetry.shared.record(.connectorResult, outcome: "calendar_chooser_cancelled") }
+                },
+                onCommit: settingsViewModel.updateSelectedCalendarIDs
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
     }
 }
 
@@ -127,7 +138,7 @@ private extension SetupCenterView {
                     title: snapshot.recoveryAction.isEmpty ? "Checking calendars…" : snapshot.recoveryAction,
                     identifier: "setupCenter.calendar.action",
                     isEnabled: snapshot.state != .checking,
-                    action: handleCalendarAction
+                    action: { handleCalendarAction(snapshot.recoveryActionKind) }
                 )
                 .id("calendar.action")
             }
@@ -147,9 +158,14 @@ private extension SetupCenterView {
                         .accessibilityIdentifier("setupCenter.health.loading")
                 } else {
                     SetupCenterPrimaryAction(title: snapshot.recoveryAction, identifier: "setupCenter.health.action") {
-                        showsHealthPrompt = true
+                        handleHealthAction(snapshot.recoveryActionKind)
                     }
                     .id("health.action")
+                    if HealthAuthorizationPromptState.hasRequested {
+                        Button("Manage Health access") { openSystemSettings() }
+                            .buttonStyle(.lifeBoardChip)
+                            .accessibilityIdentifier("setupCenter.health.settings")
+                    }
                 }
             }
         }
@@ -249,18 +265,53 @@ private extension SetupCenterView {
         }
     }
 
-    func handleCalendarAction() {
+    func handleCalendarAction(_ action: SetupCenterRecoveryAction) {
         Task { await ProductTelemetry.shared.record(.connectorResult, outcome: "calendar_started") }
-        if settingsViewModel.calendarAuthorizationStatus.isAuthorizedForRead {
-            onOpenCalendarChooser()
-        } else {
+        switch action {
+        case .chooseCalendars:
+            settingsViewModel.calendarService.refreshContext(reason: "setup_center_chooser_requested")
+            showsCalendarChooser = true
+        case .refreshCalendars:
+            settingsViewModel.calendarService.refreshAuthorizationStatus()
+            settingsViewModel.calendarService.refreshContext(reason: "setup_center_retry")
+        case .openSystemSettings:
+            openSystemSettings()
+        case .requestCalendarAccess:
             settingsViewModel.requestCalendarPermission { granted in
                 Task { await ProductTelemetry.shared.record(.connectorResult, outcome: granted ? "calendar_permission_completed" : "calendar_permission_failed") }
                 guard granted else { return }
                 settingsViewModel.calendarService.refreshContext(reason: "setup_center_permission_granted")
-                onOpenCalendarChooser()
+                showsCalendarChooser = true
             }
+        case .none, .requestHealthAccess, .syncHealth:
+            break
         }
+    }
+
+    func handleHealthAction(_ action: SetupCenterRecoveryAction) {
+        switch action {
+        case .requestHealthAccess:
+            showsHealthPrompt = true
+        case .syncHealth:
+            Task {
+                await ProductTelemetry.shared.record(.connectorResult, outcome: "health_sync_retry_started")
+                await healthStore.syncNow()
+                await ProductTelemetry.shared.record(
+                    .connectorResult,
+                    outcome: healthStore.nonSensitiveErrorCode == nil ? "health_sync_retry_completed" : "health_sync_retry_failed",
+                    errorCode: healthStore.nonSensitiveErrorCode
+                )
+            }
+        case .openSystemSettings:
+            openSystemSettings()
+        case .none, .requestCalendarAccess, .chooseCalendars, .refreshCalendars:
+            break
+        }
+    }
+
+    func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 
     func connectHealth(_ selectedWritableDomains: Set<HealthDomain>) {
@@ -313,6 +364,10 @@ private extension SetupCenterView {
     }
 
     func refreshAll(selectRecommended: Bool) async {
+        settingsViewModel.calendarService.refreshAuthorizationStatus()
+        if settingsViewModel.calendarService.snapshot.authorizationStatus.isAuthorizedForRead {
+            settingsViewModel.calendarService.refreshContext(reason: "setup_center_refresh")
+        }
         settingsViewModel.reload()
         providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
         await healthStore.bootstrap()

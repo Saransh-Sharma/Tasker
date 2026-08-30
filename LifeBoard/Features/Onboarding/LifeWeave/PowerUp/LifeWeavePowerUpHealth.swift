@@ -248,12 +248,15 @@ final class LifeWeaveHealthPowerUpState {
     var lastAnnouncedSummary: String?
 
     @ObservationIgnored private var firstSyncGraceTask: Task<Void, Never>?
+    @ObservationIgnored private var handoffTask: Task<Void, Never>?
 
     /// Called when the screen appears, so a second pass through onboarding (or a
     /// step revisited by the back affordance) never inherits a stale spinner.
     func resetForVisit() {
         firstSyncGraceTask?.cancel()
         firstSyncGraceTask = nil
+        handoffTask?.cancel()
+        handoffTask = nil
         isAuthorizationInFlight = false
         isFirstSyncExpected = false
         isHandoffOffered = false
@@ -272,6 +275,26 @@ final class LifeWeaveHealthPowerUpState {
             guard Task.isCancelled == false else { return }
             self?.isFirstSyncExpected = false
         }
+    }
+
+    /// The handoff belongs to the onboarding state owner rather than the view.
+    /// SwiftUI may recreate the Health screen while HealthKit is importing; a
+    /// view-scoped task would then be cancelled and could leave Continue
+    /// disabled forever.
+    func beginHandoffDeadline(after duration: Duration = .seconds(8)) {
+        isHandoffOffered = false
+        handoffTask?.cancel()
+        handoffTask = Task { [weak self] in
+            try? await Task.sleep(for: duration)
+            guard Task.isCancelled == false else { return }
+            self?.isHandoffOffered = true
+            self?.handoffTask = nil
+        }
+    }
+
+    func cancelHandoffDeadline() {
+        handoffTask?.cancel()
+        handoffTask = nil
     }
 }
 
@@ -384,6 +407,7 @@ extension LifeWeaveOnboardingModel {
 
         state.isAuthorizationInFlight = false
         state.beginExpectingFirstSync()
+        state.beginHandoffDeadline()
 
         // Nothing is written to the draft on purpose. `grantedPermissionIDs`
         // would be a claim that read access was granted, and HealthKit never

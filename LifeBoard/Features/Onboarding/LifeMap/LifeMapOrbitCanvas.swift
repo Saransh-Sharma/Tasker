@@ -209,7 +209,7 @@ private struct LifeMapOrbitNode: View {
         .frame(width: node.kind == .root ? 70 : 78, height: node.kind == .root ? 52 : 50)
         .lifeBoardClaySurface(
             isSelected ? .raised : .resting,
-            cornerRadius: 18,
+            cornerRadius: Radius.card,
             fill: isSelected ? Color.lifeboard(.accentWash) : nil
         )
     }

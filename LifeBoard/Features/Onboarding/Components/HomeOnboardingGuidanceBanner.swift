@@ -38,9 +38,9 @@ struct HomeOnboardingGuidanceBanner: View {
             Spacer()
         }
         .padding(16)
-        .background(OnboardingTheme.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(OnboardingTheme.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(OnboardingTheme.border, lineWidth: 1)
         )
         .accessibilityIdentifier("home.onboarding.guide")

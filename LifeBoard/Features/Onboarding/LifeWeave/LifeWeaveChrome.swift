@@ -41,7 +41,7 @@ struct LifeWeaveTopBar: View {
                         .lifeboardFont(.headline)
                         .foregroundStyle(Color.lifeboard(.textPrimary))
                         .frame(width: 44, height: 44)
-                        .lifeBoardClaySurface(.resting, cornerRadius: 22)
+                        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
                 }
                 .accessibilityLabel("Back")
                 .accessibilityIdentifier(LifeWeaveAccessibilityID.backButton)
@@ -181,13 +181,13 @@ struct LifeWeaveChip: View {
                 .frame(minHeight: 44)
                 .lifeBoardClaySurface(
                     isSelected ? .raised : .resting,
-                    cornerRadius: 18,
+                    cornerRadius: Radius.card,
                     fill: isSelected ? Color.lifeboard(.accentWash) : nil
                 )
                 // Selection is shape and mark as well as fill, never fill alone —
                 // it has to survive grayscale and colour-vision differences.
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .stroke(Color.lifeboard(.accentPrimary), lineWidth: isSelected ? 2 : 0)
                 )
         }

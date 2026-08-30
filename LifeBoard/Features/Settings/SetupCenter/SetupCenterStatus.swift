@@ -52,13 +52,40 @@ enum SetupCenterConnectorState: Equatable, Sendable {
     }
 }
 
+enum SetupCenterRecoveryAction: Equatable, Sendable {
+    case none
+    case requestCalendarAccess
+    case chooseCalendars
+    case refreshCalendars
+    case openSystemSettings
+    case requestHealthAccess
+    case syncHealth
+}
+
 struct SetupCenterIntegrationSnapshot: Equatable, Sendable, Identifiable {
     let integration: SetupCenterIntegration
     let state: SetupCenterConnectorState
     let status: String
     let explanation: String
     let recoveryAction: String
+    let recoveryActionKind: SetupCenterRecoveryAction
     var id: SetupCenterIntegration { integration }
+
+    init(
+        integration: SetupCenterIntegration,
+        state: SetupCenterConnectorState,
+        status: String,
+        explanation: String,
+        recoveryAction: String,
+        recoveryActionKind: SetupCenterRecoveryAction = .none
+    ) {
+        self.integration = integration
+        self.state = state
+        self.status = status
+        self.explanation = explanation
+        self.recoveryAction = recoveryAction
+        self.recoveryActionKind = recoveryActionKind
+    }
 }
 
 struct SetupCenterStatus: Equatable, Sendable {
@@ -104,20 +131,20 @@ struct SetupCenterStatus: Equatable, Sendable {
 
     private static func resolveCalendar(authorization: CalendarAuthorizationStatus, selectedCalendarCount: Int, isLoading: Bool, error: String?) -> SetupCenterIntegrationSnapshot {
         if isLoading { return .init(integration: .calendar, state: .checking, status: "Checking", explanation: "LifeBoard is refreshing the calendars available on this device.", recoveryAction: "") }
-        if error?.isEmpty == false { return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "LifeBoard could not refresh your available calendars.", recoveryAction: "Retry") }
+        if error?.isEmpty == false { return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "LifeBoard could not refresh your available calendars.", recoveryAction: "Retry", recoveryActionKind: .refreshCalendars) }
         switch authorization {
         case .authorized where selectedCalendarCount > 0:
-            return .init(integration: .calendar, state: .ready, status: "Ready", explanation: "LifeBoard can plan around events from \(selectedCalendarCount) selected calendar\(selectedCalendarCount == 1 ? "" : "s").", recoveryAction: "Change calendars")
+            return .init(integration: .calendar, state: .ready, status: "Ready", explanation: "LifeBoard can plan around events from \(selectedCalendarCount) selected calendar\(selectedCalendarCount == 1 ? "" : "s").", recoveryAction: "Change calendars", recoveryActionKind: .chooseCalendars)
         case .authorized:
-            return .init(integration: .calendar, state: .actionRequired, status: "Choose calendars", explanation: "Access is allowed. Choose at least one calendar so planning has real context.", recoveryAction: "Choose calendars")
+            return .init(integration: .calendar, state: .actionRequired, status: "Choose calendars", explanation: "Access is allowed. Choose at least one calendar so planning has real context.", recoveryAction: "Choose calendars", recoveryActionKind: .chooseCalendars)
         case .notDetermined:
-            return .init(integration: .calendar, state: .notStarted, status: "Not set up", explanation: "Allow read access, then choose exactly which calendars LifeBoard may use.", recoveryAction: "Allow calendar access")
+            return .init(integration: .calendar, state: .notStarted, status: "Not set up", explanation: "Allow read access, then choose exactly which calendars LifeBoard may use.", recoveryAction: "Allow calendar access", recoveryActionKind: .requestCalendarAccess)
         case .denied:
-            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "Calendar access is off in iOS Settings.", recoveryAction: "Open iOS Settings")
+            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "Calendar access is off in iOS Settings.", recoveryAction: "Open iOS Settings", recoveryActionKind: .openSystemSettings)
         case .restricted:
-            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "Calendar access is restricted on this device.", recoveryAction: "Review restrictions")
+            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "Calendar access is restricted on this device.", recoveryAction: "Open iOS Settings", recoveryActionKind: .openSystemSettings)
         case .writeOnly:
-            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "LifeBoard can add events but cannot read your day.", recoveryAction: "Request full access")
+            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "LifeBoard can add events but cannot read your day.", recoveryAction: "Request full access", recoveryActionKind: .requestCalendarAccess)
         }
     }
 
@@ -127,18 +154,21 @@ struct SetupCenterStatus: Equatable, Sendable {
         let hasSuccessfulSync = values.contains { $0.lastSuccessfulSync != nil }
         let deniedEnabledWrite = values.contains { $0.writeEnabled && ($0.signal == .writeDenied || $0.writeAuthorizations.values.contains(.denied)) }
         let hasFailure = errorCode != nil || values.contains { [.unavailable, .offline].contains($0.signal) || ($0.signal == .partial && !hasObservableData) }
-        if deniedEnabledWrite || hasFailure {
-            return .init(integration: .health, state: .attention, status: "Needs attention", explanation: deniedEnabledWrite ? "A write-back option you enabled is denied in Apple Health." : "The latest Health sync could not produce usable local data.", recoveryAction: "Review Health access")
+        if deniedEnabledWrite {
+            return .init(integration: .health, state: .attention, status: "Needs attention", explanation: "A write-back option you enabled is denied in Apple Health.", recoveryAction: "Open iOS Settings", recoveryActionKind: .openSystemSettings)
+        }
+        if hasFailure {
+            return .init(integration: .health, state: .attention, status: "Needs attention", explanation: "The latest Health sync could not produce usable local data.", recoveryAction: "Retry sync", recoveryActionKind: .syncHealth)
         }
         if isRefreshing { return .init(integration: .health, state: .checking, status: "Requesting", explanation: "Apple Health authorization or sync is still in progress.", recoveryAction: "") }
-        if values.contains(where: { $0.signal == .protectedDataLocked }) { return .init(integration: .health, state: .waiting, status: "Waiting", explanation: "Health data is protected while the device is locked. LifeBoard will retry later.", recoveryAction: "") }
+        if values.contains(where: { $0.signal == .protectedDataLocked }) { return .init(integration: .health, state: .waiting, status: "Waiting", explanation: "Health data is protected while the device is locked. LifeBoard will retry later.", recoveryAction: "Retry sync", recoveryActionKind: .syncHealth) }
         if hasObservableData || hasSuccessfulSync || values.contains(where: { $0.readRequestState == .receivingData }) {
             let latest = values.compactMap(\.lastSuccessfulSync).max()
             let detail = latest.map { "Apple Health is active. Last synced \($0.formatted(date: .abbreviated, time: .shortened))." } ?? "Apple Health data has been observed on this device."
-            return .init(integration: .health, state: .ready, status: "Active", explanation: detail, recoveryAction: "Manage access")
+            return .init(integration: .health, state: .ready, status: "Active", explanation: detail, recoveryAction: "Sync now", recoveryActionKind: .syncHealth)
         }
-        if hasRequested { return .init(integration: .health, state: .waiting, status: "Access requested", explanation: "The system sheet completed. Apple does not reveal read denial, so LifeBoard waits until data is observed.", recoveryAction: "Review access") }
-        return .init(integration: .health, state: .notStarted, status: "Not requested", explanation: "Read supported wellness categories on-device. Write-back stays off unless you explicitly enable it.", recoveryAction: "Review Health access")
+        if hasRequested { return .init(integration: .health, state: .waiting, status: "Access requested", explanation: "The system sheet completed. Apple does not reveal read denial, so LifeBoard waits until data is observed.", recoveryAction: "Retry sync", recoveryActionKind: .syncHealth) }
+        return .init(integration: .health, state: .notStarted, status: "Not requested", explanation: "Read supported wellness categories on-device. Write-back stays off unless you explicitly enable it.", recoveryAction: "Review Health access", recoveryActionKind: .requestHealthAccess)
     }
 
     private static func resolveEva(accessState: EvaCloudAccessState, usesOfflineProvider: Bool, offlineModelReady: Bool) -> SetupCenterIntegrationSnapshot {

@@ -87,7 +87,7 @@ struct PowerUpSummaryView: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.resting, cornerRadius: 18)
+        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("onboarding.lifeweave.powerup.summary.grounding")
     }

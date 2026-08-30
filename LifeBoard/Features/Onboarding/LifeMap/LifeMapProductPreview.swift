@@ -25,7 +25,7 @@ struct LifeMapProductPreview: View {
                                 .foregroundStyle(Color.lifeboard(.textPrimary))
                                 .padding(Theme.Spacing.md + 2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .lifeBoardClaySurface(.raised, cornerRadius: 18)
+                                .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
                         }
                     }
                     Text("This is a read-only preview. Your Home uses only the areas and modules you chose.")

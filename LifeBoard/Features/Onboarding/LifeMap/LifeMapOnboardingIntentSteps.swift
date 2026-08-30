@@ -161,7 +161,7 @@ private struct LifeMapAreaTile: View {
             .padding(Theme.Spacing.md + 2)
             .lifeBoardClaySurface(
                 isSelected ? .raised : .resting,
-                cornerRadius: 22,
+                cornerRadius: Radius.card,
                 fill: isSelected ? Color.lifeboard(.accentWash) : nil
             )
         }
@@ -247,7 +247,7 @@ private struct LifeMapPriorityRow: View {
         .font(.lifeboard(.body))
         .foregroundStyle(Color.lifeboard(.textSecondary))
         .padding(Theme.Spacing.md + 2)
-        .lifeBoardClaySurface(.resting, cornerRadius: 18)
+        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
         .draggable(template.id)
         .dropDestination(for: String.self) { values, _ in
             guard let sourceID = values.first else { return false }

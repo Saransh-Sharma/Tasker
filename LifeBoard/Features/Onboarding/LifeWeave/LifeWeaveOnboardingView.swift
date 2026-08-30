@@ -322,7 +322,7 @@ private struct LifeWeaveErrorBanner: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.raised, cornerRadius: 18)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
         .accessibilityIdentifier(LifeWeaveAccessibilityID.errorBanner)
         .accessibilityElement(children: .combine)
     }

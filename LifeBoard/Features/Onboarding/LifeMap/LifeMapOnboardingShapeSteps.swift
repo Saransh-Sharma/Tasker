@@ -37,7 +37,7 @@ struct LifeMapCapacityStep: View {
             .foregroundStyle(Color.lifeboard(.textPrimary))
             .tint(Color.lifeboard(.accentPrimary))
             .padding(Theme.Spacing.lg)
-            .lifeBoardClaySurface(.resting, cornerRadius: 18)
+            .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
             .accessibilityIdentifier(LifeMapAccessibilityID.worksWeekends)
 
             if dayShape.worksWeekends {
@@ -292,7 +292,7 @@ private struct LifeMapCaptureReviewCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .lifeBoardHeroSurface(
             palette: DaypartTokens.appearancePalette(for: .morning, colorScheme: colorScheme),
-            cornerRadius: 22
+            cornerRadius: Radius.card
         )
         .lifeboardCardMorphWarp(origin: .topTrailing, trigger: cardMorphTrigger)
         .lifeboardContextLens(center: .topTrailing, trigger: cardMorphTrigger)
