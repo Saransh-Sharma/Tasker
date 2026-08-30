@@ -1,5 +1,14 @@
 import UIKit
 
+/// The shape vocabulary, which does not vary by device.
+///
+/// There used to be four layout-class variants with different radii, so a card
+/// was 18 points on a phone, 20 on a compact iPad and 22 on an expanded one —
+/// a third radius scale on top of `Radius` and `ClayDepth`. `DESIGN.md` is
+/// explicit that an iPad composition "grows through spacing and composition,
+/// not oversized type or empty card area": geometry is the constant a person
+/// recognises an object by across devices, so all four now resolve to the one
+/// contract vocabulary and `forLayout` is retained only as a stable call site.
 public struct CornerTokens: TokenGroup, Sendable {
     public let r0: CGFloat
     public let r1: CGFloat
@@ -31,58 +40,58 @@ public struct CornerTokens: TokenGroup, Sendable {
 
     public static let `default` = CornerTokens(
         r0: 0,
-        r1: 12,
-        r2: 14,
-        r3: 18,
-        r4: 22,
-        pill: 999,
-        card: 18,
-        input: 14,
-        chip: 999,
-        bottomBar: 28,
-        modal: 28
-    )
-
-    public static let padCompact = CornerTokens(
-        r0: 0,
-        r1: 12,
-        r2: 14,
-        r3: 18,
+        r1: 14,
+        r2: 16,
+        r3: 20,
         r4: 24,
         pill: 999,
         card: 20,
         input: 14,
         chip: 999,
         bottomBar: 30,
-        modal: 30
+        modal: 28
     )
 
-    public static let padRegular = CornerTokens(
+    public static let padCompact = CornerTokens(
         r0: 0,
-        r1: 12,
-        r2: 14,
-        r3: 18,
+        r1: 14,
+        r2: 16,
+        r3: 20,
         r4: 24,
         pill: 999,
         card: 20,
         input: 14,
         chip: 999,
-        bottomBar: 32,
-        modal: 32
+        bottomBar: 30,
+        modal: 28
+    )
+
+    public static let padRegular = CornerTokens(
+        r0: 0,
+        r1: 14,
+        r2: 16,
+        r3: 20,
+        r4: 24,
+        pill: 999,
+        card: 20,
+        input: 14,
+        chip: 999,
+        bottomBar: 30,
+        modal: 28
     )
 
     public static let padExpanded = CornerTokens(
         r0: 0,
-        r1: 12,
+        r1: 14,
         r2: 16,
         r3: 20,
-        r4: 26,
+        r4: 24,
         pill: 999,
-        card: 22,
-        input: 16,
+        card: 20,
+        input: 14,
         chip: 999,
-        bottomBar: 34,
-        modal: 34
+        bottomBar: 30,
+        modal: 28
     )
 
     /// Executes forLayout.

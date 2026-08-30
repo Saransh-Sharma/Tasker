@@ -26,12 +26,41 @@ public enum ClayDepth: String, CaseIterable, Sendable {
     /// One hero per screen, plus transient overlays.
     case floating
 
+    /// `DESIGN.md`'s shape vocabulary: 14 fields, 16 rows, 20 raised decisions,
+    /// 24 hero.
+    ///
+    /// `raised` was 18 — a value the contract does not contain, and only two
+    /// points from `resting`, which is not a difference anyone can see. It is
+    /// now the contract's 20.
+    ///
+    /// `floating` was 24 and has come down to the same 20. Twenty-four is the
+    /// hero radius, and `DESIGN.md` calls it "the continuity" between the card
+    /// that represents a surface, the hero it opens into, and the opaque
+    /// fallback that replaces it. A continuity only works if it is exclusive,
+    /// so no content plane may share it. Floating now separates from raised by
+    /// its shadow and its lit edge, which is what actually distinguishes height
+    /// in this material.
     public var cornerRadius: CGFloat {
         switch self {
         case .well: return 14
         case .resting: return 16
-        case .raised: return 18
-        case .floating: return 24
+        case .raised: return 20
+        case .floating: return 20
+        }
+    }
+
+    /// The body tone for this plane.
+    ///
+    /// `well` is carved below the canvas. `resting` and `raised` share the clay
+    /// body tone — they are the same material at different heights, and in a
+    /// physical model height changes the light and the shadow, not the pigment.
+    /// `floating` alone lifts to `surfaceRaised`, because it is near enough the
+    /// light source to catch more of it.
+    var fillToken: UIColor {
+        switch self {
+        case .well: return SemanticColorTokens.foundationSurfaceRecessed
+        case .resting, .raised: return SemanticColorTokens.foundationSurfaceSolid
+        case .floating: return SemanticColorTokens.foundationSurfaceRaised
         }
     }
 
@@ -42,7 +71,10 @@ public enum ClayDepth: String, CaseIterable, Sendable {
         case .well: return nil
         case .resting: return (radius: 4, y: 1, opacity: 0.5)
         case .raised: return (radius: 10, y: 5, opacity: 1.0)
-        case .floating: return (radius: 20, y: 10, opacity: 1.35)
+        // Deepened from (20, 10, 1.35). Floating used to be four points rounder
+        // than raised as well as taller; now that it shares the 20pt radius so
+        // the hero can own 24, the shadow carries the whole height difference.
+        case .floating: return (radius: 26, y: 13, opacity: 1.5)
         }
     }
 
@@ -87,6 +119,8 @@ public struct ClaySurfaceModifier: ViewModifier {
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.lifeBoardClayLightDaypart) private var lightDaypart
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(
         depth: ClayDepth,
@@ -104,8 +138,20 @@ public struct ClaySurfaceModifier: ViewModifier {
         content
             .background(claySurface)
             .overlay(hairline)
-            .modifier(SpecularRimModifier(depth: depth, cornerRadius: cornerRadius))
+            .modifier(
+                SpecularRimModifier(
+                    depth: depth,
+                    cornerRadius: cornerRadius,
+                    lightAngle: lightAngle
+                )
+            )
             .modifier(ClayDropShadow(depth: depth, isPressed: isPressed))
+    }
+
+    /// The sun for this surface, if the screen has told us where it is.
+    private var lightAngle: Angle {
+        guard let daypart = lightDaypart else { return .degrees(-60) }
+        return .degrees(daypart.specularLightAngleDegrees)
     }
 
     private var shape: RoundedRectangle {
@@ -113,9 +159,31 @@ public struct ClaySurfaceModifier: ViewModifier {
     }
 
     private var resolvedFill: Color {
-        fill ?? Color(depth == .well
-            ? SemanticColorTokens.foundationSurfaceRecessed
-            : SemanticColorTokens.foundationSurfaceSolid)
+        fill ?? Color(depth.fillToken)
+    }
+
+    /// Whether the fill is dark enough that the standard lit layers would
+    /// overwhelm it.
+    ///
+    /// `clayHighlight` is a near-opaque white inner shadow, which is right on a
+    /// warm paper surface and completely wrong on a cocoa pill — it would put a
+    /// white sheen across the top of the primary action. Real clay's lit edge is
+    /// a lighter version of the object's own colour, so on a dark body the
+    /// highlight has to retreat to a fraction of its strength. Scaling it here
+    /// rather than at the call site means every surface that passes a custom
+    /// `fill` gets the right material, not just the one that motivated it.
+    private var fillIsDark: Bool {
+        let traits = UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light)
+        var white: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard UIColor(resolvedFill).resolvedColor(with: traits).getWhite(&white, alpha: &alpha) else {
+            return false
+        }
+        return white < 0.5
+    }
+
+    private var highlightOpacity: CGFloat {
+        fillIsDark ? depth.innerHighlight.opacity * 0.22 : depth.innerHighlight.opacity
     }
 
     /// Under Reduce Transparency the soft inner layers are dropped entirely and
@@ -130,7 +198,7 @@ public struct ClaySurfaceModifier: ViewModifier {
                 resolvedFill
                     .shadow(.inner(
                         color: Color(SemanticColorTokens.clayHighlight)
-                            .opacity(depth.innerHighlight.opacity),
+                            .opacity(highlightOpacity),
                         radius: depth.innerHighlight.radius,
                         y: depth.innerHighlight.y
                     ))
@@ -150,12 +218,35 @@ public struct ClaySurfaceModifier: ViewModifier {
         isPressed ? min(1, depth.innerShade.opacity * 1.6) : depth.innerShade.opacity
     }
 
+    /// One edge per boundary.
+    ///
+    /// Raised clay used to carry the semantic hairline *and* the specular rim on
+    /// the identical boundary. `SpecularRimModifier` suppresses itself under
+    /// Increase Contrast for exactly this reason — "two competing edges on the
+    /// same boundary is worse than either alone" — and then the default path
+    /// drew both anyway. With the material rendering (see
+    /// `foundationSurfaceSolid`), the rim is the edge, and the hairline is
+    /// redundant outlining that made every card read as a bordered rectangle.
+    ///
+    /// The hairline still owns the boundary wherever the rim does not: on wells,
+    /// which are below the canvas plane and get no lit edge; and under Increase
+    /// Contrast and Reduce Transparency, where the rim stands down and boundary
+    /// clarity outranks material character.
+    @ViewBuilder
     private var hairline: some View {
-        shape.stroke(
-            Color(SemanticColorTokens.foundationHairline)
-                .opacity(contrast == .increased ? 1 : depth.strokeOpacity),
-            lineWidth: contrast == .increased ? 1.5 : 1
-        )
+        if drawsHairline {
+            shape.stroke(
+                Color(SemanticColorTokens.foundationHairline)
+                    .opacity(contrast == .increased ? 1 : depth.strokeOpacity),
+                lineWidth: contrast == .increased ? 1.5 : 1
+            )
+        }
+    }
+
+    private var drawsHairline: Bool {
+        depth == .well
+            || contrast == .increased
+            || usesFlatSurface
     }
 
     private var usesFlatSurface: Bool {
@@ -236,6 +327,7 @@ public struct ClayButtonStyle: ButtonStyle {
                 isPressed: configuration.isPressed
             )
             .scaleEffect(reduceMotion || configuration.isPressed == false ? 1 : 0.985)
+            .hoverEffect(.lift)
             .animation(
                 MotionProfile.press.animation(reduceMotion: reduceMotion),
                 value: configuration.isPressed
@@ -285,17 +377,39 @@ public struct PrimaryActionStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Color.lifeboard(.onAccent, on: .accent))
-            .frame(maxWidth: expands ? .infinity : nil, minHeight: 44)
-            .padding(.horizontal, 14)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(fill ?? Color.lifeboard(.actionPrimary))
-                    .opacity(configuration.isPressed ? 0.88 : 1)
+            // `DESIGN.md`'s `primary-action`: button typography, 48pt tall, xl
+            // padding. This was `.subheadline` (about 15pt) at 44pt with 14pt
+            // padding — a raw font inside the canonical primitive, and three
+            // metrics adrift from the contract.
+            .lifeboardFont(.button)
+            .foregroundStyle(
+                isEnabled
+                    ? Color.lifeboard(.onAccent, on: .accent)
+                    : Color.lifeboard(.textTertiary)
             )
-            .opacity(isEnabled ? 1 : 0.45)
+            .frame(maxWidth: expands ? .infinity : nil, minHeight: 48)
+            .padding(.horizontal, 24)
+            // The primary action is the most important control on the screen and
+            // it used to be the flattest object in the app: a bare filled
+            // capsule with no inner layers, no lit edge and no shadow, in a
+            // system whose whole premise is tactile material. It is clay now,
+            // and it presses like clay.
+            .lifeBoardClaySurface(
+                .raised,
+                cornerRadius: Radius.pill,
+                fill: isEnabled
+                    ? (fill ?? Color.lifeboard(.actionPrimary))
+                    : Color.lifeboard(.surfaceSecondary),
+                isPressed: configuration.isPressed
+            )
             .scaleEffect(reduceMotion || configuration.isPressed == false ? 1 : 0.98)
+            // `DESIGN.md` iPad: "Pointer targets, hover treatment, keyboard
+            // focus, and root shortcuts are part of the design." There were 12
+            // `.hoverEffect` call sites in the entire app and none of them was
+            // in a control style, so almost nothing responded to a pointer.
+            // Applying it here gives every button built on this style pointer
+            // treatment at once; it is inert on a touch-only device.
+            .hoverEffect(.lift)
             .animation(
                 MotionProfile.press.animation(reduceMotion: reduceMotion),
                 value: configuration.isPressed
@@ -363,23 +477,36 @@ public extension View {
 /// on one line and lets the caller stack the row when it genuinely will not fit.
 public struct ChipButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.footnote.weight(.semibold))
-            .lineLimit(1)
-            .fixedSize()
+            .lifeboardFont(.buttonSmall)
+            // `.lineLimit(1)` with `.fixedSize()` meant the label could never
+            // wrap: at accessibility text sizes the chip grew straight out of
+            // whatever contained it instead of reflowing. It may take a second
+            // line now, and only refuses to compress below its intrinsic width
+            // at ordinary sizes, which is what stopped "+2 50" and "Tar- get".
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 12)
-            .frame(minHeight: 34)
+            // Was 34, below the 44pt floor `DESIGN.md` sets for every
+            // interactive target.
+            .frame(minHeight: 44)
+            // Was `.well`. A well is carved *into* the canvas, which is the
+            // wrong read for something you press: an action should start raised
+            // and compress under the finger, and `isPressed` already deepens the
+            // contact shade to sell that.
             .lifeBoardClaySurface(
-                .well,
+                .resting,
                 cornerRadius: Radius.pill,
                 isPressed: configuration.isPressed
             )
             .contentShape(Capsule())
             .scaleEffect(reduceMotion || configuration.isPressed == false ? 1 : 0.97)
+            .hoverEffect(.lift)
             .animation(
                 MotionProfile.press.animation(reduceMotion: reduceMotion),
                 value: configuration.isPressed

@@ -33,10 +33,24 @@ public extension SemanticColorTokens {
     /// the boundary, and it is what separates a soft solid catching light from
     /// a flat tinted rectangle. Weaker in the dark composition, where a bright
     /// edge reads as moulded plastic rather than clay.
+    ///
+    /// The light value used to be `#FFFDF7` at 0.6 — the *same hex as the card
+    /// it was drawn on*, at an alpha six times higher than the surface could
+    /// absorb. `SpecularRimModifier` composites in `.plusLighter`, so a rim can
+    /// only brighten by the distance from the surface to white: on the old
+    /// `#FFFDF7` fill that was 3.3 of 255, and every stop of the falloff
+    /// gradient clipped to flat white before it could grade.
+    ///
+    /// Now that `foundationSurfaceSolid` is seated at `#FBF3E2` the rim has 15
+    /// of 255 to work with. The alpha is deliberately low: the blue channel
+    /// saturates at 0.114, so anything above ~0.14 paints the whole lit quadrant
+    /// a uniform white and destroys the falloff that makes the form read as
+    /// curved. At 0.14 the lit point reaches white — a specular highlight is
+    /// meant to blow out — and the falloff grades warm through `#FFFFF0`.
     static let claySpecularRim = UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(lifeboardHex: "#F8EEDC", alpha: 0.22)
-            : UIColor(lifeboardHex: "#FFFDF7", alpha: 0.6)
+            : UIColor(lifeboardHex: "#FFFFFF", alpha: 0.14)
     }
 
     /// The veil between the scenic atmosphere and a hero surface's content.

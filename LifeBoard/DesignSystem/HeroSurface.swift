@@ -190,17 +190,48 @@ public struct HeroSurfaceModifier: ViewModifier {
         let traits = UITraitCollection { mutable in
             mutable.userInterfaceStyle = colorScheme == .dark ? .dark : .light
         }
-        // The scene immediately behind a hero is the daypart canvas, which is
-        // also the brightest thing it ever sits on.
-        let scene = palette.uiColor(for: .canvas)
-        return HeroContrastFloor.scrimOpacity(
-            scene: scene,
-            scrim: SemanticColorTokens.heroScrim,
-            ink: SemanticColorTokens.inkPrimary,
-            base: 0,
-            ratio: HeroContrastFloor.bodyRatio,
-            traits: traits
-        )
+
+        // `DESIGN.md`: the scrim is measured "across the scene's full luminance
+        // range". This used to measure the daypart *canvas* alone, on the stated
+        // assumption that the canvas is "the brightest thing it ever sits on" —
+        // which is not true. A hero floats over the scenic atmosphere, and the
+        // celestial body and its highlight are considerably brighter than the
+        // canvas behind them. A hero that happens to sit under the sun was
+        // getting a scrim sized for the sky.
+        //
+        // Every stop the scene can put behind the hero, so the worst case is
+        // measured rather than assumed.
+        let sceneStops: [DaypartColorRole] = [
+            .canvas, .canvasSecondary, .layerOne, .layerTwo,
+            .celestialPrimary, .celestialCore, .decorativeHighlight
+        ]
+
+        // Both inks, not just the primary. The hero renders its context line,
+        // its status and its metric footnote in `inkSecondary`, which is lighter
+        // than `inkPrimary` and therefore needs *more* veil to clear the same
+        // floor — so sizing the scrim for the title alone left the supporting
+        // line below the body floor on exactly the bright scenes that need it
+        // most.
+        let inks: [(UIColor, Double)] = [
+            (SemanticColorTokens.inkPrimary, HeroContrastFloor.bodyRatio),
+            (SemanticColorTokens.inkSecondary, HeroContrastFloor.bodyRatio)
+        ]
+
+        var required = 0.0
+        for stop in sceneStops {
+            let scene = palette.uiColor(for: stop)
+            for (ink, ratio) in inks {
+                required = max(required, HeroContrastFloor.scrimOpacity(
+                    scene: scene,
+                    scrim: SemanticColorTokens.heroScrim,
+                    ink: ink,
+                    base: 0,
+                    ratio: ratio,
+                    traits: traits
+                ))
+            }
+        }
+        return required
     }
 }
 

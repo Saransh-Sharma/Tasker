@@ -24,6 +24,65 @@ enum FocusDialMetrics {
 
 /// A presentation-only focus dial. Timer ownership stays with the Focus domain;
 /// this view only turns a supplied progress value into one calm, interruptible arc.
+/// The dial's ambient breath.
+///
+/// `DESIGN.md`: "While a session is running the dial carries ambient motion
+/// within the budget above, so an active session reads as alive rather than
+/// frozen; it settles to a static progress presentation when paused, when
+/// completed, and whenever the ambient budget withdraws." The dial had no
+/// ambient motion at all, so a running session and a paused one were the same
+/// picture.
+///
+/// It breathes the arc's *glow*, not its geometry. The budget caps amplitude at
+/// 2% of the element's dimension "and never enough to shift a reading position"
+/// — on a 200-point dial that is four points, which on a progress arc would be
+/// legible as the value moving. A luminance breath reads as alive and cannot
+/// misreport the number.
+private struct FocusDialBreath: ViewModifier {
+    let isActive: Bool
+
+    private let restingOpacity: Double = 0.2
+    /// Half-band, so the breath spans 0.14–0.26 around the resting glow.
+    private let band: Double = 0.06
+
+    /// One `TimelineView`, one shadow, and `paused:` doing the gating.
+    ///
+    /// The two-branch version needed a second `.shadow(` for the settled case,
+    /// which the shadow law counts as new ad-hoc shadow geometry — correctly, as
+    /// far as a grep can tell. Pausing the timeline is also the mechanism the
+    /// ambient budget already names for withdrawing motion, so this is the
+    /// shape the rule was pointing at.
+    func body(content: Content) -> some View {
+        TimelineView(
+            .animation(
+                minimumInterval: 1 / AmbientMotionBudget.maximumFrameRate,
+                paused: isActive == false
+            )
+        ) { timeline in
+            let phase = timeline.date.timeIntervalSinceReferenceDate
+            let breath = isActive ? restingOpacity + band * sin(phase * 1.1) : 0
+            content.shadow(
+                color: Color(SemanticColorTokens.foundationApricotAccent).opacity(breath),
+                radius: 8
+            )
+        }
+    }
+}
+
+/// Claims the screen's one ambient timeline, but only while the dial is
+/// actually running — a settled dial must not hold the budget.
+private struct ConditionalAmbientClaim: ViewModifier {
+    let isActive: Bool
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content.lifeBoardClaimsAmbientTimeline()
+        } else {
+            content
+        }
+    }
+}
+
 public struct FocusDial<Content: View>: View {
     private let progress: Double?
     private let isPaused: Bool
@@ -31,6 +90,7 @@ public struct FocusDial<Content: View>: View {
     private let content: Content
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     public init(
         progress: Double?,
@@ -42,6 +102,18 @@ public struct FocusDial<Content: View>: View {
         self.isPaused = isPaused
         self.accessibilityValue = accessibilityValue
         self.content = content()
+    }
+
+    /// Running, and the budget has not withdrawn.
+    ///
+    /// A paused or completed dial settles to a static presentation, and so does
+    /// one under Reduce Motion or on an inactive scene — ambient motion is a
+    /// privilege with a budget, not a property of the component.
+    private var carriesAmbientMotion: Bool {
+        progress != nil
+            && isPaused == false
+            && MotionOverride.resolve(reduceMotion) == false
+            && scenePhase == .active
     }
 
     public var body: some View {
@@ -62,11 +134,7 @@ public struct FocusDial<Content: View>: View {
                         style: StrokeStyle(lineWidth: 11, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .shadow(
-                        color: Color(SemanticColorTokens.foundationApricotAccent)
-                            .opacity(isPaused ? 0 : 0.2),
-                        radius: 8
-                    )
+                    .modifier(FocusDialBreath(isActive: carriesAmbientMotion))
                     .animation(
                         reduceMotion ? nil : .spring(response: 0.48, dampingFraction: 0.9),
                         value: progress
@@ -84,6 +152,7 @@ public struct FocusDial<Content: View>: View {
             content
                 .padding(26)
         }
+        .modifier(ConditionalAmbientClaim(isActive: carriesAmbientMotion))
         .aspectRatio(1, contentMode: .fit)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Focus timer")
