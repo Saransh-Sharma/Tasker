@@ -122,7 +122,19 @@ enum TokenBridge {
         "foundationCanvas",
         "foundationDanger",
         "foundationHairline",
-        "foundationFocusRing"
+        "foundationFocusRing",
+
+        // Converged when the clay material was reseated. These three are the
+        // physical surface planes, and both vocabularies draw cards onto the
+        // same screens — so when the foundation statics moved to give the
+        // specular rim its headroom and the semantic roles stayed behind, the
+        // app had two different card colours side by side. They are now pinned
+        // equal by `ClayMaterialContrastTests`, which is a stronger guarantee
+        // than this set: it asserts they *must* agree rather than recording
+        // that they happen to.
+        "foundationSurfaceSolid",
+        "foundationSurfaceRecessed",
+        "foundationSurfaceSelected"
     ]
 
     /// Everything else with a role: the migration target is known, but the two

@@ -109,9 +109,11 @@ public struct SemanticTypographyTokens: TokenGroup {
 
         switch style {
         case .heroDisplay:
-            return Spec(textStyle: .largeTitle, pointSize: scaled(32), weight: .bold, maximumPointSize: scaled(42), rounded: false, monospaced: false)
+            // DESIGN.md display: 34/700.
+            return Spec(textStyle: .largeTitle, pointSize: scaled(34), weight: .bold, maximumPointSize: scaled(44), rounded: false, monospaced: false)
         case .screenTitle:
-            return Spec(textStyle: .title1, pointSize: scaled(28), weight: .semibold, maximumPointSize: scaled(34), rounded: false, monospaced: false)
+            // DESIGN.md screen-title: 28/700. The weight was semibold.
+            return Spec(textStyle: .title1, pointSize: scaled(28), weight: .bold, maximumPointSize: scaled(34), rounded: false, monospaced: false)
         case .sectionTitle:
             return Spec(textStyle: .title3, pointSize: scaled(20), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
         case .eyebrow:
@@ -123,15 +125,19 @@ public struct SemanticTypographyTokens: TokenGroup {
         case .title2:
             return Spec(textStyle: .title2, pointSize: scaled(18), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
         case .title3:
-            return Spec(textStyle: .headline, pointSize: scaled(16), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
+            // Raised with body: an emphasis role must not end up smaller than
+            // the body text it emphasises.
+            return Spec(textStyle: .headline, pointSize: scaled(17), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
         case .headline:
-            return Spec(textStyle: .headline, pointSize: scaled(16), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
+            return Spec(textStyle: .headline, pointSize: scaled(17), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
         case .body:
-            return Spec(textStyle: .body, pointSize: scaled(16), weight: .regular, maximumPointSize: nil, rounded: false, monospaced: false)
+            // DESIGN.md body: 17/400. The whole body tier shipped a point short.
+            return Spec(textStyle: .body, pointSize: scaled(17), weight: .regular, maximumPointSize: nil, rounded: false, monospaced: false)
         case .bodyStrong:
-            return Spec(textStyle: .body, pointSize: scaled(16), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
+            // DESIGN.md body-strong: 17/600.
+            return Spec(textStyle: .body, pointSize: scaled(17), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
         case .bodyEmphasis:
-            return Spec(textStyle: .body, pointSize: scaled(16), weight: .medium, maximumPointSize: nil, rounded: false, monospaced: false)
+            return Spec(textStyle: .body, pointSize: scaled(17), weight: .medium, maximumPointSize: nil, rounded: false, monospaced: false)
         case .support:
             return Spec(textStyle: .subheadline, pointSize: scaled(15), weight: .regular, maximumPointSize: nil, rounded: false, monospaced: false)
         case .meta:
@@ -139,7 +145,9 @@ public struct SemanticTypographyTokens: TokenGroup {
         case .callout:
             return Spec(textStyle: .callout, pointSize: scaled(14), weight: .regular, maximumPointSize: nil, rounded: false, monospaced: false)
         case .metric:
-            return Spec(textStyle: .title2, pointSize: scaled(24), weight: .bold, maximumPointSize: scaled(32), rounded: true, monospaced: false)
+            // DESIGN.md metric: 28/700 SF Pro Rounded. A screen's largest number
+            // was rendering four points smaller than the contract.
+            return Spec(textStyle: .title2, pointSize: scaled(28), weight: .bold, maximumPointSize: scaled(36), rounded: true, monospaced: false)
         case .monoMeta:
             return Spec(textStyle: .caption1, pointSize: scaled(12), weight: .medium, maximumPointSize: nil, rounded: false, monospaced: true)
         case .caption1:
@@ -147,7 +155,8 @@ public struct SemanticTypographyTokens: TokenGroup {
         case .caption2:
             return Spec(textStyle: .caption2, pointSize: scaled(12), weight: .regular, maximumPointSize: nil, rounded: false, monospaced: false)
         case .button:
-            return Spec(textStyle: .body, pointSize: scaled(16), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
+            // DESIGN.md button: 17/600.
+            return Spec(textStyle: .body, pointSize: scaled(17), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
         case .buttonSmall:
             return Spec(textStyle: .callout, pointSize: scaled(14), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
         }

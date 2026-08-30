@@ -261,17 +261,38 @@ public extension SemanticColorTokens {
     static let foundationCanvas = UIColor { traits in
         UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#151B2D" : "#FFF7D8")
     }
+    /// A quietly lifted background band. The dark value used to be `#24243B`,
+    /// byte-identical to `foundationSurfaceSolid`, so any card resting on a soft
+    /// canvas in dark appearance was separated from it by nothing but the
+    /// hairline.
     static let foundationCanvasSoft = UIColor { traits in
-        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#24243B" : "#FAF2DA")
+        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#1B2133" : "#FAF2DA")
     }
+    /// A muted canvas region. The dark value used to be `#343754`, byte-identical
+    /// to `foundationSurfaceSelected`, so a selected control sitting on a muted
+    /// canvas was invisible. It now also stays below `foundationSurfaceSolid` in
+    /// value, because a background must never read as more elevated than a card.
     static let foundationCanvasMuted = UIColor { traits in
-        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#343754" : "#F5ECC9")
+        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#23273D" : "#F5ECC9")
     }
+    /// Carved below the canvas plane: fields, progress tracks, embedded controls.
+    /// Deepened in light from `#F5EBCB` so the well still reads as inset now that
+    /// `foundationSurfaceSolid` no longer sits at the top of the value range.
     static let foundationSurfaceRecessed = UIColor { traits in
-        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#20233A" : "#F5EBCB")
+        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#20233A" : "#F2E6C4")
     }
+    /// Selection. Pulled clear of `foundationSurfaceRecessed` in light — they
+    /// were 0.4 of a value step apart, so a selected chip and a plain well
+    /// looked identical — and clear of `foundationCanvasMuted` in dark, where
+    /// they were the same hex.
+    ///
+    /// Selection reads *lighter* than the well rather than darker, which is
+    /// also what keeps `inkTertiary` above its 3:1 metadata floor here. The
+    /// light palette has very little room at that floor: `inkTertiary` clears
+    /// it by only 0.10 on `foundationSurfaceRecessed`, so any surface that
+    /// darkens breaks legibility before it looks wrong.
     static let foundationSurfaceSelected = UIColor { traits in
-        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#343754" : "#F2E7C2")
+        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#3A3D5E" : "#F8EED0")
     }
     static let foundationSunAccent = UIColor(lifeboardHex: "#F0CD87")
     /// Cocoa ink is the verified foreground for every celestial/daypart accent,
@@ -312,8 +333,37 @@ public extension SemanticColorTokens {
     static let inkTertiary = UIColor { traits in
         UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#A9A39A" : "#8D806E")
     }
+    /// The body tone of clay.
+    ///
+    /// The light value was `#FFFDF7` — luminance 0.982, i.e. 98% of maximum. A
+    /// surface that close to white has no headroom above it, and the two lit
+    /// layers of the clay material both live in that headroom: `clayHighlight`
+    /// is an inner shadow toward white, and the specular rim is a `.plusLighter`
+    /// stroke whose entire effect is bounded by the distance to white. On
+    /// `#FFFDF7` the rim could only ever shift the surface by 3.3 of 255 before
+    /// saturating, which is why every "raised clay card" in the app rendered as
+    /// a flat white rectangle with a drop shadow and an outline.
+    ///
+    /// Seated at `#FBF3E2` the same rim moves 15.0 — 4.5× the range — and the
+    /// inner highlight moves 13.7 instead of 3. Ink stays at 14.26:1 and
+    /// secondary ink at 5.37:1, both far above the 4.5:1 body floor.
+    ///
+    /// The surface is now marginally *below* the canvas in luminance and differs
+    /// from it mostly in hue. That is deliberate and is the claymorphic model:
+    /// on a bright cream ground a soft solid reads as raised through its lit
+    /// edge and its contact shadow, not by being whiter than the paper.
     static let foundationSurfaceSolid = UIColor { traits in
-        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#24243B" : "#FFFDF7")
+        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#282A44" : "#FBF3E2")
+    }
+
+    /// One step nearer the light than `foundationSurfaceSolid`.
+    ///
+    /// `DESIGN.md` names `surface-raised` and the whole hero/raised-clay chapter
+    /// is written against it, but it had no counterpart in code at all. Used for
+    /// the floating plane and for the hero's opaque fallback, which must read as
+    /// the topmost object on the screen without reaching for glass.
+    static let foundationSurfaceRaised = UIColor { traits in
+        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#2F3150" : "#FDF7E9")
     }
     static let foundationHairline = UIColor { traits in
         let dark = traits.accessibilityContrast == .high ? "#777C9B" : "#4D526D"
@@ -376,15 +426,33 @@ public enum Typography {
 }
 
 public enum Radius {
-    public static let compact: CGFloat = 12
-    public static let card: CGFloat = 16
-    public static let largeCard: CGFloat = 22
+    /// `DESIGN.md` "Shapes": 14 fields and wells, 16 interactive rows, 20 raised
+    /// decisions, 24 the hero, 28 sheets, 30 dock and composer, plus the pill.
+    ///
+    /// Three of these were off that vocabulary entirely. `compact` was 12 and
+    /// `largeCard` 22 — values the contract does not contain — and `card`, the
+    /// name 54 call sites reach for when they mean "a card", resolved to the
+    /// *row* radius. The contract's 20 existed nowhere in the token layer at
+    /// all, which is why 136 call sites hardcoded 18 or 22: they were reading
+    /// the tokens correctly and the tokens were wrong.
+    public static let field: CGFloat = 14
+    public static let row: CGFloat = 16
+    /// Retained name, corrected value: 16 was the row radius.
+    public static let card: CGFloat = 20
+    /// Was 22. Folded onto the raised radius rather than deleted, because nine
+    /// call sites mean "a card" by it; 24 is reserved for the hero.
+    public static let largeCard: CGFloat = 20
+    /// Was 12.
+    public static let compact: CGFloat = 14
     /// The hero silhouette, shared by the card that represents a surface, the
     /// hero it becomes when opened, and the opaque fallback that replaces it
     /// under reduced transparency. `DESIGN.md`: at this size radius is not a
     /// decorative choice, it is the continuity across the transition.
     public static let hero: CGFloat = 24
     public static let modal: CGFloat = 28
+    /// The dock and composer cluster. `RadiusTokens.dock` used to alias `modal`,
+    /// so the floating chrome was two points off the contract.
+    public static let dock: CGFloat = 30
     public static let pill: CGFloat = 999
 }
 

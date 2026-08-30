@@ -289,11 +289,25 @@ public struct SemanticColorTokens: TokenGroup, @unchecked Sendable {
 
         let bgCanvas = adaptive(light: "#FFF7D8", dark: "#151B2D")
         let bgCanvasSecondary = adaptive(light: "#FAF2DA", dark: "#111624")
-        let bgElevated = adaptive(light: "#FFFDF7", dark: "#1C2338")
+        // These four are the same physical planes as the `foundation*` surface
+        // statics and must resolve to the same colours, because both
+        // vocabularies draw cards onto the same screens. `ClaySurfaceModifier`
+        // fills from `foundationSurfaceSolid`; roughly 1,200 call sites fill
+        // from `Color.lifeboard(.surfacePrimary)`. When those two disagree the
+        // app has two card colours sitting side by side, which is what would
+        // have happened when the clay material was reseated for its lit layers.
+        //
+        // They are also opaque now. A card at 0.92–0.96 alpha takes its final
+        // colour from whatever is behind it, so the same card was a different
+        // colour over the canvas, over a scenic backdrop, and over another card.
+        // Translucency is the property of glass in this system; clay is a solid.
+        let bgElevated = adaptive(light: "#FDF7E9", dark: "#2F3150")
 
-        let surfacePrimary = adaptive(light: "#FFFDF7", dark: "#202741", lightAlpha: 0.96, darkAlpha: 0.92)
-        let surfaceSecondary = adaptive(light: "#F5EBCB", dark: "#262E4A", lightAlpha: 0.94, darkAlpha: 0.88)
-        let surfaceTertiary = adaptive(light: "#F2E7C2", dark: "#2B2C22", lightAlpha: 0.92, darkAlpha: 0.86)
+        let surfacePrimary = adaptive(light: "#FBF3E2", dark: "#282A44")
+        let surfaceSecondary = adaptive(light: "#F2E6C4", dark: "#20233A")
+        // The dark value was `#2B2C22` — an olive brown, and the only warm-green
+        // surface in a warm-indigo dark palette. It read as a different app.
+        let surfaceTertiary = adaptive(light: "#F8EED0", dark: "#3A3D5E")
 
         // Dark hairline lightened so separators/selection rings clear 1.4:1
         // against the warm-indigo dark surfaces.

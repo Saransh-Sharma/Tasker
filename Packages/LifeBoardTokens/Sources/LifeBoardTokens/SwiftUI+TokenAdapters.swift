@@ -330,6 +330,14 @@ public struct SystemGlassModifier<GlassShape: Shape>: ViewModifier {
     }
 }
 
+// The premium / chrome / dense / analytics surface modifiers used to live here.
+// They drew their own backgrounds — and `lifeboardPremiumSurface` drew real
+// Liquid Glass by default, which `lifeboardChromeSurface` inherited, so 44 call
+// sites had glass on ordinary content. They now resolve to clay and live in
+// `LifeBoardUI/LegacySurfaceCompatibility.swift`, next to the primitive they
+// delegate to. This layer defines tokens; it should not have been drawing
+// surfaces.
+
 public extension View {
     func lifeBoardSystemGlass<GlassShape: Shape>(
         _ variant: SystemGlassVariant = .regular,
@@ -431,153 +439,8 @@ private struct ElevationModifier: ViewModifier {
     }
 }
 
-private struct DenseSurfaceModifier: ViewModifier {
-    let cornerRadius: CGFloat
-    let fillColor: Color
-    let strokeColor: Color
-    let lineWidth: CGFloat
 
-    func body(content: Content) -> some View {
-        content
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(fillColor)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(strokeColor, lineWidth: lineWidth)
-            )
-    }
-}
 
-private struct PremiumSurfaceModifier: ViewModifier {
-    let cornerRadius: CGFloat
-    let fillColor: Color
-    let strokeColor: Color
-    let accentColor: Color
-    let level: ElevationLevel
-    let useNativeGlass: Bool
-
-    @ViewBuilder
-    private var fallbackSurface: some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-
-        shape
-            .fill(
-                LinearGradient(
-                    colors: [
-                        fillColor.opacity(0.98),
-                        fillColor.opacity(0.94)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay(
-                shape
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                accentColor.opacity(0.14),
-                                .clear,
-                                fillColor.opacity(0.08)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            )
-            .overlay(
-                shape
-                    .stroke(strokeColor.opacity(0.88), lineWidth: 1)
-            )
-            .overlay(alignment: .top) {
-                Capsule(style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(SemanticColorTokens.clayHighlight).opacity(0.38),
-                                .clear
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(height: max(16, cornerRadius * 0.9))
-                    .padding(.horizontal, cornerRadius * 0.85)
-                    .blur(radius: 1.5)
-                    .opacity(0.8)
-            }
-    }
-
-    @ViewBuilder
-    private var nativeGlassSurface: some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-
-        if #available(iOS 26.0, *), useNativeGlass {
-            shape
-                .fill(.clear)
-                .glassEffect(.regular, in: shape)
-                .overlay(
-                    shape
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    fillColor.opacity(0.16),
-                                    accentColor.opacity(0.08),
-                                    .clear
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                )
-                .overlay(
-                    shape
-                        .stroke(strokeColor.opacity(0.72), lineWidth: 1)
-                )
-        } else {
-            fallbackSurface
-        }
-    }
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        content
-            .background(nativeGlassSurface)
-            .lifeboardElevation(level, cornerRadius: cornerRadius, includesBorder: false)
-    }
-}
-
-private struct AnalyticsSurfaceModifier: ViewModifier {
-    @Environment(\.lifeboardLayoutClass) private var layoutClass
-    let cornerRadius: CGFloat
-    let fillColor: Color
-    let strokeColor: Color
-    let accentColor: Color
-    let level: ElevationLevel
-
-    func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        return content
-            .background(
-                shape
-                    .fill(fillColor)
-                    .overlay(
-                        shape
-                            .stroke(strokeColor.opacity(0.7), lineWidth: 1)
-                    )
-                    .overlay(alignment: .topLeading) {
-                        Capsule(style: .continuous)
-                            .fill(accentColor.opacity(0.08))
-                            .frame(width: max(22, cornerRadius * 1.4), height: 8)
-                            .padding(.top, 10)
-                            .padding(.leading, 12)
-                    }
-            )
-            .lifeboardElevation(level, cornerRadius: cornerRadius, includesBorder: false)
-    }
-}
 
 public extension View {
     /// Executes lifeboardElevation.
@@ -591,82 +454,9 @@ public extension View {
     }
 
     @MainActor
-    func lifeboardDenseSurface(
-        cornerRadius: CGFloat,
-        fillColor: Color? = nil,
-        strokeColor: Color? = nil,
-        lineWidth: CGFloat = 1
-    ) -> some View {
-        let resolvedFillColor = fillColor ?? Color.lifeboard.surfacePrimary
-        let resolvedStrokeColor = strokeColor ?? Color.lifeboard.strokeHairline
-        return modifier(
-            DenseSurfaceModifier(
-                cornerRadius: cornerRadius,
-                fillColor: resolvedFillColor,
-                strokeColor: resolvedStrokeColor,
-                lineWidth: lineWidth
-            )
-        )
-    }
 
-    @MainActor
-    func lifeboardPremiumSurface(
-        cornerRadius: CGFloat,
-        fillColor: Color? = nil,
-        strokeColor: Color? = nil,
-        accentColor: Color? = nil,
-        level: ElevationLevel = .e2,
-        useNativeGlass: Bool = true
-    ) -> some View {
-        modifier(
-            PremiumSurfaceModifier(
-                cornerRadius: cornerRadius,
-                fillColor: fillColor ?? Color.lifeboard.surfacePrimary,
-                strokeColor: strokeColor ?? Color.lifeboard.strokeHairline,
-                accentColor: accentColor ?? Color.lifeboard.accentSecondary,
-                level: level,
-                useNativeGlass: useNativeGlass
-            )
-        )
-    }
 
-    @MainActor
-    func lifeboardAnalyticsSurface(
-        cornerRadius: CGFloat,
-        fillColor: Color? = nil,
-        strokeColor: Color? = nil,
-        accentColor: Color? = nil,
-        level: ElevationLevel = .e1
-    ) -> some View {
-        modifier(
-            AnalyticsSurfaceModifier(
-                cornerRadius: cornerRadius,
-                fillColor: fillColor ?? Color.lifeboard.surfacePrimary,
-                strokeColor: strokeColor ?? Color.lifeboard.strokeHairline,
-                accentColor: accentColor ?? Color.lifeboard.accentSecondary,
-                level: level
-            )
-        )
-    }
 
-    @MainActor
-    func lifeboardChromeSurface(
-        cornerRadius: CGFloat,
-        accentColor: Color? = nil,
-        level: ElevationLevel = .e1,
-        useNativeGlass: Bool = true
-    ) -> some View {
-        modifier(
-            PremiumSurfaceModifier(
-                cornerRadius: cornerRadius,
-                fillColor: Color.lifeboard.surfaceSecondary,
-                strokeColor: Color.lifeboard.strokeHairline.opacity(0.78),
-                accentColor: accentColor ?? Color.lifeboard.accentSecondary,
-                level: level,
-                useNativeGlass: useNativeGlass
-            )
-        )
-    }
 
     /// Executes lifeboardLayoutClass.
     func lifeboardLayoutClass(_ layoutClass: LayoutClass) -> some View {

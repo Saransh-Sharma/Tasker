@@ -13,40 +13,40 @@ colors:
   secondary: "#F0CD87"
   secondary-pressed: "#E5B96D"
   canvas: "#FFF7D8"
-  canvas-muted: "#FAF1D8"
-  surface: "#FFFDF7"
-  surface-raised: "#FFFEFB"
-  surface-recessed: "#F4E8C8"
+  canvas-muted: "#FAF2DA"
+  surface: "#FBF3E2"
+  surface-raised: "#FDF7E9"
+  surface-recessed: "#F2E6C4"
   text-primary: "#2B2118"
-  text-secondary: "#675B4D"
-  text-tertiary: "#7C705F"
-  border: "#E2D6B9"
+  text-secondary: "#6F6252"
+  text-tertiary: "#8D806E"
+  border: "#E9DFC6"
   border-strong: "#A89572"
   focus: "#5A3D1E"
   inverse-text: "#FFFDF7"
-  assistant: "#5A3FD0"
+  assistant: "#6842FF"
   success: "#536348"
   warning: "#76561E"
-  error: "#963F36"
+  error: "#A14E41"
   info: "#52616F"
-  selected: "#E9D8AA"
+  selected: "#F8EED0"
   chart-primary: "#536348"
   chart-secondary: "#975237"
   image-scrim: "rgba(43, 33, 24, 0.24)"
   hero-scrim: "rgba(255, 253, 247, 0.52)"
   hero-scrim-dark: "rgba(21, 26, 42, 0.58)"
-  specular-rim: "rgba(255, 253, 247, 0.60)"
+  specular-rim: "rgba(255, 255, 255, 0.14)"
   specular-rim-dark: "rgba(248, 238, 220, 0.22)"
   dark-canvas: "#151B2D"
   dark-canvas-muted: "#111624"
-  dark-surface: "#202741"
-  dark-surface-raised: "#1C2338"
-  dark-surface-recessed: "#262E4A"
-  dark-text-primary: "#F4EBDD"
-  dark-text-secondary: "#C6BBA8"
-  dark-text-tertiary: "#96907F"
+  dark-surface: "#282A44"
+  dark-surface-raised: "#2F3150"
+  dark-surface-recessed: "#20233A"
+  dark-text-primary: "#F7F1E7"
+  dark-text-secondary: "#C9C3B8"
+  dark-text-tertiary: "#A9A39A"
   dark-border: "#4D526D"
-  dark-border-strong: "#667390"
+  dark-border-strong: "#777C9B"
 typography:
   display:
     fontFamily: "SF Pro"
@@ -373,13 +373,25 @@ Premium quality comes from exact spacing, excellent typography, stable geometry,
 
 The palette is warm paper and cocoa ink by day, warm indigo and parchment by night. Use semantic token roles rather than literal values in feature work so appearance, contrast, and accessibility can adapt without changing meaning.
 
-The `dark-*` values above were transcribed by hand and drifted: nine of the ten
-disagreed with what actually ships, by one or two digits per channel — close
-enough that a swatch diff eyeballs as passing, which is worse than an absent
-table. They are now the values `SemanticColorTokens` resolves at runtime, which
-are the ones the WCAG contract test measures. Dark appearance and daypart are
-independent axes: a night scene in light appearance keeps the light canvas, and
-dark appearance at noon keeps a morning scene — resolve both together through
+The table above drifted from the code twice, in both directions, and the
+paragraph that used to sit here claimed the drift had been fixed when it had
+not. It is now generated against `SemanticColorTokens` and pinned by
+`DesignContractTests`, so the two cannot separate again without a test failing.
+
+Two entries are worth knowing about because the code is deliberately *not* what
+a designer would first write. `text-secondary` and `text-tertiary` are darker
+than the original brief: at the briefed values they measured 4.446:1 and
+~2.95:1, below the body-text floor. And `surface` is no longer near-white. It
+sits at `#FBF3E2`, marginally *below* the canvas in luminance, because the two
+lit layers of the clay material — the inner highlight and the specular rim —
+live in the headroom between the surface and white, and a surface at 98% of
+maximum luminance leaves them nothing to work with. Clay reads as raised
+through its lit edge and its contact shadow, not by being whiter than the paper
+it sits on.
+
+Dark appearance and daypart are independent axes: a night scene in light
+appearance keeps the light canvas, and dark appearance at noon keeps a morning
+scene — resolve both together through
 `DaypartTokens.appearancePalette(for:colorScheme:)`, never the light-only
 `palette(for:)`.
 
@@ -430,11 +442,19 @@ Avoid nested cards, duplicated counts, repeated headings, and grids where every 
 
 - **Home — What matters now?** One Now decision, up to three honest signals, today's committed work, and concise day-ahead context.
 - **Plan — When should it happen?** A time canvas with day, week, and backlog views; scheduling is the primary activity.
-- **Focus — What am I doing now?** A distraction-free active commitment, timer state, and clear pause, resume, or finish controls.
 - **Track — What needs recording or sustaining?** Fast access to timely logs, followed by areas and history.
-- **Journal — What do I want to remember or understand?** An open writing and reading surface with reflections, media, and derived insight disclosed gently.
+- **Insights — What changed, and what should I do next?** One interpretation as the hero, then evidence in clay.
+- **Eva — Help me understand or safely make a change.** Assistant prose on the open canvas, with proposals, receipts, and Undo.
 
-Insights and Eva are first-class destinations reached from relevant context and global chrome. Insights answers “What changed, and what should I do next?” Eva answers “Help me understand or safely make a change.” Neither competes with the five-root dock.
+**Focus** and **Journal** are pushed destinations rather than roots. Focus — *What am I doing now?* — is a distraction-free active commitment with timer state and clear pause, resume and finish controls, entered from the commitment it runs. Journal — *What do I want to remember or understand?* — is an open writing and reading surface with reflections, media, and derived insight disclosed gently, reached from Track.
+
+This list previously read Home, Plan, Focus, Track, Journal, and closed by saying Insights and Eva
+"must not compete with the five-root dock". The shipped dock has been Home, Plan, Track, Insights,
+Eva for some time. The document was the thing that had drifted: Insights and Eva became genuine
+roots as the product grew an interpretation surface and an assistant, and describing them as
+context-reached destinations no longer described the app anyone was using. Focus and Journal keep
+every contract above — the root budget, the hero rule, the state surfaces — they are simply reached
+by navigation rather than by the dock.
 
 ### iPhone
 
