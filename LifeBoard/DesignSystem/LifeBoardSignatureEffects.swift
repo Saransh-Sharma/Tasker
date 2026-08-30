@@ -232,12 +232,7 @@ public enum SignatureShaders {
         "LifeBoardTriageSettle",
         "LifeBoardTaskLandingCaustic",
         "LifeBoardValueDrumWarp",
-        "LifeBoardRootTravelShear",
-        "LifeBoardAmbientDrift",
-        // Lives in LifeBoardCTABezel.metal rather than the signature library,
-        // but it is loaded from the same default library and must be verified
-        // by the same warm-up — it was the one shader nothing checked for.
-        "LifeBoardLiquidMetalBezel"
+        "LifeBoardAmbientDrift"
     ]
 
     /// Whether custom shaders may run at all right now (flag + energy/thermal, not accessibility —
@@ -1324,7 +1319,12 @@ public extension View {
     /// runs until the motion policy withdraws it. One per screen.
     @MainActor
     func lifeboardAmbientDrift(intensity: Double = 1) -> some View {
+        // "One per screen" was prose until now. `lifeBoardClaimsAmbientTimeline`
+        // makes it the same kind of rule as the hero's: a nested ambient surface
+        // sees the claim, and in debug a second one traps rather than quietly
+        // costing battery for the life of the screen.
         modifier(AmbientDriftModifierEnvironment(intensity: intensity))
+            .lifeBoardClaimsAmbientTimeline()
     }
 }
 

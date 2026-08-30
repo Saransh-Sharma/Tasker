@@ -415,35 +415,48 @@ public enum V2FeatureFlags {
         set { defaults.set(newValue, forKey: "feature.reminders.sync") }
     }
 
+    /// The clay toggle, applied app-wide.
+    ///
+    /// `ClayToggleStyle` was complete and had **zero** call sites while 81 stock
+    /// `Toggle`s shipped — the green iOS switch, which is the most visually
+    /// foreign element in a cocoa and sun palette. `ToggleStyle` propagates
+    /// through the environment, so one application at the shell root restyles
+    /// all of them.
+    ///
+    /// Flagged rather than hard-wired because that is a genuinely app-wide
+    /// layout change: the style renders its label at full width and pins a 48pt
+    /// row, so a toggle that used to sit inline beside other content now claims
+    /// the row. **On by default in both Debug and Release** so it is reviewed in
+    /// the builds people actually use; the launch arguments exist to bisect a
+    /// layout report without a rebuild.
+    public static var clayToggleStyleEnabled: Bool {
+        if launchArguments.contains("-LIFEBOARD_ENABLE_CLAY_TOGGLE") { return true }
+        if launchArguments.contains("-LIFEBOARD_DISABLE_CLAY_TOGGLE") { return false }
+        return defaults.object(forKey: "feature.ui.clay_toggle") as? Bool ?? true
+    }
+
     public static var autoTaskIconsEnabled: Bool {
         get { defaults.object(forKey: "feature.tasks.auto_icons") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.tasks.auto_icons") }
     }
 
-    public static var liquidMetalCTAEnabled: Bool {
-        get {
-            if launchArguments.contains("-LIFEBOARD_ENABLE_LIQUID_METAL_CTA") {
-                return true
-            }
-            if launchArguments.contains("-LIFEBOARD_DISABLE_LIQUID_METAL_CTA") {
-                return false
-            }
-            return userDecorativeCTAEffectsEnabled && remoteDecorativeCTAEffectsAllowed
-        }
-        set {
-            userDecorativeCTAEffectsEnabled = newValue
-        }
-    }
 
-    /// All 22 bounded signature Metal effects. Enabled by default; callers still
+    /// Every bounded signature Metal effect. Enabled by default; callers still
     /// gate on Reduce Motion / Low Power / thermal / GPU support.
+    ///
+    /// This now honours the user preference as well as the remote allowance.
+    /// It used to read only the remote flag, and the user-facing toggle was
+    /// consumed by exactly one thing — the liquid-metal CTA bezel. When that
+    /// was removed the setting still rendered, still persisted, and controlled
+    /// nothing at all. A switch that does nothing is worse than no switch, so
+    /// it governs the effects layer it was always presented as governing.
     public static var signatureShadersEnabled: Bool {
         if launchArguments.contains("-LIFEBOARD_ENABLE_SIGNATURE_SHADERS") { return true }
         if launchArguments.contains("-LIFEBOARD_DISABLE_SIGNATURE_SHADERS") { return false }
-        return remoteDecorativeCTAEffectsAllowed
+        return userDecorativeCTAEffectsEnabled && remoteDecorativeCTAEffectsAllowed
     }
 
-    /// "Button flourishes". On by default: the bezel is the only shader that animates at rest.
+    /// The user's "visual flourishes" preference. On by default.
     public static var userDecorativeCTAEffectsEnabled: Bool {
         get { defaults.object(forKey: decorativeCTAEffectsUserKey) as? Bool ?? true }
         set { defaults.set(newValue, forKey: decorativeCTAEffectsUserKey) }
