@@ -153,12 +153,12 @@ struct ScreenRootHeader: View {
                 .lifeBoardGlassSurface(cornerRadius: 22, interactive: true)
                 .lifeBoardGlassIdentity(.captureTray)
                 .background {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .fill(Color(SemanticColorTokens.foundationCanvasSoft).opacity(0.44))
                         .lifeboardContextLens(trigger: captureRippleTrigger)
                 }
                 .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .topTrailing)))

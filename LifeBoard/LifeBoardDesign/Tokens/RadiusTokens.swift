@@ -14,6 +14,6 @@ enum RadiusTokens {
     static let card: CGFloat = ClayDepth.raised.cornerRadius
     static let largeCard: CGFloat = ClayDepth.floating.cornerRadius
     static let iconWell: CGFloat = ClayDepth.well.cornerRadius
-    static let dock: CGFloat = Radius.modal
+    static let dock: CGFloat = Radius.dock
     static let sheet: CGFloat = Radius.modal
 }

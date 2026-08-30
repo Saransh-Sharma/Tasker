@@ -250,18 +250,17 @@ struct DateHeroHeader: View {
             shape
                 .fill(fill.opacity(0.94))
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
-        } else if #available(iOS 26.0, *) {
+        } else {
+            // The `#available(iOS 26.0, *)` branch and its `.ultraThinMaterial`
+            // fallback are gone: the deployment target *is* 26.0, so the
+            // availability check was always true and the fallback was
+            // unreachable code drawing a system material the design system does
+            // not use.
             shape
                 .fill(.clear)
                 .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay) }
-                .overlay { shape.stroke(stroke, lineWidth: 1) }
-        } else {
-            shape
-                .fill(.ultraThinMaterial)
-                .overlay { shape.fill(fill) }
-                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }
@@ -273,18 +272,17 @@ struct DateHeroHeader: View {
             shape
                 .fill(fill.opacity(0.94))
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
-        } else if #available(iOS 26.0, *) {
+        } else {
+            // The `#available(iOS 26.0, *)` branch and its `.ultraThinMaterial`
+            // fallback are gone: the deployment target *is* 26.0, so the
+            // availability check was always true and the fallback was
+            // unreachable code drawing a system material the design system does
+            // not use.
             shape
                 .fill(.clear)
                 .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay) }
-                .overlay { shape.stroke(stroke, lineWidth: 1) }
-        } else {
-            shape
-                .fill(.ultraThinMaterial)
-                .overlay { shape.fill(fill) }
-                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }

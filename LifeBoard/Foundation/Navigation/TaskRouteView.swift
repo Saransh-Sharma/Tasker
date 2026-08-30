@@ -26,10 +26,10 @@ struct TaskRouteView: View {
                 ProgressView("Opening task…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .missing:
-                ContentUnavailableView(
-                    "Task not found",
-                    systemImage: "checkmark.circle.badge.questionmark",
-                    description: Text("It may have been removed on another device.")
+                StatusSurface(
+                    state: .unavailable,
+                    title: "Task not found",
+                    message: "It may have been removed on another device."
                 )
             case .failed(let message):
                 ContentUnavailableView {
@@ -103,7 +103,7 @@ struct TaskRouteView: View {
                         }
                         .padding(.horizontal, 16)
                         .frame(minHeight: 52)
-                        .background(.regularMaterial, in: Capsule())
+                        .lifeBoardClaySurface(.floating, cornerRadius: Radius.pill)
                         .transition(
                             reduceMotion
                                 ? .opacity
@@ -117,7 +117,7 @@ struct TaskRouteView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
-                .background(.ultraThinMaterial)
+                .background(Color(SemanticColorTokens.foundationSurfaceRaised))
             }
         }
         .confirmationDialog(

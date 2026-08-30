@@ -4347,7 +4347,7 @@ private struct AdaptiveWidgetGallery: View {
                                         Image(systemName: descriptor.systemImage)
                                             .font(.title3)
                                             .frame(width: 38, height: 38)
-                                            .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 12))
+                                            .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: Radius.field))
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(descriptor.title).font(.headline)
                                             Text("\(descriptor.defaultSize.title) · \(descriptor.multiplicity.title)")
@@ -4432,9 +4432,9 @@ private struct HomeCardReorderModifier: ViewModifier {
     func body(content: Content) -> some View {
         if isEnabled {
             content
-                .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                 .draggable(placementID.uuidString) {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .fill(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.94))
                         .frame(width: 170, height: 108)
                         .overlay {
@@ -4910,11 +4910,11 @@ public struct TokenGallery: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 132))], spacing: 10) {
                             ForEach(DaypartColorRole.allCases, id: \.self) { role in
                                 VStack(alignment: .leading, spacing: 8) {
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                                         .fill(palette.color(for: role))
                                         .frame(height: 72)
                                         .overlay {
-                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                                                 .stroke(Color(SemanticColorTokens.foundationWarmShadow).opacity(0.08), lineWidth: 1)
                                         }
                                     Text(role.rawValue)
@@ -4928,7 +4928,7 @@ public struct TokenGallery: View {
                         }
                     }
                     .padding(16)
-                    .background(palette.color(for: .canvas), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .background(palette.color(for: .canvas), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                 }
             }
             .padding(20)

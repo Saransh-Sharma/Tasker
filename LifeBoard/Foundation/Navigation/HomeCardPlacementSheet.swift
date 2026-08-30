@@ -83,7 +83,7 @@ struct HomeCardPlacementSheet: View {
                 .tint(Color(SemanticColorTokens.inkPrimary))
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)
-                .background(.ultraThinMaterial)
+                .background(Color(SemanticColorTokens.foundationSurfaceRaised))
                 .accessibilityIdentifier("home.placement.add")
             }
             .toolbar {
@@ -229,9 +229,9 @@ struct ComposerPreviewCard: View {
             }
         }
         .padding(15)
-        .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
         .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.14), radius: 12, y: 6)
@@ -268,7 +268,7 @@ struct ComposerReceiptView: View {
         .padding(.trailing, 4)
         .lifeBoardGlassSurface(cornerRadius: 22, interactive: true)
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
@@ -310,7 +310,7 @@ struct HomeCardPlacementReceiptView: View {
         .padding(.vertical, 10)
         .lifeBoardGlassSurface(cornerRadius: 22, interactive: true)
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
         .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.2), radius: 16, y: 8)

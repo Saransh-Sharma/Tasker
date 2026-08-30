@@ -137,10 +137,10 @@ struct InsightsDestination: View {
                             .frame(maxWidth: .infinity, minHeight: 180)
                     } else if events.isEmpty && healthStore.aggregates.isEmpty {
                         VStack(spacing: 12) {
-                            ContentUnavailableView(
-                                "Nothing recorded yet",
-                                systemImage: "sparkles",
-                                description: Text("A check-in, routine, care event, or hydration log will appear here with its source.")
+                            StatusSurface(
+                                state: .noRecord,
+                                title: "Nothing recorded yet",
+                                message: "A check-in, routine, care event, or hydration log will appear here with its source."
                             )
                             Button("Record something in Track") {
                                 router.select(.track)

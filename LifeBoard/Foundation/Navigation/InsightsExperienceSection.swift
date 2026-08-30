@@ -14,10 +14,10 @@ struct InsightsExperienceSection: View {
     @ViewBuilder
     var body: some View {
         if isAvailable == false {
-            ContentUnavailableView(
-                "Experience lens unavailable",
-                systemImage: "sparkles",
-                description: Text("Your planning and reflection evidence is still available in the other lenses.")
+            StatusSurface(
+                state: .unavailable,
+                title: "Experience lens unavailable",
+                message: "Your planning and reflection evidence is still available in the other lenses."
             )
             .frame(minHeight: 220)
         } else if loadFinished == false {
@@ -33,10 +33,10 @@ struct InsightsExperienceSection: View {
             )
         } else if aggregates.isEmpty {
             VStack(spacing: 12) {
-                ContentUnavailableView(
-                    "No experience history yet",
-                    systemImage: "sparkles",
-                    description: Text("This optional lens appears as actions earn entries in your local ledger.")
+                StatusSurface(
+                    state: .noRecord,
+                    title: "No experience history yet",
+                    message: "This optional lens appears as actions earn entries in your local ledger."
                 )
                 Button("Return to Review") {
                     lens = .review

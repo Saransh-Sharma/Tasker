@@ -60,10 +60,10 @@ struct TrackerRouteView: View {
                     LabeledContent("Target", value: target.formatted())
                 }
                 if snapshot.entries.isEmpty {
-                    ContentUnavailableView(
-                        "No entries yet",
-                        systemImage: "chart.xyaxis.line",
-                        description: Text("Your first recorded value will appear here with its timestamp.")
+                    StatusSurface(
+                        state: .noRecord,
+                        title: "No entries yet",
+                        message: "Your first recorded value will appear here with its timestamp."
                     )
                 } else {
                     Text("Recent history").font(.headline)

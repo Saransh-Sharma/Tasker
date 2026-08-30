@@ -740,7 +740,6 @@ public struct PaperSection<Content: View>: View {
     private let content: Content
     private let cornerRadius: CGFloat
     private let padding: CGFloat
-    @Environment(\.colorSchemeContrast) private var contrast
 
     public init(
         cornerRadius: CGFloat = Radius.card,
@@ -756,17 +755,13 @@ public struct PaperSection<Content: View>: View {
         content
             .padding(padding)
             .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-            .background(
-                Color(SemanticColorTokens.foundationSurfaceSolid),
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(
-                        Color(SemanticColorTokens.foundationHairline),
-                        lineWidth: contrast == .increased ? 1.5 : 1
-                    )
-            }
+            // Was a hand-drawn fill plus a stroke — a tenth way to draw a card,
+            // and the one behind every `StatusSurface` in the app, so all 56
+            // state surfaces rendered as flat rectangles rather than clay.
+            // Through the primitive they get the lit edge, the contact shade and
+            // the Reduce Transparency and Increase Contrast handling, which is
+            // where the `contrast` branch this used to do by hand now lives.
+            .lifeBoardClaySurface(.raised, cornerRadius: cornerRadius)
     }
 }
 
@@ -807,14 +802,15 @@ public struct TactileTileButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .padding(12)
-            .background(
-                Color(SemanticColorTokens.foundationSurfaceSolid),
-                in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+            // Was a hand-drawn fill plus a stroke — the same flat rectangle the
+            // clay primitive exists to stop anyone drawing again. Going through
+            // the primitive gets it the specular rim, the contact shade that
+            // deepens under the finger, and the Reduce Transparency fallback.
+            .lifeBoardClaySurface(
+                .raised,
+                cornerRadius: Radius.card,
+                isPressed: configuration.isPressed
             )
-            .overlay {
-                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                    .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
-            }
             .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.97 : 1)
             .brightness(configuration.isPressed ? -0.025 : 0)
             .animation(reduceMotion ? nil : LifeBoardAnimation.rolePress, value: configuration.isPressed)
@@ -1038,10 +1034,13 @@ public struct StatusSurface: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let actionTitle, let action {
+                    // Was `.buttonStyle(.bordered)` — the canonical state
+                    // surface, which every empty and error state in the product
+                    // is supposed to route through, rendering its one action as
+                    // a stock grey iOS capsule.
                     Button(actionTitle, action: action)
-                        .buttonStyle(.bordered)
-                        .controlSize(density == .compact ? .small : .regular)
-                        .padding(.top, density == .compact ? 2 : 4)
+                        .buttonStyle(.lifeBoardChip)
+                        .padding(.top, density == .compact ? 4 : 4)
                 }
             }
             Spacer(minLength: 0)

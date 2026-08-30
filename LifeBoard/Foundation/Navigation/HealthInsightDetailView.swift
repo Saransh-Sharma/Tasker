@@ -76,10 +76,10 @@ struct HealthInsightDetailView: View {
                         .lifeboardFont(.meta)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 } else {
-                    ContentUnavailableView(
-                        "Not enough history yet",
-                        systemImage: domain.symbolName,
-                        description: Text("A trend appears after at least two recorded days. Missing evidence is not treated as zero.")
+                    StatusSurface(
+                        state: .noRecord,
+                        title: "Not enough history yet",
+                        message: "A trend appears after at least two recorded days. Missing evidence is not treated as zero."
                     )
                 }
 

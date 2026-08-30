@@ -8,7 +8,8 @@ enum ClayLayoutMetrics {
     static let lg: CGFloat = 20
     static let xl: CGFloat = 24
     static let xxl: CGFloat = 32
-    static let screenMargin: CGFloat = 16
+    /// DESIGN.md phone-margin. Was 16.
+    static let screenMargin: CGFloat = 20
     static let compactHeaderHeight: CGFloat = 242
     static let compactHeaderAccessibilityHeight: CGFloat = 292
     static let sunriseHeaderContentOverlap: CGFloat = 34
@@ -18,5 +19,6 @@ enum ClayLayoutMetrics {
     static let timelineCardGap: CGFloat = 8
     static let timelineRailCenterX: CGFloat = screenMargin + timelineTimeColumnWidth + timelineRailWidth / 2
     static let bottomDockHeight: CGFloat = 84
-    static let bottomDockClearance: CGFloat = 150
+    /// DESIGN.md compact-chrome-clearance. Was 150.
+    static let bottomDockClearance: CGFloat = 132
 }

@@ -20,7 +20,7 @@ struct PlanRollbackRouteView: View {
                 .frame(width: 62, height: 62)
                 .background(
                     Color(SemanticColorTokens.foundationSurfaceSelected),
-                    in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 )
             VStack(spacing: 7) {
                 Text("Your tasks are on Home")
@@ -309,6 +309,7 @@ struct WeeklyReviewRoute: View {
                     viewModel: viewModel,
                     frictionRepository: frictionRepository,
                     taskRepository: taskRepository,
+                    actionPipeline: CompositionRoot.shared.useCaseCoordinator.assistantActionPipeline,
                     onClose: onClose,
                     onOpenWeeklyPlanner: onOpenWeeklyPlanner,
                     onOpenTask: onOpenTask

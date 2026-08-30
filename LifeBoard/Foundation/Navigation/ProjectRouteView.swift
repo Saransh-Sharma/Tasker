@@ -102,7 +102,7 @@ struct ProjectRouteView: View {
                 }
                 .padding(.horizontal, 18)
                 .frame(minHeight: 52)
-                .background(.regularMaterial, in: Capsule())
+                .lifeBoardClaySurface(.floating, cornerRadius: Radius.pill)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
             }

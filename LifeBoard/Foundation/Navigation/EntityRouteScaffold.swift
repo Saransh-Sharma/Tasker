@@ -27,9 +27,9 @@ struct EntityRouteScaffold<Value, Content: View>: View {
                     content(value)
                         .frame(maxWidth: 720, alignment: .leading)
                 case .missing:
-                    ContentUnavailableView("\(title) not found", systemImage: systemImage, description: Text("It may have been deleted or changed on another device."))
+                    StatusSurface(state: .unavailable, title: "\(title) not found", message: "It may have been deleted or changed on another device.")
                 case .failed(let message):
-                    ContentUnavailableView("\(title) unavailable", systemImage: "exclamationmark.triangle", description: Text(message))
+                    StatusSurface(state: .recoverableError, title: "\(title) unavailable", message: message)
                 }
             }
             .padding(24)
