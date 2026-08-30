@@ -491,7 +491,7 @@ private struct ComposerSectionLabel: ViewModifier {
 
 /// The failure banner and commit control that close every composer.
 ///
-/// The backing is Regular Liquid Glass rather than `.regularMaterial`. That is
+/// The backing is Regular Liquid Glass rather than a raw system material. That is
 /// not a cosmetic swap: a commit bar is navigation and control chrome, which is
 /// precisely — and only — what the glass law reserves glass for, and routing it
 /// through `lifeBoardSystemGlass` is what makes it honour Reduce Transparency
@@ -542,19 +542,6 @@ public struct ComposerCommitBar: View {
                 phase: phase,
                 isEnabled: isEnabled,
                 action: action
-            )
-            // The liquid-metal bezel, which had exactly two uses in the whole
-            // app and never once in `.pill`. A composer's commit is the single
-            // dominant action on its screen, which is what the bezel is for.
-            // `.staticIdle` is not negotiable — `.slowLoop` is a literal ambient
-            // loop and DESIGN.md forbids those outside the two sites that
-            // already justify them.
-            .lifeboardCTABezel(
-                style: .pill,
-                palette: .copper,
-                idleMotion: .staticIdle,
-                isEnabled: isEnabled,
-                isBusy: isRunning
             )
             // Identity only, never `accessibilityElement(children:)`. The
             // commit control has to keep reporting as a `Button`, because the

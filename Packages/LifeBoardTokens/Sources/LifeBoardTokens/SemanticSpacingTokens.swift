@@ -39,7 +39,7 @@ public struct SemanticSpacingTokens: TokenGroup, Sendable {
         screenHorizontal: 20,
         cardPadding: 20,
         cardStackVertical: 12,
-        sectionGap: 28,
+        sectionGap: 32,
         listRowVerticalPadding: 12,
         titleSubtitleGap: 4,
         chipSpacing: 8,

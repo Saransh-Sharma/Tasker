@@ -104,6 +104,10 @@ public struct OpenRow<Leading: View, Trailing: View>: View {
         .padding(.vertical, 10)
         .frame(minHeight: 44)
         .contentShape(Rectangle())
+        // `DESIGN.md` iPad: pointer treatment is part of the design. A row
+        // highlights rather than lifts — lifting a list row would read as the
+        // row detaching from the list it belongs to.
+        .hoverEffect(.highlight)
         .modifier(OpenRowSurface(depth: depth))
     }
 
