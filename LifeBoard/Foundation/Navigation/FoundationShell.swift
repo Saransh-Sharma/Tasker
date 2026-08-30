@@ -90,9 +90,7 @@ public struct FoundationShell: View {
     /// no reference to; see `ComposerScrollReporter`.
     @State var composerScrollObserver = ComposerScrollObserver()
     /// Where the eye left from, and how far the arriving root has settled.
-    /// Both feed `lifeboardRootTravel`; see `RootTransition`.
     @State var previousRoot: Destination?
-    @State var rootTravelProgress: Double = 1
     @State private var compactCaptureTargetFrames: [CaptureKind: CGRect] = [:]
     @State var compactCaptureRippleTrigger = 0
     @State var planRescueRefreshGeneration = 0
@@ -186,6 +184,18 @@ public struct FoundationShell: View {
                             compactShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
                         }
                     }
+                    // Light every clay surface in the shell from the current
+                    // daypart. `SpecularRimModifier` has always taken a
+                    // `lightAngle` and nothing ever passed one, so the lit edge
+                    // on every card in the product pointed the same way at dawn
+                    // and at dusk. One injection, at the one place that knows
+                    // the time of day.
+                    .lifeBoardClayLight(atmosphereSnapshot.semanticDaypart)
+                    // Every toggle in the app, in one line. `ToggleStyle`
+                    // propagates through the environment, and `ClayToggleStyle`
+                    // had been sitting complete and unused while 81 stock green
+                    // switches shipped on a cocoa palette.
+                    .modifier(ClayToggleStyleModifier())
                     // The four one-time root cues that replaced v6's root
                     // tour. No-ops for anyone who finished under v5, who has
                     // already been told these things once.

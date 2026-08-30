@@ -73,16 +73,6 @@ extension FoundationShell {
                                     distance: reduceMotion ? 0 : RootTransition.slideDistance
                                 )
                             )
-                            // Only the arriving root shears, and only until it
-                            // settles. Applying it to the departing root too
-                            // would double the distortion at the crossover.
-                            .lifeboardRootTravel(
-                                origin: RootTransition.originUnitX(for: previousRoot),
-                                direction: isCurrent
-                                    ? RootTransition.direction(from: previousRoot, to: destination)
-                                    : 0,
-                                progress: isCurrent ? rootTravelProgress : 1
-                            )
                             .opacity(isCurrent ? 1 : 0)
                             .zIndex(isCurrent ? 1 : 0)
                             // A root that is not on screen must not take taps or
@@ -103,14 +93,6 @@ extension FoundationShell {
                 )
                 guard previous != destination else { return }
                 previousRoot = previous
-                // Driven to 1 by an animation rather than a TimelineView: the
-                // shear is a one-shot settle, and DESIGN.md requires the root
-                // transition to settle *before* secondary content animates, so
-                // it must be bounded by the same curve the slide uses.
-                rootTravelProgress = 0
-                withAnimation(MotionProfile.route.animation(reduceMotion: reduceMotion)) {
-                    rootTravelProgress = 1
-                }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .background(Color.clear)
@@ -445,7 +427,13 @@ extension FoundationShell {
                     router.select(destination)
                 } label: {
                     Label(destination.title, systemImage: destination.systemImage)
-                        .font(.subheadline.weight(isSelected ? .semibold : .medium))
+                        // A type token rather than a hand-rolled weight ramp.
+                        // `DESIGN.md` wants selection carried by "position,
+                        // shape, label, and accessibility state — not tint
+                        // alone", and the capsule plus `.isSelected` already do
+                        // that, so the weight was a fourth cue doing no work the
+                        // others were not.
+                        .lifeboardFont(.buttonSmall)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .contentShape(Rectangle())
@@ -458,6 +446,10 @@ extension FoundationShell {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                // `DESIGN.md` iPad: "Pointer targets, hover treatment, keyboard
+                // focus, and root shortcuts are part of the design." The
+                // shortcuts were here; the pointer treatment was not.
+                .hoverEffect(.highlight)
                 .accessibilityIdentifier("foundation.expanded.destination.\(destination.rawValue)")
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
                 .keyboardShortcut(
@@ -470,9 +462,13 @@ extension FoundationShell {
         }
         .padding(6)
         .frame(maxWidth: 720)
-        .lifeBoardGlassSurface(cornerRadius: 24, interactive: true)
+        // The switcher is the iPad's dock. `DESIGN.md`'s shape vocabulary gives
+        // dock and composer clusters 30; 24 is the *hero* radius, which the
+        // document calls "the continuity" between a card and the hero it opens
+        // into — chrome borrowing it blurs that.
+        .lifeBoardGlassSurface(cornerRadius: Radius.dock, interactive: true)
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.dock, style: .continuous)
                 .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
         .padding(.horizontal, 20)

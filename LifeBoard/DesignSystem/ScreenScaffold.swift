@@ -33,16 +33,22 @@ public enum ScreenMode: String, CaseIterable, Hashable, Sendable {
         }
     }
 
+    /// `DESIGN.md` iPad: prose and forms are constrained to a 680-point readable
+    /// width, primary compositions to 1080.
+    ///
+    /// These were 920 / 720 / 860 — three numbers, none of which appeared
+    /// anywhere else in the codebase and none of which was either contract
+    /// value. `680` and `1080` did not occur in the project at all.
     var defaultReadableWidth: CGFloat? {
         switch self {
         case .ambient:
             nil
         case .detail:
-            920
+            1080
         case .editor:
-            720
+            680
         case .utility, .focused, .critical:
-            860
+            680
         }
     }
 }
