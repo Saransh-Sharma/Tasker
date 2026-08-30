@@ -534,6 +534,56 @@ final class HealthSyncTests: XCTestCase {
         XCTAssertNotNil(store.lastSuccessfulSync)
     }
 
+    @MainActor
+    func testSkippedAuthorizationImportReplaysWhenRuntimeAttaches() async {
+        let previousReadFlag = V2FeatureFlags.healthIntegrationsV1Enabled
+        V2FeatureFlags.healthIntegrationsV1Enabled = true
+        HealthAuthorizationPromptState.reset()
+        defer {
+            V2FeatureFlags.healthIntegrationsV1Enabled = previousReadFlag
+            HealthAuthorizationPromptState.reset()
+        }
+
+        let gateway = HealthGatewayFake()
+        let ledger = InMemoryHealthSyncLedger()
+        let runtime = HealthRuntimeTestBox()
+        let hub = HealthSyncInvalidationService()
+        let coordinator = HealthSyncCoordinator(
+            gateway: gateway,
+            engineProvider: { await runtime.engine },
+            ledgerProvider: { ledger },
+            defaultsSuiteName: "HealthRuntimeReplayTests.\(UUID().uuidString)",
+            invalidationHub: hub
+        )
+        let store = HealthConnectionStore(
+            gateway: gateway,
+            engineProvider: { await runtime.engine },
+            ledgerProvider: { ledger },
+            coordinator: coordinator,
+            invalidationHub: hub
+        )
+
+        await store.connectReadOnly(domains: [.activity])
+        for _ in 0..<100 where store.isRefreshing {
+            try? await _Concurrency.Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertTrue(store.isInitialSyncPending)
+        XCTAssertEqual(gateway.anchoredRequestCount, 0)
+
+        let engine = HealthSyncService(
+            gateway: gateway,
+            ledger: ledger,
+            projections: HealthProjectionFake(),
+            featureFlags: { (true, false) }
+        )
+        await runtime.attach(engine)
+        await store.runtimeDidAttach()
+
+        XCTAssertFalse(store.isInitialSyncPending)
+        XCTAssertGreaterThan(gateway.anchoredRequestCount, 0)
+        XCTAssertNotNil(store.lastSuccessfulSync)
+    }
+
     func testHydrationBackwardDecodeDefaultsToManual() throws {
         let id = UUID()
         let timestamp = Date(timeIntervalSinceReferenceDate: 100)
@@ -762,6 +812,14 @@ private actor HealthImportGate {
         isOpen = true
         blockedContinuations.forEach { $0.resume() }
         blockedContinuations.removeAll()
+    }
+}
+
+private actor HealthRuntimeTestBox {
+    private(set) var engine: HealthSyncService?
+
+    func attach(_ engine: HealthSyncService) {
+        self.engine = engine
     }
 }
 

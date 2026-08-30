@@ -7,12 +7,33 @@ cd "$ROOT_DIR"
 
 FAILED=0
 
+# Matches in comments are not violations.
+#
+# These rules necessarily name the constructs they forbid, and so does any
+# comment explaining why a construct was removed — so a doc comment saying
+# "Regular Liquid Glass rather than .regularMaterial" failed the very rule it
+# was documenting. The previous workaround was to reword prose around the
+# grep, which makes the code worse to read in order to satisfy a tool.
+#
+# `rg -n` emits `path:line:content`; strip rows whose content begins with `//`
+# or a `*` continuation line.
+strip_comment_matches() {
+  awk -F: 'BEGIN { OFS=":" }
+    {
+      content = $0
+      sub(/^[^:]*:[0-9]+:/, "", content)
+      sub(/^[[:space:]]+/, "", content)
+      if (content ~ /^\/\// || content ~ /^\*/) next
+      print
+    }'
+}
+
 fail_if_matches() {
   local title="$1"
   local regex="$2"
   shift 2
   local output
-  output="$(rg -n "$regex" "$@" || true)"
+  output="$(rg -n "$regex" "$@" | strip_comment_matches || true)"
   if [[ -n "$output" ]]; then
     echo "❌ $title"
     printf '%s\n' "$output"
@@ -32,10 +53,21 @@ fail_if_matches \
   'LinearGradient|ultraThinMaterial|thinMaterial|regularMaterial' \
   LifeBoard/Shared/UI/DestinationScaffold.swift
 
+# Was scoped to GlassCard.swift alone, and its message named `LBGlassCard` — a
+# type that no longer exists, so the rule read as protecting something it did
+# not. The real rule is the one DESIGN.md states: raw system materials are not
+# how this app draws glass. `lifeBoardSystemGlass` is, and it is the thing the
+# shell, dock, composer and hero are built from.
+#
+# Scoped to the shared visual layer rather than one file, because that is where
+# a stray `.regularMaterial` does the most damage: every screen inherits it.
 fail_if_matches \
-  "LBGlassCard is now a compatibility clay surface and cannot own blur material" \
-  'ultraThinMaterial|thinMaterial|regularMaterial' \
-  LifeBoard/LifeBoardDesign/Components/GlassCard.swift
+  "The shared visual layer draws glass through lifeBoardSystemGlass, never raw system materials" \
+  'ultraThinMaterial|thinMaterial|thickMaterial|regularMaterial' \
+  LifeBoard/LifeBoardDesign \
+  LifeBoard/DesignSystem \
+  LifeBoard/Shared/UI \
+  --glob '*.swift'
 
 if ! rg -q 'ScreenScaffold' LifeBoard/Shared/UI/DestinationScaffold.swift; then
   echo "❌ Secondary destinations must use ScreenScaffold"

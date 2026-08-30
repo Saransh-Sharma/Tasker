@@ -9,8 +9,6 @@
 import XCTest
 
 class TaskCreationTests: BaseUITest {
-    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_ENABLE_LIQUID_METAL_CTA"] }
-
     var homePage: HomePage!
 
     override func setUp() async throws {

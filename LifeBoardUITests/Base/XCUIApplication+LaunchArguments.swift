@@ -16,7 +16,6 @@ extension XCUIApplication {
         case uiTesting = "-UI_TESTING"
         case disableAnimations = "-DISABLE_ANIMATIONS"
         case enableSignatureShaders = "-LIFEBOARD_ENABLE_SIGNATURE_SHADERS"
-        case enableLiquidMetalCTA = "-LIFEBOARD_ENABLE_LIQUID_METAL_CTA"
         case skipOnboarding = "-SKIP_ONBOARDING"
         case mockDate = "-MOCK_DATE"
         case mockNetworkFailure = "-MOCK_NETWORK_FAILURE"

@@ -4,8 +4,9 @@ import process from 'node:process'
 
 const target = process.argv[2]
 const checkRemoteSecrets = process.argv.includes('--remote-secrets')
+const checkLivePolicy = process.argv.includes('--live-policy')
 if (target !== 'staging' && target !== 'production') {
-  throw new Error('Usage: deployment-preflight.mjs <staging|production> [--remote-secrets]')
+  throw new Error('Usage: deployment-preflight.mjs <staging|production> [--remote-secrets] [--live-policy]')
 }
 
 const requiredSecrets = [
@@ -13,8 +14,6 @@ const requiredSecrets = [
   'APPLE_TEAM_ID',
   'APPLE_KEY_ID',
   'APPLE_PRIVATE_KEY_P8',
-  'APPLE_DEVICECHECK_KEY_ID',
-  'APPLE_DEVICECHECK_PRIVATE_KEY_P8',
   'APPLE_CLIENT_IDS',
   'APPLE_ROOT_CERTIFICATES_BASE64',
   'ACCOUNT_HMAC_KEY',
@@ -103,4 +102,13 @@ if (checkRemoteSecrets) {
   if (missing.length > 0) throw new Error(`${target} is missing Worker secrets: ${missing.join(', ')}`)
 }
 
-console.log(`${target} deployment preflight passed${checkRemoteSecrets ? ' with remote secret verification' : ''}.`)
+if (checkLivePolicy) {
+  const verified = spawnSync(process.execPath, ['tools/verify-live-config.mjs', target], {
+    cwd: new URL('..', import.meta.url),
+    encoding: 'utf8',
+    stdio: 'inherit',
+  })
+  if (verified.status !== 0) throw new Error(`${target} live runtime policy verification failed.`)
+}
+
+console.log(`${target} deployment preflight passed${checkRemoteSecrets ? ' with remote secret verification' : ''}${checkLivePolicy ? ' and live policy verification' : ''}.`)

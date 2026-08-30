@@ -53,12 +53,9 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
 
     func testHomeBackgroundUsesPlainCanvasWithoutAnimatedGradient() throws {
         let homeSource = try loadWorkspaceFile("LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift")
-        let bezelSource = try loadWorkspaceFile("LifeBoard/DesignSystem/LifeBoardCTABezel.swift")
 
         XCTAssertTrue(homeSource.contains("ScenicBackdrop("))
         XCTAssertFalse(homeSource.contains("HomeDynamicGradientBackdrop"))
-        XCTAssertFalse(bezelSource.contains("LifeBoardNoisyGradientBackdrop"))
-        XCTAssertFalse(bezelSource.contains("LifeBoardNoisyGradient"))
     }
 
     func testHomeListViewsThreadLayoutStyleIntoTaskRows() throws {

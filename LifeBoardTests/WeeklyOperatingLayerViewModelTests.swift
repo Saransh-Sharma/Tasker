@@ -538,14 +538,43 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         loadReview(viewModel)
 
         let completed = expectation(description: "review completion callback fired")
-        viewModel.completeReview { message in
-            XCTAssertEqual(message, WeeklyCopy.reviewSaveSuccess)
+        viewModel.completeReview { result in
+            XCTAssertEqual(try? result.get(), WeeklyCopy.reviewSaveSuccess)
             completed.fulfill()
         }
         wait(for: [completed], timeout: 1.0)
 
         XCTAssertFalse(viewModel.isSaving)
         XCTAssertEqual(viewModel.saveMessage, WeeklyCopy.reviewSaveSuccess)
+    }
+
+    @MainActor
+    func testReviewCompletionReportsMissingPlanInsteadOfLeavingCallerWaiting() {
+        let snapshot = WeeklyPlanSnapshot(
+            weekStartDate: fixedWeekStart,
+            plan: nil,
+            outcomes: [],
+            review: nil,
+            thisWeekTasks: [],
+            nextWeekTasks: [],
+            laterTasks: [],
+            reflectionNotes: []
+        )
+        let viewModel = makeReviewViewModel(snapshot: snapshot)
+        loadReview(viewModel)
+
+        let completed = expectation(description: "missing plan returned a failure")
+        viewModel.completeReview { result in
+            defer { completed.fulfill() }
+            guard case .failure(let error) = result else {
+                return XCTFail("Expected missing plan failure")
+            }
+            XCTAssertEqual(error.localizedDescription, "Create the weekly plan before reviewing it.")
+        }
+        wait(for: [completed], timeout: 1.0)
+
+        XCTAssertFalse(viewModel.isSaving)
+        XCTAssertEqual(viewModel.errorMessage, "Create the weekly plan before reviewing it.")
     }
 
     @MainActor
@@ -593,8 +622,8 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         ]
 
         let completed = expectation(description: "review completion finished")
-        viewModel.completeReview { message in
-            XCTAssertEqual(message, "Review saved. 1 stale item was skipped.")
+        viewModel.completeReview { result in
+            XCTAssertEqual(try? result.get(), "Review saved. 1 stale item was skipped.")
             completed.fulfill()
         }
         wait(for: [completed], timeout: 1.0)

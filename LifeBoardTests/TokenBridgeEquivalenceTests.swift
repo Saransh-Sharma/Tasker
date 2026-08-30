@@ -86,11 +86,20 @@ final class TokenBridgeEquivalenceTests: XCTestCase {
         )
         XCTAssertGreaterThan(TokenBridge.mappedCount, 0)
         XCTAssertEqual(
-            TokenBridge.divergentEntries.count, 9,
+            TokenBridge.divergentEntries.count, 6,
             """
-            Measured 2026-08-03: of 13 statics with a role, 4 resolve identically after \
-            the hairline and focus accessibility defects were corrected. A change here \
-            means the palette moved — read the notes, do not just bump the number.
+            Measured 2026-08-29: of 13 statics with a role, 7 now resolve identically. \
+            A change here means the palette moved — read the notes, do not just bump the number.
+
+            Was 9. Three converged deliberately when the clay material was reseated: \
+            foundationSurfaceSolid, foundationSurfaceRecessed and foundationSurfaceSelected \
+            are the physical surface planes, and both vocabularies draw cards onto the same \
+            screens — so a divergence there is not two tokens disagreeing in the abstract, it \
+            is two different card colours side by side on one screen. They are now pinned \
+            equal by ClayMaterialContrastTests.testClayPlanesAgreeAcrossBothColourVocabularies, \
+            which asserts they *must* match rather than recording that they happen to.
+
+            The 6 that remain are genuine open decisions, not debt to close blindly.
             """
         )
     }

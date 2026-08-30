@@ -18,10 +18,7 @@ final class DailySummaryModalTests: BaseUITest {
     }
 
     func testMorningRoutePresentsMorningSummaryModal() {
-        app.launchWithTestRoute(
-            "daily_summary:morning:20260225",
-            additionalArguments: [.enableLiquidMetalCTA]
-        )
+        app.launchWithTestRoute("daily_summary:morning:20260225")
 
         let modal = summaryElement(AccessibilityIdentifiers.Home.dailySummaryModal)
         XCTAssertTrue(modal.waitForExistence(timeout: 10), "Morning summary modal should appear")
@@ -36,10 +33,7 @@ final class DailySummaryModalTests: BaseUITest {
     }
 
     func testNightlyRoutePresentsNightlySummaryModal() {
-        app.launchWithTestRoute(
-            "daily_summary:nightly:20260225",
-            additionalArguments: [.enableLiquidMetalCTA]
-        )
+        app.launchWithTestRoute("daily_summary:nightly:20260225")
 
         let modal = summaryElement(AccessibilityIdentifiers.Home.dailySummaryModal)
         XCTAssertTrue(modal.waitForExistence(timeout: 10), "Nightly summary modal should appear")

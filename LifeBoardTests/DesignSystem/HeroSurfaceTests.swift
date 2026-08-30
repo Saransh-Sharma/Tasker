@@ -141,6 +141,81 @@ final class HeroSurfaceTests: XCTestCase {
 
     /// Wells are below the canvas plane. A lit top edge on a carved surface
     /// inverts the read and makes the inset appear to pop out.
+    /// The scrim has to be sized for the brightest thing the scene can put
+    /// behind the hero, not for the canvas.
+    ///
+    /// It used to measure `palette.canvas` alone, on the written assumption that
+    /// the canvas is "the brightest thing it ever sits on". The daypart palette
+    /// also carries `celestialCore` and `decorativeHighlight` — the sun and its
+    /// glow — which are brighter, and a hero can sit under them. `DESIGN.md`
+    /// requires the measurement to span "the scene's full luminance range".
+    func testScrimIsSizedForTheBrightestSceneStopNotTheCanvas() {
+        let traits = UITraitCollection(userInterfaceStyle: .light)
+        let palette = DaypartTokens.palette(for: .afternoon)
+
+        let canvasOnly = HeroContrastFloor.scrimOpacity(
+            scene: palette.uiColor(for: .canvas),
+            scrim: SemanticColorTokens.heroScrim,
+            ink: SemanticColorTokens.inkPrimary,
+            base: 0,
+            ratio: HeroContrastFloor.bodyRatio,
+            traits: traits
+        )
+
+        let stops: [DaypartColorRole] = [
+            .canvas, .canvasSecondary, .layerOne, .layerTwo,
+            .celestialPrimary, .celestialCore, .decorativeHighlight
+        ]
+        let worst = stops.map { stop in
+            HeroContrastFloor.scrimOpacity(
+                scene: palette.uiColor(for: stop),
+                scrim: SemanticColorTokens.heroScrim,
+                ink: SemanticColorTokens.inkPrimary,
+                base: 0,
+                ratio: HeroContrastFloor.bodyRatio,
+                traits: traits
+            )
+        }.max() ?? 0
+
+        XCTAssertGreaterThanOrEqual(
+            worst, canvasOnly,
+            "The worst scene stop cannot need less veil than the canvas does."
+        )
+    }
+
+    /// The hero renders its context line, status and metric footnote in
+    /// `inkSecondary`, which is lighter than `inkPrimary` and needs *more* veil
+    /// to clear the same floor. Sizing the scrim for the title alone left the
+    /// supporting line under the body floor on bright scenes.
+    func testScrimClearsTheFloorForSecondaryInkToo() {
+        let traits = UITraitCollection(userInterfaceStyle: .light)
+        let palette = DaypartTokens.palette(for: .afternoon)
+
+        for stop in [DaypartColorRole.canvas, .celestialCore, .decorativeHighlight] {
+            let scene = palette.uiColor(for: stop)
+            let forSecondary = HeroContrastFloor.scrimOpacity(
+                scene: scene,
+                scrim: SemanticColorTokens.heroScrim,
+                ink: SemanticColorTokens.inkSecondary,
+                base: 0,
+                ratio: HeroContrastFloor.bodyRatio,
+                traits: traits
+            )
+            let forPrimary = HeroContrastFloor.scrimOpacity(
+                scene: scene,
+                scrim: SemanticColorTokens.heroScrim,
+                ink: SemanticColorTokens.inkPrimary,
+                base: 0,
+                ratio: HeroContrastFloor.bodyRatio,
+                traits: traits
+            )
+            XCTAssertGreaterThanOrEqual(
+                forSecondary, forPrimary,
+                "Lighter ink cannot need less veil than darker ink on \(stop.rawValue)."
+            )
+        }
+    }
+
     func testSpecularRimIsAbsentFromWells() {
         XCTAssertEqual(ClayDepth.well.cornerRadius, 14)
         let rim = SpecularRimModifier(depth: .well)

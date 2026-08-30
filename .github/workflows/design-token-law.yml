@@ -24,6 +24,15 @@ jobs:
       - name: Run token-law grep guardrails
         run: bash scripts/token-law-guardrails.sh
 
+      # token-law-guardrails.sh is a ratchet on *added lines* under four app
+      # directories. premium-ui-guardrails.sh scans the whole tree instead, so
+      # it catches drift that arrives by moving code rather than writing it —
+      # and it was wired to no workflow at all, which is how the repo's two
+      # worst glass violations came to sit inside the design-system directories
+      # themselves.
+      - name: Run premium clay and glass guardrails
+        run: bash scripts/premium-ui-guardrails.sh
+
       - name: Enforce no direct print logging
         run: bash scripts/check-no-print-logs.sh
 

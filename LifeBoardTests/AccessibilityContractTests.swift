@@ -35,7 +35,8 @@ final class AccessibilityContractTests: XCTestCase {
             ("foundationCanvasMuted", SemanticColorTokens.foundationCanvasMuted),
             ("foundationSurfaceSolid", SemanticColorTokens.foundationSurfaceSolid),
             ("foundationSurfaceRecessed", SemanticColorTokens.foundationSurfaceRecessed),
-            ("foundationSurfaceSelected", SemanticColorTokens.foundationSurfaceSelected)
+            ("foundationSurfaceSelected", SemanticColorTokens.foundationSurfaceSelected),
+            ("foundationSurfaceRaised", SemanticColorTokens.foundationSurfaceRaised)
         ]
         let appearances: [(UIUserInterfaceStyle, UIAccessibilityContrast, String)] = [
             (.light, .normal, "light"),

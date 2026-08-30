@@ -11,6 +11,9 @@ export interface DeviceCheckRisk {
 let cachedKey: { keyId: string; key: ReturnType<typeof importPKCS8> } | undefined
 
 async function deviceCheckJWT(env: Env): Promise<string> {
+  if (!env.APPLE_DEVICECHECK_KEY_ID || !env.APPLE_DEVICECHECK_PRIVATE_KEY_P8) {
+    throw new Error('DeviceCheck credentials are not configured.')
+  }
   if (cachedKey?.keyId !== env.APPLE_DEVICECHECK_KEY_ID) {
     cachedKey = {
       keyId: env.APPLE_DEVICECHECK_KEY_ID,
@@ -41,7 +44,7 @@ export function deviceCheckBaseURL(env: Env): string {
 
 /** DeviceCheck is advisory: failure preserves low-trust guest access. */
 export async function queryDeviceCheckRisk(env: Env, deviceToken: string): Promise<DeviceCheckRisk | undefined> {
-  if (!deviceToken) return undefined
+  if (!deviceToken || !env.APPLE_DEVICECHECK_KEY_ID || !env.APPLE_DEVICECHECK_PRIVATE_KEY_P8) return undefined
   try {
     const response = await fetch(`${deviceCheckBaseURL(env)}/v1/query_two_bits`, {
       method: 'POST',

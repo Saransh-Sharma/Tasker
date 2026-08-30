@@ -165,6 +165,18 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertTrue(status.allRowsHandled)
     }
 
+    @MainActor
+    func testHealthSyncHandoffDeadlineSurvivesOutsideTheView() async {
+        let state = LifeWeaveHealthPowerUpState.shared
+        state.resetForVisit()
+        defer { state.resetForVisit() }
+
+        state.beginHandoffDeadline(after: .milliseconds(20))
+        try? await _Concurrency.Task.sleep(for: .milliseconds(40))
+
+        XCTAssertTrue(state.isHandoffOffered)
+    }
+
     func testDefaultLifeAreaSelectionRespectsFrictionProfileAndMode() {
         XCTAssertEqual(
             StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: .starting, mode: .guided),

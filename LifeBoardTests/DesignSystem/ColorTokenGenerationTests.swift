@@ -36,9 +36,15 @@ final class ColorTokenGenerationTests: XCTestCase {
             colors.bgCanvasSecondary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
             UIColor(lifeboardHex: "#111624")
         )
+        // Was `#202741` at 0.92. `surfacePrimary` is the same physical plane as
+        // `foundationSurfaceSolid`, which `ClaySurfaceModifier` fills from, and
+        // the two had drifted to different colours — so a clay card and a
+        // `Color.lifeboard(.surfacePrimary)` card on one screen did not match.
+        // It is also opaque now: a translucent card takes its colour from
+        // whatever is behind it, which is a property of glass, not of clay.
         assertEqualColor(
             colors.surfacePrimary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
-            UIColor(lifeboardHex: "#202741").withAlphaComponent(0.92)
+            UIColor(lifeboardHex: "#282A44")
         )
     }
 

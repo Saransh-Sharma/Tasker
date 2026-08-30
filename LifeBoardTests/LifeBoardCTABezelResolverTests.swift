@@ -12,7 +12,7 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
     }
 
     func testOnboardingHighlightMovesPastCreatedTemplate() {
-        let highlighted = CTABezelResolver.highlightedOnboardingTemplateID(
+        let highlighted = PrimaryActionResolver.highlightedOnboardingTemplateID(
             primarySuggestionIDs: ["first", "second", "third"],
             taskTemplateStates: [
                 "first": .created(UUID()),
@@ -25,7 +25,7 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
     }
 
     func testOnboardingHighlightReturnsNilWhenAllPrimarySuggestionsAreCreated() {
-        let highlighted = CTABezelResolver.highlightedOnboardingTemplateID(
+        let highlighted = PrimaryActionResolver.highlightedOnboardingTemplateID(
             primarySuggestionIDs: ["first", "second"],
             taskTemplateStates: [
                 "first": .created(UUID()),
@@ -69,26 +69,27 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            CTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: morning),
+            PrimaryActionResolver.dailySummaryPrimaryCTAIdentifier(for: morning),
             "home.dailySummary.cta.startToday"
         )
         XCTAssertEqual(
-            CTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: nightly),
+            PrimaryActionResolver.dailySummaryPrimaryCTAIdentifier(for: nightly),
             "home.dailySummary.cta.planTomorrow"
         )
     }
 
-    /// Renamed from `…DefaultToDisabled`: the default is now **on**.
-    /// `LifeBoardLiquidMetalBezel` is the only shader in the app that animates
-    /// at rest, and shipping it off meant it never ran for anyone who did not
-    /// go looking for the setting. The remote kill-switch is unchanged.
+    /// The default is **on**. These used to assert against
+    /// `liquidMetalCTAEnabled`, whose only consumer was the liquid-metal CTA
+    /// bezel; with that removed the user preference had no consumer at all, so
+    /// it now gates `signatureShadersEnabled` — the effects layer the setting
+    /// was always presented as governing. The remote kill-switch is unchanged.
     func testDecorativeButtonEffectsDefaultToEnabled() {
         UserDefaults.standard.removeObject(forKey: userDecorativeCTAEffectsKey)
         UserDefaults.standard.removeObject(forKey: remoteDecorativeCTAEffectsKey)
 
         XCTAssertTrue(V2FeatureFlags.userDecorativeCTAEffectsEnabled)
         XCTAssertTrue(V2FeatureFlags.remoteDecorativeCTAEffectsAllowed)
-        XCTAssertTrue(V2FeatureFlags.liquidMetalCTAEnabled)
+        XCTAssertTrue(V2FeatureFlags.signatureShadersEnabled)
     }
 
     /// The remote flag must still be able to kill it regardless of the default.
@@ -96,34 +97,28 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: userDecorativeCTAEffectsKey)
         V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = false
 
-        XCTAssertFalse(V2FeatureFlags.liquidMetalCTAEnabled)
+        XCTAssertFalse(V2FeatureFlags.signatureShadersEnabled)
     }
 
     func testDecorativeButtonEffectsStayDisabledWhenUserPrefIsFalseAndRemoteAllows() {
         V2FeatureFlags.userDecorativeCTAEffectsEnabled = false
         V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = true
 
-        XCTAssertFalse(V2FeatureFlags.liquidMetalCTAEnabled)
+        XCTAssertFalse(V2FeatureFlags.signatureShadersEnabled)
     }
 
     func testDecorativeButtonEffectsEnableWhenUserPrefIsTrueAndRemoteAllows() {
         V2FeatureFlags.userDecorativeCTAEffectsEnabled = true
         V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = true
 
-        XCTAssertTrue(V2FeatureFlags.liquidMetalCTAEnabled)
+        XCTAssertTrue(V2FeatureFlags.signatureShadersEnabled)
     }
 
     func testDecorativeButtonEffectsDisableWhenRemoteDisallowsDespiteUserPref() {
         V2FeatureFlags.userDecorativeCTAEffectsEnabled = true
         V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = false
 
-        XCTAssertFalse(V2FeatureFlags.liquidMetalCTAEnabled)
+        XCTAssertFalse(V2FeatureFlags.signatureShadersEnabled)
     }
 
-    func testHomeBackdropNoiseOpacityMappingTracksPercentage() {
-        XCTAssertEqual(BackdropNoise.opacity(for: -12), 0, accuracy: 0.0001)
-        XCTAssertEqual(BackdropNoise.opacity(for: 20), 0.02, accuracy: 0.0001)
-        XCTAssertEqual(BackdropNoise.opacity(for: 100), 0.10, accuracy: 0.0001)
-        XCTAssertEqual(BackdropNoise.opacity(for: 180), 0.10, accuracy: 0.0001)
-    }
 }

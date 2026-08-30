@@ -69,6 +69,7 @@ final class SetupCenterFocusTests: XCTestCase {
         )
         XCTAssertEqual(value.calendar.state, .actionRequired)
         XCTAssertEqual(value.calendar.status, "Choose calendars")
+        XCTAssertEqual(value.calendar.recoveryActionKind, .chooseCalendars)
     }
 
     func testStaleCalendarSelectionsDoNotCountAsUsable() {
@@ -101,6 +102,7 @@ final class SetupCenterFocusTests: XCTestCase {
         )
         XCTAssertEqual(value.health.state, .waiting)
         XCTAssertEqual(value.health.status, "Access requested")
+        XCTAssertEqual(value.health.recoveryActionKind, .syncHealth)
     }
 
     func testEnabledDeniedHealthWriteIsActionable() {
@@ -121,5 +123,6 @@ final class SetupCenterFocusTests: XCTestCase {
             offlineModelReady: false
         )
         XCTAssertEqual(value.health.state, .attention)
+        XCTAssertEqual(value.health.recoveryActionKind, .openSystemSettings)
     }
 }

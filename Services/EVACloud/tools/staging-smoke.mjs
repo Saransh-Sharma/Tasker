@@ -4,10 +4,14 @@ import {
   requiredEnvironment,
   verifyPublicStaging,
 } from './staging-client.mjs'
+import { readFileSync } from 'node:fs'
+import { assertLivePolicy } from './live-config-policy.mjs'
 
 const baseURL = requiredEnvironment('EVA_STAGING_BASE_URL').replace(/\/$/u, '')
 const publicJwk = requiredEnvironment('EVA_CONFIG_PUBLIC_JWK')
 const { config } = await verifyPublicStaging(baseURL, publicJwk)
+const expectedPolicy = JSON.parse(readFileSync(new URL('../config/runtime-config.staging.json', import.meta.url), 'utf8'))
+assertLivePolicy(config, expectedPolicy)
 
 const accessToken = process.env.EVA_STAGING_ACCESS_TOKEN?.trim()
 if (!accessToken) {
@@ -39,4 +43,3 @@ if (config.cloudState === 'enabled' && config.routes?.debugSmoke?.enabled) {
   })
 }
 process.stdout.write(`Authenticated staging smoke passed (credits=${credits.balance}, consent=${consent.revision}).\n`)
-

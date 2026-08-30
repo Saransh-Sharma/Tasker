@@ -72,4 +72,15 @@ describe('DeviceCheck server integration', () => {
       'opaque-device-token',
     )).resolves.toBeUndefined()
   })
+
+  it('skips advisory lookup when DeviceCheck credentials are not configured', async () => {
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    const environment = fixtureEnvironment('production')
+    environment.APPLE_DEVICECHECK_KEY_ID = undefined
+    environment.APPLE_DEVICECHECK_PRIVATE_KEY_P8 = undefined
+
+    await expect(queryDeviceCheckRisk(environment, 'opaque-device-token')).resolves.toBeUndefined()
+    expect(fetch).not.toHaveBeenCalled()
+  })
 })

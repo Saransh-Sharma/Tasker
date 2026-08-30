@@ -16,13 +16,15 @@
     "deploy:production": "wrangler versions upload --env production",
     "config:publish:staging": "wrangler kv key put runtime-config-v2 --binding EVA_CONFIG --env staging --remote --path config/runtime-config.staging.json",
     "config:publish:production": "wrangler kv key put runtime-config-v2 --binding EVA_CONFIG --env production --remote --path config/runtime-config.production.json",
+    "config:verify:staging": "node tools/verify-live-config.mjs staging",
+    "config:verify:production": "node tools/verify-live-config.mjs production",
     "config:prepare-rollback:staging": "node tools/prepare-runtime-config-rollback.mjs staging",
     "config:prepare-rollback:production": "node tools/prepare-runtime-config-rollback.mjs production",
     "smoke:staging": "node tools/staging-smoke.mjs",
     "eval:luna": "node tools/luna-eval.mjs",
     "load:staging": "node tools/load-test.mjs",
-    "preflight:staging": "node tools/deployment-preflight.mjs staging --remote-secrets",
-    "preflight:production": "node tools/deployment-preflight.mjs production --remote-secrets",
+    "preflight:staging": "node tools/deployment-preflight.mjs staging --remote-secrets --live-policy",
+    "preflight:production": "node tools/deployment-preflight.mjs production --remote-secrets --live-policy",
     "keys:generate": "node tools/generate-environment-keys.mjs"
   },
   "dependencies": {

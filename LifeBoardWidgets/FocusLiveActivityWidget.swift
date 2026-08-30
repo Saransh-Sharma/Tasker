@@ -2,13 +2,46 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
+/// The widget's colours, resolved from the design tokens rather than
+/// re-transcribed.
+///
+/// Every value below used to be a `Color(red:green:blue:)` literal, and each was
+/// a hand-copied approximation of a token that already existed — off by a single
+/// 8-bit unit in each channel, which is exactly what transcription drift looks
+/// like. A Live Activity sits on the Lock Screen next to nothing else the app
+/// draws, so nobody ever noticed the app and its activity were a shade apart.
+///
+/// The `foundation*` statics are used rather than `Color.lifeboard(_:)` because
+/// a widget extension has no `ThemeStore`.
+private enum WidgetPalette {
+    /// Was a red/green/blue literal resolving to `#FFF7D9`, against the
+    /// canvas token's `#FFF7D8`.
+    static let canvas = Color(SemanticColorTokens.foundationCanvas)
+    /// Was a red/green/blue literal resolving to `#2B2117`, against
+    /// `inkPrimary`'s `#2B2118`.
+    static let ink = Color(SemanticColorTokens.inkPrimary)
+    /// Was a red/green/blue literal resolving to `#F0CC87`, against the
+    /// sun accent's `#F0CD87`.
+    static let sun = Color(SemanticColorTokens.foundationSunAccent)
+    /// Was a red/green/blue literal resolving to `#593D1F`, one unit from
+    /// the focus-ring token — but it is used as body ink on the warm canvas, not
+    /// as a focus ring, so it resolves to the ink role it was always playing.
+    /// That also darkens it, which raises contrast on the cream background.
+    static let bodyInk = Color(SemanticColorTokens.inkPrimary)
+    /// The one value with no counterpart in the palette: a soft sage used as a
+    /// completion mark's ground. Left as a literal deliberately rather than
+    /// bent onto `statusSuccess` (`#5D6A4D`), which is far darker and would
+    /// invert the mark's contrast.
+    static let completionGround = Color(red: 0.77, green: 0.85, blue: 0.68)
+}
+
 struct FocusLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: FocusActivityAttributes.self) { context in
             HStack(spacing: 12) {
                 Image(systemName: context.state.phase == "paused" ? "pause.circle.fill" : "scope")
                     .font(.title2)
-                    .foregroundStyle(Color(red: 0.35, green: 0.24, blue: 0.12))
+                    .foregroundStyle(WidgetPalette.bodyInk)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(context.attributes.title)
                         .font(.headline)
@@ -19,7 +52,7 @@ struct FocusLiveActivityWidget: Widget {
                 Link(destination: primaryURL(context)) {
                     Image(systemName: context.state.phase == "paused" ? "play.fill" : "pause.fill")
                         .frame(width: 44, height: 44)
-                        .background(Color(red: 0.94, green: 0.80, blue: 0.53), in: Circle())
+                        .background(WidgetPalette.sun, in: Circle())
                 }
                 .accessibilityLabel(context.state.phase == "paused" ? "Resume focus" : "Pause focus")
                 Link(destination: FocusActivityLink.url(
@@ -32,8 +65,8 @@ struct FocusLiveActivityWidget: Widget {
                 .accessibilityLabel("End focus")
             }
             .padding(16)
-            .activityBackgroundTint(Color(red: 1.0, green: 0.97, blue: 0.85))
-            .activitySystemActionForegroundColor(Color(red: 0.17, green: 0.13, blue: 0.09))
+            .activityBackgroundTint(WidgetPalette.canvas)
+            .activitySystemActionForegroundColor(WidgetPalette.ink)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) { Image(systemName: "scope") }
@@ -48,7 +81,7 @@ struct FocusLiveActivityWidget: Widget {
             } minimal: {
                 Image(systemName: "scope")
             }
-            .keylineTint(Color(red: 0.94, green: 0.80, blue: 0.53))
+            .keylineTint(WidgetPalette.sun)
         }
     }
 
@@ -84,7 +117,7 @@ struct FastingLiveActivityWidget: Widget {
             HStack(spacing: 12) {
                 Image(systemName: "timer")
                     .font(.title2)
-                    .foregroundStyle(Color(red: 0.35, green: 0.24, blue: 0.12))
+                    .foregroundStyle(WidgetPalette.bodyInk)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(context.attributes.title)
                         .font(.headline)
@@ -100,7 +133,7 @@ struct FastingLiveActivityWidget: Widget {
                     )) {
                         Image(systemName: "checkmark")
                             .frame(width: 44, height: 44)
-                            .background(Color(red: 0.77, green: 0.85, blue: 0.68), in: Circle())
+                            .background(WidgetPalette.completionGround, in: Circle())
                     }
                     .accessibilityLabel("End fast")
                     Link(destination: FastingActivityLink.url(
@@ -114,8 +147,8 @@ struct FastingLiveActivityWidget: Widget {
                 }
             }
             .padding(16)
-            .activityBackgroundTint(Color(red: 1.0, green: 0.97, blue: 0.85))
-            .activitySystemActionForegroundColor(Color(red: 0.17, green: 0.13, blue: 0.09))
+            .activityBackgroundTint(WidgetPalette.canvas)
+            .activitySystemActionForegroundColor(WidgetPalette.ink)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) { Image(systemName: "timer") }
@@ -130,7 +163,7 @@ struct FastingLiveActivityWidget: Widget {
             } minimal: {
                 Image(systemName: "timer")
             }
-            .keylineTint(Color(red: 0.77, green: 0.85, blue: 0.68))
+            .keylineTint(WidgetPalette.completionGround)
         }
     }
 
@@ -161,7 +194,7 @@ struct RoutineLiveActivityWidget: Widget {
             HStack(spacing: 12) {
                 Image(systemName: "repeat.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(Color(red: 0.35, green: 0.24, blue: 0.12))
+                    .foregroundStyle(WidgetPalette.bodyInk)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(context.attributes.title).font(.headline).lineLimit(1)
                     Text(context.state.stepTitle).font(.caption).lineLimit(1)
@@ -176,7 +209,7 @@ struct RoutineLiveActivityWidget: Widget {
                     Link(destination: primaryURL(context)) {
                         Image(systemName: context.state.status == "running" ? "pause.fill" : "play.fill")
                             .frame(width: 44, height: 44)
-                            .background(Color(red: 0.94, green: 0.80, blue: 0.53), in: Circle())
+                            .background(WidgetPalette.sun, in: Circle())
                     }
                     .accessibilityLabel(context.state.status == "running" ? "Pause routine" : "Resume routine")
                     Link(destination: RoutineActivityLink.url(
@@ -190,8 +223,8 @@ struct RoutineLiveActivityWidget: Widget {
                 }
             }
             .padding(16)
-            .activityBackgroundTint(Color(red: 1.0, green: 0.97, blue: 0.85))
-            .activitySystemActionForegroundColor(Color(red: 0.17, green: 0.13, blue: 0.09))
+            .activityBackgroundTint(WidgetPalette.canvas)
+            .activitySystemActionForegroundColor(WidgetPalette.ink)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -212,7 +245,7 @@ struct RoutineLiveActivityWidget: Widget {
             } minimal: {
                 Image(systemName: "repeat")
             }
-            .keylineTint(Color(red: 0.94, green: 0.80, blue: 0.53))
+            .keylineTint(WidgetPalette.sun)
         }
     }
 

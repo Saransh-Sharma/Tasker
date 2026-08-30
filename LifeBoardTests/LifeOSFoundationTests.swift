@@ -303,18 +303,13 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let projectRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        // Both files, not just the signature library.
-        //
         // `warmUp()` materializes from `device.makeDefaultLibrary(bundle:)`,
-        // which contains every compiled `.metal` in the target — so the registry's
-        // real scope is "every stitchable function the app can load", not "every
-        // function in one file". Scanning only the signature file is what let
-        // `LifeBoardLiquidMetalBezel` ship for so long as the one shader warm-up
-        // never verified: its call site could reach a function that was never
-        // checked to exist.
+        // which contains every compiled `.metal` in the target, so this list is
+        // "every stitchable function the app can load" rather than "every
+        // function in one file". It was two files while the liquid-metal CTA
+        // bezel shipped its own shader; that bezel and its `.metal` are gone.
         let metalURLs = [
-            "LifeBoard/DesignSystem/Effects/LifeBoardSignatureEffects.metal",
-            "LifeBoard/DesignSystem/Effects/LifeBoardCTABezel.metal"
+            "LifeBoard/DesignSystem/Effects/LifeBoardSignatureEffects.metal"
         ].map { projectRoot.appendingPathComponent($0) }
 
         let expression = try NSRegularExpression(
@@ -335,8 +330,13 @@ final class LifeOSFoundationContractTests: XCTestCase {
         // first ambient-tier kernel — see DESIGN.md "Two tiers of motion". It is
         // the only entry here with no settled state; the ambient budget, not a
         // one-shot envelope, is what bounds it.
-        // Previously 22, when LifeBoardRootTravelShear and
-        // LifeBoardLiquidMetalBezel joined (2026-08-10).
+        // Was 23. Two shaders left: LifeBoardLiquidMetalBezel, which belonged to
+        // the liquid-metal CTA bezel — a sixth material in a five-plane
+        // elevation model — and LifeBoardRootTravelShear, which had been shipped
+        // switched off for months because `distortionEffect` on a screen-sized
+        // root holds the whole thing in an offscreen buffer and was the prime
+        // suspect for a full-screen flash on every root change. Neither appears
+        // in DESIGN.md's approved effect vocabulary.
         // This number, the registry, the [[stitchable]] declarations and
         // DESIGN.md's approved list are one atomic contract — warmUp() is
         // all-or-nothing, so a mismatch disables *every* signature effect at
@@ -344,7 +344,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         //
         // This constant was already stale once before, at 18 while the registry
         // carried 19, so treat a change here as a decision rather than a fixup.
-        XCTAssertEqual(registered.count, 23)
+        XCTAssertEqual(registered.count, 21)
         XCTAssertEqual(declared, registered)
     }
 

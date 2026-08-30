@@ -9,17 +9,20 @@ final class SpacingElevationCornerTests: XCTestCase {
 
         XCTAssertEqual(spacing.screenHorizontal, 20)
         XCTAssertEqual(spacing.cardPadding, 20)
-        XCTAssertEqual(spacing.sectionGap, 28)
+        XCTAssertEqual(spacing.sectionGap, 32)
         XCTAssertEqual(spacing.buttonHeight, 48)
     }
 
     func testCornerScaleValues() {
         let corner = Theme(index: 0).tokens.corner
 
-        XCTAssertEqual(corner.r1, 12)
-        XCTAssertEqual(corner.r2, 14)
-        XCTAssertEqual(corner.r3, 18)
-        XCTAssertEqual(corner.r4, 22)
+        // DESIGN.md "Shapes": 14 fields, 16 rows, 20 raised, 24 hero.
+        // These were 12 / 14 / 18 / 22 — a scale of its own, none of whose
+        // values except 14 appear in the contract.
+        XCTAssertEqual(corner.r1, 14)
+        XCTAssertEqual(corner.r2, 16)
+        XCTAssertEqual(corner.r3, 20)
+        XCTAssertEqual(corner.r4, 24)
         XCTAssertEqual(corner.pill, 999)
     }
 
@@ -106,9 +109,28 @@ final class SpacingElevationCornerTests: XCTestCase {
         let pad = theme.tokens(for: .padRegular)
 
         XCTAssertGreaterThan(pad.spacing.screenHorizontal, phone.spacing.screenHorizontal)
-        XCTAssertGreaterThan(pad.corner.card, phone.corner.card)
         XCTAssertGreaterThan(pad.typography.title1.pointSize, phone.typography.title1.pointSize)
         XCTAssertGreaterThanOrEqual(pad.elevation.e2.shadowBlur, phone.elevation.e2.shadowBlur)
+    }
+
+    /// Corner radius is the one token that must *not* scale with the window.
+    ///
+    /// This assertion used to read `pad.corner.card > phone.corner.card`, so a
+    /// card was 18 points on a phone and 22 on an expanded iPad. `DESIGN.md` is
+    /// explicit that an iPad composition grows "through spacing and
+    /// composition, not oversized type or empty card area", and the 24-point
+    /// hero radius is described as the continuity that lets a card and the hero
+    /// it opens into read as one object — which cannot hold if the radius
+    /// depends on the window it is in.
+    func testCornerRadiusDoesNotScaleWithLayoutClass() {
+        let theme = Theme(index: 0)
+        for layout in [LayoutClass.phone, .padCompact, .padRegular, .padExpanded] {
+            let corner = theme.tokens(for: layout).corner
+            XCTAssertEqual(corner.card, 20, "card radius drifted on \(layout)")
+            XCTAssertEqual(corner.input, 14, "input radius drifted on \(layout)")
+            XCTAssertEqual(corner.modal, 28, "modal radius drifted on \(layout)")
+            XCTAssertEqual(corner.bottomBar, 30, "dock radius drifted on \(layout)")
+        }
     }
 
     @MainActor
