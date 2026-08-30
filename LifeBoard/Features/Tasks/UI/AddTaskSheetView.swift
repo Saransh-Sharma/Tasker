@@ -469,7 +469,7 @@ private struct TaskTimelinePreview: View {
                 .padding(ClayLayoutMetrics.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .fill(
                             LinearGradient(
                                 colors: [role.softSurface, ClayColorTokens.glassStrong],
@@ -479,7 +479,7 @@ private struct TaskTimelinePreview: View {
                         )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .stroke(role.border.opacity(0.82), lineWidth: 1)
                 )
             }
@@ -798,7 +798,7 @@ private struct AddTaskErrorView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(ClayLayoutMetrics.md)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                     .fill(ClayColorTokens.role(.warning).softSurface)
             )
     }
@@ -832,16 +832,14 @@ private struct GlassCardModifier: ViewModifier {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         content
             .background {
-                if #available(iOS 26.0, *) {
-                    shape
-                        .fill(.clear)
-                        .lifeBoardSystemGlass(.regular, in: shape)
-                        .overlay(shape.fill(ClayColorTokens.glass.opacity(0.50)))
-                } else {
-                    shape
-                        .fill(.regularMaterial)
-                        .overlay(shape.fill(ClayColorTokens.glass))
-                }
+                // The `#available(iOS 26.0, *)` check and its `.regularMaterial`
+                // fallback are gone: the deployment target *is* 26.0, so the
+                // fallback was unreachable code drawing a system material the
+                // design system does not use.
+                shape
+                    .fill(.clear)
+                    .lifeBoardSystemGlass(.regular, in: shape)
+                    .overlay(shape.fill(ClayColorTokens.glass.opacity(0.50)))
             }
             .overlay {
                 shape.stroke(ClayColorTokens.glassBorder, lineWidth: 1)

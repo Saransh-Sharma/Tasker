@@ -159,9 +159,9 @@ public struct ScanReviewView: View {
                     .font(.body)
                     .scrollContentBackground(.hidden)
                     .padding(12)
-                    .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 18))
+                    .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: Radius.card))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 18)
+                        RoundedRectangle(cornerRadius: Radius.card)
                             .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
                     }
                     .accessibilityLabel("Scanned text")

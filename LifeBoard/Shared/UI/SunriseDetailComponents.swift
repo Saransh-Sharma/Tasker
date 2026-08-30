@@ -136,7 +136,7 @@ struct DetailDisclosureCard<Content: View>: View {
                         .lifeboardFont(.headline)
                         .foregroundStyle(isExpanded ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)
                         .frame(width: 34, height: 34)
-                        .background(isExpanded ? Color.lifeboard.accentWash : Color.lifeboard.surfacePrimary.opacity(0.78), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(isExpanded ? Color.lifeboard.accentWash : Color.lifeboard.surfacePrimary.opacity(0.78), in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -181,32 +181,50 @@ struct DetailDisclosureCard<Content: View>: View {
     }
 }
 
+/// A status-toned secondary action.
+///
+/// The tone is the reason this exists rather than being `.lifeBoardChip`: it
+/// carries recorded state, and `DESIGN.md` is explicit that status colour means
+/// something. What it should not have carried is its own *material* — it drew a
+/// flat capsule with its own stroke, one of nine ways this app had to draw a
+/// surface. It is clay now, tinted by its tone.
+///
+/// It also dropped `.minimumScaleFactor(0.82)`. `DESIGN.md`: "Never shrink type
+/// to preserve a card grid or one-line toolbar." At accessibility sizes the
+/// label takes a second line instead.
 struct DetailCapsuleButtonStyle: ButtonStyle {
     let tone: StatusPillTone
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.lifeboard(.callout).weight(.semibold))
+            .lifeboardFont(.buttonSmall)
             .foregroundStyle(tone.textColor)
-            .lineLimit(1)
-            .minimumScaleFactor(0.82)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, minHeight: 44)
-            .padding(.horizontal, 10)
-            .background(tone.fillColor.opacity(configuration.isPressed ? 0.76 : 1), in: Capsule())
-            .overlay {
-                Capsule().stroke(tone.strokeColor, lineWidth: 1)
-            }
+            .padding(.horizontal, 12)
+            .lifeBoardClaySurface(
+                .resting,
+                cornerRadius: Radius.pill,
+                fill: tone.fillColor,
+                isPressed: configuration.isPressed
+            )
+            .contentShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(LifeBoardAnimation.press, value: configuration.isPressed)
     }
 }
 
+/// A bare text action. No material by design — this is the "quiet alternative"
+/// beside a primary, and `DESIGN.md` allows a screen at most one of those.
 struct TextButtonStyle: ButtonStyle {
     let tone: StatusPillTone
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.lifeboard(.callout).weight(.semibold))
+            .lifeboardFont(.buttonSmall)
             .foregroundStyle(tone.textColor)
             .frame(minHeight: 44)
             .opacity(configuration.isPressed ? 0.72 : 1)

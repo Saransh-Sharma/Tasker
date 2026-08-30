@@ -193,7 +193,7 @@ struct AdvancedFilterSheetView: View {
                                         .foregroundStyle(Color.lifeboard.statusDanger)
                                         .frame(width: 36, height: 36)
                                         .lifeboardChromeSurface(
-                                            cornerRadius: 18,
+                                            cornerRadius: Radius.card,
                                             accentColor: Color.lifeboard.statusDanger,
                                             level: .e1
                                         )

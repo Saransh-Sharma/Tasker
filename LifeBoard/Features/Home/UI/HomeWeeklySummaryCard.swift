@@ -92,9 +92,9 @@ struct HomeWeeklySummaryCard: View {
         .padding(.vertical, spacing.s12)
         .background(Color.lifeboard.surfaceSecondary.opacity(0.28))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(Color.lifeboard.strokeHairline.opacity(0.55), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 }

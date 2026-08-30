@@ -100,8 +100,10 @@ struct WeeklyReviewView: View {
                     }
                 } trailing: {
                     Button(viewModel.isSaving ? "Saving..." : WeeklyCopy.finishReview) {
-                        viewModel.completeReview { message in
-                            onCompleted(message)
+                        viewModel.completeReview { result in
+                            if case .success(let message) = result {
+                                onCompleted(message)
+                            }
                         }
                     }
                     .buttonStyle(.lifeBoardPrimaryCompact)
@@ -236,7 +238,7 @@ private struct WeeklyReviewRealityStep: View {
                                 )
                             }
                             .padding(14)
-                            .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
+                            .lifeboardDenseSurface(cornerRadius: Radius.card, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
                             .lifeBoardScrollEntrance(intensity: 0.55)
                         }
                     }
@@ -456,7 +458,7 @@ private struct WeeklyReviewNotesStep: View {
                                 .foregroundStyle(Color.lifeboard.textSecondary)
                         }
                         .padding(14)
-                        .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
+                        .lifeboardDenseSurface(cornerRadius: Radius.card, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
                         .lifeBoardScrollEntrance(intensity: 0.55)
                     }
                 }
@@ -502,7 +504,7 @@ private struct WeeklyOutcomeReviewRow: View {
             }
         }
         .padding(14)
-        .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
+        .lifeboardDenseSurface(cornerRadius: Radius.card, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
     }
 
     private func statusButton(_ status: WeeklyOutcomeStatus) -> some View {

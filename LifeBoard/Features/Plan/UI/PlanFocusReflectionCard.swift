@@ -32,12 +32,18 @@ struct PlanFocusReflectionCard: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Skip reflection")
             }
-            Picker("Energy after focus", selection: $focusReflectionEnergy) {
-                ForEach(1...5, id: \.self) { value in
-                    Text("\(value)").tag(value)
-                }
-            }
-            .pickerStyle(.segmented)
+            // Was `.pickerStyle(.segmented)` — the stock grey segmented control,
+            // which is system chrome rather than clay. `OptionRail` is the
+            // design system's equivalent and carries the same semantics: one
+            // selection, a per-value accessibility identifier, and reflow at
+            // accessibility text sizes.
+            OptionRail(
+                "Energy after focus",
+                selection: $focusReflectionEnergy,
+                values: Array(1...5),
+                identifierPrefix: "plan.focus.reflection.energy",
+                title: { "\($0)" }
+            )
             .accessibilityValue("\(focusReflectionEnergy) out of 5")
             TextField("A short note, if useful", text: $focusReflectionNote, axis: .vertical)
                 .lineLimit(2...4)

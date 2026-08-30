@@ -1883,19 +1883,19 @@ struct GoalsDestinationView: View {
                     ProgressView("Loading goals")
                         .frame(maxWidth: .infinity, minHeight: 160)
                 } else if let error = store.errorMessage, store.definitions.isEmpty {
-                    ContentUnavailableView(
-                        "Goals are unavailable",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(error)
+                    StatusSurface(
+                        state: .recoverableError,
+                        title: "Goals are unavailable",
+                        message: error
                     )
                     Button("Try again") { Task { await store.load() } }
                         .buttonStyle(.lifeBoardPrimaryCompact)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 } else if store.definitions.isEmpty {
-                    ContentUnavailableView(
-                        "No goals yet",
-                        systemImage: "target",
-                        description: Text("Add a goal when it helps organize action.")
+                    StatusSurface(
+                        state: .empty,
+                        title: "No goals yet",
+                        message: "Add a goal when it helps organize action."
                     )
                     Button("Add goal") {
                         editingGoal = nil
@@ -2079,10 +2079,10 @@ struct RoutinesDestinationView: View {
                     ProgressView("Loading routines")
                         .frame(maxWidth: .infinity, minHeight: 180)
                 } else if let error = store.errorMessage, store.routines.isEmpty {
-                    ContentUnavailableView(
-                        "Routines are unavailable",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(error)
+                    StatusSurface(
+                        state: .recoverableError,
+                        title: "Routines are unavailable",
+                        message: error
                     )
                     Button("Try again") { Task { await store.load() } }
                         .buttonStyle(.lifeBoardPrimaryCompact)
@@ -2164,10 +2164,10 @@ struct RoutinesDestinationView: View {
             if let routine = store.routines.first(where: { $0.id == id }) {
                 routineDetail(routine)
             } else {
-                ContentUnavailableView(
-                    "Routine unavailable",
-                    systemImage: "archivebox",
-                    description: Text("It may have been archived or removed.")
+                StatusSurface(
+                    state: .unavailable,
+                    title: "Routine unavailable",
+                    message: "It may have been archived or removed."
                 )
                 Button("View all routines") {
                     router.openLeaf(.routines(.library), in: .track)
@@ -2208,10 +2208,10 @@ struct RoutinesDestinationView: View {
             }
 
             if displayedRoutines.isEmpty {
-                ContentUnavailableView(
-                    "No routines here",
-                    systemImage: "figure.mind.and.body",
-                    description: Text("Add a routine or review the complete library.")
+                StatusSurface(
+                    state: .empty,
+                    title: "No routines here",
+                    message: "Add a routine or review the complete library."
                 )
                 if case .collection(.daypart) = focus {
                     Button("View all routines") { router.openLeaf(.routines(.library), in: .track) }
@@ -2403,7 +2403,12 @@ struct TrackUniversalCaptureView: View {
                 // resolution; row semantics are the surface, not chrome.
                 List {
                     if store.snapshot.unresolvedMedicationEvents.isEmpty {
-                        ContentUnavailableView("No medication event due", systemImage: "checkmark.circle", description: Text("Scheduled and unresolved events appear here."))
+                        StatusSurface(
+                            state: .noRecord,
+                            title: "No medication event due",
+                            message: "Scheduled and unresolved events appear here.",
+                            density: .compact
+                        )
                     } else {
                         ForEach(store.snapshot.unresolvedMedicationEvents) { event in
                             Section(store.medicationName(id: event.medicationID)) {
@@ -2425,7 +2430,7 @@ struct TrackUniversalCaptureView: View {
                         Label(routine.title, systemImage: "play.circle.fill")
                     }
                 }
-                .overlay { if store.routines.isEmpty { ContentUnavailableView("No routines yet", systemImage: "figure.mind.and.body") } }
+                .overlay { if store.routines.isEmpty { StatusSurface(state: .empty, title: "No routines yet", message: "Add one to start tracking a rhythm.", density: .compact) } }
                 .navigationTitle("Start routine")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
                 .fullScreenCover(isPresented: Binding(get: { store.activeRoutineRun != nil }, set: { _ in })) {
@@ -2443,7 +2448,7 @@ struct TrackUniversalCaptureView: View {
                     }
                 }
             default:
-                ContentUnavailableView("Capture unavailable", systemImage: "exclamationmark.triangle")
+                StatusSurface(state: .unavailable, title: "Capture unavailable", message: "This capture is not available on this device.", density: .compact)
             }
         }
         .task { await store.load() }
@@ -2639,7 +2644,7 @@ private struct HydrationCaptureComposer: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Circle())
         }
-        .buttonStyle(ClayButtonStyle(depth: .raised, cornerRadius: 22))
+        .buttonStyle(ClayButtonStyle(depth: .raised, cornerRadius: Radius.card))
         .accessibilityLabel(delta > 0 ? "Add 50 milliliters" : "Remove 50 milliliters")
     }
 
@@ -3133,16 +3138,16 @@ private struct HabitResilienceLibrary: View {
                     ProgressView("Loading habits")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .failed(let message):
-                    ContentUnavailableView(
-                        "Couldn’t load habits",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(message)
+                    StatusSurface(
+                        state: .recoverableError,
+                        title: "Couldn’t load habits",
+                        message: message
                     )
                 case .loaded(let habits) where habits.isEmpty:
-                    ContentUnavailableView(
-                        "No active habits",
-                        systemImage: "repeat",
-                        description: Text("Create or resume a habit, then its resilience policy will appear here.")
+                    StatusSurface(
+                        state: .empty,
+                        title: "No active habits",
+                        message: "Create or resume a habit, then its resilience policy will appear here."
                     )
                 case .loaded(let habits):
                     // composer-kit:allow-list navigation list of groups and habits;

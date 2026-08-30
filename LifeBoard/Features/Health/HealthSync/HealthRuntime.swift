@@ -86,8 +86,7 @@ public final class HealthCoordinator {
             }
             observers.attach(coordinator: coordinator)
             observeOutboxCommits(in: container)
-            await connectionStore.bootstrap()
-            await connectionStore.syncIfNeededOnForeground()
+            await connectionStore.runtimeDidAttach()
         }
     }
 

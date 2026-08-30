@@ -113,12 +113,12 @@ private struct ReplanHotZoneTarget: View {
     }
 
     private var backgroundShape: some View {
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
+        RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
             .fill(zone.tint.opacity(isTargeted ? 0.18 : 0.1))
     }
 
     private var borderShape: some View {
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
+        RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
             .stroke(
                 differentiateWithoutColor || isTargeted ? zone.tint.opacity(0.72) : zone.tint.opacity(0.24),
                 style: StrokeStyle(lineWidth: isTargeted ? 1.5 : 1, dash: differentiateWithoutColor ? [5, 4] : [])
@@ -506,6 +506,6 @@ struct NeedsReplanCardOverlay: View {
                 .font(.lifeboard(.support).weight(.semibold))
         }
         .padding(12)
-        .background(Color.lifeboard.surfaceSecondary.opacity(0.86), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.lifeboard.surfaceSecondary.opacity(0.86), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 }

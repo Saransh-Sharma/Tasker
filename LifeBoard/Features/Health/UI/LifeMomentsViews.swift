@@ -79,10 +79,10 @@ struct LifeMomentsView: View {
                     ProgressView("Loading moments")
                         .frame(maxWidth: .infinity, minHeight: 180)
                 } else if let error = store.errorMessage, store.moments.isEmpty {
-                    ContentUnavailableView(
-                        "Moments are unavailable",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(error)
+                    StatusSurface(
+                        state: .recoverableError,
+                        title: "Moments are unavailable",
+                        message: error
                     )
                     Button("Try again") { Task { await store.load() } }
                         .buttonStyle(.lifeBoardPrimaryCompact)
@@ -95,19 +95,22 @@ struct LifeMomentsView: View {
                     }
                     momentsList(omitting: id)
                 } else if case .moment = focus {
-                    ContentUnavailableView(
-                        "Moment unavailable",
-                        systemImage: "archivebox",
-                        description: Text("It may have been archived or removed.")
+                    // `.unavailable` rather than `.recoverableError`: an archived
+                    // or deleted moment is not something a retry can bring back,
+                    // and DESIGN.md says an unavailable state never offers one.
+                    StatusSurface(
+                        state: .unavailable,
+                        title: "Moment unavailable",
+                        message: "It may have been archived or removed."
                     )
                     Button("View all moments") { focus = .overview }
                         .buttonStyle(.lifeBoardPrimaryCompact)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 } else if store.moments.isEmpty {
-                    ContentUnavailableView(
-                        "Keep a meaningful date close",
-                        systemImage: "sparkles",
-                        description: Text("Countdowns and anniversaries stay private unless you allow Home display.")
+                    StatusSurface(
+                        state: .empty,
+                        title: "Keep a meaningful date close",
+                        message: "Countdowns and anniversaries stay private unless you allow Home display."
                     )
                     .padding(.top, 40)
                     Button("Add moment") { editing = nil; showsComposer = true }

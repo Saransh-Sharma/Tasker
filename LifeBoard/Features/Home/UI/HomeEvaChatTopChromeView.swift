@@ -94,7 +94,7 @@ struct HomeEvaChatTopChromeView: View {
                 .foregroundStyle(EvaChatSunriseGlass.navyMuted)
                 .frame(width: 44, height: 44)
                 .lifeboardPremiumSurface(
-                    cornerRadius: 22,
+                    cornerRadius: Radius.card,
                     fillColor: EvaChatSunriseGlass.glassFill,
                     strokeColor: EvaChatSunriseGlass.glassBorder,
                     accentColor: EvaChatSunriseGlass.primary,

@@ -55,8 +55,8 @@ public struct FocusSessionSummaryView: View {
             }
             .padding(spacing.s16)
             .frame(maxWidth: .infinity)
-            .background(focusStyle.softSurface.opacity(0.74), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(focusStyle.border, lineWidth: 1))
+            .background(focusStyle.softSurface.opacity(0.74), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).stroke(focusStyle.border, lineWidth: 1))
 
             VStack(spacing: spacing.s4) {
                 Text("Next: choose another small action when you are ready.")

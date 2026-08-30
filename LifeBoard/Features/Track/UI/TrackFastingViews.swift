@@ -250,10 +250,10 @@ struct FastingDestinationView: View {
                     VStack(alignment: .leading, spacing: 10) { finishButton; cancelButton }
                 }
             } else {
-                ContentUnavailableView(
-                    "No fast is running",
-                    systemImage: "timer",
-                    description: Text("Start a neutral timer with an optional target you choose.")
+                StatusSurface(
+                    state: .noRecord,
+                    title: "No fast is running",
+                    message: "Start a neutral timer with an optional target you choose."
                 )
                 Button("Start a fast") { showsComposer = true }
                     .buttonStyle(.lifeBoardPrimary)
@@ -319,7 +319,7 @@ struct FastingDestinationView: View {
                         .accessibilityLabel("Correct fasting session")
                     }
                     .padding(14)
-                    .lifeBoardClaySurface(.resting, cornerRadius: 18)
+                    .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
                     .accessibilityElement(children: .contain)
                 }
             }

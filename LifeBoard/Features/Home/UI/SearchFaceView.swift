@@ -300,9 +300,9 @@ private struct CommandSearchSuggestionRow: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("search.suggestion.\(suggestion.rawValue)")
         .background {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .fill(ClayColorTokens.glassStrong.opacity(0.82))
-                .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(ClayColorTokens.glassBorder, lineWidth: 1))
         }
         .accessibilityElement(children: .combine)
@@ -471,7 +471,7 @@ struct HomeSearchHabitResultRow: View {
         }
         .buttonStyle(.plain)
         .background {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .fill(ClayColorTokens.glassStrong.opacity(0.68))
                 .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(ClayColorTokens.glassBorder, lineWidth: 1))
         }

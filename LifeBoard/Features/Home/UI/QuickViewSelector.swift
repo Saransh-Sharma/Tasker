@@ -139,7 +139,7 @@ public struct QuickViewSelector: View {
             .padding(.vertical, 10)
             .frame(minHeight: 44)
             .lifeboardChromeSurface(
-                cornerRadius: 22,
+                cornerRadius: Radius.card,
                 accentColor: selectionTint,
                 level: .e1
             )

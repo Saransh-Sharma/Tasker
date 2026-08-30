@@ -356,7 +356,7 @@ struct OverdueRescueSafeFixesView: View {
             .foregroundStyle(Color.lifeboard.accentPrimary)
             .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.secondaryButtonHeight)
             .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                     .stroke(Color.lifeboard.accentPrimary.opacity(0.32), lineWidth: 1.2)
             )
         }
@@ -374,7 +374,7 @@ struct OverdueRescueSafeFixesView: View {
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(color)
                 .frame(width: 58, height: 58)
-                .background(RoundedRectangle(cornerRadius: 18).fill(color.opacity(0.12)))
+                .background(RoundedRectangle(cornerRadius: Radius.card).fill(color.opacity(0.12)))
             Text(title)
                 .font(.lifeboard(.headline))
                 .foregroundStyle(OverdueRescuePalette.ink)
@@ -552,7 +552,7 @@ struct OverdueRescueDeleteOverlay: View {
                             .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                             .frame(maxWidth: .infinity, minHeight: 54)
                             .background(
-                                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                                     .fill(Color.lifeboard.statusDanger)
                             )
                     }
@@ -567,7 +567,7 @@ struct OverdueRescueDeleteOverlay: View {
                             .foregroundStyle(Color.lifeboard.textSecondary)
                             .frame(maxWidth: .infinity, minHeight: 50)
                             .background(
-                                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                                     .fill(Color.lifeboard.surfaceSecondary)
                             )
                     }

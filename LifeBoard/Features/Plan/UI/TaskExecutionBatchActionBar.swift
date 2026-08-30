@@ -130,7 +130,7 @@ struct TaskExecutionBatchActionBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.regularMaterial)
+        .background(Color(SemanticColorTokens.foundationSurfaceRaised))
         .overlay(alignment: .top) {
             Divider()
         }

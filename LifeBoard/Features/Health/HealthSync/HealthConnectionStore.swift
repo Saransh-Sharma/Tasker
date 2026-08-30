@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import OSLog
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -12,6 +13,7 @@ public final class HealthConnectionStore {
     public private(set) var isRefreshing = false
     public private(set) var lastSuccessfulSync: Date?
     public private(set) var nonSensitiveErrorCode: String?
+    public private(set) var isInitialSyncPending = false
 
     private let gateway: any HealthKitGatewayProtocol
     public let coordinator: HealthSyncCoordinator
@@ -20,6 +22,7 @@ public final class HealthConnectionStore {
     private var readRequestState: HealthReadRequestState
     @ObservationIgnored private var initialSyncTask: Task<Void, Never>?
     @ObservationIgnored private var invalidationTask: Task<Void, Never>?
+    private static let logger = Logger(subsystem: "com.lifeboard.health", category: "connection")
 
     public init(
         gateway: any HealthKitGatewayProtocol,
@@ -109,6 +112,7 @@ public final class HealthConnectionStore {
                 }
             }
             await refreshAuthorization()
+            isInitialSyncPending = true
             scheduleInitialSync(trigger: .authorization)
         } catch {
             readRequestState = .requestCompleted
@@ -120,9 +124,9 @@ public final class HealthConnectionStore {
     private func scheduleInitialSync(trigger: HealthSyncTrigger) {
         guard initialSyncTask == nil else { return }
         initialSyncTask = Task { [weak self] in
-            await self?.runSync(trigger)
-            guard Task.isCancelled == false else { return }
-            self?.initialSyncTask = nil
+            guard let self else { return }
+            await self.runSync(trigger)
+            self.initialSyncTask = nil
         }
     }
 
@@ -171,6 +175,24 @@ public final class HealthConnectionStore {
         applySignals(failures: [:])
     }
 
+    /// Called after the local Health engine and ledger become available.
+    /// Authorization can complete before Core Data migration/attachment; in
+    /// that window the coordinator deliberately returns a skipped outcome. A
+    /// skipped authorization import remains pending and is replayed here.
+    public func runtimeDidAttach() async {
+        await bootstrap()
+        if let initialSyncTask {
+            await initialSyncTask.value
+        }
+        if HealthAuthorizationPromptState.hasRequested,
+           isInitialSyncPending || lastSuccessfulSync == nil {
+            Self.logger.info("health_initial_sync_replayed runtime_attached=true")
+            await runSync(.authorization)
+        } else {
+            await runSync(.foreground)
+        }
+    }
+
     private func runSync(_ trigger: HealthSyncTrigger) async {
         isRefreshing = true
         nonSensitiveErrorCode = nil
@@ -178,7 +200,14 @@ public final class HealthConnectionStore {
             statuses[domain]?.signal = .loading
         }
         let result = await coordinator.sync(trigger)
-        if result.skipped == false {
+        if result.skipped {
+            if HealthAuthorizationPromptState.hasRequested,
+               isInitialSyncPending || lastSuccessfulSync == nil {
+                isInitialSyncPending = true
+            }
+            Self.logger.info("health_sync_skipped trigger=\(String(describing: trigger), privacy: .public) pending=\(self.isInitialSyncPending, privacy: .public)")
+        } else {
+            isInitialSyncPending = false
             if result.refreshedMetrics.isEmpty == false || result.aggregates.isEmpty == false {
                 lastSuccessfulSync = result.completedAt
             }
@@ -203,6 +232,7 @@ public final class HealthConnectionStore {
             }
         } else { applySignals(failures: result.failures) }
         isRefreshing = false
+        Self.logger.info("health_sync_finished trigger=\(String(describing: trigger), privacy: .public) skipped=\(result.skipped, privacy: .public) failure_count=\(result.failures.count, privacy: .public)")
     }
 
     public func markMigrationUnavailable() {

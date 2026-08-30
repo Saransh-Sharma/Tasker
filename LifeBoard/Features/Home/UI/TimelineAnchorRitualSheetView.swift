@@ -166,7 +166,7 @@ private struct TimelineAnchorRitualHero: View {
                         .lifeboardFont(.title1)
                         .foregroundStyle(ClayColorTokens.navy)
                         .frame(width: 60, height: 60)
-                        .background(.regularMaterial, in: Circle())
+                        .lifeBoardClaySurface(.floating, cornerRadius: 30)
                         .overlay {
                             Circle()
                                 .stroke(ClayColorTokens.hairline, lineWidth: 1)

@@ -546,7 +546,7 @@ struct WeeklyStickyActionBar<Leading: View, Trailing: View>: View {
         .padding(.horizontal, spacing.s16)
         .padding(.vertical, spacing.s8)
         .lifeboardPremiumSurface(
-            cornerRadius: 22,
+            cornerRadius: Radius.card,
             fillColor: Color.lifeboard.surfacePrimary.opacity(0.98),
             strokeColor: Color.lifeboard.strokeHairline.opacity(0.82),
             accentColor: Color.lifeboard.accentSecondary,
@@ -590,7 +590,7 @@ struct WeeklyCapacityCard: View {
                             .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
-                    .lifeboardDenseSurface(cornerRadius: 12, fillColor: Color.lifeboard.surfaceSecondary)
+                    .lifeboardDenseSurface(cornerRadius: Radius.field, fillColor: Color.lifeboard.surfaceSecondary)
                     .accessibilityLabel("Decrease planned pace")
                     .accessibilityHint("Reduces planned weekly tasks by one.")
 
@@ -601,7 +601,7 @@ struct WeeklyCapacityCard: View {
                             .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
-                    .lifeboardDenseSurface(cornerRadius: 12, fillColor: Color.lifeboard.surfaceSecondary)
+                    .lifeboardDenseSurface(cornerRadius: Radius.field, fillColor: Color.lifeboard.surfaceSecondary)
                     .accessibilityLabel("Increase planned pace")
                     .accessibilityHint("Increases planned weekly tasks by one.")
                 }
@@ -763,7 +763,7 @@ private struct WeeklyTaskPlannerRow: View {
             }
         }
         .padding(14)
-        .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
+        .lifeboardDenseSurface(cornerRadius: Radius.card, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             ForEach(trailingMoves, id: \.self) { move in
                 Button(move.copyLabel) {
@@ -931,7 +931,7 @@ struct WeeklyDecisionRow: View {
             }
         }
         .padding(14)
-        .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfacePrimary)
+        .lifeboardDenseSurface(cornerRadius: Radius.card, fillColor: Color.lifeboard.surfacePrimary)
     }
 }
 

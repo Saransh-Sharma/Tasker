@@ -1091,15 +1091,14 @@ private extension View {
         return background {
             if reduceTransparency {
                 shape.fill(Color.lifeboard.surfacePrimary)
-            } else if #available(iOS 26.0, *) {
+            } else {
+                // Unreachable `.regularMaterial` fallback removed: the
+                // deployment target is 26.0, so the availability branch was
+                // always taken.
                 shape
                     .fill(.clear)
                     .lifeBoardSystemGlass(.regular, in: shape)
                     .overlay(shape.fill(ClayColorTokens.glass.opacity(0.66)))
-            } else {
-                shape
-                    .fill(.regularMaterial)
-                    .overlay(shape.fill(ClayColorTokens.glass))
             }
         }
         .overlay {

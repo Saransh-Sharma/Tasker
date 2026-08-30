@@ -282,10 +282,7 @@ struct SettingsRootView: View {
     private func premiumDestination(_ route: SettingsDetailRoute) -> some View {
         switch route {
         case .setupCenter:
-            SetupCenterView(settingsViewModel: viewModel, onOpenCalendarChooser: {
-                calendarChooserRequiresSelection = true
-                showsCalendarChooser = true
-            }, onNavigate: navigate)
+            SetupCenterView(settingsViewModel: viewModel, onNavigate: navigate)
         case .llm:
             LLMSettingsView(currentThread: .constant(nil))
                 .environmentObject(viewModel.assistantAppManager)
@@ -310,10 +307,10 @@ struct SettingsRootView: View {
         case .notices:
             CreditsView()
         case .lifeManagement:
-            ContentUnavailableView(
-                "Life Management",
-                systemImage: "square.grid.2x2",
-                description: Text("Return to Settings and open Life Management again.")
+            StatusSurface(
+                state: .unavailable,
+                title: "Life Management",
+                message: "Return to Settings and open Life Management again."
             )
         default:
             premiumCategoryScroll(route)

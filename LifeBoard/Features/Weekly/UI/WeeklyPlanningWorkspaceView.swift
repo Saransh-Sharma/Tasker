@@ -1124,11 +1124,8 @@ private struct WeeklyWorkspaceRibbon: View {
 
     var body: some View {
         Group {
-            if #available(iOS 26.0, *) {
-                GlassEffectContainer(spacing: 8) {
-                    ribbonContent
-                }
-            } else {
+            // Availability branch removed: the deployment target is 26.0.
+            GlassEffectContainer(spacing: 8) {
                 ribbonContent
             }
         }
@@ -1246,7 +1243,7 @@ private struct WeeklyWorkspaceRibbonChip: View {
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
             .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                     .fill(
                         isSelected
                             ? Color(SemanticColorTokens.foundationSurfaceSelected)
@@ -1255,7 +1252,7 @@ private struct WeeklyWorkspaceRibbonChip: View {
             }
             .overlay {
                 if metrics.isToday {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                         .stroke(Color(SemanticColorTokens.foundationApricotAccent), lineWidth: 1.5)
                 }
             }
@@ -1264,7 +1261,7 @@ private struct WeeklyWorkspaceRibbonChip: View {
                     ? Color(SemanticColorTokens.inkPrimary)
                     : Color(SemanticColorTokens.inkTertiary)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
         }
         .buttonStyle(.plain)
         .scaleEffect(pulsedDay == day && reduceMotion == false ? 1.08 : 1)
@@ -1655,14 +1652,14 @@ private struct WeeklyWorkspaceDayLane: View {
             .padding(.vertical, 14)
             .background {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .fill(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.86))
                     Color.clear
                         .lifeboardTaskLandingCaustic(trigger: landingTrigger)
                 }
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                     .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 0.7)
             }
             .padding(.horizontal, 12)
@@ -1727,7 +1724,7 @@ private struct WeeklyWorkspacePlacedRow: View {
         .padding(.horizontal, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                 .fill(
                     hoveredTaskID == task.id
                         ? Color(SemanticColorTokens.foundationSurfaceSelected).opacity(0.55)
@@ -2314,7 +2311,7 @@ private struct WeeklyWorkspaceCompletionSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
             .background {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                     .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
                     .lifeboardFirstLight(
                         trigger: completionTrigger,
@@ -2322,11 +2319,8 @@ private struct WeeklyWorkspaceCompletionSheet: View {
                     )
             }
 
-            if #available(iOS 26.0, *) {
-                GlassEffectContainer(spacing: 10) { completionActions }
-            } else {
-                completionActions
-            }
+            // Availability branch removed: the deployment target is 26.0.
+            GlassEffectContainer(spacing: 10) { completionActions }
             Spacer(minLength: 0)
         }
         .padding(22)

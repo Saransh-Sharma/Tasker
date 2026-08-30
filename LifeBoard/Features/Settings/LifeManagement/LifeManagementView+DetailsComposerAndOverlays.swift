@@ -112,16 +112,16 @@ extension LifeManagementView {
         case .project(let projectID):
             detailDestination(for: .project(projectID))
         case .habit:
-            ContentUnavailableView(
-                "Habit Editor Opened",
-                systemImage: "repeat",
-                description: Text("Habits open in the editor sheet so you can update cadence, notes, and status in one place.")
+            StatusSurface(
+                state: .empty,
+                title: "Habit Editor Opened",
+                message: "Habits open in the editor sheet so you can update cadence, notes, and status in one place."
             )
         case nil:
-            ContentUnavailableView(
-                "Select a Life Area",
-                systemImage: "square.grid.2x2",
-                description: Text("Choose an area, project, or habit from the hierarchy to inspect or edit it.")
+            StatusSurface(
+                state: .empty,
+                title: "Select a Life Area",
+                message: "Choose an area, project, or habit from the hierarchy to inspect or edit it."
             )
         }
     }

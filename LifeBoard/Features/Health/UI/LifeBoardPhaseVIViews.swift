@@ -738,10 +738,10 @@ private struct NutritionBarcodeReviewSheet: View {
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                 case .noMatchRemoteDisabled:
-                    ContentUnavailableView(
-                        "No local match",
-                        systemImage: "barcode",
-                        description: Text("Enter this food manually.")
+                    StatusSurface(
+                        state: .noRecord,
+                        title: "No local match",
+                        message: "Enter this food manually."
                     )
                 }
             }
@@ -1308,7 +1308,7 @@ struct WellnessView: View {
     @ViewBuilder
     private var focusedContent: some View {
         if case let .failed(message) = store.state {
-            ContentUnavailableView("Wellness is unavailable", systemImage: "exclamationmark.triangle", description: Text(message))
+            StatusSurface(state: .recoverableError, title: "Wellness is unavailable", message: message)
         } else if store.state == .loading {
             ProgressView("Loading \(section.title.lowercased())")
                 .frame(maxWidth: .infinity, minHeight: 160)
@@ -1519,7 +1519,7 @@ struct WellnessView: View {
 
     private func emptyState(title: String, symbol: String) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            ContentUnavailableView(title, systemImage: symbol, description: Text("Add a private manual record, or connect Apple Health to bring in available data."))
+            StatusSurface(state: .noRecord, title: title, message: "Add a private manual record, or connect Apple Health to bring in available data.")
             HStack(spacing: 10) {
                 Button(section.addTitle) { beginAdd() }.buttonStyle(.lifeBoardPrimary)
                 if shouldOfferHealthConnection {

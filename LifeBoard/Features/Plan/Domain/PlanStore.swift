@@ -57,6 +57,7 @@ final class PlanStore {
     private(set) var isLoading = false
     /// Set when a reload is requested while one is already running. See `load()`.
     private var hasPendingReload = false
+    private var reloadWaiters: [CheckedContinuation<Void, Never>] = []
     var errorMessage: String?
     var selectedDay: PlanningDay
 
@@ -200,10 +201,18 @@ final class PlanStore {
     func load() async {
         if isLoading {
             hasPendingReload = true
+            await withCheckedContinuation { continuation in
+                reloadWaiters.append(continuation)
+            }
             return
         }
         isLoading = true
-        defer { isLoading = false }
+        defer {
+            isLoading = false
+            let waiters = reloadWaiters
+            reloadWaiters.removeAll()
+            waiters.forEach { $0.resume() }
+        }
         repeat {
             hasPendingReload = false
             await performLoad()
@@ -729,8 +738,9 @@ final class PlanStore {
         }
     }
 
-    func undoLastMutation() async {
-        guard let receiptID = lastMutationReceiptID else { return }
+    @discardableResult
+    func undoLastMutation() async -> Bool {
+        guard let receiptID = lastMutationReceiptID else { return false }
         do {
             try await planningRepository.undo(receiptID: receiptID)
             normalizedEvents = normalizedEvents.map { event in
@@ -742,7 +752,26 @@ final class PlanStore {
             lastMutationReceiptID = nil
             backlogDeletionUndoState = nil
             await load()
-        } catch { errorMessage = error.localizedDescription }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    @discardableResult
+    func restoreMutationReceipt(id: UUID) async -> Bool {
+        do {
+            let receipts = try await planningRepository.fetchMutationReceipts(since: nil)
+            guard let receipt = receipts.first(where: {
+                $0.id == id && $0.state == .applied
+            }) else { return false }
+            lastMutationReceiptID = receipt.id
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
     }
 
     func startFocus(

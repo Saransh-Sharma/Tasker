@@ -20,12 +20,10 @@ struct ProjectTemplatePicker: View {
                     ProgressView("Finding project templates…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if templates.isEmpty {
-                    ContentUnavailableView(
-                        "No project templates",
-                        systemImage: "folder.badge.plus",
-                        description: Text(
-                            "Archive a project marked as a template source, then return here to create a fresh copy."
-                        )
+                    StatusSurface(
+                        state: .empty,
+                        title: "No project templates",
+                        message: "Archive a project marked as a template source, then return here to create a fresh copy."
                     )
                 } else {
                     List {

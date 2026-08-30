@@ -85,7 +85,7 @@ struct FilterChip: View {
         .padding(.vertical, 8)
         .frame(minHeight: 36)
         .lifeboardChromeSurface(
-            cornerRadius: 18,
+            cornerRadius: Radius.card,
             accentColor: resolvedAccentColor,
             level: .e1
         )
@@ -217,11 +217,11 @@ struct FilterRow: View {
         .padding(.vertical, spacing.s12)
         .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .fill(isSelected ? rowAccent.opacity(0.14) : Color.clear)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(isSelected ? rowAccent.opacity(0.24) : Color.clear, lineWidth: 1)
         )
         .contentShape(Rectangle())

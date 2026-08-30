@@ -3208,7 +3208,7 @@ private struct MedicationHistoryView: View {
         NavigationStack {
             Group {
                 if events.isEmpty {
-                    ContentUnavailableView("No medication history", systemImage: "pills")
+                    StatusSurface(state: .noRecord, title: "No medication history", message: "Doses you record appear here with their time and outcome.")
                 } else {
                     List(events.sorted(by: { $0.scheduledAt > $1.scheduledAt })) { event in
                         Button { correcting = event } label: {
@@ -3395,10 +3395,10 @@ struct FastingHistoryView: View {
         NavigationStack {
             List {
                 if finished.isEmpty {
-                    ContentUnavailableView(
-                        "No finished sessions",
-                        systemImage: "timer",
-                        description: Text("Sessions you finish or cancel appear here with their outcome.")
+                    StatusSurface(
+                        state: .noRecord,
+                        title: "No finished sessions",
+                        message: "Sessions you finish or cancel appear here with their outcome."
                     )
                 } else {
                     ForEach(finished) { session in
@@ -4577,9 +4577,9 @@ struct JournalModuleView: View {
             }
             .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
             .padding(12)
-            .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                     .stroke(Color.lifeboard(.statusWarning).opacity(0.34), lineWidth: 1)
             }
         }
@@ -4989,7 +4989,7 @@ struct JournalModuleView: View {
                 }
                 searchStatus(palette: palette)
                 if store.days.isEmpty {
-                    ContentUnavailableView("No entries found", systemImage: "book.closed", description: Text("Try another search or add a thought today."))
+                    StatusSurface(state: .empty, title: "No entries found", message: "Try another search or add a thought today.")
                         .padding(.top, 40)
                 } else {
                     ForEach(store.days) { day in
@@ -5536,7 +5536,7 @@ private struct JournalPhotoEditor: View {
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .accessibilityLabel("Edited Journal photo preview")
                 } else {
-                    ContentUnavailableView("Photo unavailable", systemImage: "photo.badge.exclamationmark")
+                    StatusSurface(state: .unavailable, title: "Photo unavailable", message: "This image is not available on this device.")
                 }
                 Picker("Crop", selection: $cropMode) {
                     Text("Original").tag(JournalPhotoCropMode.original)
@@ -5647,10 +5647,10 @@ private struct JournalPhotoInspector: View {
                     .scrollIndicators(.hidden)
                     .background(Color.lifeboard(.overlayScrim).ignoresSafeArea())
                 } else {
-                    ContentUnavailableView(
-                        "Photo unavailable",
-                        systemImage: "photo.badge.exclamationmark",
-                        description: Text("The attachment record is safe, but its image is not available on this device.")
+                    StatusSurface(
+                        state: .unavailable,
+                        title: "Photo unavailable",
+                        message: "The attachment record is safe, but its image is not available on this device."
                     )
                 }
             }

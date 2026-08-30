@@ -914,7 +914,7 @@ private extension KnowledgeModuleView {
     ) -> some View {
         Button { openOrSelect(note) } label: {
             HStack(spacing: 14) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                     .fill(Color.lifeboard(.accentPrimary).opacity(0.10))
                     .frame(width: 46, height: 54)
                     .overlay {
@@ -2071,6 +2071,10 @@ private struct NoteHistoryView: View {
         NavigationStack {
             Group {
                 if revisions.isEmpty {
+                    // `StatusSurface` would be right here, but it lives in the
+                    // app target and this file is in the `KnowledgeFeature`
+                    // package, which cannot see it. See the note on
+                    // LifeBoardAtmosphereRenderer.
                     ContentUnavailableView(
                         "No earlier versions",
                         systemImage: "clock.arrow.circlepath",
@@ -2498,7 +2502,7 @@ private struct KnowledgeBlockEditor: View {
                         .resizable()
                         .scaledToFit()
                         .frame(maxHeight: 260)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.field))
                         .accessibilityLabel(attachment.fileName)
                 } else {
                     Label(block.text.isEmpty ? "Unavailable image" : block.text, systemImage: "photo.badge.exclamationmark")

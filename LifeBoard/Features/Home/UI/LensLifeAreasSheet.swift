@@ -203,10 +203,10 @@ struct LensLifeAreasSheet: View {
     }
 
     private var emptyState: some View {
-        ContentUnavailableView(
-            "No life areas yet",
-            systemImage: "square.grid.2x2",
-            description: Text("Create a life area to pin it to your Home lens row.")
+        StatusSurface(
+            state: .empty,
+            title: "No life areas yet",
+            message: "Create a life area to pin it to your Home lens row."
         )
     }
 

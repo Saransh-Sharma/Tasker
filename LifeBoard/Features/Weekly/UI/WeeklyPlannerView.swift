@@ -627,7 +627,7 @@ private struct WeeklyPlannerLaneSummaryView: View {
             }
         }
         .padding(spacing.s12)
-        .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.7))
+        .lifeboardDenseSurface(cornerRadius: Radius.card, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.7))
     }
 }
 
@@ -1119,7 +1119,7 @@ private struct WeeklyPlannerSourceTaskRow: View {
             }
         }
         .padding(14)
-        .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.8))
+        .lifeboardDenseSurface(cornerRadius: Radius.card, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.8))
     }
 }
 

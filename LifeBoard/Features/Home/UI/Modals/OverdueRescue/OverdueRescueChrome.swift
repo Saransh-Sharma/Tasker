@@ -493,7 +493,7 @@ struct OverdueRescueCompletionView: View {
                         .foregroundStyle(Color.lifeboard.accentPrimary)
                         .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.secondaryButtonHeight)
                         .background(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                                 .stroke(Color.lifeboard.accentPrimary.opacity(0.32), lineWidth: 1.2)
                         )
                         .padding(.horizontal, 42)

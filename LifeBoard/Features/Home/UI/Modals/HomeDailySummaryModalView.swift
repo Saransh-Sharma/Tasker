@@ -348,18 +348,13 @@ struct DailySummaryModalView: View {
     }
 
     private var ctaBar: some View {
-        let primaryCTAIdentifier = CTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: summary)
+        let primaryCTAIdentifier = PrimaryActionResolver.dailySummaryPrimaryCTAIdentifier(for: summary)
 
         return VStack(alignment: .leading, spacing: 10) {
             switch summary {
             case .morning(let value):
                 Button("Start Today") { onStartToday() }
                     .buttonStyle(.lifeBoardPrimaryCompact)
-                    .lifeboardCTABezel(
-                        style: .summaryPrimary,
-                        idleMotion: .slowLoop,
-                        isEnabled: primaryCTAIdentifier == "home.dailySummary.cta.startToday"
-                    )
                     .lifeboardSuccessPulse(isActive: primaryCTAIdentifier == "home.dailySummary.cta.startToday")
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.startToday")
@@ -390,11 +385,6 @@ struct DailySummaryModalView: View {
             case .nightly(let value):
                 Button("Plan Tomorrow") { onPlanTomorrow() }
                     .buttonStyle(.lifeBoardPrimaryCompact)
-                    .lifeboardCTABezel(
-                        style: .summaryPrimary,
-                        idleMotion: .slowLoop,
-                        isEnabled: primaryCTAIdentifier == "home.dailySummary.cta.planTomorrow"
-                    )
                     .lifeboardSuccessPulse(isActive: primaryCTAIdentifier == "home.dailySummary.cta.planTomorrow")
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.planTomorrow")

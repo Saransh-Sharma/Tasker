@@ -432,7 +432,7 @@ private struct QuietTrackingSectionCard<Content: View>: View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             HStack(alignment: .top, spacing: spacing.s8) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: Radius.field)
                         .fill(Color.lifeboard.accentSecondary.opacity(0.10))
                         .frame(width: 32, height: 32)
 

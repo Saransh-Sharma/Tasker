@@ -1072,11 +1072,11 @@ struct TaskListView: View {
         }
         .overlay {
             if layoutStyle == .inset {
-                RoundedRectangle(cornerRadius: 18)
+                RoundedRectangle(cornerRadius: Radius.card)
                     .stroke(Color.lifeboard.strokeHairline.opacity(0.55), lineWidth: 1)
             }
         }
-        .clipShape(layoutStyle == .inset ? AnyShape(RoundedRectangle(cornerRadius: 18)) : AnyShape(Rectangle()))
+        .clipShape(layoutStyle == .inset ? AnyShape(RoundedRectangle(cornerRadius: Radius.card)) : AnyShape(Rectangle()))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.rescue.section")
     }

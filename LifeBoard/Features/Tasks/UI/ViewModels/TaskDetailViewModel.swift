@@ -1091,6 +1091,11 @@ public final class TaskDetailViewModel: ObservableObject {
                 .joined(separator: "\n\n")
         }()
         let reducedEstimate = max(15 * 60, min(persistedTask.estimatedDuration ?? 30 * 60, 30 * 60))
+        let recordsAReplan = [
+            FrictionIntervention.moveToBetterWindow,
+            .moveLater,
+            .releaseToSomeday
+        ].contains(intervention)
         let request = UpdateTaskDefinitionRequest(
             id: persistedTask.id,
             details: appendedDetails,
@@ -1103,7 +1108,7 @@ public final class TaskDetailViewModel: ObservableObject {
                 default: return nil
                 }
             }(),
-            replanCount: max(0, persistedTask.replanCount) + 1,
+            replanCount: recordsAReplan ? max(0, persistedTask.replanCount) + 1 : nil,
             updatedAt: Date()
         )
         onUpdate(persistedTask.id, request) { [weak self] result in

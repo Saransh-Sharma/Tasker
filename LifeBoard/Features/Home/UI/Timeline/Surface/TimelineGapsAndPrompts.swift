@@ -425,9 +425,9 @@ struct TimelineEmptyStateCard: View {
             actionButtons
         }
         .padding(14)
-        .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(Color.lifeboard.strokeHairline.opacity(0.62), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)

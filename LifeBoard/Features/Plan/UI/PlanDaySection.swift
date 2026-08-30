@@ -136,13 +136,16 @@ struct PlanDaySection: View {
         } else if store.pendingScenario != nil {
             PlanMinimumViableDayCard(store: store)
         } else if store.repairProposals.isEmpty == false {
-            PlanRepairDeck(proposals: store.repairProposals) { action, proposal in
-                HapticFeedback.light()
-                if action == .askEva {
-                    onAskEva()
-                } else if let proposal {
-                    store.previewRepair(proposal, action: action)
+            VStack(spacing: 12) {
+                PlanRepairDeck(proposals: store.repairProposals) { action, proposal in
+                    HapticFeedback.light()
+                    if action == .askEva {
+                        onAskEva()
+                    } else if let proposal {
+                        store.previewRepair(proposal, action: action)
+                    }
                 }
+                makeItFitEntry(for: snapshot)
             }
         } else {
             // Always drawn once the other four are quiet, overloaded or not:
@@ -152,9 +155,30 @@ struct PlanDaySection: View {
             PlanCapacityCard(
                 capacity: snapshot.capacity,
                 showsWorkingHours: $showsWorkingHours,
-                onMakeItFit: onMakeItFit
+                onMakeItFit: isToday(snapshot.day) ? onMakeItFit : nil
             )
         }
+    }
+
+    @ViewBuilder
+    private func makeItFitEntry(for snapshot: PlanDaySnapshot) -> some View {
+        if V2FeatureFlags.evaMakeItFitTodayV1Enabled, isToday(snapshot.day) {
+            Button(action: onMakeItFit) {
+                Label(
+                    snapshot.capacity.overloadDuration > 0 ? "Make today fit" : "Renegotiate today",
+                    systemImage: "arrow.left.and.right.circle.fill"
+                )
+                .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.lifeBoardChip)
+            .accessibilityHint("Opens EVA's capacity ritual; no task changes happen yet")
+            .accessibilityIdentifier("plan.repair.makeItFit")
+        }
+    }
+
+    private func isToday(_ day: PlanningDay) -> Bool {
+        guard let date = day.startDate(calendar: .current) else { return false }
+        return Calendar.current.isDateInToday(date)
     }
 
     private var dayPresentationControl: some View {

@@ -55,10 +55,10 @@ struct ProjectManagementView: View {
                     }
                     .overlay {
                         if viewModel.filteredProjects.filter({ $0.project.id != ProjectConstants.inboxProjectID }).isEmpty {
-                            ContentUnavailableView(
-                                "No Custom Projects",
-                                systemImage: "folder.badge.plus",
-                                description: Text("Tap + to create your first custom project")
+                            StatusSurface(
+                                state: .empty,
+                                title: "No Custom Projects",
+                                message: "Tap + to create your first custom project"
                             )
                         }
                     }
@@ -209,10 +209,10 @@ struct ProjectManagementView: View {
             .background(Color.lifeboard(.bgCanvas))
             .navigationTitle(selected.project.name)
         } else {
-            ContentUnavailableView(
-                "Select a Project",
-                systemImage: "folder",
-                description: Text("Choose a project from the sidebar to inspect details.")
+            StatusSurface(
+                state: .empty,
+                title: "Select a Project",
+                message: "Choose a project from the sidebar to inspect details."
             )
         }
     }
@@ -296,7 +296,7 @@ struct ProjectManagementView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.lifeboard(.surfaceSecondary), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.lifeboard(.surfaceSecondary), in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
     }
 
     private func autoSelectFirstProjectIfNeeded() {
@@ -487,7 +487,7 @@ struct ProjectManagementView: View {
                 .foregroundStyle(tint)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
         }
         .buttonStyle(.plain)
     }

@@ -22,7 +22,7 @@ struct LifeManagementComposerPreviewCard: View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             HStack(alignment: .top, spacing: spacing.s12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .fill(ClayColorTokens.whiteStroke.opacity(0.18))
                         .frame(width: 58, height: 58)
 

@@ -554,10 +554,10 @@ struct OverdueRescueLargeStackView: View {
             .foregroundStyle(OverdueRescuePalette.accentPrimary)
             .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.secondaryButtonHeight)
             .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                     .fill(OverdueRescuePalette.accentSoftFill)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                             .stroke(OverdueRescuePalette.accentSoftStroke, lineWidth: 1.2)
                     )
             )

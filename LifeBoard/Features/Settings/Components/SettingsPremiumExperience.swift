@@ -243,12 +243,12 @@ struct SettingsSetupStatusCard: View {
             }
         }
         .padding(SwiftUITokens.spacing.s16)
-        .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(Color.lifeboard(.borderSubtle), lineWidth: 1)
         }
-        .lifeboardElevation(.e1, cornerRadius: 22, includesBorder: false)
+        .lifeboardElevation(.e1, cornerRadius: Radius.card, includesBorder: false)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("settings.setupStatus")
     }
@@ -322,7 +322,7 @@ private struct SettingsCategoryButton: View {
                     .lifeboardFont(.headline)
                     .foregroundStyle(route.tint)
                     .frame(width: 38, height: 38)
-                    .background(route.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(route.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(route.title)
@@ -595,9 +595,9 @@ struct SettingsLookAndFeelView: View {
             content()
         }
         .padding(SwiftUITokens.spacing.s16)
-        .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(Color.lifeboard(.borderSubtle), lineWidth: 1)
         }
     }

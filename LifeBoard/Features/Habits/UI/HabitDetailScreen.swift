@@ -219,7 +219,7 @@ struct HabitDetailScreen: View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             HStack(alignment: .top, spacing: spacing.s12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .fill(accentColor.opacity(0.14))
                         .frame(width: 58, height: 58)
                     Image(systemName: viewModel.draft.selectedIconSymbolName ?? viewModel.row.icon?.symbolName ?? "circle.dashed")

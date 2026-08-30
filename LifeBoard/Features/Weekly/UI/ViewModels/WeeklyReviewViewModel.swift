@@ -235,10 +235,16 @@ public final class WeeklyReviewViewModel: ObservableObject {
 
     public func completeReview(
         mutationMode: WeeklyReviewMutationMode = .applyImmediately,
-        completion: (@MainActor @Sendable (String) -> Void)? = nil
+        completion: (@MainActor @Sendable (Result<String, Error>) -> Void)? = nil
     ) {
         guard let plan = snapshot?.plan else {
-            errorMessage = "Create the weekly plan before reviewing it."
+            let error = NSError(
+                domain: "WeeklyReview",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "Create the weekly plan before reviewing it."]
+            )
+            errorMessage = error.localizedDescription
+            completion?(.failure(error))
             return
         }
 
@@ -268,6 +274,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
                 case .failure(let error):
                     self.isSaving = false
                     self.errorMessage = self.presentationErrorMessage(for: error)
+                    completion?(.failure(error))
                 case .success(let completionResult):
                     let skippedTaskIDs = Set(completionResult.skippedTaskIDs)
                     let persistedDecisions = decisions.filter { skippedTaskIDs.contains($0.taskID) == false }
@@ -278,12 +285,16 @@ public final class WeeklyReviewViewModel: ObservableObject {
                                 self.isSaving = false
                                 switch reloadResult {
                                 case .failure(let error):
-                                    self.saveMessage = self.completionMessage(for: completionResult)
+                                    let message = self.completionMessage(for: completionResult)
+                                    self.saveMessage = message
                                     self.errorMessage = self.presentationErrorMessage(for: error)
+                                    // The review commit already succeeded. A refresh failure must not
+                                    // strand the ritual in a saving state or imply that it was lost.
+                                    completion?(.success(message))
                                 case .success:
                                     let message = self.completionMessage(for: completionResult)
                                     self.saveMessage = message
-                                    completion?(message)
+                                    completion?(.success(message))
                                 }
                             }
                         }

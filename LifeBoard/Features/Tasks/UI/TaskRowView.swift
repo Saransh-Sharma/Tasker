@@ -915,13 +915,13 @@ private struct TaskRowChromeModifier: ViewModifier {
                 )
         case .sunriseSearchCard:
             content
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                 .background {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .fill(rowBackground)
-                        .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                                 .stroke(highlightStrokeColor.opacity(isOnboardingHighlighted ? 1 : 0.42), lineWidth: isOnboardingHighlighted ? 2 : 1)
                         )
                         .shadow(color: ClayColorTokens.elevationShadow.opacity(0.38), radius: 12, x: 0, y: 7)

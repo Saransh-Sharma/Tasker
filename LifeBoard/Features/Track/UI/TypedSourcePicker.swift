@@ -191,16 +191,16 @@ public struct TypedSourcePickerView: View {
                 case .loading:
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .empty:
-                    ContentUnavailableView(
-                        "Nothing to link yet",
-                        systemImage: kind.systemImage,
-                        description: Text("Create a \(kind.title.lowercased()) first, then link it here.")
+                    StatusSurface(
+                        state: .empty,
+                        title: "Nothing to link yet",
+                        message: "Create a \(kind.title.lowercased()) first, then link it here."
                     )
                 case .failed(let message):
-                    ContentUnavailableView(
-                        "Couldn’t load \(kind.title.lowercased())s",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(message)
+                    StatusSurface(
+                        state: .recoverableError,
+                        title: "Couldn’t load \(kind.title.lowercased())s",
+                        message: message
                     )
                 case .loaded(let items):
                     List(items) { item in

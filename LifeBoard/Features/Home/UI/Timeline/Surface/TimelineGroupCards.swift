@@ -23,10 +23,10 @@ struct TimelineOverlapClusterCard: View {
             let titles = TimelineDenseTitleFormatter.displayTitles(for: block.items)
 
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                     .fill(Color.lifeboard.surfaceSecondary.opacity(0.94))
 
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                     .stroke(Color.lifeboard.strokeHairline.opacity(0.72), lineWidth: 1)
 
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -161,7 +161,7 @@ struct TimelineOverlapItemCard: View {
             .padding(.horizontal, densityMode == .dualLane ? 8 : 6)
             .padding(.vertical, densityMode == .dualLane ? 7 : 5)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(cardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(cardBackground, in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
             .overlay(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(palette.progress.opacity(0.72))
@@ -169,10 +169,10 @@ struct TimelineOverlapItemCard: View {
                     .padding(.vertical, 6)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                     .stroke(Color.lifeboard.strokeHairline.opacity(0.6), lineWidth: 1)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -295,7 +295,7 @@ struct TimelineFlockBlock: View {
         .padding(.trailing, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay(alignment: .leading) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(accent.opacity(0.82))
@@ -303,10 +303,10 @@ struct TimelineFlockBlock: View {
                 .padding(.vertical, 6)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(Color.lifeboard.strokeHairline.opacity(0.54), lineWidth: 1)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .compositingGroup()
         .zIndex(3)
         .accessibilityElement(children: .contain)
@@ -508,7 +508,7 @@ struct TimelineShelfItemCard: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                     .fill(Color.lifeboard.surfaceSecondary)
             )
         }

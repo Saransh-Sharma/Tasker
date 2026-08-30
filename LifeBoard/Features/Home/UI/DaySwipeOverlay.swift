@@ -113,14 +113,11 @@ struct DaySwipeOverlay: View {
     private func waveGlassLayer(data: DaySwipeData) -> some View {
         let shape = DaySwipeWaveShape(data: data)
 
-        if #available(iOS 26.0, *) {
-            shape
-                .fill(.clear)
-                .lifeBoardSystemGlass(.regular, in: shape)
-        } else {
-            shape
-                .fill(.clear)
-        }
+        // Was gated on `#available(iOS 26.0, *)` with an unreachable
+        // `.fill(.clear)` fallback. The deployment target is 26.0.
+        shape
+            .fill(.clear)
+            .lifeBoardSystemGlass(.regular, in: shape)
     }
 
     private func handleDragGesture(for side: DaySwipeSide, size: CGSize) -> some Gesture {

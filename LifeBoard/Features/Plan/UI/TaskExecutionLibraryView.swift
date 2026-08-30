@@ -48,10 +48,10 @@ struct TaskExecutionLibraryView: View {
                 }
             case .empty:
                 Section {
-                    ContentUnavailableView(
-                        store.query.scope.emptyTitle,
-                        systemImage: store.query.scope.emptySymbol,
-                        description: Text(store.query.scope.emptyDetail)
+                    StatusSurface(
+                        state: .empty,
+                        title: store.query.scope.emptyTitle,
+                        message: store.query.scope.emptyDetail
                     )
                     .frame(maxWidth: .infinity, minHeight: 180)
                 }
@@ -68,10 +68,10 @@ struct TaskExecutionLibraryView: View {
                 }
             case .permissionDenied:
                 Section {
-                    ContentUnavailableView(
-                        "Task access unavailable",
-                        systemImage: "lock",
-                        description: Text("LifeBoard can’t read this task view right now.")
+                    StatusSurface(
+                        state: .unavailable,
+                        title: "Task access unavailable",
+                        message: "LifeBoard can’t read this task view right now."
                     )
                     .frame(maxWidth: .infinity, minHeight: 180)
                 }
@@ -226,7 +226,7 @@ struct TaskExecutionLibraryView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
-        .background(.regularMaterial)
+        .background(Color(SemanticColorTokens.foundationSurfaceRaised))
         .overlay(alignment: .top) { Divider() }
     }
 
