@@ -18,6 +18,8 @@ struct MakeItFitTodayView: View {
     @State private var choices: [UUID: MakeItFitDestination] = [:]
     @State private var anchorTaskID: UUID?
     @State private var errorMessage: String?
+    @State private var undoError: String?
+    @State private var appliedChangeCount = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var snapshot: CommitmentRealismSnapshot? {
@@ -29,11 +31,12 @@ struct MakeItFitTodayView: View {
             title: "Make It Fit Today",
             orientation: orientation,
             evidence: evidence,
+            onOpenEvidence: { reference in onOpenTask(reference.recordID) },
             onClose: close,
             content: { phaseContent },
             footer: { footer }
         )
-        .task { restoreOrStart() }
+        .task { await restoreOrStart() }
     }
 
     private var orientation: String {
@@ -97,8 +100,16 @@ struct MakeItFitTodayView: View {
                 if let snapshot {
                     MakeItFitCapacityRibbon(snapshot: snapshot, remainingOverload: snapshot.overloadMinutes)
                     ForEach(snapshot.fixedCommitments, id: \.id) { commitment in
-                        Label(commitment.title, systemImage: "lock.fill")
-                            .font(.subheadline)
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Image(systemName: "lock.fill")
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(commitment.title).font(.subheadline.weight(.medium))
+                                Text(commitmentTime(commitment))
+                                    .font(.caption)
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
                     }
                     if snapshot.fixedCommitments.isEmpty {
                         Text("No fixed commitments are claiming the working window.")
@@ -150,7 +161,9 @@ struct MakeItFitTodayView: View {
                                     persistDraft()
                                 }
                             ),
-                            onAddEstimate: { onOpenTask(task.id) }
+                            onSaveEstimate: { minutes in
+                                await saveEstimate(minutes, for: task.id)
+                            }
                         )
                     }
                 }
@@ -186,11 +199,26 @@ struct MakeItFitTodayView: View {
     private var receiptContent: some View {
         EvaRitualSection(
             eyebrow: "Done",
-            title: "Today fits",
-            message: "We changed the plan, not your deadlines."
+            title: appliedChangeCount == 0 ? "Today stays as it is" : "Today fits",
+            message: appliedChangeCount == 0
+                ? "No planning changes were needed."
+                : "We changed the plan, not your deadlines."
         ) {
-            Label("One planning receipt · Undo available", systemImage: "checkmark.seal.fill")
-                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+            if appliedChangeCount > 0 {
+                Label(receiptSummary, systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                Text("One planning receipt · Undo available")
+                    .font(.caption)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            } else {
+                Label("Your existing plan was kept", systemImage: "checkmark.circle")
+            }
+            if let undoError {
+                Text(undoError)
+                    .font(.caption)
+                    .foregroundStyle(Color.lifeboard.statusWarning)
+                    .accessibilityLabel("Undo error: \(undoError)")
+            }
         }
     }
 
@@ -217,14 +245,26 @@ struct MakeItFitTodayView: View {
             ProgressView().frame(maxWidth: .infinity, minHeight: 48)
         case .receipt:
             HStack(spacing: 12) {
-                Button("Undo") {
-                    Task {
-                        await store.undoLastMutation()
-                        transition(to: .choosing)
+                if appliedChangeCount > 0 {
+                    Button("Undo") {
+                        Task {
+                            if await store.undoLastMutation() {
+                                undoError = nil
+                                appliedChangeCount = 0
+                                if let current = store.daySnapshot.map(CommitmentRealismEngine.snapshot) {
+                                    ritualSnapshot = current
+                                }
+                                transition(to: .choosing)
+                            } else {
+                                undoError = store.errorMessage ?? "Undo could not be completed. Your current plan is still visible."
+                            }
+                        }
                     }
+                    .frame(minWidth: 72, minHeight: 48)
                 }
-                .frame(minWidth: 72, minHeight: 48)
-                PrimaryButton(title: "Today fits — close", systemImage: "arrow.right") { close() }
+                PrimaryButton(title: "Today fits — start the next move", systemImage: "arrow.right") {
+                    startNextMove()
+                }
             }
         case .failure:
             PrimaryButton(title: "Review again", systemImage: "arrow.clockwise") {
@@ -255,23 +295,38 @@ struct MakeItFitTodayView: View {
 
     private func apply() {
         guard changedTasks.isEmpty == false else {
+            appliedChangeCount = 0
             transition(to: .receipt)
+            return
+        }
+        guard let expectedSnapshot = snapshot else {
+            errorMessage = "Today could not be rechecked. Nothing was changed."
+            transition(to: .failure)
             return
         }
         transition(to: .applying)
         Task {
-            let succeeded = await store.applyMakeItFit(choices: choices)
-            if succeeded {
+            switch await store.applyMakeItFit(choices: choices, expectedSnapshot: expectedSnapshot) {
+            case .applied(let changedCount):
+                appliedChangeCount = changedCount
                 HapticFeedback.light()
                 transition(to: .receipt)
-            } else {
-                errorMessage = store.errorMessage ?? "The plan changed while this ritual was open. Nothing else was applied."
+            case .noChanges:
+                appliedChangeCount = 0
+                transition(to: .receipt)
+            case .stale(let refreshed):
+                ritualSnapshot = refreshed
+                reconcileChoices(with: refreshed)
+                errorMessage = "Today changed while this ritual was open. The preview has been refreshed; review it once more."
+                transition(to: .failure)
+            case .failed(let message):
+                errorMessage = message
                 transition(to: .failure)
             }
         }
     }
 
-    private func restoreOrStart() {
+    private func restoreOrStart() async {
         guard let current = store.daySnapshot.map(CommitmentRealismEngine.snapshot) else { return }
         ritualSnapshot = current
         anchorTaskID = current.anchorTaskID
@@ -288,24 +343,88 @@ struct MakeItFitTodayView: View {
         }
         if let anchorTaskID { choices[anchorTaskID] = .keepToday }
         phase = MakeItFitPhase(rawValue: draft.phaseRaw) ?? .evidence
-        if phase == .applying { phase = .previewing }
+        if phase == .receipt,
+           let receiptID = draft.actionRunID,
+           await store.restoreMutationReceipt(id: receiptID) {
+            appliedChangeCount = Int(draft.choices["appliedChangeCount"] ?? "") ?? changedTasks.count
+        } else if phase == .applying || phase == .receipt {
+            phase = .previewing
+        }
     }
 
     private func persistDraft() {
         var encoded = Dictionary(uniqueKeysWithValues: choices.map { ($0.key.uuidString, $0.value.rawValue) })
         if let anchorTaskID { encoded["anchor"] = anchorTaskID.uuidString }
+        if appliedChangeCount > 0 { encoded["appliedChangeCount"] = String(appliedChangeCount) }
         EvaRitualDraftStore.shared.save(.init(
             kind: .makeItFitToday,
             recordIDs: snapshot?.flexibleTasks.map(\.id) ?? [],
             referenceDate: Date(),
             phaseRaw: phase.rawValue,
-            choices: encoded
+            choices: encoded,
+            actionRunID: appliedChangeCount > 0 ? store.lastMutationReceiptID : nil
         ))
     }
 
     private func close() {
         if phase == .receipt { EvaRitualDraftStore.shared.clear(.makeItFitToday) }
         onClose()
+    }
+
+    @MainActor
+    private func saveEstimate(_ minutes: Int, for taskID: UUID) async -> Bool {
+        guard await store.updateTaskEstimate(taskID: taskID, minutes: minutes),
+              let refreshed = store.daySnapshot.map(CommitmentRealismEngine.snapshot) else {
+            errorMessage = store.errorMessage ?? "The estimate could not be saved."
+            return false
+        }
+        ritualSnapshot = refreshed
+        reconcileChoices(with: refreshed)
+        persistDraft()
+        return true
+    }
+
+    private func reconcileChoices(with refreshed: CommitmentRealismSnapshot) {
+        let validIDs = Set(refreshed.flexibleTasks.map(\.id))
+        choices = choices.filter { validIDs.contains($0.key) }
+        if let anchorTaskID, validIDs.contains(anchorTaskID) == false {
+            self.anchorTaskID = refreshed.anchorTaskID
+        }
+        if let anchorTaskID { choices[anchorTaskID] = .keepToday }
+    }
+
+    private var nextMoveTaskID: UUID? {
+        guard let snapshot else { return nil }
+        if let anchorTaskID, choices[anchorTaskID] == nil || choices[anchorTaskID] == .keepToday {
+            return anchorTaskID
+        }
+        return snapshot.flexibleTasks.first { choices[$0.id] == nil || choices[$0.id] == .keepToday }?.id
+    }
+
+    private func startNextMove() {
+        EvaRitualDraftStore.shared.clear(.makeItFitToday)
+        guard let nextMoveTaskID else { onClose(); return }
+        onOpenTask(nextMoveTaskID)
+    }
+
+    private var receiptSummary: String {
+        // Use the persisted choices rather than today's current task list: moved
+        // tasks legitimately disappear from that list when a receipt is restored.
+        let moved = choices.values.filter { $0 == .tomorrow }.count
+        let later = choices.values.filter { $0 == .later }.count
+        let released = choices.values.filter { $0 == .someday }.count
+        let inbox = choices.values.filter { $0 == .inbox }.count
+        return [
+            moved > 0 ? "\(moved) to tomorrow" : nil,
+            later > 0 ? "\(later) to Later" : nil,
+            released > 0 ? "\(released) to Someday" : nil,
+            inbox > 0 ? "\(inbox) to Inbox" : nil
+        ].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    private func commitmentTime(_ commitment: PlanningFixedCommitment) -> String {
+        let format = Date.FormatStyle(date: .omitted, time: .shortened)
+        return "\(commitment.startAt.formatted(format))–\(commitment.endAt.formatted(format))"
     }
 }
 
@@ -317,11 +436,12 @@ private struct MakeItFitCapacityRibbon: View {
         VStack(alignment: .leading, spacing: 7) {
             GeometryReader { proxy in
                 let usable = max(snapshot.usableMinutes, 1)
-                let knownAfter = max(0, snapshot.usableMinutes + remainingOverload)
+                let movedKnown = max(0, snapshot.overloadMinutes - remainingOverload)
+                let knownAfter = max(0, snapshot.plannedKnownMinutes - movedKnown)
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.lifeboard.surfaceSecondary)
                     Capsule()
-                        .fill(remainingOverload > 0 ? Color.orange.opacity(0.78) : Color.green.opacity(0.72))
+                        .fill(remainingOverload > 0 ? Color.lifeboard.statusWarning : Color.lifeboard.statusSuccess)
                         .frame(width: proxy.size.width * min(1, Double(knownAfter) / Double(usable)))
                 }
             }
@@ -338,7 +458,11 @@ private struct MakeItFitTaskChoiceRow: View {
     let task: PlanningTaskSummary
     let isAnchor: Bool
     @Binding var selection: MakeItFitDestination
-    let onAddEstimate: () -> Void
+    let onSaveEstimate: (Int) async -> Bool
+    @State private var estimateText = ""
+    @State private var isEditingEstimate = false
+    @State private var isSavingEstimate = false
+    @State private var estimateError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -361,12 +485,56 @@ private struct MakeItFitTaskChoiceRow: View {
             .disabled(isAnchor)
             .accessibilityHint(isAnchor ? "This task is protected as today's anchor" : "Choose where this task belongs")
             if task.estimatedDuration == nil {
-                Button("Add an estimate in task details", action: onAddEstimate)
+                if isEditingEstimate {
+                    HStack(spacing: 12) {
+                        TextField("Minutes", text: $estimateText)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityLabel("Estimate in minutes for \(task.title)")
+                        Button(isSavingEstimate ? "Saving…" : "Save") { saveEstimate() }
+                            .buttonStyle(.lifeBoardChip)
+                            .disabled(isSavingEstimate || validEstimate == nil)
+                    }
+                    if let estimateError {
+                        Text(estimateError)
+                            .font(.caption)
+                            .foregroundStyle(Color.lifeboard.statusWarning)
+                            .accessibilityLabel("Estimate error: \(estimateError)")
+                    }
+                } else {
+                    Button("Add estimate here") {
+                        estimateText = "30"
+                        estimateError = nil
+                        isEditingEstimate = true
+                    }
                     .font(.caption.weight(.semibold))
                     .frame(minHeight: 44)
+                }
             }
         }
         .padding(.vertical, 5)
+    }
+
+    private var validEstimate: Int? {
+        guard let minutes = Int(estimateText), (5...1_440).contains(minutes) else { return nil }
+        return minutes
+    }
+
+    private func saveEstimate() {
+        guard let minutes = validEstimate else {
+            estimateError = "Use 5–1,440 minutes."
+            return
+        }
+        isSavingEstimate = true
+        estimateError = nil
+        Task { @MainActor in
+            if await onSaveEstimate(minutes) {
+                isEditingEstimate = false
+            } else {
+                estimateError = "Could not save this estimate. Try again."
+            }
+            isSavingEstimate = false
+        }
     }
 }
 

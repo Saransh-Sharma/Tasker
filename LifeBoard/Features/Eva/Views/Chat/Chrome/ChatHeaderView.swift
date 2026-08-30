@@ -62,7 +62,7 @@ struct ChatHeaderView: View {
                     .padding(.horizontal, Theme.Spacing.md)
                     .frame(height: 44)
                     .lifeboardChromeSurface(
-                        cornerRadius: 22,
+                        cornerRadius: Radius.card,
                         accentColor: Color.lifeboard(.accentSecondary),
                         level: .e1
                     )
@@ -72,7 +72,7 @@ struct ChatHeaderView: View {
                     .foregroundStyle(Color.lifeboard(.accentPrimary))
                     .frame(width: 44, height: 44)
                     .lifeboardChromeSurface(
-                        cornerRadius: 22,
+                        cornerRadius: Radius.card,
                         accentColor: Color.lifeboard(.accentSecondary),
                         level: .e1
                     )
@@ -97,7 +97,7 @@ struct ChatHeaderView: View {
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(width: 44, height: 44)
                 .lifeboardChromeSurface(
-                    cornerRadius: 22,
+                    cornerRadius: Radius.card,
                     accentColor: Color.lifeboard(.accentSecondary),
                     level: .e1
                 )

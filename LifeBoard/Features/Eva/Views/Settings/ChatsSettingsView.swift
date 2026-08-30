@@ -80,11 +80,11 @@ struct ChatsSettingsView: View {
                     .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
                     .padding(spacing.s12)
                     .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                             .fill(Color.lifeboard(.surfaceSecondary))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                             .stroke(Color.lifeboard(.strokeHairline), lineWidth: 1)
                     )
 
@@ -181,7 +181,7 @@ private struct PromptEditorView: View {
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .padding(16)
                 .background(Color.lifeboard(.surfaceSecondary))
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                 .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 900 : .infinity, alignment: .center)
                 .padding(.horizontal, SettingsMetrics.screenHorizontal)
                 .padding(.top, 16)

@@ -57,11 +57,9 @@ struct ChatComposerView: View {
     @State var dictationController = UniversalDictationController()
 
     var body: some View {
-        if #available(iOS 26.0, *) {
-            GlassEffectContainer(spacing: Theme.Spacing.xs) {
-                composerContent
-            }
-        } else {
+        // Was gated on `#available(iOS 26.0, *)`; the deployment target is
+        // 26.0, so the ungrouped fallback was unreachable.
+        GlassEffectContainer(spacing: Theme.Spacing.xs) {
             composerContent
         }
     }

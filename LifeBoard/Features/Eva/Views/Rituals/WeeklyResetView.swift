@@ -15,6 +15,7 @@ struct WeeklyResetView: View {
     @ObservedObject var viewModel: WeeklyReviewViewModel
     let frictionRepository: FrictionFindingRepositoryProtocol
     let taskRepository: TaskDefinitionRepositoryProtocol
+    let actionPipeline: AssistantActionPipelineUseCase
     let onClose: () -> Void
     let onOpenWeeklyPlanner: () -> Void
     let onOpenTask: (UUID) -> Void
@@ -24,14 +25,19 @@ struct WeeklyResetView: View {
     @State private var minimumViableWeek = ""
     @State private var protectedCommitment = ""
     @State private var findings: [FrictionFinding] = []
+    @State private var findingTasks: [UUID: TaskDefinition] = [:]
     @State private var proposalLines: [WeeklyResetProposalLine] = []
     @State private var receipt: WeeklyResetApplyReceipt?
+    @State private var pendingActionRunID: UUID?
     @State private var errorMessage: String?
     @State private var reviewFinished = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var applier: WeeklyResetProposalApplier {
-        WeeklyResetProposalApplier(repository: taskRepository)
+        WeeklyResetProposalApplier(
+            repository: taskRepository,
+            actionPipeline: actionPipeline
+        )
     }
 
     var body: some View {
@@ -46,6 +52,10 @@ struct WeeklyResetView: View {
             restoreDraft()
             if viewModel.snapshot == nil && viewModel.isLoading == false { viewModel.load() }
             loadFindings()
+            await restorePlanningReceiptIfNeeded()
+        }
+        .onChange(of: viewModel.hasLoadedInitialData) { _, loaded in
+            if loaded { rebuildProposalLines() }
         }
         .alert("Weekly Reset needs another look", isPresented: Binding(
             get: { errorMessage != nil },
@@ -92,6 +102,9 @@ struct WeeklyResetView: View {
             title: "Weekly Reset with EVA",
             orientation: orientation,
             evidence: evidence,
+            onOpenEvidence: { reference in
+                if reference.kind == .task { onOpenTask(reference.recordID) }
+            },
             onClose: close,
             content: { phaseContent },
             footer: { footer }
@@ -157,10 +170,9 @@ struct WeeklyResetView: View {
                 title: sparseWeek ? "A quiet week still counts" : "Start with what genuinely moved",
                 message: "Correct or ignore any interpretation. These are observed records, not EVA's grade."
             ) {
-                HStack(spacing: 10) {
-                    resetMetric(value: viewModel.completedTasks.count, label: "Tasks done")
-                    resetMetric(value: completedOutcomes.count, label: "Outcomes held")
-                    resetMetric(value: viewModel.selectedHabits.count, label: "Habits present")
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) { weeklyMetrics }
+                    VStack(spacing: 12) { weeklyMetrics }
                 }
                 if viewModel.completedTasks.isEmpty {
                     Text("What held you together may not be stored as a completed task. Capture it below.")
@@ -170,6 +182,32 @@ struct WeeklyResetView: View {
                     ForEach(viewModel.completedTasks.prefix(4)) { task in
                         Label(task.title, systemImage: "checkmark.circle.fill")
                             .font(.subheadline)
+                    }
+                }
+
+                if let outcomes = viewModel.snapshot?.outcomes, outcomes.isEmpty == false {
+                    Divider()
+                    Text("Correct outcome status")
+                        .font(.subheadline.weight(.semibold))
+                    ForEach(outcomes) { outcome in
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Text(outcome.title)
+                                .font(.subheadline)
+                                .lineLimit(2)
+                            Spacer()
+                            Picker(
+                                "Status for \(outcome.title)",
+                                selection: Binding(
+                                    get: { viewModel.outcomeStatusesByID[outcome.id] ?? outcome.status },
+                                    set: { viewModel.setOutcomeStatus($0, for: outcome.id) }
+                                )
+                            ) {
+                                ForEach(WeeklyOutcomeStatus.allCases, id: \.self) { status in
+                                    Text(status.displayTitle).tag(status)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                        }
                     }
                 }
             }
@@ -206,16 +244,27 @@ struct WeeklyResetView: View {
                 }
             }
 
-            if let finding = findings.first,
-               let task = viewModel.unfinishedTasks.first(where: { $0.id == finding.taskID }) {
+            if let finding = findings.min(by: { $0.reviewAfter < $1.reviewAfter }) {
                 EvaRitualSection(
                     eyebrow: "Recurring friction",
-                    title: task.title,
-                    message: "Chosen by you: \(finding.selectedReason.resetLabel). The seven-day experiment is still open."
+                    title: taskForFinding(finding)?.title ?? "A task no longer in this week's plan",
+                    message: finding.reviewAfter <= Date()
+                        ? "Chosen by you: \(finding.selectedReason.resetLabel). It is time to close the loop."
+                        : "Chosen by you: \(finding.selectedReason.resetLabel). Follow-up on \(finding.reviewAfter.formatted(date: .abbreviated, time: .omitted))."
                 ) {
-                    Button("Review the task and experiment") { onOpenTask(task.id) }
-                        .buttonStyle(.bordered)
-                        .frame(minHeight: 44)
+                    if finding.reviewAfter <= Date() {
+                        Text("Did this change help?")
+                            .font(.subheadline.weight(.semibold))
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) { findingOutcomeButtons(for: finding) }
+                            VStack(spacing: 8) { findingOutcomeButtons(for: finding) }
+                        }
+                    }
+                    if taskForFinding(finding) != nil {
+                        Button("Review the task and experiment") { onOpenTask(finding.taskID) }
+                            .buttonStyle(.lifeBoardChip)
+                            .frame(minHeight: 44)
+                    }
                 }
             }
 
@@ -337,17 +386,29 @@ struct WeeklyResetView: View {
     }
 
     private var completedOutcomes: [WeeklyOutcome] {
-        viewModel.snapshot?.outcomes.filter { $0.status == .completed } ?? []
+        viewModel.snapshot?.outcomes.filter {
+            (viewModel.outcomeStatusesByID[$0.id] ?? $0.status) == .completed
+        } ?? []
     }
 
     private var reachableOutcomes: [WeeklyOutcome] {
         viewModel.snapshot?.outcomes
-            .filter { $0.status == .planned || $0.status == .inProgress }
+            .filter {
+                let status = viewModel.outcomeStatusesByID[$0.id] ?? $0.status
+                return status == .planned || status == .inProgress
+            }
             .sorted { $0.orderIndex < $1.orderIndex } ?? []
     }
 
     private var sparseWeek: Bool {
         viewModel.completedTasks.isEmpty && viewModel.unfinishedTasks.count < 3
+    }
+
+    @ViewBuilder
+    private var weeklyMetrics: some View {
+        resetMetric(value: viewModel.completedTasks.count, label: "Tasks done")
+        resetMetric(value: completedOutcomes.count, label: "Outcomes held")
+        resetMetric(value: viewModel.selectedHabits.count, label: "Habits present")
     }
 
     private func resetMetric(value: Int, label: String) -> some View {
@@ -369,9 +430,7 @@ struct WeeklyResetView: View {
     }
 
     private func finishReview() {
-        proposalLines = viewModel.unfinishedTasks.compactMap { task in
-            viewModel.taskDecisions[task.id].map { WeeklyResetProposalLine(task: task, disposition: $0) }
-        }
+        rebuildProposalLines()
         let shape = [
             weeklyIntention.resetNilIfBlank.map { "Intention: \($0)" },
             minimumViableWeek.resetNilIfBlank.map { "Minimum viable week: \($0)" },
@@ -380,9 +439,18 @@ struct WeeklyResetView: View {
         if shape.isEmpty == false { viewModel.nextWeekPrepNotes = shape }
 
         transition(.savingReview)
-        viewModel.completeReview(mutationMode: .recordOnly) { _ in
-            reviewFinished = true
-            transition(.proposal)
+        viewModel.completeReview(mutationMode: .recordOnly) { result in
+            switch result {
+            case .success:
+                reviewFinished = true
+                if let refreshIssue = viewModel.errorMessage {
+                    errorMessage = "Your review was saved, but the latest screen could not refresh: \(refreshIssue)"
+                }
+                transition(.proposal)
+            case .failure(let error):
+                errorMessage = error.localizedDescription
+                transition(.failure)
+            }
         }
     }
 
@@ -394,11 +462,21 @@ struct WeeklyResetView: View {
         transition(.applying)
         Task { @MainActor in
             do {
-                receipt = try await applier.apply(proposalLines)
+                receipt = try await applier.apply(proposalLines) { runID in
+                    pendingActionRunID = runID
+                    persistDraft()
+                }
                 transition(.receipt)
             } catch {
-                errorMessage = error.localizedDescription
-                transition(.failure)
+                if let runID = pendingActionRunID,
+                   let restored = try? await applier.restoreReceipt(id: runID) {
+                    receipt = restored
+                    transition(.receipt)
+                } else {
+                    pendingActionRunID = nil
+                    errorMessage = error.localizedDescription
+                    transition(.failure)
+                }
             }
         }
     }
@@ -408,6 +486,7 @@ struct WeeklyResetView: View {
             do {
                 try await applier.undo(receipt)
                 self.receipt = nil
+                pendingActionRunID = nil
                 transition(.proposal)
             } catch {
                 errorMessage = "Some planning changes could not be restored. \(error.localizedDescription)"
@@ -420,8 +499,69 @@ struct WeeklyResetView: View {
             query: FrictionFindingQuery(outcomes: [.pending], limit: 8)
         ) { result in
             Task { @MainActor in
-                if case .success(let values) = result { findings = values }
+                if case .success(let values) = result {
+                    findings = values
+                    loadFindingTasks(values)
+                }
             }
+        }
+    }
+
+    private func loadFindingTasks(_ values: [FrictionFinding]) {
+        let currentWeekTasks = Dictionary(
+            uniqueKeysWithValues: viewModel.unfinishedTasks.map { ($0.id, $0) }
+        )
+        findingTasks.merge(currentWeekTasks) { _, current in current }
+        for taskID in Set(values.map(\.taskID)) where findingTasks[taskID] == nil {
+            taskRepository.fetchTaskDefinition(id: taskID) { result in
+                Task { @MainActor in
+                    if case .success(let task?) = result { findingTasks[taskID] = task }
+                }
+            }
+        }
+    }
+
+    private func taskForFinding(_ finding: FrictionFinding) -> TaskDefinition? {
+        viewModel.unfinishedTasks.first { $0.id == finding.taskID } ?? findingTasks[finding.taskID]
+    }
+
+    private func findingOutcomeButton(
+        _ title: String,
+        outcome: FrictionFindingOutcome,
+        finding: FrictionFinding
+    ) -> some View {
+        Button(title) { updateFinding(finding, outcome: outcome) }
+            .buttonStyle(.lifeBoardChip)
+            .frame(minHeight: 44)
+    }
+
+    @ViewBuilder
+    private func findingOutcomeButtons(for finding: FrictionFinding) -> some View {
+        findingOutcomeButton("Helped", outcome: .helped, finding: finding)
+        findingOutcomeButton("Not really", outcome: .didNotHelp, finding: finding)
+        findingOutcomeButton("Dismiss", outcome: .dismissed, finding: finding)
+    }
+
+    private func updateFinding(_ finding: FrictionFinding, outcome: FrictionFindingOutcome) {
+        var updated = finding
+        updated.outcome = outcome
+        updated.updatedAt = Date()
+        frictionRepository.saveFinding(updated) { result in
+            Task { @MainActor in
+                switch result {
+                case .success:
+                    findings.removeAll { $0.id == finding.id }
+                    HapticFeedback.light()
+                case .failure(let error):
+                    errorMessage = "The experiment response could not be saved: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func rebuildProposalLines() {
+        proposalLines = viewModel.unfinishedTasks.compactMap { task in
+            viewModel.taskDecisions[task.id].map { WeeklyResetProposalLine(task: task, disposition: $0) }
         }
     }
 
@@ -440,22 +580,75 @@ struct WeeklyResetView: View {
             choices: [
                 "weeklyIntention": weeklyIntention,
                 "minimumViableWeek": minimumViableWeek,
-                "protectedCommitment": protectedCommitment
+                "protectedCommitment": protectedCommitment,
+                "reviewFinished": reviewFinished ? "true" : "false",
+                "receiptSkippedTaskIDs": receipt?.skippedTaskIDs.map(\.uuidString).joined(separator: ",") ?? ""
             ],
-            actionRunID: receipt?.id
+            actionRunID: receipt?.actionRunID ?? pendingActionRunID
         ))
     }
 
     private func restoreDraft() {
         guard let draft = EvaRitualDraftStore.shared.load(.weeklyReset),
               Calendar.current.isDate(draft.referenceDate, equalTo: viewModel.weekStartDate, toGranularity: .weekOfYear) else { return }
-        if let restored = WeeklyResetPhase(rawValue: draft.phaseRaw),
-           restored != .applying, restored != .savingReview {
-            phase = restored
+        reviewFinished = draft.choices["reviewFinished"] == "true"
+        if let restored = WeeklyResetPhase(rawValue: draft.phaseRaw) {
+            switch restored {
+            case .applying, .receipt:
+                // Restore the durable action run by identity. Full task snapshots
+                // remain in the action pipeline, never in navigation state.
+                if reviewFinished {
+                    phase = draft.actionRunID == nil ? .proposal : .applying
+                    pendingActionRunID = draft.actionRunID
+                    if draft.actionRunID == nil {
+                        errorMessage = "Your review is safe. The planning proposal was refreshed because its prior receipt could not be restored."
+                    }
+                } else {
+                    phase = .shape
+                }
+            case .savingReview:
+                phase = .shape
+            default:
+                phase = restored
+            }
         }
         weeklyIntention = draft.choices["weeklyIntention"] ?? ""
         minimumViableWeek = draft.choices["minimumViableWeek"] ?? ""
         protectedCommitment = draft.choices["protectedCommitment"] ?? ""
+    }
+
+    private func restorePlanningReceiptIfNeeded() async {
+        guard phase == .applying,
+              let draft = EvaRitualDraftStore.shared.load(.weeklyReset),
+              let runID = draft.actionRunID else { return }
+        do {
+            if let restored = try await applier.restoreReceipt(id: runID) {
+                let skippedIDs = Set(
+                    (draft.choices["receiptSkippedTaskIDs"] ?? "")
+                        .split(separator: ",")
+                        .compactMap { UUID(uuidString: String($0)) }
+                )
+                receipt = WeeklyResetApplyReceipt(
+                    id: restored.id,
+                    appliedAt: restored.appliedAt,
+                    originals: restored.originals,
+                    changedTaskIDs: restored.changedTaskIDs,
+                    skippedTaskIDs: Array(skippedIDs),
+                    actionRunID: restored.actionRunID
+                )
+                pendingActionRunID = runID
+                phase = .receipt
+            } else {
+                pendingActionRunID = nil
+                phase = .proposal
+                errorMessage = "Your review is safe. The previous planning run is no longer applied, so the proposal was refreshed."
+            }
+        } catch {
+            pendingActionRunID = nil
+            phase = .proposal
+            errorMessage = "Your review is safe, but the planning receipt could not be restored: \(error.localizedDescription)"
+        }
+        persistDraft()
     }
 
     private func openPlanner() {

@@ -4,6 +4,7 @@ struct EvaRitualShell<Content: View, Footer: View>: View {
     let title: String
     let orientation: String
     let evidence: [Insight.Evidence]
+    var onOpenEvidence: ((EvaRecordReference) -> Void)? = nil
     let onClose: () -> Void
     @ViewBuilder let content: () -> Content
     @ViewBuilder let footer: () -> Footer
@@ -40,7 +41,10 @@ struct EvaRitualShell<Content: View, Footer: View>: View {
                         content()
 
                         if evidence.isEmpty == false {
-                            EvaRitualEvidenceDisclosure(evidence: evidence)
+                            EvaRitualEvidenceDisclosure(
+                                evidence: evidence,
+                                onOpenEvidence: onOpenEvidence
+                            )
                         }
                     }
                     .padding(.horizontal, 20)
@@ -59,7 +63,7 @@ struct EvaRitualShell<Content: View, Footer: View>: View {
                 footer()
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
-                    .background(.ultraThinMaterial)
+                    .background(Color(SemanticColorTokens.foundationSurfaceRaised))
             }
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: orientation)
@@ -75,36 +79,44 @@ struct EvaRitualEvidenceDisclosure: View {
         DisclosureGroup(isExpanded: $expanded) {
             VStack(spacing: 10) {
                 ForEach(evidence) { item in
-                    Button {
-                        onOpenEvidence?(item.reference)
-                    } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "link")
-                                .frame(width: 24, height: 24)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(item.reason)
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                                Text(item.reference.title)
-                                    .font(.caption)
-                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            }
-                            Spacer()
+                    if let onOpenEvidence {
+                        Button {
+                            onOpenEvidence(item.reference)
+                        } label: {
+                            evidenceRow(item, showsLink: true)
+                                .contentShape(Rectangle())
                         }
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens the referenced record")
+                    } else {
+                        evidenceRow(item, showsLink: false)
+                            .accessibilityElement(children: .combine)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(onOpenEvidence == nil)
-                    .accessibilityHint(onOpenEvidence == nil ? "Observed evidence" : "Opens the referenced record")
                 }
             }
             .padding(.top, 12)
         } label: {
-            Label("Why EVA suggested this", systemImage: "sparkle.magnifyingglass")
+            Label("Evidence behind this ritual", systemImage: "sparkle.magnifyingglass")
                 .font(.headline)
         }
         .foundationClayCard()
         .accessibilityIdentifier("eva.ritual.evidence")
+    }
+
+    private func evidenceRow(_ item: Insight.Evidence, showsLink: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: showsLink ? "link" : "doc.text.magnifyingglass")
+                .frame(width: 24, height: 24)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.reason)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                Text(item.reference.title)
+                    .font(.caption)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            }
+            Spacer()
+        }
     }
 }
 

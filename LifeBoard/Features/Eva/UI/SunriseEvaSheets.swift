@@ -912,7 +912,7 @@ struct CandidateSection: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 18))
+                .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: Radius.card))
                 .accessibilityIdentifier("focusNow.candidates.empty")
             } else {
                 VStack(spacing: 0) {
@@ -931,9 +931,9 @@ struct CandidateSection: View {
                 .redacted(reason: isShuffling ? .placeholder : [])
                 .opacity(isShuffling ? 0.74 : 1)
                 .animation(.easeInOut(duration: 0.18), value: isShuffling)
-                .background(EvaClayStyle.cream.opacity(0.9), in: RoundedRectangle(cornerRadius: 22))
+                .background(EvaClayStyle.cream.opacity(0.9), in: RoundedRectangle(cornerRadius: Radius.card))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 22).stroke(EvaClayStyle.peachBorder.opacity(0.58), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: Radius.card).stroke(EvaClayStyle.peachBorder.opacity(0.58), lineWidth: 1)
                 }
             }
         }
@@ -1042,10 +1042,10 @@ struct ShuffleAgainCard: View {
                     startPoint: .leading,
                     endPoint: .trailing
                 ),
-                in: RoundedRectangle(cornerRadius: 22)
+                in: RoundedRectangle(cornerRadius: Radius.card)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: 22).stroke(EvaClayStyle.peachBorder.opacity(0.58), lineWidth: 1)
+                RoundedRectangle(cornerRadius: Radius.card).stroke(EvaClayStyle.peachBorder.opacity(0.58), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -1171,9 +1171,9 @@ struct RefineFocusSheet: View {
                             }
                         }
                     }
-                    .background(EvaClayStyle.cream.opacity(0.92), in: RoundedRectangle(cornerRadius: 22))
+                    .background(EvaClayStyle.cream.opacity(0.92), in: RoundedRectangle(cornerRadius: Radius.card))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 22).stroke(EvaClayStyle.peachBorder.opacity(0.58), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: Radius.card).stroke(EvaClayStyle.peachBorder.opacity(0.58), lineWidth: 1)
                     }
                 }
                 .padding(18)
@@ -1188,7 +1188,7 @@ struct RefineFocusSheet: View {
                     .foregroundStyle(ClayColorTokens.navy)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 54)
-                    .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 18))
+                    .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: Radius.card))
 
                     Button("Done") {
                         let selectedTasks = selectedIDs.compactMap { id in
@@ -1200,7 +1200,7 @@ struct RefineFocusSheet: View {
                     .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 54)
-                    .background(selectedIDs.isEmpty ? ClayColorTokens.navyMuted.opacity(0.48) : ClayColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
+                    .background(selectedIDs.isEmpty ? ClayColorTokens.navyMuted.opacity(0.48) : ClayColorTokens.navy, in: RoundedRectangle(cornerRadius: Radius.card))
                     .disabled(selectedIDs.isEmpty)
                     .accessibilityIdentifier("focusNow.refine.done")
                 }
@@ -1316,7 +1316,7 @@ struct FocusTaskDetailSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(14)
-                    .background(EvaClayStyle.blueSurfaceStrong, in: RoundedRectangle(cornerRadius: 18))
+                    .background(EvaClayStyle.blueSurfaceStrong, in: RoundedRectangle(cornerRadius: Radius.card))
 
                     if let details = task.details, details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
                         VStack(alignment: .leading, spacing: 8) {
@@ -1371,7 +1371,7 @@ struct FocusTaskDetailSheet: View {
             detailRow("Subtasks", value: "\(task.subtasks.count)", systemImage: "checklist")
         }
         .padding(14)
-        .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 18))
+        .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: Radius.card))
     }
 
     private func detailRow(_ title: String, value: String, systemImage: String) -> some View {
@@ -1457,7 +1457,7 @@ struct FocusDurationPickerSheet: View {
                 .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 54)
-                .background(ClayColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
+                .background(ClayColorTokens.navy, in: RoundedRectangle(cornerRadius: Radius.card))
                 .disabled(isStarting)
                 .accessibilityIdentifier("focusNow.timer.start")
             }

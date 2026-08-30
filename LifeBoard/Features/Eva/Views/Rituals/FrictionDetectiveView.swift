@@ -24,6 +24,10 @@ struct FrictionDetectiveView: View {
     @State private var experimentText = ""
     @State private var errorMessage: String?
     @State private var appliedReceipt: FrictionInterventionReceipt?
+    @State private var findingSaved = false
+    @State private var savedFindingID: UUID?
+    @State private var taskMutationApplied = false
+    @State private var receiptIssue: String?
     @State private var isUndoing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -34,11 +38,12 @@ struct FrictionDetectiveView: View {
             title: "Friction Detective",
             orientation: orientation,
             evidence: analysis.evidence,
+            onOpenEvidence: { _ in onClose() },
             onClose: close,
             content: { phaseContent },
             footer: { footer }
         )
-        .task { restoreDraft() }
+        .task { await restoreDraft() }
     }
 
     private var orientation: String {
@@ -139,6 +144,8 @@ struct FrictionDetectiveView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedReason == reason ? .isSelected : [])
+                    .accessibilityValue(selectedReason == reason ? "Selected" : "Not selected")
                 }
             }
         }
@@ -169,6 +176,8 @@ struct FrictionDetectiveView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selectedIntervention == intervention ? .isSelected : [])
+                .accessibilityValue(selectedIntervention == intervention ? "Selected" : "Not selected")
             }
             if selectedIntervention?.acceptsText == true {
                 TextField(selectedIntervention?.textPrompt ?? "Optional detail", text: $experimentText, axis: .vertical)
@@ -197,16 +206,35 @@ struct FrictionDetectiveView: View {
 
     private var receipt: some View {
         EvaRitualSection(
-            eyebrow: "Experiment started",
+            eyebrow: findingSaved ? "Experiment started" : "Task changed",
             title: "We changed the conditions, not your score.",
-            message: "Weekly Reset will ask whether this helped after seven days."
+            message: findingSaved
+                ? "Weekly Reset will ask whether this helped after seven days."
+                : "The task change succeeded, but no seven-day follow-up was scheduled."
         ) {
-            Label("Finding saved locally", systemImage: "checkmark.seal.fill")
-                .font(.subheadline.weight(.semibold))
-            Button(isUndoing ? "Undoing…" : "Undo experiment") { undo() }
-                .buttonStyle(.bordered)
-                .disabled(isUndoing || appliedReceipt == nil)
-                .accessibilityHint("Restores the task and removes the saved friction finding")
+            if findingSaved {
+                Label("Finding saved locally", systemImage: "checkmark.seal.fill")
+                    .font(.subheadline.weight(.semibold))
+            } else {
+                Label("Follow-up not saved", systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.lifeboard.statusWarning)
+            }
+            if let receiptIssue {
+                Text(receiptIssue)
+                    .font(.caption)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            }
+            if appliedReceipt != nil {
+                Button(isUndoing ? "Undoing…" : "Undo experiment") { undo() }
+                    .buttonStyle(.bordered)
+                    .disabled(isUndoing)
+                    .accessibilityHint("Restores the task and removes the saved friction finding")
+            } else if taskMutationApplied {
+                Text("The in-session Undo is unavailable after reopening this ritual. The saved task remains editable in Task Detail.")
+                    .font(.caption)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            }
         }
     }
 
@@ -219,13 +247,13 @@ struct FrictionDetectiveView: View {
         case .choosingReason:
             PrimaryButton(title: "Choose one experiment", systemImage: "arrow.right") { transition(to: .choosingExperiment) }
                 .frame(maxWidth: .infinity)
-                .opacity(selectedReason == nil ? 0.45 : 1)
-                .allowsHitTesting(selectedReason != nil)
+                .disabled(selectedReason == nil)
+                .accessibilityHint(selectedReason == nil ? "Choose what was in the way first" : "Continues to intervention choices")
         case .choosingExperiment:
             PrimaryButton(title: "Review the change", systemImage: "rectangle.and.text.magnifyingglass") { transition(to: .previewing) }
                 .frame(maxWidth: .infinity)
-                .opacity(canReviewExperiment ? 1 : 0.45)
-                .allowsHitTesting(canReviewExperiment)
+                .disabled(canReviewExperiment == false)
+                .accessibilityHint(canReviewExperiment ? "Shows the exact task change" : "Choose and complete one experiment first")
         case .previewing:
             PrimaryButton(title: "Start this experiment", systemImage: "checkmark") { apply() }
                 .frame(maxWidth: .infinity)
@@ -260,6 +288,9 @@ struct FrictionDetectiveView: View {
             transition(to: .failure)
             return
         }
+        taskMutationApplied = false
+        findingSaved = false
+        receiptIssue = nil
         transition(to: .applying)
         let noteText = experimentText.trimmingCharacters(in: .whitespacesAndNewlines)
         onApply(selectedIntervention, noteText.isEmpty ? nil : noteText) { result in
@@ -268,6 +299,10 @@ struct FrictionDetectiveView: View {
                 errorMessage = error.localizedDescription
                 transition(to: .failure)
             case .success(let mutationReceipt):
+                // Record the successful task mutation before the secondary note
+                // and finding writes. A restart must never invite a duplicate edit.
+                taskMutationApplied = true
+                persistDraft()
                 saveFinding(
                     repository: repository,
                     reason: selectedReason,
@@ -306,13 +341,17 @@ struct FrictionDetectiveView: View {
                         receipt.findingID = savedFinding.id
                         receipt.reflectionNoteID = noteID
                         appliedReceipt = receipt
+                        findingSaved = true
+                        savedFindingID = savedFinding.id
+                        receiptIssue = nil
                         HapticFeedback.light()
                         transition(to: .receipt)
                     case .failure(let error):
                         var receipt = mutationReceipt
                         receipt.reflectionNoteID = noteID
                         appliedReceipt = receipt
-                        errorMessage = "The task changed, but the follow-up could not be saved: \(error.localizedDescription)"
+                        findingSaved = false
+                        receiptIssue = "The follow-up could not be saved: \(error.localizedDescription)"
                         transition(to: .receipt)
                     }
                 }
@@ -328,7 +367,15 @@ struct FrictionDetectiveView: View {
                 noteText: noteText
             )
         ) { result in
-            finish((try? result.get())?.id)
+            switch result {
+            case .success(let note):
+                finish(note.id)
+            case .failure(let error):
+                appliedReceipt = mutationReceipt
+                findingSaved = false
+                receiptIssue = "Your task change succeeded, but the private note could not be saved: \(error.localizedDescription)"
+                transition(to: .receipt)
+            }
         }
     }
 
@@ -340,11 +387,13 @@ struct FrictionDetectiveView: View {
             switch result {
             case .success:
                 self.appliedReceipt = nil
+                taskMutationApplied = false
+                savedFindingID = nil
                 EvaRitualDraftStore.shared.clear(.frictionDetective)
                 HapticFeedback.light()
                 close()
             case .failure(let error):
-                errorMessage = "Undo could not finish cleanly: \(error.localizedDescription)"
+                receiptIssue = "Undo could not finish cleanly: \(error.localizedDescription)"
             }
         }
     }
@@ -354,6 +403,8 @@ struct FrictionDetectiveView: View {
         if let selectedReason { choices["reason"] = selectedReason.rawValue }
         if let selectedIntervention { choices["intervention"] = selectedIntervention.rawValue }
         if experimentText.isEmpty == false { choices["experimentText"] = experimentText }
+        choices["taskMutationApplied"] = taskMutationApplied ? "true" : "false"
+        if let savedFindingID { choices["findingID"] = savedFindingID.uuidString }
         EvaRitualDraftStore.shared.save(.init(
             kind: .frictionDetective,
             recordIDs: [task.id],
@@ -362,14 +413,42 @@ struct FrictionDetectiveView: View {
         ))
     }
 
-    private func restoreDraft() {
+    private func restoreDraft() async {
         guard let draft = EvaRitualDraftStore.shared.load(.frictionDetective),
               draft.recordIDs == [task.id] else { return }
         selectedReason = draft.choices["reason"].flatMap(FrictionReason.init(rawValue:))
         selectedIntervention = draft.choices["intervention"].flatMap(FrictionIntervention.init(rawValue:))
         experimentText = draft.choices["experimentText"] ?? ""
+        taskMutationApplied = draft.choices["taskMutationApplied"] == "true"
+        savedFindingID = draft.choices["findingID"].flatMap(UUID.init(uuidString:))
         phase = FrictionDetectivePhase(rawValue: draft.phaseRaw) ?? .evidence
-        if phase == .applying { phase = .previewing }
+        guard phase == .applying || phase == .receipt else { return }
+        guard taskMutationApplied else {
+            phase = .previewing
+            return
+        }
+
+        let matchingFinding = await fetchMatchingFinding()
+        findingSaved = matchingFinding != nil
+        receiptIssue = matchingFinding == nil
+            ? "The task change was saved earlier, but its seven-day follow-up was not found."
+            : "This experiment was saved earlier."
+        phase = .receipt
+    }
+
+    private func fetchMatchingFinding() async -> FrictionFinding? {
+        guard let repository, let savedFindingID else { return nil }
+        let findings: [FrictionFinding]
+        do {
+            findings = try await withCheckedThrowingContinuation { continuation in
+                repository.fetchFindings(
+                    query: FrictionFindingQuery(taskID: task.id, outcomes: [.pending], limit: 10)
+                ) { continuation.resume(with: $0) }
+            }
+        } catch {
+            return nil
+        }
+        return findings.first { $0.id == savedFindingID }
     }
 
     private func close() {

@@ -66,7 +66,7 @@ struct ChatsListView: View {
                             .padding(.horizontal, Theme.Spacing.sm)
                             .padding(.vertical, Theme.Spacing.sm)
                             .lifeboardPremiumSurface(
-                                cornerRadius: 22,
+                                cornerRadius: Radius.card,
                                 fillColor: EvaChatSunriseGlass.glassFill,
                                 strokeColor: EvaChatSunriseGlass.glassBorder,
                                 accentColor: EvaChatSunriseGlass.primary,

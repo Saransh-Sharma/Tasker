@@ -34,7 +34,7 @@ struct SlashCommandPickerView: View {
                     .padding(.vertical, Theme.Spacing.sm)
                     .tint(EvaChatSunriseGlass.primary)
                     .lifeboardPremiumSurface(
-                        cornerRadius: 18,
+                        cornerRadius: Radius.card,
                         fillColor: EvaChatSunriseGlass.glassFill,
                         strokeColor: EvaChatSunriseGlass.glassBorder,
                         accentColor: EvaChatSunriseGlass.primary,
@@ -130,7 +130,7 @@ private struct SlashCommandRowView: View {
         .padding(.vertical, Theme.Spacing.sm)
         .frame(minHeight: 44)
         .lifeboardPremiumSurface(
-            cornerRadius: 18,
+            cornerRadius: Radius.card,
             fillColor: EvaChatSunriseGlass.glassFill,
             strokeColor: EvaChatSunriseGlass.glassBorder,
             accentColor: EvaChatSunriseGlass.primary,

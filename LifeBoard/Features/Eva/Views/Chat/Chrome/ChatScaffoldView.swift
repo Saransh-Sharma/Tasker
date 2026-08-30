@@ -424,7 +424,7 @@ private struct EvaCloudAccessCard: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.raised, cornerRadius: 18)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat.cloudAccess.card")
     }
