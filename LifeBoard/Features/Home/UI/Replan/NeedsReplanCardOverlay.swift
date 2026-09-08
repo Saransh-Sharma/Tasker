@@ -109,7 +109,7 @@ private struct ReplanHotZoneTarget: View {
         }
         .foregroundStyle(zone.tint)
         .padding(.horizontal, 8)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
     }
 
     private var backgroundShape: some View {
@@ -218,7 +218,7 @@ struct NeedsReplanCardOverlay: View {
                             Text("Replanned \(candidate.task.replanCount)x")
                                 .font(.lifeboard(.support).weight(.semibold))
                                 .foregroundStyle(Color.lifeboard.statusWarning)
-                                .padding(.horizontal, 10)
+                                .padding(.horizontal, 12)
                                 .padding(.vertical, 5)
                                 .background(Color.lifeboard.statusWarning.opacity(0.12), in: Capsule())
                             Text("This keeps slipping. Consider shrinking it.")
@@ -239,14 +239,14 @@ struct NeedsReplanCardOverlay: View {
                     }
 
                     if dynamicTypeSize.isAccessibilitySize {
-                        VStack(spacing: 10) {
+                        VStack(spacing: 12) {
                             fullWidthAction("Reschedule", systemImage: "calendar.badge.clock", disabled: state.isApplying, action: onReschedule)
                             fullWidthAction("Move to Inbox", systemImage: "tray.fill", disabled: state.isApplying, action: onMoveToInbox)
                             fullWidthAction("Check Off", systemImage: "checkmark.circle.fill", disabled: state.isApplying, action: onCheckOff)
                             fullWidthAction("Delete", systemImage: "trash.fill", role: .destructive, disabled: state.isApplying, action: onDelete)
                         }
                     } else {
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                             compactAction("Move to Inbox", systemImage: "tray.fill", disabled: state.isApplying, action: onMoveToInbox)
                             compactAction("Reschedule", systemImage: "calendar.badge.clock", emphasized: true, disabled: state.isApplying, action: onReschedule)
                             compactAction("Check Off", systemImage: "checkmark.circle.fill", disabled: state.isApplying, action: onCheckOff)
@@ -272,7 +272,7 @@ struct NeedsReplanCardOverlay: View {
     }
 
     private func hotZoneLayer(for candidate: HomeReplanCandidate) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             ReplanHotZoneTarget(
                 zone: .planToday,
                 axis: .vertical,
@@ -316,7 +316,7 @@ struct NeedsReplanCardOverlay: View {
     }
 
     private func dragPreview(for candidate: HomeReplanCandidate) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: "line.3.horizontal")
                 .lifeboardFont(.meta)
                 .foregroundStyle(Color.lifeboard.textSecondary)
@@ -493,7 +493,7 @@ struct NeedsReplanCardOverlay: View {
     }
 
     private func errorBanner(_ message: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             Image(systemName: "exclamationmark.circle.fill")
                 .foregroundStyle(Color.lifeboard.statusWarning)
                 .accessibilityHidden(true)

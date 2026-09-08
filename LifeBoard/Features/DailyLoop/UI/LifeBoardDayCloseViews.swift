@@ -145,7 +145,7 @@ struct DayCloseRoute: View {
                         // the ritual answers to the deck at the bottom of it.
                         settledLevel: store.reconciliationProgress
                     )
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         factLine("\(ribbon.summary.completedCount) finished")
                         factLine("\(ribbon.summary.unfinishedCount) still open")
                         if ribbon.externalCalendarUnavailable {
@@ -295,7 +295,7 @@ struct DayCloseRoute: View {
     /// warm card — never a `ContentUnavailableView`, which is what a failure
     /// looks like here.
     private var everythingSettled: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Label(
                 store.decidedCount > 0 ? "Everything is settled." : "Everything you committed to is done.",
                 systemImage: "checkmark.seal"
@@ -330,10 +330,16 @@ struct DayCloseRoute: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(DayCloseAct.reflect.title)
 
-            Picker("Energy at the end of the day", selection: $energy) {
-                ForEach(1...5, id: \.self) { Text("\($0)").tag($0) }
-            }
-            .pickerStyle(.segmented)
+            // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
+            // `OptionRail` keeps the semantics: one selection, per-value
+            // accessibility identifiers, and reflow at accessibility text sizes.
+            OptionRail(
+                "Energy at the end of the day",
+                selection: $energy,
+                values: Array(1...5),
+                identifierPrefix: "dayClose.reflect.energy",
+                title: { "\($0)" }
+            )
             .accessibilityValue("\(energy) out of 5")
 
             TextField("Anything worth remembering?", text: $note, axis: .vertical)
@@ -421,7 +427,7 @@ struct DayCloseRoute: View {
             store.setAnchor(isAnchor ? nil : candidate.id)
             Haptic.pick.play()
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: isAnchor ? "sunrise.fill" : "circle")
                     .foregroundStyle(
                         isAnchor
@@ -633,7 +639,7 @@ struct DayCloseRoute: View {
             store.toggleOpenSelection(candidate.id)
             Haptic.pick.play()
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(
                         isSelected
@@ -667,7 +673,7 @@ struct DayCloseRoute: View {
         if let anchor = store.carriedAnchor {
             VStack(alignment: .leading, spacing: 8) {
                 sectionHeader("You said start here")
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Image(systemName: "sunrise.fill")
                         .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
                     Text(anchor.title)
@@ -682,7 +688,7 @@ struct DayCloseRoute: View {
             .accessibilityIdentifier("dayOpen.anchor")
         }
 
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             sectionHeader("What carried")
             if store.unfinished.isEmpty {
                 Text("Nothing carried over. Today starts clear.")
@@ -822,7 +828,7 @@ private struct DayCloseCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(task.title)
                 .font(Typography.sectionTitle())
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))

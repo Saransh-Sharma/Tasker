@@ -51,17 +51,44 @@ final class HomeSearchViewModel {
 
     private final class SearchComputationWorker: @unchecked Sendable {
         private let queue = DispatchQueue(label: "lifeboard.search.computation", qos: .userInitiated)
+        private let lock = NSLock()
+        private var latestRequest = 0
+
+        func supersede(with request: Int) {
+            lock.lock()
+            latestRequest = request
+            lock.unlock()
+        }
+
+        private func isCurrent(_ request: Int) -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return latestRequest == request
+        }
+
+        func prepare(_ tasks: [TaskDefinition], request: Int,
+                     completion: @escaping @MainActor @Sendable ([PreparedTask]) -> Void) {
+            queue.async { [self] in
+                guard isCurrent(request) else { return }
+                let prepared = HomeSearchViewModel.prepareTasks(tasks)
+                guard isCurrent(request) else { return }
+                Task { @MainActor in completion(prepared) }
+            }
+        }
 
         func compute(
+            request: Int,
             preparedTasks: [PreparedTask],
             cacheKey: SearchCacheKey,
             filter: @escaping @Sendable ([PreparedTask], SearchCacheKey) -> [PreparedTask],
             group: @escaping @Sendable ([PreparedTask]) -> [(project: String, tasks: [TaskDefinition])],
             completion: @escaping @MainActor @Sendable ([PreparedTask], [(project: String, tasks: [TaskDefinition])]) -> Void
         ) {
-            queue.async {
+            queue.async { [self] in
+                guard isCurrent(request) else { return }
                 let filteredPreparedTasks = filter(preparedTasks, cacheKey)
                 let groupedResults = group(filteredPreparedTasks)
+                guard isCurrent(request) else { return }
                 Task { @MainActor in
                     completion(filteredPreparedTasks, groupedResults)
                 }
@@ -73,13 +100,18 @@ final class HomeSearchViewModel {
 
     private let useCaseCoordinator: UseCaseCoordinator
     private let computationWorker = SearchComputationWorker()
+    private let now: @MainActor () -> Date
     private var currentStatusFilter: StatusFilterType = .all
     private var lastQuery: String = ""
     private var activeCacheRevision: Int = 0
+    private var sourceCacheRevision: Int = 0
     private var latestSearchRequestID: Int = 0
     private var corpusCache: [CorpusCacheKey: [PreparedTask]] = [:]
     private var filteredResultsCache: [SearchCacheKey: [TaskDefinition]] = [:]
     private var groupedResultsCache: [SearchCacheKey: [(project: String, tasks: [TaskDefinition])]] = [:]
+    private var queryCacheOrder: [SearchCacheKey] = []
+    private var cacheDay = Calendar.current.startOfDay(for: Date())
+    private var cacheTimeZone = TimeZone.current.identifier
     private var lastEmittedSearchCacheKey: SearchCacheKey?
     private var lastEmittedSearchTaskIDs: [UUID] = []
 
@@ -94,9 +126,13 @@ final class HomeSearchViewModel {
     // MARK: - Initialization
 
     /// Initializes a new instance.
-    init(useCaseCoordinator: UseCaseCoordinator) {
+    init(useCaseCoordinator: UseCaseCoordinator, now: @escaping @MainActor () -> Date = Date.init) {
         self.useCaseCoordinator = useCaseCoordinator
+        self.now = now
+        self.cacheDay = Calendar.current.startOfDay(for: now())
     }
+
+    var retainedSearchQueryCount: Int { filteredResultsCache.count }
 
     // MARK: - Search Methods
 
@@ -107,13 +143,24 @@ final class HomeSearchViewModel {
 
     /// Executes search.
     func search(query: String, revision: Int) {
+        let today = Calendar.current.startOfDay(for: now())
+        if cacheDay != today || cacheTimeZone != TimeZone.current.identifier {
+            cacheDay = today
+            cacheTimeZone = TimeZone.current.identifier
+            activeCacheRevision &+= 1
+            corpusCache.removeAll()
+            filteredResultsCache.removeAll()
+            groupedResultsCache.removeAll()
+            queryCacheOrder.removeAll()
+        }
         lastQuery = query
         latestSearchRequestID &+= 1
+        computationWorker.supersede(with: latestSearchRequestID)
         let requestID = latestSearchRequestID
         let cacheKey = makeSearchCacheKey(query: query)
 
-        if let cachedResults = filteredResultsCache[cacheKey] {
-            let groupedResults = groupedResultsCache[cacheKey] ?? Self.groupPreparedTasksByProject(Self.prepareTasks(cachedResults))
+        if let cachedResults = filteredResultsCache[cacheKey],
+           let groupedResults = groupedResultsCache[cacheKey] {
             commitSearchResultsIfCurrent(
                 cachedResults,
                 groupedResults: groupedResults,
@@ -149,15 +196,21 @@ final class HomeSearchViewModel {
                         )
                         self.clearSearchResultsIfCurrent(revision: revision, requestID: requestID)
                     case .success(let slice):
+                        guard requestID == self.latestSearchRequestID else { return }
                         let filteredTasks = slice.tasks
-                        let groupedResults = Self.groupPreparedTasksByProject(Self.prepareTasks(filteredTasks))
-                        self.commitSearchResultsIfCurrent(
+                        self.computationWorker.prepare(filteredTasks, request: requestID) { [weak self] prepared in
+                        guard let self else { return }
+                        self.computationWorker.compute(request: requestID, preparedTasks: prepared, cacheKey: cacheKey,
+                            filter: { values, _ in values }, group: Self.groupPreparedTasksByProject) { [weak self] _, groupedResults in
+                        self?.commitSearchResultsIfCurrent(
                             filteredTasks,
                             groupedResults: groupedResults,
                             cacheKey: cacheKey,
                             revision: revision,
                             requestID: requestID
                         )
+                        }
+                        }
                     }
                 }
             }
@@ -166,7 +219,9 @@ final class HomeSearchViewModel {
 
         fetchPreparedTasksForCurrentStatusFilter(revision: activeCacheRevision) { [weak self] preparedTasks in
             guard let self else { return }
+            guard requestID == self.latestSearchRequestID else { return }
             self.computationWorker.compute(
+                request: requestID,
                 preparedTasks: preparedTasks,
                 cacheKey: cacheKey,
                 filter: { tasks, key in
@@ -225,10 +280,20 @@ final class HomeSearchViewModel {
     }
 
     func invalidateSearchCache(revision: Int) {
-        guard revision != activeCacheRevision else { return }
-        activeCacheRevision = revision
+        guard revision != sourceCacheRevision else { return }
+        sourceCacheRevision = revision
+        // Calendar/purge invalidations and durable source revisions have
+        // independent owners. Never reuse a cache generation for either.
+        activeCacheRevision &+= 1
         latestSearchRequestID &+= 1
-        let floorRevision = max(0, revision - 1)
+        computationWorker.supersede(with: latestSearchRequestID)
+        let floorRevision = max(0, activeCacheRevision - 1)
+        queryCacheOrder.removeAll { $0.cacheRevision < floorRevision }
+        while queryCacheOrder.count > 32 {
+            let removed = queryCacheOrder.removeFirst()
+            filteredResultsCache.removeValue(forKey: removed)
+            groupedResultsCache.removeValue(forKey: removed)
+        }
         corpusCache = corpusCache.filter { $0.key.revision >= floorRevision }
         filteredResultsCache = filteredResultsCache.filter { $0.key.cacheRevision >= floorRevision }
         groupedResultsCache = groupedResultsCache.filter { $0.key.cacheRevision >= floorRevision }
@@ -243,6 +308,8 @@ final class HomeSearchViewModel {
     func purgeCaches() {
         activeCacheRevision &+= 1
         latestSearchRequestID &+= 1
+        computationWorker.supersede(with: latestSearchRequestID)
+        queryCacheOrder.removeAll(keepingCapacity: false)
         corpusCache.removeAll(keepingCapacity: false)
         filteredResultsCache.removeAll(keepingCapacity: false)
         groupedResultsCache.removeAll(keepingCapacity: false)
@@ -594,6 +661,8 @@ final class HomeSearchViewModel {
             guard let self else { return }
             guard requestID == self.latestSearchRequestID else { return }
             self.searchResults = filteredTasks
+            self.queryCacheOrder.removeAll { $0 == cacheKey }
+            self.queryCacheOrder.append(cacheKey)
             self.filteredResultsCache[cacheKey] = filteredTasks
             self.groupedResultsCache[cacheKey] = groupedResults
             self.lastEmittedSearchCacheKey = cacheKey
@@ -647,14 +716,19 @@ final class HomeSearchViewModel {
             return
         }
 
+        let request = latestSearchRequestID
         let handler: @Sendable (Result<[TaskDefinition], Error>) -> Void = { [weak self] result in
             Task { @MainActor in
-                guard let self else { return }
+                guard let self, request == self.latestSearchRequestID,
+                      revision == self.activeCacheRevision else { return }
                 switch result {
                 case .success(let tasks):
-                    let preparedTasks = Self.prepareTasks(tasks)
-                    self.corpusCache[cacheKey] = preparedTasks
-                    completion(preparedTasks)
+                    self.computationWorker.prepare(tasks, request: request) { [weak self] preparedTasks in
+                        guard let self, request == self.latestSearchRequestID,
+                              revision == self.activeCacheRevision else { return }
+                        self.corpusCache[cacheKey] = preparedTasks
+                        completion(preparedTasks)
+                    }
                 case .failure(let error):
                     logError(
                         event: "search_task_fetch_failed",
@@ -719,6 +793,12 @@ final class HomeSearchViewModel {
 
     private func pruneCachesIfNeeded() {
         let floorRevision = max(0, activeCacheRevision - 2)
+        queryCacheOrder.removeAll { $0.cacheRevision < floorRevision }
+        while queryCacheOrder.count > 32 {
+            let removed = queryCacheOrder.removeFirst()
+            filteredResultsCache.removeValue(forKey: removed)
+            groupedResultsCache.removeValue(forKey: removed)
+        }
         corpusCache = corpusCache.filter { $0.key.revision >= floorRevision }
         filteredResultsCache = filteredResultsCache.filter { $0.key.cacheRevision >= floorRevision }
         groupedResultsCache = groupedResultsCache.filter { $0.key.cacheRevision >= floorRevision }

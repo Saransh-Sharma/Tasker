@@ -19,7 +19,7 @@ struct TimelineNormalItemCard: View {
                 ZStack(alignment: .trailing) {
                     watermarkIcon(size: 72, trailingOffset: 18)
 
-                    HStack(alignment: .center, spacing: 10) {
+                    HStack(alignment: .center, spacing: 12) {
                         Image(systemName: item.systemImageName)
                             .lifeboardFont(.headline)
                             .foregroundStyle(palette.icon)
@@ -52,7 +52,7 @@ struct TimelineNormalItemCard: View {
                     }
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
                 .background(cardBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(alignment: .leading) {
@@ -258,7 +258,7 @@ struct TimelineTaskBlockRow: View {
             .frame(width: 34, alignment: .center)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .background(Color.lifeboard.surfacePrimary.opacity(0.94), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -297,7 +297,7 @@ struct TimelineTaskMarkerRow: View {
             Button(action: onTap) {
                 HStack(alignment: .top, spacing: 8) {
                     VStack(alignment: .leading, spacing: 3) {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
                             if isEmphasized {
                                 Image(systemName: item.taskPriority == .max ? "exclamationmark.triangle.fill" : "flag.fill")
                                     .lifeboardFont(.eyebrow)
@@ -420,7 +420,7 @@ struct TimelineTimeBlockCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
                 Text("Time Block Conflict: \(TimelineFormatting.timeRangeText(start: block.startDate, end: block.endDate))")
                     .font(.lifeboard(.support).weight(.semibold))
                     .foregroundStyle(Color.lifeboard.textSecondary)
@@ -437,7 +437,7 @@ struct TimelineTimeBlockCard: View {
                     .background(Color.lifeboard.accentPrimary.opacity(0.82), in: Capsule())
             }
 
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 ForEach(block.items) { item in
                     if item.source == .calendarEvent {
                         TimelineMeetingBlockRow(

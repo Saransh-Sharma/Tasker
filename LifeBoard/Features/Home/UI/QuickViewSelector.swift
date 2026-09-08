@@ -95,7 +95,7 @@ public struct QuickViewSelector: View {
                 }
             }
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 ZStack {
                     Circle()
                         .fill(selectionTint.opacity(colorScheme == .dark ? 0.24 : 0.16))
@@ -136,7 +136,7 @@ public struct QuickViewSelector: View {
                     .rotationEffect(.degrees(2))
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .frame(minHeight: 44)
             .lifeboardChromeSurface(
                 cornerRadius: Radius.card,

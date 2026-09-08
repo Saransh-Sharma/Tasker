@@ -37,7 +37,7 @@ struct TimelineOverlapClusterCard: View {
                 header
                     .padding(.leading, horizontalPadding + 4)
                     .padding(.trailing, horizontalPadding)
-                    .padding(.top, 10)
+                    .padding(.top, 12)
 
                 ForEach(block.lanePlacements) { placement in
                     TimelineOverlapItemCard(
@@ -166,7 +166,7 @@ struct TimelineOverlapItemCard: View {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(palette.progress.opacity(0.72))
                     .frame(width: 3)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
@@ -270,7 +270,7 @@ struct TimelineFlockBlock: View {
     var body: some View {
         let fallbackItem = model.rows.compactMap(\.item).first
 
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             header
 
             VStack(alignment: .leading, spacing: TimelineFlockModel.rowSpacing) {
@@ -292,7 +292,7 @@ struct TimelineFlockBlock: View {
             }
         }
         .padding(.leading, 12)
-        .padding(.trailing, 10)
+        .padding(.trailing, 12)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
@@ -300,7 +300,7 @@ struct TimelineFlockBlock: View {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(accent.opacity(0.82))
                 .frame(width: 4)
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
         }
         .overlay {
             RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
@@ -414,7 +414,7 @@ struct TimelineFlockRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(rowBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
@@ -547,7 +547,7 @@ struct TimelineUtilityRow: View {
     let items: [TimelineUtilityItem]
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             ForEach(Array(items.enumerated()), id: \.offset) { entry in
                 utilityItemView(entry.element)
             }
@@ -563,7 +563,7 @@ struct TimelineUtilityRow: View {
             Label("\(summary.completedCount)/\(summary.totalCount)", systemImage: "checklist")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(TimelineVisualTokens.utilityText)
-                .padding(.horizontal, 6)
+                .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(Color.lifeboard.surfaceSecondary, in: Capsule())
         case .note:

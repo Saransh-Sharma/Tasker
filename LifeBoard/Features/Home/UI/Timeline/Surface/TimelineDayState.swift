@@ -372,7 +372,7 @@ struct TimelineWeekDayCell: View {
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 12)
                         .frame(minHeight: 44)
                         .background(Color.lifeboard.accentWash.opacity(0.72), in: Capsule())
                 }
@@ -382,7 +382,7 @@ struct TimelineWeekDayCell: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: isAccessibilityLayout ? 176 : 152, alignment: .top)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .padding(.horizontal, 4)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -401,7 +401,7 @@ struct TimelineWeekDayCell: View {
                     .padding(.vertical, 5)
                     .background(Color.lifeboard.surfacePrimary.opacity(0.88), in: Capsule())
                     .opacity(isDropTargeted ? 1 : 0.72)
-                    .padding(.bottom, 6)
+                    .padding(.bottom, 8)
                     .accessibilityIdentifier("home.needsReplan.hotZone.day.\(day.id)")
             }
         }
@@ -468,7 +468,7 @@ struct TimelineWeekDayCell: View {
                         Text("\(day.allDayCount)")
                             .font(.lifeboard(.caption2).weight(.semibold))
                             .foregroundStyle(Color.lifeboard.textSecondary)
-                            .padding(.horizontal, 6)
+                            .padding(.horizontal, 8)
                             .padding(.vertical, 2)
                             .background(Color.lifeboard.surfaceSecondary, in: Capsule())
                     }
@@ -523,7 +523,7 @@ struct TimelineBar: View {
             .accessibilityAction {
                 onSnapAnchor(.midReveal)
             }
-        .padding(.top, 6)
+        .padding(.top, 8)
         .gesture(
             DragGesture(minimumDistance: 4)
                 .onChanged { value in

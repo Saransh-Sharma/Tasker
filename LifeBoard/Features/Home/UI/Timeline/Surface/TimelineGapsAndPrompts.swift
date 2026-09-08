@@ -21,7 +21,7 @@ struct TimelineGapPrompt: View {
     @Environment(\.lifeboardLayoutClass) var layoutClass
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: gap.emphasis == .quietWindow ? "moon.zzz" : "clock")
                     .font(ClayTypography.meta)
@@ -40,7 +40,7 @@ struct TimelineGapPrompt: View {
             .foregroundStyle(Color.lifeboard.textSecondary)
             .labelStyle(.titleAndIcon)
             .lineLimit(1)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
             .frame(minWidth: 44, minHeight: 44)
             .background(Color.lifeboard.surfaceSecondary.opacity(0.58), in: Capsule())
             .overlay {
@@ -93,7 +93,7 @@ struct TimelinePlacementDock: View {
     @State var isDragging = false
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: "line.3.horizontal")
                 .lifeboardFont(.meta)
                 .foregroundStyle(Color.lifeboard.textSecondary)
@@ -195,7 +195,7 @@ struct TimelinePlacementPrompt: View {
             }
 
             if let errorMessage = candidate.errorMessage {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text(errorMessage)
                         .font(.lifeboard(.support))
                         .foregroundStyle(Color.lifeboard.textPrimary)
@@ -203,7 +203,7 @@ struct TimelinePlacementPrompt: View {
                     Button("Dismiss", action: onClearError)
                         .font(.lifeboard(.support).weight(.semibold))
                 }
-                .padding(10)
+                .padding(12)
                 .background(Color.lifeboard.surfacePrimary.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
 
@@ -234,13 +234,13 @@ struct TimelinePlacementPrompt: View {
     @ViewBuilder
     var placementActions: some View {
         if dynamicTypeSize.isAccessibilitySize {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 placementButton("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", systemImage: "clock.badge.checkmark", emphasized: true, action: onPlaceAtSuggestedTime)
                 placementButton("Move to All Day", systemImage: "calendar.badge.plus", emphasized: false, action: onPlaceAllDay)
                 placementButton("Skip", systemImage: "forward.end.fill", emphasized: false, action: onSkip)
             }
         } else {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 placementButton("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", systemImage: "clock.badge.checkmark", emphasized: true, action: onPlaceAtSuggestedTime)
                 placementButton("Move to All Day", systemImage: "calendar.badge.plus", emphasized: false, action: onPlaceAllDay)
                 placementButton("Skip", systemImage: "forward.end.fill", emphasized: false, action: onSkip)
@@ -341,7 +341,7 @@ struct TimelinePlanningShelf: View {
             }
 
             if allDayItems.isEmpty == false {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("All-day commitments")
                         .font(.lifeboard(.meta))
                         .foregroundStyle(Color.lifeboard.textSecondary)
@@ -417,7 +417,7 @@ struct TimelineEmptyStateCard: View {
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             header
 
             Spacer(minLength: 0)
@@ -475,7 +475,7 @@ struct TimelineEmptyStateCard: View {
 
     @MainActor
     var actionButtonRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             emptyStateActionButton(
                 title: model.primaryTitle,
                 tone: .secondary,

@@ -78,7 +78,7 @@ struct AdvancedFilterSheetView: View {
         NavigationStack {
             Form {
                 Section {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("Precision filters")
                             .font(.lifeboard(.headline))
                             .foregroundStyle(Color.lifeboard.textPrimary)
@@ -132,11 +132,17 @@ struct AdvancedFilterSheetView: View {
 
                 Section {
                     TextField("work, deep-focus, errands", text: $tagsText)
-                    Picker("Tag match", selection: $tagMatchMode) {
-                        Text("Any").tag(HomeTagMatchMode.any)
-                        Text("All").tag(HomeTagMatchMode.all)
-                    }
-                    .pickerStyle(.segmented)
+                    // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
+                    // `OptionRail` is the design system's equivalent and keeps the
+                    // semantics: one selection, per-value accessibility identifiers,
+                    // and reflow at accessibility text sizes.
+                    OptionRail(
+                        "Tag match",
+                        selection: $tagMatchMode,
+                        values: [.any, .all],
+                        identifierPrefix: "home.filter.tagMatch",
+                        title: { $0 == .any ? "Any" : "All" }
+                    )
                 } header: {
                     sectionHeader("Tags", index: 5)
                 }

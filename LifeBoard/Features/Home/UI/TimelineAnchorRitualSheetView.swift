@@ -216,7 +216,7 @@ private struct TimelineAnchorRitualContent: View {
                     .minimumScaleFactor(0.84)
 
                 TimelineAnchorSelectedTimePill(model: model, theme: theme)
-                    .padding(.top, 6)
+                    .padding(.top, 8)
             }
             .frame(width: metrics.contentWidth)
             .padding(.top, 32)
@@ -247,7 +247,7 @@ private struct TimelineAnchorRitualContent: View {
             .accessibilityLabel("Save changes")
             .padding(.top, 18)
 
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: "sparkles")
                     .font(.lifeboard(.caption1).weight(.semibold))
                     .foregroundStyle(theme.accent)
@@ -351,8 +351,8 @@ private struct TimelineAnchorTimeSelectorCard: View {
     let selectTime: (TimelineAnchorRitualTimeOption) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
                 Image(systemName: "clock")
                     .font(.lifeboard(.headline).weight(.semibold))
                     .foregroundStyle(theme.subtitle)

@@ -202,7 +202,7 @@ struct OverdueRescueDeckView: View {
             }
             .padding(.horizontal, OverdueRescueVisualSpec.screenHorizontalPadding)
 
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Text("Rescue")
                     .font(.lifeboard(.title2))
                     .fontWeight(.bold)

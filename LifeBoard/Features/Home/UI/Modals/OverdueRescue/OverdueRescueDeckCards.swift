@@ -173,7 +173,7 @@ struct OverdueRescueTaskCard: View {
 
                 Spacer(minLength: 0)
 
-                HStack(alignment: .bottom, spacing: 10) {
+                HStack(alignment: .bottom, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(card.overdueText)
                             .font(.lifeboard(.headline))

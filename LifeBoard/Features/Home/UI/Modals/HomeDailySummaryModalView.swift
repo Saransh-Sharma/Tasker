@@ -125,7 +125,7 @@ struct DailySummaryModalView: View {
         switch summary {
         case .morning(let value):
             return AnyView(
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     metricChip(
                         title: "Open",
                         value: "\(value.openTodayCount)",
@@ -148,7 +148,7 @@ struct DailySummaryModalView: View {
             )
         case .nightly(let value):
             return AnyView(
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     metricChip(
                         title: "Done",
                         value: "\(value.completedCount)/\(value.totalCount)",
@@ -248,7 +248,7 @@ struct DailySummaryModalView: View {
     }
 
     private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.lifeboard(.headline))
                 .foregroundStyle(Color.lifeboard.textPrimary)
@@ -263,7 +263,7 @@ struct DailySummaryModalView: View {
     }
 
     private func taskRow(_ row: SummaryTaskRow) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             Circle()
                 .fill(priorityColor(row.priority))
                 .frame(width: 8, height: 8)
@@ -274,7 +274,7 @@ struct DailySummaryModalView: View {
                     .font(.lifeboard(.bodyEmphasis))
                     .foregroundColor(Color.lifeboard.textPrimary)
                     .lineLimit(2)
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     priorityBadge(row.priority)
                     if row.isOverdue {
                         statusBadge(
@@ -350,7 +350,7 @@ struct DailySummaryModalView: View {
     private var ctaBar: some View {
         let primaryCTAIdentifier = PrimaryActionResolver.dailySummaryPrimaryCTAIdentifier(for: summary)
 
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 12) {
             switch summary {
             case .morning(let value):
                 Button("Start Today") { onStartToday() }
@@ -359,7 +359,7 @@ struct DailySummaryModalView: View {
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.startToday")
 
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Button("Complete Morning Routine") { onCompleteMorningRoutine() }
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity)

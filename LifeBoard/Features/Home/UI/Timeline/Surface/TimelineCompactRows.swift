@@ -322,7 +322,7 @@ struct TimelineCompactGapRow: View {
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
                     .padding(.leading, metrics.compactContentLeadingPadding)
                     .padding(.trailing, metrics.compactContentTrailingPadding)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -381,7 +381,7 @@ struct TimelineCompactItemRow: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
                 .padding(.leading, metrics.compactContentLeadingPadding)
                 .padding(.trailing, metrics.compactContentTrailingPadding)
                 .contentShape(Rectangle())

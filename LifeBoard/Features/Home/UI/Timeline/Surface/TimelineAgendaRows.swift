@@ -238,21 +238,21 @@ struct TimelineAgendaItemRow: View {
                 isNested: false,
                 action: { onTaskTap(item) }
             )
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
         } else {
             HStack(alignment: .top, spacing: 14) {
                 TimelineCapsule(item: item, row: row, palette: palette)
                     .frame(width: metrics.agendaCapsuleWidth, height: 88)
                     .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(timelineMetaText(for: row, item: item))
                         .font(.lifeboard(.meta))
                         .foregroundStyle(timelineMetaColor(for: row))
                     Button {
                         onTaskTap(item)
                     } label: {
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text(item.title)
                                 .font(.lifeboard(row.temporalState == .currentTask ? .title3 : .headline))
                                 .foregroundStyle(timelineTitleColor(for: row, item: item))
@@ -281,7 +281,7 @@ struct TimelineAgendaItemRow: View {
                     onToggleComplete(item)
                 }
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
         }
     }
 }

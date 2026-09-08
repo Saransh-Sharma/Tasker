@@ -455,7 +455,7 @@ struct OverdueRescueCompletionView: View {
 
                 OverdueRescueSunriseHero()
                     .frame(width: 294, height: 256)
-                    .padding(.top, 6)
+                    .padding(.top, 8)
                 Text(isDayRescueEmpty ? "Nothing needs rescuing today" : "Board cleaned up")
                     .font(.lifeboard(.title1))
                     .fontWeight(.bold)

@@ -317,7 +317,7 @@ struct OverdueRescueSafeFixesView: View {
                     safeRow(icon: "calendar", title: "\(viewModel.safeFixBreakdown.duration) gets a duration", value: "\(viewModel.safeFixBreakdown.duration)", color: Color.lifeboard.accentPrimary)
                 }
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .background(
                 OverdueRescueVisualSpec.glassCard(cornerRadius: 28, fill: OverdueRescuePalette.glassFill)
             )
@@ -423,7 +423,7 @@ struct OverdueRescuePauseView: View {
                 OverdueRescueCupHero()
                     .frame(width: 250, height: 248)
 
-                VStack(spacing: 10) {
+                VStack(spacing: 12) {
                     Text("Pause rescue?")
                         .font(.lifeboard(.title1))
                         .fontWeight(.bold)
@@ -472,7 +472,7 @@ struct OverdueRescuePauseView: View {
                             .foregroundStyle(Color.lifeboard.statusWarning)
                             .frame(width: 72, height: 72)
                             .background(Circle().fill(OverdueRescuePalette.glassFill))
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Resume rescue")
                                 .font(.lifeboard(.headline))
                                 .foregroundStyle(OverdueRescuePalette.ink)
