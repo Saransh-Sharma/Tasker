@@ -53,7 +53,7 @@ struct SetupCenterView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Connect what helps")
                         .lifeboardFont(.screenTitle)
                         .foregroundStyle(Color.lifeboard(.textPrimary))
@@ -185,7 +185,10 @@ private extension SetupCenterView {
                     evaPrimaryAction(snapshot)
                         .id("eva.action")
                 }
-                if let error = evaAccess.errorMessage {
+                if let error = SetupCenterStatus.secondaryEvaErrorMessage(
+                    evaAccess.errorMessage,
+                    explanation: snapshot.explanation
+                ) {
                     Text(error)
                         .lifeboardFont(.caption1)
                         .foregroundStyle(Color.lifeboard(.statusWarning))

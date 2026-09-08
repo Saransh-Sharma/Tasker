@@ -109,6 +109,17 @@ struct SetupCenterStatus: Equatable, Sendable {
         Set(selectedIDs).intersection(availableIDs).count
     }
 
+    static func secondaryEvaErrorMessage(
+        _ errorMessage: String?,
+        explanation: String
+    ) -> String? {
+        guard let errorMessage else { return nil }
+        let sanitizedError = errorMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sanitizedError.isEmpty else { return nil }
+        let sanitizedExplanation = explanation.trimmingCharacters(in: .whitespacesAndNewlines)
+        return sanitizedError == sanitizedExplanation ? nil : sanitizedError
+    }
+
     static func resolve(
         calendarAuthorization: CalendarAuthorizationStatus,
         selectedCalendarCount: Int,
@@ -140,9 +151,9 @@ struct SetupCenterStatus: Equatable, Sendable {
         case .notDetermined:
             return .init(integration: .calendar, state: .notStarted, status: "Not set up", explanation: "Allow read access, then choose exactly which calendars LifeBoard may use.", recoveryAction: "Allow calendar access", recoveryActionKind: .requestCalendarAccess)
         case .denied:
-            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "Calendar access is off in iOS Settings.", recoveryAction: "Open iOS Settings", recoveryActionKind: .openSystemSettings)
+            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "Calendar access is off in Settings.", recoveryAction: "Open Settings", recoveryActionKind: .openSystemSettings)
         case .restricted:
-            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "Calendar access is restricted on this device.", recoveryAction: "Open iOS Settings", recoveryActionKind: .openSystemSettings)
+            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "Calendar access is restricted on this device.", recoveryAction: "Open Settings", recoveryActionKind: .openSystemSettings)
         case .writeOnly:
             return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "LifeBoard can add events but cannot read your day.", recoveryAction: "Request full access", recoveryActionKind: .requestCalendarAccess)
         }
@@ -155,7 +166,7 @@ struct SetupCenterStatus: Equatable, Sendable {
         let deniedEnabledWrite = values.contains { $0.writeEnabled && ($0.signal == .writeDenied || $0.writeAuthorizations.values.contains(.denied)) }
         let hasFailure = errorCode != nil || values.contains { [.unavailable, .offline].contains($0.signal) || ($0.signal == .partial && !hasObservableData) }
         if deniedEnabledWrite {
-            return .init(integration: .health, state: .attention, status: "Needs attention", explanation: "A write-back option you enabled is denied in Apple Health.", recoveryAction: "Open iOS Settings", recoveryActionKind: .openSystemSettings)
+            return .init(integration: .health, state: .attention, status: "Needs attention", explanation: "A write-back option you enabled is denied in Apple Health.", recoveryAction: "Open Settings", recoveryActionKind: .openSystemSettings)
         }
         if hasFailure {
             return .init(integration: .health, state: .attention, status: "Needs attention", explanation: "The latest Health sync could not produce usable local data.", recoveryAction: "Retry sync", recoveryActionKind: .syncHealth)
@@ -182,7 +193,15 @@ struct SetupCenterStatus: Equatable, Sendable {
         case .ready: return .init(integration: .eva, state: .ready, status: "Cloud ready", explanation: "Cloud EVA can use only the context categories you approved.", recoveryAction: "Manage EVA")
         case .needsDisclosure: return .init(integration: .eva, state: .notStarted, status: "Not set up", explanation: "Choose Cloud EVA with explicit context grants, or use an installed Offline EVA model.", recoveryAction: "Set up EVA")
         case .quotaExhausted: return .init(integration: .eva, state: .limited, status: "Limited", explanation: "Cloud EVA is set up, but its current allowance is exhausted.", recoveryAction: "Use Offline EVA")
-        case .temporarilyUnavailable: return .init(integration: .eva, state: .attention, status: "Needs attention", explanation: "Cloud EVA is temporarily unavailable.", recoveryAction: "Retry")
+        case .temporarilyUnavailable(let message):
+            let explanation = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            return .init(
+                integration: .eva,
+                state: .attention,
+                status: "Needs attention",
+                explanation: explanation.isEmpty ? "Cloud EVA is temporarily unavailable." : explanation,
+                recoveryAction: "Retry"
+            )
         case .appleReauthenticationRequired: return .init(integration: .eva, state: .attention, status: "Needs attention", explanation: "Reconnect with Apple to restore the linked Cloud EVA account.", recoveryAction: "Reconnect with Apple")
         case .ageBlocked(let message): return .init(integration: .eva, state: .attention, status: "Needs attention", explanation: message, recoveryAction: "Use Offline EVA")
         }

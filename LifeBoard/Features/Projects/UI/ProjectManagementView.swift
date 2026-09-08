@@ -321,7 +321,7 @@ struct ProjectManagementView: View {
                 projectMetricCard(title: "Rescue pressure", value: "\(viewModel.weeklyContributionStats.carryPressureCount)")
             }
 
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 quickActionButton(
                     title: viewModel.hasSelectedTasks ? "Add selected to this week" : "Add open tasks to this week",
                     systemImage: "calendar.badge.plus",
@@ -395,7 +395,7 @@ struct ProjectManagementView: View {
                     .font(.footnote)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             } else {
-                VStack(spacing: 10) {
+                VStack(spacing: 12) {
                     ForEach(viewModel.selectedProjectTasks, id: \.id) { task in
                         Button {
                             viewModel.toggleTaskSelection(task.id)
@@ -470,7 +470,7 @@ struct ProjectManagementView: View {
     }
 
     private func motivationEditor(title: String, text: Binding<String>, prompt: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.lifeboard.textSecondary)
@@ -486,7 +486,7 @@ struct ProjectManagementView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(tint)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
                 .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
         }
         .buttonStyle(.plain)

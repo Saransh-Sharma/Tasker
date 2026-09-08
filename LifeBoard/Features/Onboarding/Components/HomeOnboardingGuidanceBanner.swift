@@ -15,7 +15,7 @@ struct HomeOnboardingGuidanceBanner: View {
         HStack(alignment: .top, spacing: 12) {
             EvaMascotView(placement: .featureDiscovery, size: .chip)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(state.title)
                     .lifeboardFont(.headline)
                     .foregroundStyle(OnboardingTheme.textPrimary)

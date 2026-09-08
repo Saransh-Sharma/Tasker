@@ -57,7 +57,7 @@ struct AddTaskXPPreview: View {
                     .contentTransition(.numericText())
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
             .background(
                 Capsule()
                     .fill(isHighValue ? Color.lifeboard.accentWash : Color.lifeboard.surfaceSecondary)

@@ -40,7 +40,7 @@ struct AddTaskPriorityPill: View {
             HapticFeedback.selection()
             action()
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 // Jewel dot with glow
                 Circle()
                     .fill(priorityColor)
@@ -57,7 +57,7 @@ struct AddTaskPriorityPill: View {
             .fixedSize(horizontal: true, vertical: false)
             .foregroundColor(isSelected ? priorityColor : Color.lifeboard.textSecondary)
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
                     .fill(isSelected ? priorityColor.opacity(0.12) : Color.lifeboard.surfaceTertiary)

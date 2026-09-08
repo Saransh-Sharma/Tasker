@@ -65,7 +65,7 @@ struct LifeMapCalendarStep: View {
     private var calendarList: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             ForEach(sections) { section in
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(section.title)
                         .font(.lifeboard(.eyebrow))
                         .tracking(1.2)

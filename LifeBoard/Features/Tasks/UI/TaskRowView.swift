@@ -685,7 +685,7 @@ struct TaskRowView: View, Equatable {
 
                 Spacer(minLength: Theme.Spacing.xs)
 
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     if isPad {
                         iPadTrailingMetadata
                     }
@@ -734,7 +734,7 @@ struct TaskRowView: View, Equatable {
             Text(dueDate, style: .date)
                 .font(.lifeboard(.caption2))
                 .foregroundColor(task.isOverdue ? Color.lifeboard.statusDanger : Color.lifeboard.textTertiary)
-                .padding(.horizontal, 6)
+                .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(
                     Capsule()
@@ -942,7 +942,7 @@ private struct TaskRowChromeModifier: ViewModifier {
 #if DEBUG
 struct TaskRowView_Previews: PreviewProvider {
     static var previews: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             TaskRowView(
                 task: TaskDefinition(
                     title: "Review pull requests",

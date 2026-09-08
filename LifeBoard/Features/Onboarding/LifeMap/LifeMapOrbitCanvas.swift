@@ -205,7 +205,7 @@ private struct LifeMapOrbitNode: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 8)
         .frame(width: node.kind == .root ? 70 : 78, height: node.kind == .root ? 52 : 50)
         .lifeBoardClaySurface(
             isSelected ? .raised : .resting,

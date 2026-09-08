@@ -193,7 +193,7 @@ struct StatusPill: View {
         .font(.lifeboard(.caption1).weight(.semibold))
         .foregroundStyle(tone.textColor)
         .padding(.horizontal, 9)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .background(tone.fillColor)
         .overlay(
             Capsule()

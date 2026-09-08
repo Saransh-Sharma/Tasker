@@ -54,14 +54,19 @@ struct LifeMapCapacityStep: View {
                 )
             }
 
-            Picker("Week starts", selection: Binding(
-                get: { dayShape.weekStartsOn },
-                set: { value in onUpdate { $0.weekStartsOn = value } }
-            )) {
-                Text("Monday").tag(Weekday.monday)
-                Text("Sunday").tag(Weekday.sunday)
-            }
-            .pickerStyle(.segmented)
+            // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
+            // `OptionRail` keeps the semantics: one selection, per-value
+            // accessibility identifiers, and reflow at accessibility text sizes.
+            OptionRail(
+                "Week starts",
+                selection: Binding(
+                    get: { dayShape.weekStartsOn },
+                    set: { value in onUpdate { $0.weekStartsOn = value } }
+                ),
+                values: [.monday, .sunday],
+                identifierPrefix: "lifeMap.dayShape.weekStart",
+                title: { $0 == .monday ? "Monday" : "Sunday" }
+            )
             .accessibilityIdentifier(LifeMapAccessibilityID.weekStartsOn)
         }
         .accessibilityIdentifier(LifeMapAccessibilityID.step(.capacity))
@@ -257,15 +262,19 @@ private struct LifeMapCaptureReviewCard: View {
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .fixedSize(horizontal: false, vertical: true)
 
-            Picker("Type", selection: Binding(
-                get: { capture.kind },
-                set: { onReview($0, capture.lifeAreaTemplateID) }
-            )) {
-                ForEach(LifeMapCaptureKind.allCases) { kind in
-                    Text(kind.title).tag(kind)
-                }
-            }
-            .pickerStyle(.segmented)
+            // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
+            // `OptionRail` keeps the semantics: one selection, per-value
+            // accessibility identifiers, and reflow at accessibility text sizes.
+            OptionRail(
+                "Type",
+                selection: Binding(
+                    get: { capture.kind },
+                    set: { onReview($0, capture.lifeAreaTemplateID) }
+                ),
+                values: Array(LifeMapCaptureKind.allCases),
+                identifierPrefix: "lifeMap.capture.kind",
+                title: { $0.title }
+            )
             .accessibilityIdentifier(LifeMapAccessibilityID.captureKindPicker)
 
             Picker("Life area", selection: Binding<String?>(

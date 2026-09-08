@@ -44,8 +44,8 @@ struct AddTaskTagMultiSelect: View {
                                 .font(.lifeboard(.caption1))
                         }
                         .foregroundColor(Color.lifeboard.textSecondary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                         .background(
                             Capsule()
                                 .fill(Color.lifeboard.surfaceSecondary)
@@ -133,8 +133,8 @@ struct AddTaskTagMultiSelect: View {
                 }
             }
             .foregroundColor(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .background(
                 Capsule()
                     .fill(isSelected ? Color.lifeboard.accentWash : Color.lifeboard.surfaceSecondary)

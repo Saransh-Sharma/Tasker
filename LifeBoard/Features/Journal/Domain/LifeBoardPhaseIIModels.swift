@@ -1205,11 +1205,21 @@ public enum JournalPrivacyGateState: Equatable, Sendable {
 
 // MARK: - Repository contract
 
+public struct JournalEvidenceSummary: Sendable {
+    public let id: UUID
+    public let day: Date
+    public let updatedAt: Date
+    public let aiExclusion: JournalAIExclusion
+}
+
 public protocol PhaseIIRepository: KnowledgeRepository, Sendable {
     func fetchTrackers() async throws -> [TrackerDefinitionValue]
     func saveTracker(_ value: TrackerDefinitionValue) async throws
     func deleteTracker(id: UUID) async throws
     func fetchTrackerEntries(trackerID: UUID?) async throws -> [TrackerEntryValue]
+    func fetchTrackerEntries(trackerID: UUID?, from: Date, to: Date) async throws -> [TrackerEntryValue]
+    func fetchJournalDays(from: Date, to: Date) async throws -> [JournalDayValue]
+    func fetchJournalEvidence(from: Date, to: Date) async throws -> [JournalEvidenceSummary]
     func saveTrackerEntry(_ value: TrackerEntryValue) async throws
     func deleteTrackerEntry(id: UUID) async throws
 
@@ -1279,6 +1289,20 @@ public protocol PhaseIIRepository: KnowledgeRepository, Sendable {
 }
 
 public extension PhaseIIRepository {
+    func fetchJournalEvidence(from: Date, to: Date) async throws -> [JournalEvidenceSummary] {
+        try await fetchJournalDays(from: from, to: to).map {
+            JournalEvidenceSummary(id: $0.id, day: $0.day, updatedAt: $0.updatedAt, aiExclusion: $0.aiExclusion)
+        }
+    }
+
+    func fetchTrackerEntries(trackerID: UUID?, from: Date, to: Date) async throws -> [TrackerEntryValue] {
+        try await fetchTrackerEntries(trackerID: trackerID).filter { $0.timestamp >= from && $0.timestamp < to }
+    }
+
+    func fetchJournalDays(from: Date, to: Date) async throws -> [JournalDayValue] {
+        try await fetchJournalDays(search: nil, starredOnly: false, mood: nil).filter { $0.day >= from && $0.day < to }
+    }
+
     func deleteTrackerEntry(id: UUID) async throws {
         throw CocoaError(.featureUnsupported)
     }

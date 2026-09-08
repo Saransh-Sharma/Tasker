@@ -232,7 +232,7 @@ public struct KnowledgeModuleView: View {
                 }
             }
 
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 HStack(spacing: 9) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
@@ -416,7 +416,7 @@ public struct KnowledgeModuleView: View {
     private func folderStrip(palette: DaypartPalette) -> some View {
         let visibleFolders = store.folders.filter { $0.parentFolderID == store.selectedFolderID }
         if store.selectedFolderID != nil || !visibleFolders.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 if store.selectedFolderID != nil {
                     HStack(spacing: 7) {
                         Button {
@@ -437,7 +437,7 @@ public struct KnowledgeModuleView: View {
                 }
                 if !visibleFolders.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
+                        HStack(spacing: 12) {
                             ForEach(visibleFolders) { folder in
                                 Button {
                                     withAnimation(LifeBoardAnimation.selection) {
@@ -470,7 +470,7 @@ public struct KnowledgeModuleView: View {
     }
 
     private func pinnedSection(palette: DaypartPalette) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             sectionHeading("Pinned", symbol: "pin.fill", count: store.pinnedNotes.count)
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 12) {
@@ -548,7 +548,7 @@ public struct KnowledgeModuleView: View {
             Text("\(selectedNoteIDs.count) selected")
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
-                .padding(.leading, 10)
+                .padding(.leading, 12)
             Spacer()
             batchButton("Favorite", symbol: "star") { .favorite }
             batchButton("Pin", symbol: "pin") { .pin }
@@ -559,7 +559,7 @@ public struct KnowledgeModuleView: View {
                 batchButton("Trash", symbol: "trash", role: .destructive) { .trash }
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .frame(maxWidth: 660, minHeight: 54)
         .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
         .padding(.horizontal, 18)
@@ -589,7 +589,7 @@ public struct KnowledgeModuleView: View {
 
     @ViewBuilder
     private func noteKindMarks(_ note: KnowledgeNoteValue) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             if note.blocks.contains(where: { $0.kind == .checklist }) {
                 Image(systemName: "checklist")
             }
@@ -858,7 +858,7 @@ private extension KnowledgeModuleView {
         compact: Bool
     ) -> some View {
         Button { openOrSelect(note) } label: {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     if note.isPinned {
                         Image(systemName: "pin.fill")
@@ -922,7 +922,7 @@ private extension KnowledgeModuleView {
                             .foregroundStyle(.tint)
                     }
                 VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         if note.isPinned { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.tint) }
                         Text(note.displayTitle)
                             .font(.headline)
@@ -1322,7 +1322,7 @@ private struct KnowledgeNoteEditor: View {
     }
 
     private var saveStatus: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             switch saveState {
             case .idle:
                 EmptyView()
@@ -1410,7 +1410,7 @@ private struct KnowledgeNoteEditor: View {
                 }
                 .accessibilityLabel("Formatting and blocks")
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
             .frame(maxWidth: 680, minHeight: 54)
             .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
             .padding(.horizontal, 18)
@@ -1732,7 +1732,7 @@ private struct KnowledgeNoteEditor: View {
     }
 
     private var relationships: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Links & backlinks").font(.headline)
                 Spacer()
@@ -1756,7 +1756,7 @@ private struct KnowledgeNoteEditor: View {
     }
 
     private var attachmentsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Attachments").font(.headline)
                 Spacer()
@@ -2091,7 +2091,7 @@ private struct NoteHistoryView: View {
                             Button("Restore this version") { onRestore(revision) }
                                 .font(.subheadline.weight(.semibold))
                         }
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 8)
                     }
                     .listStyle(.insetGrouped)
                 }
@@ -2200,7 +2200,7 @@ private struct LockedKnowledgeNoteEditor: View {
             Button {
                 Task { await unlock() }
             } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     if isUnlocking { ProgressView().controlSize(.small) }
                     Label(isUnlocking ? "Unlocking" : "Unlock note", systemImage: "faceid")
                         .fontWeight(.semibold)
@@ -2262,7 +2262,7 @@ private struct LockedKnowledgeNoteEditor: View {
             .frame(maxWidth: .infinity)
         }
         .safeAreaInset(edge: .bottom) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 editorButton("Bold", "bold", .bold)
                 editorButton("Italic", "italic", .italic)
                 editorButton("Highlight", "highlighter", .highlight)
@@ -2952,7 +2952,7 @@ private struct KnowledgeGraphView: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             TextField("Search graph", text: $searchText)
                 .textFieldStyle(.roundedBorder)
                 .padding(.horizontal, 20)

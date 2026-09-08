@@ -56,7 +56,7 @@ struct RecoveryCenterView: View {
     }
 
     private var headline: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(status.headline)
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
@@ -72,7 +72,7 @@ struct RecoveryCenterView: View {
     @ViewBuilder
     private func areaRow(_ area: RecoveryStatus.Area) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
                 indicator(for: area.health)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(area.title)
@@ -87,7 +87,7 @@ struct RecoveryCenterView: View {
             }
 
             if let recovery = area.recovery {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(recovery.reassurance)
                         .font(.footnote)
                         .foregroundStyle(Color.lifeboard.textTertiary)
@@ -97,7 +97,7 @@ struct RecoveryCenterView: View {
                         run(recovery)
                     } label: {
                         if runningRecovery == recovery {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 ProgressView()
                                 Text("Rebuilding…")
                             }
@@ -113,7 +113,7 @@ struct RecoveryCenterView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("settings.recoveryCenter.area.\(area.id)")
     }
@@ -155,7 +155,7 @@ struct RecoveryCenterView: View {
     }
 
     private var diagnosticsRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Divider().overlay(Color.lifeboard.strokeHairline)
             Button("Copy diagnostics", action: onExportDiagnostics)
                 .buttonStyle(.bordered)

@@ -735,7 +735,7 @@ struct TaskDetailScreen: View {
                 .lifeboardFont(.buttonSmall)
                 .foregroundStyle(style.tint)
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Text("Task fit")
                         .font(.lifeboard(.callout).weight(.semibold))
                         .foregroundStyle(Color.lifeboard.textPrimary)

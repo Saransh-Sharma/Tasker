@@ -13,7 +13,7 @@ struct SetupCenterDisclosureCard<Content: View>: View {
             Button(action: onToggle) {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 12) { identity; Spacer(minLength: 8); status }
-                    VStack(alignment: .leading, spacing: 10) { identity; status }
+                    VStack(alignment: .leading, spacing: 12) { identity; status }
                 }
                 .contentShape(Rectangle())
             }
@@ -50,7 +50,7 @@ struct SetupCenterDisclosureCard<Content: View>: View {
     }
 
     private var status: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: snapshot.state.symbolName)
             Text(snapshot.status)
             Image(systemName: isExpanded ? "chevron.up" : "chevron.down")

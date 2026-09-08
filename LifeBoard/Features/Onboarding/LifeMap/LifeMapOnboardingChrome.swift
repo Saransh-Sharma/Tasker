@@ -197,7 +197,7 @@ struct LifeMapBottomDock: View {
                 .disabled(isPrimaryDisabled)
                 .accessibilityIdentifier(primaryAccessibilityID)
         }
-        .padding(10)
+        .padding(12)
         .frame(maxWidth: .infinity)
         .lifeBoardSystemGlass(.regular, in: Capsule(style: .continuous), interactive: true)
         .lifeboardClayPressBloom(trigger: clayTrigger, tint: Color.lifeboard(.accentPrimary))

@@ -423,7 +423,7 @@ private struct TaskTimelinePreview: View {
     var body: some View {
         Button(action: action) {
             HStack(alignment: .top, spacing: ClayLayoutMetrics.sm) {
-                VStack(spacing: 6) {
+                VStack(spacing: 8) {
                     Text(scheduledStartAt.map(Self.hourText(for:)) ?? "--")
                         .lifeboardFont(.headline)
                         .foregroundStyle(ClayColorTokens.navyMuted)
@@ -449,7 +449,7 @@ private struct TaskTimelinePreview: View {
                             Text(durationText)
                                 .font(.lifeboard(.caption1).weight(.semibold))
                                 .foregroundStyle(ClayColorTokens.navyMuted)
-                                .padding(.horizontal, 10)
+                                .padding(.horizontal, 12)
                                 .padding(.vertical, 5)
                                 .background(Capsule().fill(ClayColorTokens.glassStrong))
                         }

@@ -443,7 +443,7 @@ struct SettingsLookAndFeelView: View {
                     )
                     .lifeboardDaypartCrossDissolve(trigger: daypartTrigger, daypart: resolvedDaypart)
 
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         Image(systemName: resolvedDaypart == .night ? "moon.stars.fill" : "sun.horizon.fill")
                         Text(resolvedDaypart.greeting.replacingOccurrences(of: "!", with: ""))
                     }
@@ -509,12 +509,24 @@ struct SettingsLookAndFeelView: View {
                 subtitle: comfortSubtitle,
                 icon: "wind"
             ) {
-                Picker("Motion", selection: $preferences.comfortProfile) {
-                    Text("Calm").tag(ComfortProfile.calm)
-                    Text("Balanced").tag(ComfortProfile.balanced)
-                    Text("Playful").tag(ComfortProfile.playful)
-                }
-                .pickerStyle(.segmented)
+                // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
+                // `OptionRail` is the design system's equivalent and keeps the
+                // semantics: one selection, per-value accessibility identifiers,
+                // and reflow at accessibility text sizes.
+                OptionRail(
+                    "Motion",
+                    selection: $preferences.comfortProfile,
+                    values: [.calm, .balanced, .playful],
+                    identifierPrefix: "settings.lookAndFeel.comfort",
+                    title: { profile in
+                        switch profile {
+                        case .calm: "Calm"
+                        case .balanced: "Balanced"
+                        case .playful: "Playful"
+                        }
+                    },
+                    showsLabel: false
+                )
                 .sensoryFeedback(.selection, trigger: preferences.comfortProfile)
             }
 
@@ -523,12 +535,24 @@ struct SettingsLookAndFeelView: View {
                 subtitle: renderingSubtitle,
                 icon: "circle.lefthalf.filled"
             ) {
-                Picker("Visual detail", selection: $preferences.renderingTier) {
-                    Text("Still").tag(AmbientRenderingTier.static)
-                    Text("Atmosphere").tag(AmbientRenderingTier.ambient2D)
-                    Text("Depth").tag(AmbientRenderingTier.enhanced3D)
-                }
-                .pickerStyle(.segmented)
+                // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
+                // `OptionRail` is the design system's equivalent and keeps the
+                // semantics: one selection, per-value accessibility identifiers,
+                // and reflow at accessibility text sizes.
+                OptionRail(
+                    "Visual detail",
+                    selection: $preferences.renderingTier,
+                    values: [.static, .ambient2D, .enhanced3D],
+                    identifierPrefix: "settings.lookAndFeel.rendering",
+                    title: { tier in
+                        switch tier {
+                        case .static: "Still"
+                        case .ambient2D: "Atmosphere"
+                        case .enhanced3D: "Depth"
+                        }
+                    },
+                    showsLabel: false
+                )
                 .sensoryFeedback(.selection, trigger: preferences.renderingTier)
             }
 

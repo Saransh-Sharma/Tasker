@@ -734,7 +734,7 @@ struct TrackRootView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
         }
     }
 
@@ -905,7 +905,7 @@ struct TrackRootView: View {
                     } label: { Image(systemName: "ellipsis.circle") }
                     .accessibilityLabel("Correct fasting session")
                 }
-                .padding(.top, 6)
+                .padding(.top, 8)
             }
         }
         .padding(18)
@@ -978,7 +978,7 @@ struct TrackRootView: View {
                         trackerRow(tracker, palette: palette)
                         let recent = store.trackerEntries.filter { $0.trackerID == tracker.id }.prefix(7)
                         if !recent.isEmpty {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 ForEach(Array(recent)) { entry in
                                     Capsule()
                                         .fill(palette.color(for: .celestialPrimary))
@@ -1080,7 +1080,7 @@ struct BehaviorNativeAreasView: View {
             Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
             ScrollView {
                 LazyVStack(spacing: dynamicTypeSize.isAccessibilitySize ? 24 : 20) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text(area == .trackers ? "Your signals" : "Care, clearly recorded")
                             .font(Typography.screenTitle())
                         Text(area == .trackers
@@ -1657,7 +1657,7 @@ private struct TrackerTemplatePicker: View {
                 Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text("Begin with something familiar")
                                 .font(Typography.screenTitle())
                             Text("Pick a starting shape. You’ll review every detail before anything is created.")
@@ -1770,7 +1770,7 @@ private struct TrackerCommitBar: View {
                 action: action
             )
         }
-        .padding(10)
+        .padding(12)
         .lifeBoardSystemGlass(
             .regular,
             in: RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -1842,7 +1842,7 @@ struct TrackerComposer: View {
                 Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 28 : 24) {
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text(existing == nil ? "Make a signal yours" : "Tune this signal")
                                 .font(Typography.screenTitle())
                             Text("Give it one clear purpose. You can change the details whenever life changes.")
@@ -1864,7 +1864,7 @@ struct TrackerComposer: View {
                             Text("How will you record it?")
                                 .font(.subheadline.weight(.semibold))
                             ScrollView(.horizontal) {
-                                HStack(spacing: 10) {
+                                HStack(spacing: 12) {
                                     ForEach(TrackerKind.allCases, id: \.self) { value in
                                         trackerKindButton(value)
                                     }
@@ -1894,8 +1894,8 @@ struct TrackerComposer: View {
                                     .tint(Color(SemanticColorTokens.foundationSageAccent))
                         if rangeEnabled {
                                     ViewThatFits {
-                                        HStack(spacing: 10) { rangeField("Minimum", value: $rangeMinimum); rangeField("Maximum", value: $rangeMaximum) }
-                                        VStack(spacing: 10) { rangeField("Minimum", value: $rangeMinimum); rangeField("Maximum", value: $rangeMaximum) }
+                                        HStack(spacing: 12) { rangeField("Minimum", value: $rangeMinimum); rangeField("Maximum", value: $rangeMaximum) }
+                                        VStack(spacing: 12) { rangeField("Minimum", value: $rangeMinimum); rangeField("Maximum", value: $rangeMaximum) }
                                     }
                             }
                         }
@@ -2411,7 +2411,7 @@ private struct TrackerValueCaptureView: View {
     private var valueEditor: some View {
         switch tracker.effectiveValueType {
         case .boolean:
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 binaryChoice("Yes", symbol: "checkmark", value: true)
                 binaryChoice("No", symbol: "xmark", value: false)
             }
@@ -2443,8 +2443,8 @@ private struct TrackerValueCaptureView: View {
                 LazyVGrid(
                     columns: dynamicTypeSize.isAccessibilitySize
                         ? [GridItem(.flexible())]
-                        : [GridItem(.adaptive(minimum: 120), spacing: 10)],
-                    spacing: 10
+                        : [GridItem(.adaptive(minimum: 120), spacing: 12)],
+                    spacing: 12
                 ) {
                     ForEach(choices, id: \.self) { choice in
                         choiceButton(choice)
@@ -2686,7 +2686,7 @@ private struct TrackerHistoryView: View {
                             .padding(.bottom, 8)
 
                             ForEach(sortedEntries.prefix(30)) { entry in
-                                HStack(spacing: 10) {
+                                HStack(spacing: 12) {
                                     Button {
                                         Haptic.pick.play()
                                         correcting = entry
@@ -2785,7 +2785,7 @@ private struct TrackerHistoryView: View {
 
             if let magnitudes = recentMagnitudes, magnitudes.isEmpty == false {
                 if magnitudes.count == 1, let entry = sortedEntries.first {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         Circle()
                             .fill(Color(SemanticColorTokens.foundationSageAccent))
                             .frame(width: 9, height: 9)
@@ -2805,7 +2805,7 @@ private struct TrackerHistoryView: View {
                 } else {
                     GeometryReader { proxy in
                         let maximum = max(magnitudes.max() ?? 1, 1)
-                        HStack(alignment: .bottom, spacing: 6) {
+                        HStack(alignment: .bottom, spacing: 8) {
                             ForEach(Array(magnitudes.enumerated()), id: \.offset) { _, magnitude in
                                 Capsule()
                                     .fill(Color(SemanticColorTokens.foundationSageAccent))
@@ -3166,7 +3166,7 @@ private struct MedicationWeekdayRail: View {
             Text("Days")
                 .font(.lifeboard(.meta))
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ForEach(1...7, id: \.self) { weekday in
                     let isOn = weekdays.contains(weekday)
                     Button {
@@ -3402,7 +3402,7 @@ struct FastingHistoryView: View {
                     )
                 } else {
                     ForEach(finished) { session in
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
                                     .font(.subheadline.weight(.semibold))
@@ -4482,7 +4482,7 @@ struct JournalModuleView: View {
                 identifier: \.rawValue
             )
             .padding(.horizontal, 20)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
 
             if !store.watchRecoveryRecords.isEmpty {
                 watchRecoveryBanner
@@ -4592,7 +4592,7 @@ struct JournalModuleView: View {
             List {
                 Section {
                     ForEach(store.watchRecoveryRecords) { record in
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Label(watchRecoveryTitle(record.reason), systemImage: watchRecoverySymbol(record.reason))
                                 .font(.headline)
                             Text(watchRecoveryMessage(record.reason))
@@ -4951,7 +4951,7 @@ struct JournalModuleView: View {
     }
 
     private func captureActions(palette: DaypartPalette) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             captureAction("Mood", symbol: "face.smiling") { showsMood = true }
             captureAction("Voice", symbol: "waveform") { showsRecorder = true }
             PhotosPicker(selection: $photoSelection, maxSelectionCount: 5, matching: .images) {
@@ -5034,7 +5034,7 @@ struct JournalModuleView: View {
         case .idle:
             EmptyView()
         case .searching:
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 ProgressView().controlSize(.small)
                 Text("Searching privately on this device…")
             }
@@ -5043,9 +5043,9 @@ struct JournalModuleView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
         case .building(let progress, let message):
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 JournalWorkIndicator(isActive: true, progress: progress)
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     ProgressView(value: progress)
                     Text(message)
                 }
@@ -5109,12 +5109,12 @@ struct JournalModuleView: View {
                 }
                 if store.savedProactiveInsights.isEmpty == false {
                     DisclosureGroup {
-                        VStack(spacing: 10) {
+                        VStack(spacing: 12) {
                             ForEach(store.savedProactiveInsights) { insight in
                                 proactiveInsightCard(insight, palette: palette)
                             }
                         }
-                        .padding(.top, 10)
+                        .padding(.top, 12)
                     } label: {
                         Label(
                             "Saved insights (\(store.savedProactiveInsights.count))",
@@ -5189,8 +5189,8 @@ struct JournalModuleView: View {
                 .onAppear { developReflectionIfNeeded(report.id) }
                 .onChange(of: report.id) { _, id in developReflectionIfNeeded(id) }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
                         Menu {
                             if weekEntries.isEmpty {
                                 Text("No Journal days this week")
@@ -5223,7 +5223,7 @@ struct JournalModuleView: View {
                         .accessibilityIdentifier("journal.reflection.regenerate")
                     }
 
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         Button {
                             takeawayDraft = report.takeaway ?? ""
                             showsTakeawayEditor = true
@@ -5288,7 +5288,7 @@ struct JournalModuleView: View {
         case .idle:
             EmptyView()
         case .running:
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 JournalWorkIndicator(isActive: true)
                 Text("Preparing a protected export…").font(.caption)
                 Spacer()
@@ -5307,7 +5307,7 @@ struct JournalModuleView: View {
             }
             .accessibilityIdentifier("journal.export.share")
         case .recoverableFailure(let failure):
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Label(failure.message, systemImage: "exclamationmark.triangle")
                     .font(.caption)
                 AsyncActionControl(
@@ -5344,7 +5344,7 @@ struct JournalModuleView: View {
         palette: DaypartPalette
     ) -> some View {
         VStack(alignment: .leading, spacing: 11) {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
                 Image(systemName: proactiveInsightSymbol(insight))
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Color.lifeboard(.accentPrimary))
@@ -5538,12 +5538,23 @@ private struct JournalPhotoEditor: View {
                 } else {
                     StatusSurface(state: .unavailable, title: "Photo unavailable", message: "This image is not available on this device.")
                 }
-                Picker("Crop", selection: $cropMode) {
-                    Text("Original").tag(JournalPhotoCropMode.original)
-                    Text("Square").tag(JournalPhotoCropMode.square)
-                    Text("4:5").tag(JournalPhotoCropMode.portrait)
-                }
-                .pickerStyle(.segmented)
+                // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
+                // `OptionRail` is the design system's equivalent and keeps the
+                // semantics: one selection, per-value accessibility identifiers,
+                // and reflow at accessibility text sizes.
+                OptionRail(
+                    "Crop",
+                    selection: $cropMode,
+                    values: [.original, .square, .portrait],
+                    identifierPrefix: "journal.photo.crop",
+                    title: { crop in
+                        switch crop {
+                        case .original: "Original"
+                        case .square: "Square"
+                        case .portrait: "4:5"
+                        }
+                    }
+                )
                 HStack {
                     Button("Rotate", systemImage: "rotate.right") {
                         quarterTurns = (quarterTurns + 1) % 4
@@ -5737,7 +5748,7 @@ private struct JournalDayCard: View {
                 .accessibilityIdentifier("journal.day.exclusionBadge")
             }
             ForEach(day.blocks) { block in
-                HStack(alignment: .top, spacing: 10) {
+                HStack(alignment: .top, spacing: 12) {
                     blockIcon(block)
                     VStack(alignment: .leading, spacing: 4) {
                         if let mood = block.mood {

@@ -177,7 +177,7 @@ struct LifeWeaveChip: View {
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .multilineTextAlignment(.leading)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
                 .frame(minHeight: 44)
                 .lifeBoardClaySurface(
                     isSelected ? .raised : .resting,

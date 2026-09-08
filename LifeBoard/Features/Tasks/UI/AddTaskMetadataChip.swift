@@ -40,7 +40,7 @@ struct AddTaskMetadataChip: View {
             HapticFeedback.selection()
             action()
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(ClayTypography.meta)
 

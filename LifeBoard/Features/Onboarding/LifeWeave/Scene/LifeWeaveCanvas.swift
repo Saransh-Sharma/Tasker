@@ -238,7 +238,7 @@ private struct LifeWeaveAreaNode: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .frame(minWidth: 56, maxWidth: 112)
         .lifeBoardClaySurface(area.isPrimary ? .raised : .resting, cornerRadius: 16)
         // Emphasis is a rim, not a size. See `LifeWeaveGeometry.primaryPullPoints`.

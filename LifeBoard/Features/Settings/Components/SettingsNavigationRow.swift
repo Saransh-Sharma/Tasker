@@ -134,11 +134,11 @@ struct SettingsHeroCard: View {
 
             if statusItems.isEmpty == false {
                 if dynamicTypeSize.isAccessibilitySize {
-                    VStack(spacing: 10) {
+                    VStack(spacing: 12) {
                         statusChips
                     }
                 } else {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         statusChips
                     }
                 }
@@ -211,7 +211,7 @@ struct SettingsStatusChip: View {
                     .lineLimit(2)
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .frame(minHeight: SettingsMetrics.chipMinHeight, alignment: .leading)
         .background(

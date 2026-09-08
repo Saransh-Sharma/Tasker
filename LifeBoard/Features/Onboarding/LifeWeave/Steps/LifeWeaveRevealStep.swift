@@ -129,7 +129,7 @@ struct LifeWeaveRevealStep: View {
                 .foregroundStyle(Color.lifeboard(.textPrimary))
             HStack(spacing: Theme.Spacing.md) {
                 ForEach(LifeWeavePowerUpStep.connectors) { connector in
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         Image(systemName: Self.symbolName(for: connector))
                             .lifeboardFont(.caption1)
                             .foregroundStyle(Color.lifeboard(.accentPrimary))

@@ -93,7 +93,7 @@ struct SetupCenterHomeCard: View {
             // owns the screen's hero.
             .lifeBoardClaySurface(.raised, cornerRadius: Radius.hero)
             .padding(.horizontal, 20)
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.setupCenter.card")
             .task {

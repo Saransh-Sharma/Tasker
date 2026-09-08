@@ -126,7 +126,13 @@ final class EvaCloudAccessCoordinator: ObservableObject {
         errorMessage = nil
         let task = Task { @MainActor [weak self] () -> EvaCloudAccessState in
             guard let self else { return .needsDisclosure }
-            let previousIdentityKind = (try? await sessionStore.load())?.resolvedIdentityKind
+            let previousIdentityKind: EvaIdentityKind?
+            do {
+                previousIdentityKind = try await sessionStore.load()?.resolvedIdentityKind
+            } catch {
+                applyFailure(error, source: .appLaunch)
+                return state
+            }
             await account.refresh()
             if let consent = account.consent {
                 selectedGrants = Set(consent.grants)
@@ -301,6 +307,18 @@ final class EvaCloudAccessCoordinator: ObservableObject {
 
     private func applyFailure(_ error: Error, source: EvaCloudAccessSource) {
         errorMessage = Self.message(for: error)
+        if let storageError = error as? EvaSecureStorageError {
+            logError(
+                event: "eva_secure_storage_failed",
+                message: "Cloud EVA secure storage operation failed",
+                component: "eva_cloud",
+                fields: [
+                    "operation": storageError.operation.rawValue,
+                    "osStatus": String(storageError.status),
+                    "systemMessage": storageError.systemMessage,
+                ]
+            )
+        }
         if let envelope = error as? EvaErrorEnvelope {
             switch envelope.code {
             case "daily_quota_exhausted":
@@ -354,13 +372,17 @@ final class EvaCloudAccessCoordinator: ObservableObject {
         }
     }
 
-    private static func errorCode(for error: Error) -> String {
+    static func errorCode(for error: Error) -> String {
+        if let storageError = error as? EvaSecureStorageError { return storageError.telemetryCode }
         if let envelope = error as? EvaErrorEnvelope { return envelope.code }
         if let urlError = error as? URLError { return "url_\(urlError.code.rawValue)" }
         return String(describing: type(of: error))
     }
 
     static func message(for error: Error) -> String {
+        if let storageError = error as? EvaSecureStorageError {
+            return storageError.localizedDescription
+        }
         if let urlError = error as? URLError {
             switch urlError.code {
             case .timedOut, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:

@@ -482,10 +482,12 @@ actor MedicationReminderCoordinator {
 }
 
 public final class CoreDataLifeBoardPhaseIIRepository: PhaseIIRepository, JournalBackupImportApplying, @unchecked Sendable {
+    let sourceRevisions: ProjectionRevisionLedger
     private let container: NSPersistentContainer
 
     public init(container: NSPersistentContainer) {
         self.container = container
+        self.sourceRevisions = ProjectionRevisionLedger.shared(for: container)
     }
 
     public func makeJournalDerivedPipeline(
@@ -562,6 +564,45 @@ public final class CoreDataLifeBoardPhaseIIRepository: PhaseIIRepository, Journa
             request.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: false)]
             request.fetchBatchSize = 100
             return try context.fetch(request).compactMap(Self.trackerEntryValue)
+        }
+    }
+
+    public func fetchTrackerEntries(trackerID: UUID?, from: Date, to: Date) async throws -> [TrackerEntryValue] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "TrackerEntry")
+            var predicates = [NSPredicate(format: "timestamp >= %@ AND timestamp < %@", from as NSDate, to as NSDate)]
+            if let trackerID { predicates.append(NSPredicate(format: "trackerID == %@", trackerID as CVarArg)) }
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+            request.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: false)]
+            request.fetchBatchSize = 100
+            return try context.fetch(request).compactMap(Self.trackerEntryValue)
+        }
+    }
+
+    public func fetchJournalEvidence(from: Date, to: Date) async throws -> [JournalEvidenceSummary] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "JournalDay")
+            request.predicate = NSPredicate(format: "day >= %@ AND day < %@", from as NSDate, to as NSDate)
+            request.sortDescriptors = [NSSortDescriptor(key: "day", ascending: false)]
+            request.fetchBatchSize = 40
+            return try context.fetch(request).compactMap { object in
+                guard let id = object.value(forKey: "id") as? UUID, let day = object.value(forKey: "day") as? Date else { return nil }
+                let exclusion = object.entity.attributesByName["aiExclusionRaw"] == nil ? JournalAIExclusion.included
+                    : (object.value(forKey: "aiExclusionRaw") as? String).flatMap(JournalAIExclusion.init(rawValue:)) ?? .included
+                return JournalEvidenceSummary(id: id, day: day,
+                    updatedAt: object.value(forKey: "updatedAt") as? Date ?? day, aiExclusion: exclusion)
+            }
+        }
+    }
+
+    public func fetchJournalDays(from: Date, to: Date) async throws -> [JournalDayValue] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "JournalDay")
+            request.predicate = NSPredicate(format: "day >= %@ AND day < %@", from as NSDate, to as NSDate)
+            request.sortDescriptors = [NSSortDescriptor(key: "day", ascending: false)]
+            request.relationshipKeyPathsForPrefetching = ["blocks", "media"]
+            request.fetchBatchSize = 40
+            return try context.fetch(request).compactMap(Self.journalDayValue)
         }
     }
 

@@ -73,7 +73,7 @@ private struct LifeMapHomePreview: View {
                 .foregroundStyle(Color.lifeboard(.textSecondary))
 
             ForEach(sections, id: \.role) { section in
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(section.role.title)
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard(.textTertiary))
