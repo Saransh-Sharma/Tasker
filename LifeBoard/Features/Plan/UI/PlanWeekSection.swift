@@ -69,7 +69,7 @@ struct PlanWeekSection: View {
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Button("Plan the week", systemImage: "arrow.right.circle.fill", action: onOpenWeeklyPlanner)
                     .buttonStyle(.lifeBoardPrimaryCompact)
                     .lifeBoardTransitionSource("route.weekly.week")

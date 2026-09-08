@@ -1362,6 +1362,7 @@ public protocol PlanningMutationRepository: Sendable {
     func apply(receiptID: UUID) async throws
     func undo(receiptID: UUID) async throws
     func hasAppliedReceipt(source: String) async throws -> Bool
+    func appliedReceiptSources(in sources: Set<String>) async throws -> Set<String>
     func fetchMutationReceipts(since: Date?) async throws -> [PlanningReceiptRecord]
 }
 
@@ -1393,4 +1394,12 @@ public protocol PlanRepairService: Sendable {
 
 public protocol PlanningScenarioCoordinating: Sendable {
     func apply(_ scenario: PlanningScenario) async throws -> PlanMutationReceipt
+}
+
+public extension PlanningMutationRepository {
+    func appliedReceiptSources(in sources: Set<String>) async throws -> Set<String> {
+        var result: Set<String> = []
+        for source in sources where try await hasAppliedReceipt(source: source) { result.insert(source) }
+        return result
+    }
 }

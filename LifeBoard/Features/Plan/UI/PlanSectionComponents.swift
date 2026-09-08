@@ -54,7 +54,7 @@ struct PlanSectionHeader<Trailing: View>: View {
             Spacer()
             trailing()
         }
-        .padding(.top, 6)
+        .padding(.top, 8)
         .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
     }
 }
@@ -128,7 +128,7 @@ struct PlanCalendarStateSection: View {
             .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
             .accessibilityIdentifier("plan.calendar.notRequested")
         case .denied:
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Label("Calendar off · planning still works", systemImage: "calendar.badge.exclamationmark")
                     .font(.caption)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -140,12 +140,12 @@ struct PlanCalendarStateSection: View {
                 .font(.caption.weight(.semibold))
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
             .frame(minHeight: 44)
             .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
             .accessibilityIdentifier("plan.calendar.denied")
         case .loading:
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 ProgressView()
                     .controlSize(.small)
                 Text("Refreshing read-only calendar context")
@@ -186,7 +186,7 @@ struct PlanCalendarStateSection: View {
                 identifier: "plan.calendar.offline"
             )
         case .failed(let message):
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: "calendar.badge.exclamationmark")
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Calendar couldn’t refresh")
@@ -218,7 +218,7 @@ struct PlanCalendarCacheWarning: View {
     let identifier: String
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: symbol)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -246,7 +246,7 @@ struct PlanCalibrationSuggestionRow: View {
     let suggestion: EstimateCalibrationSuggestion
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: "timer.square")
                 .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
             VStack(alignment: .leading, spacing: 2) {

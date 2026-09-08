@@ -8,7 +8,7 @@ struct PlanOrientationBar: View {
     let lens: PlanLens
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             if lens == .day {
                 Button { Task { await store.moveSelection(by: -1) } } label: {
                     Image(systemName: "chevron.left").frame(width: 44, height: 44)

@@ -36,7 +36,7 @@ struct PlanActiveFocusCard: View {
                 .frame(maxWidth: 246)
                 .frame(maxWidth: .infinity)
 
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Group {
                     if session.state == .paused {
                         Button("Resume", systemImage: "play.fill") { Task { await store.resumeFocus() } }
@@ -82,7 +82,7 @@ struct PlanActiveFocusCard: View {
             }
 
             if let outcome = pendingFocusEndOutcome {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text(endPrompt(outcome))
                             .font(.subheadline)
@@ -117,7 +117,7 @@ struct PlanActiveFocusCard: View {
 
     @ViewBuilder
     private var dial: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        ActiveVisibleTimeline(every: 1) { context in
             let display = clockDisplay(at: context.date)
             let pausedSuffix = session.state == .paused ? ", paused" : ""
             FocusDial(

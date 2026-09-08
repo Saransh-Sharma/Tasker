@@ -46,6 +46,7 @@ struct PlanRootView: View {
     @Environment(PresentationPreferences.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
+    @Environment(\.lifeBoardRootActivity) private var rootActivity
 
     init(
         dependencies: PlanFeatureDependencies,
@@ -202,6 +203,7 @@ struct PlanRootView: View {
             }
             .refreshable { await store.load() }
             .lifeBoardReportsComposerScroll()
+            .accessibilityIdentifier("foundation.plan.scroll")
         }
     }
 
@@ -233,13 +235,16 @@ struct PlanRootView: View {
 
     private func withLifecycle<Content: View>(_ content: Content) -> some View {
         content
-            .task(id: rescueRefreshGeneration) { await store.load() }
+            .task(id: PlanActivityTaskID(activity: rootActivity, rescueGeneration: rescueRefreshGeneration)) {
+                guard rootActivity.performsContinuousWork else { return }
+                await store.load()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .foundationDomainMaintenanceCommitted)) { _ in
+                guard rootActivity.performsContinuousWork else { return }
+                Task { await store.load() }
+            }
             .onChange(of: lens) { _, selectedLens in
                 PlanLensRestoration.save(selectedLens)
-            }
-            .onChange(of: scenePhase) { _, phase in
-                guard phase == .active else { return }
-                Task { await store.load() }
             }
     }
 
@@ -398,6 +403,11 @@ struct PlanRootView: View {
             set: { if $0 == false { store.errorMessage = nil } }
         )
     }
+}
+
+private struct PlanActivityTaskID: Hashable {
+    let activity: RootActivityState
+    let rescueGeneration: Int
 }
 
 // MARK: - Shared section vocabulary

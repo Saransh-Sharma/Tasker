@@ -49,7 +49,7 @@ struct PlanFocusReflectionCard: View {
                 .lineLimit(2...4)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("plan.focus.reflection.note")
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 if receipt.interruptionCount > 0 {
                     Label(
                         "\(receipt.interruptionCount) interruption\(receipt.interruptionCount == 1 ? "" : "s")",

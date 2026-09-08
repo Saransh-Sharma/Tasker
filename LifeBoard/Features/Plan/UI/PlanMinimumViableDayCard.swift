@@ -9,7 +9,7 @@ struct PlanMinimumViableDayCard: View {
 
     var body: some View {
         if let scenario = store.pendingScenario {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 Label(
                     Self.title(scenario.source),
                     systemImage: Self.symbol(scenario.source)

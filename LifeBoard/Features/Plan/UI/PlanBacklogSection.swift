@@ -69,7 +69,7 @@ struct PlanBacklogSection: View {
     }
 
     private var backlogControls: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             Button {
                 showsTaskLibrary = true
             } label: {

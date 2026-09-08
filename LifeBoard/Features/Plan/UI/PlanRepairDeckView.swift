@@ -52,7 +52,7 @@ struct PlanRepairDeck: View {
 
     var body: some View {
         let candidates = dragCandidates
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             if let header {
                 Label(header, systemImage: "wand.and.stars")
                     .font(.headline)
@@ -105,7 +105,7 @@ struct PlanRepairDeck: View {
     private func repairDirectionPad(_ candidates: [PlanRepairAction]) -> some View {
         VStack(spacing: 3) {
             repairDirectionChip(.up, candidates: candidates)
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 repairDirectionChip(.left, candidates: candidates)
                 repairDirectionChip(.right, candidates: candidates)
             }

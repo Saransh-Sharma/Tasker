@@ -17,7 +17,7 @@ struct PlanDayTimeCanvas: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
                 Label("Time canvas", systemImage: "clock")
                     .font(.headline)
                 Spacer()

@@ -17,7 +17,7 @@ struct TaskExecutionBatchActionBar: View {
     @Binding var destructiveMutation: TaskBatchMutation?
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Text("\(selectionCount) selected")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))

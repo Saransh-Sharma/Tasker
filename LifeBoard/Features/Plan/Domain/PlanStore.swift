@@ -56,8 +56,6 @@ final class PlanStore {
     private(set) var calendarState: PlanningCalendarState = .notRequested
     private(set) var isLoading = false
     /// Set when a reload is requested while one is already running. See `load()`.
-    private var hasPendingReload = false
-    private var reloadWaiters: [CheckedContinuation<Void, Never>] = []
     var errorMessage: String?
     var selectedDay: PlanningDay
 
@@ -198,105 +196,69 @@ final class PlanStore {
     /// A request that arrives mid-flight now marks the pass dirty and the loop
     /// runs again. Callers still get "the store is current when this returns",
     /// which is the contract every mutation depends on.
+    @ObservationIgnored private let refreshDrain = PresentationRefreshDrain()
+
     func load() async {
-        if isLoading {
-            hasPendingReload = true
-            await withCheckedContinuation { continuation in
-                reloadWaiters.append(continuation)
-            }
-            return
+        await refreshDrain.run { [weak self] in
+            guard let self else { return }
+            self.isLoading = daySnapshot == nil
+            await self.performLoad()
+            self.isLoading = false
         }
-        isLoading = true
-        defer {
-            isLoading = false
-            let waiters = reloadWaiters
-            reloadWaiters.removeAll()
-            waiters.forEach { $0.resume() }
-        }
-        repeat {
-            hasPendingReload = false
-            await performLoad()
-        } while hasPendingReload
     }
 
     private func performLoad() async {
-        calendarState = .loading
+        let revision = refreshDrain.revision
+        let selection = selectedDay
+        if daySnapshot == nil { calendarState = .loading }
         do {
-            let bounds = weekBounds(containing: selectedDay)
+            let bounds = weekBounds(containing: selection)
             async let fetchedTasks = planningRepository.fetchOpenPlanningTasks()
             async let fetchedBlocks = blockRepository.fetchTimeBlocks(from: bounds.start, to: bounds.end)
             async let profiles = blockRepository.fetchWorkingHoursProfiles()
             async let fetchedCalendarResult = safeCalendarContext(
-                from: bounds.start,
-                to: bounds.end,
-                cached: calendarContext,
-                hasCache: hasCalendarCache
-            )
+                from: bounds.start, to: bounds.end, cached: calendarContext, hasCache: hasCalendarCache)
             async let focusHistory = planningRepository.sessions(
-                since: Calendar.current.date(
-                    byAdding: .day,
-                    value: -180,
-                    to: Date()
-                )
-            )
-            tasks = try await fetchedTasks
+                since: Calendar.current.date(byAdding: .day, value: -180, to: Date()))
+            let nextTasks = try await fetchedTasks
             let completedFocusHistory = try await focusHistory
+            let nextFocus: FocusSessionV2?
+            let nextCompanion: FocusSessionCompanion?
             if let focusCommands {
                 let recovery = try await focusCommands.activeRecovery()
-                activeFocusSession = recovery?.session
-                focusCompanion = recovery?.companion
+                nextFocus = recovery?.session
+                nextCompanion = recovery?.companion
             } else {
-                activeFocusSession = try await planningRepository.activeSession()
-                if let activeFocusSession {
-                    focusCompanion = try? await focusCompanionStore.companion(sessionID: activeFocusSession.id)
-                } else {
-                    focusCompanion = nil
-                }
+                nextFocus = try await planningRepository.activeSession()
+                if let nextFocus {
+                    nextCompanion = try? await focusCompanionStore.companion(sessionID: nextFocus.id)
+                } else { nextCompanion = nil }
             }
-            if let session = activeFocusSession,
-               let repair = FocusStartupRepairPolicy.commandKind(for: session, now: Date()) {
-                if let focusCommands, repair == .pause {
-                    let recovery = try await focusCommands.pause(sessionID: session.id)
-                    activeFocusSession = recovery.session
-                    focusCompanion = recovery.companion
-                } else {
-                    let repaired = try await planningRepository.handle(.init(
-                        sessionID: session.id,
-                        kind: repair,
-                        occurredAt: Date()
-                    ))
-                    activeFocusSession = repaired.state == .ended ? nil : repaired
-                }
-            }
-            await FocusLiveActivityCoordinator.shared.endOrphanedActivities(except: activeFocusSession?.id)
-            if let activeFocusSession {
-                await synchronizeFocusPresentation(activeFocusSession)
-            } else {
-                await FocusNotificationFallbackCoordinator.shared.cancelAll()
-            }
-            allBlocks = try await fetchedBlocks
+            let nextBlocks = try await fetchedBlocks
             let availableProfiles = try await profiles
             let calendarResult = await fetchedCalendarResult
+            let profile = availableProfiles.first(where: \.isDefault) ?? availableProfiles.first ?? Self.defaultWorkingProfile()
+            let projection = PlanDayProjectionInputs(tasks: nextTasks, allBlocks: nextBlocks,
+                workingProfile: profile, calendarContext: calendarResult.context,
+                calendarState: calendarResult.state, calendar: calendar, now: Date())
+            let proposals = repairService.proposals(for: projection.snapshot(for: selection), now: Date())
+            let acknowledged = try await suppressAcknowledgedRepairs(proposals)
+            guard revision == refreshDrain.revision, selection == selectedDay else { return }
+            // Nothing is published until all required reads finish for this selection.
+            if tasks != nextTasks { tasks = nextTasks }
+            if activeFocusSession != nextFocus { activeFocusSession = nextFocus }
+            if focusCompanion != nextCompanion { focusCompanion = nextCompanion }
+            if allBlocks != nextBlocks { allBlocks = nextBlocks }
             calendarContext = calendarResult.context
             calendarState = calendarResult.state
-            if case .fresh = calendarResult.state {
-                hasCalendarCache = true
-            }
-            if let selected = availableProfiles.first(where: \.isDefault) ?? availableProfiles.first {
-                workingProfile = selected
-            } else {
-                let profile = Self.defaultWorkingProfile()
-                try await blockRepository.saveWorkingHoursProfile(profile)
-                workingProfile = profile
-            }
-            rebuildSnapshots()
+            if case .fresh = calendarResult.state { hasCalendarCache = true }
+            if workingProfile != profile { workingProfile = profile }
+            rebuildSnapshots(acknowledgedRepairs: acknowledged)
             rebuildCalibrationSuggestions(from: completedFocusHistory)
-            repairProposals = try await suppressAcknowledgedRepairs(repairProposals)
             errorMessage = nil
         } catch {
-            if case .loading = calendarState {
-                calendarState = .failed(message: error.localizedDescription)
-            }
+            guard revision == refreshDrain.revision, selection == selectedDay else { return }
+            if daySnapshot == nil { calendarState = .failed(message: error.localizedDescription) }
             errorMessage = error.localizedDescription
         }
     }
@@ -314,7 +276,7 @@ final class PlanStore {
         // and `workingProfile`, all of which `load()` already fetched for the
         // whole week. Reloading here would put a Core Data + EventKit round-trip
         // behind every tap of a day chip in the weekly ribbon.
-        if weekSnapshot?.days.contains(where: { $0.day == day }) == true {
+        if !refreshDrain.isRunning, weekSnapshot?.days.contains(where: { $0.day == day }) == true {
             retargetDaySnapshot()
             return
         }
@@ -1043,11 +1005,11 @@ final class PlanStore {
         )
     }
 
-    private func rebuildSnapshots() {
+    private func rebuildSnapshots(acknowledgedRepairs: [PlanRepairProposal]? = nil) {
         let visibleTasks = tasks.filter { $0.metadata.unscheduledDisposition != .deleted }
-        daySnapshot = makeDaySnapshot(for: selectedDay)
+        let nextDay = makeDaySnapshot(for: selectedDay)
         let weekDays = daysInWeek(containing: selectedDay)
-        weekSnapshot = PlanWeekSnapshot(
+        let nextWeek = PlanWeekSnapshot(
             days: weekDays.map { day in
                 let snapshot = makeDaySnapshot(for: day)
                 return PlanWeekDaySummary(
@@ -1065,8 +1027,27 @@ final class PlanStore {
             },
             generatedAt: Date()
         )
-        backlogSnapshot = PlanBacklogSnapshot(groups: backlogGroups(), generatedAt: Date())
-        repairProposals = daySnapshot.map { repairService.proposals(for: $0, now: Date()) } ?? []
+        let nextBacklog = PlanBacklogSnapshot(groups: backlogGroups(), generatedAt: Date())
+        var changed = false
+        var comparableDay = nextDay
+        if let previous = daySnapshot {
+            comparableDay.generatedAt = previous.generatedAt
+            if case .fresh(let oldDate) = previous.calendarState,
+               case .fresh(let newDate) = comparableDay.calendarState,
+               oldDate.formatted(date: .omitted, time: .shortened) == newDate.formatted(date: .omitted, time: .shortened) {
+                comparableDay.calendarState = previous.calendarState
+            }
+        }
+        if comparableDay != daySnapshot { daySnapshot = nextDay; changed = true }
+        var comparableWeek = nextWeek
+        if let previous = weekSnapshot { comparableWeek.generatedAt = previous.generatedAt }
+        if comparableWeek != weekSnapshot { weekSnapshot = nextWeek; changed = true }
+        var comparableBacklog = nextBacklog
+        if let previous = backlogSnapshot { comparableBacklog.generatedAt = previous.generatedAt }
+        if comparableBacklog != backlogSnapshot { backlogSnapshot = nextBacklog; changed = true }
+        let repairs = acknowledgedRepairs ?? repairService.proposals(for: nextDay, now: Date())
+        if repairs != repairProposals { repairProposals = repairs; changed = true }
+        if changed { PerformanceTrace.event("PlanPresentationCommitted") }
     }
 
     private func rebuildCalibrationSuggestions(from sessions: [FocusSessionV2]) {
@@ -1091,59 +1072,9 @@ final class PlanStore {
     }
 
     private func makeDaySnapshot(for day: PlanningDay) -> PlanDaySnapshot {
-        let bounds = dayBounds(day)
-        let externalCommitments = externalCommitments(for: bounds)
-        let blocks = allBlocks.filter { $0.startAt < bounds.end && $0.endAt > bounds.start }
-        let planned = tasks.filter {
-            $0.metadata.unscheduledDisposition != .deleted
-                && $0.metadata.planningDay == day
-                && $0.metadata.availability == .actionable
-        }
-        let working = workingIntervals(for: day)
-        let capacity = CapacityBudgetService.calculate(
-            workingIntervals: working,
-            fixedCalendarCommitments: externalCommitments.map { DateInterval(start: $0.startAt, end: $0.endAt) },
-            internalFixedBlocks: blocks.filter(\.isFixed).map { DateInterval(start: $0.startAt, end: $0.endAt) },
-            userBuffer: workingProfile?.bufferDuration ?? 30 * 60,
-            plannedEstimates: planned.map(\.estimatedDuration)
-        )
-        let occupied = externalCommitments.map { DateInterval(start: $0.startAt, end: $0.endAt) }
-            + blocks.map { DateInterval(start: $0.startAt, end: $0.endAt) }
-        let freeWindows = FreeWindowService.calculate(
-            workingIntervals: working,
-            occupiedIntervals: occupied
-        )
-        let unscheduled = tasks.filter {
-            $0.metadata.planningDay == nil
-                && $0.metadata.availability == .actionable
-                && $0.metadata.unscheduledDisposition == .inbox
-        }
-        return PlanDaySnapshot(
-            day: day,
-            capacity: capacity,
-            commitments: externalCommitments.map {
-                PlanningFixedCommitment(
-                    id: $0.id,
-                    title: $0.title,
-                    startAt: $0.startAt,
-                    endAt: $0.endAt,
-                    source: .externalCalendar
-                )
-            } + blocks.filter(\.isFixed).map {
-                PlanningFixedCommitment(id: $0.id.uuidString, title: $0.title, startAt: $0.startAt, endAt: $0.endAt, source: .internalBlock)
-            },
-            calendarAuthorization: calendarContext.authorization,
-            calendarState: calendarState,
-            freeWindows: freeWindows,
-            fitsNextCandidates: FitsNextService.candidates(
-                tasks: unscheduled,
-                windows: freeWindows
-            ),
-            blocks: blocks,
-            plannedTasks: planned,
-            unscheduledTasks: unscheduled,
-            generatedAt: Date()
-        )
+        PlanDayProjectionInputs(tasks: tasks, allBlocks: allBlocks, workingProfile: workingProfile,
+            calendarContext: calendarContext, calendarState: calendarState, calendar: calendar, now: Date())
+            .snapshot(for: day)
     }
 
     private func backlogGroups() -> [BacklogGroup: [PlanningTaskSummary]] {
@@ -1509,7 +1440,7 @@ final class PlanStore {
         return (start, calendar.date(byAdding: .day, value: 7, to: start) ?? start.addingTimeInterval(604_800))
     }
 
-    private static func defaultWorkingProfile() -> WorkingHoursProfile {
+    nonisolated static func defaultWorkingProfile() -> WorkingHoursProfile {
         var intervals: [Int: [WorkingHoursInterval]] = [:]
         for weekday in 2...6 { intervals[weekday] = [.init(startMinute: 8 * 60, endMinute: 18 * 60)] }
         intervals[1] = [.init(startMinute: 9 * 60, endMinute: 14 * 60)]
@@ -1551,13 +1482,9 @@ final class PlanStore {
     }
 
     private func suppressAcknowledgedRepairs(_ values: [PlanRepairProposal]) async throws -> [PlanRepairProposal] {
-        var visible: [PlanRepairProposal] = []
-        for value in values {
-            if try await planningRepository.hasAppliedReceipt(source: repairReceiptSource(value.id)) == false {
-                visible.append(value)
-            }
-        }
-        return visible
+        let sources = Set(values.map { repairReceiptSource($0.id) })
+        let applied = try await planningRepository.appliedReceiptSources(in: sources)
+        return values.filter { !applied.contains(repairReceiptSource($0.id)) }
     }
 
     private func repairReceiptSource(_ id: UUID) -> String { "plan.repair.\(id.uuidString)" }
@@ -1574,4 +1501,93 @@ final class PlanStore {
         if let blockID = session.timeBlockID, let title = allBlocks.first(where: { $0.id == blockID })?.title { return title }
         return "Focus session"
     }
+}
+
+/// Shared, side-effect-free day derivation used by Plan and Home.
+struct PlanDayProjectionInputs: Sendable {
+    let tasks: [PlanningTaskSummary]
+    let allBlocks: [InternalTimeBlock]
+    let workingProfile: WorkingHoursProfile?
+    let calendarContext: PlanningCalendarContext
+    let calendarState: PlanningCalendarState
+    let calendar: Calendar
+    let now: Date
+    func snapshot(for day: PlanningDay) -> PlanDaySnapshot {
+        let bounds = dayBounds(day)
+        let externalCommitments = externalCommitments(for: bounds)
+        let blocks = allBlocks.filter { $0.startAt < bounds.end && $0.endAt > bounds.start }
+        let planned = tasks.filter {
+            $0.metadata.unscheduledDisposition != .deleted
+                && $0.metadata.planningDay == day
+                && $0.metadata.availability == .actionable
+        }
+        let working = workingIntervals(for: day)
+        let capacity = CapacityBudgetService.calculate(
+            workingIntervals: working,
+            fixedCalendarCommitments: externalCommitments.map { DateInterval(start: $0.startAt, end: $0.endAt) },
+            internalFixedBlocks: blocks.filter(\.isFixed).map { DateInterval(start: $0.startAt, end: $0.endAt) },
+            userBuffer: workingProfile?.bufferDuration ?? 30 * 60,
+            plannedEstimates: planned.map(\.estimatedDuration)
+        )
+        let occupied = externalCommitments.map { DateInterval(start: $0.startAt, end: $0.endAt) }
+            + blocks.map { DateInterval(start: $0.startAt, end: $0.endAt) }
+        let freeWindows = FreeWindowService.calculate(
+            workingIntervals: working,
+            occupiedIntervals: occupied
+        )
+        let unscheduled = tasks.filter {
+            $0.metadata.planningDay == nil
+                && $0.metadata.availability == .actionable
+                && $0.metadata.unscheduledDisposition == .inbox
+        }
+        return PlanDaySnapshot(
+            day: day,
+            capacity: capacity,
+            commitments: externalCommitments.map {
+                PlanningFixedCommitment(
+                    id: $0.id,
+                    title: $0.title,
+                    startAt: $0.startAt,
+                    endAt: $0.endAt,
+                    source: .externalCalendar
+                )
+            } + blocks.filter(\.isFixed).map {
+                PlanningFixedCommitment(id: $0.id.uuidString, title: $0.title, startAt: $0.startAt, endAt: $0.endAt, source: .internalBlock)
+            },
+            calendarAuthorization: calendarContext.authorization,
+            calendarState: calendarState,
+            freeWindows: freeWindows,
+            fitsNextCandidates: FitsNextService.candidates(
+                tasks: unscheduled,
+                windows: freeWindows
+            ),
+            blocks: blocks,
+            plannedTasks: planned,
+            unscheduledTasks: unscheduled,
+            generatedAt: now
+        )
+    }
+
+    private func workingIntervals(for day: PlanningDay) -> [DateInterval] {
+        guard let start = day.startDate(calendar: calendar) else { return [] }
+        let weekday = calendar.component(.weekday, from: start)
+        return (workingProfile?.intervalsByWeekday[weekday] ?? []).compactMap { interval in
+            guard let intervalStart = calendar.date(byAdding: .minute, value: interval.startMinute, to: start),
+                  let intervalEnd = calendar.date(byAdding: .minute, value: interval.endMinute, to: start),
+                  intervalEnd > intervalStart else { return nil }
+            return DateInterval(start: intervalStart, end: intervalEnd)
+        }
+    }
+
+    private func externalCommitments(for bounds: (start: Date, end: Date)) -> [CalendarCommitment] {
+        calendarContext.commitments.filter {
+            $0.isAllDay == false && $0.startAt < bounds.end && $0.endAt > bounds.start && $0.availability != "1"
+        }
+    }
+
+    private func dayBounds(_ day: PlanningDay) -> (start: Date, end: Date) {
+        let start = day.startDate(calendar: calendar) ?? calendar.startOfDay(for: Date())
+        return (start, calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400))
+    }
+
 }

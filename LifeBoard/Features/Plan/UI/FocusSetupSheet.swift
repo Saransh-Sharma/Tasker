@@ -56,12 +56,17 @@ struct FocusSetupSheet: View {
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
 
-                    Picker("Focus mode", selection: $mode) {
-                        ForEach(FocusSetupMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    // Was `.pickerStyle(.segmented)`, the stock grey segmented
+                    // control. `OptionRail` is the design system's equivalent and
+                    // keeps the semantics: one selection, per-value accessibility
+                    // identifiers, and reflow at accessibility text sizes.
+                    OptionRail(
+                        "Focus mode",
+                        selection: $mode,
+                        values: Array(FocusSetupMode.allCases),
+                        identifierPrefix: "focusSetupSheet.focusMode",
+                        title: { $0.rawValue }
+                    )
                     .accessibilityIdentifier("plan.focus.setup.mode")
 
                     modeControls

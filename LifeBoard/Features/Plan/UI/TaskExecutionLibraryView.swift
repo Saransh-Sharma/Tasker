@@ -225,7 +225,7 @@ struct TaskExecutionLibraryView: View {
                 .accessibilityIdentifier("plan.taskLibrary.batch.undo")
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .background(Color(SemanticColorTokens.foundationSurfaceRaised))
         .overlay(alignment: .top) { Divider() }
     }

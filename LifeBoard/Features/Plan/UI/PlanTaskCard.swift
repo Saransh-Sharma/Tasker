@@ -26,7 +26,7 @@ struct PlanTaskCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
             if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
                 // `tasks` comes from `fetchOpenPlanningTasks()`, so a row on
@@ -61,7 +61,7 @@ struct PlanTaskCard: View {
                     HStack(spacing: 7) {
                         Text(task.title).font(.body.weight(.medium)).lineLimit(2)
                         if task.metadata.commitmentLevel == .mustDo {
-                            Text("MUST DO").font(.caption2.weight(.bold)).padding(.horizontal, 6).padding(.vertical, 3)
+                            Text("MUST DO").font(.caption2.weight(.bold)).padding(.horizontal, 8).padding(.vertical, 3)
                                 .background(Color(SemanticColorTokens.foundationApricotAccent).opacity(0.22), in: Capsule())
                         }
                     }

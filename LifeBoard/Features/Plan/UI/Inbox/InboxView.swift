@@ -474,15 +474,27 @@ struct InboxView: View {
     }
 
     private var scopePicker: some View {
-        Picker("Inbox scope", selection: Binding(
-            get: { store.scope },
-            set: { store.scope = $0 }
-        )) {
-            Text("Inbox").tag(InboxQuery.Scope.untriaged)
-            Text("Someday").tag(InboxQuery.Scope.someday)
-            Text("Reference").tag(InboxQuery.Scope.reference)
-        }
-        .pickerStyle(.segmented)
+        // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
+        // `OptionRail` is the design system's equivalent and keeps the
+        // semantics: one selection, per-value accessibility identifiers,
+        // and reflow at accessibility text sizes.
+        OptionRail(
+            "Inbox scope",
+            selection: Binding(
+                get: { store.scope },
+                set: { store.scope = $0 }
+            ),
+            values: [.untriaged, .someday, .reference],
+            identifierPrefix: "plan.inbox.scope",
+            title: { scope in
+                switch scope {
+                case .untriaged: "Inbox"
+                case .someday: "Someday"
+                case .reference: "Reference"
+                }
+            },
+            showsLabel: false
+        )
         .accessibilityIdentifier("plan.inbox.scope")
     }
 
@@ -492,7 +504,7 @@ struct InboxView: View {
     /// one is a separate judgement, and a flat list of five equally weighted rows
     /// invites skimming past things that were captured in a hurry.
     private var captureDeckSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Needs review")
                     .font(.headline)
@@ -604,8 +616,8 @@ struct InboxView: View {
             Label(flick.label, systemImage: flick.symbol)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 .background(
                     Capsule().fill(Color(SemanticColorTokens.foundationSurfaceSelected))
                 )
@@ -628,7 +640,7 @@ struct InboxView: View {
     /// trailing edge — none of which reached the 44-point minimum, and which gave
     /// Discard exactly as much visual weight as File It.
     private func captureActions(for item: InboxItem) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Button("File it") { beginFiling(item) }
                 .buttonStyle(.lifeBoardPrimary)
                 .disabled(store.isMutating)
@@ -726,7 +738,7 @@ struct InboxView: View {
     }
 
     private func settledRow(_ item: InboxItem) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             Button {
                 if selection.contains(item.id) { selection.remove(item.id) }
                 else { selection.insert(item.id) }
@@ -757,7 +769,7 @@ struct InboxView: View {
     /// Geometry-matched rather than a spinner, so the deck does not jump into
     /// place when the real captures arrive.
     private var loadingSkeleton: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             ForEach(0..<2, id: \.self) { index in
                 RoundedRectangle(cornerRadius: Radius.largeCard, style: .continuous)
                     .fill(Color(SemanticColorTokens.foundationSurfaceRecessed))
@@ -772,7 +784,7 @@ struct InboxView: View {
     /// Deliberately not shaped like `emptyState`. A failed fetch that looks like
     /// an empty inbox congratulates someone for a load that never completed.
     private var loadFailure: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Label("Couldn’t load your inbox", systemImage: "exclamationmark.arrow.circlepath")
                 .font(.headline)
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
@@ -840,7 +852,7 @@ struct InboxView: View {
         // sizes, and DESIGN.md's rule is to stack metadata before truncating
         // content that carries meaning.
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 if let due = parsed.dueDate {
                     chip(
                         parsed.isAllDay
@@ -859,7 +871,7 @@ struct InboxView: View {
                     chip(priority.displayName, symbol: "flag")
                 }
             }
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 if let project = parsed.projectName {
                     chip(project, symbol: "folder")
                 }
@@ -946,12 +958,12 @@ struct InboxView: View {
             Button("Clear") { selection.removeAll() }
         }
         .font(.subheadline)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .accessibilityIdentifier("plan.inbox.batchBar")
     }
 
     private func undoRow(_ summary: String) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(Color.lifeboard.statusSuccess)
             Text(summary)

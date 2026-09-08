@@ -183,12 +183,17 @@ struct PlanDaySection: View {
 
     private var dayPresentationControl: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Picker("Day presentation", selection: $dayPresentation) {
-                ForEach(PlanDayPresentation.allCases) { presentation in
-                    Text(presentation.rawValue).tag(presentation)
-                }
-            }
-            .pickerStyle(.segmented)
+            // Was `.pickerStyle(.segmented)`, the stock grey segmented
+            // control. `OptionRail` is the design system's equivalent and
+            // keeps the semantics: one selection, per-value accessibility
+            // identifiers, and reflow at accessibility text sizes.
+            OptionRail(
+                "Day presentation",
+                selection: $dayPresentation,
+                values: Array(PlanDayPresentation.allCases),
+                identifierPrefix: "planDaySection.dayPresentation",
+                title: { $0.rawValue }
+            )
             .disabled(requiresAgendaPresentation)
             .accessibilityIdentifier("plan.day.presentation")
             if requiresAgendaPresentation {

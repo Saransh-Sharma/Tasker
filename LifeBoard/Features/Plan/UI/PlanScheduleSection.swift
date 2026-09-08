@@ -20,7 +20,7 @@ struct PlanScheduleSection: View {
             if snapshot.freeWindows.isEmpty == false {
                 PlanSectionHeader("Free windows", systemImage: "clock.badge.checkmark")
                 ScrollView(.horizontal) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         ForEach(snapshot.freeWindows) { window in freeWindowButton(window) }
                     }
                 }
@@ -107,7 +107,7 @@ struct PlanScheduleSection: View {
             Text("\(count)")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
-                .padding(.horizontal, 6)
+                .padding(.horizontal, 8)
                 .padding(.vertical, 1)
                 .background(Color(SemanticColorTokens.foundationApricotAccent).opacity(0.14), in: Capsule())
             Spacer(minLength: 0)
@@ -192,7 +192,7 @@ struct PlanScheduleSection: View {
         if snapshot.fitsNextCandidates.isEmpty == false {
             PlanSectionHeader("Fits next", systemImage: "sparkles.rectangle.stack")
             ScrollView(.horizontal) {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     ForEach(snapshot.fitsNextCandidates.prefix(12)) { candidate in
                         Button {
                             Task {

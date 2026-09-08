@@ -163,10 +163,12 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
         try await calendarContext.fetchCommitments(from: from, to: to)
     }
 
+    let sourceRevisions: ProjectionRevisionLedger
     private let container: NSPersistentContainer
 
     public init(container: NSPersistentContainer) {
         self.container = container
+        self.sourceRevisions = ProjectionRevisionLedger.shared(for: container)
     }
 
     public func milestones(projectID: UUID) async throws -> [ProjectMilestone] {
@@ -244,6 +246,18 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
                 task.setValue(value.pinOrder, forKey: "planningPinOrder")
                 task.setValue(value.updatedAt, forKey: "updatedAt")
             }
+        }
+    }
+
+    public func focusTaskTitle(taskID: UUID?) async throws -> String? {
+        guard let taskID else { return nil }
+        return try await container.performBackgroundTask { context in
+            let request = NSFetchRequest<NSDictionary>(entityName: "TaskDefinition")
+            request.resultType = .dictionaryResultType
+            request.propertiesToFetch = ["title"]
+            request.fetchLimit = 1
+            request.predicate = NSPredicate(format: "id == %@", taskID as CVarArg)
+            return try context.fetch(request).first?["title"] as? String
         }
     }
 
@@ -484,6 +498,18 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
             try Self.apply(mutation, in: context)
             receipt.setValue("undone", forKey: "stateRaw")
             receipt.setValue(Date(), forKey: "undoneAt")
+        }
+    }
+
+    public func appliedReceiptSources(in sources: Set<String>) async throws -> Set<String> {
+        guard !sources.isEmpty else { return [] }
+        return try await read { context in
+            let request = NSFetchRequest<NSDictionary>(entityName: "PlanningMutationReceipt")
+            request.resultType = .dictionaryResultType
+            request.propertiesToFetch = ["source"]
+            request.returnsDistinctResults = true
+            request.predicate = NSPredicate(format: "source IN %@ AND stateRaw == %@", Array(sources), "applied")
+            return Set(try context.fetch(request).compactMap { $0["source"] as? String })
         }
     }
 
