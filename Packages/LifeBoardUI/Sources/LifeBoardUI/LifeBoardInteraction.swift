@@ -243,7 +243,6 @@ private struct ScrollEntrance: ViewModifier {
                     .opacity(1 - entering * 0.5 * intensity)
                     .scaleEffect(1 - entering * 0.045 * intensity, anchor: .top)
                     .offset(y: entering * 16 * intensity)
-                    .blur(radius: entering * 2.2 * intensity)
             }
         }
     }

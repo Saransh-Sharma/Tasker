@@ -418,7 +418,17 @@ public final class CalendarIntegrationService: ObservableObject {
                         provider.resetStoreStateAfterPermissionChange()
                     }
                     let statusAfter = self.provider?.authorizationStatus() ?? (granted ? .authorized : .denied)
-                    let outcome: CalendarAccessAttemptOutcome = granted ? .granted : .denied
+                    let outcome: CalendarAccessAttemptOutcome
+                    if granted {
+                        outcome = .granted
+                    } else if statusAfter == .notDetermined {
+                        // EventKit can return `false` without presenting TCC when the
+                        // signed Catalyst product is missing a required entitlement.
+                        // That is a retryable system failure, not a user denial.
+                        outcome = .systemRequestFailed
+                    } else {
+                        outcome = .denied
+                    }
                     self.recordFullAccessAttempt(
                         source: source,
                         statusBefore: statusBefore,

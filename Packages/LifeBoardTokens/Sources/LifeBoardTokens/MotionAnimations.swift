@@ -101,7 +101,13 @@ public enum LifeBoardAnimation {
 
     public static var areProcessAnimationsDisabled: Bool {
         let arguments = ProcessInfo.processInfo.arguments
-        return arguments.contains("-UI_TESTING") || arguments.contains("-DISABLE_ANIMATIONS")
+        return processAnimationsDisabled(arguments: arguments)
+    }
+
+    nonisolated public static func processAnimationsDisabled(arguments: [String]) -> Bool {
+        arguments.contains("-DISABLE_ANIMATIONS")
+            || (arguments.contains("-UI_TESTING")
+                && !arguments.contains("-LIFEBOARD_UI_TEST_ANIMATIONS_ENABLED"))
     }
 
     public static func animationsDisabled(reduceMotion: Bool) -> Bool {
