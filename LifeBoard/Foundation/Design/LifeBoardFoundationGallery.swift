@@ -45,41 +45,28 @@ private struct HomeTodayStoryItem: Identifiable, Equatable {
 final class HomeProjectionCoordinator {
     private(set) var snapshot = AdaptiveHomeProjectionSnapshot()
 
-    @ObservationIgnored private let chromeStore = HomeChromeStore()
-    @ObservationIgnored private let tasksStore = HomeTasksStore()
-    @ObservationIgnored private let habitsStore = HomeHabitsStore()
-    @ObservationIgnored private let calendarStore = HomeCalendarStore()
     @ObservationIgnored private var cancellables: Set<AnyCancellable> = []
-    @ObservationIgnored private var lastTransaction = HomeRenderTransaction.empty
 
     init(homeViewModel: HomeViewModel) {
-        chromeStore.$snapshot
-            .combineLatest(tasksStore.$snapshot, habitsStore.$snapshot, calendarStore.$snapshot)
-            .sink { [weak self] _, _, _, _ in self?.rebuild() }
-            .store(in: &cancellables)
         homeViewModel.$homeRenderTransaction
-            .receive(on: RunLoop.main)
+            .removeDuplicates()
             .sink { [weak self] transaction in self?.apply(transaction) }
             .store(in: &cancellables)
         apply(homeViewModel.homeRenderTransaction)
-        rebuild()
     }
 
     private func apply(_ transaction: HomeRenderTransaction) {
-        guard transaction != lastTransaction else { return }
-        if transaction.chrome != lastTransaction.chrome { chromeStore.apply(transaction.chrome) }
-        if transaction.tasks != lastTransaction.tasks { tasksStore.apply(transaction.tasks) }
-        if transaction.habits != lastTransaction.habits { habitsStore.apply(transaction.habits) }
-        if transaction.calendar != lastTransaction.calendar { calendarStore.apply(transaction.calendar) }
-        lastTransaction = transaction
+        let nextSnapshot = Self.project(transaction)
+        guard nextSnapshot != snapshot else { return }
+        snapshot = nextSnapshot
     }
 
-    private func rebuild() {
-        let chrome = chromeStore.snapshot
-        let tasks = tasksStore.snapshot
-        let habits = habitsStore.snapshot
-        let calendar = calendarStore.snapshot
-        snapshot = AdaptiveHomeProjectionSnapshot(
+    static func project(_ transaction: HomeRenderTransaction) -> AdaptiveHomeProjectionSnapshot {
+        let chrome = transaction.chrome
+        let tasks = transaction.tasks
+        let habits = transaction.habits
+        let calendar = transaction.calendar
+        let nextSnapshot = AdaptiveHomeProjectionSnapshot(
             selectedDate: chrome.selectedDate,
             focusTitles: tasks.focusNowSectionState.rows.prefix(3).map(\.title),
             overdueCount: tasks.overdueTasks.lazy.filter { !$0.isComplete }.count,
@@ -96,6 +83,7 @@ final class HomeProjectionCoordinator {
             freeUntil: calendar.freeUntil,
             calendarNeedsSetup: calendar.moduleState == .permissionRequired || calendar.moduleState == .noCalendarsSelected
         )
+        return nextSnapshot
     }
 }
 
@@ -322,6 +310,15 @@ final class AdaptiveHomeStore {
         contextEngine.setFrozen(frozen, reason: reason)
     }
 
+    func applyPendingContext(now: Date = Date()) {
+        refreshContext(candidates: contextCandidates,
+            permitsSensitiveHomeContent: permitsSensitiveContext, now: now)
+    }
+
+    func canReevaluateContext(now: Date = Date(), force: Bool = false) -> Bool {
+        contextEngine.canReevaluate(now: now, force: force)
+    }
+
     func hideContextForToday(_ candidate: HomeContextCandidate, now: Date = Date()) {
         contextPreferences.hideForToday(candidate.id, now: now)
         refreshContext(
@@ -540,7 +537,7 @@ struct JournalMoodDialSheet: View {
             .frame(minWidth: 56, minHeight: 44)
         }
         .padding(.horizontal, 18)
-        .padding(.top, 10)
+        .padding(.top, 12)
     }
 
     private func moodStage(palette: DaypartPalette) -> some View {
@@ -735,7 +732,7 @@ struct OverlayHost<Overlay: View, Control: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             if isPresented { overlay().transition(.move(edge: .bottom).combined(with: .opacity)) }
             control()
         }
@@ -765,6 +762,188 @@ private struct HomeTaskAgendaDatePicker: View {
     }
 }
 
+/// Coalesces Home invalidations into one cancellation-aware generation.
+/// The coordinator intentionally owns no view data: expensive provider work
+/// happens in the supplied operation and only the current generation may
+/// publish its result.
+enum HomeRefreshUrgency: Sendable { case automatic, immediate }
+typealias HomeRefreshReason = HomeContextRefreshBoundary
+
+struct HomeRefreshRequest {
+    var now: Date
+    var boundary: HomeRefreshReason
+    var reasons: Set<HomeRefreshReason>
+    var urgency: HomeRefreshUrgency
+}
+
+@MainActor
+final class AdaptiveHomeRefreshCoordinator {
+    typealias Request = HomeRefreshRequest
+    private var task: Task<Void, Never>?
+    private var generation = 0
+    private var isDebouncing = false
+    private let debounce: @MainActor () async throws -> Void
+
+    init(debounce: @escaping @MainActor () async throws -> Void = {
+        try await Task.sleep(for: .milliseconds(100))
+    }) { self.debounce = debounce }
+    private var pending: Request?
+    private var activeRequest: Request?
+    private var deferred = false
+    private var waiters: [UUID: CheckedContinuation<Void, Never>] = [:]
+    private(set) var requestCount = 0
+    private(set) var executedCount = 0
+    private(set) var completedCount = 0
+
+    func request(now: Date, boundary: HomeRefreshReason, immediate: Bool, deferred: Bool,
+                 operation: @escaping @MainActor (Request, Int) async -> Void) {
+        requestCount += 1
+        generation += 1
+        var reasons = pending?.reasons ?? []
+        reasons.insert(boundary)
+        pending = Request(now: now, boundary: boundary, reasons: reasons,
+            urgency: immediate || pending?.urgency == .immediate ? .immediate : .automatic)
+        self.deferred = deferred && !immediate
+        PerformanceTrace.event("HomeRefreshRequested", value: requestCount)
+        if immediate, isDebouncing {
+            task?.cancel()
+            task = nil
+            isDebouncing = false
+        }
+        startIfNeeded(operation: operation)
+    }
+
+    func resume(operation: @escaping @MainActor (Request, Int) async -> Void) {
+        deferred = false
+        startIfNeeded(operation: operation)
+    }
+
+    func isCurrent(_ candidate: Int) -> Bool { candidate == generation && !Task.isCancelled }
+
+    func cancel() {
+        // Cancelling presentation must not forget a read already removed from
+        // the pending slot. Reactivation needs to retry its dirty domains.
+        if let activeRequest {
+            if let queued = pending {
+                pending = Request(now: queued.now, boundary: queued.boundary,
+                    reasons: queued.reasons.union(activeRequest.reasons),
+                    urgency: queued.urgency == .immediate || activeRequest.urgency == .immediate
+                        ? .immediate : .automatic)
+            } else {
+                pending = activeRequest
+            }
+        }
+        activeRequest = nil
+        generation += 1
+        task?.cancel()
+        task = nil
+        isDebouncing = false
+        deferred = true
+        finishWaiters()
+    }
+
+    func waitUntilSettled() async {
+        guard task != nil || pending != nil, !Task.isCancelled else { return }
+        let id = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if Task.isCancelled || (task == nil && pending == nil) { continuation.resume() }
+                else { waiters[id] = continuation }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.waiters.removeValue(forKey: id)?.resume() }
+        }
+    }
+
+    private func finishWaiters() {
+        let values = waiters.values
+        waiters.removeAll()
+        values.forEach { $0.resume() }
+    }
+
+    private func startIfNeeded(operation: @escaping @MainActor (Request, Int) async -> Void) {
+        guard task == nil, pending != nil, !deferred else { return }
+        task = Task { [weak self] in
+            guard let self else { return }
+            if pending?.urgency == .automatic {
+                isDebouncing = true
+                do { try await debounce(); try Task.checkCancellation() } catch { return }
+                isDebouncing = false
+            }
+            while let request = pending, !deferred, !Task.isCancelled {
+                pending = nil
+                activeRequest = request
+                let current = generation
+                executedCount += 1
+                PerformanceTrace.event("HomeRefreshExecuted", value: executedCount)
+                await operation(request, current)
+                guard !Task.isCancelled else { return }
+                activeRequest = nil
+                if isCurrent(current) {
+                    completedCount += 1
+                    PerformanceTrace.event("HomeRefreshCompleted", value: completedCount)
+                }
+            }
+            task = nil
+            if pending == nil { finishWaiters() }
+        }
+    }
+}
+
+struct HomeDashboardRenderPlan: Equatable {
+    var budget: HomeSectionBudget
+    var visible: [DashboardWidgetPlacementValue]
+    var today: [DashboardWidgetPlacementValue]
+    var keepSteady: [DashboardWidgetPlacementValue]
+    var closeLoop: [DashboardWidgetPlacementValue]
+    var supporting: [DashboardWidgetPlacementValue]
+    var resolvedKinds: [UUID: DashboardWidgetKind]
+    var effectivePresets: [UUID: WidgetSizePreset]
+    var effectiveRoles: [UUID: HomeSectionRole]
+}
+
+extension HomeDashboardRenderPlan {
+    static let empty = HomeDashboardRenderPlan(budget: .init(), visible: [], today: [], keepSteady: [],
+        closeLoop: [], supporting: [], resolvedKinds: [:], effectivePresets: [:], effectiveRoles: [:])
+}
+
+struct HomeDashboardRenderPlanSignature: Equatable {
+    let placements: [DashboardWidgetPlacementValue]
+    let mode: DashboardMode
+    let density: DashboardDensity
+    let daypart: ResolvedDaypart
+    let calendarDay: Date
+    let isRegular: Bool
+    let usesAccessibilityLayout: Bool
+    let loopSpineEnabled: Bool
+    let contextCandidates: [String]
+    var candidateInputs: [HomeContextCandidate] = []
+    var dynamicType: String = ""
+    var locale: String = ""
+    var timeZone: String = ""
+    var permitsSensitive = false
+}
+
+@MainActor
+final class HomeDashboardRenderPlanCache {
+    private var signature: HomeDashboardRenderPlanSignature?
+    private var plan: HomeDashboardRenderPlan?
+    private(set) var buildCount = 0
+
+    func resolve(
+        signature: HomeDashboardRenderPlanSignature,
+        build: () -> HomeDashboardRenderPlan
+    ) -> HomeDashboardRenderPlan {
+        if self.signature == signature, let plan { return plan }
+        let next = build()
+        self.signature = signature
+        plan = next
+        buildCount &+= 1
+        PerformanceTrace.event("HomeDashboardRenderPlanBuilt", value: buildCount)
+        return next
+    }
+}
+
 struct AdaptiveHome: View {
     let projectionAdapter: HomeProjectionCoordinator
     let preferences: PresentationPreferences
@@ -789,6 +968,7 @@ struct AdaptiveHome: View {
     @State private var healthStore = HealthCoordinator.shared.connectionStore
     @State private var selectedMood: JournalMood = .none
     @State private var moodEnergy: Int?
+    @State private var moodSaveError: String?
     @State private var showsMoodDial = false
     @State private var captureOrbState = CaptureOrbPresentationState()
     @State private var contextReasonCandidate: HomeContextCandidate?
@@ -796,6 +976,10 @@ struct AdaptiveHome: View {
     @State private var showsFastingError = false
     @State private var showsFastEndReceipt = false
     @State private var fastingStateChangeTrigger = 0
+    @State private var refreshCoordinator = AdaptiveHomeRefreshCoordinator()
+    @State private var renderPlanCache = HomeDashboardRenderPlanCache()
+    @State private var presentedRenderPlan = HomeDashboardRenderPlan.empty
+    @State private var isScrolling = false
     /// Drives the one-shot daypart cross-dissolve. Incremented on a real
     /// daypart boundary or a manual override, never on a redraw.
     @State private var daypartTransitionTrigger = 0
@@ -827,6 +1011,7 @@ struct AdaptiveHome: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.lifeBoardAtmosphereSnapshot) private var atmosphereSnapshot
     @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
+    @Environment(\.lifeBoardRootActivity) private var rootActivity
 
     init(
         projectionAdapter: HomeProjectionCoordinator,
@@ -894,6 +1079,7 @@ struct AdaptiveHome: View {
         let ambientPalette = daypart == .night && horizontalSizeClass == .regular
             ? DaypartTokens.palette(for: daypart)
             : palette
+        let renderPlan = presentedRenderPlan
 
         ZStack(alignment: .bottom) {
             if atmosphereIsHosted == false {
@@ -912,7 +1098,7 @@ struct AdaptiveHome: View {
             }
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                LazyVStack(alignment: .leading, spacing: 20) {
                     if let errorMessage = store.errorMessage {
                         StatusSurface(
                             state: .stale,
@@ -923,9 +1109,7 @@ struct AdaptiveHome: View {
                         )
                     }
 
-                    let budget = modePolicy
-                        .sectionBudget(for: router.dashboardMode)
-                        .applying(dashboardDensity)
+                    let budget = renderPlan.budget
 
                     if V2FeatureFlags.homeLoopSpineV1Enabled {
                         loopSpine(palette: palette, ambientPalette: ambientPalette, budget: budget)
@@ -971,7 +1155,8 @@ struct AdaptiveHome: View {
                     if budget.showsToday {
                         placementSection(
                             "Today",
-                            placements: todayPlacements,
+                            placements: renderPlan.today,
+                            renderPlan: renderPlan,
                             daypart: daypart,
                             palette: palette,
                             ambientPalette: ambientPalette
@@ -998,7 +1183,8 @@ struct AdaptiveHome: View {
 
                     placementSection(
                         "Keep steady",
-                        placements: keepSteadyPlacements,
+                        placements: renderPlan.keepSteady,
+                        renderPlan: renderPlan,
                         daypart: daypart,
                         palette: palette,
                         ambientPalette: ambientPalette
@@ -1024,7 +1210,8 @@ struct AdaptiveHome: View {
                     if budget.showsCloseLoop, V2FeatureFlags.homeLoopSpineV1Enabled == false {
                         placementSection(
                             "Close the loop",
-                            placements: closeLoopPlacements,
+                            placements: renderPlan.closeLoop,
+                            renderPlan: renderPlan,
                             daypart: daypart,
                             palette: palette,
                             ambientPalette: ambientPalette
@@ -1033,6 +1220,8 @@ struct AdaptiveHome: View {
 
                     if budget.showsUserSpace {
                         userSpaceSection(
+                            placements: renderPlan.supporting,
+                            renderPlan: renderPlan,
                             daypart: daypart,
                             palette: palette,
                             ambientPalette: ambientPalette
@@ -1052,7 +1241,7 @@ struct AdaptiveHome: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 10)
+                .padding(.top, 12)
                 // Clears the floating composer + dock chrome. The shell's
                 // atmosphere background ignores the safe area, so this root
                 // pads explicitly rather than relying on inset propagation.
@@ -1063,9 +1252,14 @@ struct AdaptiveHome: View {
             }
             .scrollIndicators(.hidden)
             .onScrollPhaseChange { _, phase in
-                store.setContextFrozen(phase != .idle, reason: "home-scroll")
+                isScrolling = phase != .idle
+                store.setContextFrozen(isScrolling, reason: "home-scroll")
+                if isScrolling == false, contextRefreshIsDeferred == false {
+                    store.applyPendingContext()
+                }
             }
             .lifeBoardReportsComposerScroll()
+            .accessibilityIdentifier("foundation.home.scroll")
 
         }
         // The screen changing time of day should feel like weather moving
@@ -1100,48 +1294,80 @@ struct AdaptiveHome: View {
         } message: {
             Text(lifeOSStore.fastingMutationError ?? "The timer could not be updated.")
         }
-        .task {
+        .alert("Mood check-in needs attention", isPresented: Binding(
+            get: { moodSaveError != nil }, set: { if !$0 { moodSaveError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(moodSaveError ?? "The check-in could not be updated.")
+        }
+        .onChange(of: dashboardRenderPlanInput, initial: true) { _, _ in
+            presentedRenderPlan = dashboardRenderPlan(daypart: daypart)
+        }
+        .task(id: rootActivity) {
+            guard rootActivity.performsContinuousWork else {
+                refreshCoordinator.cancel()
+                lifeOSStore.setContinuousUpdatesEnabled(false)
+                return
+            }
+            lifeOSStore.setContinuousUpdatesEnabled(false)
             await store.load()
-            await lifeOSStore.load()
+            refreshContextSelection(boundary: .appForeground, immediate: true)
+            await refreshCoordinator.waitUntilSettled()
             await refreshDayLoopStage()
             if let latest = await lifeOSStore.latestMoodCheckInToday() {
                 selectedMood = latest.mood
                 moodEnergy = latest.energy
             }
-            refreshContextSelection(boundary: .appForeground)
         }
-        .task {
+        .task(id: rootActivity) {
+            guard rootActivity.performsContinuousWork else {
+                lifeOSStore.stopCommittedProjectionWork()
+                return
+            }
+            await lifeOSStore.observeCommittedHydrationChanges()
+        }
+        .task(id: rootActivity) {
+            guard rootActivity.performsContinuousWork else { return }
             let updates = await HealthSyncInvalidationService.shared.updates()
             for await _ in updates {
                 guard Task.isCancelled == false else { return }
-                await lifeOSStore.load()
                 refreshContextSelection(boundary: .trackerCommit)
             }
         }
-        .onChange(of: lifeOSStore.heroSnapshot?.id) { _, _ in refreshContextSelection(boundary: .taskMutation) }
+        .task(id: rootActivity) {
+            guard rootActivity.performsContinuousWork else { return }
+            for await event in await JournalProjectionInvalidationService.shared.updates() {
+                guard !Task.isCancelled else { return }
+                if case .projectionsInvalidated = event { refreshContextSelection(boundary: .trackerCommit) }
+            }
+        }
+        .refreshable {
+            refreshContextSelection(immediate: true)
+            await refreshCoordinator.waitUntilSettled()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .foundationDomainMaintenanceCommitted)) { _ in
+            guard rootActivity.performsContinuousWork else { return }
+            refreshContextSelection(boundary: .timerChange, immediate: true)
+        }
+        .onChange(of: lifeOSStore.mutationRevision) { _, _ in
+            refreshContextSelection(boundary: .trackerCommit, immediate: true)
+        }
         .onChange(of: projectionAdapter.snapshot) { _, _ in refreshContextSelection(boundary: .taskMutation) }
-        .onChange(of: permitsSensitiveHomeContent) { _, _ in refreshContextSelection() }
+        .onChange(of: permitsSensitiveHomeContent) { _, _ in
+            lifeOSStore.invalidateCardPrivacy()
+            refreshContextSelection(immediate: true)
+        }
         .onChange(of: daypart) { _, _ in
             refreshContextSelection(boundary: .daypartBoundary)
             daypartTransitionTrigger &+= 1
         }
         .onChange(of: voiceOverEnabled, initial: true) { _, enabled in
-            store.setContextFrozen(enabled, reason: "voiceover-focus")
-        }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            refreshContextSelection(boundary: .appForeground)
-            Task {
-                await lifeOSStore.load()
-                await refreshDayLoopStage()
+            // VoiceOver keeps stable card identities; it must not freeze live values.
+            store.setContextFrozen(false, reason: "voiceover-focus")
+            if enabled == false, contextRefreshIsDeferred == false {
+                refreshCoordinator.resume(operation: performContextRefresh)
             }
-        }
-        // A meal can be logged in Track while Home remains mounted. Refresh
-        // when the user returns so the fasting clock anchors to that meal
-        // immediately instead of waiting for a foreground transition.
-        .onChange(of: router.selectedDestination) { _, destination in
-            guard destination == .home else { return }
-            Task { await lifeOSStore.load() }
         }
         // Returning from the ritual pops back to Home without a scene-phase
         // change, so without this the row would keep offering a day that was
@@ -1151,6 +1377,9 @@ struct AdaptiveHome: View {
         }
         .onChange(of: store.isCustomizing, initial: true) { _, isCustomizing in
             onCustomizationChanged(isCustomizing)
+            if isCustomizing == false, contextRefreshIsDeferred == false {
+                store.applyPendingContext()
+            }
         }
         .onDisappear {
             onCustomizationChanged(false)
@@ -1162,8 +1391,9 @@ struct AdaptiveHome: View {
             JournalMoodDialSheet(selectedMood: $selectedMood) { energy in
                 moodEnergy = energy
                 Task {
-                    await lifeOSStore.saveMood(selectedMood, energy: energy)
-                    refreshContextSelection(boundary: .trackerCommit)
+                    if case .failed(let message) = await lifeOSStore.saveMood(selectedMood, energy: energy) {
+                        moodSaveError = message
+                    }
                 }
             }
         }
@@ -1177,32 +1407,55 @@ struct AdaptiveHome: View {
                 .presentationDetents([.height(300), .medium])
                 .presentationDragIndicator(.visible)
         }
-        .animation(motionAnimation, value: router.dashboardMode)
-        .animation(motionAnimation, value: daypart)
-        .animation(motionAnimation, value: store.contextSelection)
     }
 
     private func refreshContextSelection(
         now: Date = Date(),
-        boundary: HomeContextRefreshBoundary = .explicitRefresh
+        boundary: HomeContextRefreshBoundary = .explicitRefresh,
+        immediate: Bool = false
     ) {
-        let local = homeContextCandidates(now: now)
+        refreshCoordinator.request(
+            now: now,
+            boundary: boundary,
+            immediate: immediate,
+            deferred: contextRefreshIsDeferred,
+            operation: performContextRefresh
+        )
+    }
+
+    private var contextRefreshIsDeferred: Bool {
+        rootActivity.performsContinuousWork == false
+    }
+
+    @MainActor
+    private func performContextRefresh(
+        _ request: AdaptiveHomeRefreshCoordinator.Request,
+        generation: Int
+    ) async {
+        await lifeOSStore.load(isCurrent: { refreshCoordinator.isCurrent(generation) })
+        guard refreshCoordinator.isCurrent(generation) else { return }
         let permitsSensitive = permitsSensitiveHomeContent
         let mode = router.dashboardMode
-        Task {
+        // Always retain the newest candidate inputs. The context service owns
+        // automatic structural deferral; idle applies these without another read.
+        do {
+            let local = homeContextCandidates(now: request.now)
             let domainCandidates = await contextProviderRegistry.candidates(
-                context: .init(date: now, refreshBoundary: boundary)
+                context: .init(date: request.now, refreshBoundary: request.boundary)
             )
+            guard refreshCoordinator.isCurrent(generation) else { return }
             let candidates = mode == .lowEnergy
-                ? lowEnergyCandidates(from: local + domainCandidates, now: now)
+                ? lowEnergyCandidates(from: local + domainCandidates, now: request.now)
                 : local + domainCandidates
             store.refreshContext(
                 candidates: candidates,
                 permitsSensitiveHomeContent: permitsSensitive,
-                now: now
+                now: request.now,
+                force: request.urgency == .immediate
             )
-            await refreshCardSnapshots(now: now)
         }
+        guard refreshCoordinator.isCurrent(generation) else { return }
+        await refreshCardSnapshots(now: request.now, generation: generation)
     }
 
     private func lowEnergyCandidates(
@@ -1251,13 +1504,16 @@ struct AdaptiveHome: View {
     /// Resolves provider snapshots for every currently visible placement at
     /// its effective size, so glance/compact bodies read domain providers
     /// instead of canonical stores.
-    private func refreshCardSnapshots(now: Date = Date()) async {
+    private func refreshCardSnapshots(now: Date = Date(), generation: Int? = nil) async {
         let daypart = atmosphereSnapshot.semanticDaypart
+        let renderPlan = dashboardRenderPlan(daypart: daypart, now: now)
         var seen = Set<String>()
         var requests: [(kind: DashboardWidgetKind, size: HomeCardSize)] = []
-        for placement in visiblePlacements {
-            let kind = resolvedWidgetKind(for: placement, daypart: daypart)
-            let size = effectivePreset(for: placement.semanticSize)
+        for placement in renderPlan.visible {
+            let kind = renderPlan.resolvedKinds[placement.id]
+                ?? resolvedWidgetKind(for: placement, daypart: daypart, now: now)
+            let size = renderPlan.effectivePresets[placement.id]
+                ?? effectivePreset(for: placement.semanticSize)
             let key = HomeLifeOSProjectionStore.cardSnapshotKey(kind, size)
             guard seen.insert(key).inserted else { continue }
             requests.append((kind, size))
@@ -1265,7 +1521,8 @@ struct AdaptiveHome: View {
         await lifeOSStore.refreshCardSnapshots(
             requests: requests,
             permitsSensitive: permitsSensitiveHomeContent,
-            at: now
+            at: now,
+            isCurrent: { generation.map(refreshCoordinator.isCurrent) ?? true }
         )
     }
 
@@ -1387,8 +1644,7 @@ struct AdaptiveHome: View {
         store.registry.descriptor(for: DashboardWidgetKind(rawValue: placement.widgetKind))
     }
 
-    private var visiblePlacements: [DashboardWidgetPlacementValue] {
-        let mode = router.dashboardMode
+    private func visiblePlacements(for mode: DashboardMode) -> [DashboardWidgetPlacementValue] {
         return store.activeLayout.placements
             .filter { placement in
                 guard placement.isVisible, let descriptor = descriptor(for: placement) else { return false }
@@ -1408,10 +1664,6 @@ struct AdaptiveHome: View {
             .sorted { $0.ordinal < $1.ordinal }
     }
 
-    private func placements(in role: HomeSectionRole) -> [DashboardWidgetPlacementValue] {
-        visiblePlacements.filter { effectiveSectionRole(for: $0) == role }
-    }
-
     private func effectiveSectionRole(for placement: DashboardWidgetPlacementValue) -> HomeSectionRole {
         let resolved = placement.sectionOverride ?? descriptor(for: placement)?.sectionRole ?? .userSpace
         // Under the spine, "Close the loop" is no longer a rendered section —
@@ -1426,29 +1678,83 @@ struct AdaptiveHome: View {
         return .userSpace
     }
 
-    private var todayPlacements: [DashboardWidgetPlacementValue] {
-        placements(in: .today)
-    }
-
-    private var keepSteadyPlacements: [DashboardWidgetPlacementValue] {
-        placements(in: .keepSteady)
-    }
-
-    private var closeLoopPlacements: [DashboardWidgetPlacementValue] {
-        placements(in: .closeLoop)
-    }
-
-    private var supportingPlacements: [DashboardWidgetPlacementValue] {
-        let claimed = Set(
-            (todayPlacements + keepSteadyPlacements + closeLoopPlacements).map(\.id)
+    private var dashboardRenderPlanInput: HomeDashboardRenderPlanSignature {
+        return HomeDashboardRenderPlanSignature(
+            placements: store.activeLayout.placements,
+            mode: router.dashboardMode,
+            density: dashboardDensity,
+            daypart: atmosphereSnapshot.semanticDaypart,
+            calendarDay: Calendar.current.startOfDay(for: Date()),
+            isRegular: horizontalSizeClass == .regular,
+            usesAccessibilityLayout: dynamicTypeSize.isAccessibilitySize,
+            loopSpineEnabled: V2FeatureFlags.homeLoopSpineV1Enabled,
+            contextCandidates: [],
+            candidateInputs: store.contextSelection.candidates,
+            dynamicType: String(describing: dynamicTypeSize),
+            locale: Locale.current.identifier,
+            timeZone: TimeZone.current.identifier,
+            permitsSensitive: permitsSensitiveHomeContent
         )
-        return visiblePlacements.filter { claimed.contains($0.id) == false }
+    }
+
+    private func dashboardRenderPlan(
+        daypart: ResolvedDaypart,
+        now: Date = Date()
+    ) -> HomeDashboardRenderPlan {
+        let mode = router.dashboardMode
+        let signature = dashboardRenderPlanInput
+        return renderPlanCache.resolve(signature: signature) {
+            buildDashboardRenderPlan(mode: mode, daypart: daypart, now: now)
+        }
+    }
+
+    private func buildDashboardRenderPlan(
+        mode: DashboardMode,
+        daypart: ResolvedDaypart,
+        now: Date
+    ) -> HomeDashboardRenderPlan {
+        let visible = visiblePlacements(for: mode)
+        var today: [DashboardWidgetPlacementValue] = []
+        var keepSteady: [DashboardWidgetPlacementValue] = []
+        var closeLoop: [DashboardWidgetPlacementValue] = []
+        var supporting: [DashboardWidgetPlacementValue] = []
+        var resolvedKinds: [UUID: DashboardWidgetKind] = [:]
+        var effectivePresets: [UUID: WidgetSizePreset] = [:]
+        var effectiveRoles: [UUID: HomeSectionRole] = [:]
+        for placement in visible {
+            let role = effectiveSectionRole(for: placement)
+            effectiveRoles[placement.id] = role
+            resolvedKinds[placement.id] = resolvedWidgetKind(
+                for: placement,
+                daypart: daypart,
+                now: now
+            )
+            effectivePresets[placement.id] = effectivePreset(for: placement.semanticSize)
+            switch role {
+            case .today: today.append(placement)
+            case .keepSteady: keepSteady.append(placement)
+            case .closeLoop: closeLoop.append(placement)
+            default: supporting.append(placement)
+            }
+        }
+        return HomeDashboardRenderPlan(
+            budget: modePolicy.sectionBudget(for: mode).applying(dashboardDensity),
+            visible: visible,
+            today: today,
+            keepSteady: keepSteady,
+            closeLoop: closeLoop,
+            supporting: supporting,
+            resolvedKinds: resolvedKinds,
+            effectivePresets: effectivePresets,
+            effectiveRoles: effectiveRoles
+        )
     }
 
     @ViewBuilder
     private func placementSection(
         _ title: String,
         placements: [DashboardWidgetPlacementValue],
+        renderPlan: HomeDashboardRenderPlan,
         daypart: ResolvedDaypart,
         palette: DaypartPalette,
         ambientPalette: DaypartPalette
@@ -1460,8 +1766,13 @@ struct AdaptiveHome: View {
                 usesSingleColumn: dynamicTypeSize.isAccessibilitySize
             ) {
                 ForEach(placements) { placement in
-                    dashboardWidget(for: placement, daypart: daypart, palette: palette)
-                        .dashboardPreset(effectivePreset(for: placement.semanticSize))
+                    let kind = renderPlan.resolvedKinds[placement.id]
+                        ?? resolvedWidgetKind(for: placement, daypart: daypart)
+                    let preset = renderPlan.effectivePresets[placement.id]
+                        ?? effectivePreset(for: placement.semanticSize)
+                    dashboardWidget(for: placement, kind: kind, preset: preset, daypart: daypart, palette: palette)
+                        .dashboardPreset(preset)
+                            .layoutValue(key: DashboardLayoutRevisionKey.self, value: layoutRevision(for: placement, kind: kind, preset: preset))
                         .accessibilityValue(placement.ownership.accessibilityDescription)
                         .lifeBoardScrollEntrance(
                             intensity: scrollEntranceIntensity(for: placement, daypart: daypart)
@@ -1478,6 +1789,8 @@ struct AdaptiveHome: View {
 
     @ViewBuilder
     private func userSpaceSection(
+        placements: [DashboardWidgetPlacementValue],
+        renderPlan: HomeDashboardRenderPlan,
         daypart: ResolvedDaypart,
         palette: DaypartPalette,
         ambientPalette: DaypartPalette
@@ -1531,7 +1844,7 @@ struct AdaptiveHome: View {
                 }
             }
 
-            if supportingPlacements.isEmpty, store.isCustomizing == false {
+            if placements.isEmpty, store.isCustomizing == false {
                 // Empty is a success state here, so this says what the space is
                 // for and points at the one control that fills it.
                 Text("Room for the widgets you choose.")
@@ -1544,9 +1857,14 @@ struct AdaptiveHome: View {
                     isRegular: horizontalSizeClass == .regular,
                     usesSingleColumn: dynamicTypeSize.isAccessibilitySize
                 ) {
-                    ForEach(supportingPlacements) { placement in
-                        dashboardWidget(for: placement, daypart: daypart, palette: palette)
-                            .dashboardPreset(effectivePreset(for: placement.semanticSize))
+                    ForEach(placements) { placement in
+                        let kind = renderPlan.resolvedKinds[placement.id]
+                            ?? resolvedWidgetKind(for: placement, daypart: daypart)
+                        let preset = renderPlan.effectivePresets[placement.id]
+                            ?? effectivePreset(for: placement.semanticSize)
+                        dashboardWidget(for: placement, kind: kind, preset: preset, daypart: daypart, palette: palette)
+                            .dashboardPreset(preset)
+                            .layoutValue(key: DashboardLayoutRevisionKey.self, value: layoutRevision(for: placement, kind: kind, preset: preset))
                             .accessibilityValue(placement.ownership.accessibilityDescription)
                             .lifeBoardScrollEntrance(
                                 intensity: scrollEntranceIntensity(for: placement, daypart: daypart)
@@ -1555,6 +1873,14 @@ struct AdaptiveHome: View {
                 }
             }
         }
+    }
+
+    private func layoutRevision(for placement: DashboardWidgetPlacementValue, kind: DashboardWidgetKind,
+                                preset: WidgetSizePreset) -> DashboardLayoutRevision {
+        var content = lifeOSStore.cardSnapshot(kind: kind, size: preset)
+        content?.updatedAt = .distantPast
+        return DashboardLayoutRevision(id: placement.id, expanded: expandedTaskWidgetIDs.contains(placement.id),
+            content: content, dynamicType: String(describing: dynamicTypeSize), locale: Locale.current.identifier)
     }
 
     private var motionAnimation: Animation? {
@@ -1583,13 +1909,15 @@ struct AdaptiveHome: View {
     /// then runs in its own stack frame instead of being inlined here.
     private func dashboardWidget(
         for placement: DashboardWidgetPlacementValue,
+        kind: DashboardWidgetKind,
+        preset: WidgetSizePreset,
         daypart: ResolvedDaypart,
         palette: DaypartPalette
     ) -> HomeDashboardWidget {
         HomeDashboardWidget(
             placement: placement,
-            kind: resolvedWidgetKind(for: placement, daypart: daypart),
-            preset: effectivePreset(for: placement.semanticSize),
+            kind: kind,
+            preset: preset,
             daypart: daypart,
             palette: palette,
             store: store,
@@ -1832,12 +2160,13 @@ struct AdaptiveHome: View {
 
     private func resolvedWidgetKind(
         for placement: DashboardWidgetPlacementValue,
-        daypart: ResolvedDaypart
+        daypart: ResolvedDaypart,
+        now: Date = Date()
     ) -> DashboardWidgetKind {
         let fallback = DashboardWidgetKind(rawValue: placement.widgetKind)
         guard placement.ownership == .smart,
               let slot = placement.smartSlot,
-              smartSlotIsEligible(slot, daypart: daypart) else { return fallback }
+              smartSlotIsEligible(slot, daypart: daypart, now: now) else { return fallback }
         if let frozen = slot.frozenWidgetKind {
             return DashboardWidgetKind(rawValue: frozen)
         }
@@ -2188,7 +2517,7 @@ struct HomeEmptyStateRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: symbol).foregroundStyle(palette.color(for: .foregroundSecondary))
             Text(text).font(.subheadline).foregroundStyle(palette.color(for: .foregroundSecondary))
             Spacer(minLength: 0)
@@ -2233,7 +2562,7 @@ private struct HomeCaptureTile: View {
             captureRouter.request(kind: kind, source: .shell)
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         } label: {
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Image(systemName: symbol).lifeboardFont(.title2)
                 Text(title).font(.caption.weight(.medium)).lineLimit(1)
             }
@@ -2255,7 +2584,7 @@ private struct HomeNeedsAttentionSection: View {
 
     var body: some View {
         let candidates = Array(store.contextSelection.candidates.dropFirst().prefix(3))
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HomeSectionHeading(
                 "Needs attention",
                 state: "\(candidates.count)",
@@ -2305,7 +2634,7 @@ private struct HomeContextCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
                 Image(systemName: HomeSectionCopy.symbol(for: candidate.widgetKind, store: store))
                     .lifeboardFont(.title2)
                     .frame(width: 34, height: 34)
@@ -2543,7 +2872,7 @@ private struct HomeLifeThreadComposer: View {
     var composerIsFocused: FocusState<Bool>.Binding
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Menu {
                 Button("Task", systemImage: "checkmark.circle") {
                     captureRouter.request(kind: .task, source: .shell)
@@ -2872,6 +3201,8 @@ private struct HomeSignalRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("\(slot.title), \(slot.valueText ?? HomeSectionCopy.accessibilityAvailability(slot.availability))")
+            .accessibilityHint(slot.id == "hydration" && healthStore.aggregates[.water] == nil
+                ? lifeOSStore.hydrationRefreshError ?? "" : "")
             .accessibilityIdentifier("home.signal.\(slot.id)")
         }
     }
@@ -2883,10 +3214,12 @@ private struct HomeSignalRow: View {
         let hydrationProgress = hydrationAmount.flatMap { amount in
             hydrationTarget.flatMap { $0 > 0 ? min(1, amount / $0) : nil }
         }
-        let hydrationAvailability: HomeSignalState = if lifeOSStore.isLoading {
+        let hydrationAvailability: HomeSignalState = if lifeOSStore.isLoading && hydrationAmount == nil && lifeOSStore.trackSnapshot == nil {
             .loading
         } else if hasTrackFoundationRepository == false {
             .unavailable
+        } else if lifeOSStore.hydrationRefreshError != nil && healthStore.aggregates[.water] == nil {
+            hydrationAmount == nil ? .unavailable : .stale
         } else if hydrationAmount == nil {
             .setupRequired
         } else {
@@ -2951,7 +3284,7 @@ private struct HomeFastingSignal: View {
     @Binding var fastingStateChangeTrigger: Int
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        ActiveVisibleTimeline(every: 1) { context in
             let activeFast = lifeOSStore.activeFast
             let mealAnchor = HomeFastingAnchorPolicy.recentMealAnchor(
                 latestMealAt: lifeOSStore.recentMealAt,
@@ -3119,7 +3452,7 @@ private struct HomeFastingEndReceipt: View {
             .frame(minWidth: 44, minHeight: 44)
         }
         .padding(.leading, 14)
-        .padding(.trailing, 10)
+        .padding(.trailing, 12)
         .padding(.vertical, 8)
         .lifeBoardClaySurface(.raised, cornerRadius: 16)
         .accessibilityElement(children: .contain)
@@ -3496,7 +3829,7 @@ private struct HomeGlanceWidget: View {
             }
             .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
             .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -3555,7 +3888,7 @@ private struct HomeFocusNowWidget: View {
             .accessibilityHint(hero?.secondaryActionTitles.first.map { "More actions include \($0)." } ?? "")
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .frame(minHeight: expanded ? 104 : 80)
         .lifeBoardFloatingClayCard(palette: palette)
         .accessibilityElement(children: .contain)
@@ -3590,7 +3923,7 @@ private struct HomeLifeSnapshotWidget: View {
         VStack(alignment: .leading, spacing: 15) {
             HomeWidgetTitle("How life feels", symbol: "heart.text.square", palette: palette)
                 .accessibilityIdentifier("home.widget.lifeSnapshot")
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 HomeSnapshotMetric(
                     id: "mood",
                     symbol: "face.smiling",
@@ -3640,7 +3973,7 @@ private struct HomeCareWidget: View {
                     Button {
                         router.navigate(.careLibrary, in: .track)
                     } label: {
-                        HStack(spacing: 10) {
+                        HStack(spacing: 12) {
                             Image(systemName: "pills")
                                 .foregroundStyle(palette.color(for: .foregroundSecondary))
                             Text("Medication decision")
@@ -3679,7 +4012,6 @@ private struct HomeTasksWidget: View {
     @Binding var expandedTaskWidgetIDs: Set<UUID>
 
     var body: some View {
-        let snapshot = lifeOSStore.planSnapshot
         let tasks = lifeOSStore.taskAgenda.tasks
         let collapsedLimit = router.dashboardMode == .lowEnergy ? 2 : 4
         let isExpanded = expandedTaskWidgetIDs.contains(placementID)
@@ -3689,13 +4021,24 @@ private struct HomeTasksWidget: View {
             header(isExpanded: isExpanded)
             if hasPlanningRepository == false {
                 HomeEmptyStateRow("Tasks are unavailable right now", symbol: "exclamationmark.triangle", palette: palette)
-            } else if lifeOSStore.isLoading, snapshot == nil {
+            } else if lifeOSStore.isLoading, !lifeOSStore.hasLoadedCore {
                 HomeEmptyStateRow("Loading tasks", symbol: "hourglass", palette: palette)
             } else if tasks.isEmpty {
                 HomeEmptyStateRow(HomeSectionCopy.taskWidgetEmptyMessage(lifeOSStore), symbol: "checkmark.circle", palette: palette)
             } else {
                 ForEach(visibleTasks) { task in
                     row(task)
+                }
+            }
+            if case .failed(let message) = lifeOSStore.lastTaskMutationRefreshOutcome {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Your change was saved. \(message)")
+                        .font(.caption)
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                    Button("Refresh tasks") {
+                        Task { await lifeOSStore.retryTaskMutationRefresh() }
+                    }
+                    .accessibilityIdentifier("foundation.home.tasks.retryRefresh")
                 }
             }
             // A completion is a real mutation, so it gets a receipt here rather
@@ -3746,7 +4089,7 @@ private struct HomeTasksWidget: View {
                 .accessibilityHidden(true)
         }
         .animation(taskWidgetAnimation, value: isExpanded)
-        .animation(taskWidgetAnimation, value: lifeOSStore.taskAgenda)
+        .animation(taskWidgetAnimation, value: visibleTasks.map(\.id))
     }
 
     @ViewBuilder
@@ -3759,7 +4102,7 @@ private struct HomeTasksWidget: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 titleLabel
                 if isExpanded {
                     HomeTaskAgendaDatePicker(store: lifeOSStore)
@@ -4063,7 +4406,7 @@ private struct HomeJournalWidget: View {
             // buttons grew to ~350pt tall. `ViewThatFits` keeps the side-by-side
             // arrangement wherever it genuinely fits and stacks otherwise.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     captureButton
                     searchButton
                 }
@@ -4136,7 +4479,7 @@ private struct HomeProgressWidget: View {
                 HStack {
                     metricLabels
                 }
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     metricLabels
                 }
             }
@@ -4383,6 +4726,18 @@ private struct AdaptiveWidgetGallery: View {
     }
 }
 
+struct DashboardLayoutRevision: Equatable {
+    var id: UUID?
+    var expanded = false
+    var content: HomeCardSnapshot?
+    var dynamicType = ""
+    var locale = ""
+}
+
+private struct DashboardLayoutRevisionKey: LayoutValueKey {
+    static let defaultValue = DashboardLayoutRevision()
+}
+
 private struct DashboardPresetLayoutKey: LayoutValueKey {
     static let defaultValue: WidgetSizePreset = .standard
 }
@@ -4476,13 +4831,42 @@ private struct DashboardFlowLayout: Layout {
     let usesSingleColumn: Bool
     private let spacing: CGFloat = 12
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? 360
-        return CGSize(width: width, height: frames(width: width, subviews: subviews).height)
+    struct Cache {
+        var signature: Signature?
+        var result: LayoutResult?
+        var calculationCount = 0
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = frames(width: bounds.width, subviews: subviews)
+    struct Signature: Equatable {
+        let width: CGFloat
+        let isRegular: Bool
+        let usesSingleColumn: Bool
+        let presets: [WidgetSizePreset]
+        let revisions: [DashboardLayoutRevision]
+    }
+
+    struct LayoutResult {
+        let frames: [CGRect]
+        let height: CGFloat
+    }
+
+    func makeCache(subviews: Subviews) -> Cache {
+        Cache()
+    }
+
+    func updateCache(_ cache: inout Cache, subviews: Subviews) {
+        cache.signature = nil
+        cache.result = nil
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        let width = proposal.width ?? 360
+        let result = cachedFrames(width: width, subviews: subviews, cache: &cache)
+        return CGSize(width: width, height: result.height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        let result = cachedFrames(width: bounds.width, subviews: subviews, cache: &cache)
         for (index, frame) in result.frames.enumerated() {
             subviews[index].place(
                 at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
@@ -4492,24 +4876,54 @@ private struct DashboardFlowLayout: Layout {
         }
     }
 
-    private func frames(width: CGFloat, subviews: Subviews) -> (frames: [CGRect], height: CGFloat) {
-        let columnCount: Int
-        if usesSingleColumn {
-            columnCount = 1
-        } else if isRegular {
-            columnCount = width >= 1_100 ? 12 : 8
-        } else {
-            columnCount = 4
+    private func cachedFrames(width: CGFloat, subviews: Subviews, cache: inout Cache) -> LayoutResult {
+        let signature = Signature(
+            width: width,
+            isRegular: isRegular,
+            usesSingleColumn: usesSingleColumn,
+            presets: subviews.map { $0[DashboardPresetLayoutKey.self] },
+            revisions: subviews.map { $0[DashboardLayoutRevisionKey.self] }
+        )
+        if cache.signature == signature, let result = cache.result {
+            return result
         }
+        let result = frames(width: width, subviews: subviews)
+        cache.signature = signature
+        cache.result = result
+        cache.calculationCount &+= 1
+        PerformanceTrace.event("DashboardLayoutCalculated", value: cache.calculationCount)
+        return result
+    }
+
+    private func frames(width: CGFloat, subviews: Subviews) -> LayoutResult {
+        let columnCount = usesSingleColumn ? 1 : (isRegular ? (width >= 1_100 ? 12 : 8) : 4)
+        let spans = subviews.map {
+            usesSingleColumn ? 1 : DashboardResponsiveSpanResolver.columns(
+                for: $0[DashboardPresetLayoutKey.self], columnCount: columnCount)
+        }
+        let result = DashboardFramePlanner.frames(width: width, columnCount: columnCount, spans: spans) { index, itemWidth in
+            subviews[index].sizeThatFits(ProposedViewSize(width: itemWidth, height: nil))
+        }
+        return LayoutResult(frames: result.frames, height: result.height)
+    }
+}
+
+/// Pure geometry boundary; SwiftUI still owns when measurements are invalidated.
+enum DashboardFramePlanner {
+    struct Result: Equatable {
+        let frames: [CGRect]
+        let height: CGFloat
+    }
+    static func frames(width: CGFloat, columnCount: Int, spans: [Int],
+        measure: (Int, CGFloat) -> CGSize) -> Result {
+        let columnCount = max(1, columnCount)
+        let spacing: CGFloat = 12
         let columnWidth = max(0, (width - (CGFloat(columnCount - 1) * spacing)) / CGFloat(columnCount))
-        var result = Array(repeating: CGRect.zero, count: subviews.count)
+        var result = Array(repeating: CGRect.zero, count: spans.count)
         var columnHeights = Array(repeating: CGFloat.zero, count: columnCount)
 
-        for index in subviews.indices {
-            let preset = subviews[index][DashboardPresetLayoutKey.self]
-            let requestedSpan = usesSingleColumn
-                ? 1
-                : DashboardResponsiveSpanResolver.columns(for: preset, columnCount: columnCount)
+        for index in spans.indices {
+            let requestedSpan = spans[index]
             let itemSpan = min(columnCount, max(1, requestedSpan))
             var bestColumn = 0
             var bestY = CGFloat.greatestFiniteMagnitude
@@ -4527,7 +4941,7 @@ private struct DashboardFlowLayout: Layout {
             }
 
             let itemWidth = (columnWidth * CGFloat(itemSpan)) + (spacing * CGFloat(itemSpan - 1))
-            let measured = subviews[index].sizeThatFits(ProposedViewSize(width: itemWidth, height: nil))
+            let measured = measure(index, itemWidth)
             let x = CGFloat(bestColumn) * (columnWidth + spacing)
             result[index] = CGRect(x: x, y: bestY, width: itemWidth, height: measured.height)
             let nextHeight = bestY + measured.height + spacing
@@ -4536,11 +4950,10 @@ private struct DashboardFlowLayout: Layout {
             }
         }
 
-        widenRowsWithNoNeighbour(&result, subviews: subviews, fullWidth: width)
+        widenRowsWithNoNeighbour(&result, fullWidth: width, measure: measure)
 
-        return (result, max(0, result.map(\.maxY).max() ?? 0))
+        return Result(frames: result, height: max(0, result.map(\.maxY).max() ?? 0))
     }
-
     /// Gives a card the full content width when nothing sits beside it.
     ///
     /// Spans are declared against the semantic grid, so a two-column card in a
@@ -4554,27 +4967,34 @@ private struct DashboardFlowLayout: Layout {
     /// shifts by that delta and no repacking is needed. Subview order is untouched,
     /// which matters because the Home hierarchy test walks widgets top to bottom
     /// and cannot scroll back.
-    private func widenRowsWithNoNeighbour(
+    private static func widenRowsWithNoNeighbour(
         _ frames: inout [CGRect],
-        subviews: Subviews,
-        fullWidth: CGFloat
+        fullWidth: CGFloat,
+        measure: (Int, CGFloat) -> CGSize
     ) {
         let tolerance: CGFloat = 0.5
+        var hasNeighbour = Array(repeating: false, count: frames.count)
+        var active: [Int] = []
+
+        // Sweep top-to-bottom. The active set contains only vertical ranges
+        // that can overlap the current card, replacing the previous all-pairs
+        // search while preserving its exact overlap rule.
+        for index in frames.indices.sorted(by: { frames[$0].minY < frames[$1].minY }) {
+            let current = frames[index]
+            active.removeAll { frames[$0].maxY <= current.minY + tolerance }
+            for other in active {
+                hasNeighbour[index] = true
+                hasNeighbour[other] = true
+            }
+            active.append(index)
+        }
+
         for index in frames.indices {
             let original = frames[index]
             guard original.width < fullWidth - tolerance else { continue }
-            let hasNeighbour = frames.indices.contains { other in
-                guard other != index else { return false }
-                let candidate = frames[other]
-                let entirelyBelow = candidate.minY >= original.maxY - tolerance
-                let entirelyAbove = candidate.maxY <= original.minY + tolerance
-                return entirelyBelow == false && entirelyAbove == false
-            }
-            guard hasNeighbour == false else { continue }
+            guard hasNeighbour[index] == false else { continue }
 
-            let measured = subviews[index].sizeThatFits(
-                ProposedViewSize(width: fullWidth, height: nil)
-            )
+            let measured = measure(index, fullWidth)
             frames[index] = CGRect(
                 x: 0,
                 y: original.minY,
@@ -4746,7 +5166,7 @@ public struct ReferenceDashboard: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         Text("Smart")
                             .lifeboardFont(.title1)
                         Image(systemName: "chevron.up.chevron.down")
@@ -4798,7 +5218,7 @@ public struct ReferenceDashboard: View {
     private func medicationSection(daypart: ResolvedDaypart, palette: DaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             ReferenceSectionHeader(title: "\(daypart.rawValue.capitalized) Medications", showsAdd: false, palette: palette)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ReferenceMedicationCard(symbol: "pills", title: daypart == .morning ? "Vitamin C" : "Creatine", detail: daypart == .morning ? "1000 mg" : "3.5g", palette: palette)
                 ReferenceMedicationCard(symbol: "cross.case", title: daypart == .morning ? "Tumeric" : "Whey protein", detail: daypart == .morning ? "1 pill" : "1 scoop", palette: palette)
                 if daypart != .morning {
@@ -4821,7 +5241,7 @@ public struct ReferenceDashboard: View {
     private func habitSection(daypart: ResolvedDaypart, palette: DaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             ReferenceSectionHeader(title: "\(daypart.rawValue.capitalized) Habits", showsAdd: false, palette: palette)
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 ReferenceHabitCard(symbol: "speaker.slash", title: "Lunch in silence", palette: palette)
                 ReferenceHabitCard(symbol: "figure.walk", title: "Walk outside", palette: palette)
                 ReferenceHabitCard(symbol: "sun.max", title: "Sunlight 10 min", palette: palette)
@@ -4837,18 +5257,28 @@ public struct ReferenceDashboard: View {
         return VStack(alignment: .leading, spacing: 14) {
             Text("Foundation controls")
                 .font(Typography.sectionTitle())
-            Picker("Comfort", selection: $preferences.comfortProfile) {
-                ForEach(ComfortProfile.allCases, id: \.self) { profile in
-                    Text(profile.title).tag(profile)
-                }
-            }
-            .pickerStyle(.segmented)
-            Picker("Rendering", selection: $preferences.renderingTier) {
-                ForEach(AmbientRenderingTier.allCases, id: \.self) { tier in
-                    Text(tier.title).tag(tier)
-                }
-            }
-            .pickerStyle(.segmented)
+            // Was `.pickerStyle(.segmented)`, the stock grey segmented
+            // control. `OptionRail` is the design system's equivalent and
+            // keeps the semantics: one selection, per-value accessibility
+            // identifiers, and reflow at accessibility text sizes.
+            OptionRail(
+                "Comfort",
+                selection: $preferences.comfortProfile,
+                values: Array(ComfortProfile.allCases),
+                identifierPrefix: "lifeBoardFoundationGallery.comfort",
+                title: { $0.title }
+            )
+            // Was `.pickerStyle(.segmented)`, the stock grey segmented
+            // control. `OptionRail` is the design system's equivalent and
+            // keeps the semantics: one selection, per-value accessibility
+            // identifiers, and reflow at accessibility text sizes.
+            OptionRail(
+                "Rendering",
+                selection: $preferences.renderingTier,
+                values: Array(AmbientRenderingTier.allCases),
+                identifierPrefix: "lifeBoardFoundationGallery.rendering",
+                title: { $0.title }
+            )
         }
         .padding(16)
         .lifeBoardPaperCard()
@@ -4885,7 +5315,7 @@ public struct ReferenceDashboard: View {
         }
         .shadow(color: Color(SemanticColorTokens.foundationWarmShadow), radius: 18, y: 8)
         .padding(.horizontal, 16)
-        .padding(.bottom, 6)
+        .padding(.bottom, 8)
         .accessibilityElement(children: .contain)
     }
 }
@@ -4907,7 +5337,7 @@ public struct TokenGallery: View {
                             .font(Typography.sectionTitle())
                             .foregroundStyle(palette.color(for: .foreground))
 
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 132))], spacing: 10) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 132))], spacing: 12) {
                             ForEach(DaypartColorRole.allCases, id: \.self) { role in
                                 VStack(alignment: .leading, spacing: 8) {
                                     RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
@@ -4922,7 +5352,7 @@ public struct TokenGallery: View {
                                     Text(palette.hex(for: role))
                                         .font(.caption.monospaced())
                                 }
-                                .padding(10)
+                                .padding(12)
                                 .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                         }

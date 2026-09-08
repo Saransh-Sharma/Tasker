@@ -4,7 +4,7 @@ import SwiftUI
 // view type stays inside the file-size ratchet's per-type ceiling — the
 // metric that predicts the `-Onone` launch crash.
 extension AdaptiveAtmosphere {
-    struct ScenicLayout {
+    struct ScenicLayout: Equatable, Sendable {
         let width: CGFloat
         let minX: CGFloat
         var midX: CGFloat { minX + width / 2 }
@@ -76,9 +76,9 @@ extension AdaptiveAtmosphere {
     /// reads the same observer rather than adding a second one. `maximumParallax`
     /// had zero readers in the entire codebase before this — the value was
     /// computed on every resolve and thrown away.
-    var parallaxOffset: CGFloat {
+    var sampledParallaxOffset: CGFloat {
         guard let scrollObserver, ambientPolicy.allowsIdleMotion, placement.allowsIdleDrift else { return 0 }
-        let travel = min(1, max(0, scrollObserver.contentOffset / 420))
+        let travel = min(1, max(0, scrollObserver.sampledParallaxContentOffset / 420))
         return ambientPolicy.maximumParallax * travel * placement.idleDriftScale
     }
 

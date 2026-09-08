@@ -639,6 +639,11 @@ public final class HomeContextService {
         setFrozen(frozen, reason: reason.rawValue)
     }
 
+    public func canReevaluate(now: Date = Date(), force: Bool = false) -> Bool {
+        force || (freezeReasons.isEmpty
+            && now.timeIntervalSince(current.evaluatedAt) >= minimumDisplayDuration)
+    }
+
     @discardableResult
     public func reevaluate(
         candidates: [HomeContextCandidate],
@@ -648,8 +653,7 @@ public final class HomeContextService {
         now: Date = Date(),
         force: Bool = false
     ) -> HomeContextSelection {
-        guard force || (freezeReasons.isEmpty
-            && now.timeIntervalSince(current.evaluatedAt) >= minimumDisplayDuration) else {
+        guard canReevaluate(now: now, force: force) else {
             return current
         }
         let interval = PerformanceOperation.homeContextEvaluation.begin()
@@ -2521,7 +2525,7 @@ public struct HomeCardSnapshot: Codable, Hashable, Sendable {
 ///
 /// This deliberately is not Codable: entity identifiers used for navigation
 /// must not leak into app-group widget envelopes or other system surfaces.
-public struct HomeCardResolution: Sendable {
+public struct HomeCardResolution: Equatable, Sendable {
     public var snapshot: HomeCardSnapshot
     public var primaryRoute: AppRoute?
     public var primaryActionTitle: String
@@ -2733,5 +2737,13 @@ public struct DeterministicSmartHomePolicy: SmartHomePolicy {
             if $0.kind.priority != $1.kind.priority { return $0.kind.priority > $1.kind.priority }
             return $0.id.uuidString < $1.id.uuidString
         }.first
+    }
+}
+
+extension HomeCardResolution {
+    func hasSamePresentation(as other: HomeCardResolution) -> Bool {
+        var lhs = self
+        lhs.snapshot.updatedAt = other.snapshot.updatedAt
+        return lhs == other
     }
 }

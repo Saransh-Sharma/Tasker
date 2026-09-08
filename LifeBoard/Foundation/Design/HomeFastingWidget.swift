@@ -22,7 +22,7 @@ struct HomeFastingWidget: View {
                     HomeWidgetTitle("Active fast", symbol: "timer", palette: palette)
                         .accessibilityIdentifier("home.widget.fasting")
                     if let fast = lifeOSStore.activeFast {
-                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                        ActiveVisibleTimeline(every: 1) { context in
                             let elapsed = fast.elapsed(at: context.date)
                             let progress = fast.targetDuration.map { $0 > 0 ? min(1, elapsed / $0) : 0.25 } ?? 0.25
                             HStack(spacing: 18) {
@@ -72,7 +72,7 @@ struct HomeFastingWidget: View {
             .buttonStyle(.plain)
 
             if lifeOSStore.activeFast != nil {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Button("End fast") {
                         Task { await lifeOSStore.endActiveFast() }
                     }

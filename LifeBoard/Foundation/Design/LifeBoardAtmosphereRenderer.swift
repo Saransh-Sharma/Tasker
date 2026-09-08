@@ -2,6 +2,67 @@ import SwiftUI
 import UIKit
 import Observation
 
+/// The artwork is structurally stable while only its parent position changes.
+/// Equatable isolation keeps SwiftUI from rebuilding image decoding, masking,
+/// saturation, and brightness work on every atmosphere timeline tick.
+private struct AtmosphereScenicPlane: View, Equatable {
+    let asset: String
+    let layout: AdaptiveAtmosphere.ScenicLayout
+    let isDark: Bool
+
+    var body: some View {
+        Image(decorative: asset)
+            .resizable()
+            .scaledToFill()
+            .frame(width: layout.width)
+            .clipped()
+            .saturation(isDark ? 0.5 : 1)
+            .brightness(isDark ? -0.34 : 0)
+            .id(asset)
+            .transition(.opacity)
+            .mask {
+                if layout.width >= 500 {
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .black, location: 0.16),
+                            .init(color: .black, location: 0.84),
+                            .init(color: .clear, location: 1)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                } else {
+                    Color.black
+                }
+            }
+    }
+}
+
+/// The accessibility/color wash belongs between stars and the celestial but
+/// has no time input. Keeping it equatable preserves that exact z-order while
+/// preventing the shared clock from rebuilding its gradients every frame.
+private struct AtmospherePhaseWash: View, Equatable {
+    let usesInverseHeaderInk: Bool
+    let scrimStrength: Double
+    let usesIncreasedContrast: Bool
+    let isDark: Bool
+    let reduceTransparency: Bool
+
+    var body: some View {
+        let contrastBoost = usesIncreasedContrast ? 0.12 : 0
+        let darkBoost = isDark ? 0.20 : 0
+        LinearGradient(
+            colors: usesInverseHeaderInk
+                ? [Color.black.opacity(scrimStrength + contrastBoost), Color.clear, Color(SemanticColorTokens.foundationCanvas).opacity(0.12 + darkBoost)]
+                : [Color(SemanticColorTokens.foundationSurfaceSolid).opacity(scrimStrength + contrastBoost), Color.clear, Color(SemanticColorTokens.foundationCanvas).opacity(darkBoost)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .opacity(reduceTransparency ? 1 : 0.94)
+    }
+}
+
 public struct AmbientRenderingPolicy: Equatable, Sendable {
     public let requestedTier: AmbientRenderingTier
     public let effectiveTier: AmbientRenderingTier
@@ -336,6 +397,25 @@ public struct AtmosphereHost<Content: View>: View {
     }
 }
 
+/// A visual phase clock. Pausing this clock never changes domain or calendar time.
+struct AmbientVisualPhase: Sendable {
+    private var pausedAt: Date?
+    private var excludedDuration: TimeInterval = 0
+
+    func time(at date: Date) -> TimeInterval {
+        (pausedAt ?? date).timeIntervalSinceReferenceDate - excludedDuration
+    }
+
+    mutating func setPaused(_ paused: Bool, at date: Date) {
+        if paused {
+            if pausedAt == nil { pausedAt = date }
+        } else if let stopped = pausedAt {
+            excludedDuration += date.timeIntervalSince(stopped)
+            pausedAt = nil
+        }
+    }
+}
+
 public struct AdaptiveAtmosphere: View {
     public let snapshot: AtmosphereSnapshot
     public let placement: AtmospherePlacement
@@ -353,7 +433,10 @@ public struct AdaptiveAtmosphere: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) var scenePhase
     @Environment(\.lifeBoardComposerScrollObserver) var scrollObserver
+    @Environment(\.lifeBoardRootActivity) private var rootActivity
     @State private var transitionTrigger = 0
+    @State private var visualPhase = AmbientVisualPhase()
+    @State private var isVisuallyPresent = true
     @State var powerRevision = 0
     public init(
         snapshot: AtmosphereSnapshot,
@@ -396,22 +479,11 @@ public struct AdaptiveAtmosphere: View {
                         .clipped()
                 }
 
-                // The scene and the celestial travel in opposite directions as
-                // the content scrolls, so the backdrop separates into planes
-                // instead of reading as one flat picture behind a list.
-                scenicPlane(descriptor: descriptor, layout: layout)
-                    .frame(width: layout.width, height: proxy.size.height)
-                    .position(x: layout.midX, y: proxy.size.height / 2 - parallaxOffset * 0.35)
-
-                if descriptor.compactStarCount > 0, placement.suppressesAmbientDetail == false {
-                    starField(descriptor: descriptor, layout: layout, size: proxy.size)
-                }
-
-                phaseWash(descriptor: descriptor)
-
-                if showsCelestial {
-                    celestial(descriptor: descriptor, layout: layout, size: proxy.size)
-                }
+                // One clock owns every continuously moving atmosphere leaf.
+                // The raw scroll offset is observation-ignored and sampled by
+                // this clock, so scrolling no longer invalidates this parent or
+                // the shell's static backdrop hierarchy on every point.
+                motionLayers(descriptor: descriptor, layout: layout, size: proxy.size)
 
                 nocturnalVeil()
             }
@@ -442,60 +514,38 @@ public struct AdaptiveAtmosphere: View {
     /// Wide-layout underlay: the same daypart art, blown out and blurred until
     /// it reads as ambient colour rather than a second picture.
     private func scenicBed(descriptor: AtmosphereDescriptor) -> some View {
-        Image(decorative: descriptor.backgroundAsset)
+        let preblurredAsset = descriptor.backgroundAsset.replacingOccurrences(
+            of: "Background",
+            with: "Bed"
+        )
+        return Image(decorative: preblurredAsset)
             .resizable()
             .scaledToFill()
-            .blur(radius: 90, opaque: true)
             .saturation(colorScheme == .dark ? 0.38 : 0.72)
             .brightness(colorScheme == .dark ? -0.36 : -0.02)
             .overlay(Color(lifeboardHex: descriptor.fallbackHex).opacity(0.42))
-            .id(descriptor.backgroundAsset)
+            .id(preblurredAsset)
             .transition(.opacity)
     }
 
     private func scenicPlane(descriptor: AtmosphereDescriptor, layout: ScenicLayout) -> some View {
-        Image(decorative: descriptor.backgroundAsset)
-            .resizable()
-            .scaledToFill()
-            .frame(width: layout.width)
-            .clipped()
-            .saturation(colorScheme == .dark ? 0.5 : 1)
-            .brightness(colorScheme == .dark ? -0.34 : 0)
-            .id(descriptor.backgroundAsset)
-            .transition(.opacity)
-            .mask {
-                if layout.width >= 500 {
-                    // Fade the crisp band's own alpha into the blurred bed
-                    // instead of painting flat strips over it. Overlaid strips
-                    // used the flat canvas colour, which could never match the
-                    // art behind them and read as a hard edge.
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .black, location: 0.16),
-                            .init(color: .black, location: 0.84),
-                            .init(color: .clear, location: 1)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                } else {
-                    Color.black
-                }
-            }
+        AtmosphereScenicPlane(
+            asset: descriptor.backgroundAsset,
+            layout: layout,
+            isDark: colorScheme == .dark
+        )
+        .equatable()
     }
 
     private func phaseWash(descriptor: AtmosphereDescriptor) -> some View {
-        let contrastBoost = accessibilityContrast == .increased ? 0.12 : 0
-        let darkBoost = colorScheme == .dark ? 0.20 : 0
-        return LinearGradient(
-            colors: descriptor.usesInverseHeaderInk
-                ? [Color.black.opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(SemanticColorTokens.foundationCanvas).opacity(0.12 + darkBoost)]
-                : [Color(SemanticColorTokens.foundationSurfaceSolid).opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(SemanticColorTokens.foundationCanvas).opacity(darkBoost)],
-            startPoint: .top,
-            endPoint: .bottom
+        AtmospherePhaseWash(
+            usesInverseHeaderInk: descriptor.usesInverseHeaderInk,
+            scrimStrength: descriptor.scrimStrength,
+            usesIncreasedContrast: accessibilityContrast == .increased,
+            isDark: colorScheme == .dark,
+            reduceTransparency: reduceTransparency
         )
-        .opacity(reduceTransparency ? 1 : 0.94)
+        .equatable()
     }
 
     /// Dark appearance previously rendered the *light* daypart artwork dimmed
@@ -531,80 +581,114 @@ public struct AdaptiveAtmosphere: View {
     }
 
     @ViewBuilder
-    private func celestial(
+    private func motionLayers(
         descriptor: AtmosphereDescriptor,
         layout: ScenicLayout,
         size: CGSize
     ) -> some View {
         let policy = motionPolicy
-        // Gated on `allowsIdleDrift`, not `suppressesAmbientDetail`: a detail
-        // screen should be quieter than Home, not frozen.
-        let paused = policy.allowsIdleMotion == false
+        let paused = isVisuallyPresent == false
+            || policy.allowsIdleMotion == false
             || placement.allowsIdleDrift == false
             || scenePhase != .active
-        // 30fps rather than 12: at 12fps a slow drift reads as a stutter rather
-        // than as movement, which is worse than being still. The periods below
-        // are deliberately not whole multiples of one another, so the path
-        // never visibly repeats even though each component is a simple sine.
+            || rootActivity.performsContinuousWork == false
         TimelineView(.animation(minimumInterval: 1 / 30, paused: paused)) { context in
-            let phase = paused ? 0 : context.date.timeIntervalSinceReferenceDate
-            let amplitude = celestialAmplitude * placement.idleDriftScale
-            let driftX = CGFloat(sin(phase / 4.5)) * amplitude
-            let driftY = CGFloat(cos(phase / 6.7)) * amplitude * 0.66
-            let rotation = Double(sin(phase / 5.9)) * (comfortProfile == .playful ? 1.6 : 0.9)
-            let breath = 1 + CGFloat(sin(phase / 3.8)) * (comfortProfile == .playful ? 0.02 : 0.015)
-            // The floor used to be 220pt, which overrode every `celestialScale`
-            // below ~0.56 on a compact width and forced a sun large enough to
-            // sit behind the greeting. Lowering it lets the descriptor's scale
-            // actually govern the composition.
-            let diameter = min(520, max(140, layout.width * descriptor.celestialScale * placement.celestialScaleMultiplier))
+            let time = visualPhase.time(at: context.date)
+            let parallax = sampledParallaxOffset
+            ZStack {
+                scenicPlane(descriptor: descriptor, layout: layout)
+                    .frame(width: layout.width, height: size.height)
+                    .position(x: layout.midX, y: size.height / 2 - parallax * 0.35)
 
-            Image(decorative: descriptor.celestialAsset)
-                .resizable()
-                .scaledToFit()
-                .frame(width: diameter, height: diameter)
-                .opacity(reduceTransparency ? 0.94 : 1)
-                .rotationEffect(.degrees(rotation))
-                .scaleEffect(breath)
-                .position(
-                    x: layout.minX + layout.width * descriptor.celestialAnchorX + driftX,
-                    y: size.height * (descriptor.celestialAnchorY + placement.celestialAnchorOffset)
-                        + driftY
-                        + parallaxOffset
-                )
-                .id(descriptor.celestialAsset)
-                .transition(.opacity.combined(with: .scale(scale: 0.992)))
+                if descriptor.compactStarCount > 0,
+                   placement.suppressesAmbientDetail == false {
+                    starField(
+                        descriptor: descriptor,
+                        layout: layout,
+                        size: size,
+                        time: time,
+                        paused: policy.allowsIdleMotion == false || placement.allowsIdleDrift == false
+                    )
+                }
+
+                phaseWash(descriptor: descriptor)
+
+                if showsCelestial {
+                    celestial(
+                        descriptor: descriptor,
+                        layout: layout,
+                        size: size,
+                        time: time,
+                        parallax: parallax
+                    )
+                }
+            }
         }
+        .modifier(VisualTimelineRegistration(isActive: !paused))
+        .onChange(of: paused, initial: true) { _, paused in
+            visualPhase.setPaused(paused, at: Date())
+        }
+        .onScrollVisibilityChange(threshold: 0.001) { isVisuallyPresent = $0 }
+        .onAppear { isVisuallyPresent = true }
+        .onDisappear {
+            visualPhase.setPaused(true, at: Date())
+            isVisuallyPresent = false
+        }
+    }
+
+    private func celestial(
+        descriptor: AtmosphereDescriptor,
+        layout: ScenicLayout,
+        size: CGSize,
+        time: TimeInterval,
+        parallax: CGFloat
+    ) -> some View {
+        let amplitude = celestialAmplitude * placement.idleDriftScale
+        let driftX = CGFloat(sin(time / 4.5)) * amplitude
+        let driftY = CGFloat(cos(time / 6.7)) * amplitude * 0.66
+        let rotation = Double(sin(time / 5.9)) * (comfortProfile == .playful ? 1.6 : 0.9)
+        let breath = 1 + CGFloat(sin(time / 3.8)) * (comfortProfile == .playful ? 0.02 : 0.015)
+        let diameter = min(520, max(140, layout.width * descriptor.celestialScale * placement.celestialScaleMultiplier))
+
+        return Image(decorative: descriptor.celestialAsset)
+            .resizable()
+            .scaledToFit()
+            .frame(width: diameter, height: diameter)
+            .opacity(reduceTransparency ? 0.94 : 1)
+            .rotationEffect(.degrees(rotation))
+            .scaleEffect(breath)
+            .position(
+                x: layout.minX + layout.width * descriptor.celestialAnchorX + driftX,
+                y: size.height * (descriptor.celestialAnchorY + placement.celestialAnchorOffset)
+                    + driftY
+                    + parallax
+            )
+            .id(descriptor.celestialAsset)
+            .transition(.opacity.combined(with: .scale(scale: 0.992)))
     }
 
     private func starField(
         descriptor: AtmosphereDescriptor,
         layout: ScenicLayout,
-        size: CGSize
+        size: CGSize,
+        time: TimeInterval,
+        paused: Bool
     ) -> some View {
-        let policy = motionPolicy
         let count = size.width >= 700 ? descriptor.regularStarCount : descriptor.compactStarCount
         let visibleCount = reduceTransparency ? max(4, count / 2) : count
-        let paused = policy.allowsIdleMotion == false || scenePhase != .active
-        return TimelineView(.animation(minimumInterval: 1 / 30, paused: paused)) { context in
-            let time = paused ? 0 : context.date.timeIntervalSinceReferenceDate
-            Canvas(rendersAsynchronously: true) { graphics, canvasSize in
-                for index in 0..<visibleCount {
-                    let x = layout.minX + pseudoRandom(index * 41 + 7) * layout.width
-                    let y = 18 + pseudoRandom(index * 67 + 19) * canvasSize.height * 0.40
-                    let base = 0.8 + pseudoRandom(index * 23 + 3) * 1.4
-                    // Shorter, more varied cycles and a deeper swing: the old
-                    // ±0.30 around 0.55 over a 5–10s period was a barely
-                    // perceptible shimmer on a field of 1pt dots.
-                    let cycle = 2.2 + pseudoRandom(index * 13 + 2) * 3.4
-                    let wave = paused ? 0.72 : 0.52 + 0.46 * sin((time / cycle + Double(index)) * .pi * 2)
-                    let opacity = reduceTransparency ? max(0.58, wave) : wave
-                    let rect = CGRect(x: x, y: y, width: base, height: base)
-                    let color = index.isMultiple(of: 3)
-                        ? Color(lifeboardHex: SceneHex.starCool)
-                        : Color(lifeboardHex: SceneHex.starWarm)
-                    graphics.fill(Path(ellipseIn: rect), with: .color(color.opacity(opacity)))
-                }
+        return Canvas(rendersAsynchronously: true) { graphics, canvasSize in
+            for index in 0..<visibleCount {
+                let x = layout.minX + pseudoRandom(index * 41 + 7) * layout.width
+                let y = 18 + pseudoRandom(index * 67 + 19) * canvasSize.height * 0.40
+                let base = 0.8 + pseudoRandom(index * 23 + 3) * 1.4
+                let cycle = 2.2 + pseudoRandom(index * 13 + 2) * 3.4
+                let wave = paused ? 0.72 : 0.52 + 0.46 * sin((time / cycle + Double(index)) * .pi * 2)
+                let opacity = reduceTransparency ? max(0.58, wave) : wave
+                let rect = CGRect(x: x, y: y, width: base, height: base)
+                let color = index.isMultiple(of: 3)
+                    ? Color(lifeboardHex: SceneHex.starCool)
+                    : Color(lifeboardHex: SceneHex.starWarm)
+                graphics.fill(Path(ellipseIn: rect), with: .color(color.opacity(opacity)))
             }
         }
     }
@@ -1262,7 +1346,7 @@ public struct MetricRing: View {
     }
 
     public var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             ZStack {
                 Circle()
                     .stroke(
