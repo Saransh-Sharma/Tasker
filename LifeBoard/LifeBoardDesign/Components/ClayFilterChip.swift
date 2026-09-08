@@ -43,7 +43,7 @@ struct ClayFilterChip: View {
             action()
         } label: {
             ZStack(alignment: .topTrailing) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     if let dotHex = model.leadingDotHex {
                         Circle()
                             .fill(Color(lifeboardHex: dotHex))

@@ -72,7 +72,7 @@ struct FilterChip: View {
                 Text("\(count)")
                     .font(.lifeboard(.caption2))
                     .fontWeight(.bold)
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 8)
                     .padding(.vertical, spacing.s2)
                     .background(
                         Capsule(style: .continuous)

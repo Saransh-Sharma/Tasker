@@ -90,7 +90,7 @@ struct DateHeroHeader: View {
                     .foregroundStyle(model.heroTitleColor)
                     .shadow(color: ClayColorTokens.elevationShadow.opacity(1.2), radius: 6, y: 2)
 
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: model.period.symbolName)
                         .foregroundStyle(ClayColorTokens.sunriseGold)
                     Text(model.subtitle)

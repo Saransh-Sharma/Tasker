@@ -31,7 +31,7 @@ struct AutosaveWhisper: View {
     var body: some View {
         Group {
             if visible {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Circle()
                         .fill(tint)
                         .frame(width: 6, height: 6)
@@ -259,7 +259,7 @@ struct CalmSummaryChip: View {
             HapticFeedback.selection()
             action()
         }) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.lifeboard(.caption1).weight(.semibold))
                 Text(label)
