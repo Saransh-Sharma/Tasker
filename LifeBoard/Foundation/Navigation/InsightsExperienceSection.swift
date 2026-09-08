@@ -67,7 +67,7 @@ struct InsightsExperienceSection: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Last seven days")
                     .lifeboardFont(.headline)
-                    .padding(.bottom, 6)
+                    .padding(.bottom, 8)
                 ForEach(aggregates.sorted { $0.dateKey > $1.dateKey }, id: \.id) { aggregate in
                     HStack {
                         Text(dayLabel(aggregate.dateKey))

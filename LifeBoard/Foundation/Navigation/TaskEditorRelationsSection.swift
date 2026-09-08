@@ -166,7 +166,7 @@ struct TaskEditorRelationsSection: View {
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 ForEach(editor.wrappedValue.draft.dependencies, id: \.id) { link in
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(taskTitle(link.dependsOnTaskID, editor: editor.wrappedValue))
                                 .font(.subheadline.weight(.medium))

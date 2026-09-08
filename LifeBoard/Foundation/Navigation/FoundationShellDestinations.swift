@@ -43,12 +43,16 @@ extension FoundationShell {
                             sharedRootHeader(destination, atmosphereSnapshot: atmosphereSnapshot)
                                 .padding(.horizontal, 20)
                                 .padding(.top, 8)
-                                .padding(.bottom, 6)
+                                .padding(.bottom, 8)
                                 .accessibilityIdentifier("\(destination.rawValue).header")
                         }
                         StableDestinationRoot {
                             destinationRoot(destination, router: router)
                         }
+                        .environment(\.lifeBoardRootActivity, RootActivityState(
+                            isSelected: router.selectedDestination == destination && router.path(for: destination).isEmpty,
+                            sceneIsActive: bridgedScenePhase == .active
+                        ))
                     }
                 }
                 .toolbar(
@@ -90,10 +94,27 @@ extension FoundationShell {
                     }
                 }
         }
+        .environment(\.lifeBoardRootActivity, RootActivityState(
+            isSelected: router.selectedDestination == destination,
+            sceneIsActive: bridgedScenePhase == .active
+        ))
         .toolbarBackground(.hidden, for: .navigationBar)
         .background(Color.clear)
         .onAppear {
             router.navigationRootDidMount(destination)
+        }
+        .background {
+            RootInteractivityProbe(router: router, destination: destination, generation: router.selectionGeneration)
+        }
+        .overlay(alignment: .topLeading) {
+            if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_UI_TEST_ANIMATIONS_ENABLED"),
+               router.selectedDestination == destination,
+               router.interactiveSelectionGeneration == router.selectionGeneration {
+                Color.clear.frame(width: 1, height: 1)
+                    .accessibilityElement()
+                    .accessibilityIdentifier("foundation.performance.interactive.\(destination.rawValue)")
+                    .accessibilityLabel("Selection \(router.selectionGeneration) is interactive")
+            }
         }
     }
 
@@ -303,5 +324,59 @@ extension FoundationShell {
             ))
         }
         return AnyView(EmptyView())
+    }
+}
+
+/// Re-armed on selection without replacing the retained navigation hierarchy.
+private struct RootInteractivityProbe: UIViewRepresentable {
+    let router: AppRouter
+    let destination: Destination
+    let generation: UInt64
+
+    func makeUIView(context: Context) -> ProbeView {
+        let view = ProbeView()
+        view.isUserInteractionEnabled = false
+        return view
+    }
+    func updateUIView(_ view: ProbeView, context: Context) {
+        view.report = { [weak router] in
+            guard let router, router.selectedDestination == destination else { return }
+            router.navigationRootDidBecomeInteractive(destination, generation: generation)
+        }
+        view.setNeedsLayout()
+    }
+
+    final class ProbeView: UIView {
+        var report: (() -> Void)?
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            guard window != nil, bounds.width > 0, bounds.height > 0 else { return }
+            // The host must have mounted a usable scroll control, not just a background.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let window = self.window else { return }
+                func containsControl(_ view: UIView) -> Bool {
+                    guard !view.isHidden, view.alpha > 0, view.isUserInteractionEnabled else { return false }
+                    let rect = view.convert(view.bounds, to: window)
+                    guard rect.intersects(window.bounds) else { return false }
+                    if let scroll = view as? UIScrollView, scroll.isScrollEnabled,
+                       scroll.bounds.width > 0, scroll.bounds.height > 0 {
+                        let visible = rect.intersection(window.bounds)
+                        let point = CGPoint(x: visible.midX, y: visible.midY)
+                        if let hit = window.hitTest(point, with: nil), hit.isDescendant(of: scroll) {
+                            return true
+                        }
+                    }
+                    return view.subviews.contains(where: containsControl)
+                }
+                // SwiftUI inserts a platform-view host around representable
+                // backgrounds. Walk past those hosts; a window hit test proves
+                // that the control belongs to the frontmost usable content.
+                var container = self.superview
+                while let current = container, current !== window {
+                    if containsControl(current) { self.report?(); return }
+                    container = current.superview
+                }
+            }
+        }
     }
 }

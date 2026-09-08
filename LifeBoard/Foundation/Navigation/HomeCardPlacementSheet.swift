@@ -58,7 +58,7 @@ struct HomeCardPlacementSheet: View {
                         }
                     }
 
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         Image(systemName: "hand.draw")
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         Text("LifeBoard will use the first open position. Your existing cards never move unless you choose to edit Home.")
@@ -151,7 +151,7 @@ struct HomeCardPlacementSheet: View {
                             Label(descriptor.title, systemImage: descriptor.systemImage)
                                 .font(.caption.weight(.semibold))
                                 .lineLimit(1)
-                                .padding(10)
+                                .padding(12)
                         }
                         .frame(
                             width: (unit * CGFloat(span.columns)) + (gap * CGFloat(span.columns - 1)),
@@ -181,7 +181,7 @@ struct ComposerPreviewCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: preview.destination.systemImage)
                     .lifeboardFont(.headline)
                     .frame(width: 32, height: 32)
@@ -218,7 +218,7 @@ struct ComposerPreviewCard: View {
                 Button("Not now", action: onNotNow)
                     .buttonStyle(.plain)
                     .frame(minHeight: 44)
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 8)
                 Button("Edit", action: onEdit)
                     .buttonStyle(.bordered)
                     .frame(minHeight: 44)
@@ -246,7 +246,7 @@ struct ComposerReceiptView: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
             Text(receipt.message)
@@ -307,7 +307,7 @@ struct HomeCardPlacementReceiptView: View {
             .accessibilityLabel("Dismiss")
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .lifeBoardGlassSurface(cornerRadius: 22, interactive: true)
         .overlay {
             RoundedRectangle(cornerRadius: Radius.card, style: .continuous)

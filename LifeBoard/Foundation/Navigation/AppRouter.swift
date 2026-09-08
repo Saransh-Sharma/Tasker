@@ -428,6 +428,65 @@ public struct RestorationState: Codable, Equatable, Sendable {
     }
 }
 
+/// Serializes and coalesces restoration writes away from navigation's main-
+/// actor interaction path. A generation check prevents an older delayed write
+/// from overwriting a newer selection or navigation path.
+struct RestorationEnvelope: Sendable {
+    let sequence: UInt64
+    let state: RestorationState
+}
+
+actor RestorationWriter {
+    struct ThreadSafeDefaults: @unchecked Sendable {
+        let value: UserDefaults
+    }
+
+    private let defaults: UserDefaults
+    private let encoder = JSONEncoder()
+    private var generation = 0
+    private var latestSequence: UInt64 = 0
+    private var pendingTask: Task<Void, Never>?
+
+    init(defaults: ThreadSafeDefaults) {
+        self.defaults = defaults.value
+    }
+
+    func enqueue(_ envelope: RestorationEnvelope) {
+        guard envelope.sequence > latestSequence else { return }
+        latestSequence = envelope.sequence
+        let state = envelope.state
+        generation &+= 1
+        let candidateGeneration = generation
+        pendingTask?.cancel()
+        pendingTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(200))
+            guard Task.isCancelled == false else { return }
+            await self?.commit(state, generation: candidateGeneration)
+        }
+    }
+
+    func flush(_ envelope: RestorationEnvelope) {
+        guard envelope.sequence > latestSequence else { return }
+        latestSequence = envelope.sequence
+        let state = envelope.state
+        generation &+= 1
+        pendingTask?.cancel()
+        pendingTask = nil
+        write(state)
+    }
+
+    private func commit(_ state: RestorationState, generation candidate: Int) {
+        guard candidate == generation else { return }
+        pendingTask = nil
+        write(state)
+    }
+
+    private func write(_ state: RestorationState) {
+        guard let data = try? encoder.encode(state) else { return }
+        defaults.set(data, forKey: FoundationPreferenceKey.restorationState)
+    }
+}
+
 public struct DeferredProtectedRoute: Equatable, Sendable {
     public let route: AppRoute
     public let destination: Destination
@@ -452,6 +511,15 @@ public struct PendingRouteRequest: Equatable, Sendable {
 @Observable
 public final class AppRouter {
     public var selectedDestination: Destination {
+        willSet {
+            guard newValue != selectedDestination, !isRestoring else { return }
+            selectionGeneration &+= 1
+            RootNavigationPerformanceTrace.begin(
+                destination: newValue,
+                coldMount: !interactiveDestinations.contains(newValue),
+                generation: selectionGeneration
+            )
+        }
         didSet {
             guard oldValue != selectedDestination else {
                 persist()
@@ -481,7 +549,12 @@ public final class AppRouter {
     public let captureRouter: CaptureRouter
 
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let encoder = JSONEncoder()
+    @ObservationIgnored private let restorationWriter: RestorationWriter
+    @ObservationIgnored private var restorationSequence: UInt64 = 0
+    @ObservationIgnored private var restorationHandoff: Task<Void, Never>?
+    public private(set) var selectionGeneration: UInt64 = 0
+    public private(set) var interactiveSelectionGeneration: UInt64?
+    @ObservationIgnored private var interactiveDestinations: Set<Destination> = []
     @ObservationIgnored private let decoder = JSONDecoder()
     @ObservationIgnored private var isRestoring = true
     @ObservationIgnored private weak var preferences: PresentationPreferences?
@@ -492,9 +565,13 @@ public final class AppRouter {
         preferences: PresentationPreferences? = nil,
         captureRouter: CaptureRouter = CaptureRouter()
     ) {
-        self.defaults = defaults
+        let resolvedDefaults = defaults
             ?? UserDefaults(suiteName: AppGroupConstants.suiteName)
             ?? .standard
+        self.defaults = resolvedDefaults
+        restorationWriter = RestorationWriter(
+            defaults: .init(value: resolvedDefaults)
+        )
         self.preferences = preferences
         self.captureRouter = captureRouter
         selectedDestination = .home
@@ -560,6 +637,15 @@ public final class AppRouter {
 
     public func navigationRootDidMount(_ destination: Destination) {
         mountedDestinations.insert(destination)
+    }
+
+    public func navigationRootDidBecomeInteractive(_ destination: Destination, generation: UInt64? = nil) {
+        let generation = generation ?? selectionGeneration
+        guard destination == selectedDestination, generation == selectionGeneration else { return }
+        mountedDestinations.insert(destination)
+        interactiveDestinations.insert(destination)
+        if interactiveSelectionGeneration != generation { interactiveSelectionGeneration = generation }
+        RootNavigationPerformanceTrace.markInteractive(destination: destination, generation: generation)
     }
 
     public func push(_ route: AppRoute, in destination: Destination? = nil) {
@@ -988,8 +1074,23 @@ public final class AppRouter {
     }
 
     public func persist() {
-        guard isRestoring == false, let data = try? encoder.encode(restorationSnapshot()) else { return }
-        defaults.set(data, forKey: FoundationPreferenceKey.restorationState)
+        guard isRestoring == false else { return }
+        restorationSequence &+= 1
+        let envelope = RestorationEnvelope(sequence: restorationSequence, state: restorationSnapshot())
+        restorationHandoff?.cancel()
+        restorationHandoff = Task { [restorationWriter] in
+            guard !Task.isCancelled else { return }
+            await restorationWriter.enqueue(envelope)
+        }
+    }
+
+    public func flushPersistence() async {
+        guard isRestoring == false else { return }
+        restorationSequence &+= 1
+        let envelope = RestorationEnvelope(sequence: restorationSequence, state: restorationSnapshot())
+        restorationHandoff?.cancel()
+        restorationHandoff = nil
+        await restorationWriter.flush(envelope)
     }
 
     private func restore() {

@@ -26,73 +26,43 @@ extension FoundationShell {
             let shellBottomInset = geometry.safeAreaInsets.bottom
             let shellCoordinateSpace = FoundationShell.shellCoordinateSpace
             let paletteMaxHeight = max(176, min(320, shellHeight * 0.38))
-            // A plain stack rather than a TabView.
-            //
-            // At compact width the TabView switched nothing: the floating dock
-            // is the switcher and the system tab bar was hidden, so all it
-            // contributed was a container whose cross-dissolve could not be
-            // replaced. Holding the roots in a stack lets a root change read as
-            // travel — the arriving root slides in from the side it sits on in
-            // the dock — while visited dashboard roots stay in the hierarchy,
-            // so their scroll position and navigation depth survive. Eva is
-            // rebuilt on demand to release its visibility-scoped runtime work.
-            //
-            // The regular-width shell keeps its TabView: there the sidebar and
-            // top bar are the switcher, and there is nothing to replace it with.
             ZStack {
-                // Nothing is ever behind the roots for longer than it takes one
-                // of them to build, but "nothing" here is the system's white
-                // window backing, not the warm canvas. Laying the canvas under
-                // the stack means any gap reads as the app's own paper.
                 Color(SemanticColorTokens.foundationCanvas)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
-                ForEach(Destination.allCases, id: \.self) { destination in
-                    // Built when first selected, and kept afterwards. Dashboard
-                    // roots stay alive; Eva is removed when inactive. Building
-                    // all five up front would wake every root's stores on launch.
-                    if RootRetention.isRendered(
-                        destination,
-                        selected: router.selectedDestination,
-                        visited: visitedRoots
-                    ) {
-                        let isCurrent = router.selectedDestination == destination
-                        destinationNavigation(destination, router: router, atmosphereSnapshot: atmosphereSnapshot)
+
+                // Native tab containment keeps each dashboard root's navigation
+                // and scroll state while allowing the system to stop scheduling
+                // invisible roots. The custom dock remains the only visible tab
+                // authority; its local matched-geometry animation is independent
+                // of this selection transaction.
+                TabView(selection: $router.selectedDestination) {
+                    ForEach(Destination.allCases, id: \.self) { destination in
+                        Tab(destination.title, systemImage: destination.systemImage, value: destination) {
+                            retainedDestinationNavigation(
+                                destination,
+                                router: router,
+                                atmosphereSnapshot: atmosphereSnapshot
+                            )
+                            .toolbar(.hidden, for: .tabBar)
                             .environment(
                                 \.evaComposerBottomClearance,
                                 evaComposerBottomClearance(for: destination)
                             )
+                            .environment(
+                                \.lifeBoardRootActivity,
+                                rootActivity(for: destination, router: router)
+                            )
                             .safeAreaInset(edge: .bottom, spacing: 0) {
                                 Color.clear.frame(height: reservedDestinationChromeHeight(for: destination))
                             }
-                            .offset(
-                                x: RootTransition.offset(
-                                    for: destination,
-                                    selected: router.selectedDestination,
-                                    distance: reduceMotion ? 0 : RootTransition.slideDistance
-                                )
-                            )
-                            .opacity(isCurrent ? 1 : 0)
-                            .zIndex(isCurrent ? 1 : 0)
-                            // A root that is not on screen must not take taps or
-                            // hold VoiceOver focus while it sits in the stack.
-                            .allowsHitTesting(isCurrent)
-                            .accessibilityHidden(isCurrent == false)
+                        }
+                        .accessibilityIdentifier("foundation.destination.\(destination.rawValue)")
                     }
                 }
-            }
-            .onChange(of: router.selectedDestination, initial: true) { previous, destination in
-                // Retention only. Selection alone is enough to *render* a root
-                // (see `isRendered` above); this is what keeps it in the
-                // hierarchy after the selection moves on.
-                visitedRoots = RootRetention.retained(
-                    visited: visitedRoots,
-                    previous: previous,
-                    selected: destination
-                )
-                guard previous != destination else { return }
-                previousRoot = previous
+                .tabViewStyle(.tabBarOnly)
+                .toolbar(.hidden, for: .tabBar)
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .background(Color.clear)
@@ -101,8 +71,8 @@ extension FoundationShell {
                 // chrome layers refract and morph as a single surface rather
                 // than two stacked panes.
                 if showsCompactChrome(for: router.selectedDestination) {
-                    GlassEffectContainer(spacing: 10) {
-                        VStack(spacing: 10) {
+                    GlassEffectContainer(spacing: 12) {
+                        VStack(spacing: 12) {
                             if showsFloatingComposer(for: router.selectedDestination) {
                                 LifeThreadComposerHost(
                                     router: router,
@@ -203,9 +173,7 @@ extension FoundationShell {
                 HStack(spacing: 0) {
                     ForEach(Destination.allCases, id: \.self) { destination in
                         Button {
-                            withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
-                                router.activateRoot(destination)
-                            }
+                            router.activateRoot(destination)
                             // Intent-named rather than engine-named: this is a
                             // selection moving, and `Haptic` is the layer that
                             // honours `MotionPolicy.allowsHaptics`.
@@ -253,8 +221,12 @@ extension FoundationShell {
                         .accessibilityIdentifier("foundation.destination.\(destination.rawValue)")
                     }
                 }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+                .animation(
+                    MotionProfile.selection.animation(reduceMotion: reduceMotion),
+                    value: router.selectedDestination
+                )
                 // The selected well genuinely bends the content beneath it, so
                 // the dock reads as glass rather than a tinted capsule. Bounded
                 // to six points and centred on the current target.
@@ -269,6 +241,13 @@ extension FoundationShell {
                 .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.18), radius: 12, y: 6)
             }
         }
+    }
+
+    func rootActivity(for destination: Destination, router: AppRouter) -> RootActivityState {
+        RootActivityState(
+            isSelected: router.selectedDestination == destination,
+            sceneIsActive: scenePhase == .active
+        )
     }
 
     func sharedRootHeader(
@@ -357,6 +336,11 @@ extension FoundationShell {
                         router: router,
                         atmosphereSnapshot: atmosphereSnapshot
                     )
+                    .toolbar(.hidden, for: .tabBar)
+                    .environment(
+                        \.lifeBoardRootActivity,
+                        rootActivity(for: destination, router: router)
+                    )
                     .safeAreaInset(edge: .bottom, spacing: 0) {
                         // Eva hosts its own composer, so it reserves nothing.
                         Color.clear.frame(
@@ -385,7 +369,7 @@ extension FoundationShell {
             // column at regular width too.
             if showsFloatingComposer(for: router.selectedDestination),
                showsGlobalChrome(for: router.selectedDestination) {
-                GlassEffectContainer(spacing: 10) {
+                GlassEffectContainer(spacing: 12) {
                     LifeThreadComposerHost(
                         router: router,
                         composer: lifeThreadComposer,
@@ -406,7 +390,7 @@ extension FoundationShell {
                 }
                 .frame(maxWidth: 720)
                 .padding(.horizontal, 20)
-                .padding(.bottom, 10)
+                .padding(.bottom, 12)
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.size.height
                 } action: { height in
@@ -460,7 +444,7 @@ extension FoundationShell {
                 )
             }
         }
-        .padding(6)
+        .padding(8)
         .frame(maxWidth: 720)
         // The switcher is the iPad's dock. `DESIGN.md`'s shape vocabulary gives
         // dock and composer clusters 30; 24 is the *hero* radius, which the
@@ -473,7 +457,7 @@ extension FoundationShell {
         }
         .padding(.horizontal, 20)
         .padding(.top, 4)
-        .padding(.bottom, 6)
+        .padding(.bottom, 8)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("foundation.expanded.rootSwitcher")

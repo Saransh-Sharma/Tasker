@@ -32,11 +32,16 @@ struct TaskEditorRecurrenceSection: View {
             }
             if editor.wrappedValue.draft.repeatPattern != nil {
                 recurrenceDetails(editor: editor)
-                Picker("Anchor", selection: editor.draft.recurrenceAnchor) {
-                    Text("Scheduled date").tag(TaskRecurrenceRule.Anchor.scheduledDate)
-                    Text("When completed").tag(TaskRecurrenceRule.Anchor.completionDate)
-                }
-                .pickerStyle(.segmented)
+                // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
+                // `OptionRail` keeps the semantics: one selection, per-value
+                // accessibility identifiers, and reflow at accessibility text sizes.
+                OptionRail(
+                    "Anchor",
+                    selection: editor.draft.recurrenceAnchor,
+                    values: [.scheduledDate, .completionDate],
+                    identifierPrefix: "task.recurrence.anchor",
+                    title: { $0 == .scheduledDate ? "Scheduled date" : "When completed" }
+                )
                 Text(
                     editor.wrappedValue.draft.recurrenceAnchor == .completionDate
                         ? "The next occurrence begins from the day you finish this one."
@@ -227,7 +232,7 @@ struct TaskEditorRecurrenceSection: View {
             ("F", .friday),
             ("S", .saturday)
         ]
-        return HStack(spacing: 6) {
+        return HStack(spacing: 8) {
             ForEach(Array(values.enumerated()), id: \.offset) { index, value in
                 let selected = days.contains(value.1)
                 Button {

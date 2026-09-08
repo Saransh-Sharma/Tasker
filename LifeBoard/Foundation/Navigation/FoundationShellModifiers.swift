@@ -372,3 +372,41 @@ struct DockLift: ViewModifier {
         }
     }
 }
+
+/// Only exists in the opt-in performance process; never changes accessibility or power policy.
+private struct FoundationPerformancePolicy: Equatable {
+    let ready: Bool
+    let description: String
+}
+
+struct FoundationPerformanceReadiness: View {
+    let preferences: PresentationPreferences
+    @Environment(\.lifeBoardShaderReadiness) private var shaderReady
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var policy: FoundationPerformancePolicy {
+        let process = ProcessInfo.processInfo
+        let motion = !LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) && UIView.areAnimationsEnabled
+        let ready = motion && shaderReady && !reduceMotion && !reduceTransparency && !process.isLowPowerModeEnabled
+            && process.thermalState.rawValue < ProcessInfo.ThermalState.serious.rawValue
+            && preferences.comfortProfile == .balanced && preferences.renderingTier == .ambient2D && scenePhase == .active
+        return FoundationPerformancePolicy(ready: ready, description:
+            "motion=\(motion);shader=\(shaderReady);comfort=\(preferences.comfortProfile.rawValue);ambient=\(preferences.renderingTier.rawValue);lowPower=\(process.isLowPowerModeEnabled);thermal=\(process.thermalState.rawValue);reduceMotion=\(reduceMotion);reduceTransparency=\(reduceTransparency);maximumHz=\(UIScreen.main.maximumFramesPerSecond)")
+    }
+
+    var body: some View {
+        Color.clear.frame(width: 1, height: 1)
+            .accessibilityElement()
+            .accessibilityIdentifier(policy.ready ? "foundation.performance.ready" : "foundation.performance.blocked")
+            .accessibilityLabel(policy.description)
+            .task {
+                preferences.comfortProfile = .balanced
+                preferences.renderingTier = .ambient2D
+            }
+            .onChange(of: policy, initial: true) { _, value in
+                logInfo(event: "performance_render_policy", message: value.description, component: "performance")
+            }
+    }
+}

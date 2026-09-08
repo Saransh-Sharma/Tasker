@@ -17,8 +17,8 @@ struct InsightsReviewSection: View {
                 .foregroundStyle(Color.lifeboard(.textSecondary))
             if let report = dayLoopEvidenceReport {
                 LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 132), spacing: 10)],
-                    spacing: 10
+                    columns: [GridItem(.adaptive(minimum: 132), spacing: 12)],
+                    spacing: 12
                 ) {
                     InsightMetric(value: "\(report.eligibleDays)", label: "Eligible days")
                     InsightMetric(value: "\(report.closes)", label: "Days closed")

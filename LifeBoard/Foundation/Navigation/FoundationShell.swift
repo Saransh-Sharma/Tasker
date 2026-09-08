@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreData
 import LifeBoardTranscription
 import UIKit
 import VisionKit
@@ -42,7 +43,7 @@ public struct FoundationShell: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
-    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.scenePhase) var scenePhase
     @State var compactCaptureState = CaptureOrbPresentationState()
     @State var measuredChromeHeight: CGFloat = 132
     /// Distance from the dock's top edge to the bottom of the shell.
@@ -80,17 +81,10 @@ public struct FoundationShell: View {
     /// it rather than against the screen.
     static let shellCoordinateSpace = "lifeboard.shell"
     @State var isEvaComposerFocused = false
-    /// Roots that have been opened at least once. Dashboard roots stay built so
-    /// their scroll position and navigation depth survive a root change. Eva is
-    /// intentionally evicted when inactive because its chat/runtime hierarchy
-    /// is substantially heavier and owns visibility-scoped work.
-    @State var visitedRoots: Set<Destination> = []
     /// Drives the composer's capsule↔orb compression. Owned here because the
     /// composer is drawn once at shell level over five root scroll views it has
     /// no reference to; see `ComposerScrollReporter`.
     @State var composerScrollObserver = ComposerScrollObserver()
-    /// Where the eye left from, and how far the arriving root has settled.
-    @State var previousRoot: Destination?
     @State private var compactCaptureTargetFrames: [CaptureKind: CGRect] = [:]
     @State var compactCaptureRippleTrigger = 0
     @State var planRescueRefreshGeneration = 0
@@ -110,7 +104,7 @@ public struct FoundationShell: View {
     /// Deferred so a `push` never lands under a still-animating sheet.
     @State private var pendingDisplayPanelSettingsPush = false
     @State private var scannedDraft: ScannedDraft?
-    @State private var bridgedScenePhase: ScenePhase = UIApplication.shared.applicationState == .background
+    @State var bridgedScenePhase: ScenePhase = UIApplication.shared.applicationState == .background
         ? .background : .active
     @State var lifeBoardActionReceipt: ActionReceipt?
     /// Fires the one-shot background warp when a card zooms into its detail
@@ -353,6 +347,9 @@ public struct FoundationShell: View {
                     controller: dictationController
                 )
             }
+            if phase != .active {
+                Task { await router.flushPersistence() }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             bridgedScenePhase = .active
@@ -385,6 +382,11 @@ public struct FoundationShell: View {
         // the observable preferences at the outermost level so sheets and
         // navigation destinations receive the same environment as root views.
         .environment(runtime.preferences)
+        .overlay(alignment: .topLeading) {
+            if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_UI_TEST_ANIMATIONS_ENABLED") {
+                FoundationPerformanceReadiness(preferences: runtime.preferences)
+            }
+        }
         .lifeBoardMotionDiagnostics(preferences: runtime.preferences)
         .environment(\.scenePhase, bridgedScenePhase)
         // Outermost, and after the scene-phase bridge it depends on. This is the

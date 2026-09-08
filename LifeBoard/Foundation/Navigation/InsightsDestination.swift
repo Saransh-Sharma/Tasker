@@ -4,6 +4,64 @@ import LifeBoardTranscription
 import UIKit
 import VisionKit
 
+struct InsightsRenderSnapshot: Equatable {
+    struct SourceCount: Equatable {
+        let domain: String
+        let count: Int
+    }
+
+    var events: [NormalizedLifeEvent] = []
+    var authorizedEvidence: [NormalizedLifeEvent] = []
+    var interpretation = InsightsInterpretationService().interpret(events: [])
+    var unifiedInsight = InsightsInterpretationService().unifiedInsight(events: [])
+    var completenessDescription = "Completeness is not available yet."
+    var confidence: Double?
+    var missingDomains: [String] = []
+    var sourceCounts: [SourceCount] = []
+
+    static func build(
+        authorizedEvents: [NormalizedLifeEvent],
+        lens: InsightsLens,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> InsightsRenderSnapshot {
+        let startToday = calendar.startOfDay(for: now)
+        let filtered: [NormalizedLifeEvent]
+        switch lens {
+        case .overview:
+            filtered = authorizedEvents.filter { $0.occurredAt >= startToday }
+        case .trends:
+            let start = calendar.date(byAdding: .day, value: -6, to: startToday) ?? startToday
+            filtered = authorizedEvents.filter { $0.occurredAt >= start }
+        case .review:
+            filtered = authorizedEvents
+        case .experience:
+            filtered = []
+        }
+        let complete = filtered.lazy.filter {
+            $0.completeness == .complete && $0.freshness == .complete
+        }.count
+        let confidence = filtered.isEmpty ? nil : Double(complete) / Double(filtered.count)
+        let present = Set(filtered.map(\.domain))
+        let sourceCounts = Dictionary(grouping: filtered, by: \.domain)
+            .map { SourceCount(domain: $0.key, count: $0.value.count) }
+            .sorted { $0.domain < $1.domain }
+        return InsightsRenderSnapshot(
+            events: filtered,
+            authorizedEvidence: authorizedEvents,
+            interpretation: InsightsInterpretationService().interpret(events: filtered, now: now, calendar: calendar),
+            unifiedInsight: InsightsInterpretationService().unifiedInsight(events: filtered, now: startToday, calendar: calendar),
+            completenessDescription: confidence.map {
+                "\($0.formatted(.percent.precision(.fractionLength(0)))) of these records are complete and current."
+            } ?? "Completeness is not available yet.",
+            confidence: confidence,
+            missingDomains: ["hydration", "habit", "tracker", "routine", "goal", "plan"]
+                .filter { present.contains($0) == false },
+            sourceCounts: sourceCounts
+        )
+    }
+}
+
 struct InsightsDestination: View {
     @State private var store: TrackFoundationStore
     @State private var healthStore = HealthCoordinator.shared.connectionStore
@@ -17,6 +75,7 @@ struct InsightsDestination: View {
     @State private var experienceError: String?
     @Environment(PresentationPreferences.self) private var preferences
     @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
+    @Environment(\.lifeBoardRootActivity) private var rootActivity
     let router: AppRouter
     private let planningRepository: CoreDataPlanningRepository?
     private let gamificationRepository: (any GamificationRepositoryProtocol)?
@@ -26,8 +85,11 @@ struct InsightsDestination: View {
     /// user had to find the record again themselves.
     private let focusedEvidenceID: UUID?
     @State private var evidenceExpanded = false
+    @State private var evidenceTop: CGFloat?
+    @State private var revealedEvidenceID: String?
     @State private var evidenceExclusionRevision = 0
     @State private var insightStateRevision = 0
+    @State private var renderSnapshot = InsightsRenderSnapshot()
 
     init(
         repository: CoreDataTrackFoundationRepository,
@@ -59,7 +121,6 @@ struct InsightsDestination: View {
     }
 
     private var authorizedEvents: [NormalizedLifeEvent] {
-        _ = evidenceExclusionRevision
         return SnapshotLifeEventProjectionRepository(events: store.snapshot.normalizedEvents + persistedPlanningEvents + wellnessEvents)
             .authorizedEvents(for: .insights, journalConsentGranted: false)
             .map { event in EvaEvidenceExclusionStore.applying(to: event) }
@@ -67,36 +128,19 @@ struct InsightsDestination: View {
     }
 
     private var events: [NormalizedLifeEvent] {
-        let calendar = Calendar.current
-        let startToday = calendar.startOfDay(for: Date())
-        switch lens {
-        case .overview:
-            return authorizedEvents.filter { $0.occurredAt >= startToday }
-        case .trends:
-            let start = calendar.date(byAdding: .day, value: -6, to: startToday) ?? startToday
-            return authorizedEvents.filter { $0.occurredAt >= start }
-        case .review:
-            return authorizedEvents
-        case .experience:
-            return []
-        }
+        renderSnapshot.events
     }
 
     private var confidence: Double? {
-        guard events.isEmpty == false else { return nil }
-        let complete = events.filter { $0.completeness == .complete && $0.freshness == .complete }.count
-        return Double(complete) / Double(events.count)
+        renderSnapshot.confidence
     }
 
     private var missingDomains: [String] {
-        let present = Set(events.map(\.domain))
-        return ["hydration", "habit", "tracker", "routine", "goal", "plan"].filter { present.contains($0) == false }
+        renderSnapshot.missingDomains
     }
 
     private var sourceCounts: [(domain: String, count: Int)] {
-        Dictionary(grouping: events, by: \.domain)
-            .map { (domain: $0.key, count: $0.value.count) }
-            .sorted { $0.domain < $1.domain }
+        renderSnapshot.sourceCounts.map { (domain: $0.domain, count: $0.count) }
     }
 
     var body: some View {
@@ -113,6 +157,7 @@ struct InsightsDestination: View {
                 .ignoresSafeArea(edges: .top)
             }
 
+            ScrollViewReader { scrollProxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
                     LensPicker(
@@ -156,6 +201,29 @@ struct InsightsDestination: View {
                     }
                 }
                 .frame(maxWidth: 760)
+                .coordinateSpace(name: "insights.content")
+                .background {
+                    GeometryReader { geometry in
+                        if let top = evidenceTop, lens != .experience {
+                            Color.clear
+                                .frame(height: max(0, geometry.size.height - top))
+                                .frame(maxWidth: .infinity)
+                                .lifeBoardClaySurface(.resting)
+                                .offset(y: top)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                }
+                .onGeometryChange(for: InsightsEvidenceLayoutProbe.self) { proxy in
+                    InsightsEvidenceLayoutProbe(height: proxy.size.height, expanded: evidenceExpanded,
+                        target: focusedEvidenceID.flatMap { id in events.first(where: { $0.sourceID == id })?.id })
+                } action: { probe in
+                    guard probe.height > 0, probe.expanded, let target = probe.target,
+                          target != revealedEvidenceID else { return }
+                    scrollProxy.scrollTo(target, anchor: .center)
+                    revealedEvidenceID = target
+                }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 .padding(.bottom, 48)
@@ -165,17 +233,41 @@ struct InsightsDestination: View {
             // to zero on every switch. The celestial's parallax was pinned
             // still here while the other three roots moved.
             .lifeBoardReportsComposerScroll()
+            .accessibilityIdentifier("foundation.insights.scroll")
+            }
         }
         .background(Color.clear.ignoresSafeArea())
         .navigationTitle("Insights")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await loadEvidence() }
-        .task {
+        .task(id: rootActivity) {
+            guard rootActivity.performsContinuousWork else { return }
+            await loadEvidence()
+        }
+        .task(id: rootActivity) {
+            guard rootActivity.performsContinuousWork else { return }
             let updates = await HealthSyncInvalidationService.shared.updates()
             for await _ in updates {
                 guard Task.isCancelled == false else { return }
                 await loadHealthEvidence()
+                rebuildRenderSnapshot()
             }
+        }
+        .onChange(of: lens) { _, _ in rebuildRenderSnapshot() }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            guard rootActivity.performsContinuousWork else { return }
+            rebuildRenderSnapshot()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            guard rootActivity.performsContinuousWork else { return }
+            rebuildRenderSnapshot()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
+            guard rootActivity.performsContinuousWork else { return }
+            rebuildRenderSnapshot()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSLocale.currentLocaleDidChangeNotification)) { _ in
+            guard rootActivity.performsContinuousWork else { return }
+            rebuildRenderSnapshot()
         }
         .refreshable { await loadEvidence() }
         .accessibilityIdentifier("foundation.insights")
@@ -240,31 +332,47 @@ struct InsightsDestination: View {
         }
 
         if lens != .experience {
-            InsightsEvidenceDisclosure(
-                isExpanded: $evidenceExpanded,
-                completenessDescription: evidenceCompletenessDescription,
-                events: events,
-                focusedEvidenceID: focusedEvidenceID,
-                open: open,
-                exclude: exclude
-            )
+            InsightsEvidenceDisclosure(isExpanded: $evidenceExpanded,
+                completenessDescription: evidenceCompletenessDescription)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.frame(in: .named("insights.content")).minY
+                } action: { top in
+                    if evidenceTop != top { evidenceTop = top }
+                }
+                .padding(.bottom, evidenceExpanded ? -12 : 0)
+            if evidenceExpanded {
+                ForEach(events) { event in
+                    EvidenceRow(event: event, onOpenEvidence: open) { exclude(event) }
+                        .id(event.id)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, event.id == events.last?.id ? 16 : -12)
+                        .background {
+                            if event.sourceID == focusedEvidenceID {
+                                RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
+                                    .fill(Color(SemanticColorTokens.foundationSurfaceSelected))
+                                    .padding(.horizontal, 8)
+                            }
+                        }
+                }
+            }
         }
     }
 
     private func exclude(_ event: NormalizedLifeEvent) {
         EvaEvidenceExclusionStore.exclude(event)
         evidenceExclusionRevision += 1
+        rebuildRenderSnapshot()
     }
 
     /// Ranked by how consistently something is recorded, not how often. The
     /// previous headline picked whichever domain had the most rows, which
     /// always meant the chattiest tracker rather than the clearest signal.
     private var interpretation: InsightsInterpretation {
-        InsightsInterpretationService().interpret(events: events)
+        renderSnapshot.interpretation
     }
 
     private var unifiedInsight: Insight {
-        InsightsInterpretationService().unifiedInsight(events: events)
+        renderSnapshot.unifiedInsight
     }
 
     private var isUnifiedInsightDismissed: Bool {
@@ -273,9 +381,7 @@ struct InsightsDestination: View {
     }
 
     private var evidenceCompletenessDescription: String {
-        guard let confidence else { return "Completeness is not available yet." }
-        let formatted = confidence.formatted(.percent.precision(.fractionLength(0)))
-        return "\(formatted) of these records are complete and current."
+        renderSnapshot.completenessDescription
     }
 
     private func askEva() {
@@ -332,6 +438,19 @@ struct InsightsDestination: View {
         await trackLoad
         await experienceLoad
         await healthLoad
+        rebuildRenderSnapshot()
+    }
+
+    @MainActor
+    private func rebuildRenderSnapshot(now: Date = Date()) {
+        _ = evidenceExclusionRevision
+        let next = InsightsRenderSnapshot.build(
+            authorizedEvents: authorizedEvents,
+            lens: lens,
+            now: now
+        )
+        guard next != renderSnapshot else { return }
+        renderSnapshot = next
     }
 
     @MainActor
@@ -388,4 +507,10 @@ struct InsightsDestination: View {
         }
         RecordRouteResolver.open(reference, with: router)
     }
+}
+
+private struct InsightsEvidenceLayoutProbe: Equatable {
+    let height: CGFloat
+    let expanded: Bool
+    let target: String?
 }

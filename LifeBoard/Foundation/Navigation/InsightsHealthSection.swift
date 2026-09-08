@@ -46,7 +46,7 @@ struct InsightsHealthSection: View {
                 }
                 .buttonStyle(.plain)
 
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     fact(.energy, metric: .activeEnergy, label: "Active")
                     fact(.hydration, metric: .water, label: "Hydration")
                     fact(.body, metric: .restingHeartRate, label: "Resting HR")

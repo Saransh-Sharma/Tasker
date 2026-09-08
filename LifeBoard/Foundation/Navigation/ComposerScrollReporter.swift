@@ -1,5 +1,26 @@
 import SwiftUI
 
+enum ComposerScrollPositionBand: Equatable, Sendable {
+    case top
+    case middle
+    case compressionRange
+}
+
+/// The small, decision-level portion of scroll state that SwiftUI may observe.
+///
+/// Exact offsets deliberately do not live here. The composer only needs to know
+/// when the top restore boundary is crossed and when one purposeful downward
+/// gesture reaches the compression boundary. Publishing every point between
+/// those boundaries invalidated the complete composer and atmosphere trees at
+/// the display refresh rate.
+struct ComposerScrollSample: Equatable, Sendable {
+    var positionBand: ComposerScrollPositionBand = .top
+    var normalizedOffset: CGFloat = 0
+    var isTrackingDownward = false
+    var interactionGeneration = 0
+    var resetGeneration = 0
+}
+
 /// Scroll state for the composer's compression decision, owned by the shell.
 ///
 /// The composer is drawn once, at shell level, as an overlay above five separate
@@ -9,29 +30,108 @@ import SwiftUI
 @MainActor
 @Observable
 final class ComposerScrollObserver {
-    private(set) var contentOffset: CGFloat = 0
-    private(set) var isTrackingDownward = false
+    private(set) var sample = ComposerScrollSample()
+    private(set) var decisionPublicationCount = 0
+
+    @ObservationIgnored private var exactContentOffset: CGFloat = 0
+    @ObservationIgnored private var interactionIsActive = false
+    @ObservationIgnored private var emittedCompressionIntent = false
+    @ObservationIgnored private var scrollSessionInterval: PerformanceInterval?
+
+    /// Compatibility accessors keep `ComposerCompressionPolicy` pure while the
+    /// observed input is now normalized to its two decision boundaries.
+    var contentOffset: CGFloat { sample.normalizedOffset }
+    var isTrackingDownward: Bool { sample.isTrackingDownward }
+
+    /// Read only by the atmosphere's clock-driven motion leaf. Because the
+    /// backing value is observation-ignored, per-pixel writes do not schedule a
+    /// SwiftUI update; the existing ambient timeline samples the latest value.
+    var sampledParallaxContentOffset: CGFloat { exactContentOffset }
 
     func report(offset: CGFloat) {
         // Negative offsets are rubber-band overscroll at the top; treating them
         // as travel would let a bounce read as purposeful downward scrolling.
         let clamped = max(0, offset)
-        isTrackingDownward = clamped > contentOffset
-        contentOffset = clamped
+        let isMovingDownward = clamped > exactContentOffset
+        exactContentOffset = clamped
+
+        let band: ComposerScrollPositionBand
+        let normalizedOffset: CGFloat
+        if clamped <= ComposerCompressionPolicy.restoreThreshold {
+            band = .top
+            normalizedOffset = ComposerCompressionPolicy.restoreThreshold
+        } else if clamped >= ComposerCompressionPolicy.compressThreshold {
+            band = .compressionRange
+            normalizedOffset = ComposerCompressionPolicy.compressThreshold
+        } else {
+            band = .middle
+            normalizedOffset = (ComposerCompressionPolicy.restoreThreshold
+                + ComposerCompressionPolicy.compressThreshold) / 2
+        }
+
+        var next = sample
+        if next.positionBand != band {
+            next.positionBand = band
+            next.normalizedOffset = normalizedOffset
+            if band == .top { next.isTrackingDownward = false }
+        }
+
+        if interactionIsActive,
+           isMovingDownward,
+           band == .compressionRange,
+           emittedCompressionIntent == false {
+            emittedCompressionIntent = true
+            next.isTrackingDownward = true
+            next.interactionGeneration &+= 1
+        }
+
+        publish(next)
+    }
+
+    func beginTracking() {
+        interactionIsActive = true
+        emittedCompressionIntent = false
+        if scrollSessionInterval == nil {
+            scrollSessionInterval = PerformanceTrace.begin("FoundationScrollSession")
+        }
     }
 
     /// The finger left the glass. Whatever the content does now is momentum, and
     /// `ComposerCompressionPolicy` requires intent, so tracking ends here.
     func endTracking() {
-        isTrackingDownward = false
+        interactionIsActive = false
+        emittedCompressionIntent = false
+        if let scrollSessionInterval {
+            PerformanceTrace.end(scrollSessionInterval)
+            self.scrollSessionInterval = nil
+        }
+        guard sample.isTrackingDownward else { return }
+        var next = sample
+        next.isTrackingDownward = false
+        publish(next)
     }
 
     /// A root switch must not carry the previous root's scroll position into the
     /// next one — the composer would arrive already compressed over a screen
     /// sitting at its top.
     func reset() {
-        contentOffset = 0
-        isTrackingDownward = false
+        if let scrollSessionInterval {
+            PerformanceTrace.end(scrollSessionInterval)
+            self.scrollSessionInterval = nil
+        }
+        exactContentOffset = 0
+        interactionIsActive = false
+        emittedCompressionIntent = false
+        var next = ComposerScrollSample()
+        next.resetGeneration = sample.resetGeneration &+ 1
+        publish(next)
+    }
+
+    private func publish(_ next: ComposerScrollSample) {
+        guard sample != next else { return }
+        sample = next
+        decisionPublicationCount &+= 1
+        PerformanceTrace.event("ComposerScrollDecisionPublished")
     }
 }
 
@@ -57,9 +157,13 @@ extension EnvironmentValues {
 private struct ComposerScrollReporter: ViewModifier {
     @Environment(\.lifeBoardComposerScrollObserver) private var observer
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        guard let observer else { return AnyView(content) }
-        return AnyView(reporting(content, observer: observer))
+        if let observer {
+            reporting(content, observer: observer)
+        } else {
+            content
+        }
     }
 
     private func reporting(_ content: Content, observer: ComposerScrollObserver) -> some View {
@@ -72,7 +176,9 @@ private struct ComposerScrollReporter: ViewModifier {
             .onScrollPhaseChange { _, phase in
                 // `.interacting` is the only phase with a finger in it.
                 // Deceleration, animation and idle all end tracking.
-                if phase != .interacting {
+                if phase == .interacting {
+                    observer.beginTracking()
+                } else {
                     observer.endTracking()
                 }
             }

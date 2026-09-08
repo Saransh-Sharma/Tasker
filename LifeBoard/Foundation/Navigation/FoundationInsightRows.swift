@@ -45,7 +45,7 @@ struct EvidenceRow: View {
                     .lifeboardFont(.caption2)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                 if event.evidence.isEmpty == false {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         ForEach(event.evidence, id: \.self) { evidence in
                             Button(evidence.display) { onOpenEvidence(evidence) }
                                 .lifeboardFont(.eyebrow)

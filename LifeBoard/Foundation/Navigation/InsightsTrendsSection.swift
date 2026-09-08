@@ -44,7 +44,7 @@ struct InsightsTrendsSection: View {
                         .monospacedDigit()
                 }
                 .lifeBoardScrollEntrance(intensity: 0.5)
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
             }
         }
         .padding(18)

@@ -155,7 +155,7 @@ struct GoalRouteView: View {
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .accessibilityIdentifier("goal.primaryAction")
 
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Button("Edit goal", systemImage: "pencil") { showsEditor = true }
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity, minHeight: 44)
@@ -193,7 +193,7 @@ struct GoalRouteView: View {
                     Text("No sources linked yet.").foregroundStyle(Color.lifeboard(.textSecondary))
                 } else {
                     ForEach(snapshot.links) { resolved in
-                        HStack(spacing: 10) {
+                        HStack(spacing: 12) {
                             Image(systemName: sourceKind(resolved.link.source).systemImage)
                                 .frame(width: 24)
                             VStack(alignment: .leading, spacing: 2) {

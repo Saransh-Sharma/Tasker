@@ -25,12 +25,16 @@ struct ProjectRouteView: View {
         EntityRouteScaffold(title: "Project", systemImage: "folder", state: state) { tasks in
             VStack(alignment: .leading, spacing: 16) {
                 projectHeader(tasks)
-                Picker("Project view", selection: $displayMode) {
-                    ForEach(DisplayMode.allCases, id: \.self) {
-                        Text($0.rawValue).tag($0)
-                    }
-                }
-                .pickerStyle(.segmented)
+                // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
+                // `OptionRail` keeps the semantics: one selection, per-value
+                // accessibility identifiers, and reflow at accessibility text sizes.
+                OptionRail(
+                    "Project view",
+                    selection: $displayMode,
+                    values: Array(DisplayMode.allCases),
+                    identifierPrefix: "project.displayMode",
+                    title: { $0.rawValue }
+                )
                 .accessibilityIdentifier("project.mode")
 
                 milestones(tasks)
@@ -130,7 +134,7 @@ struct ProjectRouteView: View {
     }
 
     private func projectHeader(_ snapshot: ProjectExecutionSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(snapshot.name)
@@ -168,7 +172,7 @@ struct ProjectRouteView: View {
     }
 
     private func milestones(_ snapshot: ProjectExecutionSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label("Milestones", systemImage: "flag")
                     .font(.headline)
@@ -185,7 +189,7 @@ struct ProjectRouteView: View {
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 ForEach(snapshot.milestones) { milestone in
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         Button {
                             Task { await toggleMilestone(milestone) }
                         } label: {

@@ -14,7 +14,7 @@ struct ComposerClarificationRow: View {
     let onChoose: (ClarificationOption) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(clarification.question)
                     .font(.caption.weight(.medium))
@@ -35,7 +35,7 @@ struct ComposerClarificationRow: View {
                         Button {
                             onChoose(option)
                         } label: {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 Image(systemName: option.systemImage)
                                 Text(option.label)
                             }
@@ -68,7 +68,7 @@ struct ComposerInterpretationRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Button(action: onAccept) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: interpretation.systemImage)
                         .foregroundColor(Color.lifeboard(.accentPrimary))
                     Text(interpretation.label)
@@ -78,7 +78,7 @@ struct ComposerInterpretationRow: View {
                     ForEach(interpretation.chips) { chip in
                         Text(chip.label)
                             .font(.caption2.weight(.medium))
-                            .padding(.horizontal, 6)
+                            .padding(.horizontal, 8)
                             .padding(.vertical, 3)
                             .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: Capsule())
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))

@@ -35,7 +35,7 @@ struct ProjectTaskListSection: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: 12) {
                 ForEach(boardSections(snapshot), id: \.id) { section in
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text(section.name)
                             .font(.headline)
                         let tasks = Self.ordered(snapshot).filter {
@@ -67,11 +67,11 @@ struct ProjectTaskListSection: View {
         _ task: PlanningTaskSummary,
         snapshot: ProjectExecutionSnapshot
     ) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Button {
                 router.push(.taskDetail(task.id), in: .plan)
             } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Image(systemName: task.dependenciesReady ? "circle" : "link")
                     VStack(alignment: .leading, spacing: 3) {
                         Text(task.title)

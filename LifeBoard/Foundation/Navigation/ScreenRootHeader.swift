@@ -128,7 +128,7 @@ struct ScreenRootHeader: View {
             )
 
             if captureState.isExpanded, headerOwnsCapture {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     ForEach(primaryCaptureKinds, id: \.self) { kind in
                         Button {
                             onCommitCapture(kind)

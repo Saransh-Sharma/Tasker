@@ -44,7 +44,7 @@ public struct PermissionPrimingSheet: View {
                 .lifeBoardClaySurface(.well, cornerRadius: 20)
                 .accessibilityHidden(true)
 
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Text(prompt.kind.title)
                     .font(.title3.bold())
                     .foregroundStyle(Color.lifeboard(.textPrimary))
@@ -88,7 +88,7 @@ public struct PermissionRecoveryCard: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Label(kind.title, systemImage: kind.symbolName)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.lifeboard(.textPrimary))

@@ -199,7 +199,7 @@ extension LifeThreadComposerHost {
             }
 
             if let recovery = composer.recovery {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Text(composer.recoveryMessage ?? "Your draft is still here.")
                         .font(.caption)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))

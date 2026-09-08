@@ -102,7 +102,7 @@ struct HealthInsightDetailView: View {
     }
 
     private var interpretation: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Label(interpretationTitle, systemImage: domain.symbolName)
                 .lifeboardFont(.title1)
             Text(interpretationDetail)
@@ -194,7 +194,7 @@ struct HealthInsightDetailView: View {
             Text(value).monospacedDigit()
         }
         .frame(minHeight: 52)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .overlay(alignment: .bottom) { Divider() }
         .accessibilityElement(children: .combine)
     }
