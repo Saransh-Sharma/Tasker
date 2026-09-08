@@ -138,7 +138,7 @@ public struct AppRootHeader: View {
     public var body: some View {
         let usesAccessibilityLayout = dynamicTypeSize.isAccessibilitySize
         let layout = usesAccessibilityLayout
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
             : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
 
         layout {

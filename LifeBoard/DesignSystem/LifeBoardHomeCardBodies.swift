@@ -121,7 +121,7 @@ public struct HomeCardBody: View {
     @ViewBuilder
     private func metricBody(_ snapshot: HomeCardSnapshot) -> some View {
         if case .metric(let metric) = snapshot.payload {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     NumericRoll(
                         value: metric.amount,
@@ -325,7 +325,7 @@ public struct HomeCardBody: View {
 
     @ViewBuilder
     private func decisionBody(_ snapshot: HomeCardSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             if let value = snapshot.value {
                 Text(value)
                     .lifeboardFont(preset == .compact ? .bodyStrong : .title3)
@@ -350,7 +350,7 @@ public struct HomeCardBody: View {
         if case .queue(let items) = snapshot.payload, items.isEmpty == false {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(items.prefix(rowCount).enumerated()), id: \.element.id) { index, item in
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .top, spacing: 12) {
                         VStack(spacing: 0) {
                             Circle()
                                 .fill(index == 0 ? accentTint : palette.color(for: .canvasSecondary))
@@ -376,7 +376,7 @@ public struct HomeCardBody: View {
                                     .lineLimit(1)
                             }
                         }
-                        .padding(.bottom, 10)
+                        .padding(.bottom, 12)
                         Spacer(minLength: 0)
                     }
                     .fixedSize(horizontal: false, vertical: true)
@@ -426,7 +426,7 @@ public struct HomeCardBody: View {
                 to: Calendar.current.startOfDay(for: target)
             ).day ?? 0
             VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     NumericRoll(
                         value: Double(abs(days)),
                         unit: abs(days) == 1 ? "day" : "days",

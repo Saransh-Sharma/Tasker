@@ -110,7 +110,7 @@ public struct JournalWorkIndicator: View {
                 if MotionOverride.resolve(reduceMotion) || scenePhase != .active {
                     staticPages(turn: progress ?? 0.5)
                 } else {
-                    TimelineView(.animation(minimumInterval: 1 / 24)) { context in
+                    ActiveVisibleAnimationTimeline(minimumInterval: 1 / 24) { context in
                         let turn = progress ?? context.date.timeIntervalSinceReferenceDate
                             .truncatingRemainder(dividingBy: 1.2) / 1.2
                         staticPages(turn: turn)
@@ -160,6 +160,12 @@ private struct ConfirmationRippleModifier: ViewModifier {
         content
             .overlay { ripple }
             .clipped()
+            .task(id: startDate) {
+                guard let started = startDate else { return }
+                do { try await Task.sleep(for: .seconds(duration)) } catch { return }
+                guard startDate == started else { return }
+                startDate = nil
+            }
             .onChange(of: trigger) { _, _ in
                 let policy = MotionPolicy.resolve(
                     reduceMotion: MotionOverride.resolve(reduceMotion),
@@ -173,7 +179,7 @@ private struct ConfirmationRippleModifier: ViewModifier {
     @ViewBuilder
     private var ripple: some View {
         if let startDate {
-            TimelineView(.animation) { context in
+            ActiveVisibleAnimationTimeline { context in
                 let elapsed = context.date.timeIntervalSince(startDate)
                 if elapsed <= duration {
                     let progress = max(0, min(1, elapsed / duration))
@@ -373,6 +379,7 @@ struct DaypartBloomModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay { bloomOverlay }
+            .modifier(FiniteEffectLifetime(startDate: $startDate, duration: duration))
             .onChange(of: trigger) { _, _ in
                 guard sceneIsActive, shaderReadiness else { return }
                 startDate = Date()
@@ -382,7 +389,7 @@ struct DaypartBloomModifier: ViewModifier {
     @ViewBuilder
     private var bloomOverlay: some View {
         if let startDate, sceneIsActive, shaderReadiness, reduceMotion == false, reduceTransparency == false {
-            TimelineView(.animation) { context in
+            ActiveVisibleAnimationTimeline { context in
                 let elapsed = context.date.timeIntervalSince(startDate)
                 if elapsed <= duration {
                     let progress = Float(elapsed / duration)
@@ -429,7 +436,7 @@ private struct ReduceMotionBloomFallback: View {
     let tint: Color
 
     var body: some View {
-        TimelineView(.animation) { context in
+        ActiveVisibleAnimationTimeline { context in
             let elapsed = context.date.timeIntervalSince(startDate)
             let opacity = elapsed <= 0.45 ? (0.28 * (1.0 - elapsed / 0.45)) : 0
             tint.opacity(opacity)
@@ -463,7 +470,7 @@ struct EvaInkRevealModifier: ViewModifier, @preconcurrency Animatable {
         } else if reduceMotion {
             content.opacity(0.92 + progress * 0.08)
         } else {
-            TimelineView(.animation) { context in
+            ActiveVisibleAnimationTimeline { context in
                 let time = Float(context.date.timeIntervalSince(appearDate))
                 let (r, g, b) = tintValues
                 content
@@ -570,7 +577,7 @@ private struct FastingEmberRingModifier: ViewModifier {
         if reduceMotion || reduceTransparency || sceneIsActive == false || shaderReadiness == false {
             content
         } else {
-            TimelineView(.animation(minimumInterval: 1 / 30, paused: sceneIsActive == false)) { context in
+            ActiveVisibleAnimationTimeline(minimumInterval: 1 / 30) { context in
                 let time = Float(
                     context.date.timeIntervalSinceReferenceDate
                         .truncatingRemainder(dividingBy: 120)
@@ -614,7 +621,7 @@ private struct HealthSyncPulseModifier: ViewModifier {
         content
             .overlay {
                 if let startDate {
-                    TimelineView(.animation) { context in
+                    ActiveVisibleAnimationTimeline { context in
                         let progress = min(1, context.date.timeIntervalSince(startDate) / 0.52)
                         if reduceMotion || reduceTransparency || sceneIsActive == false || shaderReadiness == false {
                             Color.lifeboard(.statusSuccess)
@@ -640,6 +647,7 @@ private struct HealthSyncPulseModifier: ViewModifier {
                 }
             }
             .clipped()
+            .modifier(FiniteEffectLifetime(startDate: $startDate, duration: 0.52))
             .onChange(of: trigger) { _, _ in
                 guard sceneIsActive else { return }
                 startDate = Date()
@@ -666,7 +674,7 @@ private struct VitalOrbWarpModifier: ViewModifier {
     func body(content: Content) -> some View {
         Group {
             if let startDate {
-                TimelineView(.animation) { context in
+                ActiveVisibleAnimationTimeline { context in
                     let progress = min(1, context.date.timeIntervalSince(startDate) / duration)
                     Group {
                         if usesShader {
@@ -686,17 +694,12 @@ private struct VitalOrbWarpModifier: ViewModifier {
                             content.scaleEffect(0.985 + progress * 0.015)
                         }
                     }
-                    .task(id: progress >= 1) {
-                        // Drop the timeline the moment the pass completes. A
-                        // distortion left mounted keeps `content` in an
-                        // offscreen render pass for the life of the view.
-                        if progress >= 1 { self.startDate = nil }
-                    }
                 }
             } else {
                 content
             }
         }
+            .modifier(FiniteEffectLifetime(startDate: $startDate, duration: duration))
             .onChange(of: trigger) { _, _ in
                 guard sceneIsActive else { return }
                 usesShader = usesFallback == false
@@ -731,7 +734,7 @@ private struct ContextLensModifier: ViewModifier {
     func body(content: Content) -> some View {
         Group {
             if let startDate {
-                TimelineView(.animation) { context in
+                ActiveVisibleAnimationTimeline { context in
                     let progress = min(1, context.date.timeIntervalSince(startDate) / duration)
                     Group {
                         if usesShader {
@@ -752,18 +755,13 @@ private struct ContextLensModifier: ViewModifier {
                             content.opacity(0.96 + (0.04 * progress))
                         }
                     }
-                    .task(id: progress >= 1) {
-                        // Drop the timeline the moment the pass completes. A
-                        // distortion left mounted keeps `content` in an
-                        // offscreen render pass for the life of the view.
-                        if progress >= 1 { self.startDate = nil }
-                    }
                 }
             } else {
                 content
             }
         }
-        .onChange(of: trigger) { _, _ in
+        .modifier(FiniteEffectLifetime(startDate: $startDate, duration: duration))
+            .onChange(of: trigger) { _, _ in
             guard sceneIsActive else { return }
             usesShader = usesFallback == false
             startDate = Date()
@@ -967,7 +965,7 @@ struct TriageSettleModifier: ViewModifier {
     @ViewBuilder
     private var settlePlane: some View {
         if let startDate, sceneIsActive {
-            TimelineView(.animation) { context in
+            ActiveVisibleAnimationTimeline { context in
                 let elapsed = context.date.timeIntervalSince(startDate)
                 if elapsed <= duration {
                     let progress = max(0, min(1, elapsed / duration))
@@ -1057,7 +1055,7 @@ struct TaskLandingCausticModifier: ViewModifier {
     @ViewBuilder
     private var causticPlane: some View {
         if let startDate, sceneIsActive {
-            TimelineView(.animation) { context in
+            ActiveVisibleAnimationTimeline { context in
                 let progress = max(0, min(1, context.date.timeIntervalSince(startDate) / duration))
                 if progress >= 1 {
                     Color.clear
@@ -1230,7 +1228,7 @@ struct CardMorphWarpModifier: ViewModifier {
     func body(content: Content) -> some View {
         Group {
             if let startDate, usesFallback == false {
-                TimelineView(.animation) { context in
+                ActiveVisibleAnimationTimeline { context in
                     let elapsed = context.date.timeIntervalSince(startDate)
                     let progress = min(1, elapsed / duration)
                     content.visualEffect { effect, proxy in
@@ -1362,7 +1360,7 @@ private struct AmbientDriftModifier: ViewModifier {
         if usesFallback || intensity <= 0.001 {
             content
         } else {
-            TimelineView(.animation(minimumInterval: 1 / 30, paused: sceneIsActive == false)) { context in
+            ActiveVisibleAnimationTimeline(minimumInterval: 1 / 30) { context in
                 let time = Float(
                     context.date.timeIntervalSinceReferenceDate
                         .truncatingRemainder(dividingBy: 86_837)
@@ -1574,7 +1572,7 @@ private struct ClayPressBloomModifier: ViewModifier {
         content
             .overlay {
                 if let startDate {
-                    TimelineView(.animation) { context in
+                    ActiveVisibleAnimationTimeline { context in
                         let progress = min(1, context.date.timeIntervalSince(startDate) / Self.duration)
                         if usesFallback {
                             // Reduce Motion still gets a readable confirmation,
@@ -1601,6 +1599,7 @@ private struct ClayPressBloomModifier: ViewModifier {
                 }
             }
             .clipped()
+            .modifier(FiniteEffectLifetime(startDate: $startDate, duration: Self.duration))
             .onChange(of: trigger) { _, _ in
                 guard sceneIsActive else { return }
                 startDate = Date()
@@ -1634,7 +1633,7 @@ private struct DaypartCrossDissolveModifier: ViewModifier {
         content
             .overlay {
                 if let startDate {
-                    TimelineView(.animation) { context in
+                    ActiveVisibleAnimationTimeline { context in
                         let progress = min(1, context.date.timeIntervalSince(startDate) / Self.duration)
                         if usesFallback {
                             // A plain cross-fade of the incoming light, which is
@@ -1662,6 +1661,7 @@ private struct DaypartCrossDissolveModifier: ViewModifier {
                     .accessibilityHidden(true)
                 }
             }
+            .modifier(FiniteEffectLifetime(startDate: $startDate, duration: Self.duration))
             .onChange(of: trigger) { _, _ in
                 guard sceneIsActive else { return }
                 startDate = Date()
@@ -1699,7 +1699,7 @@ private struct CompletionBurstModifier: ViewModifier {
         content
             .overlay {
                 if let startDate {
-                    TimelineView(.animation) { context in
+                    ActiveVisibleAnimationTimeline { context in
                         let progress = min(1, context.date.timeIntervalSince(startDate) / Self.duration)
                         if usesFallback {
                             Color.lifeboard(.statusSuccess)
@@ -1725,6 +1725,7 @@ private struct CompletionBurstModifier: ViewModifier {
                 }
             }
             .clipped()
+            .modifier(FiniteEffectLifetime(startDate: $startDate, duration: Self.duration))
             .onChange(of: trigger) { _, _ in
                 guard sceneIsActive else { return }
                 startDate = Date()
@@ -1865,7 +1866,7 @@ struct FirstLightModifier: ViewModifier {
             if usesFallback || startDate == nil {
                 content
             } else if let startDate {
-                TimelineView(.animation) { context in
+                ActiveVisibleAnimationTimeline { context in
                     let elapsed = context.date.timeIntervalSince(startDate)
                     let progress = min(1, max(0, elapsed / Self.duration))
                     if progress >= 1 {
@@ -1973,5 +1974,22 @@ public extension View {
     /// there is no shader in the render tree at all.
     func lifeboardValueDrumWarp(grip: Double, center: Double = 0.5) -> some View {
         modifier(ValueDrumWarpModifierEnvironment(grip: grip, center: center))
+    }
+}
+
+/// The cleanup task belongs to the effect generation, independently of visual
+/// ticks. An old completion cannot erase a newly triggered animation.
+struct FiniteEffectLifetime: ViewModifier {
+    @Binding var startDate: Date?
+    let duration: TimeInterval
+
+    func body(content: Content) -> some View {
+        content.task(id: startDate) {
+            guard let generation = startDate else { return }
+            let remaining = max(0, duration - Date().timeIntervalSince(generation))
+            do { try await Task.sleep(for: .seconds(remaining)) } catch { return }
+            guard startDate == generation else { return }
+            startDate = nil
+        }
     }
 }

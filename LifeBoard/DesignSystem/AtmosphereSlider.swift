@@ -155,7 +155,7 @@ public struct AtmosphereSlider: View {
     private var knobSide: CGFloat { trackHeight - inset * 2 }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             // A slider cannot answer large type the way `LensPicker`
             // does. That control scrolls instead of truncating, but here the
             // drag axis *is* the value axis, so scrolling it would fight the

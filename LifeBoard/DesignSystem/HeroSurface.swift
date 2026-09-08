@@ -306,10 +306,12 @@ private struct HeroGlassSettleModifier: ViewModifier {
                         )
                     }
                 }
+                .modifier(VisualTimelineRegistration(isActive: true))
             } else {
                 content
             }
         }
+        .modifier(FiniteEffectLifetime(startDate: $startDate, duration: Self.duration))
         .onAppear {
             guard hasSettled == false, usesFallback == false else { return }
             hasSettled = true

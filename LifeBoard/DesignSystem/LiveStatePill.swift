@@ -40,7 +40,7 @@ public struct LiveStatePill: View {
     }
 
     public var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: symbol)
                 .font(.footnote)
                 .foregroundStyle(Color.lifeboard(.accentPrimary))

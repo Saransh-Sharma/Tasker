@@ -99,7 +99,7 @@ public struct OptionRail<Value: Hashable>: View {
             if pressBloomTint != nil { bloomTrigger &+= 1 }
         } label: {
             VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     if let systemImage {
                         Image(systemName: systemImage(value))
                             .font(.lifeboard(.caption1))
@@ -283,7 +283,7 @@ public struct BeadStepper: View {
                 }
             }
             GeometryReader { proxy in
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     ForEach(steps, id: \.self) { bead($0) }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -291,7 +291,7 @@ public struct BeadStepper: View {
                 .gesture(sweep(width: proxy.size.width))
             }
             .frame(height: 52)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 8)
             .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -399,7 +399,7 @@ public struct ComposerDial: View {
     }
 
     public var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             ArcDial(
                 title: unit ?? label,
                 value: $value,
@@ -600,7 +600,7 @@ public struct ValueDrum: View {
     }
 
     public var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             readout
             tape
         }

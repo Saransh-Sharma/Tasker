@@ -33,10 +33,11 @@ public struct DecisionAlternative {
 ///
 /// Lives in `LifeBoard/DesignSystem/` rather than `LifeBoardUI` because it
 /// reaches for `clayPressBloom`, and the signature effects are app-target.
-public struct DecisionSurface<Primary: View>: View {
+public struct DecisionSurface<Primary: View, Progress: View>: View {
     private let title: String
     private let context: String?
     private let progress: DecisionProgress?
+    private let progressControl: Progress
     private let alternative: DecisionAlternative?
     private let accessibilityID: String?
     private let primary: Primary
@@ -44,6 +45,7 @@ public struct DecisionSurface<Primary: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var pressTrigger = 0
 
+    /// A decision whose progress is a measured fraction or a truthful status.
     public init(
         title: String,
         context: String? = nil,
@@ -51,10 +53,41 @@ public struct DecisionSurface<Primary: View>: View {
         alternative: DecisionAlternative? = nil,
         accessibilityID: String? = nil,
         @ViewBuilder primary: () -> Primary
-    ) {
+    ) where Progress == EmptyView {
         self.title = title
         self.context = context
         self.progress = progress
+        self.progressControl = EmptyView()
+        self.alternative = alternative
+        self.accessibilityID = accessibilityID
+        self.primary = primary()
+    }
+
+    /// A decision whose progress is a *control* rather than a reading.
+    ///
+    /// Added for Focus, whose dominant object is the tactile dial `DESIGN.md`
+    /// names by name ("one commitment, tactile dial, clear pause/resume/finish").
+    /// The enum could not express it: folding a dial into `.fraction(_, label:)`
+    /// deletes the dial to satisfy the type.
+    ///
+    /// This is a real loosening and worth being honest about. The enum made
+    /// "never a dashboard of metrics" unviolatable by construction; a view slot
+    /// cannot. What is kept is exclusivity — this initializer takes no
+    /// `progress:`, and the other takes no `progressControl:`, so a surface
+    /// still cannot show a ring *and* a status line. One progress presentation,
+    /// chosen at the call site, is the invariant that survives.
+    public init(
+        title: String,
+        context: String? = nil,
+        alternative: DecisionAlternative? = nil,
+        accessibilityID: String? = nil,
+        @ViewBuilder progressControl: () -> Progress,
+        @ViewBuilder primary: () -> Primary
+    ) {
+        self.title = title
+        self.context = context
+        self.progress = nil
+        self.progressControl = progressControl()
         self.alternative = alternative
         self.accessibilityID = accessibilityID
         self.primary = primary()
@@ -63,6 +96,7 @@ public struct DecisionSurface<Primary: View>: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             DecisionSurfaceHeader(title: title, context: context, progress: progress)
+            progressControl
             DecisionSurfaceActions(
                 alternative: alternative,
                 usesStackedLayout: dynamicTypeSize.isAccessibilitySize,
@@ -87,7 +121,7 @@ private struct DecisionSurfaceHeader: View {
     let progress: DecisionProgress?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(.title3, design: .rounded, weight: .semibold))
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
@@ -150,7 +184,7 @@ private struct DecisionSurfaceActions<Primary: View>: View {
 
     var body: some View {
         let layout = usesStackedLayout
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
             : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
 
         layout {
