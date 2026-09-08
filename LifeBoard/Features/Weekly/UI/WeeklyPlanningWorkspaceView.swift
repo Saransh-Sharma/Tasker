@@ -807,7 +807,7 @@ private struct WeeklyIntentionSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("This week is about")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -840,7 +840,7 @@ private struct WeeklyIntentionSection: View {
                         .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
                 ForEach($viewModel.outcomeDrafts) { $draft in
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         TextField("What would make the week good?", text: $draft.title, axis: .vertical)
                             .font(.subheadline)
                             .lineLimit(1...2)
@@ -1066,7 +1066,7 @@ private struct WeeklyWorkspaceHeader: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
-        .padding(.bottom, 10)
+        .padding(.bottom, 12)
     }
 
     /// The wizard's first two steps — direction and outcomes — reduced to one
@@ -1176,7 +1176,7 @@ private struct WeeklyWorkspaceRibbon: View {
                 .accessibilityIdentifier("plan.week.workspace.softDaysToggle")
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -1192,8 +1192,8 @@ private struct WeeklyWorkspaceRibbon: View {
             in: RoundedRectangle(cornerRadius: 20, style: .continuous),
             interactive: false
         )
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     private var ribbonSelectionCenter: UnitPoint {
@@ -1386,8 +1386,8 @@ private struct WeeklyWorkspaceWideDayColumn: View {
             }
             .buttonStyle(.plain)
             .frame(minHeight: 92, alignment: .top)
-            .padding(.horizontal, 10)
-            .padding(.top, 10)
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
 
             if dayMeetings.isEmpty == false {
                 WeeklyWorkspaceHairline().padding(.horizontal, 8)
@@ -1405,11 +1405,11 @@ private struct WeeklyWorkspaceWideDayColumn: View {
                 Text("Room to breathe")
                     .font(.caption)
                     .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 18)
             } else {
                 ForEach(tasks) { task in
-                    WeeklyWorkspaceHairline().padding(.leading, 10)
+                    WeeklyWorkspaceHairline().padding(.leading, 12)
                     WeeklyWorkspaceWideTaskRow(task: task, namespace: namespace)
                 }
             }
@@ -1428,7 +1428,7 @@ private struct WeeklyWorkspaceWideDayColumn: View {
                         .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 12)
                 .accessibilityLabel("Add to \(WeeklyWorkspaceSectionCopy.shortDayName(store: store, day))")
             }
             Spacer(minLength: 12)
@@ -1473,7 +1473,7 @@ private struct WeeklyWorkspaceWideTaskRow: View {
     let namespace: Namespace.ID
 
     var body: some View {
-        HStack(alignment: .top, spacing: 6) {
+        HStack(alignment: .top, spacing: 8) {
             Image(systemName: "circle")
                 .font(.caption)
                 .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
@@ -1791,7 +1791,7 @@ private struct WeeklyWorkspaceComposer: View {
     let onCommit: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: "plus")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -1813,7 +1813,7 @@ private struct WeeklyWorkspaceComposer: View {
                     .buttonStyle(.plain)
             }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .lifeBoardClaySurface(.well)
@@ -1947,7 +1947,7 @@ private struct WeeklyWorkspaceTray: View {
                     in: RoundedRectangle(cornerRadius: 13, style: .continuous)
                 )
                 .padding(.horizontal, 14)
-                .padding(.bottom, 6)
+                .padding(.bottom, 8)
             }
 
             if isSelecting {
@@ -2251,7 +2251,7 @@ private struct WeeklyWorkspaceBriefingSheet: View {
                 .font(.footnote)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
 
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 Button {
                     onSpread()
                 } label: {
@@ -2300,7 +2300,7 @@ private struct WeeklyWorkspaceCompletionSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Your week has shape.")
                     .lifeboardFont(.title2)
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
@@ -2320,7 +2320,7 @@ private struct WeeklyWorkspaceCompletionSheet: View {
             }
 
             // Availability branch removed: the deployment target is 26.0.
-            GlassEffectContainer(spacing: 10) { completionActions }
+            GlassEffectContainer(spacing: 12) { completionActions }
             Spacer(minLength: 0)
         }
         .padding(22)
@@ -2331,7 +2331,7 @@ private struct WeeklyWorkspaceCompletionSheet: View {
     }
 
     private var completionActions: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             Button {
                 onFinish()
             } label: {

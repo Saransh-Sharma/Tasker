@@ -736,12 +736,12 @@ private struct WeeklyPlannerReviewStep: View {
                 } else {
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         ForEach(Array(snapshot.outcomes.enumerated()), id: \.element.id) { index, outcome in
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 8) {
                                 HStack(alignment: .top, spacing: spacing.s8) {
                                     Text("\(index + 1).")
                                         .font(.lifeboard(.bodyEmphasis))
                                         .foregroundStyle(Color.lifeboard.accentPrimary)
-                                    VStack(alignment: .leading, spacing: 6) {
+                                    VStack(alignment: .leading, spacing: 8) {
                                         Text(outcome.title)
                                             .font(.lifeboard(.bodyEmphasis))
                                             .foregroundStyle(Color.lifeboard.textPrimary)
@@ -955,7 +955,7 @@ private struct WeeklyPlannerTriageCard: View {
         Button {
             onDecision(bucket)
         } label: {
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Image(systemName: systemImage)
                     .lifeboardFont(.headline)
                 Text(title)
@@ -1023,12 +1023,17 @@ private struct WeeklyPlannerTaskSourceSheet: View {
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .padding(.horizontal, spacing.screenHorizontal)
 
-                Picker("Task source", selection: $selectedMode) {
-                    ForEach(WeeklyTaskSourceMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
+                // Was `.pickerStyle(.segmented)`, the stock grey segmented
+                // control. `OptionRail` is the design system's equivalent and
+                // keeps the semantics: one selection, per-value accessibility
+                // identifiers, and reflow at accessibility text sizes.
+                OptionRail(
+                    "Task source",
+                    selection: $selectedMode,
+                    values: Array(WeeklyTaskSourceMode.allCases),
+                    identifierPrefix: "weeklyPlannerView.taskSource",
+                    title: { $0.title }
+                )
                 .padding(.horizontal, spacing.screenHorizontal)
 
                 ScrollView {
@@ -1082,7 +1087,7 @@ private struct WeeklyPlannerSourceTaskRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(task.title)
                     .font(.lifeboard(.bodyEmphasis))
                     .foregroundStyle(Color.lifeboard.textPrimary)
@@ -1108,8 +1113,8 @@ private struct WeeklyPlannerSourceTaskRow: View {
                 Text(badge)
                     .font(.lifeboard(.caption2))
                     .foregroundStyle(Color.lifeboard.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                     .background(Color.lifeboard.surfaceSecondary, in: Capsule(style: .continuous))
             } else {
                 Button(WeeklyCopy.addTaskToReview) {
@@ -1280,7 +1285,7 @@ private struct WeeklyPlannerHabitToken: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .lifeboardDenseSurface(cornerRadius: 16, fillColor: Color.lifeboard.surfaceSecondary)
     }
 }
@@ -1338,7 +1343,7 @@ private struct WeeklyPlannerProposalSheet: View {
                 ) {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(Array(state.preview.diffLines.enumerated()), id: \.offset) { _, line in
-                            HStack(alignment: .top, spacing: 10) {
+                            HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: line.isDestructive ? "arrow.turn.down.right" : "checkmark.circle.fill")
                                     .foregroundStyle(line.isDestructive ? Color.lifeboard.statusWarning : Color.lifeboard.accentPrimary)
                                 Text(line.text)

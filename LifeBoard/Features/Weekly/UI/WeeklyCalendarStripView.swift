@@ -238,7 +238,7 @@ struct WeeklyCalendarStripView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, spacing.s4)
 
-            LazyVGrid(columns: columns, spacing: 6) {
+            LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(Array(days.enumerated()), id: \.offset) { index, date in
                     if let date = date {
                         monthDayCell(date: date)

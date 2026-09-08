@@ -390,7 +390,7 @@ private struct WeeklyReviewReflectionStep: View {
                                     .font(.lifeboard(.bodyEmphasis))
                                     .foregroundStyle(perceivedWeekRating == rating ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
+                                    .padding(.vertical, 12)
                                     .background(
                                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                                             .fill(perceivedWeekRating == rating ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
@@ -444,7 +444,7 @@ private struct WeeklyReviewNotesStep: View {
                         .foregroundStyle(Color.lifeboard.textSecondary)
                 } else {
                     ForEach(reflectionNotes, id: \.id) { note in
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 8) {
                             if let prompt = note.prompt, prompt.isEmpty == false {
                                 Text(prompt)
                                     .font(.lifeboard(.caption1))
@@ -473,12 +473,12 @@ private struct WeeklyOutcomeReviewRow: View {
     let onSelect: (WeeklyOutcomeStatus) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 Text("\(displayIndex).")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard.textSecondary)
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(outcomeSnapshot.outcome.title)
                         .font(.lifeboard(.bodyEmphasis))
                         .foregroundStyle(Color.lifeboard.textPrimary)
@@ -517,7 +517,7 @@ private struct WeeklyOutcomeReviewRow: View {
             Text(status.displayTitle)
                 .font(.lifeboard(.caption1).weight(.semibold))
                 .foregroundStyle(isSelected ? tint : Color.lifeboard.textSecondary)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(
                     Capsule()

@@ -412,7 +412,7 @@ private struct WeeklyProgressRow: View {
     let steps: [WeeklyRitualStep]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 ForEach(steps) { step in
                     Circle()
@@ -423,7 +423,7 @@ private struct WeeklyProgressRow: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(steps) { step in
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .top, spacing: 12) {
                         Image(systemName: step.isComplete ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(step.isComplete ? Color.lifeboard.accentPrimary : Color.lifeboard.textTertiary)
                         Text(step.title)
@@ -501,7 +501,7 @@ struct WeeklyInlineMessage: View {
             }
         }()
 
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: symbolName)
                 .foregroundStyle(tone.textColor)
             Text(text)
@@ -567,7 +567,7 @@ struct WeeklyCapacityCard: View {
                     Text("Planned pace")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard.textSecondary)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text("\(targetCapacity)")
                             .font(.lifeboard(.title1))
                             .foregroundStyle(Color.lifeboard.textPrimary)
@@ -697,7 +697,7 @@ struct WeeklyTaskLaneView: View {
                     .font(.lifeboard(.support))
                     .foregroundStyle(Color.lifeboard.textSecondary)
             } else {
-                VStack(spacing: 10) {
+                VStack(spacing: 12) {
                     ForEach(tasks, id: \.id) { task in
                         WeeklyTaskPlannerRow(
                             task: task,
@@ -719,7 +719,7 @@ private struct WeeklyTaskPlannerRow: View {
     let onMove: (UUID, TaskPlanningBucket) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(task.title)
