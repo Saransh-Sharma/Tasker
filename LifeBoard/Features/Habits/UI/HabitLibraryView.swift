@@ -295,7 +295,7 @@ private struct HabitCountPill: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .lifeboardDenseSurface(
             cornerRadius: Theme.CornerRadius.md,
             fillColor: tone.fillColor,
@@ -460,7 +460,7 @@ private struct HabitMiniMetric: View {
                 .foregroundColor(Color.lifeboard.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .lifeboardDenseSurface(
             cornerRadius: Theme.CornerRadius.md,

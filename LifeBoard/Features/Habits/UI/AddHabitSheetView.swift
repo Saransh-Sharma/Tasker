@@ -183,23 +183,33 @@ public struct AddHabitSheetView: View {
                 onSubmit: handleCreate
             )
 
-            Picker("Type", selection: $viewModel.selectedKind) {
-                ForEach(AddHabitKind.allCases) { kind in
-                    Text(kind.displayName).tag(kind)
-                }
-            }
-            .pickerStyle(.segmented)
+            // Was `.pickerStyle(.segmented)`, the stock grey segmented
+            // control. `OptionRail` is the design system's equivalent and
+            // keeps the semantics: one selection, per-value accessibility
+            // identifiers, and reflow at accessibility text sizes.
+            OptionRail(
+                "Type",
+                selection: $viewModel.selectedKind,
+                values: Array(AddHabitKind.allCases),
+                identifierPrefix: "addHabitSheetView.type",
+                title: { $0.displayName }
+            )
             .onChange(of: viewModel.selectedKind) { _, _ in
                 viewModel.normalizeSelection()
             }
 
             if viewModel.selectedKind == .negative {
-                Picker("Tracking", selection: $viewModel.selectedTrackingMode) {
-                    ForEach(AddHabitTrackingMode.allCases) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
+                // Was `.pickerStyle(.segmented)`, the stock grey segmented
+                // control. `OptionRail` is the design system's equivalent and
+                // keeps the semantics: one selection, per-value accessibility
+                // identifiers, and reflow at accessibility text sizes.
+                OptionRail(
+                    "Tracking",
+                    selection: $viewModel.selectedTrackingMode,
+                    values: Array(AddHabitTrackingMode.allCases),
+                    identifierPrefix: "addHabitSheetView.tracking",
+                    title: { $0.displayName }
+                )
             }
         }
         .padding(spacing.s16)
@@ -222,12 +232,17 @@ public struct AddHabitSheetView: View {
             }
         ) {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                    Picker("Cadence", selection: cadencePresetBinding) {
-                        ForEach(AddHabitCadencePreset.allCases) { cadence in
-                            Text(cadence.title).tag(cadence)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    // Was `.pickerStyle(.segmented)`, the stock grey segmented
+                    // control. `OptionRail` is the design system's equivalent and
+                    // keeps the semantics: one selection, per-value accessibility
+                    // identifiers, and reflow at accessibility text sizes.
+                    OptionRail(
+                        "Cadence",
+                        selection: cadencePresetBinding,
+                        values: Array(AddHabitCadencePreset.allCases),
+                        identifierPrefix: "addHabitSheetView.cadence",
+                        title: { $0.title }
+                    )
 
                     if cadencePresetBinding.wrappedValue == .weekly {
                         AddHabitWeekdayPickerRow(selectedDays: weeklyDaysBinding)
@@ -650,7 +665,7 @@ struct HabitTargetEditor: View {
     @Binding var config: HabitTargetConfig
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Picker("Target", selection: kindBinding) {
                 ForEach(TargetKind.allCases) { kind in
                     Text(kind.title).tag(kind)
@@ -1008,7 +1023,7 @@ private struct HabitInlineError: View {
     let message: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .lifeboardFont(.headline)
                 .foregroundStyle(Color.lifeboard.statusWarning)

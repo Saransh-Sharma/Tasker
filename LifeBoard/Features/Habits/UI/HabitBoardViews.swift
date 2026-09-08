@@ -1044,7 +1044,7 @@ private struct HabitBoardHeaderDayCell: View {
                 .minimumScaleFactor(0.8)
         }
         .frame(width: layoutMetrics.dayColumnWidth, height: layoutMetrics.headerHeight, alignment: .bottom)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .background(headerBackground)
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier(HabitBoardAccessibilityID.dayHeader(day.date))
@@ -1903,7 +1903,7 @@ private struct HabitBoardSectionHeader: View {
 
     var body: some View {
         if section.symbolName != nil || section.title != "All habits" {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 if let symbol = section.symbolName {
                     Image(systemName: symbol)
                         .font(.lifeboard(.caption1).weight(.semibold))
@@ -1915,7 +1915,7 @@ private struct HabitBoardSectionHeader: View {
                 Text("\(section.rows.count)")
                     .font(.lifeboard(.caption2).weight(.semibold))
                     .foregroundStyle(Color.lifeboard.textTertiary)
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 8)
                     .padding(.vertical, 1)
                     .background(Capsule().fill(Color.lifeboard.surfaceSecondary.opacity(0.4)))
                 Spacer(minLength: 0)
@@ -1963,7 +1963,7 @@ private struct HabitBoardDayCard: View {
                 Text(status.title)
                     .font(.lifeboard(.caption1).weight(.semibold))
                     .foregroundStyle(status.foreground)
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 5)
                     .background(Capsule().fill(status.background))
             }
@@ -2083,7 +2083,7 @@ private struct HabitGraphCard: View {
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(1)
                     Spacer(minLength: spacing.s8)
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         HabitGraphStat(caption: "30d", value: "\(row.metrics.monthCount)", family: row.colorFamily)
                         HabitGraphStat(caption: "Best", value: "\(row.bestStreak)", family: row.colorFamily)
                     }

@@ -216,7 +216,7 @@ struct HealthConnectPromptSheet: View {
     }
 
     private var trustRow: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: "lock.fill")
                 .font(.footnote)
                 .foregroundStyle(Color.lifeboard(.accentPrimary))
@@ -229,7 +229,7 @@ struct HealthConnectPromptSheet: View {
     }
 
     private var shareDisclosure: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Button {
                 withAnimation(.snappy) { showsShareOptions.toggle() }
             } label: {
@@ -266,7 +266,7 @@ struct HealthConnectPromptSheet: View {
     }
 
     private var actions: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             Button {
                 HapticFeedback.success()
                 onConnect(selectedWritableDomains)

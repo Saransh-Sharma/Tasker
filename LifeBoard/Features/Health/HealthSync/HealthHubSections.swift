@@ -267,7 +267,7 @@ struct HealthHubFastingSection: View {
     let source: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Fasting context", symbol: "hourglass")
             Text("Suggestion only · LifeBoard never auto-starts a fast or writes fasting to Apple Health.")
                 .lifeboardFont(.caption1)
@@ -300,7 +300,7 @@ struct HealthHubValuesSection: View {
     let store: HealthConnectionStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Accessible values", symbol: "tablecells")
             ForEach(store.aggregates.values.sorted { $0.metric.rawValue < $1.metric.rawValue }) { item in
                 HStack {

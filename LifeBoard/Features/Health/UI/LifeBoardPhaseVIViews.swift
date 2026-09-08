@@ -423,7 +423,7 @@ struct NutritionView: View {
     }
 
     private var timelineHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Today’s nourishment").font(Typography.screenTitle())
             Text("A factual record of what you choose to log—never a grade.")
                 .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -489,7 +489,7 @@ struct NutritionView: View {
     }
 
     private func undoBanner(_ deleted: NutritionLogEntry) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Text("Removed “\(deleted.foodNameSnapshot)”")
                 .font(.caption)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -598,7 +598,7 @@ struct NutritionView: View {
                     symbol: "fork.knife"
                 )
             case .loading:
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     ProgressView()
                     Text("Updating Apple Health automatically…").font(.subheadline)
                 }
@@ -648,7 +648,7 @@ struct NutritionView: View {
     /// grades implied. Days without logs stay visibly empty.
     private var weeklyReportSection: some View {
         let report = store.weeklyReport
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 12) {
             Text("Past 7 days").font(Typography.sectionTitle())
             Text(store.summary.source == .appleHealth ? "Daily energy totals from Apple Health" : "Energy from named LifeBoard meals")
                 .font(.caption)
@@ -788,7 +788,7 @@ private struct NutritionMealSectionView: View {
     /// all. Grouping gives the day a shape and lets the header carry the slot's
     /// running total.
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(slot.rawValue.capitalized)
                     .font(Typography.sectionTitle())
@@ -1369,7 +1369,7 @@ struct WellnessView: View {
                     symbol: "lock"
                 )
             case .loading:
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     ProgressView()
                     Text("Refreshing Apple Health…")
                         .font(.subheadline)
@@ -1520,7 +1520,7 @@ struct WellnessView: View {
     private func emptyState(title: String, symbol: String) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             StatusSurface(state: .noRecord, title: title, message: "Add a private manual record, or connect Apple Health to bring in available data.")
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Button(section.addTitle) { beginAdd() }.buttonStyle(.lifeBoardPrimary)
                 if shouldOfferHealthConnection {
                     Button("Connect Health") { educationDomain = section.healthDomain }.buttonStyle(.lifeBoardChip)
@@ -1628,7 +1628,7 @@ struct WellnessView: View {
     @ViewBuilder
     private var sourceConflictsSection: some View {
         if !store.conflicts.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 Text("Source review").font(Typography.sectionTitle())
                 Text("These readings arrived close together from different sources. Choosing one changes only the display; source history stays intact.")
                     .font(.caption)
@@ -2151,7 +2151,7 @@ extension WellnessView {
                 wellnessChart
             }
             sourceConflictsSection
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 Text("History").font(Typography.sectionTitle())
                 if filteredSamples.isEmpty, searchText.isEmpty == false {
                     Text("No entries match “\(searchText)”. History is unchanged.")

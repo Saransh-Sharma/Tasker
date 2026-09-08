@@ -117,7 +117,7 @@ struct WellnessMetricOrderRow: View {
     let hide: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Text(kind.title)
                 .font(.lifeboard(.body))
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
@@ -134,7 +134,7 @@ struct WellnessMetricOrderRow: View {
                 Text(unit.symbol)
                     .font(.lifeboard(.meta))
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 12)
                     .frame(minHeight: 32)
                     .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
             }
@@ -169,7 +169,7 @@ struct WellnessHistoryRow: View {
                 Text(timestamp.formatted(date: .abbreviated, time: .shortened))
                     .font(.lifeboard(.body))
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     if isImported {
                         Text(provenance)
                             .font(.lifeboard(.caption2))

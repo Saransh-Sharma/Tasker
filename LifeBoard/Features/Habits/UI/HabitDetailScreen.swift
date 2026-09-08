@@ -320,34 +320,49 @@ struct HabitDetailScreen: View {
 
     private var essentialsEditorContent: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            Picker("Type", selection: $viewModel.draft.kind) {
-                ForEach(AddHabitKind.allCases) { kind in
-                    Text(kind.displayName).tag(kind)
-                }
-            }
-            .pickerStyle(.segmented)
+            // Was `.pickerStyle(.segmented)`, the stock grey segmented
+            // control. `OptionRail` is the design system's equivalent and
+            // keeps the semantics: one selection, per-value accessibility
+            // identifiers, and reflow at accessibility text sizes.
+            OptionRail(
+                "Type",
+                selection: $viewModel.draft.kind,
+                values: Array(AddHabitKind.allCases),
+                identifierPrefix: "habitDetailScreen.type",
+                title: { $0.displayName }
+            )
             .onChange(of: viewModel.draft.kind) { _, _ in
                 viewModel.normalizeDraftSelection()
             }
             if viewModel.draft.kind == .negative {
-                Picker("Tracking", selection: $viewModel.draft.trackingMode) {
-                    ForEach(AddHabitTrackingMode.allCases) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
+                // Was `.pickerStyle(.segmented)`, the stock grey segmented
+                // control. `OptionRail` is the design system's equivalent and
+                // keeps the semantics: one selection, per-value accessibility
+                // identifiers, and reflow at accessibility text sizes.
+                OptionRail(
+                    "Tracking",
+                    selection: $viewModel.draft.trackingMode,
+                    values: Array(AddHabitTrackingMode.allCases),
+                    identifierPrefix: "habitDetailScreen.tracking",
+                    title: { $0.displayName }
+                )
             }
         }
     }
 
     private var rhythmEditorContent: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-                Picker("Cadence", selection: cadencePresetBinding) {
-                    ForEach(HabitCadencePreset.allCases) { cadence in
-                        Text(cadence.title).tag(cadence)
-                    }
-                }
-                .pickerStyle(.segmented)
+                // Was `.pickerStyle(.segmented)`, the stock grey segmented
+                // control. `OptionRail` is the design system's equivalent and
+                // keeps the semantics: one selection, per-value accessibility
+                // identifiers, and reflow at accessibility text sizes.
+                OptionRail(
+                    "Cadence",
+                    selection: cadencePresetBinding,
+                    values: Array(HabitCadencePreset.allCases),
+                    identifierPrefix: "habitDetailScreen.cadence",
+                    title: { $0.title }
+                )
 
                 if cadencePresetBinding.wrappedValue == .weekly {
                     HabitWeekdayPickerRow(selectedDays: weeklyDaysBinding)
