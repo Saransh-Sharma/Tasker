@@ -55,7 +55,7 @@ public struct XPCelebrationView: View {
                         .foregroundColor(.lifeboard(.textInverse).opacity(0.9))
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
                 .background(
                     Capsule()
                         .fill(
