@@ -118,9 +118,9 @@ private struct EvaModeCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         if let badge {
                             Text(badge)
                                 .font(.lifeboard(.caption1).weight(.semibold))

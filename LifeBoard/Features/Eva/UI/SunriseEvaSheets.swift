@@ -155,7 +155,7 @@ struct EvaFocusWhySheet: View {
                                     .font(.lifeboard(.caption1).weight(.semibold))
                                     .foregroundStyle(ClayColorTokens.navyMuted)
                                     .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
+                                    .padding(.vertical, 12)
                                     .background(EvaClayStyle.cream, in: Capsule())
                             }
                             .buttonStyle(.plain)
@@ -167,7 +167,7 @@ struct EvaFocusWhySheet: View {
                 }
                 .scrollIndicators(.hidden)
                 .padding(.horizontal, spacing.s16)
-                .padding(.top, 6)
+                .padding(.top, 8)
                 .padding(.bottom, spacing.s24)
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -766,8 +766,8 @@ struct FocusTaskCardFront: View {
                 .font(.lifeboard(.caption1).weight(.semibold))
                 .foregroundStyle(heroImage.accentColor)
                 .lineLimit(1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 .background(heroImage.pillColor, in: Capsule())
         }
         .padding(16)
@@ -816,7 +816,7 @@ struct FocusTaskCardBack: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 Button("View details", systemImage: "doc.text.magnifyingglass", action: onViewDetails)
                     .font(.lifeboard(.bodyEmphasis))
                     .foregroundStyle(ClayColorTokens.navy)
@@ -891,7 +891,7 @@ struct CandidateSection: View {
     let onSwapTap: (TaskDefinition) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Other great fits")
                     .font(.lifeboard(.headline))
@@ -1152,7 +1152,7 @@ struct RefineFocusSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("Refine Focus Now")
                             .font(.lifeboard(.title2).weight(.bold))
                             .foregroundStyle(ClayColorTokens.navy)
@@ -1180,7 +1180,7 @@ struct RefineFocusSheet: View {
             }
             .background(EvaClayStyle.canvas.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Button("Cancel", role: .cancel) {
                         dismiss()
                     }
@@ -1333,7 +1333,7 @@ struct FocusTaskDetailSheet: View {
             }
             .background(EvaClayStyle.canvas.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Button("Start timer", systemImage: "play.fill", action: onStartTimer)
                         .font(.lifeboard(.bodyEmphasis))
                         .foregroundStyle(Color.lifeboard(.accentOnPrimary))
@@ -1375,7 +1375,7 @@ struct FocusTaskDetailSheet: View {
     }
 
     private func detailRow(_ title: String, value: String, systemImage: String) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: systemImage)
                 .foregroundStyle(ClayColorTokens.navyMuted)
                 .frame(width: 24)
@@ -1707,7 +1707,7 @@ private struct EvaOverdueRescueSheet: View {
                         }
                     }
 
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         Button("Apply plan") {
                             let mutations = buildMutations(plan: plan)
                             if hasDropSelection(plan: plan) {
@@ -1791,7 +1791,7 @@ private struct EvaOverdueRescueSheet: View {
                     }
                     .frame(minHeight: 44)
                 }
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
                 if (selectedActionByTaskID[item.taskID] ?? item.action) == .split {
                     Button("Open split helper") {
                         onSplitTask(item.taskID)

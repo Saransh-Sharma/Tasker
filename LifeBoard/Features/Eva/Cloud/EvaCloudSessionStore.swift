@@ -8,6 +8,7 @@ actor EvaCloudSessionStore {
     private let sessionAccount = "session-v1"
     private let guestBootstrapAccount = "guest-bootstrap-v1"
     private let usesInMemoryStorage: Bool
+    private let securityStatusOverride: (@Sendable (EvaSecureStorageOperation) -> OSStatus?)?
     private var inMemoryCredentials: EvaSessionCredentials?
     private var inMemoryGuestBootstrap: GuestBootstrapRecord?
 
@@ -16,8 +17,12 @@ actor EvaCloudSessionStore {
         let installationID: UUID
     }
 
-    init(inMemory: Bool = false) {
+    init(
+        inMemory: Bool = false,
+        securityStatusOverride: (@Sendable (EvaSecureStorageOperation) -> OSStatus?)? = nil
+    ) {
         usesInMemoryStorage = inMemory
+        self.securityStatusOverride = securityStatusOverride
     }
 
     func load() throws -> EvaSessionCredentials? {
@@ -74,32 +79,41 @@ actor EvaCloudSessionStore {
         var query = baseQuery(account: account)
         query[kSecReturnData] = true
         query[kSecMatchLimit] = kSecMatchLimitOne
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        let status = securityStatusOverride?(.load)
+            ?? SecItemCopyMatching(query as CFDictionary, &result)
         if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess, let data = result as? Data else {
-            throw EvaKeychainError.status(status)
+        guard status == errSecSuccess else {
+            throw EvaSecureStorageError(operation: .load, status: status)
+        }
+        guard let data = result as? Data else {
+            throw EvaSecureStorageError(operation: .load, status: errSecDecode)
         }
         return data
     }
 
     private func saveData(_ data: Data, account: String) throws {
         let query = baseQuery(account: account)
-        let update = SecItemUpdate(query as CFDictionary, [kSecValueData: data] as CFDictionary)
+        let update = securityStatusOverride?(.update)
+            ?? SecItemUpdate(query as CFDictionary, [kSecValueData: data] as CFDictionary)
         if update == errSecItemNotFound {
             var add = query
             add[kSecValueData] = data
             add[kSecAttrAccessible] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-            let status = SecItemAdd(add as CFDictionary, nil)
-            guard status == errSecSuccess else { throw EvaKeychainError.status(status) }
+            let status = securityStatusOverride?(.add)
+                ?? SecItemAdd(add as CFDictionary, nil)
+            guard status == errSecSuccess else {
+                throw EvaSecureStorageError(operation: .add, status: status)
+            }
         } else if update != errSecSuccess {
-            throw EvaKeychainError.status(update)
+            throw EvaSecureStorageError(operation: .update, status: update)
         }
     }
 
     private func deleteData(account: String) throws {
-        let status = SecItemDelete(baseQuery(account: account) as CFDictionary)
+        let status = securityStatusOverride?(.delete)
+            ?? SecItemDelete(baseQuery(account: account) as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw EvaKeychainError.status(status)
+            throw EvaSecureStorageError(operation: .delete, status: status)
         }
     }
 
@@ -116,8 +130,43 @@ actor EvaCloudSessionStore {
     }
 }
 
-private enum EvaKeychainError: Error {
-    case status(OSStatus)
+enum EvaSecureStorageOperation: String, CaseIterable, Equatable, Sendable {
+    case load
+    case update
+    case add
+    case delete
+}
+
+struct EvaSecureStorageError: Error, LocalizedError, CustomNSError, Equatable, Sendable {
+    static let errorDomain = "app.getlifeboard.eva-cloud.secure-storage"
+    static let userFacingDescription = "Cloud EVA couldn’t access secure storage on this Mac. Quit and reopen LifeBoard, then try again."
+
+    let operation: EvaSecureStorageOperation
+    let status: OSStatus
+
+    var errorDescription: String? { Self.userFacingDescription }
+    var errorCode: Int { Int(status) }
+    var telemetryCode: String { "keychain_\(operation.rawValue)_\(status)" }
+
+    var systemMessage: String {
+        guard let message = SecCopyErrorMessageString(status, nil) else {
+            return "Unknown Security framework error"
+        }
+        return message as String
+    }
+
+    var diagnosticDescription: String {
+        "Keychain \(operation.rawValue) failed with OSStatus \(status): \(systemMessage)"
+    }
+
+    var errorUserInfo: [String: Any] {
+        [
+            NSLocalizedDescriptionKey: Self.userFacingDescription,
+            NSLocalizedFailureReasonErrorKey: systemMessage,
+            "operation": operation.rawValue,
+            "osStatus": Int(status),
+        ]
+    }
 }
 
 enum EvaInstallationIdentity {

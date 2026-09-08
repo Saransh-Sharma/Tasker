@@ -77,7 +77,7 @@ struct EvaRitualEvidenceDisclosure: View {
 
     var body: some View {
         DisclosureGroup(isExpanded: $expanded) {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 ForEach(evidence) { item in
                     if let onOpenEvidence {
                         Button {

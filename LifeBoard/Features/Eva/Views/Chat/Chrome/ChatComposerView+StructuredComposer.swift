@@ -229,7 +229,7 @@ extension ChatComposerView {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.xs) {
                     ForEach(activeAttachments) { attachment in
-                        HStack(spacing: 6) {
+                        HStack(spacing: 8) {
                             Image(systemName: attachment.commandID.icon)
                                 .font(.lifeboard(.caption2))
                             Text(attachment.commandLabel)

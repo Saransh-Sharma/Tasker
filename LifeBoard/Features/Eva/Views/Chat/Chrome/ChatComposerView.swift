@@ -300,7 +300,7 @@ extension ChatComposerView {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.lifeboard(.caption2))
                 Text(title)

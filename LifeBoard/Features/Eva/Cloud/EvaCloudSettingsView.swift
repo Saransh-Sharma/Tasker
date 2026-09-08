@@ -32,11 +32,22 @@ struct EvaCloudSettingsView: View {
                         title: String(localized: "Choose where EVA runs"),
                         subtitle: String(localized: "A request keeps the same provider from start to finish. Offline EVA remains available when an MLX model is installed.")
                     ) {
-                        Picker("EVA provider", selection: $providerPreference) {
-                            Text("Cloud").tag(EvaProviderRouter.Preference.cloud.rawValue)
-                            Text("Offline").tag(EvaProviderRouter.Preference.offline.rawValue)
-                        }
-                        .pickerStyle(.segmented)
+                        // Was `.pickerStyle(.segmented)`, the stock grey segmented
+                        // control. The selection is an `@AppStorage` `String`
+                        // rawValue rather than the enum, so the rail carries the
+                        // raw values and maps titles back through the case.
+                        OptionRail(
+                            "EVA provider",
+                            selection: $providerPreference,
+                            values: [
+                                EvaProviderRouter.Preference.cloud.rawValue,
+                                EvaProviderRouter.Preference.offline.rawValue
+                            ],
+                            identifierPrefix: "eva.cloud.provider",
+                            title: { raw in
+                                raw == EvaProviderRouter.Preference.cloud.rawValue ? "Cloud" : "Offline"
+                            }
+                        )
                         .accessibilityIdentifier("evaCloudSettings.providerPicker")
                     }
                 }

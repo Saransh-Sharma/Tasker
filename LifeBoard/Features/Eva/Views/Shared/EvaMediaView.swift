@@ -437,7 +437,7 @@ struct MascotPersonaSelector: View {
     let onSelect: (AssistantMascotID) -> Void
 
     private let columns = [
-        GridItem(.adaptive(minimum: 138), spacing: 10, alignment: .top)
+        GridItem(.adaptive(minimum: 138), spacing: 12, alignment: .top)
     ]
 
     var body: some View {
@@ -452,7 +452,7 @@ struct MascotPersonaSelector: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            LazyVGrid(columns: columns, spacing: 10) {
+            LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(AssistantMascotPersona.all) { persona in
                     Button {
                         onSelect(persona.id)
@@ -477,8 +477,8 @@ private struct MascotPersonaChoiceContent: View {
     let isSelected: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
                 ZStack {
                     Circle()
                         .fill(Color.lifeboard(.accentWash))
@@ -532,7 +532,7 @@ struct MascotSpriteAnimationView: View {
     var body: some View {
         Group {
             if animate {
-                TimelineView(.periodic(from: .now, by: 0.13)) { timeline in
+                ActiveVisibleTimeline(every: 0.13) { timeline in
                     frameView(index: frameIndex(for: timeline.date))
                 }
             } else {

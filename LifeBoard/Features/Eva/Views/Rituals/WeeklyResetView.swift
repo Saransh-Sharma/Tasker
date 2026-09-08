@@ -421,7 +421,7 @@ struct WeeklyResetView: View {
     }
 
     private func resetField(_ label: String, placeholder: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(label).font(.subheadline.weight(.semibold))
             TextField(placeholder, text: text, axis: .vertical)
                 .lineLimit(2...4)

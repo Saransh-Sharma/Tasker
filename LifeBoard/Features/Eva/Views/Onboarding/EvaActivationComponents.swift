@@ -111,7 +111,7 @@ struct EvaInfoPill: View {
             .font(.lifeboard(.caption1).weight(.semibold))
             .foregroundStyle(Color.lifeboard(.accentPrimary))
             .padding(.horizontal, Theme.Spacing.md)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .background(Color.lifeboard(.surfaceSecondary))
             .clipShape(Capsule())
             .overlay(
@@ -137,7 +137,7 @@ struct EvaSelectionChip: View {
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
                 .frame(minHeight: 40, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
@@ -239,7 +239,7 @@ struct EvaGoalChip: View {
         }
         .padding(.leading, Theme.Spacing.md)
         .padding(.trailing, Theme.Spacing.sm)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .background(Color.lifeboard(.accentWash))
         .clipShape(Capsule())
         .overlay(
@@ -340,7 +340,7 @@ struct EvaReviewCard: View {
     }
 
     private func reviewRow(label: String, value: String, emptyValue: String = "Not set yet") -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(label)
                 .font(.lifeboard(.caption1).weight(.semibold))
                 .foregroundStyle(Color.lifeboard(.textSecondary))

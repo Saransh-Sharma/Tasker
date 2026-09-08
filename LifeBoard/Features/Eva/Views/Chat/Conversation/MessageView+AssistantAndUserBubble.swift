@@ -247,7 +247,7 @@ extension MessageView {
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.vertical, Theme.Spacing.md)
         #else
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
             .padding(.vertical, 8)
         #endif
             .lifeBoardClaySurface(.resting, fill: Color.lifeboard(.surfaceSecondary))
