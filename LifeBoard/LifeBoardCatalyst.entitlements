@@ -27,6 +27,12 @@
 	<array>
 		<string>group.com.saransh1337.tasker.shared</string>
 	</array>
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)$(CFBundleIdentifier)</string>
+	</array>
 	<!-- HealthKit is deliberately absent. It is not a provisionable Mac
 	     Catalyst entitlement: adding it here to fix HealthKit authorization
 	     instead failed the whole Catalyst build with "Entitlement

@@ -69,6 +69,7 @@ jobs:
         run: |
           set -euo pipefail
           for check_script in \
+            scripts/check-catalyst-entitlements.sh \
             scripts/check-xcode-target-membership.sh \
             scripts/check-module-boundaries.sh \
             scripts/check-file-size-guardrails.sh \

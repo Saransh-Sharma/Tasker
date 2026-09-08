@@ -4587,6 +4587,11 @@
 					};
 					753EFC992445A24500A739E3 = {
 						CreatedOnToolsVersion = 11.3.1;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups = {
+								enabled = 1;
+							};
+						};
 					};
 					753EFCAF2445A24700A739E3 = {
 						CreatedOnToolsVersion = 11.3.1;
@@ -6141,6 +6146,7 @@
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = "com.saransh1337.To-Do-List.mac";
 				PRODUCT_MODULE_NAME = LifeBoard;
 				PRODUCT_NAME = LifeBoard;
+				"REGISTER_APP_GROUPS[sdk=macosx*]" = YES;
 				SUPPORTS_MACCATALYST = YES;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
@@ -6179,6 +6185,7 @@
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = "com.saransh1337.To-Do-List.mac";
 				PRODUCT_MODULE_NAME = LifeBoard;
 				PRODUCT_NAME = LifeBoard;
+				"REGISTER_APP_GROUPS[sdk=macosx*]" = YES;
 				SUPPORTS_MACCATALYST = YES;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
