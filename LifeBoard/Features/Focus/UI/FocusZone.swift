@@ -455,7 +455,7 @@ private struct FocusZoneRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .padding(.horizontal, spacing.s16)
         .contentShape(Rectangle())
         .onTapGesture {

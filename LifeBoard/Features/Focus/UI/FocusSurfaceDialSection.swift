@@ -24,7 +24,7 @@ struct FocusSurfaceDialSection: View {
     let completionTrigger: Int
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        ActiveVisibleTimeline(every: 1) { context in
             let display = FocusClock.display(
                 session: session,
                 companion: store.focusCompanion,
@@ -55,7 +55,7 @@ struct FocusSurfaceDialSection: View {
 
     @ViewBuilder
     private func dialCentre(_ display: FocusClockDisplay) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             if display.showsClock {
                 Text(PlanSectionCopy.duration(display.value))
                     // Token-backed rather than a fixed 46pt: a hard-coded size

@@ -12,13 +12,13 @@ struct FocusSurfaceCommitmentSection: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text(headline)
+            Text(Self.headline(companion: companion))
                 .font(Typography.sectionTitle())
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .fixedSize(horizontal: false, vertical: true)
 
-            if let context {
+            if let context = Self.context(session: session, companion: companion) {
                 Text(context)
                     .font(.subheadline)
                     .multilineTextAlignment(.center)
@@ -31,7 +31,7 @@ struct FocusSurfaceCommitmentSection: View {
         .accessibilityIdentifier("focus.surface.commitment")
     }
 
-    private var headline: String {
+    static func headline(companion: FocusSessionCompanion?) -> String {
         guard let intention = companion?.intention, intention.isEmpty == false else {
             // No stated intention is a real state, not a blank. Naming it keeps
             // the dominant line from collapsing to empty space.
@@ -42,7 +42,7 @@ struct FocusSurfaceCommitmentSection: View {
 
     /// Mode and round, folded into one quiet line. Two separate metadata rows
     /// competed with the intention above them for no added meaning.
-    private var context: String? {
+    static func context(session: FocusSessionV2, companion: FocusSessionCompanion?) -> String? {
         guard let companion else { return nil }
         var parts: [String] = []
         switch companion.mode {

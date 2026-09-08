@@ -31,15 +31,38 @@ struct FocusSurface: View {
         ScreenScaffold(mode: .focused, bottomClearance: 12) {
             ScrollView {
                 VStack(spacing: 28) {
-                    FocusSurfaceCommitmentSection(
-                        session: session,
-                        companion: store.focusCompanion
-                    )
-
-                    FocusSurfaceDialSection(
-                        store: store,
-                        session: session,
-                        completionTrigger: completionTrigger
+                    // Focus's hero. `DESIGN.md` names the object this screen
+                    // exists to present — "one commitment, tactile dial, clear
+                    // pause/resume/finish controls" — and this is it: the
+                    // commitment as the title, the mode line as its one line of
+                    // context, the dial as the progress control, and
+                    // pause/resume as the single primary action.
+                    //
+                    // The commitment, dial and transport used to be three
+                    // sibling sections at equal weight, so the screen had no
+                    // dominant object at all. Finish, next phase and
+                    // interruption logging stay below in clay: a hero may hold
+                    // one primary action and at most one quiet alternative, and
+                    // those are three more.
+                    DecisionSurface(
+                        title: FocusSurfaceCommitmentSection.headline(
+                            companion: store.focusCompanion
+                        ),
+                        context: FocusSurfaceCommitmentSection.context(
+                            session: session,
+                            companion: store.focusCompanion
+                        ),
+                        accessibilityID: "focus.hero",
+                        progressControl: {
+                            FocusSurfaceDialSection(
+                                store: store,
+                                session: session,
+                                completionTrigger: completionTrigger
+                            )
+                        },
+                        primary: {
+                            FocusPauseResumeButton(store: store, session: session)
+                        }
                     )
 
                     FocusSurfaceTransportSection(

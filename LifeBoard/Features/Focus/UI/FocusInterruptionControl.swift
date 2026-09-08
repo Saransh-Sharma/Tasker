@@ -23,7 +23,7 @@ struct FocusInterruptionControl: View {
     private static let reasons = ["Call or message", "Someone needed me", "Lost focus"]
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             strip
             if isExpanded {
                 reasonButtons

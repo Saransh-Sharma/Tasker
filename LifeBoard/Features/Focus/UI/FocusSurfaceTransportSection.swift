@@ -25,8 +25,11 @@ struct FocusSurfaceTransportSection: View {
     private var isPaused: Bool { session.state == .paused }
 
     var body: some View {
+        // Pause/resume has moved into the hero as its single primary action.
+        // `DESIGN.md` allows a hero "one primary action with at most one quiet
+        // alternative"; end, next phase and interruption logging are three more,
+        // so they stay here, in clay, beneath it.
         VStack(spacing: 14) {
-            primaryRow
             if store.focusCompanion?.pomodoroPhase != nil {
                 nextPhaseButton
             }
@@ -36,7 +39,17 @@ struct FocusSurfaceTransportSection: View {
         .accessibilityIdentifier("focus.surface.transport")
     }
 
-    private var primaryRow: some View {
+}
+
+/// Focus's single primary action, lifted out of the transport so the hero can
+/// hold it.
+struct FocusPauseResumeButton: View {
+    let store: PlanStore
+    let session: FocusSessionV2
+
+    private var isPaused: Bool { session.state == .paused }
+
+    var body: some View {
         Button {
             Task {
                 if isPaused { await store.resumeFocus() } else { await store.pauseFocus() }
@@ -49,12 +62,14 @@ struct FocusSurfaceTransportSection: View {
             .font(.body.weight(.semibold))
             .frame(maxWidth: .infinity, minHeight: 52)
         }
-        .buttonStyle(.lifeBoardPrimaryCompact)
+        .buttonStyle(.lifeBoardPrimary)
         .lifeBoardPressResponse(.hero, haptic: .pick)
         .accessibilityIdentifier("focus.surface.pauseResume")
     }
+}
 
-    private var nextPhaseButton: some View {
+private extension FocusSurfaceTransportSection {
+    var nextPhaseButton: some View {
         Button("Next phase", systemImage: "forward.end.fill") {
             Task { await store.advancePomodoro() }
         }
@@ -65,11 +80,11 @@ struct FocusSurfaceTransportSection: View {
     }
 
     @ViewBuilder
-    private var endRow: some View {
+    var endRow: some View {
         if showsEndOptions {
             let layout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(spacing: 10))
-                : AnyLayout(HStackLayout(spacing: 10))
+                ? AnyLayout(VStackLayout(spacing: 12))
+                : AnyLayout(HStackLayout(spacing: 12))
             layout {
                 endButton("Finish", systemImage: "checkmark.circle", outcome: .completed)
                 endButton("Continue later", systemImage: "clock.arrow.circlepath", outcome: .continueLater)
@@ -88,7 +103,7 @@ struct FocusSurfaceTransportSection: View {
         }
     }
 
-    private func endButton(
+    func endButton(
         _ title: String,
         systemImage: String,
         outcome: FocusCompletionOutcome
