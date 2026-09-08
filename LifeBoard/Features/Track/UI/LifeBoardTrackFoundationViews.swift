@@ -43,6 +43,7 @@ struct TrackFoundationRootView: View {
     @Environment(PresentationPreferences.self) private var preferences
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
+    @Environment(\.lifeBoardRootActivity) private var rootActivity
 
     init(
         repository: CoreDataTrackFoundationRepository,
@@ -129,6 +130,7 @@ struct TrackFoundationRootView: View {
             }
             .refreshable { await store.load() }
             .lifeBoardReportsComposerScroll()
+            .accessibilityIdentifier("foundation.track.scroll")
         }
         // No opaque canvas here. `GrainedCanvas` fills with `foundationCanvas`
         // and ignores the safe area, and the shell's atmosphere is a sibling
@@ -138,9 +140,17 @@ struct TrackFoundationRootView: View {
         // whenever the atmosphere is hosted.
         .navigationTitle("Track")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await store.load() }
-        .task { await reloadFasting() }
-        .task {
+        .onReceive(NotificationCenter.default.publisher(for: .foundationDomainMaintenanceCommitted)) { _ in
+            guard rootActivity.performsContinuousWork else { return }
+            Task { await store.load() }
+        }
+        .task(id: rootActivity) {
+            guard rootActivity.performsContinuousWork else { return }
+            await store.load()
+            await reloadFasting()
+        }
+        .task(id: rootActivity) {
+            guard rootActivity.performsContinuousWork else { return }
             let updates = await HealthSyncInvalidationService.shared.updates()
             for await _ in updates {
                 guard Task.isCancelled == false else { return }
@@ -378,7 +388,7 @@ private struct TrackCareTile: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 Label(title, systemImage: symbol).font(.headline)
                 Text(value).font(.subheadline.weight(.semibold))
                 Spacer(minLength: 0)
@@ -409,7 +419,7 @@ private struct TrackBehaviorAreaLink: View {
                 onOpenHealth: onOpenHealth
             )
         } label: {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 Label(title, systemImage: symbol).font(.headline)
                 Text(value).font(.subheadline.weight(.semibold))
                 Spacer(minLength: 0)
@@ -451,7 +461,7 @@ private struct TrackHydrationTile: View {
     @Binding var showsHydrationTarget: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Label("Hydration", systemImage: "drop.fill")
                 .font(.headline)
             Text(TrackSectionCopy.hydrationLabel(store)).font(.title3.weight(.semibold))
@@ -595,7 +605,7 @@ private struct TrackQuickLogButton: View {
             Haptic.pick.play()
             action()
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: symbol)
                     .font(.subheadline.weight(.semibold))
                     .frame(width: 32, height: 32)
@@ -863,7 +873,7 @@ private struct TrackHeaderSection: View {
             : AnyLayout(HStackLayout(alignment: .top, spacing: 16))
 
         layout {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(TrackSectionCopy.daypartTitle(preferences))
                     .font(Typography.screenTitle())
                     .foregroundStyle(palette.color(for: .foreground))
@@ -881,7 +891,7 @@ private struct TrackHeaderSection: View {
                 .frame(width: dynamicTypeSize.isAccessibilitySize ? 132 : 96, height: 52)
                 .accessibilityIdentifier("track.header.daypart")
         }
-        .padding(.top, 10)
+        .padding(.top, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityIdentifier("track.header")
     }
@@ -898,13 +908,13 @@ private struct TrackQuickLogStrip: View {
 
     var body: some View {
         let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Quick log")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
 
             ScrollView(.horizontal) {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     TrackQuickLogButton(
                         title: "Water",
                         detail: "+250 mL",
@@ -949,7 +959,7 @@ private struct TrackQuickLogStrip: View {
                 initialArea: .trackers
             )
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: "square.grid.3x3.fill")
                     .font(.subheadline.weight(.semibold))
                     .frame(width: 32, height: 32)
@@ -1265,7 +1275,7 @@ private struct TrackMindCareSection: View {
                         }
                         .accessibilityLabel("Actions for \(checkIn.mood.title) check-in")
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
                     .privacySensitive()
                 }
             }
@@ -1385,7 +1395,7 @@ private struct TrackGoalsSection: View {
             } else {
                 ForEach(store.definitions) { goal in
                     let progress = store.snapshot.goals.first(where: { $0.goalID == goal.id })
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(goal.title).font(.headline)
@@ -1479,7 +1489,7 @@ private struct TrackModulesSection: View {
                     Button("Remove", role: .destructive) { Task { await store.removeStarterPack(installation) } }
                         .font(.caption.weight(.semibold))
                 }
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
             }
             NavigationLink { JournalModuleView(repository: store.phaseIIRepository) } label: { TrackModuleRow("Journal", detail: "Write, reflect, and look back", symbol: "book.closed") }
                 .buttonStyle(.plain)
@@ -1974,7 +1984,7 @@ struct GoalsDestinationView: View {
 
     private func goalRow(_ goal: GoalDefinition) -> some View {
         let progress = store.snapshot.goals.first(where: { $0.goalID == goal.id })
-        return HStack(spacing: 10) {
+        return HStack(spacing: 12) {
             Button {
                 router.push(.goal(goal.id), in: .track)
             } label: {
@@ -2241,7 +2251,7 @@ struct RoutinesDestinationView: View {
             .buttonStyle(.lifeBoardPrimaryCompact)
             .accessibilityIdentifier("routine.primaryAction")
 
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Button("Edit routine", systemImage: "pencil") {
                     editingRoutine = routine
                     showsComposer = true
@@ -2297,7 +2307,7 @@ struct RoutinesDestinationView: View {
     }
 
     private func routineRow(_ routine: RoutineDefinition) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Button {
                 router.push(.routine(routine.id), in: .track)
             } label: {
@@ -2484,7 +2494,7 @@ private struct HydrationCaptureComposer: View {
 
             ScrollView {
                 VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 24 : 20) {
-                    VStack(spacing: 6) {
+                    VStack(spacing: 8) {
                         Text("A little water for right now")
                             .font(Typography.sectionTitle().weight(.bold))
                             .multilineTextAlignment(.center)
@@ -2506,7 +2516,7 @@ private struct HydrationCaptureComposer: View {
                         columns: dynamicTypeSize.isAccessibilitySize
                             ? [GridItem(.flexible())]
                             : [GridItem(.flexible()), GridItem(.flexible())],
-                        spacing: 10
+                        spacing: 12
                     ) {
                         ForEach(presets, id: \.amount) { preset in
                             hydrationPreset(preset)
@@ -2924,7 +2934,7 @@ private struct RoutineRunner: View {
 
     @ViewBuilder private var primaryAction: some View {
         if let step, step.kind == .timer, let duration = step.duration {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
+            ActiveVisibleTimeline(every: 1) { context in
                 Button(timerRemaining(duration: duration, at: context.date) > 0 ? "Timer running" : "Continue") {
                     advance(response, false)
                 }
@@ -2941,10 +2951,10 @@ private struct RoutineRunner: View {
     }
 
     private var runningControls: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             primaryAction
                 .frame(maxWidth: .infinity)
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Button("Pause", systemImage: "pause.fill", action: pause)
                     .buttonStyle(.bordered)
                     .frame(maxWidth: .infinity, minHeight: 48)
@@ -2961,7 +2971,7 @@ private struct RoutineRunner: View {
 
     private var pausedControls: some View {
         let title = run.status == .interrupted ? "Routine interrupted" : "Routine paused"
-        return VStack(spacing: 10) {
+        return VStack(spacing: 12) {
             Text(title)
                 .font(Typography.sectionTitle())
             Text("Your place and timer are saved.")
@@ -3063,7 +3073,7 @@ private struct RoutineTimerProgress: View {
     let duration: TimeInterval
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        ActiveVisibleTimeline(every: 1) { context in
             let remaining = timerRemaining(at: context.date)
             VStack(spacing: 8) {
                 Text(durationLabel(remaining))
@@ -3795,7 +3805,7 @@ private struct RoutineStepEditorRow: View {
     let pickLink: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             TextField("Step title", text: $step.title)
             Picker("Kind", selection: $step.kind) {
                 ForEach(RoutineStepKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
@@ -4807,7 +4817,7 @@ private struct GoalLinkSourceSection: View {
             footer: "LifeBoard aggregates only this explicit link. Unrelated activity never completes a goal."
         ) {
             Button(action: choose) {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(selection?.kind.title ?? "Choose a source")
                             .font(.lifeboard(.body))

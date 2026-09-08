@@ -56,7 +56,7 @@ struct TrackFastingSection: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 if let activeFast {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                    ActiveVisibleTimeline(every: 1) { context in
                         let elapsed = max(0, activeFast.elapsed(at: context.date))
                         HStack(spacing: 14) {
                             let fraction = activeFast.targetDuration.map { target in
@@ -89,7 +89,7 @@ struct TrackFastingSection: View {
                         }
                     }
 
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         Button("Finish") {
                             Task {
                                 _ = try? await fastingTimerStore.finish()
@@ -219,7 +219,7 @@ struct FastingDestinationView: View {
         return VStack(alignment: .leading, spacing: 16) {
             SectionHeader("Current session")
             if let activeFast {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
+                ActiveVisibleTimeline(every: 1) { context in
                     let elapsed = max(0, activeFast.elapsed(at: context.date))
                     let progress = activeFast.targetDuration.map { $0 > 0 ? min(1, elapsed / $0) : 0 } ?? 0
                     HStack(spacing: 16) {
@@ -246,8 +246,8 @@ struct FastingDestinationView: View {
                     .accessibilityValue("\(TrackSectionCopy.fastingClock(elapsed)) elapsed")
                 }
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 10) { finishButton; cancelButton }
-                    VStack(alignment: .leading, spacing: 10) { finishButton; cancelButton }
+                    HStack(spacing: 12) { finishButton; cancelButton }
+                    VStack(alignment: .leading, spacing: 12) { finishButton; cancelButton }
                 }
             } else {
                 StatusSurface(

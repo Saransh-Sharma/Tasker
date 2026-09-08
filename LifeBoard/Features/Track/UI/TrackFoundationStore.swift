@@ -25,6 +25,7 @@ final class TrackFoundationStore {
     private(set) var hydrationLogs: [HydrationLog] = []
     private(set) var hydrationHistory: [HydrationLog] = []
     private(set) var correctionReceipts: [TrackCorrectionReceipt] = []
+    private(set) var hasLoaded = false
     private(set) var isLoading = false
     var errorMessage: String?
     var activeRoutineRun: RoutineRun?
@@ -75,10 +76,19 @@ final class TrackFoundationStore {
         self.correctionReceiptRepository = correctionReceiptRepository
     }
 
+    @ObservationIgnored private let refreshDrain = PresentationRefreshDrain()
+
     func load() async {
-        guard isLoading == false else { return }
-        isLoading = true
-        defer { isLoading = false }
+        await refreshDrain.run { [weak self] in
+            guard let self else { return }
+            self.isLoading = !hasLoaded
+            await self.performLoadPass()
+            self.isLoading = false
+        }
+    }
+
+    private func performLoadPass() async {
+        let revision = refreshDrain.revision
         do {
             let bounds = Self.todayBounds()
             async let goalsValue = repository.fetchGoals()
@@ -100,41 +110,24 @@ final class TrackFoundationStore {
             let moodHistoryStart = Calendar.current.date(byAdding: .day, value: -29, to: bounds.start) ?? bounds.start
             async let checkInsValue = phaseIIRepository.fetchMoodCheckIns(from: moodHistoryStart, to: bounds.end)
             async let trackersValue = phaseIIRepository.fetchTrackers()
-            async let trackerEntriesValue = phaseIIRepository.fetchTrackerEntries(trackerID: nil)
-            async let journalDaysValue = phaseIIRepository.fetchJournalDays(search: nil, starredOnly: false, mood: nil)
+            async let trackerEntriesValue = phaseIIRepository.fetchTrackerEntries(trackerID: nil, from: bounds.start, to: bounds.end)
+            async let journalDaysValue = phaseIIRepository.fetchJournalEvidence(from: bounds.start, to: bounds.end)
             async let correctionValues = correctionReceiptRepository.fetchTrackCorrectionReceipts()
 
-            let links: [GoalLink]
-            let target: HydrationTarget?
-            let medicationEvents: [MedicationEventValue]
             let trackers: [TrackerDefinitionValue]
             let trackerEntries: [TrackerEntryValue]
-            let journalDays: [JournalDayValue]
+            let journalDays: [JournalEvidenceSummary]
             let hydrationHistoryResult: [HydrationLog]
-            (definitions, links, routines, routineSchedules, routineRuns, habitPolicies, habitGroups, starterPackInstallations, hydrationLogs, target, sleepRecords, medications, medicationSchedules, medicationEvents, checkIns) = try await (
+            let (definitions, links, routines, routineSchedules, routineRuns, habitPolicies, habitGroups, starterPackInstallations, hydrationLogs, target, sleepRecords, medications, medicationSchedules, medicationEvents, checkIns) = try await (
                 goalsValue, linksValue, routinesValue, schedulesValue, runsValue, policiesValue, groupsValue, installationsValue,
                 hydrationValue, targetValue, sleepValue, medicationsValue, medicationSchedulesValue, medicationEventsValue, checkInsValue
             )
-            goalLinks = links
             (trackers, trackerEntries, journalDays, hydrationHistoryResult) = try await (
                 trackersValue, trackerEntriesValue, journalDaysValue, hydrationHistoryValue
             )
-            hydrationHistory = hydrationHistoryResult
-            correctionReceipts = try await correctionValues
+            let correctionReceipts = try await correctionValues
 
-            var unresolved: [MedicationEventValue] = []
-            for event in medicationEvents where event.status == .unresolved || event.status == .scheduled {
-                var copy = event
-                if event.status == .scheduled,
-                   Self.medicationWindowEnded(event, schedules: medicationSchedules, now: Date()) {
-                    copy.status = .unresolved
-                    copy.resolvedAt = nil
-                    if let medication = medications.first(where: { $0.id == copy.medicationID }) {
-                        try await medicationService.saveEvent(medication: medication, event: copy)
-                    }
-                }
-                unresolved.append(copy)
-            }
+            let unresolved = medicationEvents.filter { $0.status == .unresolved || $0.status == .scheduled }
             let goalSamples = try await goalSampleProvider?.samples(for: links, asOf: Date()) ?? []
             let progress = definitions.map { goal in
                 goalService.progress(
@@ -150,7 +143,6 @@ final class TrackFoundationStore {
                 now: Date(),
                 calendar: .current
             ) ?? [:]
-            habitOccurrenceHistory = evidence
             let policyByHabitID = Dictionary(habitPolicies.map { ($0.habitID, $0) }, uniquingKeysWith: { _, newer in newer })
             let grades = evidence.keys.sorted(by: { $0.uuidString < $1.uuidString }).map { habitID in
                 habitGradeEngine.evaluate(
@@ -186,7 +178,7 @@ final class TrackFoundationStore {
                 correctionReceipts: correctionReceipts,
                 now: Date()
             )
-            snapshot = TrackTodaySnapshot(
+            var candidate = TrackTodaySnapshot(
                 unresolvedMedicationEvents: unresolved,
                 habitGrades: grades,
                 dueRoutines: dueRoutines,
@@ -198,17 +190,43 @@ final class TrackFoundationStore {
                 completeness: .complete,
                 generatedAt: Date()
             )
-            if let recoverable = routineRuns.first(where: {
+            guard revision == refreshDrain.revision else { return }
+            let previousGeneratedAt = snapshot.generatedAt
+            candidate.generatedAt = previousGeneratedAt
+            if !hasLoaded || candidate != snapshot {
+                candidate.generatedAt = Date()
+                snapshot = candidate
+                PerformanceTrace.event("TrackPresentationCommitted")
+            }
+            if self.definitions != definitions { self.definitions = definitions }
+            if self.goalLinks != links { self.goalLinks = links }
+            if self.routines != routines { self.routines = routines }
+            if self.routineSchedules != routineSchedules { self.routineSchedules = routineSchedules }
+            if self.routineRuns != routineRuns { self.routineRuns = routineRuns }
+            if self.habitPolicies != habitPolicies { self.habitPolicies = habitPolicies }
+            if self.habitGroups != habitGroups { self.habitGroups = habitGroups }
+            if self.starterPackInstallations != starterPackInstallations { self.starterPackInstallations = starterPackInstallations }
+            if self.hydrationLogs != hydrationLogs { self.hydrationLogs = hydrationLogs }
+            if self.sleepRecords != sleepRecords { self.sleepRecords = sleepRecords }
+            if self.medications != medications { self.medications = medications }
+            if self.medicationSchedules != medicationSchedules { self.medicationSchedules = medicationSchedules }
+            if self.checkIns != checkIns { self.checkIns = checkIns }
+            if self.hydrationHistory != hydrationHistoryResult { self.hydrationHistory = hydrationHistoryResult }
+            if self.correctionReceipts != correctionReceipts { self.correctionReceipts = correctionReceipts }
+            if self.habitOccurrenceHistory != evidence { self.habitOccurrenceHistory = evidence }
+            let active = routineRuns.first {
                 $0.status == .running || $0.status == .paused || $0.status == .interrupted
-            }) {
-                activeRoutineRun = recoverable
-                await RoutineLiveActivityCoordinator.shared.synchronize(run: recoverable)
-            } else {
-                activeRoutineRun = nil
-                await RoutineLiveActivityCoordinator.shared.endOrphanedActivities(except: nil)
+            }
+            if activeRoutineRun != active { activeRoutineRun = active }
+            if !hasLoaded {
+                hasLoaded = true
+                PerformanceTrace.event("TrackFirstUsableContent")
             }
             errorMessage = nil
-        } catch { errorMessage = error.localizedDescription }
+        } catch {
+            guard revision == refreshDrain.revision else { return }
+            errorMessage = error.localizedDescription
+        }
     }
 
     func quickAddHydration(_ milliliters: Double) async {
@@ -894,7 +912,7 @@ final class TrackFoundationStore {
         }
     }
 
-    private static func medicationWindowEnded(
+    nonisolated static func medicationWindowEnded(
         _ event: MedicationEventValue,
         schedules: [MedicationScheduleValue],
         now: Date
@@ -929,7 +947,7 @@ final class TrackFoundationStore {
         return RoutineSchedule(routineID: routineID, weekdays: Set(1...7), daypart: daypart)
     }
 
-    private static func dueRoutines(
+    nonisolated static func dueRoutines(
         routines: [RoutineDefinition],
         schedules: [RoutineSchedule],
         at date: Date,
@@ -956,7 +974,7 @@ final class TrackFoundationStore {
         habitGrades: [HabitGradeSnapshot],
         trackers: [TrackerDefinitionValue],
         trackerEntries: [TrackerEntryValue],
-        journalDays: [JournalDayValue],
+        journalDays: [JournalEvidenceSummary],
         correctionReceipts: [TrackCorrectionReceipt],
         now: Date
     ) -> (context: [TrackContextEnvelope], events: [NormalizedLifeEvent]) {

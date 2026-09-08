@@ -204,10 +204,12 @@ public final class CoreDataGoalSampleRepository: GoalSampleRepository, @unchecke
 }
 
 public final class CoreDataTrackFoundationRepository: TrackFoundationRepository, @unchecked Sendable {
+    let sourceRevisions: ProjectionRevisionLedger
     private let container: NSPersistentContainer
 
     public init(container: NSPersistentContainer) {
         self.container = container
+        self.sourceRevisions = ProjectionRevisionLedger.shared(for: container)
     }
 
     public func fetchGoals() async throws -> [GoalDefinition] {
