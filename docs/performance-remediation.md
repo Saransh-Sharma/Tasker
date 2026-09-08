@@ -534,10 +534,10 @@ full suspended-provider teardown/deallocation coverage remains required.
 - [x] `hydration-subscription-4`: 104 focused Debug tests passed, including the
   suspended save callback after deactivation. The active guard prevents a new
   hidden projection read; reactivation projects the already-durable record.
-- [ ] Final-source `release-10` is running both shared hydration capture and the
+- [x] Final-source `release-10` passed both shared hydration capture and the
   motion-enabled navigation smoke. It includes the active-state guard and neutral
   automatic-refresh error wording (no claim that a water save occurred on initial
-  catch-up). Final manifest/build settings will be saved at
+  catch-up). Final manifest/build settings are being saved at
   `/tmp/lifeboard-performance-candidate-20260908-hydration`.
 
 The subscription observes in-process context saves for its persistence coordinator.
@@ -545,3 +545,12 @@ Cross-process/CloudKit persistent-history or remote-change delivery still needs
 integration; a command in a different process does not share this ledger. Existing
 full foreground loading remains in place. Source revisions must not be treated as
 proof of remote-store freshness until that integration is covered.
+
+
+Release `release-10` passed functional assertions, but its navigation test recorded
+an unexplained accessibility-query gap from t=14.40s to t=115.96s before the Plan
+tap. It must not be used as responsiveness or latency acceptance. A same-binary
+navigation rerun without video recording is underway as `release-11`; no cause is
+attributed to application, automation, host scheduling or recording without evidence.
+The 75-second Release recording is diagnostic and does not cover the entire run
+because of this gap. Motion parity remains unverified.
