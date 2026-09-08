@@ -72,6 +72,55 @@ final class SetupCenterFocusTests: XCTestCase {
         XCTAssertEqual(value.calendar.recoveryActionKind, .chooseCalendars)
     }
 
+    func testCalendarDenialUsesPlatformNeutralSettingsCopy() {
+        let value = SetupCenterStatus.resolve(
+            calendarAuthorization: .denied,
+            selectedCalendarCount: 0,
+            healthStatuses: [:],
+            healthHasObservableData: false,
+            evaAccessState: .ready,
+            evaUsesOfflineProvider: false,
+            offlineModelReady: false
+        )
+
+        XCTAssertEqual(value.calendar.explanation, "Calendar access is off in Settings.")
+        XCTAssertEqual(value.calendar.recoveryAction, "Open Settings")
+    }
+
+    func testEvaTemporaryFailureUsesSanitizedAssociatedMessage() {
+        let message = EvaSecureStorageError.userFacingDescription
+        let value = SetupCenterStatus.resolve(
+            calendarAuthorization: .authorized,
+            selectedCalendarCount: 1,
+            healthStatuses: [:],
+            healthHasObservableData: true,
+            evaAccessState: .temporarilyUnavailable(message),
+            evaUsesOfflineProvider: false,
+            offlineModelReady: false
+        )
+
+        XCTAssertEqual(value.eva.explanation, message)
+        XCTAssertEqual(value.eva.recoveryAction, "Retry")
+    }
+
+    func testEvaDuplicateSecondaryErrorIsSuppressed() {
+        let explanation = EvaSecureStorageError.userFacingDescription
+
+        XCTAssertNil(
+            SetupCenterStatus.secondaryEvaErrorMessage(
+                "  \(explanation)\n",
+                explanation: explanation
+            )
+        )
+        XCTAssertEqual(
+            SetupCenterStatus.secondaryEvaErrorMessage(
+                "A distinct recovery detail.",
+                explanation: explanation
+            ),
+            "A distinct recovery detail."
+        )
+    }
+
     func testStaleCalendarSelectionsDoNotCountAsUsable() {
         XCTAssertEqual(
             SetupCenterStatus.validCalendarSelectionCount(

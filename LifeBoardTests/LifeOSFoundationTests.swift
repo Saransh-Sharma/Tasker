@@ -2505,7 +2505,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     @MainActor
-    func testRouterRestoresTypedStateAndCoalescesCapture() throws {
+    func testRouterRestoresTypedStateAndCoalescesCapture() async throws {
         let suite = "LifeOSFoundationTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -2521,6 +2521,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let draftID = UUID()
         XCTAssertTrue(captureRouter.request(.init(kind: .task, source: .widget, draftID: draftID)))
         XCTAssertFalse(captureRouter.request(.init(kind: .task, source: .deepLink, draftID: draftID)))
+        await router.flushPersistence()
 
         let restored = AppRouter(defaults: defaults, preferences: preferences)
         XCTAssertEqual(restored.selectedDestination, .plan)
@@ -2672,7 +2673,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     @MainActor
-    func testProtectedJournalDeepLinkDefersExactIdentityUntilUnlockAndRelocksSafely() throws {
+    func testProtectedJournalDeepLinkDefersExactIdentityUntilUnlockAndRelocksSafely() async throws {
         let suite = "LifeOSFoundationProtectedJournalRouteTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -2689,6 +2690,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             router.deferredProtectedRoute,
             DeferredProtectedRoute(route: .journalDay(dayID), destination: .track)
         )
+        await router.flushPersistence()
 
         let lockedSnapshotData = try XCTUnwrap(
             defaults.data(forKey: FoundationPreferenceKey.restorationState)
@@ -2705,6 +2707,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertFalse(router.isJournalAccessUnlocked)
         XCTAssertEqual(router.path(for: .track), [.journalSearch])
         XCTAssertEqual(router.deferredProtectedRoute?.route, .journalDay(dayID))
+        await router.flushPersistence()
 
         let restored = AppRouter(defaults: defaults)
         XCTAssertFalse(restored.isJournalAccessUnlocked)
@@ -4056,6 +4059,36 @@ final class LifeOSFoundationContractTests: XCTestCase {
         var disabled = schedule
         disabled.reminderEnabled = false
         XCTAssertTrue(MedicationReminderPolicy.requests(medication: medication, schedule: disabled).isEmpty)
+    }
+
+    func testBoundedTrackReadsMatchFullHistoryAtExclusiveEndBoundary() async throws {
+        let container = try await makeHealthPrivacyValidatedContainer(name: "BoundedTrackReads")
+        let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let start = Calendar.current.startOfDay(for: Date())
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
+        let tracker = TrackerDefinitionValue(title: "Bounded evidence", kind: .quantity)
+        try await repository.saveTracker(tracker)
+        for timestamp in [start.addingTimeInterval(-1), start, end.addingTimeInterval(-1), end] {
+            try await repository.saveTrackerEntry(.init(trackerID: tracker.id, timestamp: timestamp, numericValue: 1))
+        }
+        let full = try await repository.fetchTrackerEntries(trackerID: tracker.id)
+        let bounded = try await repository.fetchTrackerEntries(trackerID: tracker.id, from: start, to: end)
+        XCTAssertEqual(bounded.map(\.id), full.filter { $0.timestamp >= start && $0.timestamp < end }.map(\.id))
+        XCTAssertEqual(bounded.count, 2)
+        for day in [Calendar.current.date(byAdding: .day, value: -1, to: start)!, start, end] {
+            let id = UUID()
+            try await repository.saveJournalDay(.init(id: id, day: day,
+                blocks: [.init(dayID: id, kind: .text, text: "Full detail stays available", ordinal: 0)]))
+        }
+        let fullDays = try await repository.fetchJournalDays(search: nil, starredOnly: false, mood: nil)
+        let details = try await repository.fetchJournalDays(from: start, to: end)
+        let evidence = try await repository.fetchJournalEvidence(from: start, to: end)
+        let expected = fullDays.filter { $0.day >= start && $0.day < end }
+        XCTAssertEqual(details.map(\.id), expected.map(\.id))
+        XCTAssertEqual(evidence.map(\.id), expected.map(\.id))
+        XCTAssertEqual(evidence.map(\.updatedAt), expected.map(\.updatedAt))
+        XCTAssertEqual(details.first?.blocks.count, 1)
+        XCTAssertEqual(fullDays.count, 3, "Bounded reads must preserve access to complete history")
     }
 
     func testPhaseIIRepositoryRoundTripsTrackerJournalAndKnowledgeValues() async throws {

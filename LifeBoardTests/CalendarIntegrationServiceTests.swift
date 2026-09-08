@@ -73,7 +73,12 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         provider.requestAccessResult = .success(false)
 
         let store = WorkspacePreferencesStore(defaults: defaults)
-        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+        let attemptStore = CalendarAccessAttemptStoreStub()
+        let service = CalendarIntegrationService(
+            provider: provider,
+            workspacePreferencesStore: store,
+            accessAttemptStore: attemptStore
+        )
 
         let expectation = expectation(description: "Denied completion")
         service.requestAccess { granted in
@@ -83,8 +88,37 @@ final class CalendarIntegrationServiceTests: XCTestCase {
 
         wait(for: [expectation], timeout: 1.0)
         XCTAssertEqual(service.snapshot.authorizationStatus, .denied)
+        XCTAssertEqual(attemptStore.lastFullAccessAttempt?.outcome, .denied)
+        XCTAssertTrue(attemptStore.hasAttemptedFullAccessRequest)
         XCTAssertEqual(provider.fetchCalendarsCallCount, 0)
         XCTAssertEqual(provider.fetchEventsCallCount, 0)
+    }
+
+    func testPermissionRequestReturningFalseWithoutAuthorizationChangeIsRetryableSystemFailure() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .notDetermined
+        provider.authorizationStatusAfterAccess = .notDetermined
+        provider.requestAccessResult = .success(false)
+
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        let attemptStore = CalendarAccessAttemptStoreStub()
+        let service = CalendarIntegrationService(
+            provider: provider,
+            workspacePreferencesStore: store,
+            accessAttemptStore: attemptStore
+        )
+
+        let expectation = expectation(description: "System failure completion")
+        service.requestAccess(source: "unit_test") { granted in
+            XCTAssertFalse(granted)
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(service.snapshot.authorizationStatus, .notDetermined)
+        XCTAssertEqual(attemptStore.lastFullAccessAttempt?.outcome, .systemRequestFailed)
+        XCTAssertFalse(attemptStore.hasAttemptedFullAccessRequest)
+        XCTAssertNil(service.snapshot.errorMessage)
     }
 
     func testAccessActionPolicyMatchesAuthorizationState() {

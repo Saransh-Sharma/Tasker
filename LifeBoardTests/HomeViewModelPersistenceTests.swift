@@ -6,6 +6,57 @@ import Combine
 final class HomeViewModelPersistenceTests: XCTestCase {
     nonisolated(unsafe) private var cancellables = Set<AnyCancellable>()
 
+    func testSearchCacheEvictsOldQueriesAndInvalidatesAfterMutationAndDayChange() async {
+        let task = TaskDefinition(title: "Search fixture", isComplete: false)
+        let repository = HomeHabitTaskReadRepositorySpy(tasks: [task])
+        let coordinator = V3TestHarness.makeCoordinator(
+            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: [task]),
+            taskReadModelRepository: repository,
+            projectRepository: HomeViewModelMockProjectRepository(projects: [.createInbox()])
+        )
+        var instant = Date()
+        let model = HomeSearchViewModel(useCaseCoordinator: coordinator, now: { instant })
+        for index in 0..<40 {
+            await performSearch(model, query: "query \(index)")
+            XCTAssertEqual(model.searchResults.map(\.id), [task.id])
+            XCTAssertLessThanOrEqual(model.retainedSearchQueryCount, 32)
+        }
+        XCTAssertEqual(model.retainedSearchQueryCount, 32)
+        XCTAssertEqual(repository.searchCallCount, 40)
+        await performSearch(model, query: "query 39")
+        XCTAssertEqual(repository.searchCallCount, 40, "Current query stays cached")
+        await performSearch(model, query: "query 0")
+        XCTAssertEqual(repository.searchCallCount, 41, "Oldest query is evicted")
+        model.invalidateSearchCache(revision: 100)
+        await performSearch(model, query: "query 0")
+        XCTAssertEqual(repository.searchCallCount, 42)
+        instant = Calendar.current.date(byAdding: .day, value: 1, to: instant)!
+        await performSearch(model, query: "query 0")
+        XCTAssertEqual(repository.searchCallCount, 43)
+        XCTAssertEqual(model.retainedSearchQueryCount, 1)
+        // Repeated delivery of the same durable revision after day rollover
+        // must not roll the local cache generation back.
+        model.invalidateSearchCache(revision: 100)
+        await performSearch(model, query: "query 0")
+        XCTAssertEqual(repository.searchCallCount, 43)
+        model.invalidateSearchCache(revision: 101)
+        await performSearch(model, query: "query 0")
+        XCTAssertEqual(repository.searchCallCount, 44, "A mutation after day rollover must fetch new content")
+        model.purgeCaches()
+        XCTAssertEqual(model.retainedSearchQueryCount, 0)
+        XCTAssertTrue(model.searchResults.isEmpty)
+        await performSearch(model, query: "query 0")
+        XCTAssertEqual(repository.searchCallCount, 45)
+    }
+
+    private func performSearch(_ model: HomeSearchViewModel, query: String) async {
+        await withCheckedContinuation { continuation in
+            model.onResultsUpdated = { _ in continuation.resume() }
+            model.search(query: query)
+        }
+        model.onResultsUpdated = nil
+    }
+
     func testShiftSelectedDayLeftContractMovesToPreviousCustomDate() {
         let suiteName = "HomeViewModelPersistenceTests.DaySwipePrevious.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -3704,6 +3755,7 @@ private final class HomeHabitOccurrenceRepositoryStub: OccurrenceRepositoryProto
 private final class HomeHabitTaskReadRepositorySpy: TaskReadModelRepositoryProtocol, @unchecked Sendable {
     let tasks: [TaskDefinition]
     private(set) var fetchHomeProjectionCallCount = 0
+    private(set) var searchCallCount = 0
 
     init(tasks: [TaskDefinition]) {
         self.tasks = tasks
@@ -3718,6 +3770,7 @@ private final class HomeHabitTaskReadRepositorySpy: TaskReadModelRepositoryProto
     }
 
     func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        searchCallCount += 1
         completion(.success(TaskDefinitionSliceResult(tasks: tasks, totalCount: tasks.count, limit: max(query.limit, 1), offset: query.offset)))
     }
 

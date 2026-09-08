@@ -539,6 +539,7 @@ class PerformanceTests: BaseUITest {
             XCUIApplication.LaunchArgumentKey.skipOnboarding.rawValue,
             XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
             XCUIApplication.LaunchArgumentKey.enableSignatureShaders.rawValue,
+            "-LIFEBOARD_UI_TEST_ANIMATIONS_ENABLED",
             XCUIApplication.LaunchArgumentKey.testSeedFullTimelineWorkspace.rawValue,
             XCUIApplication.LaunchArgumentKey.testEvaActivationCompleted.rawValue,
             "-LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION",
@@ -565,6 +566,7 @@ class PerformanceTests: BaseUITest {
     private func composerInteractionMetrics() -> [XCTMetric] {
         var metrics: [XCTMetric] = [
             XCTClockMetric(),
+            XCTCPUMetric(application: app),
             XCTMemoryMetric(application: app)
         ]
         if #available(iOS 19.0, *) {
@@ -923,6 +925,66 @@ class PerformanceTests: BaseUITest {
         XCTAssertTrue(app.buttons["foundation.destination.home"].waitForExistence(timeout: 8))
     }
 
+    func testFoundationMotionEnabledReadinessSmoke() throws {
+        relaunchFoundationPerformanceWorkspace(evaActivationCompleted: true)
+        for destination in ["home", "plan", "track", "insights", "home", "track"] {
+            let button = app.otherElements["LifeBoardCompactChrome"].buttons["foundation.destination.\(destination)"].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 5))
+            button.tap()
+            let ready = app.descendants(matching: .any)["foundation.performance.interactive.\(destination)"].firstMatch
+            XCTAssertTrue(ready.waitForExistence(timeout: 8), "Selected root must report its own laid-out control: \(destination)")
+            XCTAssertFalse(app.tabBars.firstMatch.exists, "The custom dock must be the sole visible and accessible root switcher")
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = "Motion-enabled \(destination)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
+    func testFoundationHydrationCaptureUpdatesHome() throws {
+        relaunchFoundationPerformanceWorkspace(evaActivationCompleted: true)
+        let hydration = app.buttons["home.signal.hydration"].firstMatch
+        XCTAssertTrue(hydration.waitForExistence(timeout: 8))
+        hydration.tap()
+        let composer = app.descendants(matching: .any)["track.hydration.composer"].firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 8))
+        let commit = app.descendants(matching: .any)["track.hydration.commit"].firstMatch
+        XCTAssertTrue(commit.waitForExistence(timeout: 5))
+        let save = commit.elementType == .button ? commit : commit.buttons.firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        save.tap()
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: composer)
+        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 10), .completed)
+        let updated = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "250 ml"), object: hydration)
+        XCTAssertEqual(XCTWaiter().wait(for: [updated], timeout: 8), .completed,
+                       "Home must display shared capture's committed local water total")
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Home after shared hydration capture"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    func testFoundationHomeAnimationOnScrollPerformance() throws {
+        relaunchFoundationPerformanceWorkspace(evaActivationCompleted: true)
+        let scroll = app.descendants(matching: .any)["foundation.home.scroll"].firstMatch
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+
+        var metrics: [XCTMetric] = [
+            XCTClockMetric(),
+            XCTCPUMetric(application: app),
+            XCTMemoryMetric(application: app)
+        ]
+        if #available(iOS 19.0, *) {
+            metrics.append(XCTHitchMetric(application: app))
+        }
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: metrics, options: options) {
+            performScrollCycle(on: scroll, swipeCount: 4)
+        }
+    }
+
     // MARK: - Helper
 
     private func measureFoundationEvaDashboardCycles(evaActivationCompleted: Bool) throws {
@@ -932,6 +994,8 @@ class PerformanceTests: BaseUITest {
         options.iterationCount = 1
         var metrics: [XCTMetric] = [
             PerformanceMetrics.signpostMetric(named: "EvaTabOpenToInteractive"),
+            // RootSwitchAttempt includes cancellations; completed latency is exported
+            // separately by RootSwitchCompletedMilliseconds events.
             XCTMemoryMetric(application: app)
         ]
         if #available(iOS 19.0, *) {
@@ -975,6 +1039,8 @@ class PerformanceTests: BaseUITest {
         homePage = HomePage(app: app)
         XCTAssertTrue(ensurePerformanceAppReady(timeout: 14))
         XCTAssertTrue(app.buttons["foundation.destination.home"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["foundation.performance.ready"].firstMatch.waitForExistence(timeout: 15),
+            "Motion, signature shaders, normal ambience and device policy must be active before measurement")
     }
 
     private func foundationPerformanceApplication(evaActivationCompleted: Bool) -> XCUIApplication {
@@ -982,7 +1048,8 @@ class PerformanceTests: BaseUITest {
         application.launchArguments = [
             XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
             XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
-            XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
+            XCUIApplication.LaunchArgumentKey.enableSignatureShaders.rawValue,
+            "-LIFEBOARD_UI_TEST_ANIMATIONS_ENABLED",
             XCUIApplication.LaunchArgumentKey.skipOnboarding.rawValue,
             XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
             XCUIApplication.LaunchArgumentKey.testSeedFullTimelineWorkspace.rawValue,

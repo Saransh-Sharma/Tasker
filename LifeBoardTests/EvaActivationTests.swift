@@ -1,5 +1,6 @@
 import CryptoKit
 import MLXLMCommon
+import Security
 import XCTest
 @testable import LifeBoard
 
@@ -210,6 +211,48 @@ import UIKit
 
 @MainActor
 final class EvaActivationTests: XCTestCase {
+    func testSecureStorageErrorsExposeSafeCopyAndStableDiagnostics() {
+        for operation in EvaSecureStorageOperation.allCases {
+            let error = EvaSecureStorageError(
+                operation: operation,
+                status: errSecMissingEntitlement
+            )
+
+            XCTAssertEqual(
+                EvaCloudAccessCoordinator.message(for: error),
+                EvaSecureStorageError.userFacingDescription
+            )
+            XCTAssertEqual(
+                EvaCloudAccessCoordinator.errorCode(for: error),
+                "keychain_\(operation.rawValue)_\(errSecMissingEntitlement)"
+            )
+            XCTAssertEqual((error as NSError).code, Int(errSecMissingEntitlement))
+            XCTAssertTrue(error.diagnosticDescription.contains(String(errSecMissingEntitlement)))
+        }
+    }
+
+    func testHydrationSurfacesSecureStorageFailure() async throws {
+        let suite = "eva.activation.secure-storage.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sessionStore = EvaCloudSessionStore { operation in
+            operation == .load ? errSecMissingEntitlement : nil
+        }
+        let coordinator = EvaCloudAccessCoordinator(
+            account: EvaCloudAccountState(),
+            defaults: defaults,
+            sessionStore: sessionStore
+        )
+
+        let state = await coordinator.hydrate()
+
+        XCTAssertEqual(
+            state,
+            .temporarilyUnavailable(EvaSecureStorageError.userFacingDescription)
+        )
+        XCTAssertEqual(coordinator.errorMessage, EvaSecureStorageError.userFacingDescription)
+    }
+
     func testCloudActivationReceiptRoundTripsConfirmedGrants() throws {
         let suite = "eva.activation.receipt.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

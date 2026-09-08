@@ -1,5 +1,6 @@
 @preconcurrency import CoreData
 import XCTest
+import Observation
 @testable import LifeBoard
 
 final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
@@ -1472,6 +1473,9 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
             request.fetchLimit = 1
             request.predicate = NSPredicate(format: "id == %@", taskID as CVarArg)
             let task = try XCTUnwrap(context.fetch(request).first)
+            // This fixture context predates the repository's seven durable
+            // updates. Refresh its snapshot before simulating another writer.
+            context.refresh(task, mergeChanges: false)
             task.setValue(true, forKey: "isComplete")
             task.setValue(Date(), forKey: "updatedAt")
             try context.save()
@@ -1826,6 +1830,768 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
     }
     #endif
 
+    func testHomePublishesCoreTasksWhileOptionalCalendarIsSuspended() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let planning = CoreDataPlanningRepository(container: container)
+        let id = UUID()
+        let now = Date()
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(id, forKey: "id")
+            task.setValue("Available before calendar", forKey: "title")
+            task.setValue(now, forKey: "dueDate")
+            try context.save()
+        }
+        let focus = try await planning.start(taskID: id, timeBlockID: nil,
+            targetDuration: 1_800, at: now)
+        let calendar = SuspendedPerformanceCalendarRepository()
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: planning, trackRepository: nil,
+                phaseIIRepository: nil, taskAgendaDate: now, calendarRepository: calendar)
+        }
+        let coreReady = expectation(description: "Core content publishes before calendar completes")
+        await MainActor.run {
+            withObservationTracking { _ = store.hasLoadedCore } onChange: { coreReady.fulfill() }
+        }
+        let load = _Concurrency.Task { await store.load() }
+        await fulfillment(of: [coreReady], timeout: 5)
+        let intermediate = await MainActor.run {
+            (store.taskAgenda.tasks.map(\.id), store.planSnapshot, store.isLoading,
+             store.hasLoadedCore, store.activeFocusSession?.id, store.heroSnapshot?.sourceID)
+        }
+        XCTAssertEqual(intermediate.0, [id])
+        XCTAssertNil(intermediate.1, "Optional calendar is still suspended")
+        XCTAssertTrue(intermediate.2, "Optional work remains in flight")
+        XCTAssertTrue(intermediate.3, "Task controls must use core readiness")
+        XCTAssertEqual(intermediate.4, focus.id)
+        XCTAssertEqual(intermediate.5, focus.id, "Active focus controls remain available before calendar")
+        await calendar.release()
+        await load.value
+        let finished = await MainActor.run { (store.planSnapshot != nil, store.isLoading) }
+        XCTAssertTrue(finished.0)
+        XCTAssertFalse(finished.1)
+    }
+
+    func testHomePublishesPlanWhileOptionalHealthMealReadIsSuspended() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let planning = CoreDataPlanningRepository(container: container)
+        let id = UUID()
+        let now = Date()
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(id, forKey: "id")
+            task.setValue("Plan before health", forKey: "title")
+            task.setValue(now, forKey: "dueDate")
+            try context.save()
+        }
+        try await planning.saveTaskMetadata(.init(taskID: id,
+            planningDay: PlanningDay(date: now, timeZone: .current)))
+        let health = SuspendedPerformanceHealthReader()
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: planning, trackRepository: nil,
+                phaseIIRepository: nil, healthMetrics: health, taskAgendaDate: now,
+                calendarRepository: FailingPerformanceCalendarRepository())
+        }
+        let planReady = expectation(description: "Plan publishes before the optional meal read completes")
+        await MainActor.run {
+            withObservationTracking { _ = store.planSnapshot } onChange: { planReady.fulfill() }
+        }
+        let load = _Concurrency.Task { await store.load() }
+        await fulfillment(of: [planReady], timeout: 5)
+        let intermediate = await MainActor.run {
+            (store.planSnapshot?.plannedTasks.map(\.id), store.isLoading, store.focusTask?.id)
+        }
+        XCTAssertEqual(intermediate.0, [id])
+        XCTAssertTrue(intermediate.1)
+        XCTAssertEqual(intermediate.2, id)
+        await health.release()
+        await load.value
+        let finished = await MainActor.run { store.isLoading }
+        XCTAssertFalse(finished)
+    }
+
+    func testHydrationSubscriptionMergesCommittedBurstsAndFiltersOtherWrites() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let track = CoreDataTrackFoundationRepository(container: container)
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let subscription = track.sourceRevisions.subscribe(recordKinds: [.hydration])
+        defer { subscription.cancel() }
+        XCTAssertNotNil(subscription.takePending(), "Registration replays the current revision")
+        try await phaseII.saveMoodCheckIn(.init(mood: .happy, energy: 4))
+        XCTAssertNil(subscription.takePending(), "Unrelated tracking saves must not wake hydration")
+        var ids: Set<UUID> = []
+        for _ in 0..<12 {
+            let log = HydrationLog(amount: 25, unit: .milliliters)
+            ids.insert(log.id)
+            try await track.saveHydrationLog(log)
+        }
+        let event = try XCTUnwrap(subscription.takePending())
+        XCTAssertEqual(event.affectedIDs, ids)
+        XCTAssertEqual(event.recordKinds, [.hydration])
+        XCTAssertEqual(event.revisions, track.sourceRevisions.snapshot())
+        XCTAssertNil(subscription.takePending(), "The burst occupies one merged slot")
+        subscription.cancel()
+        XCTAssertEqual(track.sourceRevisions.subscriptionCount, 0)
+        try await track.saveHydrationLog(.init(amount: 25, unit: .milliliters))
+        XCTAssertNil(subscription.takePending())
+    }
+
+    func testInvalidationMailboxBoundsIDsAndNeverRegressesRevisions() {
+        let identity = NSObject()
+        let mailbox = ProjectionInvalidationSubscription(recordKinds: [.hydration, .mood], onCancel: {})
+        defer { mailbox.cancel() }
+        var revisions = SourceRevisionVector()
+        for _ in 0..<300 {
+            revisions.advance([.tracking])
+            mailbox.enqueue(.init(containerID: ObjectIdentifier(identity), domains: [.tracking],
+                affectedIDs: [UUID()], revisions: revisions, transactionAuthor: nil, recordKinds: [.hydration]))
+        }
+        var old = SourceRevisionVector()
+        old.advance([.wellness])
+        mailbox.enqueue(.init(containerID: ObjectIdentifier(identity), domains: [.wellness],
+            affectedIDs: [UUID()], revisions: old, transactionAuthor: nil, recordKinds: [.mood]))
+        let event = mailbox.takePending()
+        XCTAssertEqual(event?.revisions[.tracking], 300)
+        XCTAssertEqual(event?.revisions[.wellness], 1)
+        XCTAssertEqual(event?.domains, [.tracking, .wellness])
+        XCTAssertEqual(event?.recordKinds, [.hydration, .mood])
+        XCTAssertEqual(event?.requiresFullDomainRefresh, true)
+        XCTAssertEqual(event?.affectedIDs.count, 0)
+    }
+
+    func testHomeObservesSharedHydrationSaveWhileCalendarAndHealthAreSuspended() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let track = CoreDataTrackFoundationRepository(container: container)
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let calendar = SuspendedPerformanceCalendarRepository()
+        let health = SuspendedPerformanceHealthReader()
+        let samples = SuspendedPerformanceGoalSamples()
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: CoreDataPlanningRepository(container: container),
+                trackRepository: track, phaseIIRepository: phaseII, goalSampleProvider: samples, healthMetrics: health,
+                calendarRepository: calendar)
+        }
+        let initial = expectation(description: "Initial hydration catch-up")
+        await MainActor.run {
+            withObservationTracking { _ = store.trackSnapshot } onChange: { initial.fulfill() }
+        }
+        let observer = _Concurrency.Task { await store.observeCommittedHydrationChanges() }
+        await fulfillment(of: [initial], timeout: 5)
+        let load = _Concurrency.Task { await store.load() }
+        await samples.waitUntilEntered()
+        let refreshed = expectation(description: "Shared water save publishes without optional providers")
+        await MainActor.run {
+            withObservationTracking { _ = store.trackSnapshot } onChange: { refreshed.fulfill() }
+        }
+        // Same repository command used by HealthWaterLogSheet; Home does not
+        // own this save and its mutationRevision does not change.
+        try await track.saveHydrationLog(.init(amount: 375, unit: .milliliters))
+        await fulfillment(of: [refreshed], timeout: 5)
+        let visible = await MainActor.run { (store.trackSnapshot?.hydrationAmountMilliliters, store.mutationRevision) }
+        XCTAssertEqual(visible.0, 375)
+        XCTAssertEqual(visible.1, 0)
+        observer.cancel()
+        await observer.value
+        XCTAssertEqual(track.sourceRevisions.subscriptionCount, 0)
+        let readCount = await MainActor.run { store.hydrationReadCount }
+        try await track.saveHydrationLog(.init(amount: 125, unit: .milliliters))
+        let hiddenReads = await MainActor.run { store.hydrationReadCount }
+        XCTAssertEqual(hiddenReads, readCount)
+        let caughtUp = expectation(description: "Foreground catches up missed saves")
+        await MainActor.run {
+            withObservationTracking { _ = store.trackSnapshot } onChange: { caughtUp.fulfill() }
+        }
+        let resumed = _Concurrency.Task { await store.observeCommittedHydrationChanges() }
+        await fulfillment(of: [caughtUp], timeout: 5)
+        let current = await MainActor.run { store.trackSnapshot?.hydrationAmountMilliliters }
+        XCTAssertEqual(current, 500)
+        resumed.cancel()
+        await resumed.value
+        await samples.release()
+        await calendar.release()
+        await health.release()
+        await load.value
+    }
+
+    func testHomeSaveFinishingAfterDeactivationDefersProjectionUntilActivation() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let base = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let committed = expectation(description: "Durable save finished but callback is suspended")
+        let saveGate = PerformanceMoodReadGate(onEnter: { committed.fulfill() })
+        let readGate = PerformanceMoodReadGate(onEnter: {})
+        await readGate.release()
+        let repository = PerformanceUnversionedMoodRepository(base: base, gate: readGate, saveGate: saveGate)
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: nil, trackRepository: nil, phaseIIRepository: repository)
+        }
+        let save = _Concurrency.Task { await store.saveMood(.happy, energy: 4) }
+        await fulfillment(of: [committed], timeout: 5)
+        await store.stopCommittedProjectionWork()
+        await saveGate.release()
+        let result = await save.value
+        XCTAssertEqual(result, .cancelled)
+        let hidden = await MainActor.run { store.latestMood }
+        XCTAssertNil(hidden, "A late durable callback must not start hidden presentation work")
+        let saved = try await base.fetchMoodCheckIns(from: nil, to: nil)
+        XCTAssertEqual(saved.count, 1)
+        await store.beginCommittedProjectionWork()
+        let refreshed = await store.refreshCommittedMood()
+        guard case .applied = refreshed else { return XCTFail("Activation must be able to catch up") }
+        let current = await MainActor.run { store.latestMood }
+        XCTAssertEqual(current?.mood, .happy)
+    }
+
+    func testHomeDeactivationRejectsLateMoodPublication() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let base = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let entered = expectation(description: "Mood read suspended")
+        let gate = PerformanceMoodReadGate(onEnter: { entered.fulfill() })
+        let repository = PerformanceUnversionedMoodRepository(base: base, gate: gate)
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: nil, trackRepository: nil, phaseIIRepository: repository)
+        }
+        let save = _Concurrency.Task { await store.saveMood(.tired, energy: 2) }
+        await fulfillment(of: [entered], timeout: 5)
+        await store.stopCommittedProjectionWork()
+        let result = await save.value
+        XCTAssertEqual(result, .cancelled)
+        await store.beginCommittedProjectionWork()
+        let newer = await store.saveMood(.happy, energy: 4)
+        guard case .applied = newer else { await gate.release(); return XCTFail("New presentation must publish") }
+        await gate.release()
+        let latest = await MainActor.run { store.latestMood }
+        XCTAssertEqual(latest?.mood, .happy)
+        let saved = try await base.fetchMoodCheckIns(from: nil, to: nil)
+        XCTAssertEqual(saved.count, 2, "Presentation cancellation must not undo durable saves")
+    }
+
+    func testHomeHydrationAndMoodMutationsPublishBeforeOptionalProviders() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let planning = CoreDataPlanningRepository(container: container)
+        let track = CoreDataTrackFoundationRepository(container: container)
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        try await track.saveHydrationTarget(.init(id: UUID(), amount: 2_000, unit: .milliliters, updatedAt: Date()))
+        let calendar = SuspendedPerformanceCalendarRepository()
+        let health = SuspendedPerformanceHealthReader()
+        let samples = SuspendedPerformanceGoalSamples()
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: planning, trackRepository: track,
+                phaseIIRepository: phaseII, goalSampleProvider: samples, healthMetrics: health,
+                calendarRepository: calendar)
+        }
+        let load = _Concurrency.Task { await store.load() }
+        await samples.waitUntilEntered()
+        let completed = expectation(description: "Narrow mutations finish without optional providers")
+        let mutations = _Concurrency.Task {
+            let hydration = await store.quickAddHydration(250)
+            let mood = await store.saveMood(.happy, energy: 4)
+            completed.fulfill()
+            return (hydration, mood)
+        }
+        await fulfillment(of: [completed], timeout: 5)
+        let visible = await MainActor.run {
+            (store.trackSnapshot, store.latestMood, store.planSnapshot)
+        }
+        XCTAssertEqual(visible.0?.hydrationAmountMilliliters, 250)
+        XCTAssertEqual(visible.0?.hydrationTargetMilliliters, 2_000)
+        XCTAssertEqual(visible.0?.completeness, .partial)
+        XCTAssertEqual(visible.1?.mood, .happy)
+        XCTAssertEqual(visible.1?.energy, 4)
+        XCTAssertNil(visible.2)
+        await samples.release()
+        await calendar.release()
+        await health.release()
+        await load.value
+        let outcomes = await mutations.value
+        guard case .applied = outcomes.0, case .applied = outcomes.1 else {
+            return XCTFail("Saved values must publish before mutation completion")
+        }
+        let afterStaleRead = await MainActor.run { (store.trackSnapshot, store.latestMood) }
+        XCTAssertEqual(afterStaleRead.0?.hydrationAmountMilliliters, 250)
+        XCTAssertEqual(afterStaleRead.1?.mood, .happy)
+        await store.load()
+        let commits = await MainActor.run { store.loadCommitCount }
+        _ = await store.refreshCommittedHydration()
+        _ = await store.refreshCommittedMood()
+        let noOpCommits = await MainActor.run { store.loadCommitCount }
+        XCTAssertEqual(noOpCommits, commits, "Narrow no-op reads must not commit presentation")
+    }
+
+    func testHomeTrackRejectsReadBeforeExternalHydrationCommit() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let track = CoreDataTrackFoundationRepository(container: container)
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let samples = SuspendedPerformanceGoalSamples()
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: nil, trackRepository: track,
+                phaseIIRepository: phaseII, goalSampleProvider: samples)
+        }
+        let load = _Concurrency.Task { await store.load() }
+        await samples.waitUntilEntered()
+        // This save bypasses Home's mutation counter. Publication must check
+        // the committed source dependency, not only the screen generation.
+        try await track.saveHydrationLog(.init(amount: 500, unit: .milliliters))
+        await samples.release()
+        await load.value
+        let rejected = await MainActor.run { store.trackSnapshot }
+        XCTAssertNil(rejected)
+        await store.load()
+        let refreshed = await MainActor.run { store.trackSnapshot?.hydrationAmountMilliliters }
+        XCTAssertEqual(refreshed, 500)
+    }
+
+    func testHomeMoodMutationPublishesWithoutTrackRepository() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: nil, trackRepository: nil, phaseIIRepository: phaseII)
+        }
+        let outcome = await store.saveMood(.tired, energy: 2)
+        guard case .applied(let revision) = outcome else { return XCTFail("Mood projection must be independent of Track") }
+        XCTAssertTrue(revision.represents(phaseII.sourceRevisions.snapshot(), domains: [.wellness]))
+        let value = await MainActor.run { store.latestMood }
+        XCTAssertEqual(value?.mood, .tired)
+        XCTAssertEqual(value?.energy, 2)
+    }
+
+    func testHomeProtocolMoodProviderRejectsOlderReadDuringSecondSave() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let base = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let entered = expectation(description: "First mood snapshot suspended")
+        let gate = PerformanceMoodReadGate(onEnter: { entered.fulfill() })
+        let repository = PerformanceUnversionedMoodRepository(base: base, gate: gate)
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: nil, trackRepository: nil, phaseIIRepository: repository)
+        }
+        let first = _Concurrency.Task { await store.saveMood(.tired, energy: 2) }
+        await fulfillment(of: [entered], timeout: 5)
+        let saved = expectation(description: "Second durable mood save returned to Home")
+        await MainActor.run {
+            withObservationTracking { _ = store.mutationRevision } onChange: { saved.fulfill() }
+        }
+        let second = _Concurrency.Task { await store.saveMood(.happy, energy: 4) }
+        await fulfillment(of: [saved], timeout: 5)
+        await gate.release()
+        let outcomes = await (first.value, second.value)
+        guard case .applied(let firstRevision) = outcomes.0,
+              case .applied(let secondRevision) = outcomes.1 else {
+            return XCTFail("Both committed mood saves must reach a current projection")
+        }
+        XCTAssertEqual(firstRevision[.wellness], 2)
+        XCTAssertEqual(secondRevision[.wellness], 2)
+        let value = await MainActor.run { store.latestMood }
+        XCTAssertEqual(value?.mood, .happy)
+        XCTAssertEqual(value?.energy, 4)
+    }
+
+    func testHomeConcurrentHydrationSavesPreserveCommittedTotals() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let track = CoreDataTrackFoundationRepository(container: container)
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: nil, trackRepository: track, phaseIIRepository: nil)
+        }
+        async let first = store.quickAddHydration(250)
+        async let second = store.quickAddHydration(500)
+        let outcomes = await (first, second)
+        guard case .applied = outcomes.0, case .applied = outcomes.1 else {
+            return XCTFail("Concurrent hydration callers must receive their projected commits")
+        }
+        let amount = await MainActor.run { store.trackSnapshot?.hydrationAmountMilliliters }
+        XCTAssertEqual(amount, 750)
+    }
+
+    func testHomeTrackAndFastPublishBeforeSuspendedCalendarAndHealth() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let planning = CoreDataPlanningRepository(container: container)
+        let track = CoreDataTrackFoundationRepository(container: container)
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        try await track.saveHydrationLog(.init(amount: 250, unit: .milliliters))
+        let fast = FastingSessionValue(startedAt: Date().addingTimeInterval(-600), targetDuration: 3_600)
+        try await phaseII.saveFastingSession(fast)
+        let calendar = SuspendedPerformanceCalendarRepository()
+        let health = SuspendedPerformanceHealthReader()
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: planning, trackRepository: track,
+                phaseIIRepository: phaseII, healthMetrics: health, calendarRepository: calendar)
+        }
+        let trackReady = expectation(description: "Track does not wait for Plan or health")
+        let fastReady = expectation(description: "Fast does not wait for Plan or health")
+        await MainActor.run {
+            withObservationTracking { _ = store.trackSnapshot } onChange: { trackReady.fulfill() }
+            withObservationTracking { _ = store.activeFast } onChange: { fastReady.fulfill() }
+        }
+        let load = _Concurrency.Task { await store.load() }
+        await fulfillment(of: [trackReady, fastReady], timeout: 5)
+        let intermediate = await MainActor.run {
+            (store.trackSnapshot?.hydrationAmountMilliliters, store.activeFast?.id,
+             store.planSnapshot, store.isLoading)
+        }
+        XCTAssertEqual(intermediate.0, 250)
+        XCTAssertEqual(intermediate.1, fast.id)
+        XCTAssertNil(intermediate.2)
+        XCTAssertTrue(intermediate.3)
+        await calendar.release()
+        await health.release()
+        await load.value
+        let commits = await MainActor.run { store.loadCommitCount }
+        await store.load()
+        let refreshed = await MainActor.run { store.loadCommitCount }
+        XCTAssertEqual(refreshed, commits, "Unchanged populated domain callbacks must not add presentation commits")
+    }
+
+    func testHomeRejectsOptionalPublicationAfterSelectionChanges() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let planning = CoreDataPlanningRepository(container: container)
+        let calendar = SuspendedPerformanceCalendarRepository()
+        let (store, selection) = await MainActor.run {
+            (HomeLifeOSProjectionStore(planningRepository: planning, trackRepository: nil,
+                phaseIIRepository: nil, calendarRepository: calendar), PerformanceHomeSelection())
+        }
+        let coreReady = expectation(description: "Core read reached the current selection")
+        await MainActor.run {
+            withObservationTracking { _ = store.hasLoadedCore } onChange: { coreReady.fulfill() }
+        }
+        let load = _Concurrency.Task { await store.load(isCurrent: { selection.isCurrent }) }
+        await fulfillment(of: [coreReady], timeout: 5)
+        await MainActor.run { selection.isCurrent = false }
+        await calendar.release()
+        await load.value
+        let rejected = await MainActor.run { store.planSnapshot }
+        XCTAssertNil(rejected, "A calendar completion from the previous selection must not publish")
+        await MainActor.run { selection.isCurrent = true }
+        await store.load(isCurrent: { selection.isCurrent })
+        let reactivated = await MainActor.run { store.planSnapshot }
+        XCTAssertNotNil(reactivated, "Reactivation can publish a new current read")
+
+        let rejectedStore = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: planning, trackRepository: nil,
+                phaseIIRepository: nil, calendarRepository: calendar)
+        }
+        await rejectedStore.load(isCurrent: { false })
+        let invalid = await MainActor.run { (rejectedStore.hasLoadedCore, rejectedStore.planSnapshot) }
+        XCTAssertFalse(invalid.0, "The early core callback uses the same selection barrier")
+        XCTAssertNil(invalid.1)
+    }
+
+    func testPopulatedHomeRefreshDoesNotCommitUnchangedTaskProjection() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let planning = CoreDataPlanningRepository(container: container)
+        try await planning.saveWorkingHoursProfile(PlanStore.defaultWorkingProfile())
+        let id = UUID()
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(id, forKey: "id")
+            task.setValue("Stable Home task", forKey: "title")
+            try context.save()
+        }
+        try await planning.saveTaskMetadata(.init(taskID: id,
+            planningDay: PlanningDay(date: Date(), timeZone: .current)))
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: planning, trackRepository: nil, phaseIIRepository: nil)
+        }
+        await store.load()
+        let initial = await MainActor.run { (store.planSnapshot, store.loadCommitCount) }
+        XCTAssertEqual(initial.0?.plannedTasks.map(\.id), [id])
+        let commits = initial.1
+        await store.load()
+        let refreshed = await MainActor.run { (store.planSnapshot, store.loadCommitCount) }
+        XCTAssertEqual(refreshed.1, commits)
+        XCTAssertEqual(refreshed.0?.plannedTasks.first?.title, "Stable Home task")
+        let reader = HomeProjectionReader(planning: planning, track: nil, phaseII: nil,
+            goalSamples: nil, calendarRepository: FailingPerformanceCalendarRepository())
+        let withoutCalendar = await reader.read(now: Date())
+        XCTAssertEqual(withoutCalendar.plan?.plannedTasks.map(\.id), [id],
+            "An optional calendar failure must not discard canonical tasks")
+        guard case .failed = withoutCalendar.plan?.calendarState else {
+            return XCTFail("Calendar failure must remain visible in the projection")
+        }
+    }
+
+    func testHomeCardCompletionPublishesIndependentlyAndCannotUndoPrivacyRevocation() async throws {
+        let gate = PerformanceCardGate()
+        let registry = try HomeCardProviderRegistry(providers: [
+            PerformanceCardSource(kind: .tasks, gate: nil),
+            PerformanceCardSource(kind: .journal, gate: gate)
+        ])
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: nil, trackRepository: nil, phaseIIRepository: nil)
+        }
+        let firstCard = expectation(description: "Fast card publishes while journal is suspended")
+        await MainActor.run {
+            withObservationTracking { _ = store.cardSnapshots } onChange: { firstCard.fulfill() }
+        }
+        let refresh = _Concurrency.Task {
+            await store.refreshCardSnapshots(requests: [(.tasks, .standard), (.journal, .standard)],
+                permitsSensitive: true, providerRegistry: registry)
+        }
+        await fulfillment(of: [firstCard], timeout: 5)
+        let partial = await MainActor.run { store.cardSnapshots.values.map(\.title) }
+        XCTAssertEqual(partial, ["tasks"])
+        await MainActor.run { store.invalidateCardPrivacy() }
+        await gate.release()
+        await refresh.value
+        let revoked = await MainActor.run { (store.cardSnapshots.isEmpty, store.cardResolutions.isEmpty) }
+        XCTAssertTrue(revoked.0)
+        XCTAssertTrue(revoked.1, "Old authorized providers must not repopulate cleared navigation metadata")
+        await store.refreshCardSnapshots(requests: [(.tasks, .standard), (.journal, .standard)],
+            permitsSensitive: false, providerRegistry: registry)
+        let current = await MainActor.run { Array(store.cardSnapshots.values) }
+        XCTAssertEqual(current.first { $0.title == "journal" }?.availability, .redacted)
+        XCTAssertEqual(current.first { $0.title == "tasks" }?.availability, .ready)
+    }
+
+    func testHomeMutationRemovesCompletedTaskFromStalePlanRecommendations() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let planning = CoreDataPlanningRepository(container: container)
+        let context = container.newBackgroundContext()
+        let id = UUID()
+        let now = Date()
+        try await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(id, forKey: "id")
+            task.setValue("Current must-do", forKey: "title")
+            task.setValue(now, forKey: "dueDate")
+            try context.save()
+        }
+        try await planning.saveTaskMetadata(.init(taskID: id,
+            planningDay: PlanningDay(date: now, timeZone: .current), commitmentLevel: .mustDo))
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: planning, trackRepository: nil,
+                phaseIIRepository: nil, calendarRepository: FailingPerformanceCalendarRepository())
+        }
+        await store.load()
+        let initial = await MainActor.run { (store.taskAgenda.tasks.first, store.heroSnapshot?.sourceID) }
+        XCTAssertEqual(initial.1, id)
+        let task = try XCTUnwrap(initial.0)
+        let saved = await store.setTaskCompletion(task, to: true)
+        XCTAssertTrue(saved)
+        let completed = await MainActor.run {
+            (store.planSnapshot?.plannedTasks.map(\.id), store.focusTask?.id, store.heroSnapshot?.sourceID)
+        }
+        XCTAssertEqual(completed.0, [id], "Full optional Plan refresh has not run yet")
+        XCTAssertNil(completed.1)
+        XCTAssertNotEqual(completed.2, id, "Home must not recommend a task its core projection knows is complete")
+        await store.undoLastTaskCompletion()
+        let restored = await MainActor.run { store.heroSnapshot?.sourceID }
+        XCTAssertEqual(restored, id)
+    }
+
+    func testHomeTaskMutationWaitsForAgendaWithoutWaitingForCalendar() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let planning = CoreDataPlanningRepository(container: container)
+        let context = container.newBackgroundContext()
+        let id = UUID()
+        let now = Date()
+        try await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(id, forKey: "id")
+            task.setValue("Complete while calendar is suspended", forKey: "title")
+            task.setValue(now, forKey: "dueDate")
+            try context.save()
+        }
+        let calendar = SuspendedPerformanceCalendarRepository()
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: planning, trackRepository: nil,
+                phaseIIRepository: nil, taskAgendaDate: now, calendarRepository: calendar)
+        }
+        let ready = expectation(description: "Initial task agenda")
+        await MainActor.run {
+            withObservationTracking { _ = store.hasLoadedCore } onChange: { ready.fulfill() }
+        }
+        let load = _Concurrency.Task { await store.load() }
+        await fulfillment(of: [ready], timeout: 5)
+        let task = await MainActor.run { store.taskAgenda.tasks.first }
+        let value = try XCTUnwrap(task)
+        let completed = expectation(description: "Mutation returns before optional calendar")
+        let mutation = _Concurrency.Task {
+            let saved = await store.setTaskCompletion(value, to: true)
+            completed.fulfill()
+            return saved
+        }
+        await fulfillment(of: [completed], timeout: 5)
+        let visible = await MainActor.run { (store.taskAgenda.tasks.isEmpty, store.lastTaskMutationRefreshOutcome) }
+        XCTAssertTrue(visible.0)
+        guard case .applied = visible.1 else {
+            await calendar.release()
+            await load.value
+            return XCTFail("Mutation must report its projected commit")
+        }
+        await store.undoLastTaskCompletion()
+        let restored = await MainActor.run { store.taskAgenda.tasks.map(\.id) }
+        XCTAssertEqual(restored, [id])
+        await calendar.release()
+        await load.value
+        let saved = await mutation.value
+        XCTAssertTrue(saved)
+    }
+
+    func testHomePlanPublicationChecksOnlyRelevantCommittedDomains() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let planning = CoreDataPlanningRepository(container: container)
+        let track = CoreDataTrackFoundationRepository(container: container)
+        for changesTasks in [false, true] {
+            let calendar = SuspendedPerformanceCalendarRepository()
+            let store = await MainActor.run {
+                HomeLifeOSProjectionStore(planningRepository: planning, trackRepository: nil,
+                    phaseIIRepository: nil, calendarRepository: calendar)
+            }
+            let coreReady = expectation(description: "Core read before external mutation")
+            await MainActor.run {
+                withObservationTracking { _ = store.hasLoadedCore } onChange: { coreReady.fulfill() }
+            }
+            let load = _Concurrency.Task { await store.load() }
+            await fulfillment(of: [coreReady], timeout: 5)
+            if changesTasks {
+                let context = container.newBackgroundContext()
+                try await context.perform {
+                    let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+                    task.setValue(UUID(), forKey: "id")
+                    task.setValue("External task during calendar read", forKey: "title")
+                    try context.save()
+                }
+            } else {
+                try await track.saveHydrationLog(.init(amount: 100, unit: .milliliters))
+            }
+            await calendar.release()
+            await load.value
+            let hasPlan = await MainActor.run { store.planSnapshot != nil }
+            XCTAssertEqual(hasPlan, !changesTasks,
+                "Hydration must not invalidate Plan; an external task save must reject the older Plan")
+            if changesTasks {
+                await store.load()
+                let refreshed = await MainActor.run { store.planSnapshot != nil }
+                XCTAssertTrue(refreshed)
+            }
+        }
+    }
+
+    func testProjectionRevisionLedgerDoesNotLoseConcurrentCommits() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let track = CoreDataTrackFoundationRepository(container: container)
+        let before = track.sourceRevisions.snapshot()
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0..<20 {
+                group.addTask { try await track.saveHydrationLog(.init(amount: 100, unit: .milliliters)) }
+            }
+            try await group.waitForAll()
+        }
+        let after = track.sourceRevisions.snapshot()
+        XCTAssertEqual(after[.tracking], before[.tracking] + 20)
+        XCTAssertTrue(after.matches(before, domains: [.tasks, .planning, .focus, .fasting]))
+    }
+
+    func testProjectionRevisionsAdvanceBeforeSaveReturnsAndAreContainerScoped() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let other = try await makeTrackFoundationContainer()
+        let planning = CoreDataPlanningRepository(container: container)
+        let track = CoreDataTrackFoundationRepository(container: container)
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let isolated = CoreDataPlanningRepository(container: other)
+        XCTAssertTrue(planning.sourceRevisions === track.sourceRevisions)
+        XCTAssertTrue(track.sourceRevisions === phaseII.sourceRevisions)
+        let before = planning.sourceRevisions.snapshot()
+        let context = container.newBackgroundContext()
+        let id = UUID()
+        let committed = try await context.perform {
+            context.transactionAuthor = "performance.revision-test"
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(id, forKey: "id")
+            task.setValue("Committed before callback", forKey: "title")
+            try context.save()
+            return planning.sourceRevisions.snapshot()
+        }
+        XCTAssertEqual(committed[.tasks], before[.tasks] + 1)
+        XCTAssertEqual(committed[.planning], before[.planning] + 1)
+        XCTAssertTrue(committed.matches(before, domains: [.tracking, .fasting, .journal]))
+        XCTAssertEqual(isolated.sourceRevisions.snapshot()[.tasks], 0)
+        let event = try XCTUnwrap(planning.sourceRevisions.latestInvalidation())
+        XCTAssertEqual(event.affectedIDs, [id])
+        XCTAssertEqual(event.transactionAuthor, "performance.revision-test")
+        XCTAssertEqual(event.revisions, committed)
+        try await track.saveHydrationLog(.init(amount: 200, unit: .milliliters))
+        let afterHydration = planning.sourceRevisions.snapshot()
+        XCTAssertTrue(afterHydration.matches(committed, domains: [.tasks, .planning, .focus]))
+        XCTAssertEqual(afterHydration[.tracking], committed[.tracking] + 1)
+        XCTAssertTrue(afterHydration.represents(committed, domains: Set(ProjectionDomain.allCases)))
+        await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(UUID(), forKey: "id")
+            context.rollback()
+        }
+        XCTAssertEqual(planning.sourceRevisions.snapshot(), afterHydration, "Rolled-back work must not advance durable revisions")
+    }
+
+    func testMaintenanceRegistrySharesLiveOwnersAndReleasesUnusedContainers() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let otherContainer = try await makeTrackFoundationContainer()
+        await MainActor.run {
+            let root = CompositionRoot.shared
+            let planning = CoreDataPlanningRepository(container: container)
+            let track = CoreDataTrackFoundationRepository(container: container)
+            let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+            var first: FoundationDomainMaintenance? = root.domainMaintenance(container: container,
+                planning: planning, track: track, phaseII: phaseII, focusCommands: nil)
+            weak var released = first
+            var second: FoundationDomainMaintenance? = root.domainMaintenance(container: container,
+                planning: planning, track: track, phaseII: phaseII, focusCommands: nil)
+            XCTAssertTrue(first === second)
+            let separate = root.domainMaintenance(container: otherContainer,
+                planning: CoreDataPlanningRepository(container: otherContainer),
+                track: CoreDataTrackFoundationRepository(container: otherContainer),
+                phaseII: CoreDataLifeBoardPhaseIIRepository(container: otherContainer), focusCommands: nil)
+            XCTAssertFalse(first === separate)
+            first = nil
+            XCTAssertNotNil(released, "Another scene still owns the service")
+            second = nil
+            XCTAssertNil(released, "The dependency registry must not retain an unused service")
+        }
+    }
+
+    func testMaintenanceInvalidationCarriesContainerAndAffectedDomainOnly() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let context = container.newBackgroundContext()
+        let event = await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            let id = UUID()
+            task.setValue(id, forKey: "id")
+            let notification = Notification(name: .NSManagedObjectContextDidSave, object: context,
+                userInfo: [NSUpdatedObjectsKey: Set([task])])
+            return FoundationDomainMaintenance.invalidation(notification)
+        }
+        let value = try XCTUnwrap(event)
+        XCTAssertEqual(value.containerID, ObjectIdentifier(container.persistentStoreCoordinator))
+        XCTAssertEqual(value.domains, [.focus])
+        XCTAssertEqual(value.affectedIDs.count, 1)
+        let unrelated = await context.perform {
+            let object = NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
+            return FoundationDomainMaintenance.invalidation(.init(name: .NSManagedObjectContextDidSave,
+                object: context, userInfo: [NSUpdatedObjectsKey: Set([object])]))
+        }
+        XCTAssertNil(unrelated, "Unrelated writes must not trigger medication, routine or focus reads")
+    }
+
+    func testFocusTitleProjectionReadsOnlyRequestedTask() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let context = container.newBackgroundContext()
+        let id = UUID()
+        try await context.perform {
+            for (taskID, title) in [(id, "Focused title"), (UUID(), "Unrelated title")] {
+                let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+                task.setValue(taskID, forKey: "id")
+                task.setValue(title, forKey: "title")
+            }
+            try context.save()
+        }
+        let repository = CoreDataPlanningRepository(container: container)
+        let title = try await repository.focusTaskTitle(taskID: id)
+        let missing = try await repository.focusTaskTitle(taskID: UUID())
+        XCTAssertEqual(title, "Focused title")
+        XCTAssertNil(missing)
+    }
+
     private func modelBundleURL() throws -> URL {
         try PersistenceTestModel.url()
     }
@@ -2018,4 +2784,190 @@ private final class HabitProjectionRepositoryStub: HabitRuntimeReadRepositoryPro
     func fetchHabitDetailSummary(habitID: UUID, includeArchived: Bool, completion: @escaping @Sendable (Result<HabitLibraryRow?, any Error>) -> Void) {
         completion(.success(rows.first { $0.habitID == habitID }))
     }
+}
+
+private struct FailingPerformanceCalendarRepository: PlanningCalendarContextRepository {
+    func authorization() async -> PlanningCalendarAuthorization { .authorized }
+    func requestAccess() async -> PlanningCalendarAuthorization { .authorized }
+    func fetchCommitments(from: Date, to: Date) async throws -> PlanningCalendarContext {
+        throw NSError(domain: "PerformanceCalendar", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Calendar unavailable during refresh"])
+    }
+}
+
+private actor SuspendedPerformanceCalendarRepository: PlanningCalendarContextRepository {
+    private var released = false
+    private var waiter: CheckedContinuation<Void, Never>?
+    func authorization() async -> PlanningCalendarAuthorization { .authorized }
+    func requestAccess() async -> PlanningCalendarAuthorization { .authorized }
+    func fetchCommitments(from: Date, to: Date) async throws -> PlanningCalendarContext {
+        if !released { await withCheckedContinuation { waiter = $0 } }
+        return .init(authorization: .authorized)
+    }
+    func release() {
+        released = true
+        waiter?.resume()
+        waiter = nil
+    }
+}
+
+@MainActor
+private final class PerformanceHomeSelection {
+    var isCurrent = true
+}
+
+private actor SuspendedPerformanceHealthReader: HealthMetricsReading {
+    private var released = false
+    private var waiter: CheckedContinuation<Void, Never>?
+    func currentSnapshot(now: Date) async -> HealthMetricsSnapshot {
+        if !released { await withCheckedContinuation { waiter = $0 } }
+        return .init()
+    }
+    func cachedHistory(domain: HealthInsightDomain, range: HealthHistoryRange,
+                       now: Date) async -> [HealthMetric: [HealthAggregateValue]] { [:] }
+    func requestAutomaticRefresh() async {}
+    func updates() async -> AsyncStream<HealthSyncEvent> { AsyncStream { $0.finish() } }
+    func release() {
+        released = true
+        waiter?.resume()
+        waiter = nil
+    }
+}
+
+private actor PerformanceCardGate {
+    private var released = false
+    private var continuation: CheckedContinuation<Void, Never>?
+    func wait() async {
+        if !released { await withCheckedContinuation { continuation = $0 } }
+    }
+    func release() { released = true; continuation?.resume(); continuation = nil }
+}
+
+private struct PerformanceCardSource: HomeCardSource {
+    let definition: HomeCardDefinition
+    let gate: PerformanceCardGate?
+    var primaryDestination: Destination { .home }
+    var privacyClassification: DataSensitivity { definition.sensitivity }
+    init(kind: DashboardWidgetKind, gate: PerformanceCardGate?) {
+        self.gate = gate
+        definition = .init(kind: kind, title: kind.rawValue, category: .reflect,
+            supportedSizes: [.standard], multiplicity: .singleton,
+            sensitivity: kind == .journal ? .privateSensitive : .privateStandard)
+    }
+    func snapshot(configuration: HomeCardConfiguration, size: HomeCardSize,
+                  at date: Date) async -> HomeCardSnapshot {
+        await gate?.wait()
+        return .init(availability: .ready, title: definition.title, value: "Current", updatedAt: date)
+    }
+}
+
+private actor SuspendedPerformanceGoalSamples: GoalSampleRepository {
+    private var entered = false
+    private var released = false
+    private var entryWaiter: CheckedContinuation<Void, Never>?
+    private var waiter: CheckedContinuation<Void, Never>?
+    func samples(for links: [GoalLink], asOf date: Date) async throws -> [GoalProgressSample] {
+        entered = true
+        entryWaiter?.resume()
+        entryWaiter = nil
+        if !released { await withCheckedContinuation { waiter = $0 } }
+        return []
+    }
+    func waitUntilEntered() async {
+        if !entered { await withCheckedContinuation { entryWaiter = $0 } }
+    }
+    func release() {
+        released = true
+        waiter?.resume()
+        waiter = nil
+    }
+}
+
+private actor PerformanceMoodReadGate {
+    let onEnter: @Sendable () -> Void
+    private var didEnter = false
+    private var released = false
+    private var waiter: CheckedContinuation<Void, Never>?
+    init(onEnter: @escaping @Sendable () -> Void) { self.onEnter = onEnter }
+    func suspendOnce() async {
+        guard !didEnter else { return }
+        didEnter = true
+        onEnter()
+        if !released { await withCheckedContinuation { waiter = $0 } }
+    }
+    func release() {
+        released = true
+        waiter?.resume()
+        waiter = nil
+    }
+}
+
+/// Delegates persistence but intentionally exposes only the public repository
+/// contract, as alternate Home hosts do. The first mood read retains old values.
+private struct PerformanceUnversionedMoodRepository: PhaseIIRepository {
+    let base: CoreDataLifeBoardPhaseIIRepository
+    let gate: PerformanceMoodReadGate
+    var saveGate: PerformanceMoodReadGate? = nil
+    func fetchMoodCheckIns(from: Date?, to: Date?) async throws -> [MoodEnergyCheckInValue] {
+        let values = try await base.fetchMoodCheckIns(from: from, to: to)
+        await gate.suspendOnce()
+        return values
+    }
+    func fetchTrackers() async throws -> [TrackerDefinitionValue] { try await base.fetchTrackers() }
+    func saveTracker(_ value: TrackerDefinitionValue) async throws { try await base.saveTracker(value) }
+    func deleteTracker(id: UUID) async throws { try await base.deleteTracker(id: id) }
+    func fetchTrackerEntries(trackerID: UUID?) async throws -> [TrackerEntryValue] { try await base.fetchTrackerEntries(trackerID: trackerID) }
+    func fetchTrackerEntries(trackerID: UUID?, from: Date, to: Date) async throws -> [TrackerEntryValue] { try await base.fetchTrackerEntries(trackerID: trackerID, from: from, to: to) }
+    func fetchJournalDays(from: Date, to: Date) async throws -> [JournalDayValue] { try await base.fetchJournalDays(from: from, to: to) }
+    func fetchJournalEvidence(from: Date, to: Date) async throws -> [JournalEvidenceSummary] { try await base.fetchJournalEvidence(from: from, to: to) }
+    func saveTrackerEntry(_ value: TrackerEntryValue) async throws { try await base.saveTrackerEntry(value) }
+    func deleteTrackerEntry(id: UUID) async throws { try await base.deleteTrackerEntry(id: id) }
+    func saveMoodCheckIn(_ value: MoodEnergyCheckInValue) async throws {
+        try await base.saveMoodCheckIn(value)
+        await saveGate?.suspendOnce()
+    }
+    func deleteMoodCheckIn(id: UUID) async throws { try await base.deleteMoodCheckIn(id: id) }
+    func fetchMedications() async throws -> [MedicationDefinitionValue] { try await base.fetchMedications() }
+    func saveMedication(_ value: MedicationDefinitionValue) async throws { try await base.saveMedication(value) }
+    func deleteMedication(id: UUID) async throws { try await base.deleteMedication(id: id) }
+    func fetchMedicationSchedules(medicationID: UUID?) async throws -> [MedicationScheduleValue] { try await base.fetchMedicationSchedules(medicationID: medicationID) }
+    func saveMedicationSchedule(_ value: MedicationScheduleValue) async throws { try await base.saveMedicationSchedule(value) }
+    func fetchMedicationEvents(from: Date, to: Date) async throws -> [MedicationEventValue] { try await base.fetchMedicationEvents(from: from, to: to) }
+    func saveMedicationEvent(_ value: MedicationEventValue) async throws { try await base.saveMedicationEvent(value) }
+    func fetchFastingSessions(limit: Int) async throws -> [FastingSessionValue] { try await base.fetchFastingSessions(limit: limit) }
+    func saveFastingSession(_ value: FastingSessionValue) async throws { try await base.saveFastingSession(value) }
+    func fetchFastingTemplates(includeArchived: Bool) async throws -> [FastingTemplateValue] { try await base.fetchFastingTemplates(includeArchived: includeArchived) }
+    func saveFastingTemplate(_ value: FastingTemplateValue) async throws { try await base.saveFastingTemplate(value) }
+    func fetchJournalDays(search: String?, starredOnly: Bool, mood: JournalMood?) async throws -> [JournalDayValue] { try await base.fetchJournalDays(search: search, starredOnly: starredOnly, mood: mood) }
+    func fetchJournalDay(containing date: Date) async throws -> JournalDayValue? { try await base.fetchJournalDay(containing: date) }
+    func saveJournalDay(_ value: JournalDayValue) async throws { try await base.saveJournalDay(value) }
+    func deleteJournalDay(id: UUID) async throws { try await base.deleteJournalDay(id: id) }
+    func fetchJournalDraft(dayID: UUID?) async throws -> JournalDraftValue? { try await base.fetchJournalDraft(dayID: dayID) }
+    func saveJournalDraft(_ value: JournalDraftValue) async throws { try await base.saveJournalDraft(value) }
+    func deleteJournalDraft(id: UUID) async throws { try await base.deleteJournalDraft(id: id) }
+    func fetchKnowledgeSpaces() async throws -> [KnowledgeSpaceValue] { try await base.fetchKnowledgeSpaces() }
+    func saveKnowledgeSpace(_ value: KnowledgeSpaceValue) async throws { try await base.saveKnowledgeSpace(value) }
+    func fetchKnowledgeFolders(spaceID: UUID?) async throws -> [KnowledgeFolderValue] { try await base.fetchKnowledgeFolders(spaceID: spaceID) }
+    func saveKnowledgeFolder(_ value: KnowledgeFolderValue) async throws { try await base.saveKnowledgeFolder(value) }
+    func fetchKnowledgeNotes(search: String?, spaceID: UUID?) async throws -> [KnowledgeNoteValue] { try await base.fetchKnowledgeNotes(search: search, spaceID: spaceID) }
+    func saveKnowledgeNote(_ value: KnowledgeNoteValue) async throws { try await base.saveKnowledgeNote(value) }
+    func deleteKnowledgeNote(id: UUID) async throws { try await base.deleteKnowledgeNote(id: id) }
+    func fetchKnowledgeTags() async throws -> [KnowledgeTagValue] { try await base.fetchKnowledgeTags() }
+    func saveKnowledgeTag(_ value: KnowledgeTagValue) async throws { try await base.saveKnowledgeTag(value) }
+    func fetchKnowledgeLinks() async throws -> [KnowledgeLinkValue] { try await base.fetchKnowledgeLinks() }
+    func saveKnowledgeLink(_ value: KnowledgeLinkValue) async throws { try await base.saveKnowledgeLink(value) }
+    func deleteKnowledgeLink(id: UUID) async throws { try await base.deleteKnowledgeLink(id: id) }
+    func fetchKnowledgeAttachments(noteID: UUID) async throws -> [KnowledgeAttachmentValue] { try await base.fetchKnowledgeAttachments(noteID: noteID) }
+    func saveKnowledgeAttachment(_ value: KnowledgeAttachmentValue) async throws { try await base.saveKnowledgeAttachment(value) }
+    func deleteKnowledgeAttachment(id: UUID) async throws { try await base.deleteKnowledgeAttachment(id: id) }
+    func fetchKnowledgeNotes(query: KnowledgeNoteQuery) async throws -> [KnowledgeNoteValue] { try await base.fetchKnowledgeNotes(query: query) }
+    func fetchKnowledgeSmartCollections(spaceID: UUID?) async throws -> [KnowledgeSmartCollectionValue] { try await base.fetchKnowledgeSmartCollections(spaceID: spaceID) }
+    func saveKnowledgeSmartCollection(_ value: KnowledgeSmartCollectionValue) async throws { try await base.saveKnowledgeSmartCollection(value) }
+    func deleteKnowledgeSmartCollection(id: UUID) async throws { try await base.deleteKnowledgeSmartCollection(id: id) }
+    func fetchKnowledgeDraft(noteID: UUID) async throws -> KnowledgeNoteDraftValue? { try await base.fetchKnowledgeDraft(noteID: noteID) }
+    func saveKnowledgeDraft(_ value: KnowledgeNoteDraftValue) async throws { try await base.saveKnowledgeDraft(value) }
+    func deleteKnowledgeDraft(noteID: UUID) async throws { try await base.deleteKnowledgeDraft(noteID: noteID) }
+    func fetchKnowledgeRevisions(noteID: UUID) async throws -> [KnowledgeNoteRevisionValue] { try await base.fetchKnowledgeRevisions(noteID: noteID) }
+    func saveKnowledgeRevision(_ value: KnowledgeNoteRevisionValue) async throws { try await base.saveKnowledgeRevision(value) }
+    func pruneKnowledgeRecovery(now: Date) async throws { try await base.pruneKnowledgeRecovery(now: now) }
 }
