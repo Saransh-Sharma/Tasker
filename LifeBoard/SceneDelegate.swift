@@ -36,6 +36,8 @@ extension Notification.Name {
 }
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    private var foundationDomainMaintenance: FoundationDomainMaintenance?
+
 
     private enum BootstrapFailureAction {
         case retrySync
@@ -214,6 +216,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             homeViewModel.configureCanonicalFocusCommands(planDependencies.focusCommands)
         }
         let trackFoundationRepository = CoreDataTrackFoundationRepository(container: persistentContainer)
+        foundationDomainMaintenance = CompositionRoot.shared.domainMaintenance(container: persistentContainer,
+            planning: planningRepository, track: trackFoundationRepository, phaseII: phaseIIRepository,
+            focusCommands: planDependencies?.focusCommands)
+        if let scene = window?.windowScene, scene.activationState == .foregroundActive {
+            foundationDomainMaintenance?.setScene(scene.session.persistentIdentifier, active: true)
+        }
         LLMContextRepositoryFactory.configureTrackFoundationRepository(trackFoundationRepository)
         let habitRuntimeReadRepository = CoreDataHabitRuntimeReadRepository(container: persistentContainer)
         let goalSampleProvider = CoreDataGoalSampleRepository(container: persistentContainer)
@@ -558,6 +566,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// Executes sceneDidDisconnect.
     func sceneDidDisconnect(_ scene: UIScene) {
+        foundationDomainMaintenance?.setScene(scene.session.persistentIdentifier, active: false)
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.
         // Release any resources associated with this scene that can be re-created the next time the scene connects.
@@ -578,6 +587,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// Executes sceneDidBecomeActive.
     func sceneDidBecomeActive(_ scene: UIScene) {
+        foundationDomainMaintenance?.setScene(scene.session.persistentIdentifier, active: true)
         // Called when the scene has moved from an inactive state to an active state.
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_become_active")
@@ -600,6 +610,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// Executes sceneWillResignActive.
     func sceneWillResignActive(_ scene: UIScene) {
+        foundationDomainMaintenance?.setScene(scene.session.persistentIdentifier, active: false)
         // Called when the scene will move from an active state to an inactive state.
         // This may occur due to temporary interruptions (ex. an incoming phone call).
         Task { @MainActor in

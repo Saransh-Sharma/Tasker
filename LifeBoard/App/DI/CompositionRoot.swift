@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreData
 import UIKit
 @preconcurrency import Combine
 
@@ -42,6 +43,27 @@ public final class CompositionRoot: @unchecked Sendable {
     // MARK: - Singleton
 
     public static let shared = CompositionRoot()
+
+    @MainActor private final class MaintenanceReference {
+        weak var service: FoundationDomainMaintenance?
+        init(_ service: FoundationDomainMaintenance) { self.service = service }
+    }
+
+    // Scenes own the service. The lookup preserves sharing without retaining a
+    // retired persistence container after its final owner is released.
+    @MainActor private var domainMaintenanceByContainer: [ObjectIdentifier: MaintenanceReference] = [:]
+
+    @MainActor func domainMaintenance(container: NSPersistentContainer,
+        planning: CoreDataPlanningRepository, track: CoreDataTrackFoundationRepository,
+        phaseII: any PhaseIIRepository, focusCommands: FocusSessionCommands?) -> FoundationDomainMaintenance {
+        let key = ObjectIdentifier(container.persistentStoreCoordinator)
+        domainMaintenanceByContainer = domainMaintenanceByContainer.filter { $0.value.service != nil }
+        if let service = domainMaintenanceByContainer[key]?.service { return service }
+        let service = FoundationDomainMaintenance(container: container, planning: planning,
+            track: track, phaseII: phaseII, focusCommands: focusCommands)
+        domainMaintenanceByContainer[key] = MaintenanceReference(service)
+        return service
+    }
 
     // MARK: - Core Dependencies
 

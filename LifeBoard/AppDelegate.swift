@@ -57,6 +57,15 @@ private final class MetricKitSubscriber: NSObject, MXMetricManagerSubscriber {
                 "latest_application_version": payload.latestApplicationVersion
             ]
 
+            if let cpu = payload.cpuMetrics {
+                fields["cpu_seconds"] = String(cpu.cumulativeCPUTime.converted(to: .seconds).value)
+            }
+            if let launch = payload.applicationLaunchMetrics {
+                fields["launch_histogram"] = Self.histogramDescription(launch.histogrammedTimeToFirstDraw)
+            }
+            if let responsiveness = payload.applicationResponsivenessMetrics {
+                fields["hang_histogram"] = Self.histogramDescription(responsiveness.histogrammedApplicationHangTime)
+            }
             if let animationMetrics = payload.animationMetrics {
                 fields["scroll_hitch_time_ratio"] = Self.format(animationMetrics.scrollHitchTimeRatio)
                 if #available(iOS 26.0, *) {
@@ -79,6 +88,13 @@ private final class MetricKitSubscriber: NSObject, MXMetricManagerSubscriber {
                 fields: fields
             )
         }
+    }
+
+    private static func histogramDescription(_ histogram: MXHistogram<UnitDuration>) -> String {
+        histogram.bucketEnumerator.allObjects.compactMap { value -> String? in
+            guard let bucket = value as? MXHistogramBucket<UnitDuration> else { return nil }
+            return "\(bucket.bucketStart.converted(to: .milliseconds).value)..<\(bucket.bucketEnd.converted(to: .milliseconds).value):\(bucket.bucketCount)"
+        }.joined(separator: ",")
     }
 
     private static func iso8601String(from date: Date) -> String {
