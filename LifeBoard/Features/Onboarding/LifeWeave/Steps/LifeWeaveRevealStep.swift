@@ -77,6 +77,8 @@ enum LifeWeaveRevealCopy {
 /// after this LifeBoard is committed and recorded as complete.
 struct LifeWeaveRevealStep: View {
     @ObservedObject var model: LifeWeaveOnboardingModel
+    @StateObject private var evaAccess = EvaCloudAccessCoordinator.shared
+    @State private var healthStore = HealthCoordinator.shared.connectionStore
 
     private var draft: LifeWeaveDraft { model.draft }
 
@@ -88,6 +90,12 @@ struct LifeWeaveRevealStep: View {
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .fixedSize(horizontal: false, vertical: true)
 
+            if model.usesStreamlinedOnboarding, let capture = draft.stagedCapture, capture.isReviewed {
+                Label(capture.text, systemImage: "checkmark.circle.fill")
+                    .lifeboardFont(.bodyStrong)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("onboarding.savedCapture")
+            }
             Text(LifeWeaveRevealCopy.sentence(for: draft))
                 .lifeboardFont(.body)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
@@ -103,7 +111,7 @@ struct LifeWeaveRevealStep: View {
             receipt
 
             if model.isPowerUpAvailable {
-                powerUpInvitation
+                if model.usesStreamlinedOnboarding { connectionChoices } else { powerUpInvitation }
             }
 
             if draft.stagedCapture?.isReviewed != true {
@@ -115,6 +123,47 @@ struct LifeWeaveRevealStep: View {
 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var connectionChoices: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Connect what helps · Optional").lifeboardFont(.bodyStrong)
+            ForEach([LifeWeavePowerUpStep.eva, .health, .calendar]) { connector in
+                Button { model.beginPowerUp(connector) } label: {
+                    HStack {
+                        Image(systemName: Self.symbolName(for: connector)).frame(width: 24)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(connector.spokenName).lifeboardFont(.bodyStrong)
+                            Text(connectionStatus(connector)).lifeboardFont(.caption1)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").accessibilityHidden(true)
+                    }
+                    .frame(minHeight: 52)
+                    .padding(12)
+                    .lifeBoardClaySurface(.raised, cornerRadius: 16)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("onboarding.connection.\(connector.rawValue)")
+            }
+        }
+    }
+
+    private func connectionStatus(_ connector: LifeWeavePowerUpStep) -> String {
+        switch connector {
+        case .eva:
+            if model.evaPrefersOffline { return model.powerUps.offlineEvaReady() ? "Offline EVA ready" : "Finish setting up Offline EVA" }
+            switch evaAccess.state {
+            case .ready: return "Ready to help plan your day"
+            case .activating: return "Connecting…"
+            case .temporarilyUnavailable, .appleReauthenticationRequired: return "Resume connection"
+            default: return "Get help deciding what to do first"
+            }
+        case .health: return healthStore.presentation.summary
+        case .calendar: return model.selectedCalendarCount > 0 ? "Calendars selected" : "Plan around your existing events"
+        case .complete: return ""
+        }
     }
 
     /// Names the second phase, its cost, and that it is optional — before the

@@ -51,6 +51,7 @@ struct EvaPowerUpView: View {
 
     /// VoiceOver hears one line per real stage change, never one per frame.
     @State private var announcedStageIndex: Int?
+    @State private var showsActivationDetails = false
 
     /// Linking Apple is optional, so its failure is reported here instead of
     /// being allowed to replace a working EVA with an error screen.
@@ -159,7 +160,7 @@ struct EvaPowerUpView: View {
             Text("EVA will run on this device.")
                 .lifeboardFont(.bodyStrong)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
-            Text("Nothing you write leaves this iPhone. You may need to pick a local model in Settings before EVA can answer, and you can switch to Cloud EVA whenever you want.")
+            Text("Nothing you write leaves this iPhone. Choose and install a local model before EVA can answer. You can switch to Cloud EVA whenever you want.")
                 .lifeboardFont(.support)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -182,6 +183,8 @@ struct EvaPowerUpView: View {
     private var activationCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             LifeMapEyebrow("CONNECTING")
+            ProgressView("Connecting EVA…")
+            DisclosureGroup("Connection details", isExpanded: $showsActivationDetails) {
             ForEach(activationStages) { stage in
                 EvaPowerUpStageRow(
                     title: stage.title,
@@ -189,11 +192,12 @@ struct EvaPowerUpView: View {
                     identifier: EvaPowerUpAccessibilityID.stage(stage.identifierSuffix)
                 )
             }
+            }
             Text("Your LifeBoard is already safe. If this doesn't work, you can keep using it.")
                 .lifeboardFont(.support)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Leaving is fine too — \"Finish later\" hands this to Settings, and you won't be asked to agree again.")
+            Text("You can continue using LifeBoard. Confirmed setup resumes without asking you to agree again.")
                 .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textTertiary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -328,7 +332,7 @@ struct EvaPowerUpView: View {
                 .foregroundStyle(Color.lifeboard(.textTertiary))
                 .fixedSize(horizontal: false, vertical: true)
             if isOfflineOfferedOnFailure {
-                Button("Use Offline EVA instead") { selectOffline() }
+                Button(model.offlineEvaActionTitle) { selectOffline() }
                     .buttonStyle(.lifeBoardChip)
                     .accessibilityIdentifier(EvaPowerUpAccessibilityID.offline)
             }
@@ -371,7 +375,7 @@ struct EvaPowerUpView: View {
 
     private func selectOffline() {
         model.chooseOfflineEva()
-        prefersOffline = true
+        prefersOffline = model.evaPrefersOffline
     }
 
     private func selectCloud() {
@@ -418,9 +422,16 @@ private struct EvaPowerUpDisclosureSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            baseContextCard
-            optionalContextRow
-            processingDisclosure
+            EvaCloudDisclosure(
+                grants: EvaConsentPolicy.Grant.allCases.map { grant in
+                    (grant, grant.onboardingTitle, Binding(
+                        get: { model.draft.resolvedEvaGrants.contains(grant) },
+                        set: { model.toggleEvaGrant(grant, enabled: $0) }
+                    ))
+                },
+                isWorking: isWorking,
+                identifierPrefix: "onboarding.lifeweave.powerup.eva"
+            )
             offlineAlternative
             if isHydrating {
                 Text("Checking EVA…")
@@ -431,88 +442,11 @@ private struct EvaPowerUpDisclosureSection: View {
         .accessibilityIdentifier(EvaPowerUpAccessibilityID.disclosure)
     }
 
-    /// The base context is not a permission and is not offered as one.
-    ///
-    /// Presenting it as a fifth toggle would be a lie — EVA cannot plan your
-    /// week without knowing what is in it — and it also made the four real
-    /// choices look like formalities. It is stated, once, as what EVA works with.
-    private var baseContextCard: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text("What EVA works with")
-                .lifeboardFont(.bodyStrong)
-                .foregroundStyle(Color.lifeboard(.textPrimary))
-            Text("Your life areas, tasks, and plans — the LifeBoard you just built. That is what EVA reasons about when you ask it something.")
-                .lifeboardFont(.support)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(Theme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.raised, cornerRadius: 20)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(EvaPowerUpAccessibilityID.baseContext)
-    }
-
-    private var optionalContextRow: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.md) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Optional private context")
-                        .lifeboardFont(.bodyStrong)
-                        .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text(grantSummary)
-                        .lifeboardFont(.caption1)
-                        .foregroundStyle(Color.lifeboard(.textTertiary))
-                }
-                Spacer(minLength: Theme.Spacing.sm)
-                Button("Review") { showsGrantReview = true }
-                    .buttonStyle(.lifeBoardChip)
-                    .accessibilityIdentifier(EvaPowerUpAccessibilityID.reviewGrants)
-            }
-            Text("These four categories never travel with a normal request. They go only if you allow them, and turning one off takes effect before EVA's next answer.")
-                .lifeboardFont(.caption1)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(Theme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.raised, cornerRadius: 20)
-        .accessibilityIdentifier(EvaPowerUpAccessibilityID.optionalContext)
-    }
-
-    private var grantSummary: String {
-        let selected = model.draft.resolvedEvaGrants.count
-        let total = EvaConsentPolicy.Grant.allCases.count
-        return selected == 0
-            ? "None selected · EVA sees your LifeBoard only"
-            : "\(selected) of \(total) selected"
-    }
-
-    /// Infrastructure detail, collapsed. It matters to some people and to no
-    /// one else, and putting it inline is what buried the actual decision.
-    private var processingDisclosure: some View {
-        DisclosureGroup(isExpanded: $showsProcessingDetail) {
-            Text("Your question and the context you allowed go to LifeBoard's own service on Cloudflare, which passes them to OpenAI and returns the answer. They are not used to train models, and are not kept after the answer comes back.")
-                .lifeboardFont(.caption1)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, Theme.Spacing.xs)
-        } label: {
-            Text("How cloud processing works")
-                .lifeboardFont(.support)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-        }
-        .tint(Color.lifeboard(.accentPrimary))
-        .padding(Theme.Spacing.md)
-        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
-        .accessibilityIdentifier(EvaPowerUpAccessibilityID.processing)
-    }
-
     /// Offered, never imposed. A fallback the user did not choose is a downgrade
     /// they were not told about.
     private var offlineAlternative: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Button("Use Offline EVA instead") { onChooseOffline() }
+            Button(model.offlineEvaActionTitle) { onChooseOffline() }
                 .buttonStyle(.lifeBoardChip)
                 .disabled(isWorking)
                 .accessibilityIdentifier(EvaPowerUpAccessibilityID.offline)

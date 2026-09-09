@@ -56,9 +56,10 @@ struct LifeWeaveDraft: Codable, Equatable {
     static let maximumLifeAreas = 5
     static let maximumBlockers = 2
 
-    static let currentSchemaVersion = 11
+    static let currentSchemaVersion = 12
 
     var schemaVersion = Self.currentSchemaVersion
+    var streamlinedJourney: Bool?
     var step: LifeWeaveStep = .arrival
     var entryContext: OnboardingEntryContext = .freshFlow
 
@@ -93,6 +94,7 @@ struct LifeWeaveDraft: Codable, Equatable {
     /// to decide whether it may overwrite an established week start.
     var didEditDayShape = false
 
+    var unreviewedCaptureText: String?
     var stagedCapture: LifeMapStagedCapture?
     var skippedCapture = false
     var resolvedLifeAreaIDsByTemplate: [String: UUID] = [:]
@@ -223,6 +225,7 @@ enum LifeWeaveStep: Int, CaseIterable, Codable, Identifiable {
     /// The only phase whose completion the product promises. It depends on no
     /// permission, network, model, or account.
     static let core = Self.allCases
+    static let streamlined: [Self] = [.arrival, .lifeAreas, .firstCapture, .reveal]
 
     var coreIndex: Int? {
         Self.core.firstIndex(of: self).map { $0 + 1 }

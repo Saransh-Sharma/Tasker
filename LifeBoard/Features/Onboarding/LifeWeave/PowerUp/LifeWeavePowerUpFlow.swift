@@ -24,7 +24,7 @@ extension LifeWeaveOnboardingModel {
     /// Completion is written *before* the first connector is offered, which is
     /// the whole contract — a permission sheet that fails, a network that is
     /// down, or a force-quit during Calendar all leave a finished LifeBoard.
-    func beginPowerUp() {
+    func beginPowerUp(_ connector: LifeWeavePowerUpStep = .calendar) {
         let phase = draft.resolvedLifecyclePhase
         guard phase == .revealReady || phase == .poweringUp else { return }
 
@@ -34,22 +34,32 @@ extension LifeWeaveOnboardingModel {
         recordCoreCompletion()
         mutateDraft {
             $0.lifecyclePhase = .poweringUp
-            $0.powerUpStep = .calendar
+            $0.powerUpStep = connector
         }
         feedback.light()
         Task {
             await ProductTelemetry.shared.record(
                 .onboardingStepViewed,
                 flowVersion: AppOnboardingState.currentVersion,
-                outcome: "powerup_calendar"
+                outcome: "powerup_\(connector.identifierSuffix)"
             )
         }
     }
 
     /// Move to the next power-up screen, or finish if there is none.
     func advancePowerUp() {
+        if usesStreamlinedOnboarding { finishConnector(); return }
         guard let current = draft.powerUpStep, let next = current.next else { return }
         setPowerUpStep(next, from: current)
+    }
+
+    func finishConnector() {
+        if let connector = draft.powerUpStep { recordConnectorResult(connector) }
+        mutateDraft {
+            $0.powerUpStep = nil
+            $0.step = .reveal
+            $0.lifecyclePhase = .revealReady
+        }
     }
 
     /// "Not now". An explicit choice, recorded as one.
@@ -73,7 +83,7 @@ extension LifeWeaveOnboardingModel {
         for connector in LifeWeavePowerUpStep.connectors {
             recordDeferral(of: connector)
         }
-        suppressHomeCardIfEverythingWasDeclined()
+        if ConnectionResumeStore.pending.isEmpty { SetupCenterHomeCardPreference.dismiss() }
         for connector in LifeWeavePowerUpStep.connectors {
             recordConnectorResult(connector)
         }
@@ -143,6 +153,10 @@ extension LifeWeaveOnboardingModel {
     /// into telemetry. These tokens carry the shape of the outcome and nothing
     /// about the person's data.
     func connectorOutcomeToken(for connector: LifeWeavePowerUpStep) -> String {
+        // Live success always outranks an older skip.
+        if connector == .calendar, calendarStage == .proof { return "ready" }
+        if connector == .health, case .ready = healthFirstSyncOutcome { return "ready" }
+        if connector == .eva, draft.evaCloudReady { return "ready" }
         if draft.resolvedDeferredPowerUps.contains(connector) { return "later" }
         switch connector {
         case .calendar:
@@ -157,7 +171,7 @@ extension LifeWeaveOnboardingModel {
             case .ready: return "ready"
             case .syncing, .requesting: return "syncing"
             case .reviewedNoDataYet: return "no_data"
-            case .partial: return "attention"
+            case .partial, .authorizationFailed: return "attention"
             case .protectedDataLocked: return "locked"
             case .unavailable: return "unavailable"
             case .notRequested: return "not_started"

@@ -13,8 +13,15 @@ struct LifeWeaveTopBar: View {
     let route: LifeWeaveRoute
     let canGoBack: Bool
     let onBack: () -> Void
+    var isStreamlined = false
 
-    private var progress: LifeWeaveProgressModel { .resolve(route) }
+    private var progress: LifeWeaveProgressModel {
+        if isStreamlined, case .core(let step) = route,
+           let index = LifeWeaveStep.streamlined.firstIndex(of: step) {
+            return .core(index: index + 1, total: 4, name: step.identifierSuffix)
+        }
+        return .resolve(route)
+    }
 
     private var showsBack: Bool {
         switch route {

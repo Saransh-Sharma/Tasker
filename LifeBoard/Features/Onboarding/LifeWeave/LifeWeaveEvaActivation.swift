@@ -95,6 +95,7 @@ final class EvaCloudAccessCoordinator: ObservableObject {
     private let sessionStore: EvaCloudSessionStore
     private var hydrationTask: Task<EvaCloudAccessState, Never>?
     private var activationTask: Task<Bool, Never>?
+    private var confirmationTask: Task<Bool, Never>?
 
     init(
         account: EvaCloudAccountState = .shared,
@@ -120,6 +121,10 @@ final class EvaCloudAccessCoordinator: ObservableObject {
 
     @discardableResult
     func hydrate() async -> EvaCloudAccessState {
+        if let activationTask {
+            _ = await activationTask.value
+            return state
+        }
         if let hydrationTask { return await hydrationTask.value }
 
         state = .hydrating
@@ -139,8 +144,12 @@ final class EvaCloudAccessCoordinator: ObservableObject {
             } else if let receipt = EvaCloudActivationReceiptStore.load(defaults: defaults) {
                 selectedGrants = Set(receipt.grants)
             }
-            let resolved = resolveState(previousIdentityKind: previousIdentityKind)
+            var resolved = resolveState(previousIdentityKind: previousIdentityKind)
+            if case .temporarilyUnavailable = resolved, previousIdentityKind == nil, !hasCurrentReceipt {
+                resolved = .needsDisclosure
+            }
             state = resolved
+            if resolved == .ready { ConnectionResumeStore.setPending(.eva, false) }
             await ProductTelemetry.shared.record(
                 .evaReadinessHydrated,
                 outcome: telemetryLabel(for: resolved)
@@ -178,12 +187,22 @@ final class EvaCloudAccessCoordinator: ObservableObject {
         grants: Set<EvaConsentPolicy.Grant>,
         source: EvaCloudAccessSource
     ) async -> Bool {
-        EvaCloudActivationReceiptStore.save(grants: grants, defaults: defaults)
-        selectCloud()
-        selectedGrants = grants
-        let hydrated = await hydrate()
-        guard hydrated != .appleReauthenticationRequired else { return false }
-        return await activate(grants: grants, source: source)
+        if let confirmationTask { return await confirmationTask.value }
+        // Freeze one reviewed selection before any suspension. A second entry
+        // joins this operation and cannot overwrite the receipt mid-activation.
+        let task = Task { @MainActor [weak self] () -> Bool in
+            guard let self else { return false }
+            EvaCloudActivationReceiptStore.save(grants: grants, defaults: defaults)
+            selectCloud()
+            selectedGrants = grants
+            let hydrated = await hydrate()
+            guard hydrated != .appleReauthenticationRequired else { return false }
+            return await activate(grants: grants, source: source)
+        }
+        confirmationTask = task
+        let result = await task.value
+        confirmationTask = nil
+        return result
     }
 
     @discardableResult
@@ -203,6 +222,8 @@ final class EvaCloudAccessCoordinator: ObservableObject {
 
     @discardableResult
     func reconnectApple() async -> Bool {
+        if let activationTask { return await activationTask.value }
+        if let hydrationTask { _ = await hydrationTask.value }
         if let activationTask { return await activationTask.value }
         selectCloud()
         state = .activating
@@ -227,6 +248,7 @@ final class EvaCloudAccessCoordinator: ObservableObject {
     }
 
     func selectOffline() {
+        ConnectionResumeStore.setPending(.eva, false)
         defaults.set(EvaProviderRouter.Preference.offline.rawValue, forKey: "eva.provider.preference.v1")
         errorMessage = nil
     }
@@ -246,6 +268,7 @@ final class EvaCloudAccessCoordinator: ObservableObject {
     ) async -> Bool {
         if let activationTask { return await activationTask.value }
         state = .activating
+        ConnectionResumeStore.setPending(.eva, true)
         errorMessage = nil
         let orderedGrants = grants.sorted { $0.rawValue < $1.rawValue }
         let task = Task { @MainActor [weak self] () -> Bool in
@@ -257,6 +280,7 @@ final class EvaCloudAccessCoordinator: ObservableObject {
                 }
                 state = .ready
                 errorMessage = nil
+                ConnectionResumeStore.setPending(.eva, false)
                 EvaActivationDefaultsStore.markCompleted(defaults: defaults)
                 await ProductTelemetry.shared.record(.evaActivationSucceeded, outcome: source.rawValue)
                 return true

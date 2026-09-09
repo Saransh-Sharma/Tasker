@@ -63,6 +63,13 @@ struct AppOnboardingState: Codable, Equatable {
         lifeMapJourneySnapshot != nil || lifeWeaveJourneySnapshot != nil || refreshDraft != nil
     }
 
+    var hasOptionalJourneyToResume: Bool {
+        [lifeWeaveJourneySnapshot, refreshDraft].compactMap { $0 }.contains {
+            [.revealReady, .poweringUp, .finalized].contains($0.resolvedLifecyclePhase)
+                || $0.commitPhase >= .captureWritten
+        }
+    }
+
     var needsCurrentRefresh: Bool {
         completedRefreshVersion != Self.currentLifeWeaveRefreshVersion
             && dismissedRefreshVersion != Self.currentLifeWeaveRefreshVersion

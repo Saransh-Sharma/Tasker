@@ -11,6 +11,7 @@ import SwiftUI
 /// are the real wiring, so production callers construct the model unchanged.
 @MainActor
 struct LifeMapPowerUpDependencies {
+    var offlineEvaReady: () -> Bool = { false }
     /// Returns whether calendar access was actually granted. Deliberately not
     /// `PermissionPrimingCoordinator.performRequest`, whose calendar seam is
     /// `() -> Void` and reports nothing.

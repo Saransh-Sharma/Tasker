@@ -57,6 +57,10 @@ extension AppOnboardingCoordinator {
             // restart a v6 journey from Arrival every time the app relaunched,
             // and checking only v6 would strand a v5 journey the moment the
             // flag flipped mid-setup.
+            if state.hasOptionalJourneyToResume {
+                // Core is already usable; preserve the snapshot for Connections.
+                return
+            }
             if state.hasResumableJourney {
                 self.enqueuePresentation(.fullFlow(source: "resume"))
                 return
@@ -173,6 +177,8 @@ extension AppOnboardingCoordinator {
         )
 
         let rootView = flowView
+        .environmentObject(evaAppManager)
+        .environment(LLMRuntimeCoordinator.shared.evaluator)
         .lifeBoardTokenEnvironment(for: hostAdapter.currentOnboardingLayoutClass)
         // Mandatory, not decorative. This hosting controller is presented from
         // UIKit and inherits none of `FoundationShell`'s environment, so

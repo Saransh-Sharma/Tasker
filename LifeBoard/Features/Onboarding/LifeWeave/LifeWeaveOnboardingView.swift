@@ -16,6 +16,10 @@ struct LifeWeaveOnboardingView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var clayTrigger = 0
+    private var displayedRoute: LifeWeaveRoute {
+        model.usesStreamlinedOnboarding && model.powerUpStep != nil ? .core(.reveal) : model.draft.route
+    }
+
     // The dock's titles are derived from connector state, and connector state
     // does not live in the draft. Without these three the primary button would
     // keep a stale label through a permission return, a first sync, or an EVA
@@ -33,7 +37,7 @@ struct LifeWeaveOnboardingView: View {
     private var weaveHeightFraction: CGFloat {
         if dynamicTypeSize >= .accessibility3 { return 0 }
         if dynamicTypeSize >= .accessibility1 { return 0.11 }
-        switch model.draft.route {
+        switch displayedRoute {
         // Arrival and Reveal are the two beats where the map *is* the content,
         // so they keep a little more room. Every question screen gives it back:
         // the map is there to acknowledge the answer, not to compete with it.
@@ -68,9 +72,10 @@ struct LifeWeaveOnboardingView: View {
             GeometryReader { proxy in
                 VStack(spacing: Theme.Spacing.md) {
                     LifeWeaveTopBar(
-                        route: model.draft.route,
+                        route: displayedRoute,
                         canGoBack: model.canGoBackInFlow,
-                        onBack: model.goBackInFlow
+                        onBack: model.goBackInFlow,
+                        isStreamlined: model.usesStreamlinedOnboarding
                     )
 
                     if weaveHeightFraction > 0 {
@@ -108,12 +113,26 @@ struct LifeWeaveOnboardingView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(LifeWeaveAccessibilityID.flow)
+        .sheet(item: Binding(
+            get: { model.usesStreamlinedOnboarding ? model.powerUpStep : nil },
+            set: { if $0 == nil { model.deferCurrentPowerUp() } }
+        )) { connector in
+            connectorSheet(connector)
+        }
+        .sheet(isPresented: Binding(get: { !model.usesStreamlinedOnboarding && model.showsOfflineSetup }, set: { model.showsOfflineSetup = $0 })) {
+            NavigationStack {
+                ModelsSettingsView()
+                    .toolbar { ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { model.showsOfflineSetup = false }
+                    } }
+            }
+        }
     }
 
     @ViewBuilder
     private var stepContent: some View {
         Group {
-            switch model.draft.route {
+            switch displayedRoute {
             case .core(let step): coreContent(step)
             case .powerUp(let step): powerUpContent(step)
             }
@@ -126,7 +145,9 @@ struct LifeWeaveOnboardingView: View {
     @ViewBuilder
     private func coreContent(_ step: LifeWeaveStep) -> some View {
         switch step {
-        case .arrival: LifeWeaveArrivalStep()
+        case .arrival:
+            if model.usesStreamlinedOnboarding { LifeWeaveIntentStep(model: model) }
+            else { LifeWeaveArrivalStep() }
         case .intent: LifeWeaveIntentStep(model: model)
         case .lifeAreas: LifeWeaveLifeAreasStep(model: model)
         case .dayShape: LifeWeaveDayShapeStep(model: model)
@@ -148,8 +169,8 @@ struct LifeWeaveOnboardingView: View {
     // MARK: - Dock
 
     private var primaryTitle: String {
-        switch model.draft.route {
-        case .core(.arrival): "Build my LifeBoard"
+        switch displayedRoute {
+        case .core(.arrival): model.usesStreamlinedOnboarding ? "Continue" : "Build my LifeBoard"
         case .core(.intent): "Continue"
         case .core(.lifeAreas): "Shape my map"
         case .core(.dayShape): "Use this rhythm"
@@ -157,7 +178,7 @@ struct LifeWeaveOnboardingView: View {
         // No longer "Start with Cloud EVA". The reveal's job is to hand over a
         // finished LifeBoard, not to spend the one dominant action on a network
         // call that can fail.
-        case .core(.reveal): model.isPowerUpAvailable ? "Power up LifeBoard" : "Start my day"
+        case .core(.reveal): model.usesStreamlinedOnboarding ? "Start my day" : (model.isPowerUpAvailable ? "Power up LifeBoard" : "Start my day")
         // Each connector owns its own verbs, because the primary means something
         // different in every one of its states.
         case .powerUp(.calendar): model.calendarPrimaryTitle
@@ -185,16 +206,16 @@ struct LifeWeaveOnboardingView: View {
             return "Make sense of this"
         }
         if let capture = model.draft.stagedCapture {
-            return capture.isReviewed ? "Finish setup" : "Keep this"
+            return model.usesStreamlinedOnboarding ? "Save and continue" : (capture.isReviewed ? "Finish setup" : "Keep this")
         }
         return model.draft.skippedCapture ? "Finish setup" : "Make sense of this"
     }
 
     private var secondaryTitle: String? {
-        switch model.draft.route {
+        switch displayedRoute {
         case .core(.firstCapture):
             model.draft.stagedCapture == nil && model.draft.skippedCapture == false ? "Skip for now" : nil
-        case .core(.reveal): model.isPowerUpAvailable ? "Start now" : nil
+        case .core(.reveal): model.usesStreamlinedOnboarding ? nil : (model.isPowerUpAvailable ? "Start now" : nil)
         // Every connector is skippable — but each decides when offering "Not now"
         // still makes sense. Once a system permission has been answered there is
         // nothing left for this screen to decline.
@@ -207,14 +228,15 @@ struct LifeWeaveOnboardingView: View {
     }
 
     private var isPrimaryDisabled: Bool {
-        switch model.draft.route {
+        switch displayedRoute {
+        case .core(.arrival): model.usesStreamlinedOnboarding && model.draft.intent == nil
         case .core(.intent): model.draft.intent == nil
         case .core(.lifeAreas): model.draft.isLifeAreaSelectionValid == false
         case .core(.firstCapture):
             // A resolved step — skipped, or reviewed — can always continue. Without
             // the `isCaptureResolved` term, "Skip for now" left the primary
             // disabled and stranded the user on the screen they had just declined.
-            model.isResolvingCapture
+            model.isCommitting || model.isResolvingCapture
                 || (model.draft.isCaptureResolved == false
                     && model.draft.stagedCapture == nil
                     && model.captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -245,6 +267,7 @@ struct LifeWeaveOnboardingView: View {
                         kind: model.draft.stagedCapture?.kind ?? .task,
                         areaTemplateID: model.draft.stagedCapture?.lifeAreaTemplateID
                     )
+                    if model.usesStreamlinedOnboarding { _ = await model.advance() }
                     return
                 }
             }
@@ -255,7 +278,9 @@ struct LifeWeaveOnboardingView: View {
             }
 
             if model.step == .reveal {
-                if model.isPowerUpAvailable {
+                if model.usesStreamlinedOnboarding {
+                    if model.deferAllPowerUpsAndFinish() { onComplete(.home) }
+                } else if model.isPowerUpAvailable {
                     model.beginPowerUp()
                 } else if model.finalize(destination: .home) {
                     onComplete(.home)
@@ -286,9 +311,10 @@ struct LifeWeaveOnboardingView: View {
     }
 
     private func performSecondary() {
-        switch model.draft.route {
+        switch displayedRoute {
         case .core(.firstCapture):
             model.skipCapture()
+            if model.usesStreamlinedOnboarding { Task { _ = await model.advance() } }
         case .core(.reveal):
             // An explicit "not now" for everything, so Home shows no nag card.
             if model.deferAllPowerUpsAndFinish() { onComplete(.home) }
@@ -301,6 +327,49 @@ struct LifeWeaveOnboardingView: View {
             finishJourney(destination: .home)
         default:
             break
+        }
+    }
+
+    @ViewBuilder
+    private func connectorSheet(_ connector: LifeWeavePowerUpStep) -> some View {
+        if connector == .health {
+            HealthConnectionSheet(context: .init(.health, from: .onboarding))
+        } else {
+            NavigationStack {
+                ScrollView { powerUpContent(connector).padding(24) }
+                    .safeAreaInset(edge: .bottom) {
+                        VStack(spacing: 12) {
+                            Button(connector == .eva ? model.evaPrimaryTitle : model.calendarPrimaryTitle) {
+                                Task { await performPowerUpPrimary(connector) }
+                            }
+                            .buttonStyle(.lifeBoardPrimary)
+                            .disabled(connector == .eva ? model.isEvaPrimaryDisabled : model.isCalendarPrimaryDisabled)
+                            .accessibilityIdentifier("onboarding.connection.primary")
+                            Button("Continue using LifeBoard") { model.deferCurrentPowerUp() }
+                                .frame(minHeight: 44)
+                        }
+                        .padding()
+                        .background(Color.lifeboard(.bgCanvas))
+                    }
+                    .onChange(of: evaAccess.state) { _, state in
+                        if connector == .eva, state == .ready {
+                            model.recordEvaActivation(ready: true, pending: false)
+                            model.finishConnector()
+                        }
+                    }
+                    .navigationTitle(connector.spokenName)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") { model.deferCurrentPowerUp() }
+                    } }
+                    .sheet(isPresented: $model.showsOfflineSetup) {
+                        NavigationStack {
+                            ModelsSettingsView().toolbar { ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { model.showsOfflineSetup = false }
+                            } }
+                        }
+                    }
+            }
         }
     }
 

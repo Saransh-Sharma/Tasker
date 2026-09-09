@@ -115,7 +115,8 @@ final class AppOnboardingCoordinator: NSObject {
                 return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
             },
             powerUps: Self.makePowerUpDependencies(
-                calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService
+                calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService,
+                appManager: evaAppManager
             )
         )
     }()
@@ -132,7 +133,8 @@ final class AppOnboardingCoordinator: NSObject {
                 return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
             },
             powerUps: Self.makePowerUpDependencies(
-                calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService
+                calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService,
+                appManager: evaAppManager
             )
         )
     }()
@@ -167,9 +169,14 @@ final class AppOnboardingCoordinator: NSObject {
 
     @MainActor
     private static func makePowerUpDependencies(
-        calendarService: CalendarIntegrationService
+        calendarService: CalendarIntegrationService,
+        appManager: AppManager
     ) -> LifeMapPowerUpDependencies {
         LifeMapPowerUpDependencies(
+            offlineEvaReady: {
+                guard let selected = appManager.currentModelName else { return false }
+                return appManager.installedModels.contains(selected)
+            },
             requestCalendarAccess: { await calendarService.requestAccessAsync() },
             availableCalendars: {
                 // `availableCalendars` is populated asynchronously, inside

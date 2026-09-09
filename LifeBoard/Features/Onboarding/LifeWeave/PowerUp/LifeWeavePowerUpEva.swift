@@ -39,7 +39,7 @@ extension LifeWeaveOnboardingModel {
         case .ready: return "Continue"
         case .temporarilyUnavailable: return "Retry Cloud EVA"
         case .appleReauthenticationRequired: return "Reconnect with Apple"
-        case .quotaExhausted, .ageBlocked: return "Use Offline EVA"
+        case .quotaExhausted, .ageBlocked: return offlineEvaActionTitle
         }
     }
 
@@ -52,7 +52,7 @@ extension LifeWeaveOnboardingModel {
         if evaPrefersOffline { return nil }
         switch evaAccess.state {
         case .ready: return nil
-        case .activating: return "Finish later"
+        case .activating: return "Continue using LifeBoard"
         case .hydrating, .needsDisclosure, .temporarilyUnavailable,
              .quotaExhausted, .ageBlocked, .appleReauthenticationRequired:
             return "Not now"
@@ -105,6 +105,7 @@ extension LifeWeaveOnboardingModel {
     /// An explicit choice, always. The one thing this screen must never do is
     /// quietly downgrade someone who asked for Cloud EVA.
     func chooseOfflineEva() {
+        guard powerUps.offlineEvaReady() else { showsOfflineSetup = true; return }
         evaAccess.selectOffline()
         // Publishes through `draft`, which is what re-renders the dock.
         recordEvaActivation(ready: false, pending: false)

@@ -108,7 +108,7 @@ struct HealthPowerUpView: View {
                 identifier: HealthPowerUpID.unavailableNote
             )
         case .notRequested:
-            HealthPowerUpPrimer()
+            HealthReadDisclosure()
         case .requesting, .syncing:
             HealthFirstSyncChecklist(outcome: outcome)
         case .ready(let metricCount, let lastSync):
@@ -126,9 +126,11 @@ struct HealthPowerUpView: View {
                 symbolName: "info.circle",
                 tone: .neutral,
                 title: "Health access was reviewed.",
-                detail: "LifeBoard has not observed readable Health data yet. If something is recorded in Apple Health later, it will appear here on its own.",
+                detail: "No Health data is available to LifeBoard yet. You can keep logging here or review access in Apple Health.",
                 identifier: HealthPowerUpID.reviewedNote
             )
+        case .authorizationFailed:
+            HealthPowerUpNote(symbolName: "exclamationmark.triangle", tone: .attention, title: "Health access needs another try.", detail: outcome.summary, identifier: HealthPowerUpID.partialNote)
         case .partial(let errorCode):
             HealthPowerUpNote(
                 symbolName: "exclamationmark.triangle",

@@ -45,6 +45,7 @@ struct LifeWeaveArrivalStep: View {
 /// explicitly optional, and never gate the primary action.
 struct LifeWeaveIntentStep: View {
     @ObservedObject var model: LifeWeaveOnboardingModel
+    @State private var showsBlockers = false
 
     var body: some View {
         LifeMapQuestionScaffold(
@@ -52,6 +53,11 @@ struct LifeWeaveIntentStep: View {
             support: "Pick the change you want LifeBoard to protect first."
         ) {
             VStack(spacing: Theme.Spacing.sm) {
+                if model.usesStreamlinedOnboarding {
+                    Text("Welcome to LifeBoard. Shape your day and capture one thing. Connections are optional.")
+                        .lifeboardFont(.support)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                }
                 ForEach(LifeWeaveIntent.allCases) { intent in
                     LifeMapChoiceRow(
                         title: intent.title,
@@ -65,8 +71,9 @@ struct LifeWeaveIntentStep: View {
                 }
 
                 if model.draft.intent != nil {
-                    blockers
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    DisclosureGroup("What gets in the way? · Optional", isExpanded: $showsBlockers) {
+                        blockers
+                    }
                 }
             }
             .lifeBoardMotion(.contentInsertion, value: model.draft.intent)
@@ -101,6 +108,7 @@ struct LifeWeaveIntentStep: View {
 /// The user's own structure, and the only labelled objects on the map.
 struct LifeWeaveLifeAreasStep: View {
     @ObservedObject var model: LifeWeaveOnboardingModel
+    @State private var showsDayShape = false
 
     private var canSelectMore: Bool {
         model.draft.orderedLifeAreaTemplateIDs.count < LifeWeaveDraft.maximumLifeAreas
@@ -129,6 +137,15 @@ struct LifeWeaveLifeAreasStep: View {
                 if model.draft.orderedLifeAreaTemplateIDs.count >= LifeWeaveDraft.minimumLifeAreas {
                     primaryPicker
                         .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+                if model.usesStreamlinedOnboarding {
+                    DisclosureGroup(isExpanded: $showsDayShape) {
+                        LifeWeaveDayShapeStep(model: model)
+                    } label: {
+                        Text(model.draft.didEditDayShape ? "Your planning hours" : "Recommended hours · Weekdays 9–5")
+                            .lifeboardFont(.support)
+                    }
+                    .accessibilityIdentifier("onboarding.lifeweave.dayShape.disclosure")
                 }
             }
             .lifeBoardMotion(.contentInsertion, value: model.draft.orderedLifeAreaTemplateIDs)

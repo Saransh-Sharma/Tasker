@@ -19,6 +19,11 @@ final class HomeOnboardingGuidanceModel: ObservableObject {
 
     @Published private(set) var state: State?
 
+    /// What "Build my Life Map" does. Wired by `SceneDelegate` to the onboarding
+    /// coordinator so Home can render the banner without reaching for the
+    /// coordinator itself.
+    var onStart: (() -> Void)?
+
     /// The non-blocking replacement for the established-workspace modal.
     ///
     /// Existing users used to be interrupted by a full-screen sheet before they
@@ -48,6 +53,13 @@ final class HomeOnboardingGuidanceModel: ObservableObject {
             title: "Your starter habit is ready",
             message: "\"\(habit.title)\" will show up on Home so tomorrow feels easier to start."
         )
+    }
+
+    /// Accepts the invitation. Clears first: the banner is a one-shot offer, and
+    /// leaving it on screen behind the flow it just launched reads as a no-op.
+    func start() {
+        state = nil
+        onStart?()
     }
 
     func clear() {

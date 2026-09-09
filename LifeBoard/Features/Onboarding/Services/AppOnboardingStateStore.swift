@@ -82,7 +82,7 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         if entryContext == .establishedWorkspace {
             state.completedRefreshVersion = AppOnboardingState.currentLifeWeaveRefreshVersion
         } else {
-            SetupCenterHomeCardPreference.resetForNewOnboarding()
+            if !wasAlreadyComplete { SetupCenterHomeCardPreference.resetForNewOnboarding() }
             state.outcome = .completed
             state.completedVersion = AppOnboardingState.currentVersion
             state.completedLifeWeave = true

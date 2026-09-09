@@ -98,6 +98,19 @@ enum LifeWeaveMigration {
         return migrated
     }
 
+    /// Keep enum raw values decodable for rollback, normalize only presentation.
+    static func streamlined(_ snapshot: LifeWeaveDraft) -> LifeWeaveDraft {
+        var draft = snapshot
+        if draft.step == .intent { draft.step = .arrival }
+        if draft.step == .dayShape { draft.step = .lifeAreas }
+        if draft.powerUpStep != nil || draft.resolvedLifecyclePhase == .poweringUp {
+            draft.powerUpStep = nil
+            draft.step = .reveal
+            draft.lifecyclePhase = .revealReady
+        }
+        return draft
+    }
+
     static func draft(fromV8 snapshot: LifeWeaveDraft) -> LifeWeaveDraft {
         draft(fromEarlierSchema: snapshot)
     }

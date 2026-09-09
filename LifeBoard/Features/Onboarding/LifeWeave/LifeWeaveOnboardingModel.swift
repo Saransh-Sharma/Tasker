@@ -6,13 +6,19 @@ import SwiftUI
 @MainActor
 final class LifeWeaveOnboardingModel: ObservableObject {
     @Published private(set) var draft = LifeWeaveDraft()
-    @Published var captureText = ""
+    @Published var captureText = "" {
+        didSet {
+            draft.unreviewedCaptureText = captureText
+            persist()
+        }
+    }
     @Published var isResolvingCapture = false
     /// Set when the resolver could not honestly claim a destination, so the
     /// review card shows the chooser instead of a confident answer.
     @Published var isCaptureAmbiguous = false
     @Published var isCommitting = false
     @Published var errorMessage: String?
+    @Published var showsOfflineSetup = false
     @Published private(set) var openingPrompts: [EvaStarterPrompt] = []
 
     let feedback: OnboardingFeedbackController
@@ -40,6 +46,10 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     }
 
     var step: LifeWeaveStep { draft.step }
+    var usesStreamlinedOnboarding: Bool { draft.streamlinedJourney == true && V2FeatureFlags.seamlessOnboardingEnabled }
+    var coreSteps: [LifeWeaveStep] { usesStreamlinedOnboarding ? LifeWeaveStep.streamlined : LifeWeaveStep.core }
+    var offlineEvaActionTitle: String { powerUps.offlineEvaReady() ? "Use Offline EVA" : "Set up Offline EVA" }
+
 
     var selectedAreaTemplates: [StarterLifeAreaTemplate] {
         draft.orderedLifeAreaTemplateIDs.compactMap { id in
@@ -97,9 +107,19 @@ final class LifeWeaveOnboardingModel: ObservableObject {
             draft.entryContext = entryContext
             draft.lifecyclePhase = .editing
         }
+        if draft.streamlinedJourney == nil { draft.streamlinedJourney = V2FeatureFlags.seamlessOnboardingEnabled }
+        if usesStreamlinedOnboarding {
+            draft = LifeWeaveMigration.streamlined(draft)
+        }
+        // A server consent or confirmed receipt outranks unconfirmed defaults.
+        if let consent = EvaCloudAccessCoordinator.shared.account.consent {
+            draft.evaSelectedGrantIDs = consent.grants.map(\.rawValue)
+        } else if let receipt = EvaCloudActivationReceiptStore.load() {
+            draft.evaSelectedGrantIDs = receipt.grants.map(\.rawValue)
+        }
         draft.lifecyclePhase = draft.resolvedLifecyclePhase
         if draft.lifecyclePhase == .revealReady { draft.step = .reveal }
-        captureText = draft.stagedCapture?.text ?? ""
+        captureText = draft.stagedCapture?.text ?? draft.unreviewedCaptureText ?? ""
         persist()
         Task {
             await ProductTelemetry.shared.record(
@@ -223,16 +243,20 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     // MARK: - Navigation
 
     func advance() async -> Bool {
+        guard !isCommitting else { return false }
         errorMessage = nil
         switch step {
         case .arrival:
-            setStep(.intent)
+            if usesStreamlinedOnboarding {
+                guard draft.intent != nil else { return false }
+                setStep(.lifeAreas)
+            } else { setStep(.intent) }
         case .intent:
             guard draft.intent != nil else { return false }
             setStep(.lifeAreas)
         case .lifeAreas:
             guard draft.isLifeAreaSelectionValid else { return false }
-            setStep(.dayShape)
+            setStep(usesStreamlinedOnboarding ? .firstCapture : .dayShape)
         case .dayShape:
             setStep(.firstCapture)
         case .firstCapture:
@@ -249,11 +273,11 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     /// Back never destroys an answer — it moves the step and leaves the draft
     /// alone, so returning to a screen shows what was already chosen.
     var previousStep: LifeWeaveStep? {
-        guard let index = LifeWeaveStep.core.firstIndex(of: step), index > 0 else { return nil }
+        guard let index = coreSteps.firstIndex(of: step), index > 0 else { return nil }
         // The reveal is a commit boundary. Stepping back into the capture screen
         // from it would offer to re-stage a capture that is already persisted.
         guard step != .reveal else { return nil }
-        return LifeWeaveStep.core[index - 1]
+        return coreSteps[index - 1]
     }
 
     func goBack() {
@@ -314,6 +338,8 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         draft.step = .reveal
         draft.lifecyclePhase = .revealReady
         persist()
+        recordCoreCompletion()
+        OnboardingFirstAction.save(from: draft)
         feedback.successSignature()
         await ProductTelemetry.shared.record(.revealViewed, flowVersion: 6)
     }

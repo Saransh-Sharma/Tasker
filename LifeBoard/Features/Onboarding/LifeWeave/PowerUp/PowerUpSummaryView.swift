@@ -119,7 +119,14 @@ struct PowerUpSummaryView: View {
 
     /// One word per connector, taken from that connector's own resolver.
     private func status(for connector: LifeWeavePowerUpStep) -> String {
-        if model.draft.resolvedDeferredPowerUps.contains(connector) { return "Later" }
+        if model.draft.resolvedDeferredPowerUps.contains(connector) {
+            switch connector {
+            case .eva where evaAccess.state == .ready || evaAccess.state == .activating: break
+            case .health where model.healthFirstSyncOutcome != .notRequested: break
+            case .calendar where model.selectedCalendarCount > 0: break
+            default: return "Later"
+            }
+        }
         switch connector {
         case .calendar: return calendarStatus
         case .health: return healthStatus
@@ -146,7 +153,7 @@ struct PowerUpSummaryView: View {
         case .ready(let metricCount, _): "Ready · \(metricCount) metrics"
         case .syncing, .requesting: "Syncing in background"
         case .reviewedNoDataYet: "Access reviewed · no data yet"
-        case .partial: "Needs attention"
+        case .partial, .authorizationFailed: "Needs attention"
         case .protectedDataLocked: "Waiting · device locked"
         case .unavailable: "Not available here"
         case .notRequested: "Not set up"
