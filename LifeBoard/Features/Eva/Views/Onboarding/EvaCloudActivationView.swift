@@ -5,7 +5,7 @@ struct EvaCloudActivationView: View {
     @State private var account = EvaCloudAccountState.shared
     @State private var isWorking = false
     @State private var errorMessage: String?
-    @State private var selectedGrants = Set(EvaConsentPolicy.Grant.allCases)
+    @StateObject private var access = EvaCloudAccessCoordinator.shared
 
     let onBack: () -> Void
     let onCloudReady: () -> Void
@@ -49,12 +49,14 @@ struct EvaCloudActivationView: View {
                     subtitle: String(localized: "These sensitive categories are preselected. Turn off anything you do not want included in bounded EVA requests."),
                     accessibilityIdentifier: "eva.activation.cloud.consent"
                 ) {
-                    VStack(spacing: spacing.s12) {
-                        grantToggle(.journal, title: String(localized: "Journal"))
-                        grantToggle(.health, title: String(localized: "Health"))
-                        grantToggle(.lifeMoments, title: String(localized: "Life Moments"))
-                        grantToggle(.personalMemory, title: String(localized: "Personal Memory"))
-                    }
+                    EvaCloudDisclosure(grants: EvaConsentPolicy.Grant.allCases.map { grant in
+                        (grant, grant.onboardingTitle, Binding(
+                            get: { access.selectedGrants.contains(grant) },
+                            set: { enabled in
+                                if enabled { access.selectedGrants.insert(grant) } else { access.selectedGrants.remove(grant) }
+                            }
+                        ))
+                    }, isWorking: isWorking, identifierPrefix: "eva.activation.cloud")
                 }
 
                 EvaSectionCard(
@@ -84,14 +86,13 @@ struct EvaCloudActivationView: View {
         }
         .accessibilityIdentifier("eva.activation.cloud_setup")
         .task {
-            guard (try? await EvaCloudSessionStore.shared.load()) != nil else { return }
-            await account.refresh()
+            _ = await access.hydrate()
         }
     }
 
     private var primaryTitle: String {
         if isWorking { return String(localized: "Connecting…") }
-        return account.canUseCloud ? String(localized: "Continue to First Win") : String(localized: "Continue with Cloud EVA")
+        return account.canUseCloud ? String(localized: "Continue to First Win") : String(localized: "Enable Cloud EVA")
     }
 
     private func requirement(_ title: String, icon: String) -> some View {
@@ -99,19 +100,6 @@ struct EvaCloudActivationView: View {
             .font(.lifeboard(.callout))
             .foregroundStyle(Color.lifeboard(.textPrimary))
             .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func grantToggle(_ grant: EvaConsentPolicy.Grant, title: String) -> some View {
-        Toggle(title, isOn: Binding(
-            get: { selectedGrants.contains(grant) },
-            set: { enabled in
-                if enabled { selectedGrants.insert(grant) }
-                else { selectedGrants.remove(grant) }
-            }
-        ))
-        .font(.lifeboard(.callout))
-        .tint(Color.lifeboard(.accentPrimary))
-        .accessibilityIdentifier("eva.activation.cloud.consent.\(grant.rawValue)")
     }
 
     private func activate() {
@@ -124,15 +112,14 @@ struct EvaCloudActivationView: View {
         errorMessage = nil
         Task { @MainActor in
             defer { isWorking = false }
-            do {
-                try await account.activateCloud(
-                    grants: selectedGrants.sorted { $0.rawValue < $1.rawValue }
-                )
-                if let readinessError = account.readinessError() { throw readinessError }
-                onCloudReady()
-            } catch {
-                errorMessage = error.localizedDescription
+            let ready: Bool
+            if access.hasCurrentReceipt {
+                ready = await access.resumeConfirmedActivation(source: .evaEntry)
+            } else {
+                ready = await access.confirmAndActivate(grants: access.selectedGrants, source: .evaEntry)
             }
+            if ready { onCloudReady() } else { errorMessage = access.errorMessage }
+
         }
     }
 }

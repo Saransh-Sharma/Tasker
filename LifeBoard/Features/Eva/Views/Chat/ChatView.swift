@@ -625,6 +625,7 @@ struct ChatView: View {
     @StateObject private var cloudAccess = EvaCloudAccessCoordinator.shared
     @State private var providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
     @State private var pendingCloudSend: PendingCloudSend?
+    @State private var cloudInteractionIsActive = false
     @State private var cloudReadinessTask: _Concurrency.Task<Void, Never>?
     @FocusState private var isProjectFieldFocused: Bool
 
@@ -890,7 +891,12 @@ struct ChatView: View {
             isProjectFieldFocused = true
         }
         .onChange(of: currentThread?.id) { oldThreadID, newThreadID in
+            pendingCloudSend = nil
+            cloudReadinessTask?.cancel()
             handleCurrentThreadChanged(from: oldThreadID, to: newThreadID)
+        }
+        .onChange(of: prompt) { _, text in
+            if pendingCloudSend != nil { EvaPendingActivationDraftStore.save(text, threadID: currentThread?.id) }
         }
         .onChange(of: isPromptFocused) { _, focused in
             handlePromptFocusChanged(focused)
@@ -902,11 +908,15 @@ struct ChatView: View {
             handlePromptFocusRequestIfNeeded()
         }
         .onDisappear {
+            cloudInteractionIsActive = false
+            pendingCloudSend = nil
             cloudReadinessTask?.cancel()
             cloudReadinessTask = nil
             handleChatViewDisappear()
         }
         .task {
+            cloudInteractionIsActive = true
+            if prompt.isEmpty, let saved = EvaPendingActivationDraftStore.load(threadID: currentThread?.id) { prompt = saved }
             _ = await cloudAccess.resumeConfirmedActivation(source: .evaEntry)
         }
         .onReceive(contextInvalidationPublisher) { _ in
@@ -1418,8 +1428,9 @@ extension ChatView {
             return
         }
         pendingCloudSend = nil
-
+        let activationDraftThreadID = currentThread?.id
         guard let thread = ensureCurrentThread() else { return }
+        EvaPendingActivationDraftStore.clear(threadID: activationDraftThreadID)
         let threadID = thread.id
         generatingThreadID = threadID
 
@@ -1474,6 +1485,7 @@ extension ChatView {
         guard cloudAccess.state != .ready else { return false }
         let pending = PendingCloudSend(id: UUID(), text: message)
         pendingCloudSend = pending
+        EvaPendingActivationDraftStore.save(message, threadID: currentThread?.id)
         cloudReadinessTask?.cancel()
         cloudReadinessTask = _Concurrency.Task { @MainActor in
             let ready = await cloudAccess.ensureReadyForSend(promptID: pending.id)
@@ -1521,7 +1533,7 @@ extension ChatView {
 
     @MainActor
     private func useOfflineEvaForPendingSend() {
-        guard appManager.installedModels.isEmpty == false else {
+        guard let selected = appManager.currentModelName, appManager.installedModels.contains(selected) else {
             showSettings = true
             return
         }
@@ -1533,12 +1545,13 @@ extension ChatView {
 
     @MainActor
     private func resumePendingCloudSend(_ pending: PendingCloudSend) {
-        guard pendingCloudSend == pending else { return }
+        guard cloudInteractionIsActive, pendingCloudSend == pending else { return }
         pendingCloudSend = nil
         cloudReadinessTask = nil
         // If the person edited while activation was running, preserve the new
         // draft and wait for another explicit send instead of submitting stale text.
         guard prompt == pending.text else { return }
+        EvaPendingActivationDraftStore.clear(threadID: currentThread?.id)
         Task {
             await ProductTelemetry.shared.record(
                 .evaActivationAndSendCompleted,
