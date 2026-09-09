@@ -225,6 +225,7 @@ public enum HealthAuthorizationPromptState {
     /// Test hook — clears the persisted gate.
     public static func reset() {
         PermissionPromptState.reset(.appleHealth)
+        UserDefaults.standard.removeObject(forKey: "health.authorization.unfinished")
     }
 }
 
@@ -269,7 +270,7 @@ public final class HealthJustInTimeCoordinator {
     /// Runs the real connect flow, which shows the system sheet and marks us as
     /// having asked.
     public func connect(domains: Set<HealthDomain>) async {
-        await connectionStore.connect(domains: domains)
+        await connectionStore.connectReadOnly()
     }
 
     public func decline() {

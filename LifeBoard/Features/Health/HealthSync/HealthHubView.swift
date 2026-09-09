@@ -71,7 +71,7 @@ struct HealthHubView: View {
             }
         }
         .task {
-            showsHealthPrivacyNotice = didAcknowledgeHealthPrivacyNotice == false
+            showsHealthPrivacyNotice = UserDefaults.standard.bool(forKey: "healthPrivacyMigrationAffectedUser") && !didAcknowledgeHealthPrivacyNotice
             latestLocalMealAt = try? await nutritionRepository.logs(from: nil, to: nil).first?.loggedAt
             await store.refreshAuthorization()
             if store.statuses.values.contains(where: { $0.readRequestState != .neverRequested }) {
@@ -93,14 +93,7 @@ struct HealthHubView: View {
             HapticFeedback.success()
         }
         .sheet(item: $educationDomain) { domain in
-            HealthConnectPromptSheet(
-                leadDomain: domain,
-                onConnect: { domains in
-                    educationDomain = nil
-                    Task { await store.connect(domains: domains) }
-                },
-                onDecline: { educationDomain = nil }
-            )
+            HealthConnectionSheet(context: .init(.health, from: .health))
         }
         .sheet(isPresented: $showsWaterLog) {
             HealthWaterLogSheet(repository: trackRepository)
@@ -118,14 +111,11 @@ struct HealthHubView: View {
     /// Connected once any domain has actually been asked for. Apple never
     /// reveals a read denial, so "requested" is the strongest honest claim.
     private var isConnected: Bool {
-        store.statuses.values.contains { $0.readRequestState != .neverRequested }
+        !store.aggregates.isEmpty
     }
 
     private var connectionSubtitle: String {
-        if let date = store.lastSuccessfulSync {
-            return "Last synced \(date.formatted(date: .omitted, time: .shortened))"
-        }
-        return store.isRefreshing ? "Syncing…" : "Not synced yet"
+        store.presentation.summary
     }
 
     private var fastingSuggestionDate: Date? {
@@ -150,10 +140,11 @@ struct HealthConnectPromptSheet: View {
     let leadDomain: HealthDomain
     let onConnect: (Set<HealthDomain>) -> Void
     let onDecline: () -> Void
+    let requestsWriteBack: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulseTrigger = 0
-    @State private var showsShareOptions = false
+    @State private var showsShareOptions = true
     @State private var selectedWritableDomains: Set<HealthDomain>
 
     private static let writableDomains: [HealthDomain] = [.hydration, .nutrition, .body, .workouts]
@@ -161,14 +152,16 @@ struct HealthConnectPromptSheet: View {
     init(
         leadDomain: HealthDomain,
         initialWritableDomains: Set<HealthDomain>? = nil,
+        requestsWriteBack: Bool = false,
         onConnect: @escaping (Set<HealthDomain>) -> Void,
         onDecline: @escaping () -> Void
     ) {
+        self.requestsWriteBack = requestsWriteBack
         self.leadDomain = leadDomain
         self.onConnect = onConnect
         self.onDecline = onDecline
         _selectedWritableDomains = State(
-            initialValue: initialWritableDomains ?? (leadDomain.supportsWriteBack ? [leadDomain] : [])
+            initialValue: initialWritableDomains ?? []
         )
     }
 
@@ -176,18 +169,20 @@ struct HealthConnectPromptSheet: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    if requestsWriteBack {
                     HealthSyncBridgeHero(pulseTrigger: pulseTrigger)
                         .padding(.top, 4)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(headline)
+                        Text("Save LifeBoard logs to Apple Health")
                             .font(.title2.bold())
                             .foregroundStyle(Color.lifeboard(.textPrimary))
-                        Text(leadDomain.shareBlurb)
+                        Text("Choose the categories LifeBoard may add to Apple Health. New choices start off.")
                             .font(.body)
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
                     trustRow
                     shareDisclosure
+                    } else { HealthReadDisclosure() }
                 }
                 .padding(24)
             }
@@ -220,7 +215,7 @@ struct HealthConnectPromptSheet: View {
             Image(systemName: "lock.fill")
                 .font(.footnote)
                 .foregroundStyle(Color.lifeboard(.accentPrimary))
-            Text("Your health data stays on this device. Read access is private to Apple Health — LifeBoard never sees what you keep to yourself, and never labels a read denied.")
+            Text("Choose which LifeBoard logs to save to Apple Health. Your Cloud EVA context choices are managed separately.")
                 .font(.caption)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
         }
@@ -256,7 +251,7 @@ struct HealthConnectPromptSheet: View {
                     }
                     .tint(Color.lifeboard(.accentPrimary))
                 }
-                Text("Reading — steps, energy, sleep — is always private and needs no sharing choice.")
+                Text("These switches control writing only. Review read access separately in Apple Health.")
                     .font(.caption2)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             }
@@ -269,9 +264,9 @@ struct HealthConnectPromptSheet: View {
         VStack(spacing: 12) {
             Button {
                 HapticFeedback.success()
-                onConnect(selectedWritableDomains)
+                onConnect(requestsWriteBack ? selectedWritableDomains : [])
             } label: {
-                Text("Connect Apple Health")
+                Text(requestsWriteBack ? "Save sharing choices" : "Connect Apple Health")
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 50)
             }

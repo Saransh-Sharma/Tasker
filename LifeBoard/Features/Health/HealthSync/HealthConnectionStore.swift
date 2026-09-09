@@ -9,8 +9,20 @@ import UIKit
 @Observable
 public final class HealthConnectionStore {
     public private(set) var statuses: [HealthDomain: HealthDomainStatus]
-    public private(set) var aggregates: [HealthMetric: HealthAggregateValue] = [:]
+    public private(set) var aggregates: [HealthMetric: HealthAggregateValue] = [:] {
+        didSet {
+            guard oldValue.isEmpty, !aggregates.isEmpty else { return }
+            let key = "health.firstObservedRecorded"
+            guard !UserDefaults.standard.bool(forKey: key) else { return }
+            UserDefaults.standard.set(true, forKey: key)
+            Task { await ProductTelemetry.shared.record(.healthDataFirstObserved) }
+        }
+    }
     public private(set) var isRefreshing = false
+    public private(set) var isRequestingAuthorization = false
+    @ObservationIgnored private var authorizationTask: Task<HealthAuthorizationOutcome, Never>?
+    @ObservationIgnored private var authorizationWritableDomains: Set<HealthDomain> = []
+    private static let unfinishedAuthorizationKey = "health.authorization.unfinished"
     public private(set) var lastSuccessfulSync: Date?
     public private(set) var nonSensitiveErrorCode: String?
     public private(set) var isInitialSyncPending = false
@@ -50,6 +62,9 @@ public final class HealthConnectionStore {
                 signal: initialReadRequestState == .neverRequested ? .setupRequired : .noRecord
             ))
         })
+        if UserDefaults.standard.bool(forKey: Self.unfinishedAuthorizationKey) {
+            nonSensitiveErrorCode = "authorization_request"
+        }
         observeInvalidations()
     }
 
@@ -88,37 +103,67 @@ public final class HealthConnectionStore {
     /// dishonesty that costs the whole permission.
     ///
     /// Write-back stays a separate, later, explicit opt-in.
-    public func connectReadOnly(domains: Set<HealthDomain> = Set(HealthDomain.allCases)) async {
+    @discardableResult
+    public func connectReadOnly(domains: Set<HealthDomain> = Set(HealthDomain.allCases)) async -> HealthAuthorizationOutcome {
         await connect(domains: domains, writableDomains: [], enableWriteBack: false)
     }
 
+    /// Writing is requested only from a surface explicitly naming this action.
+    @discardableResult
+    public func requestWriteBack(domains: Set<HealthDomain>) async -> HealthAuthorizationOutcome {
+        await connect(domains: domains, writableDomains: Set(domains.filter(\.supportsWriteBack)), enableWriteBack: true)
+    }
+
+    @discardableResult
     private func connect(
         domains: Set<HealthDomain>,
         writableDomains: Set<HealthDomain>,
         enableWriteBack: Bool
-    ) async {
-        guard V2FeatureFlags.healthIntegrationsV1Enabled else { return }
-        // Durably record that we've asked (across launches) before the system
-        // sheet appears, so the just-in-time invitation never re-fires regardless
-        // of how this connect was reached (onboarding, Settings, hub, or JIT).
-        HealthAuthorizationPromptState.recordRequested()
-        let writable = writableDomains
-        do {
-            try await gateway.requestAuthorization(writeDomains: writable)
-            readRequestState = .requestCompleted
-            if enableWriteBack, let ledger = await ledgerProvider() {
-                for domain in writable {
-                    try await ledger.writePreference(domain: domain, enabled: true, optedInAt: Date())
-                }
-            }
-            await refreshAuthorization()
-            isInitialSyncPending = true
-            scheduleInitialSync(trigger: .authorization)
-        } catch {
-            readRequestState = .requestCompleted
-            nonSensitiveErrorCode = "authorization_request"
-            await refreshAuthorization()
+    ) async -> HealthAuthorizationOutcome {
+        guard V2FeatureFlags.healthIntegrationsV1Enabled, gateway.isHealthDataAvailable else { return .unavailable }
+        if let authorizationTask {
+            let matchesIntent = writableDomains == authorizationWritableDomains
+            let outcome = await authorizationTask.value
+            if matchesIntent { return outcome }
+            return await connect(domains: domains, writableDomains: writableDomains, enableWriteBack: enableWriteBack)
         }
+        authorizationWritableDomains = writableDomains
+        isRequestingAuthorization = true
+        ConnectionResumeStore.setPending(.health, true)
+        let task = Task { @MainActor [weak self] () -> HealthAuthorizationOutcome in
+            guard let self else { return .failed }
+            defer {
+                authorizationTask = nil
+                isRequestingAuthorization = false
+            }
+            HealthAuthorizationPromptState.recordRequested()
+            UserDefaults.standard.set(true, forKey: Self.unfinishedAuthorizationKey)
+            do {
+                try await gateway.requestAuthorization(writeDomains: writableDomains)
+                UserDefaults.standard.removeObject(forKey: Self.unfinishedAuthorizationKey)
+                nonSensitiveErrorCode = nil
+                readRequestState = .requestCompleted
+                if enableWriteBack, let ledger = await ledgerProvider() {
+                    do {
+                        for domain in writableDomains {
+                            try await ledger.writePreference(domain: domain, enabled: true, optedInAt: Date())
+                        }
+                    } catch { nonSensitiveErrorCode = "preference_write" }
+                }
+                await refreshAuthorization()
+                isInitialSyncPending = true
+                isRequestingAuthorization = false
+                scheduleInitialSync(trigger: .authorization)
+                return .reviewed
+            } catch {
+                readRequestState = .requestCompleted
+                nonSensitiveErrorCode = "authorization_request"
+                await refreshAuthorization()
+                return .failed
+            }
+        }
+        authorizationTask = task
+        return await task.value
     }
 
     private func scheduleInitialSync(trigger: HealthSyncTrigger) {
@@ -145,7 +190,7 @@ public final class HealthConnectionStore {
                 return values
             }
             if authorizations.contains(.notDetermined) {
-                await connect(domains: [domain])
+                await requestWriteBack(domains: [domain])
                 return
             }
         }
@@ -194,6 +239,7 @@ public final class HealthConnectionStore {
     }
 
     private func runSync(_ trigger: HealthSyncTrigger) async {
+        guard !isRequestingAuthorization, nonSensitiveErrorCode != "authorization_request" else { return }
         isRefreshing = true
         nonSensitiveErrorCode = nil
         for domain in HealthDomain.allCases {
@@ -211,7 +257,7 @@ public final class HealthConnectionStore {
             if result.refreshedMetrics.isEmpty == false || result.aggregates.isEmpty == false {
                 lastSuccessfulSync = result.completedAt
             }
-            readRequestState = .receivingData
+            readRequestState = result.aggregates.isEmpty ? .requestCompleted : .receivingData
             aggregates.merge(result.aggregates) { _, new in new }
         }
         if result.failures.isEmpty == false {
@@ -232,6 +278,7 @@ public final class HealthConnectionStore {
             }
         } else { applySignals(failures: result.failures) }
         isRefreshing = false
+        if !result.skipped && result.failures.isEmpty { ConnectionResumeStore.setPending(.health, false) }
         Self.logger.info("health_sync_finished trigger=\(String(describing: trigger), privacy: .public) skipped=\(result.skipped, privacy: .public) failure_count=\(result.failures.count, privacy: .public)")
     }
 
@@ -298,7 +345,11 @@ public final class HealthConnectionStore {
                 let cached = await self.coordinator.cachedCurrentAggregates(now: event.completedAt)
                 self.aggregates.merge(cached) { _, new in new }
                 self.lastSuccessfulSync = await self.coordinator.lastSuccessfulSync()
-                if self.readRequestState != .neverRequested { self.readRequestState = .receivingData }
+                if !self.aggregates.isEmpty, !self.isRequestingAuthorization,
+                   self.nonSensitiveErrorCode != "authorization_request",
+                   self.readRequestState != .neverRequested {
+                    self.readRequestState = .receivingData
+                }
                 self.applySignals(failures: event.isPartial ? Dictionary(uniqueKeysWithValues: event.metrics.map { ($0, "partial") }) : [:])
             }
         }
@@ -323,4 +374,8 @@ public final class HealthConnectionStore {
             }
         }
     }
+}
+
+public enum HealthAuthorizationOutcome: Equatable, Sendable {
+    case reviewed, failed, unavailable
 }

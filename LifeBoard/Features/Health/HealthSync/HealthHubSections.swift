@@ -73,8 +73,8 @@ struct HealthHubHeroSection: View {
                 .foregroundStyle(Color.lifeboard(.textPrimary))
 
             Text(isConnected
-                 ? "Movement and nutrition read across from Health. What you log here can flow back."
-                 : "Choose what LifeBoard may share. Read access stays private — Apple does not reveal whether you denied a read category.")
+                 ? "See the Health data available to LifeBoard. Saving LifeBoard logs to Apple Health is a separate choice."
+                 : "Bring your activity, sleep, and wellness data into LifeBoard. Choose what to read in Apple Health.")
                 .lifeboardFont(.support)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)

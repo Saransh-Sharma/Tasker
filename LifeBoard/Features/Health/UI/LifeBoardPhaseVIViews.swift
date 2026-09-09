@@ -315,17 +315,7 @@ struct NutritionView: View {
             }
         }
         .sheet(item: $healthEducationDomain) { domain in
-            HealthConnectPromptSheet(
-                leadDomain: domain,
-                onConnect: { domains in
-                    healthEducationDomain = nil
-                    Task {
-                        await HealthCoordinator.shared.connectionStore.connect(domains: domains)
-                        await store.prepareHealth()
-                    }
-                },
-                onDecline: { healthEducationDomain = nil }
-            )
+            HealthConnectionSheet(context: .init(.health, from: .nutrition))
         }
         .fullScreenCover(isPresented: $showsBarcodeScanner) {
             barcodeScannerCover
@@ -1286,18 +1276,7 @@ struct WellnessView: View {
             }
         }
         .sheet(item: $educationDomain) { domain in
-            HealthConnectPromptSheet(
-                leadDomain: domain,
-                onConnect: { domains in
-                    educationDomain = nil
-                    Task {
-                        await healthStore.connect(domains: domains)
-                        await loadHealthMetrics(requestRefresh: true)
-                        await store.load(kind: kind)
-                    }
-                },
-                onDecline: { educationDomain = nil }
-            )
+            HealthConnectionSheet(context: .init(.health, from: .wellness))
         }
         .alert("Wellness needs attention", isPresented: Binding(
             get: { store.errorMessage != nil },

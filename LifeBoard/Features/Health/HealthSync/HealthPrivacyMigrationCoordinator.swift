@@ -84,6 +84,17 @@ public actor HealthPrivacyMigrationCoordinator {
         context.transactionAuthor = "HealthPrivacyMigration"
         context.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
 
+        let affected = try await context.perform {
+            try Self.affectedEntities.contains { entity in
+                guard context.persistentStoreCoordinator?.managedObjectModel.entitiesByName[entity] != nil else { return false }
+                let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+                request.affectedStores = [cloud]
+                request.fetchLimit = 1
+                return try context.count(for: request) > 0
+            }
+        }
+        if affected { UserDefaults.standard.set(true, forKey: "healthPrivacyMigrationAffectedUser") }
+
         for entity in Self.affectedEntities {
             let result = try await context.perform {
                 try Self.copyAndValidate(entity: entity, cloud: cloud, local: local, context: context)
