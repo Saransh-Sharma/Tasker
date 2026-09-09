@@ -334,7 +334,10 @@ struct TaskDetailScreen: View {
     private var heroCard: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             HStack(alignment: .top, spacing: spacing.s12) {
-                CompletionCheckbox(isComplete: viewModel.isComplete) {
+                CompletionControl(
+                    isComplete: viewModel.isComplete,
+                    title: viewModel.taskName
+                ) { _ in
                     viewModel.toggleRootCompletion()
                 }
                 .accessibilityIdentifier("taskDetail.completeButton")
@@ -500,7 +503,11 @@ struct TaskDetailScreen: View {
 
                 ForEach(viewModel.childSteps, id: \.id) { step in
                     HStack(spacing: spacing.s8) {
-                        CompletionCheckbox(isComplete: step.isComplete, compact: true) {
+                        CompletionControl(
+                            isComplete: step.isComplete,
+                            title: step.title,
+                            density: .compact
+                        ) { _ in
                             viewModel.toggleStepCompletion(step)
                         }
                         .accessibilityHint("Toggle step completion")

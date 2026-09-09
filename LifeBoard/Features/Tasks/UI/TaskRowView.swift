@@ -637,7 +637,11 @@ struct TaskRowView: View, Equatable {
             priorityStripe
 
             HStack(alignment: .center, spacing: rowInnerSpacing) {
-                CompletionCheckbox(isComplete: task.isComplete, compact: true) {
+                CompletionControl(
+                    isComplete: task.isComplete,
+                    title: task.title,
+                    density: .compact
+                ) { _ in
                     onToggleComplete?()
                 }
                 .accessibilityIdentifier("home.taskCheckbox.\(task.id.uuidString)")
