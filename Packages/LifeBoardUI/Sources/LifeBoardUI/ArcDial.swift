@@ -108,7 +108,16 @@ public struct ArcDial: View {
     private let format: (Double) -> String
     @Binding private var value: Double
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    /// Resolved through `MotionOverride` so the in-app "Full motion" setting can
+    /// reach this component. Reading `accessibilityReduceMotion` directly is what
+    /// made a whole cluster of `LifeBoardUI` components ignore that setting.
+    /// `MotionOverride.resolve` is idempotent, so uses that already forward this
+    /// into `MotionProfile`/`MotionPolicy` are unaffected.
+    private var reduceMotion: Bool {
+        MotionOverride.resolve(systemReduceMotion)
+    }
     @State private var lastDetent: Double?
 
     public init(

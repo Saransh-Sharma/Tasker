@@ -13,7 +13,16 @@ import LifeBoardTokens
 /// generic dismiss-deck would throw away.
 public struct DeckDepth: ViewModifier {
     private let remaining: Int
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    /// Resolved through `MotionOverride` so the in-app "Full motion" setting can
+    /// reach this component. Reading `accessibilityReduceMotion` directly is what
+    /// made a whole cluster of `LifeBoardUI` components ignore that setting.
+    /// `MotionOverride.resolve` is idempotent, so uses that already forward this
+    /// into `MotionProfile`/`MotionPolicy` are unaffected.
+    private var reduceMotion: Bool {
+        MotionOverride.resolve(systemReduceMotion)
+    }
 
     /// Three reads as "a stack"; two reads as "one spare". Beyond three the
     /// cards stop being distinguishable and just thicken the shadow.

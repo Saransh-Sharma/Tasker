@@ -25,31 +25,64 @@ import SwiftUI
 /// Callers own the write. This view reports intent and plays the reward; it
 /// never assumes the mutation succeeded.
 public struct CompletionControl: View {
+    /// How large the *mark* is drawn. The touch target never changes: it is
+    /// 44 pt in every density, because the control this replaced shipped a 30 pt
+    /// target in its compact form — under both the HIG minimum and DESIGN.md's
+    /// `touch-target: 44px`. Dense rows get a smaller glyph, not a smaller tap.
+    public enum Density: Sendable {
+        case standard
+        case compact
+
+        var markSide: CGFloat {
+            switch self {
+            case .standard: 22
+            case .compact: 18
+            }
+        }
+
+        var strokeWidth: CGFloat {
+            switch self {
+            case .standard: 2
+            case .compact: 1.8
+            }
+        }
+    }
+
     private let isComplete: Bool
     private let title: String
     private let isEnabled: Bool
+    private let density: Density
     private let onToggle: (Bool) -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var progress: Double = 0
     @State private var burstTrigger = 0
 
+    /// Resolved through `MotionOverride` so the in-app "Full motion" setting
+    /// reaches this control. Idempotent, so the `MotionPolicy.resolve` below is
+    /// unaffected by the double application.
+    private var reduceMotion: Bool {
+        MotionOverride.resolve(systemReduceMotion)
+    }
+
     /// The visible ring is smaller than the 44 pt target; the target is padding.
-    private let markSide: CGFloat = 22
-    private let strokeWidth: CGFloat = 2
+    private var markSide: CGFloat { density.markSide }
+    private var strokeWidth: CGFloat { density.strokeWidth }
 
     public init(
         isComplete: Bool,
         title: String,
         isEnabled: Bool = true,
+        density: Density = .standard,
         onToggle: @escaping (Bool) -> Void
     ) {
         self.isComplete = isComplete
         self.title = title
         self.isEnabled = isEnabled
+        self.density = density
         self.onToggle = onToggle
     }
 
@@ -137,7 +170,12 @@ public struct CompletionControl: View {
 /// `ClayButtonStyle` because this control has no clay surface to
 /// compress — only the mark itself moves.
 private struct CompletionButtonStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    /// Resolved, not raw — the press scale is motion and "Full motion" owns it.
+    private var reduceMotion: Bool {
+        MotionOverride.resolve(systemReduceMotion)
+    }
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

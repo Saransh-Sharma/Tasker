@@ -231,7 +231,18 @@ public extension View {
 /// feel like the interface is dissolving behind you.
 private struct ScrollEntrance: ViewModifier {
     let intensity: CGFloat
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    /// Routed through `MotionOverride`, like every other motion decision in this
+    /// file. It previously branched on the raw environment value, which made it
+    /// the one modifier here that the "Full motion" setting could not reach:
+    /// with system Reduce Motion on and Full motion on — the default — every
+    /// scroll entrance in the app was silently disabled. The sibling curves in
+    /// `InteractionMotion` call `MotionOverride.resolve` directly and
+    /// `MotionPolicy.resolve` applies it internally, so this was the only gap.
+    private var reduceMotion: Bool {
+        MotionOverride.resolve(systemReduceMotion)
+    }
 
     func body(content: Content) -> some View {
         if reduceMotion {

@@ -10,7 +10,16 @@ public struct NumericRoll: View {
     private let unit: String?
     private let emphasis: Emphasis
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    /// Resolved through `MotionOverride` so the in-app "Full motion" setting can
+    /// reach this component. Reading `accessibilityReduceMotion` directly is what
+    /// made a whole cluster of `LifeBoardUI` components ignore that setting.
+    /// `MotionOverride.resolve` is idempotent, so uses that already forward this
+    /// into `MotionProfile`/`MotionPolicy` are unaffected.
+    private var reduceMotion: Bool {
+        MotionOverride.resolve(systemReduceMotion)
+    }
 
     public enum Emphasis {
         /// Inline with supporting copy.

@@ -52,7 +52,18 @@ struct FocusPauseResumeButton: View {
     var body: some View {
         Button {
             Task {
-                if isPaused { await store.resumeFocus() } else { await store.pauseFocus() }
+                // `DESIGN.md`: "Persistence precedes success motion and haptics."
+                // The haptic confirms the transition that actually happened, so
+                // it fires after the store settles rather than on touch-down —
+                // and it carries the matching intent: resuming lifts a session
+                // back up, pausing sets it down.
+                if isPaused {
+                    await store.resumeFocus()
+                    Haptic.lift.play()
+                } else {
+                    await store.pauseFocus()
+                    Haptic.settle.play()
+                }
             }
         } label: {
             Label(
@@ -63,7 +74,7 @@ struct FocusPauseResumeButton: View {
             .frame(maxWidth: .infinity, minHeight: 52)
         }
         .buttonStyle(.lifeBoardPrimary)
-        .lifeBoardPressResponse(.hero, haptic: .pick)
+        .lifeBoardPressResponse(.hero, haptic: nil)
         .accessibilityIdentifier("focus.surface.pauseResume")
     }
 }

@@ -78,7 +78,16 @@ public struct DayRing: View {
     private let settledLevel: Double?
     private let diameter: CGFloat
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    /// Resolved through `MotionOverride` so the in-app "Full motion" setting can
+    /// reach this component. Reading `accessibilityReduceMotion` directly is what
+    /// made a whole cluster of `LifeBoardUI` components ignore that setting.
+    /// `MotionOverride.resolve` is idempotent, so uses that already forward this
+    /// into `MotionProfile`/`MotionPolicy` are unaffected.
+    private var reduceMotion: Bool {
+        MotionOverride.resolve(systemReduceMotion)
+    }
 
     /// Advanced once per level change so the surface ripples as it rises and
     /// then settles. Never driven by a timer.

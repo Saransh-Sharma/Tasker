@@ -435,11 +435,13 @@ private struct FocusZoneRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: spacing.s8) {
-            CompletionCheckbox(isComplete: task.isComplete, compact: true) {
+            CompletionControl(
+                isComplete: task.isComplete,
+                title: presentation.title,
+                density: .compact
+            ) { _ in
                 onToggleComplete()
             }
-            .frame(width: 24, height: 24)
-            .padding(.top, 2)
 
             HStack(alignment: .top, spacing: spacing.s8) {
                 VStack(alignment: .leading, spacing: spacing.s2) {
