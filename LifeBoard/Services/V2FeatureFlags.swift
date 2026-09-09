@@ -299,6 +299,13 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.onboarding.power_ups") }
     }
 
+    /// New four-screen presentation. Debug-on, staged off in Release until
+    /// qualified; disabling it preserves drafts, grants and committed records.
+    public static var seamlessOnboardingEnabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.onboarding.seamless_v1", argument: "SEAMLESS_ONBOARDING") }
+        set { setStagedFeature(newValue, key: "feature.onboarding.seamless_v1") }
+    }
+
     /// Route-level Phase 1 gate. New Plan roots and their stores are composed
     /// only when both halves of the execution flagship are enabled. This is
     /// deliberately stronger than sprinkling flags over individual buttons:

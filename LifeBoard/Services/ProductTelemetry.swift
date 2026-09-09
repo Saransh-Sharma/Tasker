@@ -21,6 +21,9 @@ struct ProductEventV1: Codable, Sendable {
         case refreshDeferred
         case setupCenterOpened
         case setupCenterDismissed
+        case connectionInvitationShown
+        case connectionInvitationDeclined
+        case healthDataFirstObserved
         case connectorResult
         case evaActivationStarted
         case evaActivationSucceeded

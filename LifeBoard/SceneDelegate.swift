@@ -181,7 +181,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // requests here keeps the coordinator free of service dependencies.
         PermissionPrimingCoordinator.shared.configure(
             connectHealth: { domains in
-                await HealthCoordinator.shared.connectionStore.connect(domains: domains)
+                await HealthCoordinator.shared.connectionStore.connectReadOnly()
             },
             requestNotifications: {
                 guard let service = CompositionRoot.shared.notificationService else { return }
@@ -400,11 +400,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         )
         navigationEventCoordinator.start()
         self.navigationEventCoordinator = navigationEventCoordinator
+        let guidanceModel = HomeOnboardingGuidanceModel()
         let onboardingCoordinator = AppOnboardingCoordinator(
             hostAdapter: foundationController,
             presentationDependencyContainer: CompositionRoot.shared,
-            guidanceModel: HomeOnboardingGuidanceModel()
+            guidanceModel: guidanceModel
         )
+        // Home renders the banner; the coordinator decides when it appears and
+        // owns what accepting it does.
+        homeViewModel.onboardingGuidanceModel = guidanceModel
+        guidanceModel.onStart = { [weak onboardingCoordinator] in
+            onboardingCoordinator?.enqueuePresentation(.fullFlow(source: "home_banner"))
+        }
         self.onboardingCoordinator = onboardingCoordinator
 
         let arguments = ProcessInfo.processInfo.arguments
