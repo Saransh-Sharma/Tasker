@@ -991,6 +991,9 @@ struct TrackRootView: View {
                     }
                     .padding(16)
                     .lifeBoardPaperCard()
+                    // `DESIGN.md`: "Scrolling is not a quiet moment." Journal
+                    // had no scroll entrance on any of its lists.
+                    .lifeBoardScrollEntrance()
                 }
             }
             .padding(20)

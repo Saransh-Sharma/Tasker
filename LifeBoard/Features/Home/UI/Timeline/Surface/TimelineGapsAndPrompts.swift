@@ -2,6 +2,58 @@ import SwiftUI
 
 // Gaps in the day and what the timeline offers to put in them.
 
+// MARK: - TimelineGapDismissal
+
+/// Remembers which gap prompts a person has waved away today.
+///
+/// The "Dismiss" item in the gap menu shipped as `Button(…) {}` — an empty
+/// closure behind a `role: .destructive` label, so the one control that promised
+/// to make a nag go away was the only one that did nothing.
+///
+/// Keyed by day *and* gap start, because a gap is a slot in a particular
+/// afternoon, not a recurring flow — which is why this cannot reuse
+/// `DayCompassSnoozeStore`, whose keys are `DayCompassFlow` cases. Entries for
+/// past days are pruned on write, so the payload stays a handful of strings.
+struct TimelineGapDismissalStore {
+    static let storageKey = "home.timeline.gapDismissals.v1"
+
+    private let userDefaults: UserDefaults
+
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+    }
+
+    static func key(for gapStart: Date, calendar: Calendar = .current) -> String {
+        let day = calendar.startOfDay(for: gapStart)
+        return "\(Int(day.timeIntervalSince1970))#\(Int(gapStart.timeIntervalSince1970))"
+    }
+
+    func isDismissed(gapStart: Date, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard sameDay(gapStart, now, calendar: calendar) else { return false }
+        return stored().contains(Self.key(for: gapStart, calendar: calendar))
+    }
+
+    func dismiss(gapStart: Date, now: Date = Date(), calendar: Calendar = .current) {
+        let todayStart = calendar.startOfDay(for: now)
+        // Prune anything from an earlier day on the way through.
+        var keys = stored().filter { key in
+            guard let dayStamp = key.split(separator: "#").first,
+                  let seconds = TimeInterval(dayStamp) else { return false }
+            return Date(timeIntervalSince1970: seconds) >= todayStart
+        }
+        keys.insert(Self.key(for: gapStart, calendar: calendar))
+        userDefaults.set(Array(keys), forKey: Self.storageKey)
+    }
+
+    private func stored() -> Set<String> {
+        Set(userDefaults.stringArray(forKey: Self.storageKey) ?? [])
+    }
+
+    private func sameDay(_ lhs: Date, _ rhs: Date, calendar: Calendar) -> Bool {
+        calendar.isDate(lhs, inSameDayAs: rhs)
+    }
+}
+
 // MARK: - TimelineGapExtension
 
 extension TimelineGap {
@@ -18,9 +70,23 @@ struct TimelineGapPrompt: View {
     let suggestedDate: Date
     let onAddTask: () -> Void
     let onPlanBlock: () -> Void
+    var dismissalStore = TimelineGapDismissalStore()
     @Environment(\.lifeboardLayoutClass) var layoutClass
+    @State private var isDismissed = false
 
     var body: some View {
+        if isDismissed {
+            // The slot stays empty rather than collapsing: on the positioned
+            // canvas a gap prompt is laid out at a time offset, so removing the
+            // row would only shift whatever sits below it into the wrong hour.
+            EmptyView()
+        } else {
+            promptBody
+                .onAppear { isDismissed = dismissalStore.isDismissed(gapStart: gap.startDate) }
+        }
+    }
+
+    private var promptBody: some View {
         HStack(alignment: .center, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: gap.emphasis == .quietWindow ? "moon.zzz" : "clock")
@@ -54,7 +120,11 @@ struct TimelineGapPrompt: View {
 
             Menu {
                 Button("Place inbox with Compass", action: onPlanBlock)
-                Button(TimelineGapAction.dismiss.title, role: .destructive) {}
+                Button(TimelineGapAction.dismiss.title, role: .destructive) {
+                    dismissalStore.dismiss(gapStart: gap.startDate)
+                    Haptic.decline.play()
+                    withAnimation(LifeBoardAnimation.stateChange) { isDismissed = true }
+                }
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(ClayTypography.bodyStrong)

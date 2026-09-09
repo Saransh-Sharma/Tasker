@@ -303,6 +303,18 @@ public final class HomeViewModel: ObservableObject {
 
     lazy var dayCompassSnoozeStore = DayCompassSnoozeStore(userDefaults: userDefaults)
 
+    /// The onboarding guidance banner's model, handed over by `SceneDelegate`
+    /// so Home can render it.
+    ///
+    /// `HomeOnboardingGuidanceModel` is owned by `AppOnboardingCoordinator`,
+    /// which the view layer cannot reach — which is why `HomeOverlaySnapshot`
+    /// carried a `guidanceState` that was hardcoded `nil` at both construction
+    /// sites and why `HomeOnboardingGuidanceBanner` had zero call sites despite
+    /// being a finished feature. Note the snapshot is the *legacy* Home
+    /// pipeline: `AdaptiveHome`, the root real users get, does not read it at
+    /// all, so the banner is rendered from the shell instead.
+    weak var onboardingGuidanceModel: HomeOnboardingGuidanceModel?
+
     var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
 
     var currentHabitSignals: [LifeBoardHabitSignal] = []
