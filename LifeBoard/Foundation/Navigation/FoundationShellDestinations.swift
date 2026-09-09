@@ -222,6 +222,16 @@ extension FoundationShell {
                     ) {
                         router.push(.settingsDetail(.setupCenter), in: .home)
                     }
+                    OnboardingFirstActionCard(
+                        onOpenTask: { router.push(.taskDetail($0), in: .home) },
+                        onCreateTask: { runtime.captureRouter.request(CaptureRequest(kind: .task, source: .shell)) }
+                    )
+                    // The banner, its model and its copy were all finished, but
+                    // it had zero call sites: `HomeOverlaySnapshot.guidanceState`
+                    // was hardcoded `nil`, and that snapshot feeds the legacy
+                    // Home pipeline anyway — `AdaptiveHome` never reads it. It
+                    // renders here instead, beside the other onboarding cards.
+                    HomeOnboardingGuidanceHost(viewModel: homeViewModel)
                     AdaptiveHome(
                         projectionAdapter: homeProjectionAdapter,
                         preferences: runtime.preferences,
@@ -377,6 +387,41 @@ private struct RootInteractivityProbe: UIViewRepresentable {
                     container = current.superview
                 }
             }
+        }
+    }
+}
+
+
+/// Bridges `HomeOnboardingGuidanceModel` — owned by `AppOnboardingCoordinator`
+/// and handed to `HomeViewModel` — to the banner.
+///
+/// A `struct: View` rather than a computed property in the shell body: Debug
+/// builds run at `-Onone`, where a computed `some View` is inlined into its
+/// caller's frame, and the shell root is already close to the main thread's
+/// stack budget.
+private struct HomeOnboardingGuidanceHost: View {
+    @ObservedObject var viewModel: HomeViewModel
+
+    var body: some View {
+        if let model = viewModel.onboardingGuidanceModel {
+            HomeOnboardingGuidanceBannerHost(model: model)
+        }
+    }
+}
+
+private struct HomeOnboardingGuidanceBannerHost: View {
+    @ObservedObject var model: HomeOnboardingGuidanceModel
+
+    var body: some View {
+        if let state = model.state {
+            HomeOnboardingGuidanceBanner(
+                state: state,
+                onStart: { model.start() },
+                onDismiss: { model.clear() }
+            )
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+            .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
 }

@@ -57,6 +57,28 @@ extension FoundationShell {
                             .safeAreaInset(edge: .bottom, spacing: 0) {
                                 Color.clear.frame(height: reservedDestinationChromeHeight(for: destination))
                             }
+                            // `DESIGN.md`'s motion grammar is source → travel →
+                            // settle, and a root change had no travel at all:
+                            // `RootTransition.offset` was written for exactly
+                            // this, carried a full doc comment and its own
+                            // tests, and had zero production callers — the
+                            // content pane just cut. Each retained root now
+                            // rests on the side it occupies in the dock order
+                            // and slides to zero as it arrives, so the eye
+                            // travels the same direction as the dock's selected
+                            // well. Offset only: the shader half of this
+                            // (`LifeBoardRootTravelShear`) was deleted for
+                            // flashing the whole screen, and is not coming back.
+                            .offset(
+                                x: RootTransition.offset(
+                                    for: destination,
+                                    selected: router.selectedDestination
+                                )
+                            )
+                            .animation(
+                                MotionProfile.route.animation(reduceMotion: reduceMotion),
+                                value: router.selectedDestination
+                            )
                         }
                         .accessibilityIdentifier("foundation.destination.\(destination.rawValue)")
                     }

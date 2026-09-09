@@ -175,8 +175,11 @@ struct InsightsDestination: View {
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
 
+                    // `DESIGN.md`: "Scrolling is not a quiet moment." Insights
+                    // was one of three roots with no scroll entrance at all.
                     if lens == .experience {
                         insightContent
+                            .lifeBoardScrollEntrance()
                     } else if store.isLoading && events.isEmpty && healthStore.aggregates.isEmpty {
                         ProgressView("Reading today’s evidence…")
                             .frame(maxWidth: .infinity, minHeight: 180)
@@ -198,6 +201,7 @@ struct InsightsDestination: View {
                         .frame(maxWidth: .infinity, minHeight: 240)
                     } else {
                         insightContent
+                            .lifeBoardScrollEntrance()
                     }
                 }
                 .frame(maxWidth: 760)

@@ -241,6 +241,8 @@ public final class PermissionPrimingCoordinator {
     public static let shared = PermissionPrimingCoordinator()
 
     public private(set) var pendingPrompt: PermissionPrompt?
+    public private(set) var healthInvitation: PermissionPrompt?
+    private var offeredThisSession: Set<PermissionKind> = []
 
     private var connectHealth: (@MainActor (Set<HealthDomain>) async -> Void)?
     private var requestNotifications: (@MainActor () async -> Void)?
@@ -269,13 +271,26 @@ public final class PermissionPrimingCoordinator {
         trigger: String,
         leadHealthDomain: HealthDomain? = nil
     ) {
-        guard pendingPrompt == nil,
+        guard pendingPrompt == nil, healthInvitation == nil,
+              !offeredThisSession.contains(kind),
               PermissionPromptState.shouldOffer(kind) else { return }
-        pendingPrompt = PermissionPrompt(
+        offeredThisSession.insert(kind)
+        Task { await ProductTelemetry.shared.record(.connectionInvitationShown, outcome: "\(kind.rawValue)_\(trigger)") }
+        let prompt = PermissionPrompt(
             kind: kind,
             trigger: trigger,
             leadHealthDomain: leadHealthDomain
         )
+        if kind == .appleHealth { healthInvitation = prompt } else { pendingPrompt = prompt }
+    }
+
+    public func dismissHealthInvitation(declined: Bool) {
+        guard healthInvitation != nil else { return }
+        healthInvitation = nil
+        if declined {
+            PermissionPromptState.recordDecline(.appleHealth)
+            Task { await ProductTelemetry.shared.record(.connectionInvitationDeclined, outcome: "appleHealth") }
+        }
     }
 
     /// Reward-first variant: waits for the feature's own confirmation animation
@@ -287,6 +302,7 @@ public final class PermissionPrimingCoordinator {
         leadHealthDomain: HealthDomain? = nil
     ) async {
         try? await Task.sleep(nanoseconds: 450_000_000)
+        guard !Task.isCancelled else { return }
         offerIfNeeded(kind: kind, trigger: trigger, leadHealthDomain: leadHealthDomain)
     }
 

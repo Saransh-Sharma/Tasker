@@ -3143,6 +3143,54 @@ private struct HomeSpineRestBody: View {
 
 // MARK: - Home signals
 
+/// What Home shows instead of a row of dashed rings when Health was never shared.
+///
+/// A `.permissionRequired` ring is correctly modelled — `ringState(for:)` is
+/// careful to keep "declined" distinct from "nothing recorded yet" — but three
+/// of them side by side is the most prominent band on the first screen of the
+/// app, and it reads as a failure rather than as a choice the person made.
+private struct HomeSignalConnectHealthTile: View {
+    let healthStore: HealthConnectionStore
+
+    @State private var isRequesting = false
+
+    var body: some View {
+        Button {
+            guard isRequesting == false else { return }
+            isRequesting = true
+            Task {
+                _ = await healthStore.connectReadOnly()
+                isRequesting = false
+            }
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: "heart.text.square")
+                    .lifeboardFont(.title2)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    .frame(height: 58)
+                // The row gives each slot roughly a third of the screen, so this
+                // says the one thing it has room to say. The reason lives in the
+                // accessibility hint, where it does not cost three wrapped lines
+                // and a tile four times the height of the rings beside it.
+                Text("Connect\nHealth")
+                    .font(.lifeboard(.meta))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, minHeight: 100)
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isRequesting)
+        .accessibilityLabel("Connect Health")
+        .accessibilityHint("Steps and activity stay hidden until you share them.")
+        .accessibilityIdentifier("home.signal.connectHealth")
+    }
+}
+
+
 private struct HomeSignalRow: View {
     let lifeOSStore: HomeLifeOSProjectionStore
     let healthStore: HealthConnectionStore
@@ -3158,21 +3206,39 @@ private struct HomeSignalRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let slots = signalSlots
+        let slots = presentedSlots
         if dynamicTypeSize.isAccessibilitySize {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(slots) { slot in ring(slot) }
+                if collapsesBlockedHealth { HomeSignalConnectHealthTile(healthStore: healthStore) }
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.signalRow")
         } else {
             HStack(spacing: 8) {
                 ForEach(slots) { slot in ring(slot) }
+                if collapsesBlockedHealth { HomeSignalConnectHealthTile(healthStore: healthStore) }
             }
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.signalRow")
         }
+    }
+
+    /// Health signals whose data was never shared with the app.
+    private var blockedHealthSlots: [HomeSignalSlot] {
+        signalSlots.filter { $0.id != "fasting" && $0.availability == .permissionRequired }
+    }
+
+    /// Two or more dashed rings in a row stop reading as "not shared" and start
+    /// reading as "broken". Past one, they collapse into a single affordance
+    /// that says what it wants and can actually grant it.
+    private var collapsesBlockedHealth: Bool { blockedHealthSlots.count >= 2 }
+
+    private var presentedSlots: [HomeSignalSlot] {
+        guard collapsesBlockedHealth else { return signalSlots }
+        let blocked = Set(blockedHealthSlots.map(\.id))
+        return signalSlots.filter { blocked.contains($0.id) == false }
     }
 
     @ViewBuilder
@@ -3190,8 +3256,17 @@ private struct HomeSignalRow: View {
             )
         } else {
             Button {
-                if slot.id == "hydration" { captureRouter.request(kind: .hydration, source: .shell) }
-                else { router.select(.track) }
+                if slot.id == "hydration" {
+                    captureRouter.request(kind: .hydration, source: .shell)
+                } else if slot.availability == .permissionRequired {
+                    // This used to `router.select(.track)`, which dropped a
+                    // person onto another root with no explanation and no way
+                    // to grant the thing they had just tapped. The ring is the
+                    // request, so it asks.
+                    Task { _ = await healthStore.connectReadOnly() }
+                } else {
+                    router.select(.track)
+                }
             } label: {
                 MetricRing(
                     label: slot.title,

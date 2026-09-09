@@ -115,6 +115,11 @@ struct TrackFoundationRootView: View {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     TrackHeaderSection()
+                    // `DESIGN.md`: "Scrolling is not a quiet moment. Content
+                    // entering the viewport rises, focuses, and settles." Track
+                    // was one of three roots with no scroll entrance at all.
+                    // Applied to the root's own children so each section is
+                    // treated once, rather than every row inside it.
                     TrackQuickLogStrip(
                         store: store,
                         showsMood: $showsMood,
@@ -122,8 +127,11 @@ struct TrackFoundationRootView: View {
                         showsSleep: $showsSleep,
                         editingSleep: $editingSleep
                     )
+                    .lifeBoardScrollEntrance()
                     categoryRail
+                        .lifeBoardScrollEntrance(intensity: 0.55)
                     categoryContent
+                        .lifeBoardScrollEntrance()
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, dynamicTypeSize.isAccessibilitySize ? 56 : 36)
@@ -1027,8 +1035,12 @@ private struct TrackHealthSummarySection: View {
     let healthStore: HealthConnectionStore
     let onOpenHealth: () -> Void
 
+    @State private var showsConnection = false
+
     var body: some View {
-        Button(action: onOpenHealth) {
+        Button {
+            if healthStore.aggregates.isEmpty { showsConnection = true } else { onOpenHealth() }
+        } label: {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Label("From Apple Health", systemImage: "heart.text.clipboard")
@@ -1056,6 +1068,7 @@ private struct TrackHealthSummarySection: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("track.healthSummary")
+        .sheet(isPresented: $showsConnection) { HealthConnectionSheet(context: .init(.health, from: .track)) }
     }
 
     private func value(_ metric: HealthMetric, title: String) -> some View {
@@ -1073,13 +1086,7 @@ private struct TrackHealthSummarySection: View {
     }
 
     private var status: String {
-        if healthStore.isRefreshing { return "Updating from Apple Health…" }
-        if let date = healthStore.lastSuccessfulSync {
-            return "Updated \(date.formatted(.relative(presentation: .named)))"
-        }
-        return HealthAuthorizationPromptState.hasRequested
-            ? "No recent Health records"
-            : "Connect Apple Health to see movement here"
+        healthStore.presentation.summary
     }
 
     private static func text(_ value: Double, metric: HealthMetric) -> String {

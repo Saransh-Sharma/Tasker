@@ -34,6 +34,7 @@ struct ShellSheets: ViewModifier {
     @Binding var showsDocumentScanner: Bool
     @Binding var scannedDraft: ScannedDraft?
     var composerIsFocused: FocusState<Bool>.Binding
+    @State private var showsContextualHealth = false
 
     func body(content: Content) -> some View {
         @Bindable var router = router
@@ -174,6 +175,31 @@ struct ShellSheets: ViewModifier {
                     },
                     onDecline: { PermissionPrimingCoordinator.shared.decline() }
                 )
+            }
+            .safeAreaInset(edge: .top) {
+                if PermissionPrimingCoordinator.shared.healthInvitation != nil {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Bring Apple Health into your day").lifeboardFont(.bodyStrong)
+                            Text("Bring Apple Health into your day when you’re ready.").lifeboardFont(.caption1)
+                        }
+                        Button("Connect") {
+                            PermissionPrimingCoordinator.shared.dismissHealthInvitation(declined: false)
+                            showsContextualHealth = true
+                        }
+                        Button {
+                            PermissionPrimingCoordinator.shared.dismissHealthInvitation(declined: true)
+                        } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                        .accessibilityLabel("Not now")
+                    }
+                    .padding(12)
+                    .lifeBoardClaySurface(.raised, cornerRadius: 16)
+                    .padding(.horizontal)
+                    .accessibilityIdentifier("health.contextual.invitation")
+                }
+            }
+            .sheet(isPresented: $showsContextualHealth) {
+                HealthConnectionSheet(context: .init(.health, from: .track))
             }
             .alert(item: $router.activeAlert) { alert in
                 Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
