@@ -136,8 +136,14 @@ final class HomeLifeOSProjectionStore {
     @ObservationIgnored private var lastHydrationDay: Date?
     @ObservationIgnored private(set) var hydrationReadCount = 0
     @ObservationIgnored private var hydrationSubscription: ProjectionInvalidationSubscription?
+    @ObservationIgnored private var lastMoodRevision: UInt64?
+    @ObservationIgnored private var lastMoodDay: Date?
+    @ObservationIgnored private(set) var moodReadCount = 0
+    @ObservationIgnored private var moodSubscription: ProjectionInvalidationSubscription?
     private(set) var hydrationObservationActive = false
     private(set) var hydrationRefreshError: String?
+    private(set) var moodObservationActive = false
+    private(set) var moodRefreshError: String?
     /// A second invalidation arriving during a load is folded into one more
     /// pass. Callers still await the completed pass, which prevents a card
     /// snapshot refresh from racing ahead of the canonical projections.
@@ -198,7 +204,11 @@ final class HomeLifeOSProjectionStore {
         self.rankingService = rankingService
     }
 
-    deinit { journalInvalidationTask?.cancel(); hydrationSubscription?.cancel() }
+    deinit {
+        journalInvalidationTask?.cancel()
+        hydrationSubscription?.cancel()
+        moodSubscription?.cancel()
+    }
 
     /// Journal saves invalidate derived projections through the pipeline hub.
     /// Home listens so journal-backed cards refresh without a manual pull.
@@ -377,6 +387,8 @@ final class HomeLifeOSProjectionStore {
         projectionFailures.subtract(kinds)
         lastHydrationRevision = inputs.trackSourceRevisions?[.tracking]
         lastHydrationDay = Calendar.current.startOfDay(for: now)
+        lastMoodRevision = inputs.moodSourceRevisions?[.wellness]
+        lastMoodDay = Calendar.current.startOfDay(for: now)
         if let current = trackSnapshot {
             var comparable = next
             comparable.generatedAt = current.generatedAt
@@ -542,6 +554,8 @@ final class HomeLifeOSProjectionStore {
             do {
                 for _ in 0..<3 {
                     let fallback = self.moodFallbackRevisions
+                    self.moodReadCount &+= 1
+                    PerformanceTrace.event("HomeMoodRead", value: self.moodReadCount)
                     let input = try await self.projectionReader.readMood(now: Date())
                     guard !Task.isCancelled, presentation == self.committedPresentationGeneration else { return .cancelled }
                     guard input.revisions != nil || fallback == self.moodFallbackRevisions else { continue }
@@ -557,10 +571,45 @@ final class HomeLifeOSProjectionStore {
                         self.loadCommitCount &+= 1
                         PerformanceTrace.event("HomeProjectionCommitted", value: self.loadCommitCount)
                     }
+                    self.lastMoodRevision = input.revisions?[.wellness] ?? fallback[.wellness]
+                    self.lastMoodDay = Calendar.current.startOfDay(for: Date())
+                    self.moodRefreshError = nil
                     return .applied(input.revisions ?? fallback)
                 }
                 return .failed("Your mood was saved, but the latest check-in could not be refreshed. Try refreshing again.")
-            } catch { return .failed("Your mood was saved. Refresh unavailable: \(error.localizedDescription)") }
+            } catch { return .failed("Mood could not be refreshed: \(error.localizedDescription)") }
+        }
+    }
+
+    /// Covers shared mood saves from Journal, Track, Eva and shortcuts on the
+    /// same persistence coordinator. The writer remains independent of Home.
+    func observeCommittedMoodChanges() async {
+        guard !Task.isCancelled else { return }
+        activateCommittedProjectionWork()
+        guard let repository = moodRevisionLedger else { return }
+        let presentation = committedPresentationGeneration
+        let subscription = repository.subscribe(recordKinds: [.mood])
+        moodSubscription = subscription
+        moodObservationActive = true
+        defer {
+            subscription.cancel()
+            if presentation == committedPresentationGeneration {
+                moodSubscription = nil
+                moodObservationActive = false
+            }
+        }
+        for await _ in subscription.wakes {
+            guard !Task.isCancelled, presentation == committedPresentationGeneration else { return }
+            guard let event = subscription.takePending() else { continue }
+            if let revision = lastMoodRevision, revision >= event.revisions[.wellness],
+               lastMoodDay == Calendar.current.startOfDay(for: Date()) { continue }
+            let outcome = await refreshCommittedMood()
+            guard !Task.isCancelled, presentation == committedPresentationGeneration else { return }
+            if case .failed(let message) = outcome, moodRefreshError != message {
+                moodRefreshError = message
+                loadCommitCount &+= 1
+                PerformanceTrace.event("HomeProjectionCommitted", value: loadCommitCount)
+            }
         }
     }
 
@@ -721,7 +770,7 @@ final class HomeLifeOSProjectionStore {
     /// external contexts without making those writers own Home's presentation.
     func observeCommittedHydrationChanges() async {
         guard !Task.isCancelled else { return }
-        beginCommittedProjectionWork()
+        activateCommittedProjectionWork()
         guard let trackRepository else { return }
         let presentation = committedPresentationGeneration
         let subscription = trackRepository.sourceRevisions.subscribe(recordKinds: [.hydration])
@@ -729,7 +778,10 @@ final class HomeLifeOSProjectionStore {
         hydrationObservationActive = true
         defer {
             subscription.cancel()
-            if presentation == committedPresentationGeneration { stopCommittedProjectionWork() }
+            if presentation == committedPresentationGeneration {
+                hydrationSubscription = nil
+                hydrationObservationActive = false
+            }
         }
         for await _ in subscription.wakes {
             guard !Task.isCancelled, presentation == committedPresentationGeneration else { return }
@@ -751,6 +803,13 @@ final class HomeLifeOSProjectionStore {
         committedPresentationIsActive = true
     }
 
+    private func activateCommittedProjectionWork() {
+        if !committedPresentationIsActive {
+            committedPresentationGeneration &+= 1
+            committedPresentationIsActive = true
+        }
+    }
+
     /// Stops presentation only. Durable saves, Health outbox delivery, reminders
     /// and canonical timers continue under their existing domain owners.
     func stopCommittedProjectionWork() {
@@ -759,6 +818,9 @@ final class HomeLifeOSProjectionStore {
         hydrationSubscription?.cancel()
         hydrationSubscription = nil
         hydrationObservationActive = false
+        moodSubscription?.cancel()
+        moodSubscription = nil
+        moodObservationActive = false
         taskMutationRefresh.cancel()
         moodMutationRefresh.cancel()
         hydrationMutationRefresh.cancel()
