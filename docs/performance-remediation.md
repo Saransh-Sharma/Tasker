@@ -537,7 +537,7 @@ full suspended-provider teardown/deallocation coverage remains required.
 - [x] Final-source `release-10` passed both shared hydration capture and the
   motion-enabled navigation smoke. It includes the active-state guard and neutral
   automatic-refresh error wording (no claim that a water save occurred on initial
-  catch-up). Final manifest/build settings are being saved at
+  catch-up). Final manifest/build settings are captured at
   `/tmp/lifeboard-performance-candidate-20260908-hydration`.
 
 The subscription observes in-process context saves for its persistence coordinator.
@@ -553,4 +553,36 @@ tap. It must not be used as responsiveness or latency acceptance. A same-binary
 navigation rerun without video recording is underway as `release-11`; no cause is
 attributed to application, automation, host scheduling or recording without evidence.
 The 75-second Release recording is diagnostic and does not cover the entire run
-because of this gap. Motion parity remains unverified.
+because of this gap. Motion parity remains unverified. The current-source
+`release-12` smoke passed after the mood observer change; the gap remains a
+diagnostic limitation rather than an acceptance result.
+
+### Shared mood invalidation and teardown (2026-09-08)
+
+- [x] Home now subscribes to mood record invalidations from the same in-process
+  persistence coordinator. Journal, Track, Eva and shortcut saves can update the
+  latest mood without a broad Home refresh or optional provider reads.
+- [x] Mood registration replays the current revision, filters unrelated saves,
+  merges source revisions, and releases the subscription on presentation teardown.
+  Hydration and mood observers can coexist; activating one no longer cancels the
+  other. Deactivation cancels both, and later activation establishes fresh
+  subscriptions. The generation guard rejects late reads from the prior session.
+- [x] `mood-subscription-1`: 105 focused Debug tests passed. The regression uses a
+  real Core Data mood save, verifies Home receives it without changing its own
+  mutation revision, and verifies the ledger subscription is released.
+- [x] Current-source optimized Release validation passed as `release-12` with the
+  motion-enabled root navigation smoke. The app linked with `-O`, whole-module
+  compilation and testability disabled; one root smoke test passed with no failure
+  attachments. This is functional simulator evidence, not physical-device
+  responsiveness or motion-parity acceptance.
+
+Only same-coordinator in-process saves are observed. CloudKit/persistent-history
+remote changes need a separate bridge, and protocol-only providers without a
+revision ledger cannot be subscribed. Health aggregate/local-water reconciliation,
+global query coalescing, privacy generations, structural deferral, remaining
+effect lifetimes and physical-device measurements remain pending.
+
+The final current-source checkpoint is `/tmp/lifeboard-performance-candidate-20260908-hydration`.
+It includes the 105-test Debug result, Release-12 result, resolved build settings,
+tracked patch, and file hashes. The older Release-10 motion recording remains
+diagnostic evidence; it predates the mood-only observer and is not a parity result.
