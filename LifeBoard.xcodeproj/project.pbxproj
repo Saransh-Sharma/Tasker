@@ -1076,6 +1076,11 @@
 		FEEDFACE0000000000000006 /* LBChipRailSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEDFACE0000000000000005 /* LBChipRailSeparator.swift */; };
 		FFCF1FC469B2AE9FC88CF3D1 /* InsightsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EDFF0556DE6F60CD19AA39 /* InsightsViewModel.swift */; };
 		FFE402DD68D4595A5B90EC4B /* LifeBoard/Features/Settings/LifeManagement/LifeManagementAreaIconPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DEE0B3DA1576389071E8CEA /* LifeBoard/Features/Settings/LifeManagement/LifeManagementAreaIconPicker.swift */; };
+		AA8AFB1923BFB24700BB7461 /* HealthConnectionPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F7B66C55583D3816BF548A5 /* HealthConnectionPresentation.swift */; };
+		3CFB7C1BC8C1EC871956083D /* HealthConnectionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1025CE280492B1CBA98C2CDE /* HealthConnectionViews.swift */; };
+		8CB557DBA1F6CBA4A3D6A70A /* ConnectionPresentationContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C3D4058EA119BBC3DDA2353 /* ConnectionPresentationContext.swift */; };
+		A8F7C758386C5AF2FB1AC25E /* EvaCloudDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 845A3A5D6253E478E5FA01AF /* EvaCloudDisclosure.swift */; };
+		E0D98E753CD8457137A07299 /* EvaPendingActivationDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F774629E2C2CE6BBBD4EFA2 /* EvaPendingActivationDraftStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -2272,6 +2277,11 @@
 		FEEDFACE0000000000000003 /* HomeChipRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeChipRail.swift; path = LifeBoard/Features/Home/UI/Models/HomeChipRail.swift; sourceTree = SOURCE_ROOT; };
 		FEEDFACE0000000000000005 /* LBChipRailSeparator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LBChipRailSeparator.swift; path = LifeBoard/LifeBoardDesign/Components/ChipRailSeparator.swift; sourceTree = SOURCE_ROOT; };
 		FF7B2CAF2B3D23AD9512B999 /* LifeBoardWidgets.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = LifeBoardWidgets.entitlements; path = LifeBoardWidgets/LifeBoardWidgets.entitlements; sourceTree = "<group>"; };
+		1F7B66C55583D3816BF548A5 /* HealthConnectionPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthConnectionPresentation.swift; path = LifeBoard/Features/Health/HealthSync/HealthConnectionPresentation.swift; sourceTree = SOURCE_ROOT; };
+		1025CE280492B1CBA98C2CDE /* HealthConnectionViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthConnectionViews.swift; path = LifeBoard/Features/Health/HealthSync/HealthConnectionViews.swift; sourceTree = SOURCE_ROOT; };
+		3C3D4058EA119BBC3DDA2353 /* ConnectionPresentationContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ConnectionPresentationContext.swift; path = LifeBoard/Features/Settings/SetupCenter/ConnectionPresentationContext.swift; sourceTree = SOURCE_ROOT; };
+		845A3A5D6253E478E5FA01AF /* EvaCloudDisclosure.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudDisclosure.swift; path = LifeBoard/Features/Eva/Views/Onboarding/EvaCloudDisclosure.swift; sourceTree = SOURCE_ROOT; };
+		7F774629E2C2CE6BBBD4EFA2 /* EvaPendingActivationDraftStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPendingActivationDraftStore.swift; path = LifeBoard/Features/Eva/Views/Onboarding/EvaPendingActivationDraftStore.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -3626,6 +3636,11 @@
 				A31000000000000000000942 /* LifeWeaveShapeSteps.swift */,
 				A31000000000000000000940 /* LifeWeaveIntentSteps.swift */,
 				A3100000000000000000093E /* LifeWeaveOnboardingView.swift */,
+				7F774629E2C2CE6BBBD4EFA2 /* EvaPendingActivationDraftStore.swift */,
+				845A3A5D6253E478E5FA01AF /* EvaCloudDisclosure.swift */,
+				3C3D4058EA119BBC3DDA2353 /* ConnectionPresentationContext.swift */,
+				1025CE280492B1CBA98C2CDE /* HealthConnectionViews.swift */,
+				1F7B66C55583D3816BF548A5 /* HealthConnectionPresentation.swift */,
 				A3100000000000000000093C /* LifeWeaveEvaActivation.swift */,
 				A3100000000000000000093A /* LifeWeaveCapture.swift */,
 				A31000000000000000000938 /* LifeWeaveChrome.swift */,
@@ -5501,6 +5516,11 @@
 				A31000000000000000000943 /* LifeWeaveShapeSteps.swift in Sources */,
 				A31000000000000000000941 /* LifeWeaveIntentSteps.swift in Sources */,
 				A3100000000000000000093F /* LifeWeaveOnboardingView.swift in Sources */,
+				E0D98E753CD8457137A07299 /* EvaPendingActivationDraftStore.swift in Sources */,
+				A8F7C758386C5AF2FB1AC25E /* EvaCloudDisclosure.swift in Sources */,
+				8CB557DBA1F6CBA4A3D6A70A /* ConnectionPresentationContext.swift in Sources */,
+				3CFB7C1BC8C1EC871956083D /* HealthConnectionViews.swift in Sources */,
+				AA8AFB1923BFB24700BB7461 /* HealthConnectionPresentation.swift in Sources */,
 				A3100000000000000000093D /* LifeWeaveEvaActivation.swift in Sources */,
 				A3100000000000000000093B /* LifeWeaveCapture.swift in Sources */,
 				A31000000000000000000939 /* LifeWeaveChrome.swift in Sources */,
