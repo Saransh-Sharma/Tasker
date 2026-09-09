@@ -1329,6 +1329,10 @@ struct AdaptiveHome: View {
         }
         .task(id: rootActivity) {
             guard rootActivity.performsContinuousWork else { return }
+            await lifeOSStore.observeCommittedMoodChanges()
+        }
+        .task(id: rootActivity) {
+            guard rootActivity.performsContinuousWork else { return }
             let updates = await HealthSyncInvalidationService.shared.updates()
             for await _ in updates {
                 guard Task.isCancelled == false else { return }
