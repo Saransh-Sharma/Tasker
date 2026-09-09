@@ -80,17 +80,7 @@ struct SetupCenterEvaGrantsSection: View {
     let grants: [(grant: EvaConsentPolicy.Grant, title: String, isOn: Binding<Bool>)]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Cloud EVA receives only the categories you enable below. Health data stays on-device unless Health is separately granted here.")
-                .lifeboardFont(.caption1)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
-            ForEach(grants, id: \.grant) { entry in
-                Toggle(entry.title, isOn: entry.isOn)
-                    .toggleStyle(.lifeBoardClay)
-                    .accessibilityIdentifier("setupCenter.eva.grant.\(entry.grant.rawValue)")
-            }
-        }
+        EvaCloudDisclosure(grants: grants, identifierPrefix: "setupCenter.eva")
     }
 }
 

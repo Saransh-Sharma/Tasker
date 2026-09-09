@@ -29,7 +29,7 @@ public enum SettingsDetailRoute: String, Codable, CaseIterable, Hashable, Identi
     public var isCategory: Bool { Self.categories.contains(self) }
     public var title: String {
         switch self {
-        case .setupCenter: return "Setup Center"
+        case .setupCenter: return "Connections"
         case .planAndOrganize: return "Plan & Organize"
         case .calendarAndHealth: return "Calendar & Health"
         case .eva: return "Eva"

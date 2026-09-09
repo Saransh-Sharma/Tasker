@@ -5,6 +5,7 @@ struct SetupCenterView: View {
     @ObservedObject var settingsViewModel: SettingsViewModel
     @ObservedObject private var appManager: AppManager
     let onNavigate: (SettingsDetailRoute) -> Void
+    let context: ConnectionPresentationContext?
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -13,13 +14,21 @@ struct SetupCenterView: View {
     @State private var expandedIntegration: SetupCenterIntegration?
     @State private var scrollTarget: String?
     @State private var showsHealthPrompt = false
+    @State private var showsHealthAccess = false
+    @State private var showsHealthWriteBack = false
     @State private var showsCalendarChooser = false
     @State private var providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
 
     init(
         settingsViewModel: SettingsViewModel,
-        onNavigate: @escaping (SettingsDetailRoute) -> Void
+        onNavigate: @escaping (SettingsDetailRoute) -> Void,
+        context: ConnectionPresentationContext? = nil
     ) {
+        let resumed = ConnectionResumeStore.pending.sorted { $0.rawValue < $1.rawValue }.first
+        let resolved = context ?? resumed.map { ConnectionPresentationContext($0, from: .home, returningTo: .settings) }
+        self.context = resolved
+        _expandedIntegration = State(initialValue: resolved?.integration)
+        _scrollTarget = State(initialValue: resolved?.integration.rawValue)
         self.settingsViewModel = settingsViewModel
         _appManager = ObservedObject(wrappedValue: settingsViewModel.assistantAppManager)
         self.onNavigate = onNavigate
@@ -43,6 +52,7 @@ struct SetupCenterView: View {
             healthHasObservableData: !healthStore.aggregates.isEmpty,
             healthIsRefreshing: healthStore.isRefreshing,
             healthErrorCode: healthStore.nonSensitiveErrorCode,
+            healthPresentation: healthStore.presentation,
             evaAccessState: evaAccess.state,
             evaUsesOfflineProvider: providerPreference == .offline,
             offlineModelReady: offlineModelReady
@@ -85,7 +95,7 @@ struct SetupCenterView: View {
                 }
             }
         }
-        .navigationTitle("Setup Center")
+        .navigationTitle("Connections")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("setupCenter.root")
         .task { await refreshAll(selectRecommended: true) }
@@ -101,18 +111,30 @@ struct SetupCenterView: View {
                 && current.snapshots.first { $0.integration == expandedIntegration }?.state.isReady == true
             guard completed else { return }
             UIAccessibility.post(notification: .announcement, argument: "Integration ready")
-            withAnimation(reduceMotion ? nil : .snappy) {
-                expandedIntegration = current.recommendedNextAction
-                scrollTarget = current.recommendedNextAction?.rawValue
-            }
+
         }
         .sheet(isPresented: $showsHealthPrompt) {
-            SetupCenterHealthDisclosureSheet(
+            HealthConnectionSheet(context: context ?? .init(.health, from: .settings))
+        }
+        .sheet(isPresented: $showsHealthAccess) { HealthAccessInstructions() }
+        .sheet(isPresented: $showsHealthWriteBack) {
+            HealthConnectPromptSheet(
+                leadDomain: .activity,
                 initialWritableDomains: Set(healthStore.statuses.values.filter(\.writeEnabled).map(\.domain)),
-                onCancel: { showsHealthPrompt = false },
-                onConfirm: connectHealth
+                requestsWriteBack: true,
+                onConnect: { domains in
+                    showsHealthWriteBack = false
+                    Task {
+                        if !domains.isEmpty { await healthStore.requestWriteBack(domains: domains) }
+                        for domain in HealthDomain.allCases where domain.supportsWriteBack && !domains.contains(domain) {
+                            await healthStore.setWriteEnabled(false, for: domain)
+                        }
+                    }
+                },
+                onDecline: { showsHealthWriteBack = false }
             )
         }
+
         .sheet(isPresented: $showsCalendarChooser) {
             EventKitCalendarChooserContainerView(
                 service: settingsViewModel.calendarService,
@@ -157,12 +179,16 @@ private extension SetupCenterView {
                     ProgressView("Syncing Apple Health…")
                         .accessibilityIdentifier("setupCenter.health.loading")
                 } else {
+                    if !snapshot.recoveryAction.isEmpty {
                     SetupCenterPrimaryAction(title: snapshot.recoveryAction, identifier: "setupCenter.health.action") {
                         handleHealthAction(snapshot.recoveryActionKind)
                     }
                     .id("health.action")
+                    }
+                    Button("Save LifeBoard logs to Apple Health") { showsHealthWriteBack = true }
+                        .buttonStyle(.lifeBoardChip)
                     if HealthAuthorizationPromptState.hasRequested {
-                        Button("Manage Health access") { openSystemSettings() }
+                        Button("Manage Health access") { showsHealthAccess = true }
                             .buttonStyle(.lifeBoardChip)
                             .accessibilityIdentifier("setupCenter.health.settings")
                     }
@@ -286,13 +312,14 @@ private extension SetupCenterView {
                 settingsViewModel.calendarService.refreshContext(reason: "setup_center_permission_granted")
                 showsCalendarChooser = true
             }
-        case .none, .requestHealthAccess, .syncHealth:
+        case .none, .requestHealthAccess, .syncHealth, .manageHealthAccess:
             break
         }
     }
 
     func handleHealthAction(_ action: SetupCenterRecoveryAction) {
         switch action {
+        case .manageHealthAccess: showsHealthAccess = true
         case .requestHealthAccess:
             showsHealthPrompt = true
         case .syncHealth:
@@ -315,22 +342,6 @@ private extension SetupCenterView {
     func openSystemSettings() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
-    }
-
-    func connectHealth(_ selectedWritableDomains: Set<HealthDomain>) {
-        showsHealthPrompt = false
-        Task {
-            await ProductTelemetry.shared.record(.connectorResult, outcome: "health_started")
-            await healthStore.connect(domains: selectedWritableDomains, enableWriteBack: true)
-            for domain in HealthDomain.allCases where domain.supportsWriteBack && !selectedWritableDomains.contains(domain) {
-                await healthStore.setWriteEnabled(false, for: domain)
-            }
-            await ProductTelemetry.shared.record(
-                .connectorResult,
-                outcome: healthStore.nonSensitiveErrorCode == nil ? "health_completed" : "health_failed",
-                errorCode: healthStore.nonSensitiveErrorCode
-            )
-        }
     }
 
     func activateCloudEva() {

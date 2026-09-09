@@ -8,6 +8,7 @@ struct SetupCenterHomeCard: View {
     @StateObject private var evaAccess = EvaCloudAccessCoordinator.shared
     @State private var providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
     @State private var isDismissed = SetupCenterHomeCardPreference.isDismissed
+    @State private var interrupted = ConnectionResumeStore.pending
 
     init(
         calendarIntegrationService: CalendarIntegrationService,
@@ -36,6 +37,7 @@ struct SetupCenterHomeCard: View {
             healthHasObservableData: healthStore.aggregates.isEmpty == false,
             healthIsRefreshing: healthStore.isRefreshing,
             healthErrorCode: healthStore.nonSensitiveErrorCode,
+            healthPresentation: healthStore.presentation,
             evaAccessState: evaAccess.state,
             evaUsesOfflineProvider: providerPreference == .offline,
             offlineModelReady: offlineModelReady
@@ -48,17 +50,18 @@ struct SetupCenterHomeCard: View {
     }
 
     var body: some View {
-        if isDismissed == false, status.allRowsHandled == false {
+        Group {
+        if (AppOnboardingStateStore.shared.load().hasOptionalJourneyToResume || !interrupted.isEmpty), !isDismissed, !status.allRowsHandled {
             HStack(spacing: SwiftUITokens.spacing.s12) {
                 Button(action: onOpen) {
                     HStack(spacing: SwiftUITokens.spacing.s12) {
                         SettingsRowIcon(iconName: "slider.horizontal.3", tone: .accent)
 
                         VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s4) {
-                            Text("Finish personalizing")
+                            Text("Resume connections")
                                 .lifeboardFont(.bodyStrong)
                                 .foregroundStyle(Color.lifeboard(.textPrimary))
-                            Text("Connect optional services or set up EVA when you’re ready.")
+                            Text("Pick up an interrupted connection whenever you’re ready.")
                                 .lifeboardFont(.caption2)
                                 .foregroundStyle(Color.lifeboard(.textSecondary))
                                 .multilineTextAlignment(.leading)
@@ -85,7 +88,7 @@ struct SetupCenterHomeCard: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Dismiss Finish personalizing")
+                .accessibilityLabel("Dismiss Resume connections")
                 .accessibilityIdentifier("home.setupCenter.dismiss")
             }
             .padding(SwiftUITokens.spacing.s12)
@@ -105,6 +108,53 @@ struct SetupCenterHomeCard: View {
             .onReceive(NotificationCenter.default.publisher(for: SetupCenterHomeCardPreference.didChange)) { _ in
                 isDismissed = SetupCenterHomeCardPreference.isDismissed
             }
+        }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ConnectionResumeStore.didChange)) { _ in
+            interrupted = ConnectionResumeStore.pending
+        }
+    }
+}
+
+struct OnboardingFirstAction: Codable {
+    let taskID: UUID?
+    let title: String
+    static let key = "onboarding.firstAction"
+
+    static func save(from draft: LifeWeaveDraft) {
+        guard draft.entryContext == .freshFlow else { return }
+        let task = draft.stagedCapture.flatMap { $0.isReviewed && $0.kind == .task ? $0 : nil }
+        let value = OnboardingFirstAction(taskID: task?.id, title: task?.text ?? "Capture your first task")
+        if let data = try? JSONEncoder().encode(value) { UserDefaults.standard.set(data, forKey: key) }
+    }
+}
+
+struct OnboardingFirstActionCard: View {
+    let onOpenTask: (UUID) -> Void
+    let onCreateTask: () -> Void
+    @AppStorage(OnboardingFirstAction.key) private var receipt = Data()
+
+    var body: some View {
+        if let action = try? JSONDecoder().decode(OnboardingFirstAction.self, from: receipt) {
+            HStack {
+                Button {
+                    receipt = Data()
+                    if let id = action.taskID { onOpenTask(id) } else { onCreateTask() }
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(action.taskID == nil ? "Start with one thing" : "Your first task is ready").lifeboardFont(.bodyStrong)
+                        Text(action.title).lifeboardFont(.support)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                Button { receipt = Data() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                    .accessibilityLabel("Dismiss first task suggestion")
+            }
+            .padding(16)
+            .lifeBoardClaySurface(.raised, cornerRadius: 16)
+            .padding(.horizontal, 20)
+            .accessibilityIdentifier("home.onboarding.firstAction")
         }
     }
 }

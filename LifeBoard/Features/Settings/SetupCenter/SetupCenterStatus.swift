@@ -7,7 +7,7 @@ struct HealthAccessState: Equatable, Sendable {
     let writeAuthorizationByCategory: [HealthDomain: [HealthMetric: HealthWriteAuthorization]]
     static func resolve(statuses: [HealthDomain: HealthDomainStatus], hasObservableData: Bool) -> HealthAccessState {
         let values = Array(statuses.values)
-        let readState: HealthReadAccessState = hasObservableData || values.contains(where: { $0.readRequestState == .receivingData })
+        let readState: HealthReadAccessState = hasObservableData
             ? .dataAvailable : (values.contains(where: { $0.readRequestState != .neverRequested }) ? .requestPresented : .notRequested)
         return .init(readState: readState, writeAuthorizationByCategory: Dictionary(uniqueKeysWithValues: statuses.compactMap { domain, status in
             domain.supportsWriteBack ? (domain, status.writeAuthorizations) : nil
@@ -60,6 +60,7 @@ enum SetupCenterRecoveryAction: Equatable, Sendable {
     case openSystemSettings
     case requestHealthAccess
     case syncHealth
+    case manageHealthAccess
 }
 
 struct SetupCenterIntegrationSnapshot: Equatable, Sendable, Identifiable {
@@ -129,13 +130,14 @@ struct SetupCenterStatus: Equatable, Sendable {
         healthHasObservableData: Bool,
         healthIsRefreshing: Bool = false,
         healthErrorCode: String? = nil,
+        healthPresentation: HealthFirstSyncOutcome? = nil,
         evaAccessState: EvaCloudAccessState,
         evaUsesOfflineProvider: Bool,
         offlineModelReady: Bool
     ) -> SetupCenterStatus {
         .init(
             calendar: resolveCalendar(authorization: calendarAuthorization, selectedCalendarCount: selectedCalendarCount, isLoading: calendarIsLoading, error: calendarError),
-            health: resolveHealth(statuses: healthStatuses, hasObservableData: healthHasObservableData, isRefreshing: healthIsRefreshing, errorCode: healthErrorCode),
+            health: resolveHealth(statuses: healthStatuses, hasObservableData: healthHasObservableData, isRefreshing: healthIsRefreshing, errorCode: healthErrorCode, presentation: healthPresentation),
             eva: resolveEva(accessState: evaAccessState, usesOfflineProvider: evaUsesOfflineProvider, offlineModelReady: offlineModelReady)
         )
     }
@@ -159,27 +161,38 @@ struct SetupCenterStatus: Equatable, Sendable {
         }
     }
 
-    private static func resolveHealth(statuses: [HealthDomain: HealthDomainStatus], hasObservableData: Bool, isRefreshing: Bool, errorCode: String?) -> SetupCenterIntegrationSnapshot {
-        let values = Array(statuses.values)
-        let hasRequested = values.contains { $0.readRequestState != .neverRequested }
-        let hasSuccessfulSync = values.contains { $0.lastSuccessfulSync != nil }
-        let deniedEnabledWrite = values.contains { $0.writeEnabled && ($0.signal == .writeDenied || $0.writeAuthorizations.values.contains(.denied)) }
-        let hasFailure = errorCode != nil || values.contains { [.unavailable, .offline].contains($0.signal) || ($0.signal == .partial && !hasObservableData) }
-        if deniedEnabledWrite {
-            return .init(integration: .health, state: .attention, status: "Needs attention", explanation: "A write-back option you enabled is denied in Apple Health.", recoveryAction: "Open Settings", recoveryActionKind: .openSystemSettings)
+    private static func resolveHealth(statuses: [HealthDomain: HealthDomainStatus], hasObservableData: Bool, isRefreshing: Bool, errorCode: String?, presentation: HealthFirstSyncOutcome?) -> SetupCenterIntegrationSnapshot {
+        // Older callers supply observable facts; never use a sync timestamp as
+        // proof that Health data was read. Live surfaces pass the shared state.
+        let state = presentation ?? LifeWeaveHealthFirstSync.resolve(
+            statuses: statuses, aggregates: [:], isRefreshing: isRefreshing,
+            lastSuccessfulSync: nil, nonSensitiveErrorCode: errorCode, isAvailable: true
+        )
+        if statuses.values.contains(where: { $0.writeEnabled && ($0.signal == .writeDenied || $0.writeAuthorizations.values.contains(.denied)) }) {
+            return .init(integration: .health, state: .attention, status: "Write access needs attention", explanation: "A write-back option you enabled is off in Apple Health. Reading and local logging remain separate.", recoveryAction: "Manage Health access", recoveryActionKind: .manageHealthAccess)
         }
-        if hasFailure {
-            return .init(integration: .health, state: .attention, status: "Needs attention", explanation: "The latest Health sync could not produce usable local data.", recoveryAction: "Retry sync", recoveryActionKind: .syncHealth)
+        switch state {
+        case .unavailable:
+            return .init(integration: .health, state: .waiting, status: "Unavailable here", explanation: state.summary, recoveryAction: "")
+        case .authorizationFailed:
+            return .init(integration: .health, state: .attention, status: "Access request incomplete", explanation: state.summary, recoveryAction: "Retry Health access", recoveryActionKind: .requestHealthAccess)
+        case .requesting, .syncing:
+            return .init(integration: .health, state: .checking, status: state == .requesting ? "Requesting" : "Importing", explanation: state.summary, recoveryAction: "")
+        case .protectedDataLocked:
+            return .init(integration: .health, state: .waiting, status: "Paused", explanation: state.summary, recoveryAction: "")
+        case .partial:
+            return .init(integration: .health, state: .attention, status: "Import needs attention", explanation: state.summary, recoveryAction: "Retry sync", recoveryActionKind: .syncHealth)
+        case .ready:
+            return .init(integration: .health, state: .ready, status: "Data available", explanation: state.summary, recoveryAction: "Sync now", recoveryActionKind: .syncHealth)
+        case .notRequested, .reviewedNoDataYet:
+            if hasObservableData {
+                return .init(integration: .health, state: .ready, status: "Data available", explanation: "Health data is available on this device.", recoveryAction: "Sync now", recoveryActionKind: .syncHealth)
+            }
+            if state == .notRequested {
+                return .init(integration: .health, state: .notStarted, status: "Not connected", explanation: state.summary, recoveryAction: "Connect Apple Health", recoveryActionKind: .requestHealthAccess)
+            }
+            return .init(integration: .health, state: .waiting, status: "No readable data yet", explanation: state.summary, recoveryAction: "Manage Health access", recoveryActionKind: .manageHealthAccess)
         }
-        if isRefreshing { return .init(integration: .health, state: .checking, status: "Requesting", explanation: "Apple Health authorization or sync is still in progress.", recoveryAction: "") }
-        if values.contains(where: { $0.signal == .protectedDataLocked }) { return .init(integration: .health, state: .waiting, status: "Waiting", explanation: "Health data is protected while the device is locked. LifeBoard will retry later.", recoveryAction: "Retry sync", recoveryActionKind: .syncHealth) }
-        if hasObservableData || hasSuccessfulSync || values.contains(where: { $0.readRequestState == .receivingData }) {
-            let latest = values.compactMap(\.lastSuccessfulSync).max()
-            let detail = latest.map { "Apple Health is active. Last synced \($0.formatted(date: .abbreviated, time: .shortened))." } ?? "Apple Health data has been observed on this device."
-            return .init(integration: .health, state: .ready, status: "Active", explanation: detail, recoveryAction: "Sync now", recoveryActionKind: .syncHealth)
-        }
-        if hasRequested { return .init(integration: .health, state: .waiting, status: "Access requested", explanation: "The system sheet completed. Apple does not reveal read denial, so LifeBoard waits until data is observed.", recoveryAction: "Retry sync", recoveryActionKind: .syncHealth) }
-        return .init(integration: .health, state: .notStarted, status: "Not requested", explanation: "Read supported wellness categories on-device. Write-back stays off unless you explicitly enable it.", recoveryAction: "Review Health access", recoveryActionKind: .requestHealthAccess)
     }
 
     private static func resolveEva(accessState: EvaCloudAccessState, usesOfflineProvider: Bool, offlineModelReady: Bool) -> SetupCenterIntegrationSnapshot {
