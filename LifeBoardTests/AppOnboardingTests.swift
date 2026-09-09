@@ -172,7 +172,10 @@ final class AppOnboardingTests: XCTestCase {
         defer { state.resetForVisit() }
 
         state.beginHandoffDeadline(after: .milliseconds(20))
-        try? await _Concurrency.Task.sleep(for: .milliseconds(40))
+        let deadline = Date().addingTimeInterval(2)
+        while !state.isHandoffOffered && Date() < deadline {
+            try? await _Concurrency.Task.sleep(for: .milliseconds(20))
+        }
 
         XCTAssertTrue(state.isHandoffOffered)
     }

@@ -15,7 +15,7 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertEqual(LifeWeaveStep.core.count, 6)
         XCTAssertEqual(LifeWeaveStep.core.first, .arrival)
         XCTAssertEqual(LifeWeaveStep.core.last, .reveal)
-        XCTAssertEqual(LifeWeaveDraft().schemaVersion, 11)
+        XCTAssertEqual(LifeWeaveDraft().schemaVersion, LifeWeaveDraft.currentSchemaVersion)
     }
 
     func testStepEnumContainsOnlyTheSixCoreStages() {
@@ -107,7 +107,7 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         var written = editing
         written.commitPhase = .captureWritten
         let migrated = LifeWeaveMigration.draft(fromV8: written)
-        XCTAssertEqual(migrated.schemaVersion, 11)
+        XCTAssertEqual(migrated.schemaVersion, LifeWeaveDraft.currentSchemaVersion)
         XCTAssertEqual(migrated.lifecyclePhase, .captureWritten)
     }
 
@@ -120,7 +120,7 @@ final class LifeWeaveOnboardingTests: XCTestCase {
 
         let migrated = LifeWeaveMigration.draft(fromEarlierSchema: earlier)
 
-        XCTAssertEqual(migrated.schemaVersion, 11)
+        XCTAssertEqual(migrated.schemaVersion, LifeWeaveDraft.currentSchemaVersion)
         XCTAssertEqual(migrated.intent, .reduceMentalLoad)
         XCTAssertEqual(migrated.resolvedEvaGrants, Set(EvaConsentPolicy.Grant.allCases))
         XCTAssertEqual(migrated.evaActivationPending, false)
@@ -460,7 +460,7 @@ final class LifeWeaveOnboardingTests: XCTestCase {
 
         let migrated = LifeWeaveMigration.draft(fromEarlierSchema: snapshot)
 
-        XCTAssertEqual(migrated.schemaVersion, 11)
+        XCTAssertEqual(migrated.schemaVersion, LifeWeaveDraft.currentSchemaVersion)
         XCTAssertNil(migrated.powerUpStep, "an old draft never entered the phase")
         XCTAssertEqual(migrated.deferredPowerUpIDs, [], "seeded so later writes append")
         XCTAssertEqual(migrated.route, .core(.reveal))
@@ -469,5 +469,73 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertEqual(migrated.primaryLifeAreaTemplateID, "work")
         XCTAssertEqual(migrated.selectedCalendarIDs, ["cal-1"])
         XCTAssertEqual(migrated.commitPhase, .captureWritten)
+    }
+}
+
+final class SeamlessOnboardingTests: XCTestCase {
+    func testFourScreensPreserveStableLegacyRawValues() {
+        XCTAssertEqual(LifeWeaveStep.streamlined, [.arrival, .lifeAreas, .firstCapture, .reveal])
+        XCTAssertEqual(LifeWeaveStep.dayShape.rawValue, 3)
+    }
+
+    func testMigrationPreservesChoicesCommitAndOptOuts() {
+        var draft = LifeWeaveDraft()
+        draft.step = .dayShape
+        draft.intent = .clarityToday
+        draft.evaSelectedGrantIDs = []
+        draft.commitPhase = .profileWritten
+        draft.dayShapePreset = .later
+        let capture = LifeMapStagedCapture(text: "Book train", isReviewed: true)
+        draft.stagedCapture = capture
+        let migrated = LifeWeaveMigration.streamlined(draft)
+        XCTAssertEqual(migrated.step, .lifeAreas)
+        XCTAssertEqual(migrated.intent, draft.intent)
+        XCTAssertEqual(migrated.stagedCapture, capture)
+        XCTAssertEqual(migrated.commitPhase, .profileWritten)
+        XCTAssertEqual(migrated.dayShapePreset, .later)
+        XCTAssertTrue(migrated.resolvedEvaGrants.isEmpty)
+    }
+
+    func testInterruptedConnectionReturnsToReadyWorkspace() {
+        var draft = LifeWeaveDraft()
+        draft.lifecyclePhase = .poweringUp
+        draft.powerUpStep = .eva
+        draft.evaActivationPending = true
+        draft.commitPhase = .captureWritten
+        var state = AppOnboardingState()
+        state.lifeWeaveJourneySnapshot = draft
+        XCTAssertTrue(state.hasOptionalJourneyToResume)
+        let migrated = LifeWeaveMigration.streamlined(draft)
+        XCTAssertNil(migrated.powerUpStep)
+        XCTAssertEqual(migrated.step, .reveal)
+        XCTAssertEqual(migrated.evaActivationPending, true)
+    }
+
+    func testUncommittedCaptureStillResumesCore() {
+        var draft = LifeWeaveDraft()
+        draft.step = .firstCapture
+        draft.lifecyclePhase = .editing
+        var state = AppOnboardingState()
+        state.lifeWeaveJourneySnapshot = draft
+        XCTAssertFalse(state.hasOptionalJourneyToResume)
+        XCTAssertTrue(state.hasResumableJourney)
+    }
+
+    func testNewEvaCategoriesDefaultOnButExplicitEmptySelectionStaysEmpty() {
+        var draft = LifeWeaveDraft()
+        XCTAssertEqual(draft.resolvedEvaGrants, Set(EvaConsentPolicy.Grant.allCases))
+        draft.evaSelectedGrantIDs = []
+        XCTAssertTrue(LifeWeaveMigration.draft(fromEarlierSchema: draft).resolvedEvaGrants.isEmpty)
+    }
+
+    func testPendingActivationDraftRestoresTextWithoutSendIntent() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "test.seamless.\(UUID())"))
+        let thread = UUID()
+        defer { EvaPendingActivationDraftStore.clear(threadID: thread, defaults: defaults) }
+        EvaPendingActivationDraftStore.save("Plan tomorrow", threadID: thread, defaults: defaults)
+        XCTAssertEqual(EvaPendingActivationDraftStore.load(threadID: thread, defaults: defaults), "Plan tomorrow")
+        XCTAssertNil(EvaPendingActivationDraftStore.load(threadID: UUID(), defaults: defaults))
+        EvaPendingActivationDraftStore.clear(threadID: thread, defaults: defaults)
+        XCTAssertNil(EvaPendingActivationDraftStore.load(threadID: thread, defaults: defaults))
     }
 }

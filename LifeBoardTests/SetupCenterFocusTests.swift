@@ -150,8 +150,8 @@ final class SetupCenterFocusTests: XCTestCase {
             offlineModelReady: false
         )
         XCTAssertEqual(value.health.state, .waiting)
-        XCTAssertEqual(value.health.status, "Access requested")
-        XCTAssertEqual(value.health.recoveryActionKind, .syncHealth)
+        XCTAssertEqual(value.health.status, "No readable data yet")
+        XCTAssertEqual(value.health.recoveryActionKind, .manageHealthAccess)
     }
 
     func testEnabledDeniedHealthWriteIsActionable() {
@@ -172,6 +172,42 @@ final class SetupCenterFocusTests: XCTestCase {
             offlineModelReady: false
         )
         XCTAssertEqual(value.health.state, .attention)
-        XCTAssertEqual(value.health.recoveryActionKind, .openSystemSettings)
+        XCTAssertEqual(value.health.recoveryActionKind, .manageHealthAccess)
+    }
+}
+
+extension SetupCenterFocusTests {
+    func testEmptySuccessfulHealthImportDoesNotClaimReadAccess() {
+        let domain = HealthDomainStatus(domain: .activity, readRequestState: .receivingData, signal: .noRecord)
+        let value = SetupCenterStatus.resolve(
+            calendarAuthorization: .authorized, selectedCalendarCount: 1,
+            healthStatuses: [.activity: domain], healthHasObservableData: false,
+            evaAccessState: .ready, evaUsesOfflineProvider: false, offlineModelReady: false
+        )
+        XCTAssertEqual(value.health.state, .waiting)
+        XCTAssertEqual(value.health.recoveryActionKind, .manageHealthAccess)
+        XCTAssertEqual(HealthAccessState.resolve(statuses: [.activity: domain], hasObservableData: false).readState, .requestPresented)
+    }
+
+    func testFailedHealthAuthorizationRetriesAuthorizationInsteadOfSync() {
+        let value = SetupCenterStatus.resolve(
+            calendarAuthorization: .authorized, selectedCalendarCount: 1,
+            healthStatuses: [:], healthHasObservableData: false,
+            healthErrorCode: "authorization_request",
+            evaAccessState: .ready, evaUsesOfflineProvider: false, offlineModelReady: false
+        )
+        XCTAssertEqual(value.health.state, .attention)
+        XCTAssertEqual(value.health.recoveryActionKind, .requestHealthAccess)
+    }
+
+    func testUnavailableHealthHasNoFutileRetry() {
+        let value = SetupCenterStatus.resolve(
+            calendarAuthorization: .authorized, selectedCalendarCount: 1,
+            healthStatuses: [:], healthHasObservableData: false,
+            healthPresentation: .unavailable,
+            evaAccessState: .ready, evaUsesOfflineProvider: false, offlineModelReady: false
+        )
+        XCTAssertTrue(value.health.recoveryAction.isEmpty)
+        XCTAssertEqual(value.health.recoveryActionKind, .none)
     }
 }

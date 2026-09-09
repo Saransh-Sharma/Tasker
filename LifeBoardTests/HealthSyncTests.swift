@@ -467,12 +467,45 @@ final class HealthSyncTests: XCTestCase {
         let store = HealthConnectionStore(
             gateway: gateway,
             engineProvider: { nil },
-            ledgerProvider: { ledger }
+            ledgerProvider: { ledger },
+            invalidationHub: HealthSyncInvalidationService()
         )
 
         await store.connect(domains: [.hydration])
         XCTAssertEqual(store.statuses[.hydration]?.readRequestState, .requestCompleted)
         XCTAssertEqual(store.statuses[.hydration]?.writeAuthorizations[.water], .denied)
+    }
+
+    @MainActor
+    func testConcurrentReadAndWriteAuthorizationPreservesBothIntents() async {
+        let previous = V2FeatureFlags.healthIntegrationsV1Enabled
+        V2FeatureFlags.healthIntegrationsV1Enabled = true
+        HealthAuthorizationPromptState.reset()
+        defer {
+            V2FeatureFlags.healthIntegrationsV1Enabled = previous
+            HealthAuthorizationPromptState.reset()
+        }
+        let gateway = HealthGatewayFake()
+        let gate = HealthImportGate()
+        gateway.authorizationGate = gate
+        let ledger = InMemoryHealthSyncLedger()
+        let store = HealthConnectionStore(gateway: gateway, engineProvider: { nil }, ledgerProvider: { ledger }, invalidationHub: HealthSyncInvalidationService())
+        let read = _Concurrency.Task { await store.connectReadOnly() }
+        await gate.waitUntilEntered()
+        var secondStarted = false
+        let write = _Concurrency.Task {
+            secondStarted = true
+            return await store.requestWriteBack(domains: [.hydration])
+        }
+        while !secondStarted { await _Concurrency.Task.yield() }
+        await gate.open()
+        let readResult = await read.value
+        let writeResult = await write.value
+        XCTAssertEqual(readResult, .reviewed)
+        XCTAssertEqual(writeResult, .reviewed)
+        XCTAssertEqual(gateway.requestedWriteDomains, [[], [.hydration]])
+        let writeEnabled = try? await ledger.writePreference(for: .hydration)
+        XCTAssertEqual(writeEnabled, true)
     }
 
     @MainActor
@@ -738,6 +771,7 @@ private final class HealthGatewayFake: HealthKitGatewayProtocol, @unchecked Send
     var isHealthDataAvailable = true
     var authorization: HealthWriteAuthorization = .authorized
     var authorizationRequestError: (any Error)?
+    var authorizationGate: HealthImportGate?
     var saveError: (any Error)?
     var changes: [HealthMetric: HealthAnchoredChanges] = [:]
     var anchoredErrors: [HealthMetric: any Error] = [:]
@@ -752,6 +786,7 @@ private final class HealthGatewayFake: HealthKitGatewayProtocol, @unchecked Send
 
     func requestAuthorization(writeDomains: Set<HealthDomain>) async throws {
         requestLock.withLock { requestedWriteDomains.append(writeDomains) }
+        if let authorizationGate { await authorizationGate.wait() }
         if let authorizationRequestError { throw authorizationRequestError }
     }
 

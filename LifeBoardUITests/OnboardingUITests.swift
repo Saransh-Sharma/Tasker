@@ -11,6 +11,7 @@ import XCTest
 /// v6 is on by default in Debug, so these need no flag argument. The v5 walk is
 /// pinned explicitly where it is still needed (`ChatPlanApplyUndoTests`).
 final class LifeWeaveOnboardingUITests: BaseUITest {
+    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_DISABLE_SEAMLESS_ONBOARDING"] }
     override var shouldSkipOnboarding: Bool { false }
 
     private var flow: XCUIElement { app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.flow] }
@@ -217,7 +218,7 @@ final class SetupCenterEvaReachabilityUITests: BaseUITest {
         if privacyAcknowledgement.waitForExistence(timeout: 3) {
             privacyAcknowledgement.tap()
         }
-        XCTAssertTrue(app.navigationBars["Setup Center"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.navigationBars["Connections"].waitForExistence(timeout: 15))
         XCTAssertFalse(
             app.descendants(matching: .any)["home.lifeThread.composer"].exists,
             "utility routes must not mount the global LifeThread composer"
@@ -260,5 +261,78 @@ private extension XCUIElement {
             _ = XCTWaiter.wait(for: [XCTestExpectation(description: "tick")], timeout: 0.25)
         }
         return exists == false
+    }
+}
+
+
+final class SeamlessOnboardingUITests: BaseUITest {
+    override var shouldSkipOnboarding: Bool { false }
+    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_ENABLE_SEAMLESS_ONBOARDING"] }
+
+    private var primary: XCUIElement { app.buttons[AccessibilityIdentifiers.LifeWeave.primaryAction] }
+
+    func testFourScreenSkipCaptureAndIndependentConnections() {
+        let intent = app.buttons[AccessibilityIdentifiers.LifeWeave.intent("clarityToday")].firstMatch
+        XCTAssertTrue(intent.waitForExistence(timeout: 20))
+        intent.tap()
+        primary.tap()
+        app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea("work-career")].firstMatch.tap()
+        app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea("health-self")].firstMatch.tap()
+        primary.tap()
+        let skip = app.buttons[AccessibilityIdentifiers.LifeWeave.secondaryAction]
+        XCTAssertTrue(skip.waitForExistence(timeout: 5))
+        skip.tap()
+        let health = app.buttons["onboarding.connection.health"]
+        XCTAssertTrue(health.waitForExistence(timeout: 15))
+        if !health.isHittable { app.swipeUp() }
+        health.tap()
+        XCTAssertTrue(app.buttons["health.connection.continue"].waitForExistence(timeout: 5))
+        app.buttons["health.connection.continue"].tap()
+        XCTAssertTrue(app.buttons["health.connection.continue"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(primary.waitForExistence(timeout: 5))
+        XCTAssertEqual(primary.label, "Start my day")
+        primary.tap()
+        let reachedHome = app.buttons["home.onboarding.firstAction"].firstMatch.waitForExistence(timeout: 10)
+        if !reachedHome {
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        XCTAssertTrue(reachedHome)
+    }
+}
+
+final class SeamlessOnboardingLargeTextUITests: BaseUITest {
+    override var shouldSkipOnboarding: Bool { false }
+    override var additionalLaunchArguments: [String] {
+        ["-LIFEBOARD_ENABLE_SEAMLESS_ONBOARDING", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+    }
+
+    func testSaveRealTaskWithLargeText() {
+        let primary = app.buttons[AccessibilityIdentifiers.LifeWeave.primaryAction]
+        let intent = app.buttons[AccessibilityIdentifiers.LifeWeave.intent("clarityToday")].firstMatch
+        XCTAssertTrue(intent.waitForExistence(timeout: 20))
+        intent.tap()
+        primary.tap()
+        for area in ["work-career", "health-self"] {
+            let button = app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea(area)].firstMatch
+            if !button.isHittable { app.swipeUp() }
+            button.tap()
+        }
+        primary.tap()
+        let field = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.captureField].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("Prepare the project outline")
+        primary.tap()
+        XCTAssertTrue(app.buttons["Save and continue"].waitForExistence(timeout: 10))
+        primary.tap()
+        XCTAssertTrue(app.buttons["Start my day"].waitForExistence(timeout: 15))
+        primary.tap()
+        XCTAssertTrue(app.buttons["foundation.destination.home"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Prepare the project outline"].firstMatch.waitForExistence(timeout: 10))
     }
 }
