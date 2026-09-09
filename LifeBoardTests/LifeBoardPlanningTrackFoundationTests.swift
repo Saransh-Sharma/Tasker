@@ -1961,6 +1961,36 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertEqual(event?.affectedIDs.count, 0)
     }
 
+    func testHomeObservesSharedMoodSaveWithoutFullRefresh() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let store = await MainActor.run {
+            HomeLifeOSProjectionStore(planningRepository: nil, trackRepository: nil,
+                phaseIIRepository: phaseII)
+        }
+        let observer = _Concurrency.Task { await store.observeCommittedMoodChanges() }
+        while await MainActor.run(body: { !store.moodObservationActive }) {
+            await _Concurrency.Task.yield()
+        }
+        while await MainActor.run(body: { store.moodReadCount == 0 }) {
+            await _Concurrency.Task.yield()
+        }
+        let published = expectation(description: "Shared mood save publishes to Home")
+        await MainActor.run {
+            withObservationTracking { _ = store.latestMood } onChange: { published.fulfill() }
+        }
+        try await phaseII.saveMoodCheckIn(.init(mood: .happy, energy: 5))
+        await fulfillment(of: [published], timeout: 5)
+        let visible = await MainActor.run { (store.latestMood, store.mutationRevision, store.moodReadCount) }
+        XCTAssertEqual(visible.0?.mood, .happy)
+        XCTAssertEqual(visible.0?.energy, 5)
+        XCTAssertEqual(visible.1, 0, "External shared saves do not pretend to be Home-owned mutations")
+        XCTAssertGreaterThanOrEqual(visible.2, 2, "Registration catch-up and the committed save are separate reads")
+        observer.cancel()
+        await observer.value
+        XCTAssertEqual(phaseII.sourceRevisions.subscriptionCount, 0)
+    }
+
     func testHomeObservesSharedHydrationSaveWhileCalendarAndHealthAreSuspended() async throws {
         let container = try await makeTrackFoundationContainer()
         let track = CoreDataTrackFoundationRepository(container: container)
