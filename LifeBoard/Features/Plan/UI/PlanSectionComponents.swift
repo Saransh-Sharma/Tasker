@@ -93,6 +93,47 @@ struct PlanEmptyCard: View {
     }
 }
 
+/// What the Backlog shows while its snapshot is still `nil`.
+///
+/// `PlanBacklogSection` wrapped its whole body in `if let snapshot`, with no
+/// `else` — so a cold open of the Backlog lens painted an empty pane until the
+/// store answered. The *empty* case was always handled (`PlanEmptyCard`,
+/// "Backlog clear"); only loading was missing, which is the one state a person
+/// cannot tell apart from "nothing here".
+///
+/// Deliberately shaped like the rows it stands in for — a header bar and three
+/// card silhouettes — so the layout does not jump when real content arrives.
+struct PlanBacklogSkeleton: View {
+    var rowCount: Int = 3
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Capsule()
+                .fill(Color(SemanticColorTokens.inkTertiary).opacity(0.18))
+                .frame(width: 132, height: 14)
+
+            ForEach(0..<rowCount, id: \.self) { index in
+                VStack(alignment: .leading, spacing: 8) {
+                    Capsule()
+                        .fill(Color(SemanticColorTokens.inkTertiary).opacity(0.20))
+                        .frame(height: 14)
+                        .frame(maxWidth: index.isMultiple(of: 2) ? .infinity : 220, alignment: .leading)
+                    Capsule()
+                        .fill(Color(SemanticColorTokens.inkTertiary).opacity(0.12))
+                        .frame(width: 96, height: 10)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .foundationClayCard()
+            }
+        }
+        .shimmer()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading backlog")
+        .accessibilityAddTraits(.updatesFrequently)
+        .accessibilityIdentifier("plan.backlog.loading")
+    }
+}
+
 /// The read-only calendar banner. Always drawn on the day lens, so as a
 /// computed property it was one of the largest single contributors to the
 /// root's inlined view value.

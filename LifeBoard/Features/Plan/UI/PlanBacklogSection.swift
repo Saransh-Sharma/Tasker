@@ -64,6 +64,10 @@ struct PlanBacklogSection: View {
                         symbol: "checkmark.seal"
                     )
                 }
+            } else {
+                // Loading and empty are different states, and this branch is the
+                // difference between "still reading" and "nothing here".
+                PlanBacklogSkeleton()
             }
         }
     }

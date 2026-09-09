@@ -308,6 +308,11 @@ struct PlanRootView: View {
                                 intention: intention,
                                 subtaskID: context.subtaskID
                             )
+                            // Entering a focus session was the quietest action in
+                            // the app while dragging a calendar block fired six
+                            // haptics. It commits, so it gets the commit haptic —
+                            // after the store returns, not on tap.
+                            Haptic.commit.play()
                             if let taskID = context.taskID { onOpenFocus(taskID) }
                         }
                     }
