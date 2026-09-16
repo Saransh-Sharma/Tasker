@@ -4,6 +4,7 @@
 
 import MarkdownUI
 import SwiftUI
+import UIKit
 
 extension MessageView {
     var runtimeRunning: Bool {
@@ -83,7 +84,12 @@ extension MessageView {
                     .font(.lifeboard(.caption2))
                     .fontWeight(.medium)
                     .foregroundStyle(Color.lifeboard(.textTertiary))
+                    // A chevron-sized hit area with no name: VoiceOver read the
+                    // glyph, and the target was well under 44pt.
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel(collapsed ? "Show Eva's thinking" : "Hide Eva's thinking")
 
             Text("\(isThinking ? "thinking..." : "thought for") \(time)")
                 .lifeboardFont(.caption1)
@@ -185,6 +191,21 @@ extension MessageView {
             .padding(.vertical, Theme.Spacing.sm)
             .frame(maxWidth: messageMaxWidth, alignment: .leading)
             .padding(.trailing, oppositeSideInset)
+            // Copying a reply required selecting it by hand, and VoiceOver had
+            // no way at all. `DESIGN.md`: every gesture has a visible control
+            // and a VoiceOver action.
+            .contextMenu {
+                if let answer = renderModel.answerText {
+                    Button("Copy", systemImage: "doc.on.doc") {
+                        UIPasteboard.general.string = answer
+                        Haptic.pick.play()
+                    }
+                }
+            }
+            .accessibilityAction(named: Text("Copy")) {
+                guard let answer = renderModel.answerText else { return }
+                UIPasteboard.general.string = answer
+            }
         }
     }
 
@@ -399,18 +420,15 @@ extension MessageView {
                             .disabled(isUndoExpired(payload: payload) || isUndoingEvaRun || payload.runID == nil)
                     }
                 } else if payload.cardType == .proposal {
+                    // Legacy proposal payloads carry no structured review, so
+                    // there is nothing an Apply or Reject button could act on.
+                    // They used to render both with empty actions — controls
+                    // that did nothing. The status line is the honest surface;
+                    // structured proposals get the real review card.
                     if payload.runID == nil {
-                        Text("Invalid proposal card (missing run ID).")
+                        Text("This suggestion can't be applied. Ask Eva again to get a fresh one.")
                             .font(.lifeboard(.caption1))
-                            .foregroundStyle(Color.lifeboard(.statusDanger))
-                    } else if payload.status == .pending || payload.status == .confirmed {
-                        HStack(spacing: Theme.Spacing.sm) {
-                            Button("Reject") {}
-                                .buttonStyle(.bordered)
-
-                            Button("Apply Changes") {}
-                                .buttonStyle(.lifeBoardPrimaryCompact)
-                        }
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     } else {
                         Text(payload.message ?? proposalStatusText(payload.status))
                             .font(.lifeboard(.caption1))
