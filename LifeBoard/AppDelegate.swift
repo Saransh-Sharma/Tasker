@@ -1531,6 +1531,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         )
         LLMAssistantPipelineFactory.configure(pipeline: root.useCaseCoordinator.assistantActionPipeline)
         configureSemanticRetrievalLifecycle(stateContainer: root)
+        #if os(iOS) && !targetEnvironment(macCatalyst)
+        // The container is thread-safe for creating contexts, which is all the
+        // repository does with it; it is not declared Sendable.
+        nonisolated(unsafe) let focusContainer = persistentContainer
+        FocusLiveActivityCommandRunner.installIntentBridge {
+            CoreDataPlanningRepository(container: focusContainer)
+        }
+        #endif
+        if ProcessInfo.processInfo.arguments.contains("-UI_TESTING") == false,
+           ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+           let habitReadRepository = root.habitRuntimeReadRepository {
+            Task { await HabitReminderCoordinator.shared.install(readRepository: habitReadRepository) }
+        }
         return true
     }
 
