@@ -145,3 +145,35 @@ final class FocusClockTests: XCTestCase {
         XCTAssertFalse(display.label.contains("paused"))
     }
 }
+
+@MainActor
+final class FocusSurfaceImprovementTests: XCTestCase {
+    func testClockReadsMinutesAndSeconds() {
+        XCTAssertEqual(FocusClock.clockText(25 * 60), "25:00")
+        XCTAssertEqual(FocusClock.clockText(24 * 60 + 37.9), "24:37")
+        XCTAssertEqual(FocusClock.clockText(3_909), "1:05:09")
+        XCTAssertEqual(FocusClock.clockText(-4), "0:00")
+    }
+
+    func testHeadlinePrefersIntentionThenTaskTitle() {
+        XCTAssertEqual(FocusSurfaceCommitmentSection.headline(companion: nil, taskTitle: "Write launch notes"), "Write launch notes")
+        XCTAssertEqual(FocusSurfaceCommitmentSection.headline(companion: nil, taskTitle: nil), "Focusing")
+        let companion = FocusSessionCompanion(sessionID: UUID(), mode: .countdown(duration: 60), intention: "Draft the intro")
+        XCTAssertEqual(FocusSurfaceCommitmentSection.headline(companion: companion, taskTitle: "Write launch notes"), "Draft the intro")
+    }
+
+    func testPomodoroAdvancesOnlyWhenARunningPhaseHasEnded() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let session = FocusSessionV2(targetDuration: 1_500, state: .running, startedAt: start)
+        var companion = FocusSessionCompanion(sessionID: session.id, mode: .pomodoro(focus: 1_500, breakDuration: 300, rounds: 4))
+        companion.pomodoroPhase = FocusPomodoroPhase(phaseStartedAt: start, phaseEndsAt: start.addingTimeInterval(1_500))
+
+        XCTAssertFalse(FocusPomodoroAutoAdvance.shouldAdvance(session: session, companion: companion, isSettled: false, now: start.addingTimeInterval(1_499)))
+        XCTAssertTrue(FocusPomodoroAutoAdvance.shouldAdvance(session: session, companion: companion, isSettled: false, now: start.addingTimeInterval(1_500)))
+
+        var paused = session
+        paused.state = .paused
+        XCTAssertFalse(FocusPomodoroAutoAdvance.shouldAdvance(session: paused, companion: companion, isSettled: false, now: start.addingTimeInterval(2_000)))
+        XCTAssertFalse(FocusPomodoroAutoAdvance.shouldAdvance(session: session, companion: companion, isSettled: true, now: start.addingTimeInterval(2_000)))
+    }
+}
