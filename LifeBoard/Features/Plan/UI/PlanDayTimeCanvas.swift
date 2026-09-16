@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct PlanDayTimeCanvas: View {
     let snapshot: PlanDaySnapshot
@@ -11,43 +12,183 @@ struct PlanDayTimeCanvas: View {
     let splitBlock: (InternalTimeBlock) -> Void
     let deleteBlock: (InternalTimeBlock) -> Void
     let startFocus: (InternalTimeBlock) -> Void
+    var onOpenTask: (UUID) -> Void = { _ in }
+    var changeDay: (Int) -> Void = { _ in }
+    @State private var landingY: CGFloat?
+    @State private var daySwipeOffset: CGFloat = 0
+    @State private var lastSnappedLandingMinute: Int?
+    @State private var landingTrigger = 0
+    @State private var landingCenter: UnitPoint = .center
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var displayCommitments: [PlanningFixedCommitment] {
+        let linked = Set(snapshot.blocks.compactMap(\.taskID))
+        return snapshot.commitments + snapshot.plannedTasks.compactMap { task in
+            guard !linked.contains(task.id), let start = task.scheduledStartAt else { return nil }
+            return PlanningFixedCommitment(id: "task:" + task.id.uuidString, title: task.title,
+                startAt: start, endAt: task.scheduledEndAt ?? start.addingTimeInterval(task.estimatedDuration ?? 30 * 60), source: .internalBlock)
+        }
+    }
 
     private let hourHeight: CGFloat = 66
-    private let rulerWidth: CGFloat = 52
+    private let rulerWidth: CGFloat = 48
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                Label("Time canvas", systemImage: "clock")
-                    .font(.headline)
-                Spacer()
-                if conflictCount > 0 {
-                    Label("\(conflictCount) conflict\(conflictCount == 1 ? "" : "s")", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-                        .accessibilityHint("Overlapping commitments and LifeBoard blocks are highlighted in the timeline")
-                }
+            // The day is named and stepped by `PlanOrientationBar`; the canvas
+            // only speaks up when something on it overlaps.
+            if conflictCount > 0 {
+                Label("\(conflictCount) overlap\(conflictCount == 1 ? "" : "s")", systemImage: "square.stack")
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                    .accessibilityHint("Overlapping commitments and LifeBoard blocks are highlighted in the timeline")
             }
 
+            ScrollViewReader { reader in
+                ScrollView {
             GeometryReader { proxy in
                 ZStack(alignment: .topLeading) {
+                    nonworkingLayer(width: proxy.size.width)
                     hourGrid(width: proxy.size.width)
+                    // Laid out at its y, not `.offset` to it: `scrollTo` reads the
+                    // layout frame, so an offset marker always scrolled to the top.
+                    VStack(spacing: 0) {
+                        Color.clear.frame(height: initialScrollY)
+                        Color.clear.frame(height: 1).id("canvas.initial")
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                     freeWindowLayer(width: proxy.size.width)
                     clusterLayer(width: proxy.size.width)
+                    if let landingY {
+                        // A ghost shaped like the block it will become, gliding
+                        // between quarter hours, so the landing is previewed
+                        // rather than guessed.
+                        let date = PlanCanvasDropResolver.start(forY: landingY, timelineStart: timelineStart, hourHeight: hourHeight)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(timeLabel(date)) – \(timeLabel(date.addingTimeInterval(30 * 60)))")
+                                .lifeboardFont(.caption1)
+                                .fontWeight(.semibold)
+                                .monospacedDigit()
+                            Text("Release to place")
+                                .lifeboardFont(.caption2)
+                        }
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                        .padding(.horizontal, 12)
+                        .padding(.top, 4)
+                        .frame(
+                            width: max(1, proxy.size.width - rulerWidth - 8),
+                            height: blockHeight(from: date, to: date.addingTimeInterval(30 * 60)),
+                            alignment: .topLeading
+                        )
+                        .background(
+                            Color(SemanticColorTokens.foundationApricotAccent).opacity(0.2),
+                            in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
+                                .stroke(Color(SemanticColorTokens.foundationApricotAccent), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                        }
+                        .offset(x: rulerWidth, y: yPosition(date))
+                        .animation(InteractionMotion.dragRelease(reduceMotion: reduceMotion), value: date)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                    }
+                    if isToday {
+                        nowLineLayer(width: proxy.size.width)
+                    }
                 }
+                .frame(width: proxy.size.width, height: timelineHeight, alignment: .topLeading)
+                .contentShape(Rectangle())
+                // A task lands at the minute it was dropped (snapped to 15), not
+                // only on an open window — busy time is allowed, and the lane
+                // resolver draws the overlap honestly. Open windows keep their own
+                // destination, which wins where they are.
+                .onDrop(of: [UTType.text], delegate: PlanCanvasDropDelegate(
+                    update: { y in
+                        landingY = y
+                        // One tick per quarter hour crossed, not per point moved.
+                        let minute = y.map {
+                            Int(PlanCanvasDropResolver.start(forY: $0, timelineStart: timelineStart, hourHeight: hourHeight)
+                                .timeIntervalSince(timelineStart) / 60)
+                        }
+                        if let minute, minute != lastSnappedLandingMinute { Haptic.pick.play() }
+                        lastSnappedLandingMinute = minute
+                    },
+                    perform: { id, y in
+                        guard let task = taskForID(id), task.dependenciesReady else { return }
+                        let start = PlanCanvasDropResolver.start(forY: y, timelineStart: timelineStart, hourHeight: hourHeight)
+                        createBlock(task.title, start, task.estimatedDuration ?? 30 * 60, id)
+                        landingCenter = UnitPoint(x: 0.6, y: min(1, max(0, yPosition(start) / max(1, timelineHeight))))
+                        landingTrigger &+= 1
+                        Haptic.settle.play()
+                    }
+                ))
+                .lifeboardTaskLandingCaustic(trigger: landingTrigger, center: landingCenter)
             }
             .frame(height: timelineHeight)
             .accessibilityIdentifier("plan.day.canvas")
-
-            HStack(spacing: 14) {
-                canvasLegend("Open", color: Color(SemanticColorTokens.foundationSageAccent).opacity(0.28))
-                canvasLegend("Calendar", color: Color(SemanticColorTokens.foundationSurfaceRecessed))
-                canvasLegend("LifeBoard", color: Color(SemanticColorTokens.foundationApricotAccent).opacity(0.62))
+                }
+                // The root already stops above the composer and dock; this
+                // just keeps the last hour line off the drawer's edge.
+                .contentMargins(.bottom, 24, for: .scrollContent)
+                .offset(x: daySwipeOffset)
+                .opacity(1 - min(0.4, abs(daySwipeOffset) / 400))
+                .task(id: snapshot.day) {
+                    // Glide rather than jump, and leave "now" a third of the way
+                    // down so the next few hours are what fills the screen.
+                    await Task.yield()
+                    withAnimation(MotionProfile.route.animation(reduceMotion: reduceMotion)) {
+                        reader.scrollTo("canvas.initial", anchor: PlanCanvasGeometry.initialAnchor(isToday: isToday))
+                    }
+                }
+                .simultaneousGesture(daySwipe)
             }
-            .font(.caption2)
-            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
-        .foundationClayCard()
+        .frame(maxHeight: .infinity)
+    }
+
+    /// Swipe anywhere on the canvas to change day. It only claims clearly
+    /// sideways movement, so vertical scrolling and block drags (which travel
+    /// in time, vertically) are left alone.
+    private var daySwipe: some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onChanged { value in
+                guard landingY == nil,
+                      PlanDaySwipe.isHorizontal(value.translation) else { return }
+                daySwipeOffset = RubberBand.offset(value.translation.width, limit: 72)
+            }
+            .onEnded { value in
+                let delta = landingY == nil
+                    ? PlanDaySwipe.dayDelta(
+                        translation: value.translation,
+                        predictedEndTranslation: value.predictedEndTranslation,
+                        width: UIScreen.main.bounds.width
+                    )
+                    : 0
+                if delta != 0 {
+                    Haptic.threshold.play()
+                    changeDay(delta)
+                }
+                withAnimation(InteractionMotion.dragRelease(reduceMotion: reduceMotion)) {
+                    daySwipeOffset = 0
+                }
+            }
+    }
+
+    private var initialScrollY: CGFloat {
+        yPosition(isToday ? Date() : snapshot.workingIntervals.first?.start ?? timelineStart)
+    }
+
+    private func nonworkingLayer(width: CGFloat) -> some View {
+        let span = DateInterval(start: timelineStart, duration: TimeInterval(hourSpan) * 3_600)
+        let gaps = PlanCanvasGeometry.nonworkingIntervals(within: span, working: snapshot.workingIntervals)
+        return ForEach(gaps, id: \.start) { gap in
+            Rectangle().fill(Color(SemanticColorTokens.foundationSurfaceRecessed).opacity(0.65))
+                .frame(width: max(1, width - rulerWidth), height: CGFloat(gap.duration / 3_600) * hourHeight)
+                .offset(x: rulerWidth, y: yPosition(gap.start))
+                .allowsHitTesting(false)
+        }
     }
 
     private func hourGrid(width: CGFloat) -> some View {
@@ -71,12 +212,12 @@ struct PlanDayTimeCanvas: View {
             Button {
                 createBlock("Focus block", window.startAt, min(window.duration, 60 * 60), nil)
             } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Open · \(durationLabel(window.duration))")
-                        .font(.caption.weight(.semibold))
-                    if blockHeight(from: window.startAt, to: window.endAt) >= 46 {
-                        Text("Drop a task or tap to reserve")
-                            .font(.caption2)
+                // Open time stays quiet: short gaps carry no words at all.
+                VStack(alignment: .leading, spacing: 4) {
+                    if PlanCanvasGeometry.labelsOpenWindow(duration: window.duration) {
+                        Text("Open · \(durationLabel(window.duration))")
+                            .lifeboardFont(.caption2)
+                            .padding(.top, 4)
                     }
                 }
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -87,14 +228,9 @@ struct PlanDayTimeCanvas: View {
             }
             .buttonStyle(.plain)
             .offset(x: rulerWidth, y: yPosition(window.startAt))
-            .dropDestination(for: String.self) { values, _ in
-                guard let id = values.lazy.compactMap(UUID.init(uuidString:)).first,
-                      let task = taskForID(id), task.dependenciesReady else { return false }
-                createBlock(task.title, window.startAt, min(window.duration, task.estimatedDuration ?? 60 * 60), task.id)
-                return true
-            } isTargeted: { _ in }
+
             .accessibilityLabel("Open window, \(timeLabel(window.startAt)) to \(timeLabel(window.endAt))")
-            .accessibilityHint("Creates a focus block. A task can also be dropped here.")
+            .accessibilityHint("Tap to reserve it as a focus block, or drop a task here.")
             .accessibilityIdentifier("plan.canvas.freeWindow.\(window.id)")
         }
     }
@@ -103,7 +239,7 @@ struct PlanDayTimeCanvas: View {
     /// pack. Commitments and blocks share one lane space because they overlap
     /// each other, not just their own kind.
     private var lanePlacements: [String: PlanTimelineLaneResolver.Placement] {
-        let items = snapshot.commitments.map {
+        let items = displayCommitments.map {
             PlanTimelineLaneResolver.Item(id: "commitment:\($0.id)", start: $0.startAt, end: $0.endAt)
         } + snapshot.blocks.map {
             PlanTimelineLaneResolver.Item(id: "block:\($0.id.uuidString)", start: $0.startAt, end: $0.endAt)
@@ -228,7 +364,7 @@ struct PlanDayTimeCanvas: View {
     }
 
     private func boundaryDates(excluding blockID: UUID) -> [Date] {
-        snapshot.commitments.flatMap { [$0.startAt, $0.endAt] }
+        displayCommitments.flatMap { [$0.startAt, $0.endAt] }
             + snapshot.blocks
                 .filter { $0.id != blockID }
                 .flatMap { [$0.startAt, $0.endAt] }
@@ -276,7 +412,7 @@ struct PlanDayTimeCanvas: View {
             )
         }
 
-        for commitment in snapshot.commitments {
+        for commitment in displayCommitments {
             guard let placement = placements["commitment:\(commitment.id)"] else { continue }
             commitmentsByCluster[placement.clusterID, default: []].append(
                 .init(commitment: commitment, lane: placement.lane)
@@ -311,14 +447,55 @@ struct PlanDayTimeCanvas: View {
         return Calendar.current.date(bySettingHour: startHour, minute: 0, second: 0, of: base) ?? base
     }
 
+    private var isToday: Bool {
+        snapshot.day.startDate().map { Calendar.current.isDateInToday($0) } ?? false
+    }
+
+    /// Today's canvas always reaches the present, so "now" is on it.
+    private var nowAnchor: [Date] { isToday ? [Date()] : [] }
+
+    /// A hairline at the current minute, the one live element on the canvas.
+    private func nowLineLayer(width: CGFloat) -> some View {
+        TimelineView(.everyMinute) { context in
+            let y = yPosition(context.date)
+            if y > 0, y < timelineHeight {
+                HStack(spacing: 0) {
+                    // Hour and minute only: "7:19 PM" wraps inside the ruler, and
+                        // the ruler beside it already says which half of the day.
+                        Text(PlanCanvasGeometry.nowLabel(context.date))
+                        .lifeboardFont(.caption2)
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                        .frame(width: rulerWidth - 4, alignment: .trailing)
+                        .padding(.trailing, 4)
+                    Circle()
+                        .fill(Color(SemanticColorTokens.foundationApricotAccent))
+                        .frame(width: 8, height: 8)
+                        // The one live element on the canvas breathes, inside the
+                        // ambient budget, so "now" reads as happening.
+                        .lifeBoardAmbientBreath(role: .liveIndicator)
+                    Rectangle()
+                        .fill(Color(SemanticColorTokens.foundationApricotAccent))
+                        .frame(width: max(0, width - rulerWidth - 7), height: 1.5)
+                }
+                .offset(y: y - 6)
+                .allowsHitTesting(false)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Now, \(context.date.formatted(date: .omitted, time: .shortened))")
+                .accessibilityIdentifier("plan.canvas.nowLine")
+            }
+        }
+    }
+
     private var startHour: Int {
-        let dates = snapshot.commitments.map(\.startAt) + snapshot.blocks.map(\.startAt) + snapshot.freeWindows.map(\.startAt)
+        let dates = displayCommitments.map(\.startAt) + snapshot.blocks.map(\.startAt) + snapshot.freeWindows.map(\.startAt) + snapshot.workingIntervals.map(\.start) + nowAnchor
         guard let first = dates.min() else { return 8 }
-        return max(0, Calendar.current.component(.hour, from: first) - 1)
+        return max(0, Calendar.current.component(.hour, from: first) - 2)
     }
 
     private var endHour: Int {
-        let dates = snapshot.commitments.map(\.endAt) + snapshot.blocks.map(\.endAt) + snapshot.freeWindows.map(\.endAt)
+        let dates = displayCommitments.map(\.endAt) + snapshot.blocks.map(\.endAt) + snapshot.freeWindows.map(\.endAt) + snapshot.workingIntervals.map(\.end) + nowAnchor
         guard let last = dates.max() else { return 18 }
         let components = Calendar.current.dateComponents([.hour, .minute], from: last)
         return min(24, max(startHour + 4, (components.hour ?? 17) + ((components.minute ?? 0) > 0 ? 2 : 1)))
@@ -347,7 +524,7 @@ struct PlanDayTimeCanvas: View {
     }
 
     private var conflictCount: Int {
-        let commitments = snapshot.commitments.filter {
+        let commitments = displayCommitments.filter {
             conflicts(start: $0.startAt, end: $0.endAt, excludingCommitmentID: $0.id, excludingBlockID: UUID(uuidString: $0.id))
         }.count
         let blocks = snapshot.blocks.filter {
@@ -357,7 +534,7 @@ struct PlanDayTimeCanvas: View {
     }
 
     private func conflicts(start: Date, end: Date, excludingCommitmentID: String?, excludingBlockID: UUID?) -> Bool {
-        let overlapsCommitment = snapshot.commitments.contains { value in
+        let overlapsCommitment = displayCommitments.contains { value in
             value.id != excludingCommitmentID && value.startAt < end && value.endAt > start
         }
         let overlapsBlock = snapshot.blocks.contains { value in
@@ -366,20 +543,7 @@ struct PlanDayTimeCanvas: View {
         return overlapsCommitment || overlapsBlock
     }
 
-    private func canvasLegend(_ title: String, color: Color) -> some View {
-        Label {
-            Text(title)
-        } icon: {
-            RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 12, height: 8)
-        }
-    }
-
-    private func hourLabel(_ hour: Int) -> String {
-        guard hour < 24 else { return "12 AM" }
-        let base = Calendar.current.startOfDay(for: Date())
-        let date = Calendar.current.date(byAdding: .hour, value: hour, to: base) ?? base
-        return date.formatted(date: .omitted, time: .shortened)
-    }
+    private func hourLabel(_ hour: Int) -> String { PlanCanvasGeometry.hourLabel(hour) }
 
     private func timeLabel(_ date: Date) -> String { date.formatted(date: .omitted, time: .shortened) }
     private func durationLabel(_ interval: TimeInterval) -> String {
@@ -546,7 +710,7 @@ struct PlanCanvasBlock: View {
             showsConflict
                 ? Color(SemanticColorTokens.foundationApricotAccent).opacity(0.34)
                 : Color(SemanticColorTokens.foundationSurfaceSelected),
-            in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+            in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
         )
         .overlay {
             RoundedRectangle(cornerRadius: 11)
@@ -712,5 +876,105 @@ struct PlanCanvasBlock: View {
     /// warning and dragging *into* one shows nothing until the drop.
     private var showsConflict: Bool {
         isDragging ? conflictAt(draggedMinutes) : hasConflict
+    }
+}
+
+/// Where a drop on the day canvas lands, in time.
+enum PlanCanvasDropResolver {
+    static let snapMinutes = 15
+
+    static func start(
+        forY y: CGFloat,
+        timelineStart: Date,
+        hourHeight: CGFloat,
+        snapMinutes: Int = snapMinutes
+    ) -> Date {
+        let minutes = max(0, Double(y / hourHeight) * 60)
+        let snapped = (minutes / Double(snapMinutes)).rounded() * Double(snapMinutes)
+        return timelineStart.addingTimeInterval(snapped * 60)
+    }
+}
+
+private struct PlanCanvasDropDelegate: DropDelegate {
+    let update: (CGFloat?) -> Void
+    let perform: (UUID, CGFloat) -> Void
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        update(info.location.y)
+        return DropProposal(operation: .copy)
+    }
+    func dropExited(info: DropInfo) { update(nil) }
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [UTType.text]).first else { return false }
+        let y = info.location.y
+        update(nil)
+        _ = provider.loadObject(ofClass: String.self) { value, _ in
+            guard let value, let id = UUID(uuidString: value) else { return }
+            Task { @MainActor in perform(id, y) }
+        }
+        return true
+    }
+}
+
+/// Pure geometry and wording for the day canvas, kept out of the view so the
+/// rules are testable.
+enum PlanCanvasGeometry {
+    /// "6 AM", "Noon", "6 PM": the ruler only needs the hour.
+    static func hourLabel(_ hour: Int) -> String {
+        switch hour % 24 {
+        case 0: return "12 AM"
+        case 12: return "Noon"
+        case let value where value < 12: return "\(value) AM"
+        case let value: return "\(value - 12) PM"
+        }
+    }
+
+    /// Today opens with now a third of the way down; other days open at their
+    /// first item, at the top.
+    static func initialAnchor(isToday: Bool) -> UnitPoint {
+        isToday ? UnitPoint(x: 0.5, y: 0.33) : .top
+    }
+
+    /// "7:25": no leading zero, no AM/PM (the ruler beside it already says).
+    static func nowLabel(_ date: Date, calendar: Calendar = .current) -> String {
+        let parts = calendar.dateComponents([.hour, .minute], from: date)
+        let hour = (parts.hour ?? 0) % 12 == 0 ? 12 : (parts.hour ?? 0) % 12
+        return String(format: "%d:%02d", hour, parts.minute ?? 0)
+    }
+
+    /// The parts of the drawn span outside working hours, to the minute. It
+    /// used to shade whole hours by testing each hour's start, and because
+    /// `DateInterval.contains` includes its end, 6 PM counted as working.
+    static func nonworkingIntervals(within span: DateInterval, working: [DateInterval]) -> [DateInterval] {
+        var gaps: [DateInterval] = []
+        var cursor = span.start
+        for interval in working.sorted(by: { $0.start < $1.start }) where interval.end > cursor && interval.start < span.end {
+            if interval.start > cursor { gaps.append(DateInterval(start: cursor, end: interval.start)) }
+            cursor = max(cursor, interval.end)
+        }
+        if cursor < span.end { gaps.append(DateInterval(start: cursor, end: span.end)) }
+        return gaps
+    }
+
+    static func labelsOpenWindow(duration: TimeInterval) -> Bool {
+        duration >= 45 * 60
+    }
+}
+
+/// When a sideways drag on the canvas becomes a day change.
+enum PlanDaySwipe {
+    static func isHorizontal(_ translation: CGSize) -> Bool {
+        abs(translation.width) > abs(translation.height) * 2
+    }
+
+    /// +1 for the next day (swipe left), -1 for the previous, 0 to spring back.
+    /// Commits past 30% of the width, or on a flick that would carry that far.
+    static func dayDelta(translation: CGSize, predictedEndTranslation: CGSize, width: CGFloat) -> Int {
+        guard width > 0, isHorizontal(translation), abs(translation.width) >= 24 else { return 0 }
+        let threshold = width * 0.3
+        let travel = abs(translation.width) >= threshold ? translation.width
+            : abs(predictedEndTranslation.width) >= threshold * 1.5 ? predictedEndTranslation.width
+            : 0
+        guard travel != 0, travel.sign == translation.width.sign else { return 0 }
+        return travel < 0 ? 1 : -1
     }
 }
