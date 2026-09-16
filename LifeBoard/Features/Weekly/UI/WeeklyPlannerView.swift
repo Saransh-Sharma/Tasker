@@ -1310,7 +1310,8 @@ private struct WeeklyPlannerProposalSheet: View {
                     WeeklyRitualStep(id: 2, title: "Confirm or reject", isComplete: state.preview.run != nil)
                 ],
                 message: state.errorMessage,
-                messageTone: .warning
+                messageTone: .warning,
+                headerScene: .plan
             ) {
                 WeeklySectionCard(
                     title: "\(AssistantIdentityText.currentSnapshot().displayName) suggestion",
