@@ -76,19 +76,27 @@ public final class CreateTaskDefinitionUseCase: @unchecked Sendable {
     /// Executes execute.
     public func execute(
         request: CreateTaskDefinitionRequest,
+        scheduleIsIndependent: Bool = false,
         completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
     ) {
-        let normalizedRequest = normalizedRequestForStorage(request)
+        var normalizedRequest = normalizedRequestForStorage(request)
+        if scheduleIsIndependent {
+            normalizedRequest.dueDate = request.dueDate
+            normalizedRequest.scheduledStartAt = request.scheduledStartAt
+            normalizedRequest.scheduledEndAt = request.scheduledEndAt
+            normalizedRequest.isAllDay = request.scheduledStartAt == nil && request.plannedDate != nil
+        }
+        let persistedRequest = normalizedRequest
 
-        repository.create(request: normalizedRequest) { result in
+        repository.create(request: persistedRequest) { result in
             switch result {
             case .success(let createdTask):
-                self.persistLinks(taskID: createdTask.id, request: normalizedRequest) { linkResult in
+                self.persistLinks(taskID: createdTask.id, request: persistedRequest) { linkResult in
                     switch linkResult {
                     case .success:
                         self.materializeRecurringTasksIfNeeded(
                             rootTask: createdTask,
-                            rootRequest: normalizedRequest
+                            rootRequest: persistedRequest
                         ) { recurrenceResult in
                             switch recurrenceResult {
                             case .success:
