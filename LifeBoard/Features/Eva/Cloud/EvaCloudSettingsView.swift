@@ -57,7 +57,7 @@ struct EvaCloudSettingsView: View {
                     subtitle: String(localized: "Start with a pseudonymous guest session. Protect it with Apple later for cross-device access and reinstall recovery.")
                 ) {
                     SettingsFieldCard(
-                        title: account.isAuthenticated ? String(localized: "Cloud EVA is connected") : String(localized: "Activate Cloud EVA"),
+                        title: account.isAuthenticated ? String(localized: "Cloud EVA is connected") : String(localized: "Cloud EVA is connecting"),
                         subtitle: accountSubtitle,
                         footer: String(localized: "Prompts and authorized context are sent to OpenAI through LifeBoard's Cloudflare backend. No cloud chat or audio history is kept by LifeBoard.")
                     ) {
@@ -87,18 +87,11 @@ struct EvaCloudSettingsView: View {
                             }
                         } else {
                             VStack(spacing: spacing.s12) {
-                              Text("Confirm which sensitive categories may be included in bounded Cloud EVA requests. No prompt or LifeBoard context is sent before you continue.")
+                              Text("EVA connects automatically. Manage the context it can use below.")
                                 .font(.lifeboard(.caption1))
-                                .foregroundStyle(Color.lifeboard(.textSecondary))
-                              ForEach(EvaConsentPolicy.Grant.allCases, id: \.self) { grant in
-                                activationGrantToggle(grant)
-                              }
-                              Button("Continue with Cloud EVA") {
-                                run {
-                                  try await account.activateCloud(
-                                    grants: selectedGrants.sorted { $0.rawValue < $1.rawValue }
-                                  )
-                                }
+                              Button("Retry connection") {
+                                EvaCloudAccessCoordinator.shared.selectCloud()
+                                run { _ = await EvaCloudAccessCoordinator.shared.ensureActivated(source: .setupCenter) }
                               }
                               .buttonStyle(.lifeBoardPrimaryCompact)
                               .tint(Color.lifeboard(.accentPrimary))
@@ -130,7 +123,7 @@ struct EvaCloudSettingsView: View {
 
                     SettingsSectionView(
                         title: String(localized: "Sensitive Context"),
-                        subtitle: String(localized: "You control each category. Activation choices are preselected for review; changes apply account-wide before the next cloud request.")
+                        subtitle: String(localized: "You control each category. Categories are enabled by default; changes apply account-wide before the next cloud request.")
                     ) {
                         SettingsFieldCard(
                             title: String(localized: "Choose what may leave this device"),
@@ -193,7 +186,14 @@ struct EvaCloudSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference().rawValue
+            _ = await EvaCloudAccessCoordinator.shared.ensureActivated(source: .setupCenter)
             await restoreState()
+        }
+        .onChange(of: providerPreference) { _, value in
+            if value == EvaProviderRouter.Preference.cloud.rawValue {
+                EvaCloudAccessCoordinator.shared.selectCloud()
+                Task { _ = await EvaCloudAccessCoordinator.shared.ensureActivated(source: .setupCenter) }
+            } else { EvaCloudAccessCoordinator.shared.selectOffline() }
         }
         .onChange(of: account.consent) { _, consent in
             selectedGrants = Set(consent?.grants ?? [])
@@ -243,7 +243,7 @@ struct EvaCloudSettingsView: View {
         if let error = account.lastError, account.isAuthenticated { return error }
         return account.isAuthenticated
             ? String(localized: "Your session, consent revision, and rolling quota are synchronized with the cloud account.")
-            : String(localized: "Guest setup does not ask for your name or email. Cloud EVA is for people age 13 or older.")
+            : String(localized: "EVA connects automatically without your name or email.")
     }
 
     private var quotaTitle: String {
@@ -346,19 +346,22 @@ struct EvaCloudSettingsView: View {
     }
 
     private func restoreState() async {
-        guard (try? await EvaCloudSessionStore.shared.load()) != nil else { return }
         await account.refresh()
         selectedGrants = Set(account.consent?.grants ?? [])
     }
 
     private func updateConsent(_ grant: EvaConsentPolicy.Grant, enabled: Bool) {
-        guard let policy = account.consent else { return }
+        guard account.consent != nil else { return }
         var replacement = selectedGrants
         if enabled { replacement.insert(grant) } else { replacement.remove(grant) }
         run {
-            let updated = try await EvaCloudTransport.shared.updateConsent(
-                expectedRevision: policy.revision,
+            let updated = try await account.updateConsent(
                 grants: replacement.sorted { $0.rawValue < $1.rawValue }
+            )
+            EvaCloudActivationRecordStore.save(
+                grants: Set(updated.grants),
+                origin: .userSelection,
+                lastServerConsentRevision: updated.revision
             )
             await account.refresh()
             selectedGrants = Set(updated.grants)
@@ -366,11 +369,15 @@ struct EvaCloudSettingsView: View {
     }
 
     private func confirmCurrentConsent() {
-        guard let policy = account.consent else { return }
+        guard account.consent != nil else { return }
         run {
-            _ = try await EvaCloudTransport.shared.updateConsent(
-                expectedRevision: policy.revision,
+            let updated = try await account.updateConsent(
                 grants: selectedGrants.sorted { $0.rawValue < $1.rawValue }
+            )
+            EvaCloudActivationRecordStore.save(
+                grants: Set(updated.grants),
+                origin: .userSelection,
+                lastServerConsentRevision: updated.revision
             )
             await account.refresh()
         }
