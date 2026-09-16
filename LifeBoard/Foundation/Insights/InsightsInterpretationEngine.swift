@@ -147,6 +147,20 @@ public struct InsightsInterpretationService: Sendable {
             )
         }
 
+        if let change = Self.weekOverWeekChange(events: events, now: now, calendar: calendar) {
+            let direction = change.lastWeekDays > change.priorWeekDays ? "up from" : "down from"
+            return InsightsInterpretation(
+                density: .full,
+                claim: "\(change.domain.capitalized) showed up on \(change.lastWeekDays) of the last 7 days, \(direction) \(change.priorWeekDays) the week before.",
+                // Named without a verdict: fewer entries can mean a hard week,
+                // a finished goal, or simply less to record.
+                recommendedAction: "Open the evidence to see what shifted, or ask Eva about it.",
+                completeness: completeness,
+                evidenceReferences: events.filter { $0.domain == change.domain }.map(\.sourceID),
+                dailyCounts: dailyCounts
+            )
+        }
+
         let domain = mostConsistent.key
         let dayCount = mostConsistent.value.count
         let supporting = events.filter { $0.domain == domain }
@@ -159,6 +173,44 @@ public struct InsightsInterpretationService: Sendable {
             evidenceReferences: supporting.map(\.sourceID),
             dailyCounts: dailyCounts
         )
+    }
+
+    struct WeekOverWeekChange: Equatable {
+        let domain: String
+        let lastWeekDays: Int
+        let priorWeekDays: Int
+    }
+
+    /// The area whose presence changed most between the last 7 days and the 7
+    /// before, counted in distinct days (consistency, not volume). Needs records
+    /// in the earlier week — a first week has nothing to change from — and a
+    /// move of at least two days, so one busy afternoon is not a trend.
+    static func weekOverWeekChange(
+        events: [NormalizedLifeEvent],
+        now: Date,
+        calendar: Calendar
+    ) -> WeekOverWeekChange? {
+        let today = calendar.startOfDay(for: now)
+        guard let lastWeekStart = calendar.date(byAdding: .day, value: -6, to: today),
+              let priorWeekStart = calendar.date(byAdding: .day, value: -13, to: today),
+              let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else { return nil }
+        let priorWeek = events.filter { $0.occurredAt >= priorWeekStart && $0.occurredAt < lastWeekStart }
+        guard priorWeek.isEmpty == false else { return nil }
+        let lastWeek = events.filter { $0.occurredAt >= lastWeekStart && $0.occurredAt < tomorrow }
+
+        func days(_ events: [NormalizedLifeEvent]) -> [String: Int] {
+            Dictionary(grouping: events, by: \.domain).mapValues { Set($0.map { calendar.startOfDay(for: $0.occurredAt) }).count }
+        }
+        let recent = days(lastWeek), earlier = days(priorWeek)
+        let candidates = Set(recent.keys).union(earlier.keys).map { domain in
+            WeekOverWeekChange(domain: domain, lastWeekDays: recent[domain] ?? 0, priorWeekDays: earlier[domain] ?? 0)
+        }
+        return candidates
+            .filter { abs($0.lastWeekDays - $0.priorWeekDays) >= 2 }
+            .max { lhs, rhs in
+                let l = abs(lhs.lastWeekDays - lhs.priorWeekDays), r = abs(rhs.lastWeekDays - rhs.priorWeekDays)
+                return l != r ? l < r : lhs.domain > rhs.domain
+            }
     }
 
     /// One point per day in the covered range, including days with no records
