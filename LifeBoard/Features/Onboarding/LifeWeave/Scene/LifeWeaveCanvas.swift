@@ -19,6 +19,8 @@ struct LifeWeaveCanvas: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     /// Bumped when the map gains something. Drives the one-shot light bloom.
     @State private var lightTrigger = 0
+    /// One caustic when the captured thing lands.
+    @State private var landingTrigger = 0
 
     private var reduceMotion: Bool { MotionOverride.resolve(systemReduceMotion) }
     private var isMirrored: Bool { layoutDirection == .rightToLeft }
@@ -40,6 +42,16 @@ struct LifeWeaveCanvas: View {
                 LifeWeaveNowAnchor()
                     .position(now)
 
+                // The first capture lands at Now, and only once it is written:
+                // success motion never runs ahead of the persistence it reports.
+                if presentation.phase == .reveal, let captured = presentation.capturedObjectTitle {
+                    LifeWeaveCapturedNode(title: captured)
+                        .position(x: now.x, y: max(18, now.y - 26))
+                        .lifeboardTaskLandingCaustic(trigger: landingTrigger, tint: Color.lifeboard(.accentPrimary))
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.6).combined(with: .opacity))
+                        .onAppear { landingTrigger &+= 1 }
+                }
+
                 ForEach(Array(presentation.areas.enumerated()), id: \.element.id) { index, area in
                     LifeWeaveAreaNode(area: area, showsLabel: showsAreaLabels)
                         .position(
@@ -60,6 +72,7 @@ struct LifeWeaveCanvas: View {
             }
             .lifeBoardMotion(.cardReflow, value: presentation.areas)
             .lifeBoardMotion(.contentInsertion, value: presentation.dayWindow)
+            .lifeBoardMotion(.celebration, value: presentation.phase)
             // `firstLight` is the sanctioned Metal for this surface: DESIGN.md
             // allows it for "the first daily commitment **and onboarding
             // arrival**", it is a `colorEffect` so nothing is rasterised
@@ -95,7 +108,7 @@ struct LifeWeaveCanvas: View {
         return Color.lifeboard(.accentPrimary)
     }
 
-    /// The five operating strands: structure, unlabelled until the reveal.
+    /// The five operating strands: structure, unlabelled.
     ///
     /// Drawn in `textTertiary`, not `strokeHairline`. The hairline token is a
     /// *separator* — it is designed to sit on a surface, so in light appearance
@@ -197,6 +210,29 @@ private struct LifeWeaveNowAnchor: View {
                     .stroke(Color.lifeboard(.accentPrimary).opacity(0.22), lineWidth: 10)
             )
             .accessibilityHidden(true)
+    }
+}
+
+/// The first thing the user gave LifeBoard, arrived.
+private struct LifeWeaveCapturedNode: View {
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checkmark")
+                .lifeboardFont(.caption2)
+                .foregroundStyle(Color.lifeboard(.accentPrimary))
+            Text(title)
+                .lifeboardFont(.caption2)
+                .foregroundStyle(Color.lifeboard(.textPrimary))
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .frame(maxWidth: 160)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.pill)
+        .accessibilityHidden(true)
     }
 }
 
