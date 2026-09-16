@@ -35,6 +35,9 @@ struct TrackFastingSection: View {
     @Binding var showsFastingComposer: Bool
     @Binding var showsFastingHistory: Bool
     let reloadFasting: () async -> Void
+    /// Cancelling ends a running session, so it asks first — and reports a
+    /// failure instead of swallowing it with `try?`.
+    @State private var confirmsCancellation = false
     /// Whether this lens has nominated fasting as its one hero.
     ///
     /// Decided by the root rather than here: a section cannot know what else is
@@ -92,20 +95,41 @@ struct TrackFastingSection: View {
                     HStack(spacing: 12) {
                         Button("Finish") {
                             Task {
-                                _ = try? await fastingTimerStore.finish()
+                                do {
+                                    _ = try await fastingTimerStore.finish()
+                                    Haptic.commit.play()
+                                } catch {
+                                    fastingError = error.localizedDescription
+                                    Haptic.fail.play()
+                                }
                                 await reloadFasting()
                             }
                         }
                         .buttonStyle(.lifeBoardPrimary)
-                        Button("Cancel fast") {
+                        Button("Cancel fast") { confirmsCancellation = true }
+                            .buttonStyle(.lifeBoardChip)
+                    }
+                    .frame(minHeight: 44)
+                    .confirmationDialog(
+                        "Cancel this fast?",
+                        isPresented: $confirmsCancellation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Cancel fast", role: .destructive) {
                             Task {
-                                _ = try? await fastingTimerStore.cancel()
+                                do {
+                                    _ = try await fastingTimerStore.cancel()
+                                } catch {
+                                    fastingError = error.localizedDescription
+                                    Haptic.fail.play()
+                                }
                                 await reloadFasting()
                             }
                         }
-                        .buttonStyle(.lifeBoardChip)
+                        Button("Keep fasting", role: .cancel) {}
+                    } message: {
+                        Text("The session remains in history as cancelled.")
                     }
-                    .frame(minHeight: 44)
                 } else {
                     Text("No fast is running.")
                         .font(.subheadline)
