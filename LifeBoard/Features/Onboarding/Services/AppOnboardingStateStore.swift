@@ -28,7 +28,6 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         var state = load()
         state.outcome = outcome
         state.completedVersion = version
-        state.journeySnapshot = nil
         state.lifeMapJourneySnapshot = nil
         state.lifeWeaveJourneySnapshot = nil
         save(state)
@@ -91,7 +90,6 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         // The v5 payloads are cleared here rather than at finalization: the
         // canonical commit has already succeeded, so there is no v5 journey left
         // to resume even if the power-up phase is abandoned.
-        state.journeySnapshot = nil
         state.lifeMapJourneySnapshot = nil
         save(state)
 
@@ -142,12 +140,6 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         save(state)
     }
 
-    func storeJourney(_ snapshot: OnboardingJourneySnapshot?) {
-        var state = load()
-        state.journeySnapshot = snapshot
-        save(state)
-    }
-
     func storeLifeMapJourney(_ snapshot: LifeMapDraft?) {
         var state = load()
         state.lifeMapJourneySnapshot = snapshot
@@ -180,7 +172,6 @@ final class AppOnboardingStateStore: @unchecked Sendable {
 
     func clearJourney() {
         var state = load()
-        state.journeySnapshot = nil
         state.lifeMapJourneySnapshot = nil
         state.lifeWeaveJourneySnapshot = nil
         save(state)
