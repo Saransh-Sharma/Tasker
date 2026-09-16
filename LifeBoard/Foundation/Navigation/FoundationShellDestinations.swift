@@ -53,6 +53,7 @@ extension FoundationShell {
                             isSelected: router.selectedDestination == destination && router.path(for: destination).isEmpty,
                             sceneIsActive: bridgedScenePhase == .active
                         ))
+                        .environment(\.planRescueRefreshGeneration, planRescueRefreshGeneration)
                     }
                 }
                 .toolbar(
@@ -208,6 +209,36 @@ extension FoundationShell {
         }
     }
 
+    /// Starts a 25-minute session on the task (Plan's default) and opens its
+    /// surface. `false` leaves navigation to the caller, e.g. when a session is
+    /// already running or the start failed.
+    @MainActor
+    func startFocusFromHome(
+        taskID: UUID,
+        dependencies: PlanFeatureDependencies,
+        router: AppRouter
+    ) async -> Bool {
+        let repository = dependencies.planningRepository
+        let store = PlanStore(
+            planningRepository: repository,
+            blockRepository: repository,
+            scenarioCoordinator: DefaultPlanningScenarioCoordinator(
+                planning: repository,
+                mutations: repository
+            ),
+            taskDefinitionRepository: dependencies.taskDefinitionRepository,
+            focusCommands: dependencies.focusCommands
+        )
+        await store.load()
+        let block = store.daySnapshot?.blocks.first { $0.taskID == taskID }
+        let duration = block?.duration ?? store.task(for: taskID)?.estimatedDuration ?? 25 * 60
+        guard await store.startFocus(taskID: taskID, timeBlockID: block?.id, targetDuration: duration),
+              let session = store.activeFocusSession else { return false }
+        router.select(.plan)
+        router.push(.focusSession(session.id), in: .plan)
+        return true
+    }
+
     func destinationRoot(
         _ destination: Destination,
         router: AppRouter
@@ -250,6 +281,11 @@ extension FoundationShell {
                             homeIsCustomizing = isCustomizing
                         }
                     )
+                    .environment(\.homeStartFocus, planDependencies.map { dependencies in
+                        HomeStartFocusAction { taskID in
+                            await startFocusFromHome(taskID: taskID, dependencies: dependencies, router: router)
+                        }
+                    })
                 }
             )
         } else if destination == .plan,
@@ -257,7 +293,6 @@ extension FoundationShell {
                   let planDependencies {
             return AnyView(PlanRootView(
                 dependencies: planDependencies,
-                rescueRefreshGeneration: planRescueRefreshGeneration,
                 onOpenFocus: { router.push(.focusSession($0), in: .plan) },
                 onAskEva: { router.select(.eva) },
                 onOpenWeeklyPlanner: { router.push(.weeklyPlanningWorkspace(.week), in: .plan) },
