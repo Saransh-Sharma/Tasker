@@ -166,6 +166,68 @@ final class CoreDataMigrationChainTests: XCTestCase {
         }
     }
 
+    /// Habit amounts arrived in `TaskModelV3_HabitProgress`. An occurrence
+    /// logged before it must migrate with no amount (not zero — zero is a
+    /// recorded value), and the new attribute must be writable afterwards.
+    func testOccurrenceFromBeforeHabitProgressMigratesWithNoRecordedAmount() throws {
+        let versions = try Self.modelVersionURLs()
+        let previousURL = try XCTUnwrap(
+            versions.first(where: { $0.lastPathComponent == "TaskModelV3_EvaDecisionLoops.mom" }),
+            "the version before HabitProgress is missing from the momd"
+        )
+        let previous = try XCTUnwrap(NSManagedObjectModel(contentsOf: previousURL))
+        let occurrenceEntity = try XCTUnwrap(previous.entitiesByName["Occurrence"])
+        XCTAssertNil(occurrenceEntity.attributesByName["recordedValue"], "the previous version must predate amounts")
+        let configuration = previous.configurations.first(where: {
+            previous.entities(forConfigurationName: $0)?.contains(occurrenceEntity) == true
+        })
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("habit-progress-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let storeURL = directory.appendingPathComponent("TaskModelV3.sqlite")
+
+        let identifier = UUID()
+        try autoreleasepool {
+            let coordinator = NSPersistentStoreCoordinator(managedObjectModel: previous)
+            try coordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: configuration, at: storeURL, options: nil)
+            let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+            context.persistentStoreCoordinator = coordinator
+            try context.performAndWait {
+                let occurrence = NSEntityDescription.insertNewObject(forEntityName: "Occurrence", into: context)
+                occurrence.setValue(identifier, forKey: "id")
+                occurrence.setValue("pending", forKey: "state")
+                try context.save()
+            }
+            for store in coordinator.persistentStores { try coordinator.remove(store) }
+        }
+
+        let current = try Self.currentModel()
+        let migrated = NSPersistentStoreCoordinator(managedObjectModel: current)
+        let currentConfiguration = current.configurations.first(where: {
+            current.entities(forConfigurationName: $0)?.contains(where: { $0.name == "Occurrence" }) == true
+        })
+        try migrated.addPersistentStore(
+            ofType: NSSQLiteStoreType,
+            configurationName: currentConfiguration,
+            at: storeURL,
+            options: [NSMigratePersistentStoresAutomaticallyOption: true, NSInferMappingModelAutomaticallyOption: true]
+        )
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = migrated
+        try context.performAndWait {
+            let request = NSFetchRequest<NSManagedObject>(entityName: "Occurrence")
+            request.predicate = NSPredicate(format: "id == %@", identifier as CVarArg)
+            let occurrence = try XCTUnwrap(try context.fetch(request).first)
+            XCTAssertNil(occurrence.value(forKey: "recordedValue"), "no amount was ever logged, so none may appear")
+            occurrence.setValue(NSNumber(value: 3), forKey: "recordedValue")
+            try context.save()
+            context.refresh(occurrence, mergeChanges: false)
+            XCTAssertEqual((occurrence.value(forKey: "recordedValue") as? NSNumber)?.doubleValue, 3)
+        }
+    }
+
     // MARK: - Store layout
 
     /// The app splits its data across two configurations and opens one store
