@@ -1,0 +1,342 @@
+{
+  "bodyMetric-compact-ipad-dark" : {
+    "liveHeight" : 104,
+    "previewHeight" : 104,
+    "width" : 391
+  },
+  "bodyMetric-compact-ipad-light" : {
+    "liveHeight" : 104,
+    "previewHeight" : 104,
+    "width" : 391
+  },
+  "bodyMetric-compact-iphone-dark" : {
+    "liveHeight" : 104,
+    "previewHeight" : 104,
+    "width" : 170.5
+  },
+  "bodyMetric-compact-iphone-light" : {
+    "liveHeight" : 104,
+    "previewHeight" : 104,
+    "width" : 170.5
+  },
+  "bodyMetric-wide-iphone-dark" : {
+    "liveHeight" : 187,
+    "previewHeight" : 187,
+    "width" : 353
+  },
+  "bodyMetric-wide-iphone-light" : {
+    "liveHeight" : 187,
+    "previewHeight" : 187,
+    "width" : 353
+  },
+  "care-compact-iphone-dark" : {
+    "liveHeight" : 104,
+    "previewHeight" : 104,
+    "width" : 170.5
+  },
+  "care-compact-iphone-light" : {
+    "liveHeight" : 104,
+    "previewHeight" : 104,
+    "width" : 170.5
+  },
+  "care-standard-ipad-dark" : {
+    "liveHeight" : 276.5,
+    "previewHeight" : 276.5,
+    "width" : 391
+  },
+  "care-standard-ipad-light" : {
+    "liveHeight" : 276.5,
+    "previewHeight" : 276.5,
+    "width" : 391
+  },
+  "care-standard-iphone-dark" : {
+    "liveHeight" : 394.5,
+    "previewHeight" : 394.5,
+    "width" : 170.5
+  },
+  "care-standard-iphone-light" : {
+    "liveHeight" : 394.5,
+    "previewHeight" : 394.5,
+    "width" : 170.5
+  },
+  "compactTimeline-wide-iphone-dark" : {
+    "liveHeight" : 203.5,
+    "previewHeight" : 203.5,
+    "width" : 353
+  },
+  "compactTimeline-wide-iphone-light" : {
+    "liveHeight" : 203.5,
+    "previewHeight" : 203.5,
+    "width" : 353
+  },
+  "evaConversation-wide-iphone-dark" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "evaConversation-wide-iphone-light" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "fasting-wide-iphone-dark" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "fasting-wide-iphone-light" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "focusNow-wide-iphone-dark" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "focusNow-wide-iphone-light" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "goals-standard-iphone-dark" : {
+    "liveHeight" : 225.5,
+    "previewHeight" : 225.5,
+    "width" : 170.5
+  },
+  "goals-standard-iphone-light" : {
+    "liveHeight" : 225.5,
+    "previewHeight" : 225.5,
+    "width" : 170.5
+  },
+  "journal-tall-ipad-dark" : {
+    "liveHeight" : 260,
+    "previewHeight" : 260,
+    "width" : 794
+  },
+  "journal-tall-ipad-light" : {
+    "liveHeight" : 260,
+    "previewHeight" : 260,
+    "width" : 794
+  },
+  "journal-tall-iphone-dark" : {
+    "liveHeight" : 260,
+    "previewHeight" : 260,
+    "width" : 353
+  },
+  "journal-tall-iphone-light" : {
+    "liveHeight" : 260,
+    "previewHeight" : 260,
+    "width" : 353
+  },
+  "journal-wide-iphone-dark" : {
+    "liveHeight" : 231.5,
+    "previewHeight" : 231.5,
+    "width" : 353
+  },
+  "journal-wide-iphone-light" : {
+    "liveHeight" : 231.5,
+    "previewHeight" : 231.5,
+    "width" : 353
+  },
+  "lifeMoment-standard-iphone-dark" : {
+    "liveHeight" : 197.5,
+    "previewHeight" : 197.5,
+    "width" : 170.5
+  },
+  "lifeMoment-standard-iphone-light" : {
+    "liveHeight" : 197.5,
+    "previewHeight" : 197.5,
+    "width" : 170.5
+  },
+  "lifeSnapshot-wide-ipad-dark" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 794
+  },
+  "lifeSnapshot-wide-ipad-light" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 794
+  },
+  "lifeSnapshot-wide-iphone-dark" : {
+    "liveHeight" : 231.5,
+    "previewHeight" : 231.5,
+    "width" : 353
+  },
+  "lifeSnapshot-wide-iphone-light" : {
+    "liveHeight" : 231.5,
+    "previewHeight" : 231.5,
+    "width" : 353
+  },
+  "logMeal-compact-iphone-dark" : {
+    "liveHeight" : 104,
+    "previewHeight" : 104,
+    "width" : 170.5
+  },
+  "logMeal-compact-iphone-light" : {
+    "liveHeight" : 104,
+    "previewHeight" : 104,
+    "width" : 170.5
+  },
+  "movement-standard-iphone-dark" : {
+    "liveHeight" : 195.5,
+    "previewHeight" : 195.5,
+    "width" : 170.5
+  },
+  "movement-standard-iphone-light" : {
+    "liveHeight" : 195.5,
+    "previewHeight" : 195.5,
+    "width" : 170.5
+  },
+  "nutritionSummary-wide-iphone-dark" : {
+    "liveHeight" : 187,
+    "previewHeight" : 187,
+    "width" : 353
+  },
+  "nutritionSummary-wide-iphone-light" : {
+    "liveHeight" : 187,
+    "previewHeight" : 187,
+    "width" : 353
+  },
+  "progressReflection-wide-iphone-dark" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "progressReflection-wide-iphone-light" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "quickCapture-compact-iphone-dark" : {
+    "liveHeight" : 104,
+    "previewHeight" : 104,
+    "width" : 170.5
+  },
+  "quickCapture-compact-iphone-light" : {
+    "liveHeight" : 104,
+    "previewHeight" : 104,
+    "width" : 170.5
+  },
+  "quickCapture-wide-iphone-dark" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "quickCapture-wide-iphone-light" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "recentMeal-wide-ipad-dark" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 794
+  },
+  "recentMeal-wide-ipad-light" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 794
+  },
+  "recentMeal-wide-iphone-dark" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "recentMeal-wide-iphone-light" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "routines-standard-iphone-dark" : {
+    "liveHeight" : 314,
+    "previewHeight" : 314,
+    "width" : 170.5
+  },
+  "routines-standard-iphone-light" : {
+    "liveHeight" : 314,
+    "previewHeight" : 314,
+    "width" : 170.5
+  },
+  "scheduleCapacity-wide-iphone-dark" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "scheduleCapacity-wide-iphone-light" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 353
+  },
+  "setupChecklist-standard-iphone-dark" : {
+    "liveHeight" : 241,
+    "previewHeight" : 241,
+    "width" : 170.5
+  },
+  "setupChecklist-standard-iphone-light" : {
+    "liveHeight" : 241,
+    "previewHeight" : 241,
+    "width" : 170.5
+  },
+  "sleep-standard-iphone-dark" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 170.5
+  },
+  "sleep-standard-iphone-light" : {
+    "liveHeight" : 178,
+    "previewHeight" : 178,
+    "width" : 170.5
+  },
+  "tasks-expanded-iphone-dark" : {
+    "liveHeight" : 444.5,
+    "previewHeight" : 444.5,
+    "width" : 353
+  },
+  "tasks-expanded-iphone-light" : {
+    "liveHeight" : 444.5,
+    "previewHeight" : 444.5,
+    "width" : 353
+  },
+  "tasks-standard-iphone-dark" : {
+    "liveHeight" : 477,
+    "previewHeight" : 477,
+    "width" : 170.5
+  },
+  "tasks-standard-iphone-light" : {
+    "liveHeight" : 477,
+    "previewHeight" : 477,
+    "width" : 170.5
+  },
+  "tasks-wide-ipad-dark" : {
+    "liveHeight" : 332.5,
+    "previewHeight" : 332.5,
+    "width" : 794
+  },
+  "tasks-wide-ipad-light" : {
+    "liveHeight" : 332.5,
+    "previewHeight" : 332.5,
+    "width" : 794
+  },
+  "tasks-wide-iphone-dark" : {
+    "liveHeight" : 332.5,
+    "previewHeight" : 332.5,
+    "width" : 353
+  },
+  "tasks-wide-iphone-light" : {
+    "liveHeight" : 332.5,
+    "previewHeight" : 332.5,
+    "width" : 353
+  },
+  "workout-standard-iphone-dark" : {
+    "liveHeight" : 179.5,
+    "previewHeight" : 179.5,
+    "width" : 170.5
+  },
+  "workout-standard-iphone-light" : {
+    "liveHeight" : 179.5,
+    "previewHeight" : 179.5,
+    "width" : 170.5
+  }
+}
