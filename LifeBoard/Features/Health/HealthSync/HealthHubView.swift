@@ -41,8 +41,12 @@ struct HealthHubView: View {
                     onLogWater: { showsWaterLog = true },
                     pulseTrigger: healthSyncPulseTrigger
                 )
-                HealthHubMovementSection(store: store, warpTrigger: vitalOrbWarpTrigger)
-                HealthHubHydrationSection(store: store, onLogWater: { showsWaterLog = true })
+                HealthHubMovementSection(store: store, warpTrigger: 0)
+                HealthHubHydrationSection(
+                    store: store,
+                    warpTrigger: vitalOrbWarpTrigger,
+                    onLogWater: { showsWaterLog = true }
+                )
                 HealthHubNutritionSection(store: store)
                 HealthHubFastingSection(suggestion: fastingSuggestionDate, source: fastingSuggestionSource)
                 HealthHubValuesSection(store: store)
@@ -82,7 +86,7 @@ struct HealthHubView: View {
         .onChange(of: store.lastSuccessfulSync) { oldValue, newValue in
             guard newValue != nil, newValue != oldValue else { return }
             healthSyncPulseTrigger &+= 1
-            HapticFeedback.success()
+            Haptic.commit.play()
         }
         .onChange(of: store.aggregates[.water]?.value) { _, newValue in
             guard let newValue, newValue >= 2_000,
@@ -90,7 +94,7 @@ struct HealthHubView: View {
                 return
             }
             vitalOrbWarpTrigger &+= 1
-            HapticFeedback.success()
+            Haptic.commit.play()
         }
         .sheet(item: $educationDomain) { domain in
             HealthConnectionSheet(context: .init(.health, from: .health))
