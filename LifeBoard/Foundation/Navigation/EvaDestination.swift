@@ -78,7 +78,7 @@ struct EvaDestination: View {
         .accessibilityIdentifier("foundation.eva")
         .task { await loadAuthorizedEvidence() }
         .task {
-            _ = await EvaCloudAccessCoordinator.shared.resumeConfirmedActivation(source: .evaEntry)
+            _ = await EvaCloudAccessCoordinator.shared.ensureActivated(source: .evaEntry)
         }
         .task {
             // The derived journal pipeline broadcasts after commits and
