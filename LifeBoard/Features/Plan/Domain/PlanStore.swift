@@ -336,7 +336,8 @@ final class PlanStore {
     /// `tasks` is sourced from `fetchOpenPlanningTasks()`, which filters on
     /// `isComplete == NO`, so a completed row leaves the list on reload. The
     /// caller animates that removal; the store does not delay the write for it.
-    func setCompletion(_ task: PlanningTaskSummary, to isComplete: Bool) async {
+    @discardableResult
+    func setCompletion(_ task: PlanningTaskSummary, to isComplete: Bool) async -> Bool {
         do {
             _ = try await commit(
                 .setTaskCompletion(taskID: task.id, before: !isComplete, after: isComplete),
@@ -344,7 +345,11 @@ final class PlanStore {
                 summary: isComplete ? "Completed \(task.title)" : "Reopened \(task.title)"
             )
             await load()
-        } catch { errorMessage = error.localizedDescription }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
     }
 
     func previewBulkPlan(_ taskIDs: Set<UUID>, on day: PlanningDay) {
@@ -558,6 +563,10 @@ final class PlanStore {
         value.updatedAt = Date()
         do {
             try await commit(.saveTimeBlock(before: block, after: value), source: "plan.block", summary: "Resized \(block.title)")
+            // `DESIGN.md`: persistence precedes success motion and haptics. The
+            // canvas plays `settle` when the finger lifts; the commit belongs
+            // here, where the write is known to have landed.
+            Haptic.commit.play()
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -570,6 +579,7 @@ final class PlanStore {
         value.updatedAt = Date()
         do {
             try await commit(.saveTimeBlock(before: block, after: value), source: "plan.block", summary: "Moved \(block.title)")
+            Haptic.commit.play()
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -736,6 +746,9 @@ final class PlanStore {
         }
     }
 
+    /// Returns whether a session is running afterwards, so callers can gate
+    /// commit haptics and navigation on the persisted outcome.
+    @discardableResult
     func startFocus(
         taskID: UUID?,
         timeBlockID: UUID?,
@@ -743,7 +756,7 @@ final class PlanStore {
         mode: FocusMode? = nil,
         intention: String = "",
         subtaskID: UUID? = nil
-    ) async {
+    ) async -> Bool {
         focusCommitPhase = .idle
         focusReflectionCommitPhase = .idle
         do {
@@ -791,11 +804,17 @@ final class PlanStore {
                 ))
                 await synchronizeFocusPresentation(activeFocusSession)
             }
-        } catch { errorMessage = error.localizedDescription }
+            return activeFocusSession != nil
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
     }
 
-    func pauseFocus() async { await sendFocusCommand(.pause) }
-    func resumeFocus() async { await sendFocusCommand(.resume) }
+    @discardableResult
+    func pauseFocus() async -> Bool { await sendFocusCommand(.pause) }
+    @discardableResult
+    func resumeFocus() async -> Bool { await sendFocusCommand(.resume) }
     func endFocus(outcome: FocusCompletionOutcome) async {
         guard activeFocusSession != nil else { return }
         focusCommitPhase = .running(progress: nil)
@@ -863,8 +882,9 @@ final class PlanStore {
         }
     }
 
-    func recordInterruption(reason: String? = nil) async {
-        guard let sessionID = activeFocusSession?.id else { return }
+    @discardableResult
+    func recordInterruption(reason: String? = nil) async -> Bool {
+        guard let sessionID = activeFocusSession?.id else { return false }
         if let focusCommands {
             do {
                 let commandID = UUID()
@@ -881,16 +901,17 @@ final class PlanStore {
                     commandID: commandID,
                     occurredAt: Date()
                 )
+                return true
             } catch {
                 errorMessage = error.localizedDescription
+                return false
             }
-            return
         }
         focusCompanion = try? await focusCompanionStore.recordInterruption(
             sessionID: sessionID,
             reason: reason
         )
-        await pauseFocus()
+        return await pauseFocus()
     }
 
     @discardableResult
