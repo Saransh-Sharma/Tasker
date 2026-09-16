@@ -65,6 +65,7 @@ struct PlanCapacityCard: View {
                 .accessibilityIdentifier("plan.capacity.makeItFit")
             }
         }
+        .homeAmbientArtwork(.scheduleCapacity)
         .foundationClayCard()
         .accessibilityIdentifier("plan.capacity")
     }
