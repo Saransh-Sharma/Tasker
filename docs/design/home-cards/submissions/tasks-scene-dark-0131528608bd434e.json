@@ -1,0 +1,31 @@
+{
+  "id": "tasks-scene-dark",
+  "appearance": "dark",
+  "requested_canvas_pixels": [
+    1024,
+    1024
+  ],
+  "card_rect_pixels": [
+    0,
+    0,
+    1024,
+    1024
+  ],
+  "final_export_pixels": [
+    1024,
+    1024
+  ],
+  "submitted_prompt": "Use case: precise-object-edit. Edit the attached LifeBoard Tasks production illustration. Preserve the sleeping cat, mug, candle, plant, indigo/gouache palette, painterly transparency, and original subject placement. Change ONLY the notebook paper: remove every drawn checklist circle and every horizontal checklist line so the notebook pages are blank paper with no marks or symbols. Keep the notebook binding and pen. No text, numbers, charts, UI chrome, controls, progress, or completion marks anywhere. Canonical transparent output: 1024×1024 PNG with genuine alpha. Visible paint stays within x=384..960 and y=128..896, leaving x=0..352 fully transparent; preserve soft edges and at least 64-pixel edge clearance. Preserve proportional composition, never stretch. This depicts purpose only, never user data. Output belongs to DesignAssets/Sources/HomeCards/tasks-scene-dark.png; preserve prior originals as revisions.",
+  "references": [
+    {
+      "name": "Current Tasks dark scene — edit target",
+      "path": "DesignAssets/Sources/HomeCards/tasks-scene-dark.png",
+      "sha256": "3dcb733cfe0bcd096d221cac7a1bb7e93049cb99d63322907e4945cf2aec89f8",
+      "role": "Preserve every subject, palette, texture and placement except notebook markings."
+    }
+  ],
+  "specification_sha256": "00c406b05f85fe882375a231780533991c76f04217c73768c4d4276a789d59fc",
+  "prepared_at": "2026-09-15T19:34:29.743025+00:00",
+  "revision_reason": "Remove previously missed checklist symbols from production notebook; preserve all other artwork.",
+  "design_revision": "ambient-v1"
+}
