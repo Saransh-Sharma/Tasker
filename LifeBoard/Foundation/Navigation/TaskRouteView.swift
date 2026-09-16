@@ -10,6 +10,9 @@ struct TaskRouteView: View {
     let router: AppRouter
     @State private var store: TaskEditorStore
     @State private var confirmsDelete = false
+    @State private var expandedFields: Set<String> = []
+    @State private var dismissedReceiptID: UUID?
+    @FocusState private var textFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(id: UUID, dependencies: PlanFeatureDependencies, router: AppRouter) {
@@ -46,15 +49,6 @@ struct TaskRouteView: View {
         .navigationTitle("Task")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { Task { _ = await store.save() } }
-                    .disabled(store.hasUnsavedChanges == false && {
-                        if case .failed = store.mutationState { return false }
-                        return true
-                    }())
-                    .keyboardShortcut("s", modifiers: .command)
-                    .accessibilityIdentifier("task.editor.save.toolbar")
-            }
             ToolbarItem(placement: .secondaryAction) {
                 Menu {
                     Button("Open in Plan", systemImage: "calendar") { router.select(.plan) }
@@ -74,50 +68,49 @@ struct TaskRouteView: View {
             }
         }
         .task(id: id) { await load() }
+        .onChange(of: store.draft) { old, new in
+            var previous = old
+            previous.title = new.title
+            previous.details = new.details
+            store.scheduleAutosave(textOnly: previous == new)
+        }
+        .onChange(of: textFocused) { _, focused in
+            if !focused { Task { await store.flushAutosave() } }
+        }
+        .onDisappear { Task { await store.flushAutosave() } }
         .safeAreaInset(edge: .bottom) {
             if store.loadState == .ready {
                 VStack(spacing: 8) {
-                    CommitControl(
-                        title: "Save task",
-                        runningTitle: "Saving task",
-                        successTitle: "Task saved",
-                        phase: store.commitPhase,
-                        isEnabled: store.hasUnsavedChanges || {
-                            if case .failed = store.mutationState { return true }
-                            return false
-                        }()
-                    ) {
-                        Task { _ = await store.save() }
-                    }
-                    .accessibilityIdentifier("task.editor.save")
-
-                    if let receipt = store.activeReceipt {
+                    // Autosave is quiet while it works: a spinner on every pause
+                    // in typing made the editor flicker. Only a failure speaks up,
+                    // and it keeps the person's text and offers the retry.
+                    if case .failed(let message) = store.mutationState {
                         HStack(spacing: 12) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
-                            Text("Task updated")
-                                .font(.subheadline.weight(.semibold))
-                            Spacer()
-                            Button("Undo") { Task { await store.undo() } }
-                                .font(.subheadline.weight(.bold))
+                            Text(message)
+                                .lifeboardFont(.support)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Button("Retry") { Task { await store.flushAutosave() } }
+                                .lifeboardFont(.buttonSmall)
+                                .frame(minHeight: 44)
                         }
                         .padding(.horizontal, 16)
-                        .frame(minHeight: 52)
-                        .lifeBoardClaySurface(.floating, cornerRadius: Radius.pill)
-                        .transition(
-                            reduceMotion
-                                ? .opacity
-                                : .asymmetric(
-                                    insertion: .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity),
-                                    removal: .opacity
-                                )
+                        .lifeBoardClaySurface(.floating, cornerRadius: Radius.card)
+                    }
+                    if let receipt = store.activeReceipt, receipt.id != dismissedReceiptID {
+                        // One bar that updates in place as edits save, on the
+                        // shared receipt so Undo behaves as it does everywhere.
+                        ReceiptBar(
+                            ActionReceiptPresentation(id: receipt.id, message: "Task updated"),
+                            undo: { Task { await store.undo() } },
+                            destination: nil,
+                            onDismiss: { dismissedReceiptID = receipt.id }
                         )
-                        .animation(LifeBoardAnimation.contentInsertion, value: receipt.id)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
+                .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: store.activeReceipt?.id)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
-                .background(Color(SemanticColorTokens.foundationSurfaceRaised))
             }
         }
         .confirmationDialog(
@@ -141,10 +134,11 @@ struct TaskRouteView: View {
         @Bindable var editor = store
         return ScrollView {
             VStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 16) {
                     TextField("What needs doing?", text: $editor.draft.title, axis: .vertical)
                         .font(.title2.weight(.semibold))
                         .textInputAutocapitalization(.sentences)
+                        .focused($textFocused)
                         .accessibilityIdentifier("task.editor.title")
                     TextField(
                         "Notes, links, or the useful context future-you will need",
@@ -155,12 +149,48 @@ struct TaskRouteView: View {
                         axis: .vertical
                     )
                     .lineLimit(3...10)
+                    .focused($textFocused)
                     .accessibilityIdentifier("task.editor.notes")
                 }
                 .taskEditorSurface()
 
-                VStack(alignment: .leading, spacing: 16) {
-                    TaskEditorControls.header("Shape the work", symbol: "slider.horizontal.3")
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(TaskEditorChipCopy.fields, id: \.self) { field in
+                            let value = TaskEditorChipCopy.value(
+                                for: field,
+                                draft: editor.draft,
+                                projectName: editor.projects.first { $0.id == editor.draft.projectID }?.name,
+                                tagNames: editor.tags.filter { editor.draft.tagIDs.contains($0.id) }.map(\.name)
+                            )
+                            Button {
+                                Haptic.pick.play()
+                                withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
+                                    if expandedFields.contains(field) { expandedFields.remove(field) }
+                                    else { expandedFields.insert(field) }
+                                }
+                            } label: {
+                                // A chip with a value reads the value ("Fri 3 PM");
+                                // an empty one names the field it would add.
+                                Label(value ?? field, systemImage: value == nil ? "plus" : TaskEditorChipCopy.symbol(for: field))
+                                    .foregroundStyle(Color(value == nil ? SemanticColorTokens.inkSecondary : SemanticColorTokens.inkPrimary))
+                            }
+                            .buttonStyle(.lifeBoardChip)
+                            .accessibilityLabel(value.map { "\(field), \($0)" } ?? "Add \(field.lowercased())")
+                            .accessibilityIdentifier("task.editor.chip.\(field.lowercased())")
+                        }
+                    }
+                }
+                if expandedFields.contains("When") || editor.planning.planningDay != nil || editor.draft.scheduledStartAt != nil {
+                    TaskWhenEditor(store: editor)
+                }
+                if expandedFields.contains("Deadline") || editor.draft.dueDate != nil {
+                    TaskEditorControls.optionalDate("Deadline", value: $editor.draft.dueDate)
+                }
+                if expandedFields.contains("Duration") || editor.draft.estimatedDuration != nil {
+                    estimateControl(editor: $editor)
+                }
+                if expandedFields.contains("Project") || editor.draft.projectID != ProjectConstants.inboxProjectID {
                     Picker("Project", selection: $editor.draft.projectID) {
                         ForEach(editor.projects, id: \.id) { project in
                             Text(project.name).tag(project.id)
@@ -177,6 +207,26 @@ struct TaskRouteView: View {
                             editor.draft.sectionID = nil
                         }
                     }
+                }
+                if expandedFields.contains("Priority") || editor.draft.priority != .low {
+                    LabeledContent("Priority") {
+                        Picker("Priority", selection: $editor.draft.priority) {
+                            ForEach(TaskPriority.allCases, id: \.self) {
+                                Text($0.displayName).tag($0)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+                }
+                if expandedFields.contains("Tags") || !editor.draft.tagIDs.isEmpty {
+                    TaskEditorRelationsSection(editor: editor, tagsOnly: true)
+                }
+                if expandedFields.contains("Repeat") || editor.draft.repeatPattern != nil {
+                    TaskEditorRecurrenceSection(editor: editor)
+                }
+                DisclosureGroup("More") {
+                VStack(alignment: .leading, spacing: 16) {
+                    TaskEditorControls.header("Shape the work", symbol: "slider.horizontal.3")
                     Picker(
                         "Section",
                         selection: Binding(
@@ -210,14 +260,6 @@ struct TaskRouteView: View {
                     }
                     .disabled(editor.lifeAreas.isEmpty)
                     .accessibilityIdentifier("task.editor.life-area")
-                    LabeledContent("Priority") {
-                        Picker("Priority", selection: $editor.draft.priority) {
-                            ForEach(TaskPriority.allCases, id: \.self) {
-                                Text($0.displayName).tag($0)
-                            }
-                        }
-                        .labelsHidden()
-                    }
                     LabeledContent("Energy") {
                         Picker("Energy", selection: $editor.draft.energy) {
                             ForEach(TaskEnergy.allCases, id: \.self) {
@@ -234,13 +276,12 @@ struct TaskRouteView: View {
                         }
                         .labelsHidden()
                     }
-                    estimateControl(editor: $editor)
+
                 }
                 .taskEditorSurface()
 
-                dateAndPlanning(editor: $editor)
-                TaskEditorRecurrenceSection(editor: editor)
-                TaskEditorRelationsSection(editor: editor)
+                TaskEditorRelationsSection(editor: editor, showsTags: false)
+                }
 
                 Toggle(isOn: Binding(
                     get: { editor.draft.isComplete },
@@ -274,68 +315,6 @@ struct TaskRouteView: View {
         .background(Color(SemanticColorTokens.foundationSurfaceSolid).ignoresSafeArea())
     }
 
-    private func dateAndPlanning(editor: Bindable<TaskEditorStore>) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            TaskEditorControls.header("Place it gently", symbol: "calendar")
-            TaskEditorControls.optionalDate(
-                "Deadline",
-                value: Binding(
-                    get: { editor.wrappedValue.draft.dueDate },
-                    set: { editor.wrappedValue.draft.dueDate = $0 }
-                )
-            )
-            TaskEditorControls.optionalPlanningDay(
-                "Start day",
-                value: Binding(
-                    get: { editor.wrappedValue.planning.startDay },
-                    set: { editor.wrappedValue.planning.startDay = $0 }
-                )
-            )
-            TaskEditorControls.optionalPlanningDay(
-                "Planned day",
-                value: Binding(
-                    get: { editor.wrappedValue.planning.planningDay },
-                    set: { editor.wrappedValue.planning.planningDay = $0 }
-                )
-            )
-            TaskEditorControls.optionalDate(
-                "Scheduled start",
-                value: Binding(
-                    get: { editor.wrappedValue.draft.scheduledStartAt },
-                    set: { newValue in
-                        editor.wrappedValue.draft.scheduledStartAt = newValue
-                        if let newValue, editor.wrappedValue.draft.scheduledEndAt == nil {
-                            editor.wrappedValue.draft.scheduledEndAt = newValue.addingTimeInterval(
-                                editor.wrappedValue.draft.estimatedDuration ?? 30 * 60
-                            )
-                        }
-                    }
-                ),
-                components: [.date, .hourAndMinute]
-            )
-            TaskEditorControls.optionalDate(
-                "Scheduled end",
-                value: Binding(
-                    get: { editor.wrappedValue.draft.scheduledEndAt },
-                    set: { editor.wrappedValue.draft.scheduledEndAt = $0 }
-                ),
-                components: [.date, .hourAndMinute]
-            )
-            if let start = editor.wrappedValue.draft.scheduledStartAt,
-               let end = editor.wrappedValue.draft.scheduledEndAt,
-               end <= start {
-                Label(
-                    "Scheduled end must be after the start.",
-                    systemImage: "exclamationmark.triangle"
-                )
-                .font(.caption)
-                .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
-                .accessibilityIdentifier("task.editor.schedule-error")
-            }
-        }
-        .taskEditorSurface()
-    }
-
     private func estimateControl(editor: Bindable<TaskEditorStore>) -> some View {
         let minutes = Int((editor.wrappedValue.draft.estimatedDuration ?? 0) / 60)
         return HStack {
@@ -365,5 +344,96 @@ struct TaskRouteView: View {
 
     private func load() async {
         await store.load()
+    }
+}
+
+private struct TaskWhenEditor: View {
+    @Bindable var store: TaskEditorStore
+    private var date: Date {
+        store.draft.scheduledStartAt ?? store.planning.planningDay?.startDate(calendar: .current) ?? Date()
+    }
+    private var mode: Int {
+        store.draft.scheduledStartAt != nil ? 2 : (store.planning.planningDay != nil ? 1 : 0)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("When", selection: Binding(get: { mode }, set: { value in
+                let start = store.draft.scheduledStartAt ?? TaskWhenSelection.defaultStart(on: date)
+                store.draft = (value == 0 ? TaskWhenSelection.anytime : value == 1 ? .day(date) : .timed(start)).applying(to: store.draft)
+            })) {
+                Text("Anytime").tag(0)
+                Text("Day").tag(1)
+                Text("Day + time").tag(2)
+            }.pickerStyle(.segmented)
+            if mode != 0 {
+                DatePicker("When", selection: Binding(get: { date }, set: { value in
+                    store.draft = (mode == 2 ? TaskWhenSelection.timed(value) : .day(value)).applying(to: store.draft)
+                }), displayedComponents: mode == 2 ? [.date, .hourAndMinute] : [.date])
+            }
+        }
+        .accessibilityIdentifier("task.editor.when")
+    }
+}
+
+/// What each chip in the task editor says. Pure so the wording is tested.
+enum TaskEditorChipCopy {
+    static let fields = ["When", "Deadline", "Duration", "Project", "Tags", "Priority", "Repeat"]
+
+    static func value(
+        for field: String,
+        draft: TaskEditorDraft,
+        projectName: String?,
+        tagNames: [String],
+        calendar: Calendar = .current,
+        now: Date = Date()
+    ) -> String? {
+        switch field {
+        case "When":
+            if let start = draft.scheduledStartAt {
+                return "\(dayLabel(start, calendar: calendar, now: now)) \(start.formatted(date: .omitted, time: .shortened))"
+            }
+            if let day = draft.planning.planningDay?.startDate(calendar: calendar) {
+                return dayLabel(day, calendar: calendar, now: now)
+            }
+            return nil
+        case "Deadline":
+            return draft.dueDate.map { "Due \(dayLabel($0, calendar: calendar, now: now))" }
+        case "Duration":
+            guard let seconds = draft.estimatedDuration, seconds > 0 else { return nil }
+            let minutes = Int((seconds / 60).rounded())
+            return minutes < 60 ? "\(minutes)m" : (minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(minutes % 60)m")
+        case "Project":
+            guard draft.projectID != ProjectConstants.inboxProjectID else { return nil }
+            return projectName
+        case "Tags":
+            guard let first = tagNames.sorted().first else { return nil }
+            return tagNames.count == 1 ? "#\(first)" : "#\(first) +\(tagNames.count - 1)"
+        case "Priority":
+            return draft.priority == .low ? nil : draft.priority.displayName
+        case "Repeat":
+            return draft.repeatPattern == nil ? nil : "Repeats"
+        default:
+            return nil
+        }
+    }
+
+    static func symbol(for field: String) -> String {
+        switch field {
+        case "When": "calendar"
+        case "Deadline": "flag"
+        case "Duration": "hourglass"
+        case "Project": "folder"
+        case "Tags": "number"
+        case "Priority": "exclamationmark"
+        default: "repeat"
+        }
+    }
+
+    private static func dayLabel(_ date: Date, calendar: Calendar, now: Date) -> String {
+        if calendar.isDate(date, inSameDayAs: now) { return "Today" }
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(date, inSameDayAs: tomorrow) {
+            return "Tomorrow"
+        }
+        return date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
     }
 }
