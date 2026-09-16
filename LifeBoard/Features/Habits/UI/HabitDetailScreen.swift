@@ -87,7 +87,17 @@ struct HabitDetailScreen: View {
         }
         .onChange(of: viewModel.mutationFeedback) { _, feedback in
             guard let feedback else { return }
-            snackbar = SnackbarData(message: feedback.message, autoDismissSeconds: 2)
+            // Undo is offered while it is actually possible, and a snackbar
+            // that carries it no longer dismisses itself out from under the
+            // reader.
+            snackbar = SnackbarData(
+                message: feedback.message,
+                actions: viewModel.undoableDayCell == nil ? [] : [
+                    SnackbarAction(title: "Undo") {
+                        viewModel.undoLastDayMutation()
+                    }
+                ]
+            )
             playMutationHaptic(feedback.haptic)
             viewModel.clearMutationFeedback()
         }
@@ -853,14 +863,14 @@ private struct HabitMetricGrid: View {
     private var metricTiles: some View {
         HabitMetricTile(
             title: "Current",
-            subtitle: "Active",
+            subtitle: "Active streak",
             value: metrics.currentStreakDisplay,
             valueColor: accentColor,
             accessibilityIdentifier: HabitDetailAccessibilityID.currentStreakMetric
         )
         HabitMetricTile(
             title: "Longest",
-            subtitle: "Active",
+            subtitle: "Best run so far",
             value: metrics.bestStreakDisplay,
             valueColor: Color.lifeboard.textPrimary,
             accessibilityIdentifier: HabitDetailAccessibilityID.bestStreakMetric
@@ -911,12 +921,12 @@ private struct HabitMetricTile: View {
                 .minimumScaleFactor(0.78)
                 .contentTransition(.numericText())
 
-            Text(title.uppercased())
+            Text(title)
                 .font(.lifeboard(.meta))
                 .foregroundStyle(Color.lifeboard.textSecondary)
                 .lineLimit(1)
 
-            Text(subtitle.uppercased())
+            Text(subtitle)
                 .font(.lifeboard(.meta))
                 .foregroundStyle(Color.lifeboard.textSecondary)
                 .lineLimit(1)
