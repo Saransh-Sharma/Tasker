@@ -127,6 +127,14 @@ struct OverdueRescueDeckView: View {
                 .accessibilityAction(named: Text("Edit")) {
                     viewModel.requestEdit()
                 }
+                // The label announced "Delete" while no such action existed, so
+                // VoiceOver named a way out that could not be taken. It goes to
+                // the same confirmation the button does — `DESIGN.md`: every
+                // gesture has a VoiceOver action, and destructive outcomes are
+                // confirmed.
+                .accessibilityAction(named: Text("Delete")) {
+                    viewModel.requestDelete()
+                }
 
                 OverdueRescueSwipeHint(
                     reveal: drag.reveal,
@@ -285,6 +293,9 @@ struct OverdueRescueDeckView: View {
         // deck reads as having gone somewhere rather than just re-rendered.
         triageSettleDirection = action == .keepToday ? 1 : -1
         triageSettleTrigger &+= 1
+        // The commit runs when the card's exit animation actually finishes,
+        // rather than on a hard-coded 0.20s timer racing it. Plan's repair deck
+        // already works this way.
         withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.panelOut) {
             switch action {
             case .keepToday:
@@ -294,8 +305,7 @@ struct OverdueRescueDeckView: View {
             case .edit, .delete:
                 commitOffset = .zero
             }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.01 : 0.20)) {
+        } completion: {
             commitOffset = .zero
             switch action {
             case .keepToday: viewModel.keepToday(source: .swipe)
