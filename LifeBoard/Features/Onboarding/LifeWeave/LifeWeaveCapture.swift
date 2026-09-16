@@ -1,9 +1,18 @@
 import Foundation
 
+/// What the capture step needs from a resolver: one sentence in, one
+/// interpretation out. `UniversalInputCoordinator` is the production answer;
+/// tests substitute one they can hold open and release on cue.
+protocol LifeWeaveCaptureResolving: Sendable {
+    func resolve(_ input: LifeThreadIntentInput) async -> LifeThreadIntentResolution
+}
+
+extension UniversalInputCoordinator: LifeWeaveCaptureResolving {}
+
 /// The first real thing the user gives LifeBoard.
 ///
 /// Two rules govern this whole surface. Nothing is written until the user says
-/// "Keep this" — classification proposes, it never commits. And when the
+/// "Save" — classification proposes, it never commits. And when the
 /// interpretation is genuinely uncertain, the user is *asked* rather than
 /// guessed at, because a first capture that silently lands in the wrong place is
 /// a worse introduction than one extra tap.
@@ -26,27 +35,50 @@ extension LifeWeaveOnboardingModel {
     /// one of them is a lie.
     static let offeredCaptureKinds: [LifeMapCaptureKind] = [.task, .journal]
 
-    /// Whether the interpretation needs the user to choose.
-    var captureNeedsDisambiguation: Bool {
-        draft.stagedCapture?.isReviewed == false && isCaptureAmbiguous
-    }
-
     /// Classifies the typed sentence and stages a **proposal**.
     ///
     /// Never sets `isReviewed`. The staged capture is a suggestion the review
     /// card renders; only `keepCapture` promotes it to something the commit will
     /// write.
+    ///
+    /// One interpretation per sentence: if the same text is already with the
+    /// resolver, this joins that pass instead of starting a second, so Save
+    /// pressed during the pause cannot race the pause. A pass whose sentence
+    /// has been edited since it started is discarded when it returns.
     func resolveCapture() async {
         let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text.isEmpty == false else { return }
+        if let inFlight = captureResolution, inFlight.text == text {
+            await inFlight.task.value
+            return
+        }
+        let generation = captureEditGeneration
         isResolvingCapture = true
         errorMessage = nil
         isCaptureAmbiguous = false
-        defer { isResolvingCapture = false }
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performCaptureResolution(text: text, generation: generation)
+        }
+        captureResolution = (text, task)
+        await task.value
+        // Only the latest pass owns the spinner. An older one that finishes after
+        // a newer started must not switch it off underneath the newer.
+        if captureResolution?.text == text {
+            captureResolution = nil
+            isResolvingCapture = false
+        }
+    }
 
-        let resolution = await universalInput.resolve(
+    private func performCaptureResolution(text: String, generation: Int) async {
+        let resolution = await captureResolver.resolve(
             LifeThreadIntentInput(text: text, destination: .home)
         )
+        // The sentence moved on while the resolver was thinking: this answer is
+        // about text that is no longer on screen.
+        guard generation == captureEditGeneration else { return }
+        // A late proposal never demotes something the user already kept.
+        if let staged = draft.stagedCapture, staged.isReviewed, staged.text == text { return }
 
         let kind: LifeMapCaptureKind
         switch resolution {
@@ -82,11 +114,64 @@ extension LifeWeaveOnboardingModel {
                 isReviewed: false
             )
         )
-        feedback.medium()
     }
 
-    /// The user corrected or confirmed the interpretation. Still not written —
-    /// the commit does that, at the end of the flow.
+    /// Interprets while the user types, instead of behind a button.
+    ///
+    /// "Make sense of this" was a tap that existed only because the model could
+    /// not listen. Now a pause in typing is the request: the proposal appears
+    /// under the field, and Save is available from the first character. Each
+    /// edit cancels the pending pass, so a fast typist triggers one resolution,
+    /// not one per keystroke. A pass already with the resolver is not cancelled;
+    /// `resolveCapture` discards its result if the text has changed by then.
+    func scheduleCaptureInterpretation(after delay: Duration = .milliseconds(600)) {
+        captureInterpretationTask?.cancel()
+        let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.isEmpty == false else {
+            if draft.stagedCapture?.isReviewed == false { setStagedCapture(nil) }
+            isCaptureAmbiguous = false
+            // Whatever is still with the resolver is answering a sentence that
+            // no longer exists; its result is discarded by generation, and the
+            // spinner must not wait for it.
+            captureResolution = nil
+            isResolvingCapture = false
+            return
+        }
+        // Already interpreted this exact sentence: nothing to redo, and the
+        // user's own Task/Journal choice must not be overwritten.
+        if draft.stagedCapture?.text == text { return }
+        captureInterpretationTask = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard Task.isCancelled == false else { return }
+            await self?.resolveCapture()
+        }
+    }
+
+    /// The user changed the proposed kind. Still a proposal until Save.
+    func chooseCaptureKind(_ kind: LifeMapCaptureKind) {
+        mutateDraft { $0.stagedCapture?.kind = kind }
+        isCaptureAmbiguous = false
+        feedback.selection()
+    }
+
+    /// Save: one action, whatever state interpretation is in.
+    ///
+    /// If the pause has not happened yet, the sentence is interpreted now and
+    /// saved as whatever that proposes — the kind control was visible the whole
+    /// time, so the user has not been denied a choice, only spared a wait.
+    func saveCapture() async {
+        captureInterpretationTask?.cancel()
+        let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.isEmpty == false else { return }
+        if draft.stagedCapture?.text != text {
+            await resolveCapture()
+        }
+        guard let staged = draft.stagedCapture else { return }
+        keepCapture(kind: staged.kind, areaTemplateID: staged.lifeAreaTemplateID)
+    }
+
+    /// The user confirmed the interpretation. Still not written — the commit
+    /// does that, at the end of the flow.
     func keepCapture(kind: LifeMapCaptureKind, areaTemplateID: String?) {
         mutateDraft { draft in
             draft.stagedCapture?.kind = kind
@@ -95,12 +180,6 @@ extension LifeWeaveOnboardingModel {
         }
         isCaptureAmbiguous = false
         feedback.medium()
-    }
-
-    /// Back to editing, with the text intact.
-    func reopenCapture() {
-        mutateDraft { $0.stagedCapture?.isReviewed = false }
-        feedback.light()
     }
 
     /// Which of the user's own areas the sentence seems to belong to.
