@@ -24,6 +24,8 @@ struct LifeMapOnboardingView: View {
     @State private var cardMorphTrigger = 0
     @State private var completionTrigger = 0
     @State private var showTuneSheet = false
+    @State private var healthOperation: UUID?
+    @State private var healthAuthorizationFailed = false
     @State private var evaAccount = EvaCloudAccountState.shared
     @State private var evaIsWorking = false
     @State private var evaErrorMessage: String?
@@ -84,6 +86,7 @@ struct LifeMapOnboardingView: View {
             model.feedback.prepare()
         }
         .onChange(of: model.step) { old, new in
+            if old == .health { healthOperation = nil }
             cardMorphTrigger += 1
             // Fires only on the transition *into* reveal, and only after
             // `assemble()` has committed — celebration must follow persistence,
@@ -104,15 +107,16 @@ struct LifeMapOnboardingView: View {
             refreshContentSafeAreaInsets()
         }
         .task(id: model.step) {
-            if model.step == .eva, (try? await EvaCloudSessionStore.shared.load()) != nil {
-                await evaAccount.refresh()
-                evaGrants = Set(evaAccount.consent?.grants ?? [])
+            if model.step == .eva {
+                evaGrants = EvaCloudAccessCoordinator.shared.selectedGrants
+                ensureCloudEva()
             }
             if model.step == .firstWin {
                 await model.prepareEvaHandoff()
             }
         }
         .onDisappear {
+            healthOperation = nil
             evaActivationTask?.cancel()
             evaActivationTask = nil
         }
@@ -273,13 +277,9 @@ struct LifeMapOnboardingView: View {
         case .health:
             LifeMapHealthStep(
                 isConnected: model.isGranted(.appleHealth),
-                isBusy: model.permissionInFlight != nil,
-                writableDomains: model.writableHealthDomains,
-                writeBackDomainIDs: model.draft.healthWriteBackDomainIDs,
-                onConnect: { Task { await model.requestPermission(.appleHealth) } },
-                onToggleWriteBack: { domain, enabled in
-                    Task { await model.setHealthWriteBack(enabled, for: domain) }
-                },
+                isBusy: healthOperation != nil,
+                authorizationFailed: healthAuthorizationFailed,
+                onConnect: requestHealthAccess,
                 onSkip: { model.deferPermission(.appleHealth) }
             )
         case .reminders:
@@ -293,13 +293,13 @@ struct LifeMapOnboardingView: View {
         case .eva:
             LifeMapEvaStep(
                 isAuthenticated: evaAccount.isAuthenticated,
-                isAdultEligible: evaAccount.isAdultEligible,
                 isCloudReady: evaAccount.canUseCloud,
                 isWorking: evaIsWorking,
                 progressCaption: evaAccount.activationStage.progressCaption,
                 errorMessage: evaErrorMessage,
                 selectedGrants: evaGrants,
                 onToggleGrant: toggleEvaGrant,
+                onRetry: ensureCloudEva,
                 onChooseOffline: chooseOfflineEva
             )
         case .tour:
@@ -353,10 +353,7 @@ extension LifeMapOnboardingView {
         case .capture: "Connect it"
         case .reveal: "Show me around"
         case .calendar, .health, .reminders: "Continue"
-        case .eva:
-            if evaIsWorking { "Connecting…" }
-            else if evaAccount.canUseCloud { "Continue" }
-            else { "Continue with Cloud EVA" }
+        case .eva: "Continue"
         case .tour: tourIndex + 1 < Destination.allCases.count ? "Next" : "Meet EVA"
         case .firstWin: evaAccount.canUseCloud ? "Open EVA" : "Go to LifeBoard"
         default: "Continue"
@@ -381,7 +378,7 @@ extension LifeMapOnboardingView {
         case .friction: model.draft.frictionIDs.isEmpty
         case .lifeAreas: model.draft.isLifeAreaSelectionValid == false
         case .capture: model.draft.isCaptureResolved == false
-        case .eva: evaIsWorking
+        case .eva: false
         default: false
         }
     }
@@ -389,14 +386,9 @@ extension LifeMapOnboardingView {
     private func performPrimary() {
         switch model.step {
         case .eva:
-            // Signing in is the primary action only until it has succeeded;
-            // after that the primary simply moves on, so a connected user is
-            // never invited to re-run an activation that spends an exchange.
-            if evaAccount.canUseCloud {
-                advance()
-            } else {
-                enableCloudEva()
-            }
+            // Activation starts as soon as this step appears. The onboarding
+            // path stays usable while it runs, so this button only advances.
+            advance()
         case .tour:
             if tourIndex + 1 < Destination.allCases.count {
                 tourIndex += 1
@@ -432,7 +424,21 @@ extension LifeMapOnboardingView {
         }
     }
 
-    private func enableCloudEva() {
+    private func requestHealthAccess() {
+        guard healthOperation == nil else { return }
+        let operation = UUID()
+        healthOperation = operation
+        healthAuthorizationFailed = false
+        Task { @MainActor in
+            let outcome = await HealthCoordinator.shared.connectionStore.connectReadOnly()
+            guard healthOperation == operation, model.step == .health else { return }
+            healthOperation = nil
+            if outcome == .failed { healthAuthorizationFailed = true }
+            else { advance() }
+        }
+    }
+
+    private func ensureCloudEva() {
         guard evaIsWorking == false else { return }
         evaIsWorking = true
         evaErrorMessage = nil
@@ -443,18 +449,13 @@ extension LifeMapOnboardingView {
                 evaIsWorking = false
                 evaActivationTask = nil
             }
-            do {
-                try await evaAccount.activateCloud(
-                    grants: evaGrants.sorted { $0.rawValue < $1.rawValue }
-                )
-                if let readinessError = evaAccount.readinessError() { throw readinessError }
+            let ready = await EvaCloudAccessCoordinator.shared.ensureActivated(source: .onboarding)
+            guard !Task.isCancelled else { return }
+            if ready {
+                evaGrants = EvaCloudAccessCoordinator.shared.selectedGrants
                 model.feedback.successSignature()
-            } catch is CancellationError {
-                evaErrorMessage = nil
-            } catch let error as ASAuthorizationError where error.code == .canceled {
-                evaErrorMessage = "Sign in was cancelled. You can try again or finish later."
-            } catch {
-                evaErrorMessage = Self.activationMessage(for: error)
+            } else if let message = EvaCloudAccessCoordinator.shared.errorMessage {
+                evaErrorMessage = message
             }
         }
     }
@@ -486,8 +487,13 @@ extension LifeMapOnboardingView {
         guard evaIsWorking == false else { return }
         var replacement = evaGrants
         if enabled { replacement.insert(grant) } else { replacement.remove(grant) }
-        guard let policy = evaAccount.consent else {
+        guard evaAccount.consent != nil else {
             evaGrants = replacement
+            EvaCloudAccessCoordinator.shared.selectedGrants = replacement
+            EvaCloudActivationRecordStore.save(
+                grants: replacement,
+                origin: .userSelection
+            )
             return
         }
         evaIsWorking = true
@@ -497,11 +503,15 @@ extension LifeMapOnboardingView {
                 evaActivationTask = nil
             }
             do {
-                let updated = try await EvaCloudTransport.shared.updateConsent(
-                    expectedRevision: policy.revision,
+                let updated = try await evaAccount.updateConsent(
                     grants: replacement.sorted { $0.rawValue < $1.rawValue }
                 )
-                await evaAccount.refresh()
+                EvaCloudActivationRecordStore.save(
+                    grants: Set(updated.grants),
+                    origin: .userSelection,
+                    lastServerConsentRevision: updated.revision
+                )
+                EvaCloudAccessCoordinator.shared.selectedGrants = Set(updated.grants)
                 evaGrants = Set(updated.grants)
             } catch is CancellationError {
                 evaErrorMessage = nil
@@ -514,6 +524,7 @@ extension LifeMapOnboardingView {
 
     private func chooseOfflineEva() {
         Task {
+            EvaCloudAccessCoordinator.shared.selectOffline()
             await model.chooseOfflineEva()
             model.skipToClosing()
         }
