@@ -1356,8 +1356,23 @@ final class HomeUITestWorkspaceSeeder {
                         cadence: .daily()
                     )
                 ]
+                // Amount habits are opt-in so the board tests that count rows
+                // and cycle check-ins keep their three-habit workspace.
+                let amountRequests = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_HABIT_AMOUNTS") ? [
+                    CreateHabitRequest(
+                        title: "Water",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+                        colorHex: HabitColorFamily.blue.canonicalHex,
+                        targetConfig: HabitTargetConfig(target: .quantitative(value: 8, unit: "glasses")),
+                        cadence: .daily()
+                    )
+                ] : []
 
-                for request in requests {
+                for request in requests + amountRequests {
                     _ = try await createHabit.executeAsync(request: request)
                 }
             } catch {
