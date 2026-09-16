@@ -463,6 +463,12 @@ final class WriteClosedOccurrenceRepositoryAdapter: OccurrenceRepositoryProtocol
             self.base.deleteOccurrences(ids: ids, completion: completion)
         }
     }
+
+    func setRecordedValue(occurrenceID: UUID, value: Double?, updatedAt: Date, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        gate.performWrite(operation: "OccurrenceRepository.setRecordedValue", completion: completion) {
+            self.base.setRecordedValue(occurrenceID: occurrenceID, value: value, updatedAt: updatedAt, completion: completion)
+        }
+    }
 }
 
 final class WriteClosedReminderRepositoryAdapter: ReminderRepositoryProtocol {
