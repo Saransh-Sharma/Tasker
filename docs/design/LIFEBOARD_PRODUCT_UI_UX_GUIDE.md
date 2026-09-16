@@ -452,3 +452,12 @@ visual polish.
 - Can VoiceOver and keyboard users perform gesture-driven actions?
 - Are sensitive fields absent from logs and external previews?
 - Does the feature route back to the canonical record rather than a projection?
+
+
+## Home and feature artwork
+
+The [ambient artwork implementation guide](home-cards/IMPLEMENTED_DESIGN_SYSTEM.md) is the detailed companion for Home compositions, feature identities, intrinsic sizing, pinning previews, privacy, and image operations. It includes annotated native examples and distinguishes generated concepts from implemented rendering. Foreground content and actions remain authoritative; different feature artwork never changes the shared section-header typography or spacing rule.
+
+The [current evidence gallery](home-cards/index.html) labels production-adapter captures, previews, structural samples, and generated revisions. The [validation report](home-cards/VALIDATION.md) governs verification claims. The current pass uses representative native coverage and excludes XXXL/full Dynamic Type sweeps and exhaustive preset behavior testing.
+
+The six [future creative directions](home-cards/FUTURE_CREATIVE_DIRECTIONS.md) are hypotheses with prototype criteria and rejection conditions. They do not change the current contract or commit additional implementation work.
