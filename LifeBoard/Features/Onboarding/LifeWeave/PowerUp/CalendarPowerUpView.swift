@@ -60,8 +60,6 @@ struct CalendarPowerUpView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            LifeMapEyebrow("CALENDAR")
-
             switch model.calendarStage {
             case .primer: primer
             case .chooser: chooser
@@ -86,9 +84,9 @@ struct CalendarPowerUpView: View {
 
     private var primer: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            title("See the real shape of your day.")
+            title(String(localized: "See your real day"))
 
-            paragraph("LifeBoard reads the calendars you choose to see busy time, free gaps, and what is coming next. It never edits your events.")
+            paragraph(String(localized: "LifeBoard finds free time around your events."))
 
             // Named before the system sheet says it, not after. Somebody who has
             // just been told LifeBoard only reads, and is then shown a dialog
@@ -96,10 +94,9 @@ struct CalendarPowerUpView: View {
             // declines — and iOS has no narrower grant to ask for.
             note(
                 symbol: "info.circle",
-                text: "iOS may describe this as full calendar access because reading events requires it. LifeBoard still only reads."
+                text: String(localized: "Read-only. iOS may still say “full access”.")
             )
 
-            support("Optional. Skipping never blocks LifeBoard.")
         }
     }
 
@@ -107,19 +104,19 @@ struct CalendarPowerUpView: View {
 
     private var chooser: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            title("Which calendars shape your day?")
+            title(String(localized: "Which calendars count?"))
 
-            paragraph("Pick the ones you actually plan around. Nothing is chosen for you, and you can change this in Settings whenever you like.")
+            paragraph(String(localized: "Pick the ones you plan around."))
 
             if session.calendars.isEmpty {
                 if session.isLoadingCalendars {
-                    progress("Looking for your calendars…")
+                    progress(String(localized: "Looking for calendars…"))
                 } else {
                     card {
-                        Text("No calendars found on this device.")
+                        Text(String(localized: "No calendars on this device"))
                             .lifeboardFont(.bodyStrong)
                             .foregroundStyle(Color.lifeboard(.textPrimary))
-                        Text("LifeBoard works without them. It will use any calendar you add later.")
+                        Text(String(localized: "LifeBoard will use any you add later."))
                             .lifeboardFont(.caption1)
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                             .fixedSize(horizontal: false, vertical: true)
@@ -162,13 +159,13 @@ struct CalendarPowerUpView: View {
     private var selectionCount: some View {
         let count = model.selectedCalendarCount
         return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text("\(count) calendar\(count == 1 ? "" : "s") selected")
+            Text(count == 1 ? String(localized: "1 calendar selected") : String(localized: "\(count) calendars selected"))
                 .lifeboardFont(.bodyStrong)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
 
             if count == 0 {
                 Label(
-                    "Choose at least one calendar, or skip this with Not now.",
+                    String(localized: "Pick at least one, or tap Not now."),
                     systemImage: "exclamationmark.circle"
                 )
                 .lifeboardFont(.caption1)
@@ -185,10 +182,10 @@ struct CalendarPowerUpView: View {
 
     private var proof: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            title("Your day just got more real.")
+            title(String(localized: "Calendar connected"))
 
             if session.isReadingProof {
-                progress("Reading selected calendars…")
+                progress(String(localized: "Reading your calendars…"))
             } else {
                 card {
                     Text(proofHeadline)
@@ -203,7 +200,7 @@ struct CalendarPowerUpView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    Label("LifeBoard reads these. It never writes to them.", systemImage: "eye")
+                    Label(String(localized: "Read-only. LifeBoard never changes events."), systemImage: "eye")
                         .lifeboardFont(.caption1)
                         .foregroundStyle(Color.lifeboard(.textTertiary))
                         .fixedSize(horizontal: false, vertical: true)
@@ -235,12 +232,14 @@ struct CalendarPowerUpView: View {
 
         guard let events = session.visibleEventCount else {
             // The read did not finish in time. Still true, and still useful.
-            return "LifeBoard is now planning around \(calendarPhrase). Events show up on Home as soon as it can see them."
+            return String(localized: "Planning around \(calendarPhrase). Events appear on Home soon.")
         }
         if events == 0 {
-            return "Nothing scheduled on \(calendarPhrase) yet. LifeBoard will use them the moment something appears."
+            return String(localized: "Nothing scheduled yet on \(calendarPhrase).")
         }
-        return "LifeBoard can already see \(events) event\(events == 1 ? "" : "s") across \(calendarPhrase)."
+        return events == 1
+            ? String(localized: "1 event found across \(calendarPhrase).")
+            : String(localized: "\(events) events found across \(calendarPhrase).")
     }
 
     private var selectedCalendarNames: String? {
@@ -275,7 +274,7 @@ struct CalendarPowerUpView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 if status == .denied {
-                    Button("Open Settings") { model.openCalendarSystemSettings() }
+                    Button(String(localized: "Open Settings")) { model.openCalendarSystemSettings() }
                         .buttonStyle(.lifeBoardChip)
                         .frame(minHeight: 44)
                         .accessibilityIdentifier(CalendarPowerUpID.openSettings)
@@ -283,23 +282,23 @@ struct CalendarPowerUpView: View {
             }
             .accessibilityIdentifier(CalendarPowerUpID.recovery)
 
-            support("LifeBoard still works. Your day just won't show real events.")
+            support(String(localized: "LifeBoard works without it."))
         }
     }
 
     private func recoveryTitle(_ status: CalendarAuthorizationStatus) -> String {
         switch status {
-        case .writeOnly: "LifeBoard can add events, but not read them."
-        case .restricted: "Calendar access is restricted on this device."
-        default: "Calendar access is off."
+        case .writeOnly: String(localized: "LifeBoard can't read your calendar")
+        case .restricted: String(localized: "Calendar is managed on this device")
+        default: String(localized: "Calendar is off")
         }
     }
 
     private func recoveryHeadline(_ status: CalendarAuthorizationStatus) -> String {
         switch status {
-        case .writeOnly: "Write-only access"
-        case .restricted: "Managed by this device"
-        default: "Turned off in iOS Settings"
+        case .writeOnly: String(localized: "Write-only access")
+        case .restricted: String(localized: "Set by a profile or Screen Time")
+        default: String(localized: "Turned off in iOS Settings")
         }
     }
 
@@ -314,11 +313,11 @@ struct CalendarPowerUpView: View {
     private func recoveryDetail(_ status: CalendarAuthorizationStatus) -> String {
         switch status {
         case .writeOnly:
-            "LifeBoard can put something on your calendar, but it cannot see busy time or free gaps. Reading is what makes your day real, and it is a separate answer."
+            String(localized: "Allow full access so LifeBoard can see free time.")
         case .restricted:
-            "A profile or Screen Time restriction controls calendar access here, so LifeBoard cannot ask for it. Whoever manages this device can change that."
+            String(localized: "Whoever manages this device can change it.")
         default:
-            "LifeBoard will not ask again. Calendar access can be turned back on for LifeBoard in iOS Settings whenever you want it."
+            String(localized: "Turn it on in Settings anytime.")
         }
     }
 
@@ -419,7 +418,7 @@ private struct CalendarPowerUpRow: View {
         .buttonStyle(LifeMapPressButtonStyle())
         .accessibilityIdentifier(LifeWeaveAccessibilityID.calendarRow(calendar.id))
         .accessibilityLabel(Text(calendar.title))
-        .accessibilityValue(Text(isSelected ? "Included" : "Not included"))
+        .accessibilityValue(Text(isSelected ? String(localized: "Included") : String(localized: "Not included")))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
