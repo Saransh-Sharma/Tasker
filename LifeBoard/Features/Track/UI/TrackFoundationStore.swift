@@ -25,6 +25,9 @@ final class TrackFoundationStore {
     private(set) var hydrationLogs: [HydrationLog] = []
     private(set) var hydrationHistory: [HydrationLog] = []
     private(set) var correctionReceipts: [TrackCorrectionReceipt] = []
+    /// The receipt for the last quick water log, with the log it can undo.
+    private(set) var hydrationReceipt: ActionReceiptPresentation?
+    private var undoableHydrationLog: HydrationLog?
     private(set) var hasLoaded = false
     private(set) var isLoading = false
     var errorMessage: String?
@@ -229,12 +232,23 @@ final class TrackFoundationStore {
         }
     }
 
-    func quickAddHydration(_ milliliters: Double) async {
+    /// Returns the log it wrote, so the caller can offer Undo on the receipt.
+    @discardableResult
+    func quickAddHydration(_ milliliters: Double) async -> HydrationLog? {
+        let log = HydrationLog(amount: milliliters, unit: .milliliters)
         do {
-            try await repository.saveHydrationLog(.init(amount: milliliters, unit: .milliliters))
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            try await repository.saveHydrationLog(log)
+            Haptic.commit.play()
+            undoableHydrationLog = log
+            hydrationReceipt = ActionReceiptPresentation(
+                message: "Added \(Int(milliliters)) mL of water"
+            )
             await load()
-        } catch { errorMessage = error.localizedDescription }
+            return log
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
     }
 
     func setHydrationTarget(_ milliliters: Double) async {
@@ -258,6 +272,20 @@ final class TrackFoundationStore {
             try await applyCorrection(previous: .hydration(log), corrected: .hydration(corrected))
             await load()
         } catch { errorMessage = error.localizedDescription }
+    }
+
+    func clearHydrationReceipt() {
+        hydrationReceipt = nil
+        undoableHydrationLog = nil
+    }
+
+    /// Removes the log the receipt is about. A quick log is one tap, so undoing
+    /// it must be one tap too.
+    func undoLastHydration() async {
+        guard let log = undoableHydrationLog else { return }
+        clearHydrationReceipt()
+        await deleteHydration(log)
+        Haptic.decline.play()
     }
 
     func deleteHydration(_ log: HydrationLog) async {
