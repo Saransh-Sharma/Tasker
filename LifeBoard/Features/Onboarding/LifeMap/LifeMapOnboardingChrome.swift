@@ -2,7 +2,7 @@ import LifeBoardTokens
 import LifeBoardUI
 import SwiftUI
 
-/// Shared chrome for the Life Map flow.
+/// Shared chrome for the first-run flow.
 ///
 /// Every one of these is a `struct … : View` with stored properties rather than
 /// a computed `some View` on the root. That is not a style preference:
@@ -38,22 +38,6 @@ struct LifeMapQuestionScaffold<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
-    }
-}
-
-// MARK: - Eyebrow
-
-struct LifeMapEyebrow: View {
-    let text: String
-
-    init(_ text: String) { self.text = text }
-
-    var body: some View {
-        Text(text)
-            .lifeboardFont(.eyebrow)
-            .tracking(1.5)
-            .foregroundStyle(Color.lifeboard(.textTertiary))
-            .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -93,6 +77,7 @@ struct LifeMapChoiceRow: View {
                 }
                 Spacer(minLength: Theme.Spacing.sm)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .contentTransition(.symbolEffect(.replace))
                     .lifeboardFont(.title3)
                     .foregroundStyle(Color.lifeboard(isSelected ? .accentPrimary : .textQuaternary))
             }
@@ -108,60 +93,6 @@ struct LifeMapChoiceRow: View {
         .opacity(isDisabled ? 0.48 : 1)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint(isDisabled ? Text("Deselect another choice first") : Text(""))
-    }
-}
-
-// MARK: - Top bar
-
-struct LifeMapTopBar: View {
-    let step: LifeMapOnboardingStep
-    /// Whether the model has somewhere to go back *to*. The power-up chain is
-    /// navigable now, but its first step has no predecessor — going back from
-    /// there would land on the post-commit reveal, whose primary action skips
-    /// the very chain the user just entered.
-    let canGoBack: Bool
-    let onBack: () -> Void
-
-    private var showsBack: Bool {
-        guard step != .welcome, step != .reveal, step.isClosing == false else { return false }
-        return canGoBack
-    }
-
-    var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            if showsBack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .lifeboardFont(.headline)
-                        .foregroundStyle(Color.lifeboard(.textPrimary))
-                        .frame(width: 44, height: 44)
-                        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
-                }
-                .accessibilityLabel("Back")
-                .accessibilityIdentifier(LifeMapAccessibilityID.backButton)
-            }
-            Spacer(minLength: 0)
-            if step.isPowerUp == false, step.isClosing == false {
-                Text(progressLabel)
-                    .lifeboardFont(.eyebrow)
-                    .tracking(1.4)
-                    .foregroundStyle(Color.lifeboard(.textSecondary))
-                    .monospacedDigit()
-                    .accessibilityIdentifier(LifeMapAccessibilityID.progress)
-                    .accessibilityLabel(progressAccessibilityLabel)
-            }
-        }
-        .frame(height: 44)
-    }
-
-    private var progressLabel: String {
-        step == .reveal ? "LIFE MAP" : "\(Int(step.coreProgress * 100))%"
-    }
-
-    private var progressAccessibilityLabel: Text {
-        step == .reveal
-            ? Text("Life Map complete")
-            : Text("Step \(step.coreIndex + 1) of \(LifeMapOnboardingStep.core.count)")
     }
 }
 
@@ -243,12 +174,5 @@ struct LifeMapSecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .lifeBoardClaySurface(.resting, cornerRadius: Radius.pill, isPressed: configuration.isPressed)
             .lifeBoardMotion(.press, value: configuration.isPressed)
-    }
-}
-
-extension LifeMapOnboardingStep {
-    /// Position within the core flow, for progress reporting.
-    var coreIndex: Int {
-        Self.core.firstIndex(of: self) ?? Self.core.count - 1
     }
 }
