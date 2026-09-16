@@ -339,7 +339,7 @@ final class EvaCloudAccessCoordinator: ObservableObject {
             if resolved == .ready { ConnectionResumeStore.setPending(.eva, false) }
             await ProductTelemetry.shared.record(
                 .evaReadinessHydrated,
-                outcome: telemetryLabel(for: resolved)
+                outcome: Self.telemetryLabel(for: resolved)
             )
             return resolved
         }
@@ -522,27 +522,6 @@ final class EvaCloudAccessCoordinator: ObservableObject {
         )
     }
 
-    static func resolveState(
-        readinessError: EvaProviderError?,
-        previousIdentityKind: EvaIdentityKind?,
-        nextAvailableAt: Date?
-    ) -> EvaCloudAccessState {
-        guard let error = readinessError else { return .ready }
-        switch error {
-        case .authenticationRequired:
-            return previousIdentityKind == .apple ? .appleReauthenticationRequired : .needsActivation
-        case .adultEligibilityRequired:
-            return .temporarilyUnavailable("EVA could not connect. Please try again.")
-        case .consentRequired:
-            return .needsActivation
-        case .creditsExhausted:
-            return .quotaExhausted(nextAvailableAt)
-        case .unavailable(let message):
-            return .temporarilyUnavailable(message)
-        case .invalidResponse:
-            return .temporarilyUnavailable(error.localizedDescription)
-        }
-    }
 
     private func applyFailure(_ error: Error, source: EvaCloudAccessSource) {
         errorMessage = Self.message(for: error)
@@ -600,42 +579,4 @@ final class EvaCloudAccessCoordinator: ObservableObject {
         }
     }
 
-    private func telemetryLabel(for state: EvaCloudAccessState) -> String {
-        switch state {
-        case .hydrating: "hydrating"
-        case .ready: "ready"
-        case .needsActivation: "needs_activation"
-        case .activating: "activating"
-        case .temporarilyUnavailable: "temporarily_unavailable"
-        case .quotaExhausted: "quota_exhausted"
-        case .appleReauthenticationRequired: "apple_reauthentication_required"
-        }
-    }
-
-    static func errorCode(for error: Error) -> String {
-        if let storageError = error as? EvaSecureStorageError { return storageError.telemetryCode }
-        if let envelope = error as? EvaErrorEnvelope { return envelope.code }
-        if let urlError = error as? URLError { return "url_\(urlError.code.rawValue)" }
-        return String(describing: type(of: error))
-    }
-
-    static func message(for error: Error) -> String {
-        if let storageError = error as? EvaSecureStorageError {
-            return storageError.localizedDescription
-        }
-        if let urlError = error as? URLError {
-            switch urlError.code {
-            case .timedOut, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
-                return "EVA's server didn't respond in time. Tap to try again — setup will resume safely."
-            case .notConnectedToInternet, .networkConnectionLost:
-                return "You're offline. Reconnect and tap to try again, or use Offline EVA."
-            default:
-                break
-            }
-        }
-        if let envelope = error as? EvaErrorEnvelope, envelope.retryable {
-            return "\(envelope.message) Tap to try again."
-        }
-        return error.localizedDescription
-    }
 }
