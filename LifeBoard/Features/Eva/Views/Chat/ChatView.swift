@@ -917,7 +917,10 @@ struct ChatView: View {
         .task {
             cloudInteractionIsActive = true
             if prompt.isEmpty, let saved = EvaPendingActivationDraftStore.load(threadID: currentThread?.id) { prompt = saved }
-            _ = await cloudAccess.resumeConfirmedActivation(source: .evaEntry)
+            _ = await cloudAccess.ensureActivated(source: .evaEntry)
+        }
+        .onChange(of: cloudAccess.state) { _, state in
+            if state == .ready, let pending = pendingCloudSend { resumePendingCloudSend(pending) }
         }
         .onReceive(contextInvalidationPublisher) { _ in
             scheduleContextInvalidationForCurrentThread()
@@ -1500,10 +1503,7 @@ extension ChatView {
         let pending = pendingCloudSend
         cloudReadinessTask?.cancel()
         cloudReadinessTask = _Concurrency.Task { @MainActor in
-            let ready = await cloudAccess.confirmAndActivate(
-                grants: cloudAccess.selectedGrants,
-                source: .chatInlineAction
-            )
+            let ready = await cloudAccess.ensureActivated(source: .chatInlineAction)
             guard Task.isCancelled == false, ready, let pending else { return }
             resumePendingCloudSend(pending)
         }
@@ -1511,10 +1511,11 @@ extension ChatView {
 
     @MainActor
     private func retryCloudAccessAndResume() {
+        cloudAccess.selectCloud()
         let pending = pendingCloudSend
         cloudReadinessTask?.cancel()
         cloudReadinessTask = _Concurrency.Task { @MainActor in
-            let ready = await cloudAccess.resumeConfirmedActivation(source: .chatInlineAction)
+            let ready = await cloudAccess.ensureActivated(source: .chatInlineAction)
             guard Task.isCancelled == false, ready, let pending else { return }
             resumePendingCloudSend(pending)
         }
