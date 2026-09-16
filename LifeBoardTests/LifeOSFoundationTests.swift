@@ -3017,7 +3017,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         // The count is asserted so a *removed* version is caught too — deleting a
         // compiled model strands anyone still on it.
         XCTAssertEqual(
-            previousModelNames.count, 22,
+            previousModelNames.count, 24,
             """
             The number of compiled predecessors changed to \(previousModelNames.count). \
             Adding a version is expected — update this count in the same change. \
@@ -3330,6 +3330,51 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(result.claim.lowercased().contains("journal"), result.claim)
         XCTAssertFalse(result.evidenceReferences.isEmpty)
         XCTAssertEqual(result.dailyCounts.count, 3)
+    }
+
+    func testInsightsNamesTheBiggestWeekOverWeekChangeInDaysPresent() throws {
+        let engine = InsightsInterpretationService()
+        let calendar = Calendar(identifier: .gregorian)
+        let now = calendar.date(from: DateComponents(year: 2030, month: 5, day: 20, hour: 12))!
+        func event(_ domain: String, daysAgo: Int, id: String) -> NormalizedLifeEvent {
+            let occurred = calendar.date(byAdding: .day, value: -daysAgo, to: now)!
+            return NormalizedLifeEvent(
+                id: id, sourceID: UUID(), domain: domain, kind: "sample", occurredAt: occurred,
+                localDay: PlanningDay(date: occurred, timeZone: .current, calendar: calendar),
+                numericValue: nil, completeness: .complete, sensitivity: .privateStandard,
+                allowedDestinations: [.insights], provenance: "test"
+            )
+        }
+        var events: [NormalizedLifeEvent] = []
+        // Hydration: 5 days last week, 1 the week before. Journal: steady 3 and 3.
+        for day in [0, 1, 2, 3, 4] { events.append(event("hydration", daysAgo: day, id: "h\(day)")) }
+        events.append(event("hydration", daysAgo: 9, id: "h9"))
+        for day in [1, 3, 5, 8, 10, 12] { events.append(event("journal", daysAgo: day, id: "j\(day)")) }
+
+        let result = engine.interpret(events: events, now: now, calendar: calendar)
+        XCTAssertEqual(result.density, .full)
+        XCTAssertEqual(result.claim, "Hydration showed up on 5 of the last 7 days, up from 1 the week before.")
+
+        // Without a prior week there is nothing to compare: consistency claim.
+        let firstWeek = events.filter { $0.occurredAt >= calendar.date(byAdding: .day, value: -6, to: now)! }
+        XCTAssertTrue(engine.interpret(events: firstWeek, now: now, calendar: calendar).claim.contains("most consistent"))
+    }
+
+    func testInsightsOverviewInterpretsTwoWeeksNotJustToday() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = calendar.date(from: DateComponents(year: 2030, month: 5, day: 20, hour: 12))!
+        let events: [NormalizedLifeEvent] = (0..<5).map { daysAgo in
+            let occurred = calendar.date(byAdding: .day, value: -daysAgo, to: now)!
+            return NormalizedLifeEvent(
+                id: "e\(daysAgo)", sourceID: UUID(), domain: "journal", kind: "sample", occurredAt: occurred,
+                localDay: PlanningDay(date: occurred, timeZone: .current, calendar: calendar),
+                numericValue: nil, completeness: .complete, sensitivity: .privateStandard,
+                allowedDestinations: [.insights], provenance: "test"
+            )
+        }
+        let snapshot = InsightsRenderSnapshot.build(authorizedEvents: events, lens: .overview, now: now, calendar: calendar)
+        XCTAssertEqual(snapshot.events.count, 1, "The evidence list stays on today")
+        XCTAssertEqual(snapshot.interpretation.density, .full, snapshot.interpretation.claim)
     }
 
     /// `planningReview` rendered exactly the same weekly-review route as
@@ -4889,6 +4934,90 @@ final class LifeOSFoundationContractTests: XCTestCase {
             .init(text: "what meetings do I have tomorrow", destination: .home)
         )
         XCTAssertNil(resolution)
+    }
+
+    func testTaskAdapterTreatsStructuredTextWithoutAVerbAsATask() async {
+        for text in ["Dentist fri 3pm", "Passport renewal +Personal", "Gym #health", "Standup notes p1"] {
+            let resolution = await TaskCaptureIntentAdapter().resolve(.init(text: text, destination: .home))
+            guard case .captureDraft(let draft)? = resolution else {
+                XCTFail("Expected \(text) to be a task, got \(String(describing: resolution))")
+                continue
+            }
+            XCTAssertEqual(draft.kind, .task)
+        }
+    }
+
+    func testTaskAdapterLeavesQuestionsAndReflectionAlone() async {
+        for text in ["should I move the dentist to friday", "I felt tired tomorrow morning", "help me recover the afternoon", "Dentist?"] {
+            let resolution = await TaskCaptureIntentAdapter().resolve(.init(text: text, destination: .home))
+            XCTAssertNil(resolution, "\(text) must not become a task")
+        }
+    }
+
+    func testQuickCaptureSavesInPlaceOnlyForTypedConfidentTasks() {
+        let structured = TaskCaptureParser.parse("Dentist fri 3pm")
+        XCTAssertTrue(QuickCaptureSavePolicy.canSaveInPlace(
+            CaptureSeed(rawText: "Dentist fri 3pm", parsedCapture: structured, inputSource: .typed)
+        ))
+        XCTAssertFalse(QuickCaptureSavePolicy.canSaveInPlace(
+            CaptureSeed(rawText: "Dentist fri 3pm", parsedCapture: structured, inputSource: .dictated)
+        ), "Dictation reviews in the editor")
+
+        let verbOnly = TaskCaptureParser.parse("buy milk")
+        XCTAssertTrue(QuickCaptureSavePolicy.canSaveInPlace(
+            CaptureSeed(rawText: "buy milk", parsedCapture: verbOnly, inputSource: .typed)
+        ))
+
+        let plain = TaskCaptureParser.parse("milk")
+        XCTAssertFalse(QuickCaptureSavePolicy.canSaveInPlace(
+            CaptureSeed(rawText: "milk", parsedCapture: plain, inputSource: .typed)
+        ))
+        XCTAssertFalse(QuickCaptureSavePolicy.canSaveInPlace(
+            CaptureSeed(rawText: "milk", parsedCapture: nil, inputSource: .typed)
+        ))
+    }
+
+    func testParserReportsEachRecognizedPieceInReadingOrder() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2030, month: 5, day: 20, hour: 9))! // a Monday
+        let pieces = TaskCaptureParser.pieces("Dentist fri 3pm #health +Personal", now: now, calendar: calendar)
+        XCTAssertEqual(pieces.map(\.kind), [.date, .time, .tag, .project])
+        XCTAssertEqual(pieces.map(\.text), ["fri", "3pm", "#health", "+Personal"])
+        XCTAssertTrue(TaskCaptureParser.pieces("tomorrow", now: now, calendar: calendar).isEmpty,
+                      "A title that is only a date claims nothing")
+    }
+
+    func testInterpretationChipsSpeakPlainlyAndRemoveTheirOwnWords() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2030, month: 5, day: 20, hour: 9))!
+        let raw = "Dentist fri 3pm for 30m #health"
+        let parsed = TaskCaptureParser.parse(raw, now: now, calendar: calendar)
+        let chips = InterpretationChip.taskChips(rawText: raw, parsed: parsed, now: now, calendar: calendar)
+
+        XCTAssertTrue(chips[0].label.hasPrefix("Fri "), chips[0].label)
+        XCTAssertEqual(chips.map(\.label).dropFirst(), ["30m", "#health"])
+        XCTAssertEqual(chips[0].sourceTexts, ["fri", "3pm"])
+
+        XCTAssertEqual(InterpretationChip.draft(raw, removing: chips[0].sourceTexts), "Dentist for 30m #health")
+        XCTAssertEqual(InterpretationChip.draft(raw, removing: chips[2].sourceTexts), "Dentist fri 3pm for 30m")
+    }
+
+    func testQuickCaptureReceiptSaysWhereTheTaskLanded() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2030, month: 5, day: 20, hour: 9))!
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
+        XCTAssertEqual(
+            QuickCaptureSavePolicy.receiptMessage(title: "Milk", scheduledStartAt: nil, dueDate: nil, now: now),
+            "Added “Milk” to Inbox"
+        )
+        XCTAssertEqual(
+            QuickCaptureSavePolicy.receiptMessage(title: "Milk", scheduledStartAt: nil, dueDate: tomorrow, now: now),
+            "Added “Milk” · Tomorrow"
+        )
+        XCTAssertTrue(
+            QuickCaptureSavePolicy.receiptMessage(title: "Milk", scheduledStartAt: now, dueDate: now, now: now)
+                .hasPrefix("Added “Milk” · Today ")
+        )
     }
 
     func testUniversalInputCoordinatorRunsSemanticAdapterOnlyInFullResolution() async {
