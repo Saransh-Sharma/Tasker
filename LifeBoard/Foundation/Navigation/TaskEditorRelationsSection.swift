@@ -4,12 +4,16 @@ import UIKit
 /// Everything the task links to: tags, subtasks, and dependencies.
 struct TaskEditorRelationsSection: View {
     @Bindable var editor: TaskEditorStore
+    var showsTags = true
+    var tagsOnly = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            tags(editor: $editor)
-            subtasks(editor: $editor)
-            dependencies(editor: $editor)
+            if showsTags { tags(editor: $editor) }
+            if !tagsOnly {
+                subtasks(editor: $editor)
+                dependencies(editor: $editor)
+            }
         }
     }
 
