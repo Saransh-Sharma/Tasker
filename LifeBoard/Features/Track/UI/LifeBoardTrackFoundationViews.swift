@@ -584,6 +584,10 @@ private struct TrackQuickLogButton: View {
     let detail: String
     let symbol: String
     let identifier: String
+    /// A button that opens a composer picks; one that writes immediately leaves
+    /// the feedback to the write, so a save and its tap do not fire two haptics
+    /// a few hundred milliseconds apart.
+    var playsSelectionHaptic = true
     let action: () -> Void
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -610,7 +614,7 @@ private struct TrackQuickLogButton: View {
 
     var body: some View {
         Button {
-            Haptic.pick.play()
+            if playsSelectionHaptic { Haptic.pick.play() }
             action()
         } label: {
             HStack(spacing: 12) {
@@ -917,9 +921,7 @@ private struct TrackQuickLogStrip: View {
     var body: some View {
         let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
         VStack(alignment: .leading, spacing: 12) {
-            Text("Quick log")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
+            SectionHeader("Quick log", symbol: "bolt")
 
             ScrollView(.horizontal) {
                 HStack(spacing: 12) {
@@ -927,7 +929,8 @@ private struct TrackQuickLogStrip: View {
                         title: "Water",
                         detail: "+250 mL",
                         symbol: "drop.fill",
-                        identifier: "track.quick.water"
+                        identifier: "track.quick.water",
+                        playsSelectionHaptic: false
                     ) {
                         Task {
                             await store.quickAddHydration(250)
@@ -957,6 +960,20 @@ private struct TrackQuickLogStrip: View {
                 .padding(.vertical, 2)
             }
             .scrollIndicators(.hidden)
+
+            // Directly under the control that produced it. The bottom safe-area
+            // inset sits *behind* the shell's floating composer and dock, so a
+            // receipt placed there is never seen — the Inbox receipt learned the
+            // same thing.
+            if let receipt = store.hydrationReceipt {
+                ReceiptBar(
+                    receipt,
+                    undo: { Task { await store.undoLastHydration() } },
+                    onDismiss: { store.clearHydrationReceipt() }
+                )
+                .accessibilityIdentifier("track.hydration.receipt")
+                .lifeBoardMotion(.contentInsertion, value: receipt.id)
+            }
         }
     }
 
@@ -1796,23 +1813,24 @@ private struct TrackDestructiveDialogs: ViewModifier {
                 get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } }
             )) { Button("OK", role: .cancel) { store.errorMessage = nil } } message: { Text(store.errorMessage ?? "") }
             .safeAreaInset(edge: .bottom) {
-                if let receipt = goalUndoReceipt {
-                    HStack(spacing: 12) {
-                        Text("Goal \(receipt.after.effectiveStatus.rawValue).")
-                            .font(.subheadline)
-                        Spacer()
-                        Button("Undo") {
-                            goalUndoReceipt = nil
-                            Task { await store.undoGoalTransition(receipt) }
-                        }
-                        .frame(minHeight: 44)
+                // Both receipts use the shared bar rather than two hand-rolled
+                // rows: one silhouette, Undo that never times out, and copy that
+                // stacks at accessibility text sizes.
+                VStack(spacing: 8) {
+                    if let receipt = goalUndoReceipt {
+                        ReceiptBar(
+                            ActionReceiptPresentation(
+                                message: "Goal \(receipt.after.effectiveStatus.rawValue)."
+                            ),
+                            undo: {
+                                goalUndoReceipt = nil
+                                Task { await store.undoGoalTransition(receipt) }
+                            },
+                            onDismiss: { goalUndoReceipt = nil }
+                        )
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .lifeBoardClaySurface(.floating, cornerRadius: Radius.pill)
-                    .padding(.horizontal, 20)
-                    .accessibilityElement(children: .contain)
                 }
+                .padding(.horizontal, 20)
             }
             .confirmationDialog(
                 "Delete this routine?",
@@ -1895,6 +1913,7 @@ struct GoalsDestinationView: View {
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("goals.add")
                 }
+                .featureHeaderArtwork(.goals, enabled: !store.isLoading && store.errorMessage == nil)
 
                 if store.isLoading, store.definitions.isEmpty {
                     ProgressView("Loading goals")
@@ -1936,6 +1955,7 @@ struct GoalsDestinationView: View {
         .background { GrainedCanvas() }
         .navigationTitle("Goals")
         .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("track.goals.destination")
         .task { await store.load() }
         .sheet(isPresented: $showsComposer, onDismiss: { editingGoal = nil }) {
             GoalComposer(existing: editingGoal) { draft in
@@ -2114,6 +2134,7 @@ struct RoutinesDestinationView: View {
         .background { GrainedCanvas() }
         .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("track.routines.destination")
         .task { await store.load() }
         .sheet(isPresented: $showsComposer, onDismiss: { editingRoutine = nil }) {
             RoutineComposer(
@@ -2212,6 +2233,7 @@ struct RoutinesDestinationView: View {
                 .buttonStyle(.lifeBoardPrimaryCompact)
                 .frame(minHeight: 44)
             }
+            .featureHeaderArtwork(.routines)
 
             if let run = store.activeRoutineRun {
                 Button {
