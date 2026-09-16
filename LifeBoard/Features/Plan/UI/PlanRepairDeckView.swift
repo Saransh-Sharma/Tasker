@@ -236,23 +236,18 @@ struct PlanRepairAccessibilityActions: ViewModifier {
     let title: (PlanRepairAction) -> String
     let perform: (PlanRepairAction) -> Void
 
-    private func action(_ slot: Int) -> PlanRepairAction? {
-        slot < candidates.count ? candidates[slot] : nil
-    }
-
+    /// One VoiceOver action per *existing* candidate.
+    ///
+    /// This used to publish four fixed slots, so a deck offering two repairs
+    /// still announced "Apply third repair" and "Apply fourth repair", both of
+    /// which did nothing when chosen. `DESIGN.md` asks every gesture direction
+    /// for a real VoiceOver action, not a placeholder for one.
     func body(content: Content) -> some View {
         content
-            .accessibilityAction(named: action(0).map { Text(title($0)) } ?? Text("Apply first repair")) {
-                if let value = action(0) { perform(value) }
-            }
-            .accessibilityAction(named: action(1).map { Text(title($0)) } ?? Text("Apply second repair")) {
-                if let value = action(1) { perform(value) }
-            }
-            .accessibilityAction(named: action(2).map { Text(title($0)) } ?? Text("Apply third repair")) {
-                if let value = action(2) { perform(value) }
-            }
-            .accessibilityAction(named: action(3).map { Text(title($0)) } ?? Text("Apply fourth repair")) {
-                if let value = action(3) { perform(value) }
+            .accessibilityActions {
+                ForEach(candidates, id: \.self) { candidate in
+                    Button(title(candidate)) { perform(candidate) }
+                }
             }
     }
 }
