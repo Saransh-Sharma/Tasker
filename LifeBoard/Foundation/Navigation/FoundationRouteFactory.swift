@@ -19,7 +19,6 @@ extension FoundationShell {
             PlanRootView(
                 dependencies: planDependencies,
                 initialLens: lens,
-                rescueRefreshGeneration: planRescueRefreshGeneration,
                 onOpenFocus: { runtime.router.push(.focusSession($0), in: .plan) },
                 onAskEva: { runtime.router.select(.eva) },
                 onOpenWeeklyPlanner: { runtime.router.push(.weeklyPlanningWorkspace(.week), in: .plan) },
