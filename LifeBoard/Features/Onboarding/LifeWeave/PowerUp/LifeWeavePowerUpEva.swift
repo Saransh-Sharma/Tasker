@@ -7,8 +7,8 @@ import Foundation
 /// editing the same 400 lines. Canonical Eva truth stays in its own service.
 ///
 /// Every line below is a thin wrapper over `EvaCloudAccessCoordinator`. Guest
-/// bootstrap, App Attest, age eligibility, consent revisions, quota, and Apple
-/// recovery are all resumable single-flight work owned by that coordinator —
+/// bootstrap, App Attest, consent revisions, quota, and Apple recovery are all
+/// resumable single-flight work owned by that coordinator —
 /// several of the calls behind it spend a single-use token or a
 /// compare-and-swap, so a second entry point here would burn one. The journey
 /// decides *when* to ask; it never decides *how* to connect.
@@ -27,19 +27,18 @@ extension LifeWeaveOnboardingModel {
 
     /// The dock's one dominant verb, named for what will actually happen.
     ///
-    /// A single fixed "Enable Cloud EVA" was wrong in five of the seven states:
-    /// after a network failure it re-ran activation from scratch, and after
-    /// success it offered to do again what was already done.
+    /// The primary action follows the current connection state: it advances
+    /// while automatic activation continues in the background, retries a
+    /// recoverable failure, or opens the explicit Offline path.
     var evaPrimaryTitle: String {
         if evaPrefersOffline { return "Continue" }
         switch evaAccess.state {
-        case .hydrating, .needsDisclosure: return "Enable Cloud EVA"
-        // Disabled while in flight, so it reports rather than invites.
-        case .activating: return "Connecting…"
+        case .hydrating, .needsActivation: return "Continue"
+        case .activating: return "Continue"
         case .ready: return "Continue"
         case .temporarilyUnavailable: return "Retry Cloud EVA"
         case .appleReauthenticationRequired: return "Reconnect with Apple"
-        case .quotaExhausted, .ageBlocked: return offlineEvaActionTitle
+        case .quotaExhausted: return offlineEvaActionTitle
         }
     }
 
@@ -53,16 +52,15 @@ extension LifeWeaveOnboardingModel {
         switch evaAccess.state {
         case .ready: return nil
         case .activating: return "Continue using LifeBoard"
-        case .hydrating, .needsDisclosure, .temporarilyUnavailable,
-             .quotaExhausted, .ageBlocked, .appleReauthenticationRequired:
+        case .hydrating, .needsActivation, .temporarilyUnavailable,
+             .quotaExhausted, .appleReauthenticationRequired:
             return "Not now"
         }
     }
 
-    /// Disabled only while the coordinator is genuinely in flight. Offline is
-    /// never in flight, so its "Continue" always works.
+    /// Connection work belongs to the coordinator; onboarding may always continue.
     var isEvaPrimaryDisabled: Bool {
-        evaPrefersOffline == false && evaAccess.isWorking
+        false
     }
 
     func performEvaPrimary() async {
@@ -71,13 +69,14 @@ extension LifeWeaveOnboardingModel {
             return
         }
         switch evaAccess.state {
-        case .needsDisclosure, .hydrating:
-            await activateCloudEva()
+        case .needsActivation, .hydrating:
+            advancePowerUp()
+            Task { _ = await evaAccess.ensureActivated(source: .onboarding) }
         case .temporarilyUnavailable:
             await retryCloudEva()
         case .appleReauthenticationRequired:
             await reconnectAppleForEva()
-        case .quotaExhausted, .ageBlocked:
+        case .quotaExhausted:
             // Never a silent fallback: this is only reached because the user
             // tapped a button that says "Use Offline EVA".
             chooseOfflineEva()
@@ -85,7 +84,8 @@ extension LifeWeaveOnboardingModel {
             recordEvaActivation(ready: true, pending: false)
             advancePowerUp()
         case .activating:
-            break
+            recordEvaActivation(ready: false, pending: true)
+            advancePowerUp()
         }
     }
 
@@ -130,29 +130,11 @@ extension LifeWeaveOnboardingModel {
         advancePowerUp()
     }
 
-    // MARK: - Activation
+    // MARK: - Activation recovery
 
-    private func activateCloudEva() async {
-        // Sent explicitly from the draft. The coordinator's own `selectedGrants`
-        // defaults to every category when no receipt exists, so inheriting it
-        // would consent to categories this screen may never have shown.
-        let grants = draft.resolvedEvaGrants
-        evaAccess.selectedGrants = grants
-        let succeeded = await evaAccess.confirmAndActivate(grants: grants, source: .onboarding)
-        recordEvaOutcome(succeeded: succeeded)
-    }
-
-    /// Retry is a resume, never a fresh activation.
-    ///
-    /// `confirmAndActivate` re-saves the receipt and re-enters the bootstrap
-    /// chain; several steps in that chain are single-use, so replaying it after
-    /// a timeout spends a token that the resumable path would have reused.
-    /// The receipt `resumeConfirmedActivation` needs is guaranteed here, because
-    /// the only way to reach a retryable failure is through a confirmation that
-    /// wrote one.
     private func retryCloudEva() async {
         evaAccess.selectCloud()
-        let succeeded = await evaAccess.resumeConfirmedActivation(source: .onboarding)
+        let succeeded = await evaAccess.ensureActivated(source: .onboarding)
         recordEvaOutcome(succeeded: succeeded)
     }
 
@@ -165,7 +147,7 @@ extension LifeWeaveOnboardingModel {
     ///
     /// `pending` is not "it failed" — it is "this can be finished later without
     /// asking for consent again", which is true only of the retryable failure.
-    /// Quota, age, and a missing Apple session all need something else first.
+    /// Quota and a missing Apple session need a different recovery action.
     private func recordEvaOutcome(succeeded: Bool) {
         var isResumable = false
         if case .temporarilyUnavailable = evaAccess.state { isResumable = true }
