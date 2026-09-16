@@ -1,0 +1,74 @@
+{
+  "id": "focusNow-wide-dark",
+  "appearance": "dark",
+  "requested_canvas_pixels": [
+    1424,
+    720
+  ],
+  "card_rect_pixels": [
+    6,
+    4,
+    1412,
+    712
+  ],
+  "final_export_pixels": [
+    1412,
+    712
+  ],
+  "submitted_prompt": "Image 1 is the COMPLETE finished native composition, including its already correct faint background artwork. Reproduce Image 1 faithfully. Image 2 is only an identity reference for the paint already present; NEVER insert, add, superimpose, duplicate or increase the strength of that scene. Do not beautify, amplify or recompose the artwork. Keep the entire background as faint, cropped and masked as Image 1, including on the trailing side. Native foreground copy and controls must remain crisp and unchanged.\nUse case: ui-mockup. Stable ID focusNow-wide-dark. Create one dark LifeBoard Focus Now Home card reference.\nImage 2 is accepted scene artwork; Image 1 is the authoritative native structural fixture. Preserve its exact copy, symbols, line wrapping, foreground, controls, and relative geometry.\nLogical bounds 353 x 178 points. Final export 1412 x 712 pixels at 4 pixels per point. Requested generation canvas 1424 x 720 pixels. Exact card placement x,y,width,height=[6, 4, 1412, 712]. Only the specified canvas padding is allowed. No extra internal or external margin, frame or drop-shadow canvas.\nNative elements in logical points (rectangles x,y,width,height), with exact visible text and resolved San Francisco typography: [{\"copy\": \"Focus Now\", \"id\": \"focus.title\", \"rect\": [14, 12, 89, 16.5], \"role\": \"title\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 12, \"role\": \"caption\", \"weight\": \"semibold\"}}, {\"copy\": \"Sketch the first draft\", \"id\": \"focus.primary\", \"rect\": [14, 31.5, 164, 20.5], \"role\": \"text\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 17, \"role\": \"headline\", \"weight\": \"semibold\"}}, {\"copy\": \"A quiet 25-minute focus block\", \"id\": \"focus.reason\", \"rect\": [14, 55, 158.5, 13.25], \"role\": \"text\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 11, \"role\": \"caption2\", \"weight\": \"regular\"}}, {\"copy\": \"Start\", \"id\": \"focus.open\", \"rect\": [14, 80.25, 112, 44], \"role\": \"control\", \"typography\": {\"alignment\": \"center\", \"design\": \"default\", \"points\": 15, \"role\": \"subheadline\", \"weight\": \"semibold\"}}]. Empty copy means a symbol-only control or grouping, never print the IDs, roles, or JSON metadata.\nArtwork fills the existing card background [0,0,353,178] beneath every native layer. Proportional fill clipped to 24-point rounded bounds. Opacity 0.28 multiplied by leading-to-trailing mask 0:0.08, 0.35:0.20, 1:1. Artwork should be as faint as Image 1. No separate artwork row, reserved text column, footer, or increased card height.\nPalette {\"surface\": \"#282A44\", \"ink\": \"#F7F1E7\", \"secondary\": \"#C9C3B8\", \"accent\": \"#E5B96D\"}. Subject Sunlit desk; preserve the accepted scene objects and painterly medium. Opaque UI reference, no alpha required. Appearance is independent of morning daypart.\nReading and control regions: {\"reading_regions\": [[14, 12, 89, 16.5], [14, 31.5, 164, 20.5], [14, 55, 158.5, 13.25], [14, 80.25, 112, 44]], \"controls\": [[14, 80.25, 112, 44]], \"ambient_background\": [0, 0, 353, 178], \"edge_clearance\": 16}. Preserve exact native control sizes; retain opaque foreground text. Do not add buttons, rows, data, logos, watermark, device frame, completion or health claims.\nFixed fixture {\"appearance\": \"dark\", \"date\": \"2026-09-15\", \"daypart\": \"morning\", \"dynamic_type\": \"large\", \"fixture_version\": 4, \"id\": \"focusNow-wide-dark\", \"locale\": \"en_US\", \"renderer\": \"shared-native-content-preview\", \"safe_areas\": \"isolated card; production-route safe areas require separate evidence\", \"time_zone\": \"UTC\", \"viewport_points\": [393, 852]}. References: [{\"name\": \"focusNow-wide-dark accepted scene\", \"path\": \"DesignAssets/Sources/HomeCards/focusNow-scene-dark.png\", \"role\": \"Image 2: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.\", \"sha256\": \"fdff21902c0fa9db7b3dc2e25972d9f6d2e7a22b6f423b22e817ad6824cd06bd\"}, {\"name\": \"focusNow-wide-dark measured native structure\", \"path\": \"docs/design/home-cards/native-specifications/focusNow-wide-dark.png\", \"role\": \"Image 1: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.\", \"sha256\": \"7b4e12c8ebc2214ecaba5110162ee425e8b6acdcce4b5e00e5e3a70a5c8fe198\"}].\nOutput PNG: docs/design/home-cards/references/focusNow-wide-dark.png. Preserve aspect ratio; never stretch. Record actual dimensions and explicit export transform; reject essential clipping and unintended aspect correction above 4%.\nAcceptance: exact copy and rows/actions, recognizable but quiet ambient art, readable native foreground, consistent appearance, correct dimensions, no extra margins or essential clipping.",
+  "references": [
+    {
+      "name": "focusNow-wide-dark measured native structure",
+      "path": "docs/design/home-cards/native-specifications/focusNow-wide-dark.png",
+      "role": "Image 1: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.",
+      "sha256": "7b4e12c8ebc2214ecaba5110162ee425e8b6acdcce4b5e00e5e3a70a5c8fe198",
+      "frozen_path": "docs/design/home-cards/submissions/inputs/7b4e12c8ebc2214ecaba5110162ee425e8b6acdcce4b5e00e5e3a70a5c8fe198.png"
+    },
+    {
+      "name": "focusNow-wide-dark accepted scene",
+      "path": "DesignAssets/Sources/HomeCards/focusNow-scene-dark.png",
+      "role": "Image 2: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.",
+      "sha256": "fdff21902c0fa9db7b3dc2e25972d9f6d2e7a22b6f423b22e817ad6824cd06bd",
+      "frozen_path": "docs/design/home-cards/submissions/inputs/fdff21902c0fa9db7b3dc2e25972d9f6d2e7a22b6f423b22e817ad6824cd06bd.png"
+    }
+  ],
+  "specification_sha256": "7e30806e2a18932e167e74bbc47f7594bb4192874d0468bd626d1cc61e6501dc",
+  "prepared_at": "2026-09-15T20:59:50.986069+00:00",
+  "revision_reason": "Current native-first reference using measured Swift fixture copy, typography, controls, and ambient framing.",
+  "design_review_hypothesis": null,
+  "design_revision": "ambient-v1",
+  "source_signatures": {
+    "renderer": "d4235a8b1637963037114ea596d0616660ce5343ad82e93e59aa90090807ecb4",
+    "files": {
+      "LifeBoard/DesignSystem/HomeCards/HomeActionQueueCardContent.swift": "a580c2afb8345077b69c09ef16113577dae22536d2d9a74841463ddd3778abb7",
+      "LifeBoard/DesignSystem/HomeCards/HomeAmbientArtwork.swift": "736d53a858344b250f97c1fdca86aabb803101eddf43ca96aa9ee7d238f718d3",
+      "LifeBoard/DesignSystem/HomeCards/HomeCapacityCardContent.swift": "0f72e23164e726d6e011b499a2ed96a145ab9055529c77ca62507f5d9ca60874",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardGeometryRecorder.swift": "2d9c5207b043d0ee4615b2c8218a0df1fe392e64152299adb59c02f15d06727d",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardIllustratedSurface.swift": "b8c9698753f4e0987c358b8ec22ec5b34b292a33d6cd8edf796bfa32047e2d67",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardPresentationStyle.swift": "a91c562e1b47c08763b47f14179beb463caa78d60fe32cf0cf9e84486af07607",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardPreviewFixtures.swift": "b857c5884571494e76fd9923b74bdf4d1301fd5b8d273fa07990bfbfb3caa2b5",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardQueueRow.swift": "245e6a3bab9ff3b13e71f308d3987da45237a9cf64aafb28058d3589f37a2381",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardSamplePreview.swift": "21b7a6020bbdb9c78590a0c85da48c0b0e2208959d0ab9ddd0ed9d984127cbdb",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardScene.swift": "b144f3da2d34f81c30582f36b816413c0567568567d06d209c5cd70402d75e43",
+      "LifeBoard/DesignSystem/HomeCards/HomeFastingCardContent.swift": "8ae0a0ee7f7ce89989c408bed720356454349d67d5748ccd637409f76e4478d0",
+      "LifeBoard/DesignSystem/HomeCards/HomeFocusCardContent.swift": "d3993325eade0f56966b789c355c01844b42cf7b50466f4c788f06c6ff130d2c",
+      "LifeBoard/DesignSystem/HomeCards/HomeGlanceCardContent.swift": "4fa7d1dd716ff3724c3617b897640000d3a33c6db1e70ffdd68f0112954f9276",
+      "LifeBoard/DesignSystem/HomeCards/HomeJournalCardContent.swift": "549db340d0371ccbaea89223b48c9234482ae973de6e534900979f1d71fc3360",
+      "LifeBoard/DesignSystem/HomeCards/HomeLifeSnapshotCardContent.swift": "de6e15ea6fc5a483601859b86b972a70a2b6fb778f49d11dad4c8ca875bc9777",
+      "LifeBoard/DesignSystem/HomeCards/HomeProgressCardContent.swift": "6be6c0fe0692746a2f4d2b4d7d113529e294b949d794b0d7d49b3714fb51d566",
+      "LifeBoard/DesignSystem/HomeCards/HomeQuickCaptureCardContent.swift": "67fcbba772482f339af84915fe7cbaf60d1ac0adaebe2474292c9f5f6fa75c15",
+      "LifeBoard/DesignSystem/HomeCards/HomeSceneImageCache.swift": "1fd2da337373fb880f3b6246d5d30d4e9c4008de9d50bd1e844724f1efb7c0ae",
+      "LifeBoard/DesignSystem/HomeCards/HomeTasksCardContent.swift": "a44eb9cbaeb60dd1aa0d2fec53cc99cc53445a4aa1d750f06b4c0bc8f9c061b5",
+      "LifeBoard/DesignSystem/HomeCards/HomeTimelineCardContent.swift": "a148ecbb72894c90c185737a5c5ca8385d408aa4323ac19f5c0409cefbb02950",
+      "LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift": "94691ee7b91e0ffe5dc70f20904b219ca56ebdb0ced6975a66c9c7ebe743c724",
+      "LifeBoard/DesignSystem/LifeBoardCardPrimitives.swift": "297ea06af07927559ba266757024656a38a74d7bc74c3788a5060e8afd8e23b3",
+      "LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift": "2f0b215c4a69e06a496af4cb159eb22db48c77462c403d46cbfee8513fd18977",
+      "Packages/LifeBoardTokens/Sources/LifeBoardTokens/SemanticTypographyTokens.swift": "56b422cc854f08582a527320239590e574774afbf780cebef2fc5ad49b37d635",
+      "Packages/LifeBoardUI/Sources/LifeBoardUI/NumericRoll.swift": "519351aeb11829f080aacb72b92033e533e47638bfcbfd4acdbd61e5ca54ba30"
+    },
+    "typography": "56b422cc854f08582a527320239590e574774afbf780cebef2fc5ad49b37d635",
+    "fixture": "b857c5884571494e76fd9923b74bdf4d1301fd5b8d273fa07990bfbfb3caa2b5",
+    "artwork": "fdff21902c0fa9db7b3dc2e25972d9f6d2e7a22b6f423b22e817ad6824cd06bd",
+    "capture": "7b4e12c8ebc2214ecaba5110162ee425e8b6acdcce4b5e00e5e3a70a5c8fe198"
+  }
+}
