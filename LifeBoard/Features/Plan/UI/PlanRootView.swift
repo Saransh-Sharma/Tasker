@@ -300,7 +300,7 @@ struct PlanRootView: View {
                     onStart: { mode, intention in
                         pendingFocusSetup = nil
                         Task {
-                            await store.startFocus(
+                            let started = await store.startFocus(
                                 taskID: context.taskID,
                                 timeBlockID: context.timeBlockID,
                                 targetDuration: mode.initialTargetDuration,
@@ -311,9 +311,11 @@ struct PlanRootView: View {
                             // Entering a focus session was the quietest action in
                             // the app while dragging a calendar block fired six
                             // haptics. It commits, so it gets the commit haptic —
-                            // after the store returns, not on tap.
+                            // after the store confirms the session exists, never
+                            // for a start that failed. Unscoped sessions open too.
+                            guard started, let session = store.activeFocusSession else { return }
                             Haptic.commit.play()
-                            if let taskID = context.taskID { onOpenFocus(taskID) }
+                            onOpenFocus(session.id)
                         }
                     }
                 )
