@@ -718,21 +718,37 @@ public final class TaskDetailViewModel: ObservableObject {
 
     /// Executes toggleRootCompletion.
     public func toggleRootCompletion() {
-        let target = !isComplete
+        Task { await setRootCompletion(!isComplete) }
+    }
+
+    /// Bumped only after a completion *persists*, so the screen's burst follows
+    /// the write rather than the optimistic flip of `isComplete`.
+    @Published public private(set) var persistedCompletionCount = 0
+
+    /// Optimistically flips `isComplete`, then reports whether the write landed.
+    @discardableResult
+    public func setRootCompletion(_ target: Bool) async -> Bool {
         withAnimation(LifeBoardAnimation.celebration) {
             isComplete = target
         }
-
-        onSetCompletion(persistedTask.id, target) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                switch result {
-                case .success(let updatedTask):
-                    self.syncDraftFromTask(updatedTask)
-                    self.autosaveState = .saved
-                case .failure(let error):
-                    self.isComplete.toggle()
-                    self.autosaveState = .failed(error.localizedDescription)
+        return await withCheckedContinuation { continuation in
+            onSetCompletion(persistedTask.id, target) { [weak self] result in
+                DispatchQueue.main.async {
+                    guard let self else {
+                        continuation.resume(returning: false)
+                        return
+                    }
+                    switch result {
+                    case .success(let updatedTask):
+                        self.syncDraftFromTask(updatedTask)
+                        self.autosaveState = .saved
+                        if target { self.persistedCompletionCount += 1 }
+                        continuation.resume(returning: true)
+                    case .failure(let error):
+                        self.isComplete = !target
+                        self.autosaveState = .failed(error.localizedDescription)
+                        continuation.resume(returning: false)
+                    }
                 }
             }
         }
