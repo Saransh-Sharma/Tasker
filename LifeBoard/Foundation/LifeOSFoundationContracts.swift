@@ -866,6 +866,7 @@ public struct ActionReceipt: Codable, Hashable, Identifiable, Sendable {
     public let message: String
     public let committedAt: Date
     public let canUndo: Bool
+    public var taskID: UUID?
 
     public init(
         id: UUID = UUID(),
@@ -1412,22 +1413,8 @@ public final class LifeThreadComposerCoordinator {
 
     public func showInterpretation(for draft: LifeThreadCaptureDraft) {
         var chips: [InterpretationChip] = []
-        if let parsed = draft.seed?.parsedCapture {
-            if let date = parsed.dueDate {
-                let fmt = DateFormatter()
-                fmt.dateStyle = .medium
-                fmt.timeStyle = parsed.isAllDay ? .none : .short
-                chips.append(.init(label: "📅 \(fmt.string(from: date))"))
-            }
-            if let priority = parsed.priority {
-                chips.append(.init(label: "!\(priority)"))
-            }
-            if let project = parsed.projectName {
-                chips.append(.init(label: "+\(project)"))
-            }
-            for tag in parsed.tags {
-                chips.append(.init(label: "#\(tag)"))
-            }
+        if let seed = draft.seed, let parsed = seed.parsedCapture {
+            chips = InterpretationChip.taskChips(rawText: seed.rawText, parsed: parsed)
         }
         let image: String
         switch draft.kind {
@@ -1437,8 +1424,12 @@ public final class LifeThreadComposerCoordinator {
         case .habit: image = "repeat"
         default: image = "square.and.pencil"
         }
+        // Name what Send will do: "Add task" saves in place, "Task" opens the editor.
+        let label = draft.kind == .task && QuickCaptureSavePolicy.canSaveInPlace(draft.seed)
+            ? "Add task"
+            : draft.kind.title
         showInterpretation(.init(
-            label: draft.kind.title,
+            label: label,
             systemImage: image,
             chips: chips,
             resolution: .captureDraft(draft)
@@ -1554,10 +1545,91 @@ public struct ComposerInterpretation: Hashable, Sendable {
 public struct InterpretationChip: Identifiable, Hashable, Sendable {
     public let id: UUID
     public let label: String
+    public let systemImage: String?
+    /// The words in the draft this chip came from. Removing the chip removes
+    /// them, so the person can take back anything the parser claimed.
+    public let sourceTexts: [String]
 
-    public init(id: UUID = UUID(), label: String) {
+    public init(id: UUID = UUID(), label: String, systemImage: String? = nil, sourceTexts: [String] = []) {
         self.id = id
         self.label = label
+        self.systemImage = systemImage
+        self.sourceTexts = sourceTexts
+    }
+
+    public var isRemovable: Bool { sourceTexts.isEmpty == false }
+
+    /// Chips for a parsed task, in the person's terms: "Fri 3:00 PM", "30m",
+    /// "Weekdays", "High", "+Personal", "#health", "@office".
+    public static func taskChips(
+        rawText: String,
+        parsed: ParsedCapture,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [InterpretationChip] {
+        let pieces = TaskCaptureParser.pieces(rawText, now: now, calendar: calendar)
+        func texts(_ kinds: CaptureTokenPiece.Kind...) -> [String] {
+            pieces.filter { kinds.contains($0.kind) }.map(\.text)
+        }
+        var chips: [InterpretationChip] = []
+        if let date = parsed.dueDate {
+            chips.append(.init(
+                label: whenLabel(date, isAllDay: parsed.isAllDay, now: now, calendar: calendar),
+                systemImage: "calendar",
+                sourceTexts: texts(.date, .time)
+            ))
+        }
+        if let duration = parsed.duration {
+            let minutes = max(1, Int((duration / 60).rounded()))
+            let label = minutes < 60 ? "\(minutes)m" : (minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(minutes % 60)m")
+            chips.append(.init(label: label, systemImage: "timer", sourceTexts: texts(.duration)))
+        }
+        if let repeatPattern = parsed.repeatPattern {
+            chips.append(.init(label: repeatPattern.displayName, systemImage: "repeat", sourceTexts: texts(.repeatPattern)))
+        }
+        if let priority = parsed.priority {
+            chips.append(.init(label: priority.displayName, systemImage: "flag", sourceTexts: texts(.priority)))
+        }
+        if let project = parsed.projectName {
+            chips.append(.init(label: "+\(project)", sourceTexts: texts(.project)))
+        }
+        let tagTexts = texts(.tag)
+        for tag in parsed.tags {
+            let source = tagTexts.first { $0.caseInsensitiveCompare("#\(tag)") == .orderedSame }
+            chips.append(.init(label: "#\(tag)", sourceTexts: source.map { [$0] } ?? []))
+        }
+        if let context = parsed.context {
+            chips.append(.init(label: "@\(context)", sourceTexts: texts(.context)))
+        }
+        return chips
+    }
+
+    static func whenLabel(_ date: Date, isAllDay: Bool, now: Date, calendar: Calendar) -> String {
+        let day: String
+        if calendar.isDate(date, inSameDayAs: now) {
+            day = "Today"
+        } else if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(date, inSameDayAs: tomorrow) {
+            day = "Tomorrow"
+        } else if let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: date)).day, (0..<7).contains(days) {
+            day = date.formatted(.dateTime.weekday(.abbreviated))
+        } else {
+            day = date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+        }
+        return isAllDay ? day : "\(day) \(date.formatted(date: .omitted, time: .shortened))"
+    }
+
+    /// The draft with `sourceTexts` taken out, whitespace tidied.
+    public static func draft(_ draft: String, removing sourceTexts: [String]) -> String {
+        var result = draft
+        for text in sourceTexts {
+            if let range = result.range(of: text) {
+                result.removeSubrange(range)
+            }
+        }
+        return result
+            .split(whereSeparator: { $0 == " " })
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
     }
 }
 
