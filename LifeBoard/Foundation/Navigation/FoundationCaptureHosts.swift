@@ -12,6 +12,9 @@ struct CaptureSheet: View {
     let routineLinkedMutationApplier: (any RoutineLinkedMutationApplying)?
     var mutationCoordinator: MutationCoordinator?
     var onReceipt: (ActionReceipt) -> Void = { _ in }
+    /// A capture that was saved (not cancelled). The shell uses it to clear the
+    /// composer draft the capture came from.
+    var onCaptureSaved: () -> Void = {}
     let onClose: () -> Void
     let onOpenHabitBoard: () -> Void
 
@@ -46,7 +49,8 @@ struct CaptureSheet: View {
         case .task:
             TaskCaptureHost(
                 prefilledText: request.prefilledText,
-                captureSeed: request.captureSeed
+                captureSeed: request.captureSeed,
+                onCreated: onCaptureSaved
             )
         case .habit:
             HabitCaptureHost()
@@ -205,6 +209,7 @@ struct TaskCaptureHost: View {
     /// Raw text of an already-captured item being reviewed, if any.
     var prefilledText: String?
     var captureSeed: CaptureSeed? = nil
+    var onCreated: () -> Void = {}
     @StateObject private var viewModel = CompositionRoot.shared.makeNewAddTaskViewModel()
     @State private var provisionalID = UUID()
 
@@ -215,12 +220,7 @@ struct TaskCaptureHost: View {
                 // re-render cannot overwrite what the user has since typed.
                 if let seed = captureSeed, viewModel.taskName.isEmpty {
                     if let parsed = seed.parsedCapture {
-                        viewModel.taskName = parsed.cleanTitle.isEmpty ? seed.rawText : parsed.cleanTitle
-                        if let date = parsed.dueDate { viewModel.dueDate = date }
-                        if let priority = parsed.priority { viewModel.selectedPriority = priority }
-                        if let duration = parsed.duration { viewModel.estimatedDuration = duration }
-                        if let repeatPattern = parsed.repeatPattern { viewModel.repeatPattern = repeatPattern }
-                        if let project = parsed.projectName { viewModel.selectedProject = project }
+                        viewModel.applyCaptureSeed(parsed, rawText: seed.rawText)
                     } else {
                         viewModel.taskName = seed.rawText
                     }
@@ -254,6 +254,7 @@ struct TaskCaptureHost: View {
                 guard created else { return }
                 IntentDonations.taskAdded(title: viewModel.taskName)
                 PendingCaptureInbox.remove(ids: [provisionalID])
+                onCreated()
             }
     }
 }
