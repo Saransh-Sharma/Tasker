@@ -24,10 +24,10 @@ struct HomeOnboardingGuidanceBanner: View {
                     .foregroundStyle(OnboardingTheme.textSecondary)
                 if state.isInvitation {
                     HStack(spacing: 12) {
-                        Button("Build my Life Map", action: onStart)
+                        Button(String(localized: "Set up"), action: onStart)
                             .lifeboardFont(.caption1)
                             .accessibilityIdentifier("home.onboarding.lifeMap.start")
-                        Button("Not now", action: onDismiss)
+                        Button(String(localized: "Not now"), action: onDismiss)
                             .lifeboardFont(.caption1)
                             .foregroundStyle(OnboardingTheme.textSecondary)
                             .accessibilityIdentifier("home.onboarding.lifeMap.dismiss")
