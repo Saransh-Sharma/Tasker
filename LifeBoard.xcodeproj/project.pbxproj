@@ -132,6 +132,7 @@
 		3BFD0F4FDBF2CF845F1ED1BA /* LifeBoard/Features/Eva/Views/Chat/Conversation/EvaDayHabitMetadataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE2C41DCBFDB00CEEAF73CC0 /* LifeBoard/Features/Eva/Views/Chat/Conversation/EvaDayHabitMetadataView.swift */; };
 		3BFDC99E090DF4551C917CE6 /* LifeBoard/Features/Onboarding/Models/AppOnboardingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AADEA1EA2E960494BF2F708 /* LifeBoard/Features/Onboarding/Models/AppOnboardingState.swift */; };
 		3CA024512D42A38C712034E0 /* LifeBoard/Features/Settings/LifeManagement/DeleteAreaSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BED7C8A4030249843AED943D /* LifeBoard/Features/Settings/LifeManagement/DeleteAreaSheet.swift */; };
+		3CFB7C1BC8C1EC871956083D /* HealthConnectionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1025CE280492B1CBA98C2CDE /* HealthConnectionViews.swift */; };
 		3DB15BBF268BC66ABA3862AD /* HomeTaskListWidgetSnapshotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A7BCB477B2EA5D03B6F3FF0 /* HomeTaskListWidgetSnapshotService.swift */; };
 		3E1506EC58D1A39E0EBC7588 /* FoundationShellDestinationRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E970D50C0708AC3CECC7FE0A /* FoundationShellDestinationRoot.swift */; };
 		3EA2500F6FA7AE834A238C3A /* LifeBoard/Features/Tasks/Domain/ScheduleReminderUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD613471ECDE5AFB1BB199B /* LifeBoard/Features/Tasks/Domain/ScheduleReminderUseCase.swift */; };
@@ -169,7 +170,6 @@
 		4F6E5189E8E1A1F05E05600D /* LifeOSFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4C2029D4BC463019FF6673 /* LifeOSFoundationTests.swift */; };
 		50117460BC314EEA54344A9E /* LifeBoard/Features/Tasks/Domain/GetHomeFilteredTasksUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF308251FE7FA9FEE55702D /* LifeBoard/Features/Tasks/Domain/GetHomeFilteredTasksUseCase.swift */; };
 		50A7B8B5DE36B32D1E81B375 /* PlanningCoreServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A67568BD18347F46207EDB1 /* PlanningCoreServices.swift */; };
-		C0D3F1A20000000000000002 /* ProjectExecutionModeProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3F1A20000000000000001 /* ProjectExecutionModeProjection.swift */; };
 		51459E137A715214E7CD7481 /* LifeBoard/Features/Settings/LifeManagement/AreaListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51840B6F63D4405BC246D786 /* LifeBoard/Features/Settings/LifeManagement/AreaListRow.swift */; };
 		52623D942AC2922413277FF6 /* LifeBoardWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3610ABC404898F73D042EA /* LifeBoardWatchApp.swift */; };
 		52EA01C705B92C45F65720CA /* SunriseTaskSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A7397B50382FF7FB4FAEC5F /* SunriseTaskSectionView.swift */; };
@@ -271,7 +271,6 @@
 		753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFC9F2445A24500A739E3 /* SceneDelegate.swift */; };
 		753EFCA52445A24500A739E3 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA32445A24500A739E3 /* Main.storyboard */; };
 		753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA62445A24700A739E3 /* Assets.xcassets */; };
-		A31000000000000000000551 /* HeroWelcomeHighCompressMb.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000550 /* HeroWelcomeHighCompressMb.mp4 */; };
 		753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */; };
 		753EFCB52445A24700A739E3 /* LifeBoardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCB42445A24700A739E3 /* LifeBoardTests.swift */; };
 		753EFCC02445A24800A739E3 /* LifeBoardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCBF2445A24800A739E3 /* LifeBoardUITests.swift */; };
@@ -405,6 +404,7 @@
 		8C6F6176F05C02D99369AB30 /* HomeViewModel+ReloadPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5082229527A40A436284F69E /* HomeViewModel+ReloadPipeline.swift */; };
 		8C817899D9F656D853E39B2C /* AddTaskRepeatEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1F5E5105AE9585B4120F9F /* AddTaskRepeatEditor.swift */; };
 		8C9CDC17702E6AC04114BAE5 /* TimelineCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F67EC4C592FE8E37C3B456 /* TimelineCanvas.swift */; };
+		8CB557DBA1F6CBA4A3D6A70A /* ConnectionPresentationContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C3D4058EA119BBC3DDA2353 /* ConnectionPresentationContext.swift */; };
 		8D5E3D97FB21E273894B0B4D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3D8D5167F9519588886C38B /* Foundation.framework */; };
 		8D7BDD59803F690867AC75C8 /* HomeViewModel+StateUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5495D17B3F94C89D74CD407E /* HomeViewModel+StateUtilities.swift */; };
 		8DC9908CB24A163442B463FB /* LifeBoard/Features/Tasks/Domain/CompleteTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1265EFBF270FC894A5FCA278 /* LifeBoard/Features/Tasks/Domain/CompleteTaskDefinitionUseCase.swift */; };
@@ -463,7 +463,6 @@
 		A1C2D3E4F5A60718293B4C5E /* AssistantEnvelopeValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */; };
 		A1C3D4E5F6A7B8C9D0E1F2A3 /* KeyboardShortcutsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */; };
 		A1F0D0B22F5A100100ABC001 /* AppOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B12F5A100100ABC001 /* AppOnboarding.swift */; };
-		A31000000000000000000947 /* LifeWeaveOnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000946 /* LifeWeaveOnboardingTests.swift */; };
 		A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */; };
 		A1F0D0B72F5A100100ABC001 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */; };
 		A20000000000000000000001 /* QuickViewSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* QuickViewSelector.swift */; };
@@ -492,114 +491,6 @@
 		A3100000000000000000021E /* PlanDriftResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000021D /* PlanDriftResolverTests.swift */; };
 		A31000000000000000000220 /* PlanRepairDeckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000021F /* PlanRepairDeckView.swift */; };
 		A31000000000000000000222 /* LifeBoardLensPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000221 /* LifeBoardLensPicker.swift */; };
-		A31000000000000000000549 /* LifeMapOnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000548 /* LifeMapOnboardingModels.swift */; };
-		A3100000000000000000054B /* LifeMapOnboardingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000054A /* LifeMapOnboardingModel.swift */; };
-		A3100000000000000000054F /* LifeMapOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000054E /* LifeMapOnboardingView.swift */; };
-		A31000000000000000000553 /* LifeMapManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000552 /* LifeMapManagementView.swift */; };
-		A31000000000000000000555 /* MotionDiagnosticsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000554 /* MotionDiagnosticsOverlay.swift */; };
-		A31000000000000000000557 /* ReflectionNoteRepositoryProtocolExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000556 /* ReflectionNoteRepositoryProtocolExtension.swift */; };
-		A31000000000000000000559 /* EvaAgeEligibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000558 /* EvaAgeEligibilityService.swift */; };
-		A3100000000000000000055B /* EvaAppAttestService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000055A /* EvaAppAttestService.swift */; };
-		A3100000000000000000055D /* EvaAppleIdentityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000055C /* EvaAppleIdentityService.swift */; };
-		A3100000000000000000055F /* EvaCloudContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000055E /* EvaCloudContracts.swift */; };
-		A31000000000000000000561 /* EvaCloudSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000560 /* EvaCloudSessionStore.swift */; };
-		A31000000000000000000563 /* EvaCloudTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000562 /* EvaCloudTransport.swift */; };
-		A31000000000000000000565 /* EvaInferenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000564 /* EvaInferenceProvider.swift */; };
-		A32000000000000000000002 /* EvaTurnRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* EvaTurnRuntime.swift */; };
-		A32000000000000000000004 /* EvaContextReceiptSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000003 /* EvaContextReceiptSnapshot.swift */; };
-		A32000000000000000000006 /* ProductTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000005 /* ProductTelemetry.swift */; };
-		A32000000000000000000008 /* EvaMemoryProposalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000007 /* EvaMemoryProposalService.swift */; };
-		A3200000000000000000000A /* EvaTrustArchitectureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000009 /* EvaTrustArchitectureTests.swift */; };
-		A3200000000000000000000C /* MessageView+MemoryCandidate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3200000000000000000000B /* MessageView+MemoryCandidate.swift */; };
-		A3200000000000000000000E /* ProductTelemetrySettingsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3200000000000000000000D /* ProductTelemetrySettingsCard.swift */; };
-		A32000000000000000000010 /* EvaEnvelopeAllocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3200000000000000000000F /* EvaEnvelopeAllocator.swift */; };
-		A31000000000000000000567 /* EvaSignedConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000566 /* EvaSignedConfiguration.swift */; };
-		A31000000000000000000569 /* EvaSpokenOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000568 /* EvaSpokenOutput.swift */; };
-		A3100000000000000000056B /* EvaCloudSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000056A /* EvaCloudSettingsView.swift */; };
-		A3100000000000000000056D /* EvaFeatureInferenceAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000056C /* EvaFeatureInferenceAdapters.swift */; };
-		A3100000000000000000056F /* EvaCloudActivationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000056E /* EvaCloudActivationView.swift */; };
-		A31000000000000000000571 /* EvaCloudSessionContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000570 /* EvaCloudSessionContracts.swift */; };
-		A31000000000000000000573 /* LLMGenerationCloudRoutes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000572 /* LLMGenerationCloudRoutes.swift */; };
-		A31000000000000000000575 /* LLMEvaluatorCloudGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000574 /* LLMEvaluatorCloudGeneration.swift */; };
-		A31000000000000000000577 /* EvaCloudContextProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000576 /* EvaCloudContextProjection.swift */; };
-		A31000000000000000000579 /* LLMEvaluatorGenerationEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000578 /* LLMEvaluatorGenerationEntry.swift */; };
-		A3100000000000000000057B /* EvaChatPromptSnapshotFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000057A /* EvaChatPromptSnapshotFactory.swift */; };
-		A3100000000000000000057D /* JournalAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000057C /* JournalAudioRecorder.swift */; };
-		A31000000000000000000581 /* EvaChatRetryPromptFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000580 /* EvaChatRetryPromptFactory.swift */; };
-		A31000000000000000000583 /* LifeMapAccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000582 /* LifeMapAccessibilityID.swift */; };
-		A31000000000000000000585 /* LifeMapHeroBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000584 /* LifeMapHeroBackdrop.swift */; };
-		A31000000000000000000587 /* LifeMapOnboardingChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000586 /* LifeMapOnboardingChrome.swift */; };
-		A31000000000000000000589 /* LifeMapOnboardingIntentSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000588 /* LifeMapOnboardingIntentSteps.swift */; };
-		A3100000000000000000058B /* LifeMapOnboardingRevealSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058A /* LifeMapOnboardingRevealSteps.swift */; };
-		A3100000000000000000090B /* LifeMapCommitCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090A /* LifeMapCommitCoordinator.swift */; };
-		A31000000000000000000901 /* LifeMapOnboardingConnectSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000900 /* LifeMapOnboardingConnectSteps.swift */; };
-		A31000000000000000000905 /* LifeMapOnboardingEvaStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000904 /* LifeMapOnboardingEvaStep.swift */; };
-		A31000000000000000000907 /* LifeMapOnboardingTourStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000906 /* LifeMapOnboardingTourStep.swift */; };
-		A31000000000000000000909 /* LifeMapEvaHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000908 /* LifeMapEvaHandoff.swift */; };
-		A3100000000000000000058D /* LifeMapOnboardingShapeSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058C /* LifeMapOnboardingShapeSteps.swift */; };
-		A3100000000000000000058F /* LifeMapOrbitCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058E /* LifeMapOrbitCanvas.swift */; };
-		A31000000000000000000591 /* LifeMapProductPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000590 /* LifeMapProductPreview.swift */; };
-		A3100000000000000000090D /* EvaRouteContextSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090C /* EvaRouteContextSections.swift */; };
-		A3100000000000000000090F /* AISuggestionPromptPayloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090E /* AISuggestionPromptPayloads.swift */; };
-		A31000000000000000000911 /* EvaUserInstructions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000910 /* EvaUserInstructions.swift */; };
-		A31000000000000000000913 /* EvaContextBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000912 /* EvaContextBudget.swift */; };
-		A31000000000000000000915 /* EvaPromptAssembly.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000914 /* EvaPromptAssembly.swift */; };
-		A31000000000000000000917 /* EvaContextEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000916 /* EvaContextEnvelope.swift */; };
-		A31000000000000000000919 /* EvaContextEnvelopeBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000918 /* EvaContextEnvelopeBuilder.swift */; };
-		A3100000000000000000091B /* EvaPlanningProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091A /* EvaPlanningProjector.swift */; };
-		A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091C /* EvaTurnContextAssembler.swift */; };
-		A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091E /* EvaMemoryStoreV2.swift */; };
-		A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000924 /* LifeWeaveIntent.swift */; };
-		A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000926 /* LifeWeaveDraft.swift */; };
-		A31000000000000000000973 /* CalendarPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000972 /* CalendarPowerUpView.swift */; };
-		A31000000000000000000975 /* HealthPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000974 /* HealthPowerUpView.swift */; };
-		A31000000000000000000977 /* EvaPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000976 /* EvaPowerUpView.swift */; };
-		A31000000000000000000979 /* PowerUpSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000978 /* PowerUpSummaryView.swift */; };
-		A3100000000000000000097B /* LifeWeavePowerUpFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097A /* LifeWeavePowerUpFlow.swift */; };
-		A3100000000000000000097D /* LifeWeavePowerUpCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097C /* LifeWeavePowerUpCalendar.swift */; };
-		A3100000000000000000097F /* LifeWeavePowerUpHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097E /* LifeWeavePowerUpHealth.swift */; };
-		A31000000000000000000981 /* LifeWeavePowerUpEva.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000980 /* LifeWeavePowerUpEva.swift */; };
-		A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000928 /* LifeWeaveMigration.swift */; };
-		A3100000000000000000092B /* LifeWeaveCommitBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092A /* LifeWeaveCommitBridge.swift */; };
-		A3100000000000000000092D /* LifeWeaveOnboardingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */; };
-		A31000000000000000000931 /* LifeWeavePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000930 /* LifeWeavePresentation.swift */; };
-		A31000000000000000000933 /* LifeWeaveGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000932 /* LifeWeaveGeometry.swift */; };
-		A31000000000000000000935 /* LifeWeaveCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000934 /* LifeWeaveCanvas.swift */; };
-		A31000000000000000000939 /* LifeWeaveChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000938 /* LifeWeaveChrome.swift */; };
-		A3100000000000000000093B /* LifeWeaveCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093A /* LifeWeaveCapture.swift */; };
-		A3100000000000000000093D /* LifeWeaveEvaActivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093C /* LifeWeaveEvaActivation.swift */; };
-		A3100000000000000000093F /* LifeWeaveOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093E /* LifeWeaveOnboardingView.swift */; };
-		A31000000000000000000941 /* LifeWeaveIntentSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000940 /* LifeWeaveIntentSteps.swift */; };
-		A31000000000000000000943 /* LifeWeaveShapeSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000942 /* LifeWeaveShapeSteps.swift */; };
-		A31000000000000000000945 /* LifeWeaveRevealStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000944 /* LifeWeaveRevealStep.swift */; };
-		A31000000000000000000949 /* OnboardingContextualTip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000948 /* OnboardingContextualTip.swift */; };
-		A3100000000000000000094B /* OnboardingContextualTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094A /* OnboardingContextualTipView.swift */; };
-		A3100000000000000000094D /* EvaContextSectionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094C /* EvaContextSectionFactory.swift */; };
-		A3100000000000000000094F /* EvaCloudControlPlane.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094E /* EvaCloudControlPlane.swift */; };
-		A31000000000000000000951 /* EvaCloudInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000950 /* EvaCloudInference.swift */; };
-		A31000000000000000000953 /* EvaCloudRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000952 /* EvaCloudRequest.swift */; };
-		A31000000000000000000955 /* SetupCenterStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000954 /* SetupCenterStatus.swift */; };
-		A31000000000000000000957 /* SetupCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000956 /* SetupCenterView.swift */; };
-		A31000000000000000000959 /* SetupCenterHomeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000958 /* SetupCenterHomeCard.swift */; };
-		A3100000000000000000095B /* UIKitHostEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000095A /* UIKitHostEnvironment.swift */; };
-		A31000000000000000000991 /* ClayMaterialContrastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000990 /* ClayMaterialContrastTests.swift */; };
-		A31000000000000000000995 /* DesignContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000994 /* DesignContractTests.swift */; };
-		A31000000000000000000997 /* AmbientMotionBudgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000996 /* AmbientMotionBudgetTests.swift */; };
-		A3100000000000000000095D /* SetupCenterFocusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000095C /* SetupCenterFocusTests.swift */; };
-		A3100000000000000000095F /* SetupCenterSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000095E /* SetupCenterSections.swift */; };
-		A31000000000000000000961 /* SetupCenterHealthDisclosureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000960 /* SetupCenterHealthDisclosureSheet.swift */; };
-		A31000000000000000000963 /* HealthLogComposers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000962 /* HealthLogComposers.swift */; };
-		A31000000000000000000965 /* HealthHubSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000964 /* HealthHubSections.swift */; };
-		A31000000000000000000967 /* JournalCaptureComposers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000966 /* JournalCaptureComposers.swift */; };
-		A31000000000000000000983 /* EvaDecisionLoopModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000982 /* EvaDecisionLoopModels.swift */; };
-		A31000000000000000000985 /* WeeklyResetProposalApplier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000984 /* WeeklyResetProposalApplier.swift */; };
-		A31000000000000000000987 /* PlanStoreEvaDecisionLoops.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000986 /* PlanStoreEvaDecisionLoops.swift */; };
-		A31000000000000000000989 /* EvaRitualShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000988 /* EvaRitualShell.swift */; };
-		A3100000000000000000098B /* MakeItFitTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000098A /* MakeItFitTodayView.swift */; };
-		A3100000000000000000098D /* FrictionDetectiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000098C /* FrictionDetectiveView.swift */; };
-		A3100000000000000000098F /* WeeklyResetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000098E /* WeeklyResetView.swift */; };
-		A31000000000000000000993 /* PrimaryActionResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000992 /* PrimaryActionResolver.swift */; };
-		A31000000000000000000999 /* ClayToggleStyleModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000998 /* ClayToggleStyleModifier.swift */; };
 		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
 		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
@@ -620,7 +511,6 @@
 		A3100000000000000000052D /* ComposerCaptureOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000052C /* ComposerCaptureOrb.swift */; };
 		A3100000000000000000052F /* ComposerAuxiliaryRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000052E /* ComposerAuxiliaryRows.swift */; };
 		A31000000000000000000531 /* AtmospherePlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000530 /* AtmospherePlacement.swift */; };
-		A31000000000000000000903 /* CelestialAssetPreheater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000902 /* CelestialAssetPreheater.swift */; };
 		A31000000000000000000533 /* AdaptiveAtmosphereMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000532 /* AdaptiveAtmosphereMotion.swift */; };
 		A31000000000000000000535 /* LifeMomentsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000534 /* LifeMomentsViews.swift */; };
 		A31000000000000000000537 /* WeeklyWorkspaceSectionCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000536 /* WeeklyWorkspaceSectionCopy.swift */; };
@@ -632,6 +522,138 @@
 		A31000000000000000000543 /* TrackFastingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000542 /* TrackFastingViews.swift */; };
 		A31000000000000000000545 /* HomeFastingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000544 /* HomeFastingWidget.swift */; };
 		A31000000000000000000547 /* HeroSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000546 /* HeroSurfaceTests.swift */; };
+		A31000000000000000000549 /* LifeMapOnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000548 /* LifeMapOnboardingModels.swift */; };
+		A3100000000000000000054B /* LifeMapOnboardingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000054A /* LifeMapOnboardingModel.swift */; };
+		A3100000000000000000054F /* LifeMapOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000054E /* LifeMapOnboardingView.swift */; };
+		A31000000000000000000551 /* HeroWelcomeHighCompressMb.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000550 /* HeroWelcomeHighCompressMb.mp4 */; };
+		A31000000000000000000553 /* LifeMapManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000552 /* LifeMapManagementView.swift */; };
+		A31000000000000000000555 /* MotionDiagnosticsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000554 /* MotionDiagnosticsOverlay.swift */; };
+		A31000000000000000000557 /* ReflectionNoteRepositoryProtocolExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000556 /* ReflectionNoteRepositoryProtocolExtension.swift */; };
+		A31000000000000000000559 /* EvaAgeEligibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000558 /* EvaAgeEligibilityService.swift */; };
+		A3100000000000000000055B /* EvaAppAttestService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000055A /* EvaAppAttestService.swift */; };
+		A3100000000000000000055D /* EvaAppleIdentityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000055C /* EvaAppleIdentityService.swift */; };
+		A3100000000000000000055F /* EvaCloudContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000055E /* EvaCloudContracts.swift */; };
+		A31000000000000000000561 /* EvaCloudSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000560 /* EvaCloudSessionStore.swift */; };
+		A31000000000000000000563 /* EvaCloudTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000562 /* EvaCloudTransport.swift */; };
+		A31000000000000000000565 /* EvaInferenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000564 /* EvaInferenceProvider.swift */; };
+		A31000000000000000000567 /* EvaSignedConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000566 /* EvaSignedConfiguration.swift */; };
+		A31000000000000000000569 /* EvaSpokenOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000568 /* EvaSpokenOutput.swift */; };
+		A3100000000000000000056B /* EvaCloudSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000056A /* EvaCloudSettingsView.swift */; };
+		A3100000000000000000056D /* EvaFeatureInferenceAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000056C /* EvaFeatureInferenceAdapters.swift */; };
+		A3100000000000000000056F /* EvaCloudActivationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000056E /* EvaCloudActivationView.swift */; };
+		A31000000000000000000571 /* EvaCloudSessionContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000570 /* EvaCloudSessionContracts.swift */; };
+		A31000000000000000000573 /* LLMGenerationCloudRoutes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000572 /* LLMGenerationCloudRoutes.swift */; };
+		A31000000000000000000575 /* LLMEvaluatorCloudGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000574 /* LLMEvaluatorCloudGeneration.swift */; };
+		A31000000000000000000577 /* EvaCloudContextProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000576 /* EvaCloudContextProjection.swift */; };
+		A31000000000000000000579 /* LLMEvaluatorGenerationEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000578 /* LLMEvaluatorGenerationEntry.swift */; };
+		A3100000000000000000057B /* EvaChatPromptSnapshotFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000057A /* EvaChatPromptSnapshotFactory.swift */; };
+		A3100000000000000000057D /* JournalAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000057C /* JournalAudioRecorder.swift */; };
+		A31000000000000000000581 /* EvaChatRetryPromptFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000580 /* EvaChatRetryPromptFactory.swift */; };
+		A31000000000000000000583 /* LifeMapAccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000582 /* LifeMapAccessibilityID.swift */; };
+		A31000000000000000000585 /* LifeMapHeroBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000584 /* LifeMapHeroBackdrop.swift */; };
+		A31000000000000000000587 /* LifeMapOnboardingChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000586 /* LifeMapOnboardingChrome.swift */; };
+		A31000000000000000000589 /* LifeMapOnboardingIntentSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000588 /* LifeMapOnboardingIntentSteps.swift */; };
+		A3100000000000000000058B /* LifeMapOnboardingRevealSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058A /* LifeMapOnboardingRevealSteps.swift */; };
+		A3100000000000000000058D /* LifeMapOnboardingShapeSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058C /* LifeMapOnboardingShapeSteps.swift */; };
+		A3100000000000000000058F /* LifeMapOrbitCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058E /* LifeMapOrbitCanvas.swift */; };
+		A31000000000000000000591 /* LifeMapProductPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000590 /* LifeMapProductPreview.swift */; };
+		A31000000000000000000901 /* LifeMapOnboardingConnectSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000900 /* LifeMapOnboardingConnectSteps.swift */; };
+		A31000000000000000000903 /* CelestialAssetPreheater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000902 /* CelestialAssetPreheater.swift */; };
+		A31000000000000000000905 /* LifeMapOnboardingEvaStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000904 /* LifeMapOnboardingEvaStep.swift */; };
+		A31000000000000000000907 /* LifeMapOnboardingTourStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000906 /* LifeMapOnboardingTourStep.swift */; };
+		A31000000000000000000909 /* LifeMapEvaHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000908 /* LifeMapEvaHandoff.swift */; };
+		A3100000000000000000090B /* LifeMapCommitCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090A /* LifeMapCommitCoordinator.swift */; };
+		A3100000000000000000090D /* EvaRouteContextSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090C /* EvaRouteContextSections.swift */; };
+		A3100000000000000000090F /* AISuggestionPromptPayloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090E /* AISuggestionPromptPayloads.swift */; };
+		A31000000000000000000911 /* EvaUserInstructions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000910 /* EvaUserInstructions.swift */; };
+		A31000000000000000000913 /* EvaContextBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000912 /* EvaContextBudget.swift */; };
+		A31000000000000000000915 /* EvaPromptAssembly.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000914 /* EvaPromptAssembly.swift */; };
+		A31000000000000000000917 /* EvaContextEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000916 /* EvaContextEnvelope.swift */; };
+		A31000000000000000000919 /* EvaContextEnvelopeBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000918 /* EvaContextEnvelopeBuilder.swift */; };
+		A3100000000000000000091B /* EvaPlanningProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091A /* EvaPlanningProjector.swift */; };
+		A3100000000000000000091D /* EvaTurnContextAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091C /* EvaTurnContextAssembler.swift */; };
+		A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000091E /* EvaMemoryStoreV2.swift */; };
+		A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000924 /* LifeWeaveIntent.swift */; };
+		A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000926 /* LifeWeaveDraft.swift */; };
+		A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000928 /* LifeWeaveMigration.swift */; };
+		A3100000000000000000092B /* LifeWeaveCommitBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092A /* LifeWeaveCommitBridge.swift */; };
+		A3100000000000000000092D /* LifeWeaveOnboardingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */; };
+		A31000000000000000000931 /* LifeWeavePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000930 /* LifeWeavePresentation.swift */; };
+		A31000000000000000000933 /* LifeWeaveGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000932 /* LifeWeaveGeometry.swift */; };
+		A31000000000000000000935 /* LifeWeaveCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000934 /* LifeWeaveCanvas.swift */; };
+		A31000000000000000000939 /* LifeWeaveChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000938 /* LifeWeaveChrome.swift */; };
+		A3100000000000000000093B /* LifeWeaveCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093A /* LifeWeaveCapture.swift */; };
+		A3100000000000000000093D /* LifeWeaveEvaActivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093C /* LifeWeaveEvaActivation.swift */; };
+		A3100000000000000000093F /* LifeWeaveOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000093E /* LifeWeaveOnboardingView.swift */; };
+		A31000000000000000000941 /* LifeWeaveIntentSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000940 /* LifeWeaveIntentSteps.swift */; };
+		A31000000000000000000943 /* LifeWeaveShapeSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000942 /* LifeWeaveShapeSteps.swift */; };
+		A31000000000000000000945 /* LifeWeaveRevealStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000944 /* LifeWeaveRevealStep.swift */; };
+		A31000000000000000000947 /* LifeWeaveOnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000946 /* LifeWeaveOnboardingTests.swift */; };
+		A31000000000000000000949 /* OnboardingContextualTip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000948 /* OnboardingContextualTip.swift */; };
+		A3100000000000000000094B /* OnboardingContextualTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094A /* OnboardingContextualTipView.swift */; };
+		A3100000000000000000094D /* EvaContextSectionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094C /* EvaContextSectionFactory.swift */; };
+		A3100000000000000000094F /* EvaCloudControlPlane.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000094E /* EvaCloudControlPlane.swift */; };
+		A31000000000000000000951 /* EvaCloudInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000950 /* EvaCloudInference.swift */; };
+		A31000000000000000000953 /* EvaCloudRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000952 /* EvaCloudRequest.swift */; };
+		A31000000000000000000955 /* SetupCenterStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000954 /* SetupCenterStatus.swift */; };
+		A31000000000000000000957 /* SetupCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000956 /* SetupCenterView.swift */; };
+		A31000000000000000000959 /* SetupCenterHomeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000958 /* SetupCenterHomeCard.swift */; };
+		A3100000000000000000095B /* UIKitHostEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000095A /* UIKitHostEnvironment.swift */; };
+		A3100000000000000000095D /* SetupCenterFocusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000095C /* SetupCenterFocusTests.swift */; };
+		A3100000000000000000095F /* SetupCenterSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000095E /* SetupCenterSections.swift */; };
+		A31000000000000000000961 /* SetupCenterHealthDisclosureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000960 /* SetupCenterHealthDisclosureSheet.swift */; };
+		A31000000000000000000963 /* HealthLogComposers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000962 /* HealthLogComposers.swift */; };
+		A31000000000000000000965 /* HealthHubSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000964 /* HealthHubSections.swift */; };
+		A31000000000000000000967 /* JournalCaptureComposers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000966 /* JournalCaptureComposers.swift */; };
+		A31000000000000000000973 /* CalendarPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000972 /* CalendarPowerUpView.swift */; };
+		A31000000000000000000975 /* HealthPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000974 /* HealthPowerUpView.swift */; };
+		A31000000000000000000977 /* EvaPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000976 /* EvaPowerUpView.swift */; };
+		A31000000000000000000979 /* PowerUpSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000978 /* PowerUpSummaryView.swift */; };
+		A3100000000000000000097B /* LifeWeavePowerUpFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097A /* LifeWeavePowerUpFlow.swift */; };
+		A3100000000000000000097D /* LifeWeavePowerUpCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097C /* LifeWeavePowerUpCalendar.swift */; };
+		A3100000000000000000097F /* LifeWeavePowerUpHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097E /* LifeWeavePowerUpHealth.swift */; };
+		A31000000000000000000981 /* LifeWeavePowerUpEva.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000980 /* LifeWeavePowerUpEva.swift */; };
+		A31000000000000000000983 /* EvaDecisionLoopModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000982 /* EvaDecisionLoopModels.swift */; };
+		A31000000000000000000985 /* WeeklyResetProposalApplier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000984 /* WeeklyResetProposalApplier.swift */; };
+		A31000000000000000000987 /* PlanStoreEvaDecisionLoops.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000986 /* PlanStoreEvaDecisionLoops.swift */; };
+		A31000000000000000000989 /* EvaRitualShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000988 /* EvaRitualShell.swift */; };
+		A3100000000000000000098B /* MakeItFitTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000098A /* MakeItFitTodayView.swift */; };
+		A3100000000000000000098D /* FrictionDetectiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000098C /* FrictionDetectiveView.swift */; };
+		A3100000000000000000098F /* WeeklyResetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000098E /* WeeklyResetView.swift */; };
+		A31000000000000000000991 /* ClayMaterialContrastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000990 /* ClayMaterialContrastTests.swift */; };
+		A31000000000000000000993 /* PrimaryActionResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000992 /* PrimaryActionResolver.swift */; };
+		A31000000000000000000995 /* DesignContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000994 /* DesignContractTests.swift */; };
+		A31000000000000000000997 /* AmbientMotionBudgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000996 /* AmbientMotionBudgetTests.swift */; };
+		A31000000000000000000999 /* ClayToggleStyleModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000998 /* ClayToggleStyleModifier.swift */; };
+		A3100000000000000000099B /* HomeCardIllustratedSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000099A /* HomeCardIllustratedSurface.swift */; };
+		A3100000000000000000099D /* HomeCardPresentationStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000099C /* HomeCardPresentationStyle.swift */; };
+		A3100000000000000000099F /* HomeCardPreviewFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000099E /* HomeCardPreviewFixtures.swift */; };
+		A310000000000000000009A1 /* HomeCardSamplePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009A0 /* HomeCardSamplePreview.swift */; };
+		A310000000000000000009A3 /* HomeCardScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009A2 /* HomeCardScene.swift */; };
+		A310000000000000000009A5 /* HomeCardPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009A4 /* HomeCardPresentationTests.swift */; };
+		A310000000000000000009A7 /* HomeJournalCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009A6 /* HomeJournalCardContent.swift */; };
+		A310000000000000000009A9 /* HomeTimelineCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009A8 /* HomeTimelineCardContent.swift */; };
+		A310000000000000000009AB /* HomeCapacityCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009AA /* HomeCapacityCardContent.swift */; };
+		A310000000000000000009AD /* HomeQuickCaptureCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009AC /* HomeQuickCaptureCardContent.swift */; };
+		A310000000000000000009AF /* HomeGlanceCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009AE /* HomeGlanceCardContent.swift */; };
+		A310000000000000000009B3 /* HomeTasksCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009B2 /* HomeTasksCardContent.swift */; };
+		A310000000000000000009B5 /* HomeCardQueueRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009B4 /* HomeCardQueueRow.swift */; };
+		A310000000000000000009B7 /* HomeActionQueueCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009B6 /* HomeActionQueueCardContent.swift */; };
+		A310000000000000000009B9 /* HomeFocusCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009B8 /* HomeFocusCardContent.swift */; };
+		A310000000000000000009BB /* HomeLifeSnapshotCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009BA /* HomeLifeSnapshotCardContent.swift */; };
+		A310000000000000000009BD /* HomeProgressCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009BC /* HomeProgressCardContent.swift */; };
+		A310000000000000000009BF /* HomeFastingCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009BE /* HomeFastingCardContent.swift */; };
+		A310000000000000000009C1 /* HomeCardGeometryRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009C0 /* HomeCardGeometryRecorder.swift */; };
+		A310000000000000000009C3 /* HomeSceneImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009C2 /* HomeSceneImageCache.swift */; };
+		A310000000000000000009C5 /* HomeAmbientArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009C4 /* HomeAmbientArtwork.swift */; };
+		A32000000000000000000002 /* EvaTurnRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* EvaTurnRuntime.swift */; };
+		A32000000000000000000004 /* EvaContextReceiptSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000003 /* EvaContextReceiptSnapshot.swift */; };
+		A32000000000000000000006 /* ProductTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000005 /* ProductTelemetry.swift */; };
+		A32000000000000000000008 /* EvaMemoryProposalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000007 /* EvaMemoryProposalService.swift */; };
+		A3200000000000000000000A /* EvaTrustArchitectureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000009 /* EvaTrustArchitectureTests.swift */; };
+		A3200000000000000000000C /* MessageView+MemoryCandidate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3200000000000000000000B /* MessageView+MemoryCandidate.swift */; };
+		A3200000000000000000000E /* ProductTelemetrySettingsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3200000000000000000000D /* ProductTelemetrySettingsCard.swift */; };
+		A32000000000000000000010 /* EvaEnvelopeAllocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3200000000000000000000F /* EvaEnvelopeAllocator.swift */; };
 		A3A6DF9571AB7FEB410EB861 /* SunriseAdvancedFilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594ECD331C0135DA36357314 /* SunriseAdvancedFilterSheetView.swift */; };
 		A40000000000000000000020 /* LifeBoardTokensShim.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40000000000000000000010 /* LifeBoardTokensShim.swift */; };
 		A40000000000000000000021 /* LifeBoardWidgets/LifeBoardTokensShim.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40000000000000000000011 /* LifeBoardWidgets/LifeBoardTokensShim.swift */; };
@@ -669,12 +691,14 @@
 		A88F93F1E4769FB8D7640E3E /* LifeBoard/Features/Onboarding/Coordinator/AppOnboardingHostAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABDC5FDB10DF919EB7B94CC4 /* LifeBoard/Features/Onboarding/Coordinator/AppOnboardingHostAdapter.swift */; };
 		A8F1D2025E9C44A100112233 /* DeviceOrientationPolicyResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F1D2055E9C44A100112233 /* DeviceOrientationPolicyResolver.swift */; };
 		A8F1D2035E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F1D2065E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift */; };
+		A8F7C758386C5AF2FB1AC25E /* EvaCloudDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 845A3A5D6253E478E5FA01AF /* EvaCloudDisclosure.swift */; };
 		A912CB15A1588398C547FCE3 /* SunriseFocusSessionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D63FBA200D736491232884A /* SunriseFocusSessionSummaryView.swift */; };
 		A91F8E112F44420100AB11C1 /* LifeManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E132F44420100AB11C1 /* LifeManagementView.swift */; };
 		A91F8E122F44420100AB11C1 /* LifeManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E142F44420100AB11C1 /* LifeManagementViewModel.swift */; };
 		A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */; };
 		A9357F2E204D0C08231BDEBE /* InsightsLifeEventMappers.swift in Sources */ = {isa = PBXBuildFile; fileRef = D193E189D1F47060BFFEC1C4 /* InsightsLifeEventMappers.swift */; };
 		AA8998042C8A124CBA384F20 /* WatchSnapshotReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20E51E01323F68DC0F47205 /* WatchSnapshotReceiver.swift */; };
+		AA8AFB1923BFB24700BB7461 /* HealthConnectionPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F7B66C55583D3816BF548A5 /* HealthConnectionPresentation.swift */; };
 		AAB000000000000000000002 /* HomeRenderState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000001 /* HomeRenderState.swift */; };
 		AAB000000000000000000004 /* HomeStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000003 /* HomeStores.swift */; };
 		AAB000000000000000000009 /* HomeShellTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000008 /* HomeShellTypes.swift */; };
@@ -683,7 +707,6 @@
 		AAB000000000000000000011 /* HomeDailySummaryModalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000010 /* HomeDailySummaryModalView.swift */; };
 		AAB000000000000000000013 /* SunriseRecurringTaskDeleteConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000012 /* SunriseRecurringTaskDeleteConfirmationView.swift */; };
 		AAB000000000000000000015 /* LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000014 /* LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift */; };
-		AAC000000000000000000002 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC000000000000000000001 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift */; };
 		AAB000000000000000000019 /* NeedsReplanTrayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000018 /* NeedsReplanTrayView.swift */; };
 		AAB00000000000000000001B /* NeedsReplanLauncherSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB00000000000000000001A /* NeedsReplanLauncherSheet.swift */; };
 		AAB00000000000000000001D /* NeedsReplanCardOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB00000000000000000001C /* NeedsReplanCardOverlay.swift */; };
@@ -696,6 +719,7 @@
 		AAB00000000000000000002D /* HomeSunriseLayoutSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB00000000000000000002C /* HomeSunriseLayoutSupport.swift */; };
 		AAB00000000000000000002F /* HomeDaySwipeResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB00000000000000000002E /* HomeDaySwipeResolver.swift */; };
 		AAB000000000000000000031 /* HomeSearchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000030 /* HomeSearchState.swift */; };
+		AAC000000000000000000002 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC000000000000000000001 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift */; };
 		AB5F19766B9E8B7A003B9B1E /* LifeBoardSnackbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C5BD9B9BA76D61F7F044BD /* LifeBoardSnackbar.swift */; };
 		ABB8A81FC820F8057D7D0BB1 /* LifeBoard/Features/Onboarding/Models/TaskDefinitionRepositoryProtocolExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 871E14455069188F7847E1DB /* LifeBoard/Features/Onboarding/Models/TaskDefinitionRepositoryProtocolExtension.swift */; };
 		ABCD00000000000000000011 /* AddHabitViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000021 /* AddHabitViewModel.swift */; };
@@ -773,6 +797,7 @@
 		BDAFA3BFCD791B15C8DB9A9D /* HomeViewModel+HabitReconciliation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7BD248BA8AC069F8261EE8 /* HomeViewModel+HabitReconciliation.swift */; };
 		BEB8BC780A4A962C58A77BC4 /* LifeBoard/Services/V2FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34CC91CCAA408A3ADB2D8693 /* LifeBoard/Services/V2FeatureFlags.swift */; };
 		C017F11E0720B026D1DC1692 /* LifeBoard/Features/Onboarding/Models/ResolvedProjectSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A81F8713DDE19EF4F956288 /* LifeBoard/Features/Onboarding/Models/ResolvedProjectSelection.swift */; };
+		C0D3F1A20000000000000002 /* ProjectExecutionModeProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3F1A20000000000000001 /* ProjectExecutionModeProjection.swift */; };
 		C0DEC0DE0000000000000002 /* SettingsPremiumExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DE0000000000000001 /* SettingsPremiumExperience.swift */; };
 		C0FFEE00000000000000CF01 /* LifeBoard/LifeBoardDesign/Animations/lb_confetti.json in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000CF02 /* LifeBoard/LifeBoardDesign/Animations/lb_confetti.json */; };
 		C1A100000000000000000103 /* LifeBoard/Features/Habits/Domain/HabitRuntimeUseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000003 /* LifeBoard/Features/Habits/Domain/HabitRuntimeUseCases.swift */; };
@@ -946,6 +971,7 @@
 		E0A100000000000000000504 /* ComposerCompressionPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000503 /* ComposerCompressionPolicyTests.swift */; };
 		E0A100000000000000000506 /* RubberBandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000505 /* RubberBandTests.swift */; };
 		E0A100000000000000000508 /* FocusClockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000507 /* FocusClockTests.swift */; };
+		E0D98E753CD8457137A07299 /* EvaPendingActivationDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F774629E2C2CE6BBBD4EFA2 /* EvaPendingActivationDraftStore.swift */; };
 		E19F74D16FD5238F2C77D32A /* TimelineTimeBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60A322E21AF97D46F076D5C8 /* TimelineTimeBlock.swift */; };
 		E1A100000000000000000001 /* HomeReplanDayUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A200000000000000000001 /* HomeReplanDayUITests.swift */; };
 		E1C5A4B1D2E3F40123456789 /* LifeBoard/Features/Tasks/Domain/UpdateTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C5A4B1D2E3F4012345678C /* LifeBoard/Features/Tasks/Domain/UpdateTaskDefinitionUseCase.swift */; };
@@ -1012,6 +1038,7 @@
 		F008F091A6B8DB39893BDF07 /* LifeBoard/Features/Eva/Views/Chat/Conversation/EvaDayTaskActionButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3528CDE2C353B77B8CC4EB35 /* LifeBoard/Features/Eva/Views/Chat/Conversation/EvaDayTaskActionButtonView.swift */; };
 		F00D00000000000000001002 /* TaskDetailPresentationContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00D00000000000000001001 /* TaskDetailPresentationContracts.swift */; };
 		F00D8D326BF77E4E42597083 /* LifeBoard/Features/Settings/LifeManagement/HabitSummaryRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE36332DC107A6F5A9A4AF2 /* LifeBoard/Features/Settings/LifeManagement/HabitSummaryRow.swift */; };
+		F09160000000000000000001 /* LifeBoardTests/HomeCardIsolationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F09160000000000000000002 /* LifeBoardTests/HomeCardIsolationTests.swift */; };
 		F0A100000000000000000101 /* SeededFeaturePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000102 /* SeededFeaturePages.swift */; };
 		F0A100000000000000000201 /* OverdueRescueSeededUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */; };
 		F0A100000000000000000401 /* FocusNowSeededUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000402 /* FocusNowSeededUITests.swift */; };
@@ -1076,11 +1103,6 @@
 		FEEDFACE0000000000000006 /* LBChipRailSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEDFACE0000000000000005 /* LBChipRailSeparator.swift */; };
 		FFCF1FC469B2AE9FC88CF3D1 /* InsightsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EDFF0556DE6F60CD19AA39 /* InsightsViewModel.swift */; };
 		FFE402DD68D4595A5B90EC4B /* LifeBoard/Features/Settings/LifeManagement/LifeManagementAreaIconPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DEE0B3DA1576389071E8CEA /* LifeBoard/Features/Settings/LifeManagement/LifeManagementAreaIconPicker.swift */; };
-		AA8AFB1923BFB24700BB7461 /* HealthConnectionPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F7B66C55583D3816BF548A5 /* HealthConnectionPresentation.swift */; };
-		3CFB7C1BC8C1EC871956083D /* HealthConnectionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1025CE280492B1CBA98C2CDE /* HealthConnectionViews.swift */; };
-		8CB557DBA1F6CBA4A3D6A70A /* ConnectionPresentationContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C3D4058EA119BBC3DDA2353 /* ConnectionPresentationContext.swift */; };
-		A8F7C758386C5AF2FB1AC25E /* EvaCloudDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 845A3A5D6253E478E5FA01AF /* EvaCloudDisclosure.swift */; };
-		E0D98E753CD8457137A07299 /* EvaPendingActivationDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F774629E2C2CE6BBBD4EFA2 /* EvaPendingActivationDraftStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1180,6 +1202,7 @@
 		0EEAA4E5BAE211CDD53A2CD8 /* FoundationRouteFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FoundationRouteFactory.swift; path = Foundation/Navigation/FoundationRouteFactory.swift; sourceTree = "<group>"; };
 		0F491D6AE37A2795AA0485A7 /* HomeDateNavigationSource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeDateNavigationSource.swift; path = LifeBoard/Features/Home/UI/ViewModels/HomeDateNavigationSource.swift; sourceTree = SOURCE_ROOT; };
 		0F6F48917D4BC283718B3C65 /* PlanLayoutResolvers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanLayoutResolvers.swift; path = Features/Plan/UI/PlanLayoutResolvers.swift; sourceTree = "<group>"; };
+		1025CE280492B1CBA98C2CDE /* HealthConnectionViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthConnectionViews.swift; path = LifeBoard/Features/Health/HealthSync/HealthConnectionViews.swift; sourceTree = SOURCE_ROOT; };
 		102FF39D56775B7335081882 /* LifeBoard/Features/Onboarding/Models/OnboardingPromptFooterMaterialModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingPromptFooterMaterialModifier.swift; sourceTree = SOURCE_ROOT; };
 		10E031C3127045DB0AF8ACF9 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementProjectDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/LifeManagementProjectDetailView.swift; sourceTree = SOURCE_ROOT; };
 		10EE348FF84C5F729A416848 /* CoreDataReminderRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoreDataReminderRepository.swift; path = LifeBoard/Persistence/Repositories/CoreDataReminderRepository.swift; sourceTree = SOURCE_ROOT; };
@@ -1211,6 +1234,7 @@
 		1E88A3C9B5309D183423ACF8 /* HomeViewModel+DailyAnalytics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+DailyAnalytics.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+DailyAnalytics.swift"; sourceTree = SOURCE_ROOT; };
 		1F47DE38B051783EAE99853E /* HomeHabitMutationFeedbackHaptic.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeHabitMutationFeedbackHaptic.swift; path = LifeBoard/Features/Home/UI/ViewModels/HomeHabitMutationFeedbackHaptic.swift; sourceTree = SOURCE_ROOT; };
 		1F513A3CC3399C63D7602EDD /* FoundationDisplayPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FoundationDisplayPanel.swift; path = LifeBoard/Foundation/Navigation/DisplayPanel.swift; sourceTree = SOURCE_ROOT; };
+		1F7B66C55583D3816BF548A5 /* HealthConnectionPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthConnectionPresentation.swift; path = LifeBoard/Features/Health/HealthSync/HealthConnectionPresentation.swift; sourceTree = SOURCE_ROOT; };
 		1F9B00022FBA700000000003 /* HomeReloadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeReloadCoordinator.swift; path = LifeBoard/Features/Home/UI/HomeReloadCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		1F9B00042FBA700000000004 /* HomeNavigationIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeNavigationIntent.swift; path = LifeBoard/Features/Home/UI/HomeNavigationIntent.swift; sourceTree = SOURCE_ROOT; };
 		1F9B00062FBA700000000006 /* HomeNavigationEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeNavigationEventAdapter.swift; path = LifeBoard/Features/Home/UI/HomeNavigationEventAdapter.swift; sourceTree = SOURCE_ROOT; };
@@ -1271,8 +1295,8 @@
 		391110AA08B7ED7F8ED57B9C /* HomeViewModel+RescueEligibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+RescueEligibility.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+RescueEligibility.swift"; sourceTree = SOURCE_ROOT; };
 		397C07871DD37C43B8DBB641 /* TrackFoundationServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackFoundationServices.swift; path = Features/Track/Domain/TrackFoundationServices.swift; sourceTree = "<group>"; };
 		3A67568BD18347F46207EDB1 /* PlanningCoreServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanningCoreServices.swift; path = Features/Plan/Domain/PlanningCoreServices.swift; sourceTree = "<group>"; };
-		C0D3F1A20000000000000001 /* ProjectExecutionModeProjection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProjectExecutionModeProjection.swift; path = Features/Plan/Domain/ProjectExecutionModeProjection.swift; sourceTree = "<group>"; };
 		3ACB1F98FD6BA7DDDC213D7B /* LifeBoard/Features/Onboarding/Models/OnboardingProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingProgress.swift; sourceTree = SOURCE_ROOT; };
+		3C3D4058EA119BBC3DDA2353 /* ConnectionPresentationContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ConnectionPresentationContext.swift; path = LifeBoard/Features/Settings/SetupCenter/ConnectionPresentationContext.swift; sourceTree = SOURCE_ROOT; };
 		3C66EE511C59B0C5DAAAEA30 /* LifeBoard/Features/Settings/LifeManagement/ProjectMoveSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/ProjectMoveSheet.swift; sourceTree = SOURCE_ROOT; };
 		3C9C1DCD3D8D37AB96401D40 /* LifeBoard/Features/Onboarding/Models/onboardingNaturalLanguageList.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/onboardingNaturalLanguageList.swift; sourceTree = SOURCE_ROOT; };
 		3CA32739FA00E59F22FE344E /* DayCompassEngineTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayCompassEngineTests.swift; sourceTree = "<group>"; };
@@ -1406,7 +1430,6 @@
 		753EFC9F2445A24500A739E3 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		753EFCA42445A24500A739E3 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		753EFCA62445A24700A739E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A31000000000000000000550 /* HeroWelcomeHighCompressMb.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = HeroWelcomeHighCompressMb.mp4; sourceTree = SOURCE_ROOT; };
 		753EFCA92445A24700A739E3 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		753EFCAB2445A24700A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		753EFCB02445A24700A739E3 /* LifeBoardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LifeBoardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1500,6 +1523,7 @@
 		7D83A0A1DBA10EFB600419F8 /* TaskCaptureParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskCaptureParserTests.swift; sourceTree = "<group>"; };
 		7DD613471ECDE5AFB1BB199B /* LifeBoard/Features/Tasks/Domain/ScheduleReminderUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Tasks/Domain/ScheduleReminderUseCase.swift; sourceTree = SOURCE_ROOT; };
 		7F1B2C3D4E5F60718293A4B6 /* LifeBoard/Services/GamificationRemoteKillSwitchService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Services/GamificationRemoteKillSwitchService.swift; sourceTree = SOURCE_ROOT; };
+		7F774629E2C2CE6BBBD4EFA2 /* EvaPendingActivationDraftStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPendingActivationDraftStore.swift; path = LifeBoard/Features/Eva/Views/Onboarding/EvaPendingActivationDraftStore.swift; sourceTree = SOURCE_ROOT; };
 		7FA441E9098F3D735062B78C /* LifeBoardWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LifeBoardWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7FC0B837AC9D1164A33DD4AE /* LBDayCompassCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LBDayCompassCard.swift; path = LifeBoard/LifeBoardDesign/Components/DayCompassCard.swift; sourceTree = SOURCE_ROOT; };
 		8037E33E14B5471548D66C82 /* LifeBoard/Features/Onboarding/Services/OnboardingFeedbackController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Services/OnboardingFeedbackController.swift; sourceTree = SOURCE_ROOT; };
@@ -1514,6 +1538,7 @@
 		82D3A1044B2C7AFE4DE96ADB /* TrackFoundationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackFoundationStore.swift; path = Features/Track/UI/TrackFoundationStore.swift; sourceTree = "<group>"; };
 		836DC307393EA1752081FFEE /* V2CoreDataRepositorySupport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = V2CoreDataRepositorySupport.swift; path = LifeBoard/Persistence/Repositories/V2CoreDataRepositorySupport.swift; sourceTree = SOURCE_ROOT; };
 		83C12D0895BE1B134C2DEDF5 /* HomeOverdueRescueLauncherState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeOverdueRescueLauncherState.swift; path = LifeBoard/Features/Home/UI/ViewModels/HomeOverdueRescueLauncherState.swift; sourceTree = SOURCE_ROOT; };
+		845A3A5D6253E478E5FA01AF /* EvaCloudDisclosure.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudDisclosure.swift; path = LifeBoard/Features/Eva/Views/Onboarding/EvaCloudDisclosure.swift; sourceTree = SOURCE_ROOT; };
 		8565ACC6D97DD8CCE34EA3E0 /* LifeBoard/Features/Settings/LifeManagement/DeleteProjectSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/DeleteProjectSheet.swift; sourceTree = SOURCE_ROOT; };
 		856DDB017465F5A7BA124E09 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerPreviewMetric.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerPreviewMetric.swift; sourceTree = SOURCE_ROOT; };
 		8603A229AA6EF804F63AB9F2 /* HomeViewModel+DayCompass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+DayCompass.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+DayCompass.swift"; sourceTree = SOURCE_ROOT; };
@@ -1614,7 +1639,6 @@
 		A1D100042F90000100AA2001 /* LifeBoardPersistentStoreBootstrapService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardPersistentStoreBootstrapService.swift; path = LifeBoard/Persistence/Bootstrap/PersistentStoreBootstrapService.swift; sourceTree = SOURCE_ROOT; };
 		A1E5C40F2F1A4B9D9C1E8A13 /* EventKitAppleRemindersRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EventKitAppleRemindersRepository.swift; path = Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/EventKitAppleRemindersRepository.swift; sourceTree = SOURCE_ROOT; };
 		A1F0D0B12F5A100100ABC001 /* AppOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOnboarding.swift; sourceTree = "<group>"; };
-		A31000000000000000000946 /* LifeWeaveOnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeWeaveOnboardingTests.swift; sourceTree = "<group>"; };
 		A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOnboardingTests.swift; sourceTree = "<group>"; };
 		A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
 		A25F3E0B9D00FA850EE9E8A9 /* TimelinePhoneRenderModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TimelinePhoneRenderModel.swift; path = LifeBoard/Features/Home/UI/Timeline/TimelinePhoneRenderModel.swift; sourceTree = SOURCE_ROOT; };
@@ -1637,114 +1661,6 @@
 		A3100000000000000000021D /* PlanDriftResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDriftResolverTests.swift; sourceTree = "<group>"; };
 		A3100000000000000000021F /* PlanRepairDeckView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanRepairDeckView.swift; path = Features/Plan/UI/PlanRepairDeckView.swift; sourceTree = "<group>"; };
 		A31000000000000000000221 /* LifeBoardLensPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardLensPicker.swift; path = LifeBoard/DesignSystem/LensPicker.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000548 /* LifeMapOnboardingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingModels.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingModels.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000054A /* LifeMapOnboardingModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingModel.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingModel.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000054E /* LifeMapOnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingView.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000552 /* LifeMapManagementView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapManagementView.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapManagementView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000554 /* MotionDiagnosticsOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MotionDiagnosticsOverlay.swift; path = LifeBoard/DesignSystem/MotionDiagnosticsOverlay.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000556 /* ReflectionNoteRepositoryProtocolExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReflectionNoteRepositoryProtocolExtension.swift; path = LifeBoard/Features/Onboarding/LifeMap/ReflectionNoteRepositoryProtocolExtension.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000558 /* EvaAgeEligibilityService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaAgeEligibilityService.swift; path = LifeBoard/Features/Eva/Cloud/EvaAgeEligibilityService.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000055A /* EvaAppAttestService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaAppAttestService.swift; path = LifeBoard/Features/Eva/Cloud/EvaAppAttestService.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000055C /* EvaAppleIdentityService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaAppleIdentityService.swift; path = LifeBoard/Features/Eva/Cloud/EvaAppleIdentityService.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000055E /* EvaCloudContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudContracts.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudContracts.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000560 /* EvaCloudSessionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudSessionStore.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudSessionStore.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000562 /* EvaCloudTransport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudTransport.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudTransport.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000564 /* EvaInferenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaInferenceProvider.swift; path = LifeBoard/Features/Eva/Cloud/EvaInferenceProvider.swift; sourceTree = SOURCE_ROOT; };
-		A32000000000000000000001 /* EvaTurnRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaTurnRuntime.swift; path = LifeBoard/Features/Eva/Cloud/EvaTurnRuntime.swift; sourceTree = SOURCE_ROOT; };
-		A32000000000000000000003 /* EvaContextReceiptSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextReceiptSnapshot.swift; path = LifeBoard/Features/Eva/Context/EvaContextReceiptSnapshot.swift; sourceTree = SOURCE_ROOT; };
-		A32000000000000000000005 /* ProductTelemetry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductTelemetry.swift; path = LifeBoard/Services/ProductTelemetry.swift; sourceTree = SOURCE_ROOT; };
-		A32000000000000000000007 /* EvaMemoryProposalService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaMemoryProposalService.swift; path = LifeBoard/Features/Eva/Context/EvaMemoryProposalService.swift; sourceTree = SOURCE_ROOT; };
-		A32000000000000000000009 /* EvaTrustArchitectureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaTrustArchitectureTests.swift; sourceTree = "<group>"; };
-		A3200000000000000000000B /* MessageView+MemoryCandidate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "MessageView+MemoryCandidate.swift"; path = "LifeBoard/Features/Eva/Views/Chat/MessageView+MemoryCandidate.swift"; sourceTree = SOURCE_ROOT; };
-		A3200000000000000000000D /* ProductTelemetrySettingsCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductTelemetrySettingsCard.swift; path = LifeBoard/Features/Settings/ProductTelemetrySettingsCard.swift; sourceTree = SOURCE_ROOT; };
-		A3200000000000000000000F /* EvaEnvelopeAllocator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaEnvelopeAllocator.swift; path = LifeBoard/Features/Eva/Context/EvaEnvelopeAllocator.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000566 /* EvaSignedConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaSignedConfiguration.swift; path = LifeBoard/Features/Eva/Cloud/EvaSignedConfiguration.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000568 /* EvaSpokenOutput.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaSpokenOutput.swift; path = LifeBoard/Features/Eva/Cloud/EvaSpokenOutput.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000056A /* EvaCloudSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudSettingsView.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudSettingsView.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000056C /* EvaFeatureInferenceAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaFeatureInferenceAdapters.swift; path = LifeBoard/Features/Eva/Cloud/EvaFeatureInferenceAdapters.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000056E /* EvaCloudActivationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudActivationView.swift; path = LifeBoard/Features/Eva/Views/Onboarding/EvaCloudActivationView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000570 /* EvaCloudSessionContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudSessionContracts.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudSessionContracts.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000572 /* LLMGenerationCloudRoutes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LLMGenerationCloudRoutes.swift; path = LifeBoard/Features/Eva/Models/LLMGenerationCloudRoutes.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000574 /* LLMEvaluatorCloudGeneration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LLMEvaluatorCloudGeneration.swift; path = LifeBoard/Features/Eva/Models/LLMEvaluatorCloudGeneration.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000576 /* EvaCloudContextProjection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudContextProjection.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudContextProjection.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000578 /* LLMEvaluatorGenerationEntry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LLMEvaluatorGenerationEntry.swift; path = LifeBoard/Features/Eva/Models/LLMEvaluatorGenerationEntry.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000057A /* EvaChatPromptSnapshotFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaChatPromptSnapshotFactory.swift; path = LifeBoard/Features/Eva/Views/Chat/EvaChatPromptSnapshotFactory.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000057C /* JournalAudioRecorder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = JournalAudioRecorder.swift; path = LifeBoard/Features/Journal/UI/JournalAudioRecorder.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000580 /* EvaChatRetryPromptFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaChatRetryPromptFactory.swift; path = LifeBoard/Features/Eva/Views/Chat/EvaChatRetryPromptFactory.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000582 /* LifeMapAccessibilityID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapAccessibilityID.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapAccessibilityID.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000584 /* LifeMapHeroBackdrop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapHeroBackdrop.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapHeroBackdrop.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000586 /* LifeMapOnboardingChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingChrome.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingChrome.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000588 /* LifeMapOnboardingIntentSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingIntentSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingIntentSteps.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000058A /* LifeMapOnboardingRevealSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingRevealSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingRevealSteps.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000090A /* LifeMapCommitCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapCommitCoordinator.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapCommitCoordinator.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000900 /* LifeMapOnboardingConnectSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingConnectSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingConnectSteps.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000904 /* LifeMapOnboardingEvaStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingEvaStep.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingEvaStep.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000906 /* LifeMapOnboardingTourStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingTourStep.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingTourStep.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000908 /* LifeMapEvaHandoff.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapEvaHandoff.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapEvaHandoff.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000058C /* LifeMapOnboardingShapeSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingShapeSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingShapeSteps.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000058E /* LifeMapOrbitCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOrbitCanvas.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOrbitCanvas.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000590 /* LifeMapProductPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapProductPreview.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapProductPreview.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000090C /* EvaRouteContextSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaRouteContextSections.swift; path = LifeBoard/Features/Eva/Cloud/EvaRouteContextSections.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000090E /* AISuggestionPromptPayloads.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AISuggestionPromptPayloads.swift; path = LifeBoard/Features/Eva/Models/AISuggestionPromptPayloads.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000910 /* EvaUserInstructions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaUserInstructions.swift; path = LifeBoard/Features/Eva/Cloud/EvaUserInstructions.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000912 /* EvaContextBudget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextBudget.swift; path = LifeBoard/Features/Eva/Cloud/EvaContextBudget.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000914 /* EvaPromptAssembly.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPromptAssembly.swift; path = LifeBoard/Features/Eva/Cloud/EvaPromptAssembly.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000916 /* EvaContextEnvelope.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextEnvelope.swift; path = LifeBoard/Features/Eva/Context/EvaContextEnvelope.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000918 /* EvaContextEnvelopeBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextEnvelopeBuilder.swift; path = LifeBoard/Features/Eva/Context/EvaContextEnvelopeBuilder.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000091A /* EvaPlanningProjector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPlanningProjector.swift; path = LifeBoard/Features/Eva/Context/EvaPlanningProjector.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000091C /* EvaTurnContextAssembler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaTurnContextAssembler.swift; path = LifeBoard/Features/Eva/Context/EvaTurnContextAssembler.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000091E /* EvaMemoryStoreV2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaMemoryStoreV2.swift; path = LifeBoard/Features/Eva/Context/EvaMemoryStoreV2.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000924 /* LifeWeaveIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveIntent.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveIntent.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000926 /* LifeWeaveDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveDraft.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveDraft.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000972 /* CalendarPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CalendarPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/CalendarPowerUpView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000974 /* HealthPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/HealthPowerUpView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000976 /* EvaPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/EvaPowerUpView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000978 /* PowerUpSummaryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PowerUpSummaryView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/PowerUpSummaryView.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000097A /* LifeWeavePowerUpFlow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpFlow.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpFlow.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000097C /* LifeWeavePowerUpCalendar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpCalendar.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpCalendar.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000097E /* LifeWeavePowerUpHealth.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpHealth.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpHealth.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000980 /* LifeWeavePowerUpEva.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpEva.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpEva.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000928 /* LifeWeaveMigration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveMigration.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveMigration.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000092A /* LifeWeaveCommitBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCommitBridge.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCommitBridge.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveOnboardingModel.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveOnboardingModel.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000930 /* LifeWeavePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePresentation.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeavePresentation.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000932 /* LifeWeaveGeometry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveGeometry.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeaveGeometry.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000934 /* LifeWeaveCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCanvas.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeaveCanvas.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000938 /* LifeWeaveChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveChrome.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveChrome.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000093A /* LifeWeaveCapture.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCapture.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCapture.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000093C /* LifeWeaveEvaActivation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveEvaActivation.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveEvaActivation.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000093E /* LifeWeaveOnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveOnboardingView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveOnboardingView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000940 /* LifeWeaveIntentSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveIntentSteps.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Steps/LifeWeaveIntentSteps.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000942 /* LifeWeaveShapeSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveShapeSteps.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Steps/LifeWeaveShapeSteps.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000944 /* LifeWeaveRevealStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveRevealStep.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Steps/LifeWeaveRevealStep.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000948 /* OnboardingContextualTip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingContextualTip.swift; path = LifeBoard/Features/Onboarding/LifeWeave/OnboardingContextualTip.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000094A /* OnboardingContextualTipView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingContextualTipView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/OnboardingContextualTipView.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000094C /* EvaContextSectionFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextSectionFactory.swift; path = LifeBoard/Features/Eva/Context/EvaContextSectionFactory.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000094E /* EvaCloudControlPlane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudControlPlane.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudControlPlane.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000950 /* EvaCloudInference.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudInference.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudInference.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000952 /* EvaCloudRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudRequest.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudRequest.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000954 /* SetupCenterStatus.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterStatus.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterStatus.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000956 /* SetupCenterView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterView.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000958 /* SetupCenterHomeCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterHomeCard.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterHomeCard.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000095A /* UIKitHostEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UIKitHostEnvironment.swift; path = LifeBoard/Foundation/Design/UIKitHostEnvironment.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000990 /* ClayMaterialContrastTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ClayMaterialContrastTests.swift; path = LifeBoardTests/DesignSystem/ClayMaterialContrastTests.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000994 /* DesignContractTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DesignContractTests.swift; path = LifeBoardTests/DesignSystem/DesignContractTests.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000996 /* AmbientMotionBudgetTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmbientMotionBudgetTests.swift; path = LifeBoardTests/DesignSystem/AmbientMotionBudgetTests.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000095C /* SetupCenterFocusTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterFocusTests.swift; path = LifeBoardTests/SetupCenterFocusTests.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000095E /* SetupCenterSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterSections.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterSections.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000960 /* SetupCenterHealthDisclosureSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterHealthDisclosureSheet.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterHealthDisclosureSheet.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000962 /* HealthLogComposers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthLogComposers.swift; path = LifeBoard/Features/Health/HealthSync/HealthLogComposers.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000964 /* HealthHubSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthHubSections.swift; path = LifeBoard/Features/Health/HealthSync/HealthHubSections.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000966 /* JournalCaptureComposers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = JournalCaptureComposers.swift; path = LifeBoard/Features/Journal/UI/JournalCaptureComposers.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000982 /* EvaDecisionLoopModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaDecisionLoopModels.swift; path = LifeBoard/Features/Eva/Domain/EvaDecisionLoopModels.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000984 /* WeeklyResetProposalApplier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyResetProposalApplier.swift; path = LifeBoard/Features/Eva/Domain/WeeklyResetProposalApplier.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000986 /* PlanStoreEvaDecisionLoops.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanStoreEvaDecisionLoops.swift; path = LifeBoard/Features/Plan/Domain/PlanStoreEvaDecisionLoops.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000988 /* EvaRitualShell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaRitualShell.swift; path = LifeBoard/Features/Eva/Views/Rituals/EvaRitualShell.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000098A /* MakeItFitTodayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MakeItFitTodayView.swift; path = LifeBoard/Features/Eva/Views/Rituals/MakeItFitTodayView.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000098C /* FrictionDetectiveView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FrictionDetectiveView.swift; path = LifeBoard/Features/Eva/Views/Rituals/FrictionDetectiveView.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000098E /* WeeklyResetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyResetView.swift; path = LifeBoard/Features/Eva/Views/Rituals/WeeklyResetView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000992 /* PrimaryActionResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PrimaryActionResolver.swift; path = LifeBoard/DesignSystem/PrimaryActionResolver.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000998 /* ClayToggleStyleModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ClayToggleStyleModifier.swift; path = LifeBoard/DesignSystem/ClayToggleStyleModifier.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTokenBridge.swift; path = LifeBoard/DesignSystem/TokenBridge.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
@@ -1765,7 +1681,6 @@
 		A3100000000000000000052C /* ComposerCaptureOrb.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerCaptureOrb.swift; path = LifeBoard/Foundation/Navigation/ComposerCaptureOrb.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000052E /* ComposerAuxiliaryRows.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerAuxiliaryRows.swift; path = LifeBoard/Foundation/Navigation/ComposerAuxiliaryRows.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000530 /* AtmospherePlacement.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AtmospherePlacement.swift; path = LifeBoard/Foundation/Design/AtmospherePlacement.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000902 /* CelestialAssetPreheater.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CelestialAssetPreheater.swift; path = LifeBoard/Foundation/Design/CelestialAssetPreheater.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000532 /* AdaptiveAtmosphereMotion.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdaptiveAtmosphereMotion.swift; path = LifeBoard/Foundation/Design/AdaptiveAtmosphereMotion.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000534 /* LifeMomentsViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMomentsViews.swift; path = LifeBoard/Features/Health/UI/LifeMomentsViews.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000536 /* WeeklyWorkspaceSectionCopy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyWorkspaceSectionCopy.swift; path = LifeBoard/Features/Weekly/UI/WeeklyWorkspaceSectionCopy.swift; sourceTree = SOURCE_ROOT; };
@@ -1777,6 +1692,138 @@
 		A31000000000000000000542 /* TrackFastingViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackFastingViews.swift; path = LifeBoard/Features/Track/UI/TrackFastingViews.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000544 /* HomeFastingWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeFastingWidget.swift; path = LifeBoard/Foundation/Design/HomeFastingWidget.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000546 /* HeroSurfaceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HeroSurfaceTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000548 /* LifeMapOnboardingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingModels.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingModels.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000054A /* LifeMapOnboardingModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingModel.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingModel.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000054E /* LifeMapOnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingView.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000550 /* HeroWelcomeHighCompressMb.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = HeroWelcomeHighCompressMb.mp4; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000552 /* LifeMapManagementView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapManagementView.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapManagementView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000554 /* MotionDiagnosticsOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MotionDiagnosticsOverlay.swift; path = LifeBoard/DesignSystem/MotionDiagnosticsOverlay.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000556 /* ReflectionNoteRepositoryProtocolExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReflectionNoteRepositoryProtocolExtension.swift; path = LifeBoard/Features/Onboarding/LifeMap/ReflectionNoteRepositoryProtocolExtension.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000558 /* EvaAgeEligibilityService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaAgeEligibilityService.swift; path = LifeBoard/Features/Eva/Cloud/EvaAgeEligibilityService.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000055A /* EvaAppAttestService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaAppAttestService.swift; path = LifeBoard/Features/Eva/Cloud/EvaAppAttestService.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000055C /* EvaAppleIdentityService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaAppleIdentityService.swift; path = LifeBoard/Features/Eva/Cloud/EvaAppleIdentityService.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000055E /* EvaCloudContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudContracts.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudContracts.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000560 /* EvaCloudSessionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudSessionStore.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudSessionStore.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000562 /* EvaCloudTransport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudTransport.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudTransport.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000564 /* EvaInferenceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaInferenceProvider.swift; path = LifeBoard/Features/Eva/Cloud/EvaInferenceProvider.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000566 /* EvaSignedConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaSignedConfiguration.swift; path = LifeBoard/Features/Eva/Cloud/EvaSignedConfiguration.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000568 /* EvaSpokenOutput.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaSpokenOutput.swift; path = LifeBoard/Features/Eva/Cloud/EvaSpokenOutput.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000056A /* EvaCloudSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudSettingsView.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudSettingsView.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000056C /* EvaFeatureInferenceAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaFeatureInferenceAdapters.swift; path = LifeBoard/Features/Eva/Cloud/EvaFeatureInferenceAdapters.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000056E /* EvaCloudActivationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudActivationView.swift; path = LifeBoard/Features/Eva/Views/Onboarding/EvaCloudActivationView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000570 /* EvaCloudSessionContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudSessionContracts.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudSessionContracts.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000572 /* LLMGenerationCloudRoutes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LLMGenerationCloudRoutes.swift; path = LifeBoard/Features/Eva/Models/LLMGenerationCloudRoutes.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000574 /* LLMEvaluatorCloudGeneration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LLMEvaluatorCloudGeneration.swift; path = LifeBoard/Features/Eva/Models/LLMEvaluatorCloudGeneration.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000576 /* EvaCloudContextProjection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudContextProjection.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudContextProjection.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000578 /* LLMEvaluatorGenerationEntry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LLMEvaluatorGenerationEntry.swift; path = LifeBoard/Features/Eva/Models/LLMEvaluatorGenerationEntry.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000057A /* EvaChatPromptSnapshotFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaChatPromptSnapshotFactory.swift; path = LifeBoard/Features/Eva/Views/Chat/EvaChatPromptSnapshotFactory.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000057C /* JournalAudioRecorder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = JournalAudioRecorder.swift; path = LifeBoard/Features/Journal/UI/JournalAudioRecorder.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000580 /* EvaChatRetryPromptFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaChatRetryPromptFactory.swift; path = LifeBoard/Features/Eva/Views/Chat/EvaChatRetryPromptFactory.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000582 /* LifeMapAccessibilityID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapAccessibilityID.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapAccessibilityID.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000584 /* LifeMapHeroBackdrop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapHeroBackdrop.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapHeroBackdrop.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000586 /* LifeMapOnboardingChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingChrome.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingChrome.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000588 /* LifeMapOnboardingIntentSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingIntentSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingIntentSteps.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000058A /* LifeMapOnboardingRevealSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingRevealSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingRevealSteps.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000058C /* LifeMapOnboardingShapeSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingShapeSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingShapeSteps.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000058E /* LifeMapOrbitCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOrbitCanvas.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOrbitCanvas.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000590 /* LifeMapProductPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapProductPreview.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapProductPreview.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000900 /* LifeMapOnboardingConnectSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingConnectSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingConnectSteps.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000902 /* CelestialAssetPreheater.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CelestialAssetPreheater.swift; path = LifeBoard/Foundation/Design/CelestialAssetPreheater.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000904 /* LifeMapOnboardingEvaStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingEvaStep.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingEvaStep.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000906 /* LifeMapOnboardingTourStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingTourStep.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingTourStep.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000908 /* LifeMapEvaHandoff.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapEvaHandoff.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapEvaHandoff.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000090A /* LifeMapCommitCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapCommitCoordinator.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapCommitCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000090C /* EvaRouteContextSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaRouteContextSections.swift; path = LifeBoard/Features/Eva/Cloud/EvaRouteContextSections.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000090E /* AISuggestionPromptPayloads.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AISuggestionPromptPayloads.swift; path = LifeBoard/Features/Eva/Models/AISuggestionPromptPayloads.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000910 /* EvaUserInstructions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaUserInstructions.swift; path = LifeBoard/Features/Eva/Cloud/EvaUserInstructions.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000912 /* EvaContextBudget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextBudget.swift; path = LifeBoard/Features/Eva/Cloud/EvaContextBudget.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000914 /* EvaPromptAssembly.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPromptAssembly.swift; path = LifeBoard/Features/Eva/Cloud/EvaPromptAssembly.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000916 /* EvaContextEnvelope.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextEnvelope.swift; path = LifeBoard/Features/Eva/Context/EvaContextEnvelope.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000918 /* EvaContextEnvelopeBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextEnvelopeBuilder.swift; path = LifeBoard/Features/Eva/Context/EvaContextEnvelopeBuilder.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000091A /* EvaPlanningProjector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPlanningProjector.swift; path = LifeBoard/Features/Eva/Context/EvaPlanningProjector.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000091C /* EvaTurnContextAssembler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaTurnContextAssembler.swift; path = LifeBoard/Features/Eva/Context/EvaTurnContextAssembler.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000091E /* EvaMemoryStoreV2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaMemoryStoreV2.swift; path = LifeBoard/Features/Eva/Context/EvaMemoryStoreV2.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000924 /* LifeWeaveIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveIntent.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveIntent.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000926 /* LifeWeaveDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveDraft.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveDraft.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000928 /* LifeWeaveMigration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveMigration.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveMigration.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000092A /* LifeWeaveCommitBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCommitBridge.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCommitBridge.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000092C /* LifeWeaveOnboardingModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveOnboardingModel.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveOnboardingModel.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000930 /* LifeWeavePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePresentation.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeavePresentation.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000932 /* LifeWeaveGeometry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveGeometry.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeaveGeometry.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000934 /* LifeWeaveCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCanvas.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Scene/LifeWeaveCanvas.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000938 /* LifeWeaveChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveChrome.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveChrome.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000093A /* LifeWeaveCapture.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCapture.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCapture.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000093C /* LifeWeaveEvaActivation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveEvaActivation.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveEvaActivation.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000093E /* LifeWeaveOnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveOnboardingView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveOnboardingView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000940 /* LifeWeaveIntentSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveIntentSteps.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Steps/LifeWeaveIntentSteps.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000942 /* LifeWeaveShapeSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveShapeSteps.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Steps/LifeWeaveShapeSteps.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000944 /* LifeWeaveRevealStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveRevealStep.swift; path = LifeBoard/Features/Onboarding/LifeWeave/Steps/LifeWeaveRevealStep.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000946 /* LifeWeaveOnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeWeaveOnboardingTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000948 /* OnboardingContextualTip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingContextualTip.swift; path = LifeBoard/Features/Onboarding/LifeWeave/OnboardingContextualTip.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000094A /* OnboardingContextualTipView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingContextualTipView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/OnboardingContextualTipView.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000094C /* EvaContextSectionFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextSectionFactory.swift; path = LifeBoard/Features/Eva/Context/EvaContextSectionFactory.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000094E /* EvaCloudControlPlane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudControlPlane.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudControlPlane.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000950 /* EvaCloudInference.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudInference.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudInference.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000952 /* EvaCloudRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudRequest.swift; path = LifeBoard/Features/Eva/Cloud/EvaCloudRequest.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000954 /* SetupCenterStatus.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterStatus.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterStatus.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000956 /* SetupCenterView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterView.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000958 /* SetupCenterHomeCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterHomeCard.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterHomeCard.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000095A /* UIKitHostEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UIKitHostEnvironment.swift; path = LifeBoard/Foundation/Design/UIKitHostEnvironment.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000095C /* SetupCenterFocusTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterFocusTests.swift; path = LifeBoardTests/SetupCenterFocusTests.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000095E /* SetupCenterSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterSections.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterSections.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000960 /* SetupCenterHealthDisclosureSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterHealthDisclosureSheet.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterHealthDisclosureSheet.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000962 /* HealthLogComposers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthLogComposers.swift; path = LifeBoard/Features/Health/HealthSync/HealthLogComposers.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000964 /* HealthHubSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthHubSections.swift; path = LifeBoard/Features/Health/HealthSync/HealthHubSections.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000966 /* JournalCaptureComposers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = JournalCaptureComposers.swift; path = LifeBoard/Features/Journal/UI/JournalCaptureComposers.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000972 /* CalendarPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CalendarPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/CalendarPowerUpView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000974 /* HealthPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/HealthPowerUpView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000976 /* EvaPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/EvaPowerUpView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000978 /* PowerUpSummaryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PowerUpSummaryView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/PowerUpSummaryView.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000097A /* LifeWeavePowerUpFlow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpFlow.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpFlow.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000097C /* LifeWeavePowerUpCalendar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpCalendar.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpCalendar.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000097E /* LifeWeavePowerUpHealth.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpHealth.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpHealth.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000980 /* LifeWeavePowerUpEva.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpEva.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpEva.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000982 /* EvaDecisionLoopModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaDecisionLoopModels.swift; path = LifeBoard/Features/Eva/Domain/EvaDecisionLoopModels.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000984 /* WeeklyResetProposalApplier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyResetProposalApplier.swift; path = LifeBoard/Features/Eva/Domain/WeeklyResetProposalApplier.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000986 /* PlanStoreEvaDecisionLoops.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanStoreEvaDecisionLoops.swift; path = LifeBoard/Features/Plan/Domain/PlanStoreEvaDecisionLoops.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000988 /* EvaRitualShell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaRitualShell.swift; path = LifeBoard/Features/Eva/Views/Rituals/EvaRitualShell.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000098A /* MakeItFitTodayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MakeItFitTodayView.swift; path = LifeBoard/Features/Eva/Views/Rituals/MakeItFitTodayView.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000098C /* FrictionDetectiveView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FrictionDetectiveView.swift; path = LifeBoard/Features/Eva/Views/Rituals/FrictionDetectiveView.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000098E /* WeeklyResetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyResetView.swift; path = LifeBoard/Features/Eva/Views/Rituals/WeeklyResetView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000990 /* ClayMaterialContrastTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ClayMaterialContrastTests.swift; path = LifeBoardTests/DesignSystem/ClayMaterialContrastTests.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000992 /* PrimaryActionResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PrimaryActionResolver.swift; path = LifeBoard/DesignSystem/PrimaryActionResolver.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000994 /* DesignContractTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DesignContractTests.swift; path = LifeBoardTests/DesignSystem/DesignContractTests.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000996 /* AmbientMotionBudgetTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmbientMotionBudgetTests.swift; path = LifeBoardTests/DesignSystem/AmbientMotionBudgetTests.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000998 /* ClayToggleStyleModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ClayToggleStyleModifier.swift; path = LifeBoard/DesignSystem/ClayToggleStyleModifier.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000099A /* HomeCardIllustratedSurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeCardIllustratedSurface.swift; path = LifeBoard/DesignSystem/HomeCards/HomeCardIllustratedSurface.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000099C /* HomeCardPresentationStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeCardPresentationStyle.swift; path = LifeBoard/DesignSystem/HomeCards/HomeCardPresentationStyle.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000099E /* HomeCardPreviewFixtures.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeCardPreviewFixtures.swift; path = LifeBoard/DesignSystem/HomeCards/HomeCardPreviewFixtures.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009A0 /* HomeCardSamplePreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeCardSamplePreview.swift; path = LifeBoard/DesignSystem/HomeCards/HomeCardSamplePreview.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009A2 /* HomeCardScene.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeCardScene.swift; path = LifeBoard/DesignSystem/HomeCards/HomeCardScene.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009A4 /* HomeCardPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeCardPresentationTests.swift; path = LifeBoardTests/HomeCardPresentationTests.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009A6 /* HomeJournalCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeJournalCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeJournalCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009A8 /* HomeTimelineCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeTimelineCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeTimelineCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009AA /* HomeCapacityCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeCapacityCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeCapacityCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009AC /* HomeQuickCaptureCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeQuickCaptureCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeQuickCaptureCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009AE /* HomeGlanceCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeGlanceCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeGlanceCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009B2 /* HomeTasksCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeTasksCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeTasksCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009B4 /* HomeCardQueueRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeCardQueueRow.swift; path = LifeBoard/DesignSystem/HomeCards/HomeCardQueueRow.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009B6 /* HomeActionQueueCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeActionQueueCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeActionQueueCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009B8 /* HomeFocusCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeFocusCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeFocusCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009BA /* HomeLifeSnapshotCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeLifeSnapshotCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeLifeSnapshotCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009BC /* HomeProgressCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeProgressCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeProgressCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009BE /* HomeFastingCardContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeFastingCardContent.swift; path = LifeBoard/DesignSystem/HomeCards/HomeFastingCardContent.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009C0 /* HomeCardGeometryRecorder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeCardGeometryRecorder.swift; path = LifeBoard/DesignSystem/HomeCards/HomeCardGeometryRecorder.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009C2 /* HomeSceneImageCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeSceneImageCache.swift; path = LifeBoard/DesignSystem/HomeCards/HomeSceneImageCache.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009C4 /* HomeAmbientArtwork.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeAmbientArtwork.swift; path = LifeBoard/DesignSystem/HomeCards/HomeAmbientArtwork.swift; sourceTree = SOURCE_ROOT; };
+		A32000000000000000000001 /* EvaTurnRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaTurnRuntime.swift; path = LifeBoard/Features/Eva/Cloud/EvaTurnRuntime.swift; sourceTree = SOURCE_ROOT; };
+		A32000000000000000000003 /* EvaContextReceiptSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaContextReceiptSnapshot.swift; path = LifeBoard/Features/Eva/Context/EvaContextReceiptSnapshot.swift; sourceTree = SOURCE_ROOT; };
+		A32000000000000000000005 /* ProductTelemetry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductTelemetry.swift; path = LifeBoard/Services/ProductTelemetry.swift; sourceTree = SOURCE_ROOT; };
+		A32000000000000000000007 /* EvaMemoryProposalService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaMemoryProposalService.swift; path = LifeBoard/Features/Eva/Context/EvaMemoryProposalService.swift; sourceTree = SOURCE_ROOT; };
+		A32000000000000000000009 /* EvaTrustArchitectureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaTrustArchitectureTests.swift; sourceTree = "<group>"; };
+		A3200000000000000000000B /* MessageView+MemoryCandidate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "MessageView+MemoryCandidate.swift"; path = "LifeBoard/Features/Eva/Views/Chat/MessageView+MemoryCandidate.swift"; sourceTree = SOURCE_ROOT; };
+		A3200000000000000000000D /* ProductTelemetrySettingsCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductTelemetrySettingsCard.swift; path = LifeBoard/Features/Settings/ProductTelemetrySettingsCard.swift; sourceTree = SOURCE_ROOT; };
+		A3200000000000000000000F /* EvaEnvelopeAllocator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaEnvelopeAllocator.swift; path = LifeBoard/Features/Eva/Context/EvaEnvelopeAllocator.swift; sourceTree = SOURCE_ROOT; };
 		A365503F0A1EC71D5D159FC0 /* UserDefaultsSavedHomeViewRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UserDefaultsSavedHomeViewRepository.swift; path = LifeBoard/Persistence/Repositories/UserDefaultsSavedHomeViewRepository.swift; sourceTree = SOURCE_ROOT; };
 		A40000000000000000000010 /* LifeBoardTokensShim.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardTokensShim.swift; sourceTree = "<group>"; };
 		A40000000000000000000011 /* LifeBoardWidgets/LifeBoardTokensShim.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardWidgets/LifeBoardTokensShim.swift; sourceTree = SOURCE_ROOT; };
@@ -1832,7 +1879,6 @@
 		AAB000000000000000000010 /* HomeDailySummaryModalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeDailySummaryModalView.swift; path = LifeBoard/Features/Home/UI/Modals/HomeDailySummaryModalView.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000012 /* SunriseRecurringTaskDeleteConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SunriseRecurringTaskDeleteConfirmationView.swift; path = LifeBoard/Features/Home/UI/Modals/RecurringTaskDeleteConfirmationView.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000014 /* LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift; sourceTree = SOURCE_ROOT; };
-		AAC000000000000000000001 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000018 /* NeedsReplanTrayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NeedsReplanTrayView.swift; path = LifeBoard/Features/Home/UI/Replan/NeedsReplanTrayView.swift; sourceTree = SOURCE_ROOT; };
 		AAB00000000000000000001A /* NeedsReplanLauncherSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NeedsReplanLauncherSheet.swift; path = LifeBoard/Features/Home/UI/Replan/NeedsReplanLauncherSheet.swift; sourceTree = SOURCE_ROOT; };
 		AAB00000000000000000001C /* NeedsReplanCardOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NeedsReplanCardOverlay.swift; path = LifeBoard/Features/Home/UI/Replan/NeedsReplanCardOverlay.swift; sourceTree = SOURCE_ROOT; };
@@ -1845,6 +1891,7 @@
 		AAB00000000000000000002C /* HomeSunriseLayoutSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeSunriseLayoutSupport.swift; path = LifeBoard/Features/Home/UI/Shell/HomeSunriseLayoutSupport.swift; sourceTree = SOURCE_ROOT; };
 		AAB00000000000000000002E /* HomeDaySwipeResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeDaySwipeResolver.swift; path = LifeBoard/Features/Home/UI/Shell/HomeDaySwipeResolver.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000030 /* HomeSearchState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeSearchState.swift; path = LifeBoard/Features/Home/UI/Search/HomeSearchState.swift; sourceTree = SOURCE_ROOT; };
+		AAC000000000000000000001 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift; sourceTree = SOURCE_ROOT; };
 		AB34BB65B7298F039E9C6A1C /* LifeBoard/Features/Onboarding/Models/logOnboardingInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/logOnboardingInfo.swift; sourceTree = SOURCE_ROOT; };
 		AB8C1BB0D0F72004D8CD5497 /* LifeBoard/Features/Settings/LifeManagement/ProjectSummaryRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/ProjectSummaryRow.swift; sourceTree = SOURCE_ROOT; };
 		ABCD00000000000000000021 /* AddHabitViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AddHabitViewModel.swift; path = LifeBoard/Features/Habits/UI/ViewModels/AddHabitViewModel.swift; sourceTree = SOURCE_ROOT; };
@@ -1934,6 +1981,7 @@
 		BF3952602FF1A9D756382492 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementTreeInteractionMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/LifeManagementTreeInteractionMode.swift; sourceTree = SOURCE_ROOT; };
 		C02615E07ED3138B3C20F442 /* TimelineStreamClustering.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TimelineStreamClustering.swift; path = LifeBoard/Features/Home/UI/Timeline/Surface/TimelineStreamClustering.swift; sourceTree = SOURCE_ROOT; };
 		C042625D22DA1909D2EBA860 /* PlanCapacityCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanCapacityCard.swift; path = Features/Plan/UI/PlanCapacityCard.swift; sourceTree = "<group>"; };
+		C0D3F1A20000000000000001 /* ProjectExecutionModeProjection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProjectExecutionModeProjection.swift; path = Features/Plan/Domain/ProjectExecutionModeProjection.swift; sourceTree = "<group>"; };
 		C0D48163BE7D31AF707E99B7 /* HomeArchitectureProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeArchitectureProtocols.swift; path = LifeBoard/Features/Home/UI/ViewModels/HomeArchitectureProtocols.swift; sourceTree = SOURCE_ROOT; };
 		C0DEC0DE0000000000000001 /* SettingsPremiumExperience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPremiumExperience.swift; sourceTree = "<group>"; };
 		C0F3D4EBE9B0DB14FB53F7F4 /* OverdueRescueDeckCards.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OverdueRescueDeckCards.swift; path = LifeBoard/Features/Home/UI/Modals/OverdueRescue/OverdueRescueDeckCards.swift; sourceTree = SOURCE_ROOT; };
@@ -2204,6 +2252,7 @@
 		EFD0A8DA9F2060C50BF6DA52 /* LifeBoard/Features/Eva/Views/Chat/Chrome/EvaChiefOfStaffGuideSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Eva/Views/Chat/Chrome/EvaChiefOfStaffGuideSection.swift; sourceTree = SOURCE_ROOT; };
 		F00D00000000000000001001 /* TaskDetailPresentationContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskDetailPresentationContracts.swift; path = LifeBoard/Features/Tasks/UI/TaskDetailPresentationContracts.swift; sourceTree = SOURCE_ROOT; };
 		F067D7763D4A025CC75BAB13 /* LifeBoardFoundationGallery.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardFoundationGallery.swift; path = Foundation/Design/LifeBoardFoundationGallery.swift; sourceTree = "<group>"; };
+		F09160000000000000000002 /* LifeBoardTests/HomeCardIsolationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardTests/HomeCardIsolationTests.swift; sourceTree = SOURCE_ROOT; };
 		F0A100000000000000000102 /* SeededFeaturePages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeededFeaturePages.swift; sourceTree = "<group>"; };
 		F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueRescueSeededUITests.swift; sourceTree = "<group>"; };
 		F0A100000000000000000402 /* FocusNowSeededUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusNowSeededUITests.swift; sourceTree = "<group>"; };
@@ -2277,11 +2326,6 @@
 		FEEDFACE0000000000000003 /* HomeChipRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeChipRail.swift; path = LifeBoard/Features/Home/UI/Models/HomeChipRail.swift; sourceTree = SOURCE_ROOT; };
 		FEEDFACE0000000000000005 /* LBChipRailSeparator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LBChipRailSeparator.swift; path = LifeBoard/LifeBoardDesign/Components/ChipRailSeparator.swift; sourceTree = SOURCE_ROOT; };
 		FF7B2CAF2B3D23AD9512B999 /* LifeBoardWidgets.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = LifeBoardWidgets.entitlements; path = LifeBoardWidgets/LifeBoardWidgets.entitlements; sourceTree = "<group>"; };
-		1F7B66C55583D3816BF548A5 /* HealthConnectionPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthConnectionPresentation.swift; path = LifeBoard/Features/Health/HealthSync/HealthConnectionPresentation.swift; sourceTree = SOURCE_ROOT; };
-		1025CE280492B1CBA98C2CDE /* HealthConnectionViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthConnectionViews.swift; path = LifeBoard/Features/Health/HealthSync/HealthConnectionViews.swift; sourceTree = SOURCE_ROOT; };
-		3C3D4058EA119BBC3DDA2353 /* ConnectionPresentationContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ConnectionPresentationContext.swift; path = LifeBoard/Features/Settings/SetupCenter/ConnectionPresentationContext.swift; sourceTree = SOURCE_ROOT; };
-		845A3A5D6253E478E5FA01AF /* EvaCloudDisclosure.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaCloudDisclosure.swift; path = LifeBoard/Features/Eva/Views/Onboarding/EvaCloudDisclosure.swift; sourceTree = SOURCE_ROOT; };
-		7F774629E2C2CE6BBBD4EFA2 /* EvaPendingActivationDraftStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPendingActivationDraftStore.swift; path = LifeBoard/Features/Eva/Views/Onboarding/EvaPendingActivationDraftStore.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -3604,6 +3648,26 @@
 				A31000000000000000000514 /* LifeBoardValueControls.swift */,
 				A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */,
 				A31000000000000000000223 /* LifeBoardTokenBridge.swift */,
+				A310000000000000000009C4 /* HomeAmbientArtwork.swift */,
+				A310000000000000000009C2 /* HomeSceneImageCache.swift */,
+				A310000000000000000009C0 /* HomeCardGeometryRecorder.swift */,
+				A310000000000000000009BE /* HomeFastingCardContent.swift */,
+				A310000000000000000009BC /* HomeProgressCardContent.swift */,
+				A310000000000000000009BA /* HomeLifeSnapshotCardContent.swift */,
+				A310000000000000000009B8 /* HomeFocusCardContent.swift */,
+				A310000000000000000009B6 /* HomeActionQueueCardContent.swift */,
+				A310000000000000000009B4 /* HomeCardQueueRow.swift */,
+				A310000000000000000009B2 /* HomeTasksCardContent.swift */,
+				A310000000000000000009AE /* HomeGlanceCardContent.swift */,
+				A310000000000000000009AC /* HomeQuickCaptureCardContent.swift */,
+				A310000000000000000009AA /* HomeCapacityCardContent.swift */,
+				A310000000000000000009A8 /* HomeTimelineCardContent.swift */,
+				A310000000000000000009A6 /* HomeJournalCardContent.swift */,
+				A310000000000000000009A2 /* HomeCardScene.swift */,
+				A310000000000000000009A0 /* HomeCardSamplePreview.swift */,
+				A3100000000000000000099E /* HomeCardPreviewFixtures.swift */,
+				A3100000000000000000099C /* HomeCardPresentationStyle.swift */,
+				A3100000000000000000099A /* HomeCardIllustratedSurface.swift */,
 				A31000000000000000000998 /* ClayToggleStyleModifier.swift */,
 				A31000000000000000000992 /* PrimaryActionResolver.swift */,
 				A3100000000000000000098E /* WeeklyResetView.swift */,
@@ -3619,6 +3683,8 @@
 				A31000000000000000000960 /* SetupCenterHealthDisclosureSheet.swift */,
 				A3100000000000000000095E /* SetupCenterSections.swift */,
 				A3100000000000000000095C /* SetupCenterFocusTests.swift */,
+				A310000000000000000009A4 /* HomeCardPresentationTests.swift */,
+				F09160000000000000000002 /* LifeBoardTests/HomeCardIsolationTests.swift */,
 				A31000000000000000000996 /* AmbientMotionBudgetTests.swift */,
 				A31000000000000000000994 /* DesignContractTests.swift */,
 				A31000000000000000000990 /* ClayMaterialContrastTests.swift */,
@@ -4631,7 +4697,7 @@
 			);
 			mainGroup = 753EFC912445A24500A739E3;
 			packageReferences = (
-				A40000000000000000000200 /* XCLocalSwiftPackageReference "LifeBoardModules" */,
+				A40000000000000000000200 /* XCLocalSwiftPackageReference "." */,
 				75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */,
 				75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
 				75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */,
@@ -5488,6 +5554,26 @@
 				A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */,
 				A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
+				A310000000000000000009C5 /* HomeAmbientArtwork.swift in Sources */,
+				A310000000000000000009C3 /* HomeSceneImageCache.swift in Sources */,
+				A310000000000000000009C1 /* HomeCardGeometryRecorder.swift in Sources */,
+				A310000000000000000009BF /* HomeFastingCardContent.swift in Sources */,
+				A310000000000000000009BD /* HomeProgressCardContent.swift in Sources */,
+				A310000000000000000009BB /* HomeLifeSnapshotCardContent.swift in Sources */,
+				A310000000000000000009B9 /* HomeFocusCardContent.swift in Sources */,
+				A310000000000000000009B7 /* HomeActionQueueCardContent.swift in Sources */,
+				A310000000000000000009B5 /* HomeCardQueueRow.swift in Sources */,
+				A310000000000000000009B3 /* HomeTasksCardContent.swift in Sources */,
+				A310000000000000000009AF /* HomeGlanceCardContent.swift in Sources */,
+				A310000000000000000009AD /* HomeQuickCaptureCardContent.swift in Sources */,
+				A310000000000000000009AB /* HomeCapacityCardContent.swift in Sources */,
+				A310000000000000000009A9 /* HomeTimelineCardContent.swift in Sources */,
+				A310000000000000000009A7 /* HomeJournalCardContent.swift in Sources */,
+				A310000000000000000009A3 /* HomeCardScene.swift in Sources */,
+				A310000000000000000009A1 /* HomeCardSamplePreview.swift in Sources */,
+				A3100000000000000000099F /* HomeCardPreviewFixtures.swift in Sources */,
+				A3100000000000000000099D /* HomeCardPresentationStyle.swift in Sources */,
+				A3100000000000000000099B /* HomeCardIllustratedSurface.swift in Sources */,
 				A31000000000000000000999 /* ClayToggleStyleModifier.swift in Sources */,
 				A31000000000000000000993 /* PrimaryActionResolver.swift in Sources */,
 				A3100000000000000000098F /* WeeklyResetView.swift in Sources */,
@@ -5711,6 +5797,8 @@
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
 				A3100000000000000000095D /* SetupCenterFocusTests.swift in Sources */,
+				A310000000000000000009A5 /* HomeCardPresentationTests.swift in Sources */,
+				F09160000000000000000001 /* LifeBoardTests/HomeCardIsolationTests.swift in Sources */,
 				A31000000000000000000997 /* AmbientMotionBudgetTests.swift in Sources */,
 				A31000000000000000000995 /* DesignContractTests.swift in Sources */,
 				A31000000000000000000991 /* ClayMaterialContrastTests.swift in Sources */,
@@ -6142,12 +6230,12 @@
 				CODE_SIGN_ENTITLEMENTS = LifeBoard.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = LifeBoard/LifeBoardCatalyst.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				EVA_APP_ATTEST_ENVIRONMENT = development;
 				EVA_CLOUD_BASE_URL = "https://eva-cloud-staging.saransh1337.workers.dev";
 				EVA_CLOUD_ENVIRONMENT = staging;
-				EVA_CONFIG_SIGNING_PUBLIC_KEY = HEW0RiTvziyktSNyIgnzv-8a6tMx-ycRb3xTql2k6s0;
+				EVA_CONFIG_SIGNING_PUBLIC_KEY = "HEW0RiTvziyktSNyIgnzv-8a6tMx-ycRb3xTql2k6s0";
 				INFOPLIST_FILE = LifeBoard/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LifeBoard;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
@@ -6156,7 +6244,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.1.0;
+				MARKETING_VERSION = 2.2.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-no_warn_duplicate_libraries",
@@ -6181,12 +6269,12 @@
 				CODE_SIGN_ENTITLEMENTS = LifeBoard.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = LifeBoard/LifeBoardCatalyst.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				EVA_APP_ATTEST_ENVIRONMENT = production;
 				EVA_CLOUD_BASE_URL = "https://api.getlifeboard.app";
 				EVA_CLOUD_ENVIRONMENT = production;
-				EVA_CONFIG_SIGNING_PUBLIC_KEY = z_FVqRuH5sTbrntz8alez-8DRNEeRlzfjkPR09VUNj4;
+				EVA_CONFIG_SIGNING_PUBLIC_KEY = "z_FVqRuH5sTbrntz8alez-8DRNEeRlzfjkPR09VUNj4";
 				INFOPLIST_FILE = LifeBoard/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LifeBoard;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
@@ -6195,7 +6283,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.1.0;
+				MARKETING_VERSION = 2.2.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-no_warn_duplicate_libraries",
@@ -6432,7 +6520,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		A40000000000000000000200 /* XCLocalSwiftPackageReference "LifeBoardModules" */ = {
+		A40000000000000000000200 /* XCLocalSwiftPackageReference "." */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = .;
 		};
