@@ -124,8 +124,20 @@ struct OnboardingFirstAction: Codable {
     static func save(from draft: LifeWeaveDraft) {
         guard draft.entryContext == .freshFlow else { return }
         let task = draft.stagedCapture.flatMap { $0.isReviewed && $0.kind == .task ? $0 : nil }
-        let value = OnboardingFirstAction(taskID: task?.id, title: task?.text ?? "Capture your first task")
+        let value = OnboardingFirstAction(taskID: task?.id, title: task?.text ?? String(localized: "Add your first task"))
         if let data = try? JSONEncoder().encode(value) { UserDefaults.standard.set(data, forKey: key) }
+    }
+}
+
+/// A one-shot highlight for the first-action card, armed when the first run
+/// finishes so Home greets the user's own thing exactly once.
+@MainActor
+enum OnboardingFirstActionSpotlight {
+    private(set) static var isArmed = false
+    static func arm() { isArmed = true }
+    static func consume() -> Bool {
+        defer { isArmed = false }
+        return isArmed
     }
 }
 
@@ -133,28 +145,44 @@ struct OnboardingFirstActionCard: View {
     let onOpenTask: (UUID) -> Void
     let onCreateTask: () -> Void
     @AppStorage(OnboardingFirstAction.key) private var receipt = Data()
+    @State private var spotlight = 0
 
     var body: some View {
         if let action = try? JSONDecoder().decode(OnboardingFirstAction.self, from: receipt) {
-            HStack {
+            HStack(spacing: 12) {
                 Button {
                     receipt = Data()
                     if let id = action.taskID { onOpenTask(id) } else { onCreateTask() }
                 } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(action.taskID == nil ? "Start with one thing" : "Your first task is ready").lifeboardFont(.bodyStrong)
-                        Text(action.title).lifeboardFont(.support)
+                    HStack(spacing: 12) {
+                        Image(systemName: action.taskID == nil ? "plus.circle.fill" : "circle")
+                            .lifeboardFont(.title3)
+                            .foregroundStyle(Color.lifeboard(.accentPrimary))
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(action.taskID == nil ? String(localized: "Start with one thing") : String(localized: "Your first task"))
+                                .lifeboardFont(.caption1)
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
+                            Text(action.title)
+                                .lifeboardFont(.bodyStrong)
+                                .foregroundStyle(Color.lifeboard(.textPrimary))
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
                 Button { receipt = Data() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                    .accessibilityLabel("Dismiss first task suggestion")
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
+                    .accessibilityLabel(String(localized: "Dismiss"))
             }
             .padding(16)
             .lifeBoardClaySurface(.raised, cornerRadius: 16)
+            .lifeboardFirstLight(trigger: spotlight, tint: Color.lifeboard(.accentPrimary))
             .padding(.horizontal, 20)
             .accessibilityIdentifier("home.onboarding.firstAction")
+            .onAppear {
+                if OnboardingFirstActionSpotlight.consume() { spotlight &+= 1 }
+            }
         }
     }
 }
