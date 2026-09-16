@@ -394,9 +394,13 @@ The current `promotedDefaults` keys are exhaustively accounted for here:
 | `feature.life_os.day_close_v1` | Day Close reconciliation and carry-forward |
 | `feature.life_os.day_open_commit_v1` | Morning commitment/Day Open |
 | `feature.life_os.home_loop_spine_v1` | Home daily-loop spine |
+| `feature.eva.make_it_fit_today_v1` | EVA Make It Fit Today; independent local/runtime rollback |
+| `feature.eva.friction_detective_v1` | EVA Friction Detective; independent local/runtime rollback |
+| `feature.eva.weekly_reset_v1` | EVA Weekly Reset; independent local/runtime rollback |
+| `feature.onboarding.power_ups` | Optional onboarding power-up setup; promoted default, retained rollback |
 | `feature.universal_input.routing_v1` | Universal deterministic routing |
 | `feature.universal_input.dictation_v1` | Live SpeechAnalyzer dictation |
 | `feature.universal_input.semantic_v1` | Semantic classification and fallback |
 | `feature.life_os.track_behavior_flagship_v1` | Flagship habit/goal/care/tracker presentation |
-| `feature.onboarding.life_weave_v6` | v6 "Life Weave" first run; off in Release until the rollout completes, with the v5 Life Map journey still composed and resumable |
+| `feature.onboarding.life_weave_v6` | v6 "Life Weave" first run; current source default is promoted, with staged/runtime rollback preserved. This source inventory does not establish rollout verification |
 | `feature.life_os.eva_fm_responder_v1` | Legacy key retained for migration compatibility; Apple Foundation Models are no longer an EVA provider |
