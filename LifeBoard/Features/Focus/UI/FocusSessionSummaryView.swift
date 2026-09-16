@@ -35,15 +35,15 @@ public struct FocusSessionSummaryView: View {
 
             DecorImage(asset: .thinkingCup, placement: .emptyState)
 
+            // Token-backed type: `.title2.bold()` and `.largeTitle.bold()` were
+            // the only sizes in this sheet that did not come from the scale.
             Text("Focus protected")
-                .font(.title2.bold())
-                .fontDesign(.rounded)
+                .font(Typography.screenTitle())
                 .foregroundStyle(ClayColorTokens.navy)
 
             VStack(spacing: spacing.s8) {
                 Text("\(minutesFocused) min")
-                    .font(.largeTitle.bold())
-                    .fontDesign(.rounded)
+                    .font(Typography.hero())
                     .foregroundStyle(focusStyle.deep)
                     .monospacedDigit()
 
@@ -69,24 +69,20 @@ public struct FocusSessionSummaryView: View {
             Spacer()
 
             if let onContinueMomentum {
+                // The design system's own quiet alternative, rather than a
+                // hand-drawn fill, stroke and radius.
                 Button("Choose next action", systemImage: "arrow.right", action: onContinueMomentum)
                     .font(.lifeboard(.bodyEmphasis))
-                    .fontDesign(.rounded)
-                    .foregroundStyle(focusStyle.deep)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(ClayColorTokens.glassStrong, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(focusStyle.border, lineWidth: 1))
+                    .buttonStyle(.lifeBoardChip)
             }
 
+            // The primary action uses the shared style: pill, 48pt, and the
+            // same press response as every other commit in the product.
             Button("Done", systemImage: "checkmark", action: onDismiss)
                 .font(.lifeboard(.bodyEmphasis))
-                .fontDesign(.rounded)
-                .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .frame(maxWidth: .infinity, minHeight: 48)
-                .background(
-                    LinearGradient(colors: ClayColorTokens.actionGradient(for: .focus), startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                )
+                .buttonStyle(.lifeBoardPrimary)
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.bottom, spacing.s16)
