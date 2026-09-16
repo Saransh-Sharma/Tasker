@@ -131,22 +131,44 @@ final class EvaAppleIdentityService: NSObject {
         )
     }
 
-    func credentialIsAuthorized() async -> Bool {
+    func credentialAuthorization() async -> EvaAppleCredentialAuthorization {
         let credentials: EvaSessionCredentials?
-        do {
-            credentials = try await EvaCloudSessionStore.shared.load()
-        } catch {
-            return false
+        switch await EvaCloudSessionStore.shared.restoreOutcome() {
+        case .missing:
+            credentials = nil
+        case .restored(let value):
+            credentials = value
+        case .identityMismatch, .temporarilyUnavailable, .corrupt, .serverRevoked:
+            return .unavailable
         }
+        return await credentialAuthorization(for: credentials)
+    }
+
+    func credentialAuthorization(for credentials: EvaSessionCredentials?) async -> EvaAppleCredentialAuthorization {
         guard let user = credentials?.appleUserIdentifier,
               !user.isEmpty else {
-            return true
+            return .authorized
         }
         return await withCheckedContinuation { continuation in
             ASAuthorizationAppleIDProvider().getCredentialState(forUserID: user) { state, error in
-                continuation.resume(returning: error == nil && state == .authorized)
+                if error != nil {
+                    continuation.resume(returning: .unavailable)
+                } else {
+                    switch state {
+                    case .authorized:
+                        continuation.resume(returning: .authorized)
+                    case .revoked, .notFound, .transferred:
+                        continuation.resume(returning: .revoked)
+                    @unknown default:
+                        continuation.resume(returning: .unavailable)
+                    }
+                }
             }
         }
+    }
+
+    func credentialIsAuthorized() async -> Bool {
+        await credentialAuthorization() == .authorized
     }
 
     @objc private func credentialWasRevoked() {
