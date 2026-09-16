@@ -74,6 +74,20 @@ public struct ParsedCapture: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+/// One recognized piece of capture text, in the order it was written. The
+/// composer shows each as a chip the person can remove to take the words back.
+public struct CaptureTokenPiece: Equatable, Hashable, Sendable {
+    public enum Kind: String, Equatable, Hashable, Sendable {
+        case date, time, duration, repeatPattern, priority, project, tag, context
+    }
+
+    public let kind: Kind
+    /// Exactly as typed, e.g. "fri", "3pm", "#health".
+    public let text: String
+    /// UTF-16 range in the original untrimmed input.
+    public var sourceRange: NSRange? = nil
+}
+
 public enum TaskCaptureParser {
 
     /// Parses a raw capture string. `now`/`calendar` are injectable for deterministic tests.
@@ -82,10 +96,29 @@ public enum TaskCaptureParser {
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> ParsedCapture {
+        parseWithPieces(raw, now: now, calendar: calendar).capture
+    }
+
+    /// The recognized pieces behind `parse`, in reading order. Empty when the
+    /// parse claimed nothing (including when stripping would empty the title).
+    public static func pieces(
+        _ raw: String,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [CaptureTokenPiece] {
+        parseWithPieces(raw, now: now, calendar: calendar).pieces
+    }
+
+    private static func parseWithPieces(
+        _ raw: String,
+        now: Date,
+        calendar: Calendar
+    ) -> (capture: ParsedCapture, pieces: [CaptureTokenPiece]) {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else {
-            return ParsedCapture(cleanTitle: trimmed, dueDate: nil, isAllDay: false, matchedText: nil)
+            return (ParsedCapture(cleanTitle: trimmed, dueDate: nil, isAllDay: false, matchedText: nil), [])
         }
+        var pieceKinds: [Range<String.Index>: CaptureTokenPiece.Kind] = [:]
 
         var removalRanges: [Range<String.Index>] = []
         var matchedPieces: [(Range<String.Index>, String)] = []
@@ -93,8 +126,9 @@ public enum TaskCaptureParser {
         /// Claims a range unless it collides with one already taken. Ordering
         /// below is therefore precedence: the first pass to claim a substring
         /// owns it.
-        func claim(_ range: Range<String.Index>) -> Bool {
+        func claim(_ range: Range<String.Index>, as kind: CaptureTokenPiece.Kind) -> Bool {
             guard removalRanges.contains(where: { $0.overlaps(range) }) == false else { return false }
+            pieceKinds[range] = kind
             removalRanges.append(range)
             matchedPieces.append((range, String(trimmed[range])))
             return true
@@ -104,31 +138,33 @@ public enum TaskCaptureParser {
         //    user typed deliberately, and because `@place` must be claimed before
         //    anything else can look at an `@`.
         let tokens = tokenMatches(in: trimmed)
-        for token in tokens.all where claim(token.range) { }
+        for token in tokens.tags where claim(token.range, as: .tag) { }
+        if let project = tokens.project { _ = claim(project.range, as: .project) }
+        if let context = tokens.context { _ = claim(context.range, as: .context) }
 
         // 2) Recurrence, before the date pass: "every monday" would otherwise be
         //    consumed by the weekday matcher and become a one-off due date, which
         //    silently turns a repeating commitment into a single task.
         let recurrenceMatch = firstRecurrenceMatch(in: trimmed)
-        if let recurrenceMatch { _ = claim(recurrenceMatch.range) }
+        if let recurrenceMatch { _ = claim(recurrenceMatch.range, as: .repeatPattern) }
 
         // 3) Duration, before the date pass so "for 45 min" cannot be misread by
         //    the "in N units" instant rule. The two are genuinely different
         //    claims: when it is due versus how long it takes.
         let durationMatch = firstDurationMatch(in: trimmed)
-        if let durationMatch { _ = claim(durationMatch.range) }
+        if let durationMatch { _ = claim(durationMatch.range, as: .duration) }
 
         // 4) Priority.
         let priorityMatch = firstPriorityMatch(in: trimmed)
-        if let priorityMatch { _ = claim(priorityMatch.range) }
+        if let priorityMatch { _ = claim(priorityMatch.range, as: .priority) }
 
         // 5) Date phrase (relative words, weekdays, "in N units", or absolute via NSDataDetector).
         var dateMatch = firstDateMatch(in: trimmed, now: now, calendar: calendar)
-        if let resolved = dateMatch, claim(resolved.range) == false { dateMatch = nil }
+        if let resolved = dateMatch, claim(resolved.range, as: .date) == false { dateMatch = nil }
 
         // 6) Time phrase — only if it doesn't overlap anything already claimed.
         var timeMatch = firstTimeMatch(in: trimmed)
-        if let resolved = timeMatch, claim(resolved.range) == false { timeMatch = nil }
+        if let resolved = timeMatch, claim(resolved.range, as: .time) == false { timeMatch = nil }
 
         // Resolve the final due date from the date/time parts.
         let resolution = resolveDueDate(
@@ -153,15 +189,27 @@ public enum TaskCaptureParser {
         // really the whole title ("tomorrow", "#groceries"). Keep the original
         // text and claim nothing — a task called "" helps nobody.
         guard strippedCandidate.isEmpty == false else {
-            return ParsedCapture(cleanTitle: trimmed, dueDate: nil, isAllDay: false, matchedText: nil)
+            return (ParsedCapture(cleanTitle: trimmed, dueDate: nil, isAllDay: false, matchedText: nil), [])
         }
+
+        let orderedPieces = matchedPieces
+            .sorted { $0.0.lowerBound < $1.0.lowerBound }
+            .compactMap { piece in
+                pieceKinds[piece.0].map { kind in
+                    let base = raw.range(of: trimmed)?.lowerBound ?? raw.startIndex
+                    let offset = raw[..<base].utf16.count
+                    let range = NSRange(piece.0, in: trimmed)
+                    return CaptureTokenPiece(kind: kind, text: piece.1.trimmingCharacters(in: .whitespaces),
+                        sourceRange: NSRange(location: range.location + offset, length: range.length))
+                }
+            }
 
         let matchedText = matchedPieces
             .sorted { $0.0.lowerBound < $1.0.lowerBound }
             .map(\.1)
             .joined(separator: " ")
 
-        return ParsedCapture(
+        let capture = ParsedCapture(
             cleanTitle: strippedCandidate,
             dueDate: resolution.dueDate,
             isAllDay: resolution.dueDate == nil ? false : resolution.isAllDay,
@@ -173,6 +221,7 @@ public enum TaskCaptureParser {
             repeatPattern: recurrenceMatch?.pattern,
             priority: priorityMatch?.priority
         )
+        return (capture, orderedPieces)
     }
 
     // MARK: - Date resolution
@@ -621,5 +670,100 @@ public enum TaskCaptureParser {
         let withoutOrphanSigil = withoutDanglingConnector
             .replacingOccurrences(of: #"\s*[@#+]\s*$"#, with: "", options: .regularExpression)
         return withoutOrphanSigil.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+
+/// Suggestions for the `#tag`, `+project`, and `@context` being typed.
+///
+/// Pure and caret-free: the composer types at the end of the draft, so the
+/// token under completion is the trailing run after its sigil. Names are
+/// inserted in the parser's own grammar (a letter, then letters, digits, `_`,
+/// or `-`), with spaces written as hyphens, so what autocomplete writes is
+/// always something `TaskCaptureParser` reads back.
+public enum CaptureTokenCompletion {
+    public enum Kind: Equatable, Sendable {
+        case tag, project, context
+
+        public var sigil: Character {
+            switch self {
+            case .tag: "#"
+            case .project: "+"
+            case .context: "@"
+            }
+        }
+    }
+
+    public struct ActiveToken: Equatable, Sendable {
+        public let kind: Kind
+        /// What has been typed after the sigil; may be empty right after it.
+        public let prefix: String
+    }
+
+    public struct Suggestion: Equatable, Hashable, Sendable {
+        public let name: String
+        public let isNew: Bool
+    }
+
+    public static func activeToken(in text: String) -> ActiveToken? {
+        guard let last = text.last, last.isWhitespace == false else { return nil }
+        let trailing = text.reversed().prefix { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" }
+        let prefix = String(trailing.reversed())
+        let sigilIndex = text.index(text.endIndex, offsetBy: -(prefix.count + 1), limitedBy: text.startIndex)
+        guard let sigilIndex else { return nil }
+        let kind: Kind
+        switch text[sigilIndex] {
+        case "#": kind = .tag
+        case "+": kind = .project
+        case "@": kind = .context
+        default: return nil
+        }
+        // A sigil glued to a word ("C#", "a+b") is not a token.
+        if sigilIndex > text.startIndex {
+            let before = text[text.index(before: sigilIndex)]
+            guard before.isWhitespace else { return nil }
+        }
+        // Tokens start with a letter; "@3pm" is a time, not a context.
+        if let first = prefix.first, first.isLetter == false { return nil }
+        return ActiveToken(kind: kind, prefix: prefix)
+    }
+
+    /// Prefix matches first, then other substring matches, at most `limit`.
+    /// Offers to create a new tag when nothing matches what was typed;
+    /// projects and contexts must already exist.
+    public static func suggestions(for token: ActiveToken, candidates: [String], limit: Int = 5) -> [Suggestion] {
+        let query = normalized(token.prefix)
+        var seen: Set<String> = []
+        let unique = candidates.filter { seen.insert(normalized($0)).inserted }
+        let prefixed = unique.filter { query.isEmpty || normalized($0).hasPrefix(query) }
+        let contained = query.isEmpty ? [] : unique.filter {
+            normalized($0).contains(query) && normalized($0).hasPrefix(query) == false
+        }
+        var result = (prefixed.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending } + contained)
+            .prefix(limit)
+            .map { Suggestion(name: $0, isNew: false) }
+        if token.kind == .tag, query.isEmpty == false,
+           unique.contains(where: { normalized($0) == query }) == false,
+           result.count < limit {
+            result.append(Suggestion(name: token.prefix, isNew: true))
+        }
+        return result
+    }
+
+    /// Replaces the trailing token with the chosen name and a space.
+    public static func apply(_ name: String, kind: Kind, to text: String) -> String {
+        guard let token = activeToken(in: text), token.kind == kind else { return text }
+        let base = text.dropLast(token.prefix.count + 1)
+        return "\(base)\(kind.sigil)\(tokenText(name)) "
+    }
+
+    public static func tokenText(_ name: String) -> String {
+        name.split(whereSeparator: \.isWhitespace).joined(separator: "-")
+    }
+
+    /// Case, spacing, and hyphens ignored: "+side-project" is "Side Project".
+    public static func normalized(_ value: String) -> String {
+        value.lowercased().replacingOccurrences(of: "-", with: " ")
+            .split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 }
