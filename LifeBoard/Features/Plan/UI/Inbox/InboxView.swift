@@ -371,6 +371,9 @@ struct InboxView: View {
     /// chance to disagree with the parser — as anything typed by hand.
     var onReviewCapture: ((InboxItem) -> Void)?
     @State private var selection: Set<UUID> = []
+    @State private var pickingDayTaskIDs: [UUID] = []
+    @State private var pickedDay = Date()
+    @State private var showsDayPicker = false
     @State private var filingItem: InboxItem?
     /// How many times each capture has been passed over.
     ///
@@ -466,6 +469,26 @@ struct InboxView: View {
             pruneSkipLedger()
         }
         .onChange(of: store.items.map(\.id)) { _, _ in pruneSkipLedger() }
+        .sheet(isPresented: $showsDayPicker) {
+            NavigationStack {
+                DatePicker("Plan for", selection: $pickedDay, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .padding(16)
+                    .navigationTitle("Pick day")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showsDayPicker = false } }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Plan it") {
+                                let day = PlanningDay(date: pickedDay)
+                                let mutations = pickingDayTaskIDs.map { InboxTriageMutation.schedule(taskID: $0, before: nil, after: day) }
+                                showsDayPicker = false
+                                Task { await store.apply(.batch(mutations)) }
+                            }
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
         .sheet(item: $filingItem) { item in
             InboxCaptureReviewSheet(item: item, store: store) {
                 filingItem = nil
@@ -964,6 +987,16 @@ struct InboxView: View {
     /// reachable by pointer, keyboard and VoiceOver.
     private func triageMenu(for item: InboxItem) -> some View {
         Menu {
+            // Scheduling was the one triage decision the row could not make,
+            // though `InboxTriageMutation.schedule` existed and is receipt-backed.
+            Section("Plan it") {
+                Button("Today", systemImage: "sun.max") { schedule(item, daysFromToday: 0) }
+                Button("Tomorrow", systemImage: "sunrise") { schedule(item, daysFromToday: 1) }
+                Button("Pick day…", systemImage: "calendar") {
+                    if case let .task(id) = item.origin { pickingDayTaskIDs = [id]; showsDayPicker = true }
+                }
+                Button("Next week", systemImage: "calendar") { schedule(item, daysFromToday: InboxScheduleShortcut.daysUntilNextWeek()) }
+            }
             Button("Move to Someday") { triage(item, to: .someday) }
             Button("Keep as reference") { triage(item, to: .reference) }
             Button("Return to Inbox") { triage(item, to: .inbox) }
@@ -981,6 +1014,14 @@ struct InboxView: View {
                 .font(.subheadline)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Spacer()
+            Button("Today") { scheduleSelection(daysFromToday: 0) }
+            Button("Tomorrow") { scheduleSelection(daysFromToday: 1) }
+            Button("Pick day…") {
+                pickingDayTaskIDs = store.items.filter { selection.contains($0.id) }.compactMap {
+                    if case let .task(id) = $0.origin { return id }; return nil
+                }
+                showsDayPicker = !pickingDayTaskIDs.isEmpty
+            }
             Button("Someday") { triageSelection(to: .someday) }
             Button("Reference") { triageSelection(to: .reference) }
             Button("Clear") { selection.removeAll() }
@@ -1013,6 +1054,25 @@ struct InboxView: View {
                 .setDisposition(taskID: taskID, before: .inbox, after: disposition)
             )
         }
+    }
+
+    private func schedule(_ item: InboxItem, daysFromToday: Int) {
+        guard case let .task(taskID) = item.origin else { return }
+        let day = InboxScheduleShortcut.day(daysFromToday: daysFromToday)
+        Task { await store.apply(.schedule(taskID: taskID, before: nil, after: day)) }
+    }
+
+    private func scheduleSelection(daysFromToday: Int) {
+        let day = InboxScheduleShortcut.day(daysFromToday: daysFromToday)
+        let mutations = store.items
+            .filter { selection.contains($0.id) }
+            .compactMap { item -> InboxTriageMutation? in
+                guard case let .task(taskID) = item.origin else { return nil }
+                return .schedule(taskID: taskID, before: nil, after: day)
+            }
+        guard mutations.isEmpty == false else { return }
+        selection.removeAll()
+        Task { await store.apply(.batch(mutations)) }
     }
 
     private func triageSelection(to disposition: UnscheduledDisposition) {
@@ -1397,5 +1457,20 @@ private extension DuplicateMergeResolution.Field {
         case .priority: "Priority"
         case .recurrence: "Repeat"
         }
+    }
+}
+
+/// The day behind Inbox's "Today / Tomorrow / Next week" shortcuts.
+enum InboxScheduleShortcut {
+    static func day(daysFromToday: Int, now: Date = Date(), calendar: Calendar = .current) -> PlanningDay {
+        let date = calendar.date(byAdding: .day, value: daysFromToday, to: calendar.startOfDay(for: now)) ?? now
+        return PlanningDay(date: date, calendar: calendar)
+    }
+
+    /// Days until the next Monday (never 0: "next week" from a Monday is a week out).
+    static func daysUntilNextWeek(now: Date = Date(), calendar: Calendar = .current) -> Int {
+        let weekday = calendar.component(.weekday, from: now) // 1 = Sunday
+        let untilMonday = (9 - weekday) % 7
+        return untilMonday == 0 ? 7 : untilMonday
     }
 }
