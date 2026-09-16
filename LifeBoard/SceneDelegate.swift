@@ -859,15 +859,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 )
                 return
             }
-            let repository = CoreDataPlanningRepository(container: container)
             Task {
                 do {
-                    let session = try await repository.handle(command)
-                    let liveActivitiesAvailable = await FocusLiveActivityCoordinator.shared.synchronize(session: session)
-                    await FocusNotificationFallbackCoordinator.shared.synchronize(
-                        session: session,
-                        title: "Focus session",
-                        liveActivitiesAvailable: liveActivitiesAvailable
+                    try await FocusLiveActivityCommandRunner.run(
+                        command,
+                        repository: CoreDataPlanningRepository(container: container)
                     )
                 } catch {
                     await MainActor.run {
