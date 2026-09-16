@@ -1,0 +1,137 @@
+[
+  {
+    "path": "LifeBoard/DesignSystem/ComposerScaffold.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "6835fdd860b4dea45f7b79946628f1871f391e61c3c1696772576884b84adebb",
+    "after_sha256": "5c57036b3d5b28f99e73417efd4e85cdd608d368184e6ce0d9c22cda456c3988"
+  },
+  {
+    "path": "LifeBoard/DesignSystem/LifeBoardCardPrimitives.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "297ea06af07927559ba266757024656a38a74d7bc74c3788a5060e8afd8e23b3",
+    "after_sha256": "aa5e32ad8525b12844a76bd437debec9227aca0d01f5e51f53f88cd37035dd29"
+  },
+  {
+    "path": "LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "94691ee7b91e0ffe5dc70f20904b219ca56ebdb0ced6975a66c9c7ebe743c724",
+    "after_sha256": "47dcd8e94bee436308d3281296774078a875129d148549e465cb9fa6a7404ab4"
+  },
+  {
+    "path": "LifeBoard/Features/DailyLoop/Data/HomeLifeOSProjectionStore.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "61a179394d5ec4bdf590302eb5af8f4d17a7d8ab8188a584cf9c8a048683a97e",
+    "after_sha256": "2d1e044e53e5824267a8f40f3ae6c361008518fb817d6b22f76e64c0fad9f370"
+  },
+  {
+    "path": "LifeBoard/Features/Health/UI/LifeBoardPhaseVIViews.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "7abbfb7302a7826d665c5dc25acfd0a78b6e1a78144cc09f89fc59a6af5163f7",
+    "after_sha256": "73b8710209f6703ddab413e54bfd77ef849acaf74f5d1496efc4799b60d4e10b"
+  },
+  {
+    "path": "LifeBoard/Features/Health/UI/LifeMomentsViews.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "e4c25771e7bd302364fe029a2dec53f31d3dd2bf6a4b5505a56244b960b3bd14",
+    "after_sha256": "00db59a5e37e599a2d5c358d12629ddbebcdef243d40fbf95c9a266ba05f4835"
+  },
+  {
+    "path": "LifeBoard/Features/Health/UI/WellnessPresentationComponents.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "d4b4a786f277623979dfc92ab9586c3b8d06f7c7300fd98195b36f05206db19f",
+    "after_sha256": "fa3e208346dd93d306a0894e52b0aaaca7cda05b28ba5d3ee7b077a278368475"
+  },
+  {
+    "path": "LifeBoard/Features/Journal/UI/LifeBoardTrackAndJournalViews.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "2854ea7825d648a25d0ca5fc69896c1f301389777205a8cbee87613de2133f46",
+    "after_sha256": "9165b22b74b739bb5c2cc95a3c214607eb89ac45a8d0cd518a10e188d0fffe83"
+  },
+  {
+    "path": "LifeBoard/Features/Onboarding/LifeMap/LifeMapProductPreview.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "f7cec991555db95f225b46c7f908d32f2f26420950ba6853e0c7fe9fc8ebfbe3",
+    "after_sha256": "e8f6d35a4be1d7cd64c9bc6471cdc11a52ac0ccf440e9746109c877670f695d9"
+  },
+  {
+    "path": "LifeBoard/Features/Plan/UI/PlanActiveFocusCard.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "46eb0b0805b6a45bd18e69749940ad5e1b0521ba2d3226b46f6e46beb36f7794",
+    "after_sha256": "876ff8a88145ea026deb7cea7b865fd3c6864bcdadaf42701892f12848c6de7f"
+  },
+  {
+    "path": "LifeBoard/Features/Plan/UI/PlanCapacityCard.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "314a4cc514bcb24f9cbcfbaf7a7085fcd1881c7fa8c4f2753d5aa5e99b461608",
+    "after_sha256": "2f65527cd2f87b80cee9b13449effa48811afc34cc26f563caf41ac713aea276"
+  },
+  {
+    "path": "LifeBoard/Features/Plan/UI/PlanOrientationBar.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "95e1eb6f9d1366517cb017d881e52fcefd8fb31093ef0b975b4f13397a6d257e",
+    "after_sha256": "806324fa743d7cf4f444759b72167542f40d5927d67810bc8f1dd1c8e555e1e2"
+  },
+  {
+    "path": "LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "89fc6e7dc6ac7918f4b8a7f9fa8b80c5e85c426de43b74cce7618c4a08e46310",
+    "after_sha256": "dcf5eb9cf707c271b320bd5e11a481809bc49261801c440e8c115e8eab37745f"
+  },
+  {
+    "path": "LifeBoard/Features/Track/UI/TrackFastingViews.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "7a9394b7054da6656259a3a14438b244f465dbdaab061adf82f08f01cddcdb1f",
+    "after_sha256": "dd69cbc5baf1b6768b60e9edaebd2b2a29f861bd721962d8a97f5057c2704467"
+  },
+  {
+    "path": "LifeBoard/Foundation/Design/HomeFastingWidget.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "26019c7678289383aa48f8809fd44e786c77f3a4b6ee21a9236c96adfcbc59ac",
+    "after_sha256": "fcb5524a7de3908176c84ea420e276bf60f19a9fb8cb3b40ab755698deae8cf8"
+  },
+  {
+    "path": "LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "2f0b215c4a69e06a496af4cb159eb22db48c77462c403d46cbfee8513fd18977",
+    "after_sha256": "c515311d4fe1fe593b9fe3479f9752311f5f2e32479b466c5962d467a570e7a1"
+  },
+  {
+    "path": "LifeBoard/Foundation/Navigation/HomeCardPlacementSheet.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "1ba348100e573b79059c01e98592362bffd12cad09940ca8fc92376a0d4d5300",
+    "after_sha256": "c13bc047c1657cd3eac07a0ac66b64a6f11627650dd70a758edfa389ec59ea26"
+  },
+  {
+    "path": "LifeBoard/Foundation/Navigation/ScreenRootHeader.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "4129c1e1a52a82dd94901b96968bd453d49768218dc26d799b8227519e1dc482",
+    "after_sha256": "8a5744d13baea734d45ec154f0f7f8c5081e81721cbba33319963e0cadb3757e"
+  },
+  {
+    "path": "Packages/LifeBoardUI/Sources/LifeBoardUI/NumericRoll.swift",
+    "action": "restore artwork-only file to HEAD",
+    "before_sha256": "519351aeb11829f080aacb72b92033e533e47638bfcbfd4acdbd61e5ca54ba30",
+    "after_sha256": "59ab5c8578c27cdda36d70325ee0954ef49166e846537ef65cbcd357a83efca0"
+  },
+  {
+    "path": "LifeBoard.xcodeproj/project.pbxproj",
+    "action": "remove only project lines for artwork-added Swift files; retain all other project changes including package-reference comment",
+    "removed_lines": 84
+  },
+  {
+    "path": "LifeBoard/DesignSystem/HomeCards",
+    "action": "remove artwork-added path from control only"
+  },
+  {
+    "path": "LifeBoardTests/HomeCardPresentationTests.swift",
+    "action": "remove artwork-added path from control only"
+  },
+  {
+    "path": "LifeBoard/Assets.xcassets/HomeCardScenes",
+    "action": "remove artwork-added path from control only"
+  },
+  {
+    "path": "LifeBoard/Assets.xcassets/AmbientSurfaces",
+    "action": "remove artwork-added path from control only"
+  }
+]
