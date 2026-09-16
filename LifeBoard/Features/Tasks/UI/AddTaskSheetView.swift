@@ -32,7 +32,7 @@ public struct AddTaskSheetView: View {
 
     private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var canCreate: Bool {
-        viewModel.viewState.canSubmit && viewModel.scheduledStartAt != nil && !viewModel.isLoading
+        viewModel.viewState.canSubmit && !viewModel.isLoading
     }
     private var isPreviewAwaiting: Bool {
         viewModel.taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -77,6 +77,7 @@ public struct AddTaskSheetView: View {
                         title: viewModel.taskName,
                         scheduledStartAt: viewModel.scheduledStartAt,
                         scheduledEndAt: viewModel.scheduledEndAt,
+                        dueDate: viewModel.plannedDate,
                         duration: viewModel.estimatedDuration,
                         lifeArea: selectedLifeArea,
                         isAwaiting: isPreviewAwaiting,
@@ -99,6 +100,7 @@ public struct AddTaskSheetView: View {
                         viewModel: viewModel,
                         scheduledStartAt: viewModel.scheduledStartAt,
                         scheduledEndAt: viewModel.scheduledEndAt,
+                        dueDate: viewModel.plannedDate,
                         duration: $viewModel.estimatedDuration,
                         selectedLifeArea: selectedLifeArea,
                         onEditTime: { showTimeEditor = true }
@@ -135,7 +137,7 @@ public struct AddTaskSheetView: View {
                 isLoading: viewModel.isLoading,
                 successFlash: successFlash,
                 showAddAnother: showAddAnother,
-                buttonTitle: viewModel.scheduledStartAt == nil ? "Choose Time" : "Add Task",
+                buttonTitle: "Add Task",
                 onCreateAction: handleCreate,
                 onAddAnotherAction: handleAddAnother
             )
@@ -197,9 +199,6 @@ public struct AddTaskSheetView: View {
     }
 
     private var validationText: String? {
-        if viewModel.scheduledStartAt == nil {
-            return "Choose a start time to preview this task in your timeline."
-        }
         if let error = viewModel.errorMessage {
             return error
         }
@@ -224,7 +223,7 @@ public struct AddTaskSheetView: View {
     }
 
     private func handleAppear() {
-        if viewModel.scheduledStartAt == nil {
+        if viewModel.scheduledStartAt == nil, viewModel.hasExplicitSchedule == false {
             viewModel.restoreDefaultSchedule()
         }
         if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_README_LIFE_OS_TOUR") {
@@ -249,12 +248,7 @@ public struct AddTaskSheetView: View {
     }
 
     private func handleCreate() {
-        guard canCreate else {
-            if viewModel.scheduledStartAt == nil {
-                showTimeEditor = true
-            }
-            return
-        }
+        guard canCreate else { return }
         pendingBehavior = .dismiss
         showAddAnother = false
         viewModel.createTask()
@@ -333,6 +327,7 @@ private struct TaskEssentials: View {
     @ObservedObject var viewModel: AddTaskViewModel
     let scheduledStartAt: Date?
     let scheduledEndAt: Date?
+    var dueDate: Date? = nil
     @Binding var duration: TimeInterval?
     let selectedLifeArea: LifeArea?
     let onEditTime: () -> Void
@@ -340,7 +335,7 @@ private struct TaskEssentials: View {
     @State private var showLifeArea = false
 
     private var timeText: String {
-        guard let scheduledStartAt else { return "Choose time" }
+        guard let scheduledStartAt else { return AddTaskViewModel.anytimeLabel(day: dueDate) }
         return AddTaskViewModel.scheduleRangeLabel(start: scheduledStartAt, end: scheduledEndAt)
     }
 
@@ -358,7 +353,7 @@ private struct TaskEssentials: View {
                     CalmSummaryChip(
                         icon: "clock",
                         label: timeText,
-                        state: scheduledStartAt == nil ? .empty : .filled,
+                        state: scheduledStartAt == nil && dueDate == nil ? .empty : .filled,
                         accentColor: ClayColorTokens.violet,
                         action: onEditTime
                     )
@@ -394,6 +389,7 @@ private struct TaskTimelinePreview: View {
     let title: String
     let scheduledStartAt: Date?
     let scheduledEndAt: Date?
+    var dueDate: Date? = nil
     let duration: TimeInterval?
     let lifeArea: LifeArea?
     var isAwaiting: Bool = false
@@ -416,7 +412,7 @@ private struct TaskTimelinePreview: View {
         return remaining == 0 ? "\(hours)h" : "\(hours)h \(remaining)m"
     }
     private var timeText: String {
-        guard let scheduledStartAt else { return "Choose time" }
+        guard let scheduledStartAt else { return AddTaskViewModel.anytimeLabel(day: dueDate) }
         return AddTaskViewModel.scheduleRangeLabel(start: scheduledStartAt, end: scheduledEndAt)
     }
 
@@ -766,6 +762,16 @@ private struct TaskTimeEditorSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+                ToolbarItem(placement: .bottomBar) {
+                    // A task does not need a slot. "Anytime" keeps the chosen day
+                    // (unless it is today) and drops the time.
+                    Button("Anytime") {
+                        let isToday = Calendar.current.isDateInToday(draftDate)
+                        viewModel.setAnytime(on: isToday ? nil : draftDate)
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("addTask.schedule.anytime")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Set") {
                         viewModel.setScheduledDate(draftDate)
@@ -778,7 +784,13 @@ private struct TaskTimeEditorSheet: View {
         }
         .accessibilityIdentifier("addTask.schedule.timePickerSheet")
         .onAppear {
-            draftDate = viewModel.scheduledStartAt ?? AddTaskViewModel.defaultScheduledStart()
+            draftDate = viewModel.scheduledStartAt
+                ?? viewModel.plannedDate.map { day in
+                    let time = AddTaskViewModel.defaultScheduledStart()
+                    let parts = Calendar.current.dateComponents([.hour, .minute], from: time)
+                    return Calendar.current.date(bySettingHour: parts.hour ?? 9, minute: parts.minute ?? 0, second: 0, of: day) ?? time
+                }
+                ?? AddTaskViewModel.defaultScheduledStart()
         }
     }
 
