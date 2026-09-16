@@ -595,8 +595,11 @@ struct PlanCanvasBlock: View {
                     lastDetent = 0
                     guard case .second(true, let drag?) = value else { return }
                     let snapped = snapped(drag.translation.height)
+                    // The lift is a settle; the commit haptic follows the write
+                    // from `PlanStore`, so a move that fails no longer feels
+                    // like one that succeeded.
                     if snapped != 0 {
-                        Haptic.commit.play()
+                        Haptic.settle.play()
                         move(snapped)
                     } else if abs(drag.translation.height) > 8 {
                         Haptic.settle.play()
@@ -624,7 +627,7 @@ struct PlanCanvasBlock: View {
                                 movingEdgeAt: block.startAt
                             )
                             guard delta != 0 else { return }
-                            Haptic.commit.play()
+                            Haptic.settle.play()
                             resizeEdges(delta, 0)
                         }
                 )
@@ -650,7 +653,7 @@ struct PlanCanvasBlock: View {
                                 movingEdgeAt: block.endAt
                             )
                             guard delta != 0 else { return }
-                            Haptic.commit.play()
+                            Haptic.settle.play()
                             resizeEdges(0, delta)
                         }
                 )
