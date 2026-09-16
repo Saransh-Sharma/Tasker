@@ -71,3 +71,13 @@ Historical TODOs, phase handoffs, completion audits, legacy roadmaps, and supers
 ## Maintenance rule
 
 Every living product document includes classification, audience, capability status, source authority, and last verified date. Update the catalog and at least one user journey when a capability changes. A public claim also requires an entry in the capability matrix, and a website visual must satisfy the marketing guide and screenshot manifest. Run `scripts/check-documentation-current.sh` before merging documentation changes.
+
+
+### Ambient Home and feature artwork
+
+- [Implemented design system and extension guide](design/home-cards/IMPLEMENTED_DESIGN_SYSTEM.md) — current working-tree design, source authority, and evidence limits.
+- [Generated/reference/native comparison gallery](design/home-cards/index.html) — image types and acceptance are labeled separately.
+- [Home generation prompts and manifest](design/home-cards/IMAGE_GENERATION_PROMPTS.md) — 228 stable specifications, including not-yet-ready entries.
+- [Feature-header artwork](design/ambient-surfaces/index.html) — 17 paired identities; component captures are not actual-route verification.
+- [Validation and release blockers](design/home-cards/VALIDATION.md) — current verification authority.
+- [Future creative directions](design/home-cards/FUTURE_CREATIVE_DIRECTIONS.md) — unimplemented research proposals, not commitments.
