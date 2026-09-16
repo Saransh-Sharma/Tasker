@@ -293,6 +293,10 @@ public struct FoundationShell: View {
                 homeCardReceipt: $homeCardReceipt
             )
         )
+        #if DEBUG
+        .modifier(HomeProductionEvidenceModifier())
+        .task { HomeProductionEvidenceProfile.activate(runtime: runtime) }
+        #endif
         .task(id: visualFixture?.id) {
             guard let visualFixture else { return }
             switch visualFixture.root {
@@ -542,7 +546,7 @@ public struct FoundationShell: View {
         let selection = CaptureOrbDragSelectionPolicy.selection(at: location, targets: targets)
         guard selection != compactCaptureState.highlightedKind else { return }
         compactCaptureState.highlightedKind = selection
-        if selection != nil { HapticFeedback.selection() }
+        if selection != nil { Haptic.pick.play() }
     }
 
     private func finishCompactCaptureDrag(at location: CGPoint) {
@@ -565,7 +569,7 @@ public struct FoundationShell: View {
                 preferredCaptureKind: kind
             )
         )
-        HapticFeedback.light()
+        Haptic.pick.play()
     }
 
     private var availableCaptureKinds: [CaptureKind] {
