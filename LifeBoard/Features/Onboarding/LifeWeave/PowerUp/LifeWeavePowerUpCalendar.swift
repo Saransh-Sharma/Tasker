@@ -186,32 +186,21 @@ extension LifeWeaveOnboardingModel {
 
     // MARK: - Dock seam
     //
-    // The shell owns one dock for both phases. These five members are what it
-    // reads for this connector, so the primary's meaning can change with the
-    // stage without the shell learning anything about calendars.
+    // The shell owns one dock for both phases. These members are what it reads
+    // for this connector, so the primary's meaning can change with the stage
+    // without the shell learning anything about calendars.
 
     var calendarPrimaryTitle: String {
         switch calendarStage {
-        case .primer: "Connect Calendar"
-        case .chooser: "Use selected calendars"
-        // Named rather than "Continue", because the next thing is another ask
-        // and the user is entitled to see it coming. Derived from the connector
-        // order so it cannot drift if that order changes.
-        case .proof: "Continue to \(LifeWeavePowerUpStep.calendar.next?.spokenName ?? "the next step")"
-        // Write-only is not a refusal, so asking is still on the table.
-        case .recovery(.writeOnly): "Ask for full access"
-        case .recovery: "Continue without Calendar"
-        }
-    }
-
-    var calendarSecondaryTitle: String? {
-        switch calendarStage {
-        // Skipping is always these two words, and it is the only way past this
-        // connector without connecting. The primary never means "skip".
-        case .primer, .chooser, .recovery(.writeOnly): "Not now"
-        // Nothing left to decline: the recovery primary already continues
-        // without Calendar, and the proof's primary moves on.
-        case .proof, .recovery: nil
+        case .primer: String(localized: "Connect Calendar")
+        case .chooser: selectedCalendarCount > 0
+            ? String(localized: "Use these (\(selectedCalendarCount))")
+            : String(localized: "Use these")
+        // The connection opens as a sheet over Ready and returns there, so
+        // finishing is "Done" rather than a hand-off to the next connector.
+        case .proof: String(localized: "Done")
+        case .recovery(.writeOnly): String(localized: "Allow full access")
+        case .recovery: String(localized: "Done")
         }
     }
 
@@ -233,18 +222,14 @@ extension LifeWeaveOnboardingModel {
         case .chooser:
             await commitCalendarSelection()
         case .proof:
-            advancePowerUp()
+            finishConnector()
         // User-initiated, from a state that is not a denial. Nothing in this
         // connector re-requests on its own.
         case .recovery(.writeOnly):
             await requestCalendarAccess()
         case .recovery:
-            advancePowerUp()
+            finishConnector()
         }
-    }
-
-    func performCalendarSecondary() {
-        deferCurrentPowerUp()
     }
 
     /// The one sanctioned way to the app's Settings page, reused rather than
