@@ -1,0 +1,74 @@
+Attributes: Application, 0x1185e0dc0, pid: 85092, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x1185e0dc0, pid: 85092, label: 'LifeBoard'
+    Window (Main), 0x1185e0f00, {{0.0, 0.0}, {834.0, 1194.0}}
+      Other, 0x1185e1040, {{0.0, 0.0}, {834.0, 1194.0}}
+        Other, 0x1185e1180, {{0.0, 0.0}, {834.0, 1194.0}}
+          Other, 0x1185e12c0, {{0.0, 0.0}, {834.0, 1194.0}}
+            Other, 0x1185e1400, {{0.0, 0.0}, {834.0, 1194.0}}
+              Other, 0x1185e1540, {{0.0, 0.0}, {834.0, 1194.0}}
+                Other, 0x1185e1680, {{0.0, 0.0}, {834.0, 1194.0}}
+                  Other, 0x1185e17c0, {{0.0, 0.0}, {834.0, 1194.0}}
+                    Other, 0x1185e1900, {{0.0, 0.0}, {834.0, 1194.0}}
+                      Button, 0x1185e1a40, {{417.0, 603.0}, {0.0, 0.0}}
+                      Other, 0x1185e1b80, {{0.0, 0.0}, {834.0, 1194.0}}
+                        Other, 0x1185e1cc0, {{0.0, 0.0}, {834.0, 1194.0}}
+                        Other, 0x1185e1e00, {{0.0, 0.0}, {834.0, 1194.0}}
+                          Other, 0x1185e1f40, {{0.0, 0.0}, {834.0, 1194.0}}
+                            Other, 0x1185e2080, {{0.0, 0.0}, {834.0, 1194.0}}
+                              Other, 0x1185e21c0, {{0.0, 0.0}, {834.0, 1194.0}}
+                                Other, 0x1185e2300, {{0.0, 0.0}, {834.0, 1194.0}}
+                                  Other, 0x1185e2440, {{0.0, 32.0}, {834.0, 1070.0}}
+                                  Other, 0x1185e2580, {{0.0, 0.0}, {834.0, 1194.0}}
+                                    NavigationBar, 0x1185e26c0, {{0.0, 32.0}, {834.0, 54.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+                                      Button, 0x1185e2800, {{10.0, 32.0}, {44.0, 44.0}}, identifier: 'BackButton', label: 'Back'
+                                      Other, 0x1185e2940, {{784.0, 36.0}, {36.0, 36.0}}, identifier: 'lock.shield', label: 'Journal privacy'
+                                        Other, 0x1185e2a80, {{784.0, 36.0}, {36.0, 36.0}}
+                                          Button, 0x1185e2bc0, {{788.5, 36.0}, {27.0, 36.0}}, identifier: 'lock.shield', label: 'Journal privacy'
+                                    Other, 0x1185e2d00, {{0.0, 0.0}, {834.0, 1194.0}}
+                                      Other, 0x1185e2e40, {{0.0, 0.0}, {834.0, 1194.0}}
+                                        Other, 0x1185e2f80, {{0.0, 0.0}, {834.0, 1194.0}}
+                                          Other, 0x1185e30c0, {{0.0, 0.0}, {834.0, 1194.0}}
+                                            Image, 0x1185e3200, {{0.0, -144.5}, {834.0, 1483.0}}
+                                            Image, 0x1185e3340, {{81.0, 0.0}, {672.0, 1194.0}}
+                                            Image, 0x1185e3480, {{437.7, 34.2}, {223.2, 222.7}}
+                                            Other, 0x1185e35c0, {{417.0, 86.0}, {0.0, 0.0}}
+                                            Image, 0x1185e3700, {{0.0, -15.5}, {834.0, 279.0}}, identifier: 'journal.workspace'
+                                            Other, 0x1185e3840, {{19.5, 97.5}, {795.0, 53.0}}, identifier: 'journal.workspace', label: 'Journal section'
+                                              Button, 0x1185e3980, {{24.0, 102.0}, {259.5, 44.0}}, identifier: 'journal.section.Today', label: 'Today'
+                                              Button, 0x1185e3ac0, {{287.5, 102.0}, {259.0, 44.0}}, identifier: 'journal.section.Library', label: 'Library', Selected
+                                              Button, 0x1185e3c00, {{550.5, 102.0}, {259.5, 44.0}}, identifier: 'journal.section.Insights', label: 'Insights'
+                                            ScrollView, 0x1185e3d40, {{0.0, 162.0}, {834.0, 1032.0}}, identifier: 'journal.workspace'
+                                              Other, 0x1185e3e80, {{0.0, 162.0}, {834.0, 202.0}}
+                                                Other, 0x106a27e80, {{20.0, 162.0}, {794.0, 171.5}}
+                                                  TextField, 0x10b888000, {{20.0, 167.0}, {690.0, 34.0}}, label: 'Search journal', placeholderValue: 'Search your journal'
+                                                  Button, 0x10b888140, {{718.0, 162.0}, {44.0, 44.0}}, identifier: 'mic.circle', label: 'Search journal by voice'
+                                                  Button, 0x10b888280, {{770.0, 162.0}, {44.0, 44.0}}, label: 'Journal filters'
+                                                    Button, 0x10b8883c0, {{770.0, 162.0}, {44.0, 44.0}}
+                                                      Image, 0x10b888500, {{783.5, 175.5}, {17.0, 17.0}}, identifier: 'line.3.horizontal.decrease.circle', label: 'Filter'
+                                                  Other, 0x10b888640, {{20.0, 258.0}, {794.0, 75.5}}, identifier: 'lifeboard.status.empty'
+                                                    Image, 0x10b888780, {{41.5, 278.0}, {17.0, 20.5}}, identifier: 'sparkles', label: 'Sparkle'
+                                                    StaticText, 0x10b8888c0, {{76.0, 274.0}, {132.0, 20.5}}, label: 'No entries found'
+                                                    StaticText, 0x10b888a00, {{76.0, 299.5}, {292.0, 18.0}}, label: 'Try another search or add a thought today.'
+                                              Other, 0x10b888b40, {{801.0, 167.5}, {30.0, 1008.5}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                                Other, 0x1185e8000, {{828.0, 1061.0}, {3.0, 196.0}}
+                                              Other, 0x1185e8140, {{801.0, 167.5}, {30.0, 1008.5}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                                Other, 0x1185e8280, {{828.0, 1061.0}, {3.0, 196.0}}
+                                    Other, 0x1185e83c0, {{0.0, 0.0}, {834.0, 1194.0}}
+                                      Other, 0x1185e8500, {{0.0, 0.0}, {834.0, 1194.0}}
+                      Other, 0x1185e8640, {{56.5, 1101.5}, {721.0, 61.0}}, identifier: 'LifeBoardExpandedChrome'
+                        Button, 0x1185e8780, {{65.0, 1110.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.toolsToggle', label: 'Open capture tools'
+                        TextField, 0x1185e88c0, {{117.0, 1121.0}, {600.0, 22.0}}, identifier: 'home.lifeThread.composer', placeholderValue: 'Ask Eva or capture what is on your mind'
+                          Other, 0x1185e8a00, {{117.0, 1129.0}, {600.0, 11.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                            Other, 0x1185e8b40, {{120.0, 1137.0}, {594.0, 3.0}}
+                        Button, 0x1185e8c80, {{725.0, 1110.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.send', label: 'Start dictation'
+                      Other, 0x1185e8dc0, {{0.0, 32.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.morning', label: 'Celestial atmosphere: morning'
+                      Button, 0x1185e8f00, {{0.0, 32.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                      Other, 0x1185e9040, {{0.0, 32.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x1185e0dc0, pid: 85092, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x1185e9180, pid: 85092, label: 'LifeBoard'
+  }
