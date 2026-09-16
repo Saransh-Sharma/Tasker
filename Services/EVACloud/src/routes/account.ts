@@ -62,11 +62,6 @@ accountRoutes.post('/age/eligibility', async (context) => {
     policyRequired,
     declaration: `${body.declaration}:${body.policyVersion}`,
   })
-  if (!result.eligibleAdult) {
-    throw new EvaHttpError(403, 'adult_eligibility_required', 'Cloud EVA is available to people age 13 and older.', {
-      recoveryAction: 'verifyAge',
-    })
-  }
   return context.json(result)
 })
 
