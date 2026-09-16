@@ -89,6 +89,10 @@ public struct AddTaskPrefillTemplate: Equatable {
     }
 }
 
+public enum AddTaskCreationError: Error, Equatable {
+    case invalidInput
+}
+
 /// ViewModel for the Add Task screen
 /// Manages task creation state and validation
 @MainActor
@@ -128,6 +132,8 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var selectedType: TaskType = .morning
     @Published public var selectedProject: String = "Inbox"
     @Published public var selectedProjectID: UUID = ProjectConstants.inboxProjectID
+    @Published public var plannedDate: Date?
+    private var creationRequestID = UUID()
     @Published public var dueDate: Date?
     @Published public var scheduledStartAt: Date?
     @Published public var hasReminder: Bool = false
@@ -195,8 +201,8 @@ public final class AddTaskViewModel: ObservableObject {
         var parts: [String] = []
         if let scheduledStartAt {
             parts.append(Self.scheduleDateTimeSummary(start: scheduledStartAt, end: scheduledEndAt))
-        } else if let dueDate {
-            parts.append(DateUtils.formatDate(dueDate))
+        } else if let plannedDate {
+            parts.append(DateUtils.formatDate(plannedDate))
         } else {
             parts.append("No schedule")
         }
@@ -369,6 +375,15 @@ public final class AddTaskViewModel: ObservableObject {
     private var suggestionTask: Task<Void, Never>?
     private var suggestionRequestToken = UUID()
     private var pendingPrefillTemplate: AddTaskPrefillTemplate?
+    /// Capture tokens that name a project or tags, held until those lists load.
+    private var pendingCaptureProjectName: String?
+    private var pendingCaptureTagNames: [String] = []
+    private var hasLoadedTags = false
+    private var hasLoadedProjects = false
+    private var inFlightCaptureTagCreations = 0
+    /// True once the schedule was set on purpose (a capture seed or "Anytime"),
+    /// so the sheet's default slot must not overwrite it, whichever runs first.
+    public private(set) var hasExplicitSchedule = false
     private let suggestionDebounceMilliseconds = 650
     private let taskIconDebounceMilliseconds = 140
     private var loadedTaskMetadataProjectID: UUID?
@@ -447,7 +462,7 @@ public final class AddTaskViewModel: ObservableObject {
             of: day
         ) ?? currentStart
         scheduledStartAt = Self.clearingSubminuteComponents(updated, calendar: calendar)
-        dueDate = scheduledStartAt
+        plannedDate = scheduledStartAt
     }
 
     public func setScheduledStartTime(_ time: Date, calendar: Calendar = .current) {
@@ -460,7 +475,7 @@ public final class AddTaskViewModel: ObservableObject {
             of: currentStart
         ) ?? currentStart
         scheduledStartAt = Self.clearingSubminuteComponents(updated, calendar: calendar)
-        dueDate = scheduledStartAt
+        plannedDate = scheduledStartAt
     }
 
     public func setEstimatedDuration(_ duration: TimeInterval?) {
@@ -473,19 +488,130 @@ public final class AddTaskViewModel: ObservableObject {
 
     public func clearSchedule() {
         scheduledStartAt = nil
-        dueDate = nil
+        plannedDate = nil
+    }
+
+    /// "Anytime" — the task has no start time. With a day it is planned for that
+    /// day (all-day); without one it is unscheduled.
+    public func setAnytime(on day: Date?, calendar: Calendar = .current) {
+        hasExplicitSchedule = true
+        scheduledStartAt = nil
+        plannedDate = day.map { calendar.startOfDay(for: $0) }
+    }
+
+    /// Seeds the form from a Quick Capture parse. Every recognized token lands in
+    /// a field: a date without a time stays "anytime" on that day rather than
+    /// borrowing a default slot, and `+project` / `#tag` resolve once their lists
+    /// load (missing tags are created, since the person typed them on purpose).
+    public func applyCaptureSeed(_ parsed: ParsedCapture, rawText: String, calendar: Calendar = .current) {
+        taskName = parsed.cleanTitle.isEmpty ? rawText : parsed.cleanTitle
+        if let priority = parsed.priority { selectedPriority = priority }
+        if let duration = parsed.duration { setEstimatedDuration(duration) }
+        if let repeatPattern = parsed.repeatPattern { self.repeatPattern = repeatPattern }
+        if let context = parsed.context {
+            if let resolved = Self.taskContext(matching: context) {
+                selectedContext = resolved
+            } else {
+                // An unknown place is still the person's words; keep it in the title.
+                taskName += " @\(context)"
+            }
+        }
+        if let date = parsed.dueDate {
+            if parsed.isAllDay {
+                setAnytime(on: date, calendar: calendar)
+            } else {
+                let start = Self.clearingSubminuteComponents(date, calendar: calendar)
+                hasExplicitSchedule = true
+                scheduledStartAt = start
+                plannedDate = start
+            }
+        }
+        let projectName = parsed.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if parsed.dueDate == nil {
+            setAnytime(on: nil)
+        }
+        pendingCaptureProjectName = projectName.isEmpty ? nil : projectName
+        pendingCaptureTagNames = parsed.tags
+        resolvePendingCaptureSelections()
+    }
+
+    static func taskContext(matching token: String) -> TaskContext? {
+        let key = token.lowercased()
+        if let exact = TaskContext(rawValue: key) { return exact }
+        switch key {
+        case "work", "desk": return .office
+        case "laptop", "pc", "mac": return .computer
+        case "call", "calls", "mobile": return .phone
+        case "errand", "shopping", "out", "town": return .errands
+        case "outside": return .outdoor
+        case "commuting", "train", "car": return .commute
+        case "meetings": return .meeting
+        default: return nil
+        }
+    }
+
+    private func resolvePendingCaptureSelections() {
+        if let name = pendingCaptureProjectName,
+           // Hyphens stand for spaces, so "+side-project" finds "Side Project".
+           let project = projects.first(where: {
+               CaptureTokenCompletion.normalized($0.name) == CaptureTokenCompletion.normalized(name)
+           }) {
+            pendingCaptureProjectName = nil
+            selectProject(id: project.id)
+            if selectedLifeAreaID == nil, let lifeAreaID = project.lifeAreaID {
+                selectedLifeAreaID = lifeAreaID
+            }
+            loadSections(projectID: project.id)
+            loadTaskMetadataOptions(projectID: project.id)
+        }
+        guard hasLoadedTags, pendingCaptureTagNames.isEmpty == false else { return }
+        let names = pendingCaptureTagNames
+        pendingCaptureTagNames = []
+        for name in names {
+            if let tag = tags.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+                selectedTagIDs.insert(tag.id)
+            } else {
+                inFlightCaptureTagCreations += 1
+                createTag(name: name) { [weak self] _ in
+                    Task { @MainActor in self?.inFlightCaptureTagCreations -= 1 }
+                }
+            }
+        }
+    }
+
+    /// For a save without the sheet: waits until the lists a capture seed needs
+    /// have loaded (and any `#tag` it creates has landed), then reports whether
+    /// the `+project` resolved. `false` means the person should see the editor.
+    public func awaitCaptureSelectionsResolved(timeout: Duration = .seconds(2)) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        func listsReady() -> Bool {
+            hasLoadedProjects && (hasLoadedTags || manageTagsUseCase == nil)
+        }
+        while listsReady() == false {
+            guard clock.now < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        resolvePendingCaptureSelections()
+        while inFlightCaptureTagCreations > 0 {
+            guard clock.now < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return pendingCaptureProjectName == nil
     }
 
     public func restoreDefaultSchedule() {
         let start = Self.defaultScheduledStart(now: nowProvider())
         scheduledStartAt = start
-        dueDate = start
+        plannedDate = start
         estimatedDuration = Self.defaultEstimatedDuration
     }
 
     /// Create a new task
-    public func createTask() {
+    public func createTask(onCompletion: (@MainActor (Result<UUID, Error>) -> Void)? = nil) {
+        guard !isLoading else { return }
         guard validateInput() else {
+            onCompletion?(.failure(AddTaskCreationError.invalidInput))
             return
         }
 
@@ -500,7 +626,7 @@ public final class AddTaskViewModel: ObservableObject {
             ?? (projectID == ProjectConstants.inboxProjectID ? ProjectConstants.inboxProjectName : nil)
 
         let resolvedTagIDs = selectedTagIDs.isEmpty ? parseImplicitTagIDs(from: taskName) : selectedTagIDs
-        let requestID = UUID()
+        let requestID = creationRequestID
         let resolvedScheduledStartAt = scheduledStartAt
         let resolvedScheduledEndAt = scheduledEndAt
         let definitionRequest = CreateTaskDefinitionRequest(
@@ -512,10 +638,11 @@ public final class AddTaskViewModel: ObservableObject {
             iconSymbolName: V2FeatureFlags.autoTaskIconsEnabled ? displayedTaskIconSymbolName : nil,
             lifeAreaID: selectedLifeAreaID,
             sectionID: selectedSectionID,
-            dueDate: resolvedScheduledStartAt ?? dueDate,
+            plannedDate: plannedDate ?? resolvedScheduledStartAt,
+            dueDate: dueDate,
             scheduledStartAt: resolvedScheduledStartAt,
             scheduledEndAt: resolvedScheduledEndAt,
-            isAllDay: false,
+            isAllDay: resolvedScheduledStartAt == nil && plannedDate != nil,
             parentTaskID: selectedParentTaskID,
             tagIDs: Array(resolvedTagIDs),
             dependencies: selectedDependencyTaskIDs.map { dependsOnTaskID in
@@ -539,7 +666,8 @@ public final class AddTaskViewModel: ObservableObject {
         )
 
         createTaskDefinitionUseCase.execute(
-            request: definitionRequest
+            request: definitionRequest,
+            scheduleIsIndependent: true
         ) { [weak self] result in
             Task { @MainActor in
                 self?.isLoading = false
@@ -548,8 +676,10 @@ public final class AddTaskViewModel: ObservableObject {
                 case .success:
                     self?.lastCreatedTaskID = requestID
                     self?.isTaskCreated = true
+                    onCompletion?(.success(requestID))
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
+                    onCompletion?(.failure(error))
                 }
             }
         }
@@ -588,6 +718,7 @@ public final class AddTaskViewModel: ObservableObject {
                         )
                     }
                     self?.projects = dedupedProjects
+                    self?.hasLoadedProjects = true
                     if let strongSelf = self {
                         strongSelf.reconcileSelectedProjectAfterProjectsLoad()
                     }
@@ -599,6 +730,7 @@ public final class AddTaskViewModel: ObservableObject {
                     }
                     self?.refreshTaskIcon(using: self?.taskName ?? "", logEvents: false)
                     self?.applyPendingPrefillIfPossible()
+                    self?.resolvePendingCaptureSelections()
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -735,6 +867,9 @@ public final class AddTaskViewModel: ObservableObject {
         isTaskCreated = false
         lastCreatedTaskID = nil
         pendingPrefillTemplate = nil
+        pendingCaptureProjectName = nil
+        pendingCaptureTagNames = []
+        hasExplicitSchedule = false
         aiSuggestion = nil
         isGeneratingSuggestion = false
         aiSuggestionIsRefined = false
@@ -1387,7 +1522,7 @@ public final class AddTaskViewModel: ObservableObject {
     private func applyDefaultScheduleAsPristine(calendar: Calendar = .current) {
         let start = Self.defaultScheduledStart(now: nowProvider(), calendar: calendar)
         scheduledStartAt = start
-        dueDate = start
+        plannedDate = start
         estimatedDuration = Self.defaultEstimatedDuration
         pristineScheduledStartAt = start
         pristineEstimatedDuration = Self.defaultEstimatedDuration
@@ -1403,13 +1538,21 @@ public final class AddTaskViewModel: ObservableObject {
         } else {
             let start = Self.clearingSubminuteComponents(date, calendar: calendar)
             scheduledStartAt = start
-            dueDate = start
+            plannedDate = start
         }
     }
 
     public static func defaultScheduledStart(now: Date = Date(), calendar: Calendar = .current) -> Date {
         let start = calendar.date(byAdding: .minute, value: 20, to: now) ?? now.addingTimeInterval(20 * 60)
         return clearingSubminuteComponents(start, calendar: calendar)
+    }
+
+    /// "Anytime" or "Anytime · Fri 19 Sep" for a task planned on a day without a time.
+    public static func anytimeLabel(day: Date?, calendar: Calendar = .current) -> String {
+        guard let day else { return "Anytime" }
+        if calendar.isDateInToday(day) { return "Today · Anytime" }
+        if calendar.isDateInTomorrow(day) { return "Tomorrow · Anytime" }
+        return "\(day.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))) · Anytime"
     }
 
     public static func scheduleRangeLabel(start: Date, end: Date?) -> String {
@@ -1564,6 +1707,8 @@ public final class AddTaskViewModel: ObservableObject {
                 switch result {
                 case .success(let tags):
                     self?.tags = tags.sorted(by: { $0.sortOrder < $1.sortOrder })
+                    self?.hasLoadedTags = true
+                    self?.resolvePendingCaptureSelections()
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                 }
