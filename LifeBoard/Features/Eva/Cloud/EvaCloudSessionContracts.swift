@@ -38,6 +38,12 @@ enum EvaIdentityKind: String, Codable, Sendable {
     case apple
 }
 
+enum EvaAppleCredentialAuthorization: Sendable, Equatable {
+    case authorized
+    case revoked
+    case unavailable
+}
+
 struct EvaUsage: Codable, Sendable {
     let inputTokens: Int
     let cachedInputTokens: Int
@@ -46,7 +52,7 @@ struct EvaUsage: Codable, Sendable {
     let reasoningTokens: Int
 }
 
-struct EvaSessionCredentials: Codable, Sendable {
+struct EvaSessionCredentials: Codable, Equatable, Sendable {
     let accountId: String
     let familyId: UUID
     let accessToken: String
@@ -110,8 +116,11 @@ enum EvaProviderError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .unavailable(let message): message
-        case .authenticationRequired: String(localized: "Activate Cloud EVA to continue.")
-        case .adultEligibilityRequired: String(localized: "Cloud EVA is available to people age 13 or older.")
+        case .authenticationRequired: String(localized: "Cloud EVA is reconnecting. Try again in a moment.")
+        // Age eligibility is owned by distribution and external platform
+        // controls. Keep the legacy case decodable for older wire responses,
+        // but never expose an age gate in current product copy.
+        case .adultEligibilityRequired: String(localized: "Cloud EVA is temporarily unavailable. Try again in a moment.")
         case .consentRequired: String(localized: "Review what Cloud EVA may use before continuing.")
         case .creditsExhausted: String(localized: "You've reached Cloud EVA's rolling answer limit. Offline EVA is still available.")
         case .invalidResponse: String(localized: "Cloud EVA returned an unreadable response.")
