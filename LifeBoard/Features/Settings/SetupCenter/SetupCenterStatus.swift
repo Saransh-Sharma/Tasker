@@ -204,7 +204,7 @@ struct SetupCenterStatus: Equatable, Sendable {
         switch accessState {
         case .hydrating, .activating: return .init(integration: .eva, state: .checking, status: "Connecting", explanation: "LifeBoard is checking Cloud EVA readiness.", recoveryAction: "")
         case .ready: return .init(integration: .eva, state: .ready, status: "Cloud ready", explanation: "Cloud EVA can use only the context categories you approved.", recoveryAction: "Manage EVA")
-        case .needsDisclosure: return .init(integration: .eva, state: .notStarted, status: "Not set up", explanation: "Choose Cloud EVA with explicit context grants, or use an installed Offline EVA model.", recoveryAction: "Set up EVA")
+        case .needsActivation: return .init(integration: .eva, state: .notStarted, status: "Not set up", explanation: "Cloud EVA connects automatically. Context choices are available in EVA settings.", recoveryAction: "Set up EVA")
         case .quotaExhausted: return .init(integration: .eva, state: .limited, status: "Limited", explanation: "Cloud EVA is set up, but its current allowance is exhausted.", recoveryAction: "Use Offline EVA")
         case .temporarilyUnavailable(let message):
             let explanation = message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -216,7 +216,6 @@ struct SetupCenterStatus: Equatable, Sendable {
                 recoveryAction: "Retry"
             )
         case .appleReauthenticationRequired: return .init(integration: .eva, state: .attention, status: "Needs attention", explanation: "Reconnect with Apple to restore the linked Cloud EVA account.", recoveryAction: "Reconnect with Apple")
-        case .ageBlocked(let message): return .init(integration: .eva, state: .attention, status: "Needs attention", explanation: message, recoveryAction: "Use Offline EVA")
         }
     }
 }
