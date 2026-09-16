@@ -26,6 +26,18 @@ struct FocusSurface: View {
     @State private var pendingOutcome: FocusCompletionOutcome?
     @State private var receipt: ActionReceiptPresentation?
     @State private var completionTrigger = 0
+    /// When the ending was persisted. Non-nil means the surface has settled into
+    /// its receipt: the clock freezes, the transport leaves, and the one primary
+    /// action becomes the way back.
+    @State private var settledAt: Date?
+
+    /// The route loads its session once, so reading `session` alone left the
+    /// dial and the pause button saying "In focus" after a pause succeeded. The
+    /// store's copy is the live one whenever it describes the same session.
+    private var liveSession: FocusSessionV2 {
+        guard let active = store.activeFocusSession, active.id == session.id else { return session }
+        return active
+    }
 
     var body: some View {
         ScreenScaffold(mode: .focused, bottomClearance: 12) {
@@ -49,27 +61,38 @@ struct FocusSurface: View {
                             companion: store.focusCompanion
                         ),
                         context: FocusSurfaceCommitmentSection.context(
-                            session: session,
+                            session: liveSession,
                             companion: store.focusCompanion
                         ),
                         accessibilityID: "focus.hero",
                         progressControl: {
                             FocusSurfaceDialSection(
                                 store: store,
-                                session: session,
-                                completionTrigger: completionTrigger
+                                session: liveSession,
+                                completionTrigger: completionTrigger,
+                                settledAt: settledAt
                             )
                         },
                         primary: {
-                            FocusPauseResumeButton(store: store, session: session)
+                            if settledAt == nil {
+                                FocusPauseResumeButton(store: store, session: liveSession)
+                            } else {
+                                Button("Back to Plan", systemImage: "arrow.uturn.backward", action: onClose)
+                                    .font(.body.weight(.semibold))
+                                    .frame(maxWidth: .infinity, minHeight: 52)
+                                    .buttonStyle(.lifeBoardPrimary)
+                                    .accessibilityIdentifier("focus.surface.done")
+                            }
                         }
                     )
 
-                    FocusSurfaceTransportSection(
-                        store: store,
-                        session: session,
-                        pendingOutcome: $pendingOutcome
-                    )
+                    if settledAt == nil {
+                        FocusSurfaceTransportSection(
+                            store: store,
+                            session: liveSession,
+                            pendingOutcome: $pendingOutcome
+                        )
+                    }
 
                     if pendingOutcome != nil {
                         FocusSurfaceCloseSection(
@@ -87,6 +110,7 @@ struct FocusSurface: View {
             .scrollBounceBehavior(.basedOnSize)
         }
         .lifeBoardMotion(.contentInsertion, value: pendingOutcome)
+        .lifeBoardMotion(.contentInsertion, value: settledAt)
         .lifeBoardReceipt($receipt)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -102,14 +126,20 @@ struct FocusSurface: View {
     /// commit succeeded — `DESIGN.md`: "Persistence precedes success motion and
     /// haptics." Firing the burst optimistically is how an app ends up
     /// celebrating a write that failed.
+    ///
+    /// The surface no longer closes itself here. It used to call `onClose()` in
+    /// the same breath as setting the receipt and the burst, which unmounted the
+    /// view that presents both — the "persisted completion receipt" the design
+    /// asks for was never on screen. It now settles in place and the person
+    /// leaves when they are ready.
     private func handleCommitted(_ outcome: FocusCompletionOutcome) {
+        settledAt = Date()
         completionTrigger &+= 1
         Haptic.commit.play()
         receipt = ActionReceiptPresentation(
             message: Self.receiptMessage(for: outcome),
             detail: "Saved to your focus history."
         )
-        onClose()
     }
 
     static func receiptMessage(for outcome: FocusCompletionOutcome) -> String {
