@@ -281,7 +281,6 @@ struct InsightsDestination: View {
     private var insightContent: some View {
         switch lens {
         case .overview:
-            InsightsHealthSection(healthStore: healthStore, router: router)
             if isUnifiedInsightDismissed {
                 SurfaceCard {
                     HStack {
@@ -297,22 +296,21 @@ struct InsightsDestination: View {
             } else {
                 InsightsInterpretationSurface(
                     interpretation: interpretation,
-                    completenessDescription: evidenceCompletenessDescription
+                    completenessDescription: evidenceCompletenessDescription,
+                    exploreWithEva: { askEva() },
+                    dismissEverywhere: {
+                        EvaInsightStateStore.dismiss(insightID: unifiedInsight.id, kind: "insights_overview")
+                        insightStateRevision += 1
+                    }
                 )
-                Button {
-                    askEva()
-                } label: {
-                    Label("Explore this with Eva", systemImage: "sparkles")
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                }
-                .buttonStyle(.lifeBoardPrimaryCompact)
-                .tint(Color(SemanticColorTokens.foundationApricotAccent))
-                Button("Dismiss everywhere", systemImage: "xmark.circle") {
-                    EvaInsightStateStore.dismiss(insightID: unifiedInsight.id, kind: "insights_overview")
-                    insightStateRevision += 1
-                }
-                .buttonStyle(.bordered)
             }
+
+            // Evidence follows the interpretation. The health section — which
+            // carries a metric at hero scale — used to render *above* the hero,
+            // so the screen opened on a number rather than on the claim.
+            // `DESIGN.md`: "the interpretation is the hero … charts, tallies,
+            // and evidence follow in clay".
+            InsightsHealthSection(healthStore: healthStore, router: router)
         case .trends:
             InsightsTrendsSection(
                 interpretation: interpretation,
