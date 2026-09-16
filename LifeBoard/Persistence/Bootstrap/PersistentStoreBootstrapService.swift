@@ -2101,6 +2101,13 @@ public final class PersistentStoreBootstrapService: @unchecked Sendable {
             ]
         )
         requireAttributes(
+            entityName: "Occurrence",
+            attributes: [
+                "recordedValue",
+                "recordedValueUpdatedAt"
+            ]
+        )
+        requireAttributes(
             entityName: "FrictionFinding",
             attributes: [
                 "id",
