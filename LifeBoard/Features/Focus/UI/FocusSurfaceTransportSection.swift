@@ -57,12 +57,11 @@ struct FocusPauseResumeButton: View {
                 // it fires after the store settles rather than on touch-down —
                 // and it carries the matching intent: resuming lifts a session
                 // back up, pausing sets it down.
+                // A failed command plays nothing: the store surfaces the error.
                 if isPaused {
-                    await store.resumeFocus()
-                    Haptic.lift.play()
+                    if await store.resumeFocus() { Haptic.lift.play() }
                 } else {
-                    await store.pauseFocus()
-                    Haptic.settle.play()
+                    if await store.pauseFocus() { Haptic.settle.play() }
                 }
             }
         } label: {
