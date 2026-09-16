@@ -11,6 +11,11 @@ struct InsightsTrendsSection: View {
         let resolved = interpretation
         VStack(alignment: .leading, spacing: 14) {
             SectionHeader("Recorded shape")
+            // A chart states its timeframe and where the numbers came from.
+            // `DESIGN.md`: charts carry labelled axes, timeframe and source.
+            Text("Last \(max(resolved.dailyCounts.count, 1)) days · LifeBoard records")
+                .lifeboardFont(.meta)
+                .foregroundStyle(Color.lifeboard(.textSecondary))
 
             // A real chart, with its prose equivalent always visible —
             // this lens used to be a list of per-domain row counts, which
@@ -19,7 +24,8 @@ struct InsightsTrendsSection: View {
                 let chart = TrendChart(
                     points: resolved.dailyCounts,
                     tint: Color(SemanticColorTokens.foundationApricotAccent),
-                    unit: "records"
+                    unit: "records",
+                    accessibilityTitle: "Records per day, last \(resolved.dailyCounts.count) days"
                 )
                 chart.frame(height: 150)
                 Text(chart.textEquivalent)
