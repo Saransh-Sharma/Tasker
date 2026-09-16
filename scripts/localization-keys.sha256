@@ -15,6 +15,22 @@
 # areas" or "Power up, step 1 of 3, Calendar" - an optional phase must not be
 # announced as a continuation of a mandatory one.
 
-count=1111
-sha256=fdd5f10bab68564b3a46e1f2516cd3c0bb70a402f50ed2a8228b2b29e6d4f321
-content_sha256=59427a0a6336611ec33e27f78c1521b1c040b2263c61d3047d54a7e4e4d4e188
+# 2026-09-09, Home's collapsed Health signal + the streamlined onboarding and
+# health-connection copy: 1111 -> 1138. Xcode extracted these on build; the
+# catalog was not hand-edited.
+#
+# Only one addition belongs to the Home change: "Connect\nHealth", the label on
+# the tile that replaces a row of dashed permission rings when two or more
+# Health signals were never shared. It is line-broken in the source because the
+# signal row gives each slot about a third of the screen.
+#
+# The remaining 26 are the streamlined LifeWeave journey, the health read/write
+# split ("This connection only reads data...", "These switches control writing
+# only..."), the Apple Health recovery path ("Review access in Apple Health",
+# "Open the Health app, tap your profile..."), and the EVA cloud context
+# disclosures. Those shipped in the commits already on master; their catalog
+# regeneration had not been folded in, so it lands here.
+
+count=1138
+sha256=5a0e24bd4d3235fe33ebd6df580135f96d7e629531694472acf86185151007d3
+content_sha256=5f04a87e0a1f6f9b79b29814ea88e088660dd8ef3f2eec06b431dd6c1fd0d353
