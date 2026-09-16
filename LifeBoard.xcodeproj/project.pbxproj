@@ -10,7 +10,6 @@
 		00DDBCF037A6A227C51C34D4 /* ProjectTemplatePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9982ABD18E5636F3A697C2 /* ProjectTemplatePicker.swift */; };
 		014575655AA3DBD8B1BD4C5F /* LifeBoard/Features/Settings/LifeManagement/LifeManagementProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E031C3127045DB0AF8ACF9 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementProjectDetailView.swift */; };
 		015F117919C09579B5935A06 /* PlanDayTimeCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87909C61CC7032186E1453A1 /* PlanDayTimeCanvas.swift */; };
-		01D3E1ADABC2FB7D419F301E /* LifeBoard/Features/Onboarding/Models/AppOnboardingSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1859F3D260EADFEA49FDBA98 /* LifeBoard/Features/Onboarding/Models/AppOnboardingSummary.swift */; };
 		023298C3B41676AE685E3955 /* LifeBoardDayLoopTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FFB2D4228DC67D974A0ADDD /* LifeBoardDayLoopTransition.swift */; };
 		02548417398F2FC3E57621F1 /* HomeArchitectureProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D48163BE7D31AF707E99B7 /* HomeArchitectureProtocols.swift */; };
 		02828F570030008E7C1B441C /* LifeBoard/Features/Onboarding/Models/LifeAreaRepositoryProtocolExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4791B51EBAFFF32DE7642287 /* LifeBoard/Features/Onboarding/Models/LifeAreaRepositoryProtocolExtension.swift */; };
@@ -123,7 +122,6 @@
 		3682F3A227CAEB944577B340 /* PlanFocusReflectionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E3944D248B7FFA33A437FC /* PlanFocusReflectionCard.swift */; };
 		3822433DDC94D48153336FEE /* PlanActiveFocusCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0F2C2E76A1C9A78BAA2BBE /* PlanActiveFocusCard.swift */; };
 		385234A92C6E4423B97234BB /* LifeBoardCardPrimitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1D1160B798444BA70D195D /* LifeBoardCardPrimitives.swift */; };
-		390DB347BE033669B7CF9A28 /* LifeBoard/Features/Onboarding/Components/ViewExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53A20FDEE1A1CCD05E76506 /* LifeBoard/Features/Onboarding/Components/ViewExtension.swift */; };
 		396F9CD34E10195B8C5FE0F7 /* LifeBoard/Features/Onboarding/Models/CompleteTaskDefinitionUseCaseExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E224DFA4DB09C938556B07B /* LifeBoard/Features/Onboarding/Models/CompleteTaskDefinitionUseCaseExtension.swift */; };
 		39B8F09956E3FFEF16B72812 /* LifeBoard/Features/Eva/Views/Chat/Conversation/EvaDayHabitHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081764019CFE89EAC4FE6BBD /* LifeBoard/Features/Eva/Views/Chat/Conversation/EvaDayHabitHeaderView.swift */; };
 		3A549BEBEF3902410F96971A /* SunriseFocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* SunriseFocusTimerView.swift */; };
@@ -150,11 +148,9 @@
 		446C1ECFEE836138F6A2FC04 /* HomeViewModel+ReloadBatchingAndReplanLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7DF103FD6883BAB8A15A117 /* HomeViewModel+ReloadBatchingAndReplanLauncher.swift */; };
 		44A001832E330AF45EED98AA /* QuietHoursCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1DA9F6A39882873264672B /* QuietHoursCard.swift */; };
 		44E3D8F1869822A9B8AFE2F9 /* HomeViewModel+FiltersAndSavedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E56873BA58AFC39AFB0D20 /* HomeViewModel+FiltersAndSavedViews.swift */; };
-		44E3EB20B7DF2407719E6B2F /* LifeBoard/Features/Onboarding/Models/OnboardingCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1039EA2610A24D8D430EAD /* LifeBoard/Features/Onboarding/Models/OnboardingCopy.swift */; };
 		470D7F96B8766217C5B2F698 /* AddTaskEnumPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4AB324AE764BB56051B2AA8 /* AddTaskEnumPicker.swift */; };
 		479139E8DABED11B21B73190 /* LifeBoardRootTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059CF09809D180A22AAEA066 /* LifeBoardRootTransition.swift */; };
 		4835621B71E16E83CE9A39F5 /* HomeHabitWidgetRowsState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BCF2891531B59B34A6773C /* HomeHabitWidgetRowsState.swift */; };
-		48756A3EF4DA7E57686EA3BF /* LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40541FE4F6750C143582AC0D /* LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationState.swift */; };
 		48B55AA334E364D314DCE8CB /* LifeBoard/Features/Eva/Views/Chat/Chrome/ChatComposerView+StructuredComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A6D85F245E9F672238D9E0 /* LifeBoard/Features/Eva/Views/Chat/Chrome/ChatComposerView+StructuredComposer.swift */; };
 		4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */; };
 		49BE8D232D0B830AC1D787AA /* HomeHabitMutationSectionPatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 677222149F21BD5C04EE2EC2 /* HomeHabitMutationSectionPatch.swift */; };
@@ -165,7 +161,6 @@
 		4C116CACC08E51B35A4EA8B4 /* LifeBoard/Features/Settings/LifeManagement/lifeManagementAreaPaletteOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6AA12D4A60EA9B1E6A316B7 /* LifeBoard/Features/Settings/LifeManagement/lifeManagementAreaPaletteOptions.swift */; };
 		4C1BDC9E724542DA36739830 /* QuietHoursTimeBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7273F65E17455922134AB7A9 /* QuietHoursTimeBar.swift */; };
 		4E816E3A12F0DFB4283D9FCF /* LifeBoard/Features/Eva/Views/Chat/Chrome/EvaHomePromptChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384185D0DBC900F3E3B48AF3 /* LifeBoard/Features/Eva/Views/Chat/Chrome/EvaHomePromptChip.swift */; };
-		4F19404CD237ADA1ADE1F528 /* LifeBoard/Features/Onboarding/Models/OnboardingProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ACB1F98FD6BA7DDDC213D7B /* LifeBoard/Features/Onboarding/Models/OnboardingProgress.swift */; };
 		4F63F9AD5749FF6C8FA04E05 /* PlanOrientationBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA414375E4CD60FB315A09E /* PlanOrientationBar.swift */; };
 		4F6E5189E8E1A1F05E05600D /* LifeOSFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4C2029D4BC463019FF6673 /* LifeOSFoundationTests.swift */; };
 		50117460BC314EEA54344A9E /* LifeBoard/Features/Tasks/Domain/GetHomeFilteredTasksUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF308251FE7FA9FEE55702D /* LifeBoard/Features/Tasks/Domain/GetHomeFilteredTasksUseCase.swift */; };
@@ -206,7 +201,6 @@
 		600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */; };
 		60F3594B7DD48E5F9D14E43F /* FoundationTaskEditorSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C302E3E433A0D45F46A0CE7 /* FoundationTaskEditorSurface.swift */; };
 		61C740CCAEA2AAD70648F5FB /* HomeViewModel+CompletionProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3046F068EDB7B40DCD6825 /* HomeViewModel+CompletionProjection.swift */; };
-		62DA1F2B6CF478CD9F07E040 /* LifeBoard/Features/Onboarding/Components/OnboardingPrimaryCTAButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4811259E3F517E7F0E457DCD /* LifeBoard/Features/Onboarding/Components/OnboardingPrimaryCTAButtonStyle.swift */; };
 		62E3C0A2BCA96C7A1DB01932 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerInlineMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE19A169E4D9F72754B6E3E8 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerInlineMessage.swift */; };
 		63578F35F6200B19F85FE9F0 /* LifeBoard/Features/Eva/Views/Chat/Conversation/MessageView+AssistantAndUserBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = E508CD28D9365DD6B35FE330 /* LifeBoard/Features/Eva/Views/Chat/Conversation/MessageView+AssistantAndUserBubble.swift */; };
 		6375DD6EF72D0AD949308284 /* RecoveryCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63526ABC7C203BDAC251960A /* RecoveryCenterView.swift */; };
@@ -216,7 +210,6 @@
 		653F0562A00EC4FD085B2436 /* TimelineNowAndMarkers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A454E67411059893B17309 /* TimelineNowAndMarkers.swift */; };
 		664B05702E92F236C487E1AD /* HomeQuickFilterDropdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */; };
 		66D0B6F5CF10A89955012FC8 /* FoundationShellDestinations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34D04D505C5D9BA48B0D6EF7 /* FoundationShellDestinations.swift */; };
-		66FBAD17B454FE9E6A36D30F /* LifeBoard/Features/Onboarding/Models/OnboardingJourneySnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7163B97F4D083B9AB6B24476 /* LifeBoard/Features/Onboarding/Models/OnboardingJourneySnapshot.swift */; };
 		671162B95889EABEC8DB6123 /* LifeBoard/Features/Settings/LifeManagement/InlineToneBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3343BCF778595F2114EE830 /* LifeBoard/Features/Settings/LifeManagement/InlineToneBadge.swift */; };
 		67A73E4B61D4A82E1336EA51 /* HomeViewModel+ProjectionInvalidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA4596A02DBC4C81BD5D267F /* HomeViewModel+ProjectionInvalidation.swift */; };
 		67B0989021E5645A0EE4B837 /* FoundationProjectRouteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81CE12B7D6CC1D30EB4B3537 /* FoundationProjectRouteView.swift */; };
@@ -243,7 +236,6 @@
 		703E14D9DE8D191C47A5150F /* LifeBoard/Features/Settings/LifeManagement/lifeManagementAreaPaletteMatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F0A3F8D6B8C5CB34F82DA0 /* LifeBoard/Features/Settings/LifeManagement/lifeManagementAreaPaletteMatch.swift */; };
 		708770161E81C0BB82917C42 /* FoundationTrackRoutes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCF5EEB18885926234B58899 /* FoundationTrackRoutes.swift */; };
 		70A09FE5E6F84EEB4424EBA9 /* LifeBoardSignatureEffects.metal in Sources */ = {isa = PBXBuildFile; fileRef = F19A3F8DC2C70CCEBB1632C4 /* LifeBoardSignatureEffects.metal */; };
-		70A9068D6C68CC20C0201150 /* LifeBoard/Features/Onboarding/Models/OnboardingStarterHabitPreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16F9565F3F8F2F079B9CE76 /* LifeBoard/Features/Onboarding/Models/OnboardingStarterHabitPreference.swift */; };
 		71A922288848416DA81F7339 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementProjectColorPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FAC5C958944C25B7E561037 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementProjectColorPicker.swift */; };
 		722536ED9234849F6B954FAF /* LifeBoard/Features/Plan/Domain/MaintainOccurrencesUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9251C0BF9A1E5D8BB7B9FC05 /* LifeBoard/Features/Plan/Domain/MaintainOccurrencesUseCase.swift */; };
 		7225854435E82849B5E3C425 /* HomeQuickFilterTriggerButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A05E16369BC6D8B09B0D460 /* HomeQuickFilterTriggerButton.swift */; };
@@ -395,7 +387,6 @@
 		86E61B5C7E8F8DDAD3BAC7C9 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */; };
 		86E90FFDD209E7304B7D5BBE /* LifeBoard/Features/Onboarding/Components/HomeOnboardingGuidanceBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D4A4EDAF6692D9D7819FF1 /* LifeBoard/Features/Onboarding/Components/HomeOnboardingGuidanceBanner.swift */; };
 		876568AD4ACD09548D5F3199 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerSectionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7433F7F7707CF6A0DA1A58B2 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerSectionCard.swift */; };
-		8790268063CEA1C833D51C7A /* LifeBoard/Features/Onboarding/Models/OnboardingStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD40BE88D4061AEA79953253 /* LifeBoard/Features/Onboarding/Models/OnboardingStep.swift */; };
 		87A099A8CE32334354449960 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementTreeInteractionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF3952602FF1A9D756382492 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementTreeInteractionMode.swift */; };
 		88F9D9D24093FC098261F935 /* LifeBoard/Features/Eva/Views/Chat/Conversation/MessageView+EvaProposalAndDayOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EEB0762BB49B5983079AF3 /* LifeBoard/Features/Eva/Views/Chat/Conversation/MessageView+EvaProposalAndDayOverview.swift */; };
 		8968A51E3DD681D2B360D98C /* HomeViewModel+NeedsReplanStateAndPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03EEB4E98CFC74139C3D08E9 /* HomeViewModel+NeedsReplanStateAndPlacement.swift */; };
@@ -430,7 +421,6 @@
 		988BCDE3365760394848B424 /* SettingsNavigationRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */; };
 		9ABF5C0A3663F1D1B829334F /* PlanComposers.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2AE4F7EBC5C7278D3CE857D /* PlanComposers.swift */; };
 		9B356B21E02F7FF4F6D8A6E2 /* LifeBoard/Features/Onboarding/Models/CreateHabitUseCaseExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27994B950A0F914CFEDC6740 /* LifeBoard/Features/Onboarding/Models/CreateHabitUseCaseExtension.swift */; };
-		9B5D983BDED5F3B292E2920D /* LifeBoard/Features/Onboarding/Models/CodingKeys2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DD317FAC37A8674392A5B6 /* LifeBoard/Features/Onboarding/Models/CodingKeys2.swift */; };
 		9BF910D455817C716D94F9D8 /* LifeBoard/Features/Onboarding/Services/OnboardingEligibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940BF66B5480A201F5424FC9 /* LifeBoard/Features/Onboarding/Services/OnboardingEligibilityService.swift */; };
 		9C3EED965497915D1CCEBD14 /* LifeBoardTrackFoundationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1569108CAE3EA81790B556C3 /* LifeBoardTrackFoundationViews.swift */; };
 		9E5BA6BF68993D536CEA3AC5 /* HomeViewModel+EvaRescueActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9BFCCD7C709FF34D6E5824 /* HomeViewModel+EvaRescueActions.swift */; };
@@ -491,6 +481,8 @@
 		A3100000000000000000021E /* PlanDriftResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000021D /* PlanDriftResolverTests.swift */; };
 		A31000000000000000000220 /* PlanRepairDeckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000021F /* PlanRepairDeckView.swift */; };
 		A31000000000000000000222 /* LifeBoardLensPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000221 /* LifeBoardLensPicker.swift */; };
+		A310000000000000000009C7 /* LifeWeaveCommit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009C6 /* LifeWeaveCommit.swift */; };
+		A310000000000000000009C9 /* LifeWeaveEvaActivationDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009C8 /* LifeWeaveEvaActivationDiagnostics.swift */; };
 		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
 		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
@@ -523,8 +515,6 @@
 		A31000000000000000000545 /* HomeFastingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000544 /* HomeFastingWidget.swift */; };
 		A31000000000000000000547 /* HeroSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000546 /* HeroSurfaceTests.swift */; };
 		A31000000000000000000549 /* LifeMapOnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000548 /* LifeMapOnboardingModels.swift */; };
-		A3100000000000000000054B /* LifeMapOnboardingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000054A /* LifeMapOnboardingModel.swift */; };
-		A3100000000000000000054F /* LifeMapOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000054E /* LifeMapOnboardingView.swift */; };
 		A31000000000000000000551 /* HeroWelcomeHighCompressMb.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000550 /* HeroWelcomeHighCompressMb.mp4 */; };
 		A31000000000000000000553 /* LifeMapManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000552 /* LifeMapManagementView.swift */; };
 		A31000000000000000000555 /* MotionDiagnosticsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000554 /* MotionDiagnosticsOverlay.swift */; };
@@ -552,15 +542,8 @@
 		A31000000000000000000583 /* LifeMapAccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000582 /* LifeMapAccessibilityID.swift */; };
 		A31000000000000000000585 /* LifeMapHeroBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000584 /* LifeMapHeroBackdrop.swift */; };
 		A31000000000000000000587 /* LifeMapOnboardingChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000586 /* LifeMapOnboardingChrome.swift */; };
-		A31000000000000000000589 /* LifeMapOnboardingIntentSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000588 /* LifeMapOnboardingIntentSteps.swift */; };
-		A3100000000000000000058B /* LifeMapOnboardingRevealSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058A /* LifeMapOnboardingRevealSteps.swift */; };
-		A3100000000000000000058D /* LifeMapOnboardingShapeSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058C /* LifeMapOnboardingShapeSteps.swift */; };
 		A3100000000000000000058F /* LifeMapOrbitCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000058E /* LifeMapOrbitCanvas.swift */; };
-		A31000000000000000000591 /* LifeMapProductPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000590 /* LifeMapProductPreview.swift */; };
-		A31000000000000000000901 /* LifeMapOnboardingConnectSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000900 /* LifeMapOnboardingConnectSteps.swift */; };
 		A31000000000000000000903 /* CelestialAssetPreheater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000902 /* CelestialAssetPreheater.swift */; };
-		A31000000000000000000905 /* LifeMapOnboardingEvaStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000904 /* LifeMapOnboardingEvaStep.swift */; };
-		A31000000000000000000907 /* LifeMapOnboardingTourStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000906 /* LifeMapOnboardingTourStep.swift */; };
 		A31000000000000000000909 /* LifeMapEvaHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000908 /* LifeMapEvaHandoff.swift */; };
 		A3100000000000000000090B /* LifeMapCommitCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090A /* LifeMapCommitCoordinator.swift */; };
 		A3100000000000000000090D /* EvaRouteContextSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000090C /* EvaRouteContextSections.swift */; };
@@ -606,12 +589,10 @@
 		A31000000000000000000965 /* HealthHubSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000964 /* HealthHubSections.swift */; };
 		A31000000000000000000967 /* JournalCaptureComposers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000966 /* JournalCaptureComposers.swift */; };
 		A31000000000000000000973 /* CalendarPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000972 /* CalendarPowerUpView.swift */; };
-		A31000000000000000000975 /* HealthPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000974 /* HealthPowerUpView.swift */; };
 		A31000000000000000000977 /* EvaPowerUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000976 /* EvaPowerUpView.swift */; };
-		A31000000000000000000979 /* PowerUpSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000978 /* PowerUpSummaryView.swift */; };
+		A31000000000000000000979 /* LifeWeaveCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000978 /* LifeWeaveCopy.swift */; };
 		A3100000000000000000097B /* LifeWeavePowerUpFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097A /* LifeWeavePowerUpFlow.swift */; };
 		A3100000000000000000097D /* LifeWeavePowerUpCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097C /* LifeWeavePowerUpCalendar.swift */; };
-		A3100000000000000000097F /* LifeWeavePowerUpHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000097E /* LifeWeavePowerUpHealth.swift */; };
 		A31000000000000000000981 /* LifeWeavePowerUpEva.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000980 /* LifeWeavePowerUpEva.swift */; };
 		A31000000000000000000983 /* EvaDecisionLoopModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000982 /* EvaDecisionLoopModels.swift */; };
 		A31000000000000000000985 /* WeeklyResetProposalApplier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000984 /* WeeklyResetProposalApplier.swift */; };
@@ -871,6 +852,7 @@
 		CB2585384EDD36506A08BC39 /* LifeBoard/Features/Eva/Views/Chat/Chrome/EvaChatSunriseGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6406FAAF5EBC202BFD7F2588 /* LifeBoard/Features/Eva/Views/Chat/Chrome/EvaChatSunriseGlass.swift */; };
 		CD7AADFB07AFA97B5C0D6452 /* HomeViewModel+RecurringTopUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E23AC0E5DF84E0125F5845 /* HomeViewModel+RecurringTopUp.swift */; };
 		CDCE7BDD9D5A5F2FA1356E35 /* LifeBoardCompletionControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */; };
+		1547731E90164D00BC5CD984 /* HabitProgressRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19FE965F3841455A9099233B /* HabitProgressRing.swift */; };
 		CE101A5DFCA6C30A72A5CE61 /* LifeBoard/Features/Onboarding/Models/PendingOnboardingPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D09C9507B3C691C73DA808A /* LifeBoard/Features/Onboarding/Models/PendingOnboardingPresentation.swift */; };
 		CF3B4E5A6D7C8190E2F3A4B5 /* LifeBoardCelestialDaypartIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4C5F6B7E8D9201F3A4B5C6 /* LifeBoardCelestialDaypartIndicator.swift */; };
 		D1A200000000000000000001 /* HomeChromeSnapshot+Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000001 /* HomeChromeSnapshot+Presentation.swift */; };
@@ -911,7 +893,7 @@
 		D5A20000000000000000000A /* PlanningSummaryRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000A /* PlanningSummaryRow.swift */; };
 		D5E7A8BA2F3C4D5E0067A1B2 /* DailySummaryModalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E7A8B92F3C4D5E0067A1B2 /* DailySummaryModalTests.swift */; };
 		D6890E391458213A124FD9A4 /* LifeBoardFoundationGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = F067D7763D4A025CC75BAB13 /* LifeBoardFoundationGallery.swift */; };
-		D6988674F7729285A707C98C /* LifeBoard/Features/Onboarding/Models/CodingKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB8BC6F60B76437F2E6148F7 /* LifeBoard/Features/Onboarding/Models/CodingKeys.swift */; };
+		9E67BC24D3D2423185583FC6 /* HomeHabitsToday.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A98763C6724486AA3297D65 /* HomeHabitsToday.swift */; };
 		D6B2E31F4A5C7890BCDEF012 /* AddTaskCreateButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1D20E3F4B6789ABCDEF01 /* AddTaskCreateButton.swift */; };
 		D6B2E31F4A5C7890BCDEF023 /* AddTaskDescriptionField.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1D20E3F4B6789ABCDEF02 /* AddTaskDescriptionField.swift */; };
 		D6B2E31F4A5C7890BCDEF034 /* AddTaskInlineCreator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1D20E3F4B6789ABCDEF03 /* AddTaskInlineCreator.swift */; };
@@ -984,7 +966,6 @@
 		E327378D16D77A603A05C536 /* DayCompassSnoozeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 681B3355B81889F522EA1BB7 /* DayCompassSnoozeStore.swift */; };
 		E3553D65476C93716D966319 /* HomeTaskDetailRelationshipMetadataState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3674205CDE72EB0BA59F05D4 /* HomeTaskDetailRelationshipMetadataState.swift */; };
 		E39BA7BC60FB71563853AE5F /* HomeViewModel+RefreshEntryPoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DF9AEF356D3B2242580C561 /* HomeViewModel+RefreshEntryPoints.swift */; };
-		E428ECADD6A89C0B1D7F174B /* LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationPhase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D16AF9130E446C22AB65042 /* LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationPhase.swift */; };
 		E4701A01C54A9DDC4C0BEC8A /* DayCompassSnoozeStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265412CFB38084EE3F2C6AA3 /* DayCompassSnoozeStoreTests.swift */; };
 		E50000000000000000000001 /* LBSunriseHeroArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000000 /* LBSunriseHeroArtwork.swift */; };
 		E50000000000000000000003 /* SunriseHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000002 /* SunriseHeaderView.swift */; };
@@ -1217,7 +1198,6 @@
 		1490BF2A474A2702E82EA91C /* HabitViewModelFactoryEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HabitViewModelFactoryEnvironment.swift; path = LifeBoard/App/DI/HabitViewModelFactoryEnvironment.swift; sourceTree = SOURCE_ROOT; };
 		1569108CAE3EA81790B556C3 /* LifeBoardTrackFoundationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTrackFoundationViews.swift; path = Features/Track/UI/LifeBoardTrackFoundationViews.swift; sourceTree = "<group>"; };
 		172D92943BF0E56EE1B9069E /* LifeBoardEvidenceContractTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardEvidenceContractTests.swift; sourceTree = "<group>"; };
-		1859F3D260EADFEA49FDBA98 /* LifeBoard/Features/Onboarding/Models/AppOnboardingSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/AppOnboardingSummary.swift; sourceTree = SOURCE_ROOT; };
 		191578DB11E06AF25A4227A8 /* LifeBoardPlanRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardPlanRootView.swift; path = LifeBoard/Features/Plan/UI/PlanRootView.swift; sourceTree = SOURCE_ROOT; };
 		1A81F8713DDE19EF4F956288 /* LifeBoard/Features/Onboarding/Models/ResolvedProjectSelection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/ResolvedProjectSelection.swift; sourceTree = SOURCE_ROOT; };
 		1A94E5E4F9BB3AA846B56A72 /* UIKit+TokenAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "UIKit+TokenAdapters.swift"; sourceTree = "<group>"; };
@@ -1263,13 +1243,13 @@
 		2C6AB5D2864E87B7A4F1068C /* OverdueRescueViewModelActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OverdueRescueViewModelActions.swift; path = LifeBoard/Features/Home/UI/Modals/OverdueRescue/OverdueRescueViewModelActions.swift; sourceTree = SOURCE_ROOT; };
 		2C7BD248BA8AC069F8261EE8 /* HomeViewModel+HabitReconciliation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+HabitReconciliation.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+HabitReconciliation.swift"; sourceTree = SOURCE_ROOT; };
 		2D01967BDAF0ABB45A855C29 /* AddTaskTaskPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AddTaskTaskPicker.swift; path = LifeBoard/Features/Tasks/UI/AddTaskTaskPicker.swift; sourceTree = SOURCE_ROOT; };
-		2D16AF9130E446C22AB65042 /* LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationPhase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationPhase.swift; sourceTree = SOURCE_ROOT; };
 		2F80480EA58FB983550B882B /* LifeBoard/Features/Plan/Domain/GenerateOccurrencesUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Plan/Domain/GenerateOccurrencesUseCase.swift; sourceTree = SOURCE_ROOT; };
 		2FAC5C958944C25B7E561037 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementProjectColorPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/LifeManagementProjectColorPicker.swift; sourceTree = SOURCE_ROOT; };
 		316921199F513341A93BD753 /* AddTaskDurationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AddTaskDurationPicker.swift; path = LifeBoard/Features/Tasks/UI/AddTaskDurationPicker.swift; sourceTree = SOURCE_ROOT; };
 		31B6628C331CCC0C6568E62B /* TaskModelV3_TaskStartDay.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_TaskStartDay.xcdatamodel; sourceTree = "<group>"; };
 		31B6628C331CCC0C6568E62C /* TaskModelV3_BehaviorFlagship.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_BehaviorFlagship.xcdatamodel; sourceTree = "<group>"; };
 		31B6628C331CCC0C6568E62D /* TaskModelV3_EvaDecisionLoops.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_EvaDecisionLoops.xcdatamodel; sourceTree = "<group>"; };
+		DEFE437059AD453B9E3AC165 /* TaskModelV3_HabitProgress.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_HabitProgress.xcdatamodel; sourceTree = "<group>"; };
 		31D233A36C2E4C6B0A6D0AAF /* FoundationShellModifiers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FoundationShellModifiers.swift; path = Foundation/Navigation/FoundationShellModifiers.swift; sourceTree = "<group>"; };
 		3210D40EC3F98D02AF5E413C /* FoundationHabitAndTrackerRoutes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FoundationHabitAndTrackerRoutes.swift; path = Foundation/Navigation/FoundationHabitAndTrackerRoutes.swift; sourceTree = "<group>"; };
 		32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTokenTests.swift; sourceTree = "<group>"; };
@@ -1295,7 +1275,6 @@
 		391110AA08B7ED7F8ED57B9C /* HomeViewModel+RescueEligibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+RescueEligibility.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+RescueEligibility.swift"; sourceTree = SOURCE_ROOT; };
 		397C07871DD37C43B8DBB641 /* TrackFoundationServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackFoundationServices.swift; path = Features/Track/Domain/TrackFoundationServices.swift; sourceTree = "<group>"; };
 		3A67568BD18347F46207EDB1 /* PlanningCoreServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanningCoreServices.swift; path = Features/Plan/Domain/PlanningCoreServices.swift; sourceTree = "<group>"; };
-		3ACB1F98FD6BA7DDDC213D7B /* LifeBoard/Features/Onboarding/Models/OnboardingProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingProgress.swift; sourceTree = SOURCE_ROOT; };
 		3C3D4058EA119BBC3DDA2353 /* ConnectionPresentationContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ConnectionPresentationContext.swift; path = LifeBoard/Features/Settings/SetupCenter/ConnectionPresentationContext.swift; sourceTree = SOURCE_ROOT; };
 		3C66EE511C59B0C5DAAAEA30 /* LifeBoard/Features/Settings/LifeManagement/ProjectMoveSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/ProjectMoveSheet.swift; sourceTree = SOURCE_ROOT; };
 		3C9C1DCD3D8D37AB96401D40 /* LifeBoard/Features/Onboarding/Models/onboardingNaturalLanguageList.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/onboardingNaturalLanguageList.swift; sourceTree = SOURCE_ROOT; };
@@ -1309,7 +1288,6 @@
 		3F73F08CE7AF7398D7835E7F /* LifeBoard/Features/Settings/LifeManagement/LifeManagementAreaPaletteOption.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/LifeManagementAreaPaletteOption.swift; sourceTree = SOURCE_ROOT; };
 		3FAD703CB03F08D3F583E3F6 /* TrackFoundationPersistence.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackFoundationPersistence.swift; path = Features/Track/Data/TrackFoundationPersistence.swift; sourceTree = "<group>"; };
 		4051577E3E4D5CC85DA57B2C /* LifeBoard/Features/Settings/LifeManagement/LifeManagementViewRoot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/LifeManagementViewRoot.swift; sourceTree = SOURCE_ROOT; };
-		40541FE4F6750C143582AC0D /* LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationState.swift; sourceTree = SOURCE_ROOT; };
 		4090E95CAD9BC75484267914 /* HomeDayNavigationDirection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeDayNavigationDirection.swift; path = LifeBoard/Features/Home/UI/ViewModels/HomeDayNavigationDirection.swift; sourceTree = SOURCE_ROOT; };
 		41DF50E6CD46F6C802CC86EE /* LifeBoard/Features/Onboarding/Models/ProjectRepositoryProtocolExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/ProjectRepositoryProtocolExtension.swift; sourceTree = SOURCE_ROOT; };
 		41E91E7B08A3DB7F6092C4D4 /* HomeViewModel+TaskCreationDependencies.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+TaskCreationDependencies.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+TaskCreationDependencies.swift"; sourceTree = SOURCE_ROOT; };
@@ -1327,14 +1305,12 @@
 		4777F58ED4D4C8E747F0F901 /* TimelineRendererModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TimelineRendererModels.swift; path = LifeBoard/Features/Home/UI/Timeline/TimelineRendererModels.swift; sourceTree = SOURCE_ROOT; };
 		4791B51EBAFFF32DE7642287 /* LifeBoard/Features/Onboarding/Models/LifeAreaRepositoryProtocolExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/LifeAreaRepositoryProtocolExtension.swift; sourceTree = SOURCE_ROOT; };
 		47ED06CE7EC4F74A9E373158 /* DailyRitualsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRitualsCard.swift; sourceTree = "<group>"; };
-		4811259E3F517E7F0E457DCD /* LifeBoard/Features/Onboarding/Components/OnboardingPrimaryCTAButtonStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Components/OnboardingPrimaryCTAButtonStyle.swift; sourceTree = SOURCE_ROOT; };
 		48B77566485BBECAC0C2F2DF /* TaskModelV3_PlanningCore.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_PlanningCore.xcdatamodel; sourceTree = "<group>"; };
 		4A7BCB477B2EA5D03B6F3FF0 /* HomeTaskListWidgetSnapshotService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeTaskListWidgetSnapshotService.swift; path = LifeBoard/Features/Home/UI/ViewModels/HomeTaskListWidgetSnapshotService.swift; sourceTree = SOURCE_ROOT; };
 		4AADEA1EA2E960494BF2F708 /* LifeBoard/Features/Onboarding/Models/AppOnboardingState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/AppOnboardingState.swift; sourceTree = SOURCE_ROOT; };
 		4ABDFA484783D44FCE389CA8 /* HomeTimelineReplanCandidateSignature.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeTimelineReplanCandidateSignature.swift; path = LifeBoard/Features/Home/UI/ViewModels/HomeTimelineReplanCandidateSignature.swift; sourceTree = SOURCE_ROOT; };
 		4C109B5D75A091971FB33633 /* LifeBoard/Features/Sync/Domain/LinkExternalRemindersUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Sync/Domain/LinkExternalRemindersUseCase.swift; sourceTree = SOURCE_ROOT; };
 		4CA209338B20E775DCA3F993 /* LifeOSFoundationShell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeOSFoundationShell.swift; path = LifeBoard/Foundation/Navigation/FoundationShell.swift; sourceTree = SOURCE_ROOT; };
-		4D1039EA2610A24D8D430EAD /* LifeBoard/Features/Onboarding/Models/OnboardingCopy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingCopy.swift; sourceTree = SOURCE_ROOT; };
 		4D285845FE9143539A3C857A /* LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerFieldLabel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerFieldLabel.swift; sourceTree = SOURCE_ROOT; };
 		4D84FC1284BCFE8A1BB020B5 /* HabitRecoveryReflectionPrompt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HabitRecoveryReflectionPrompt.swift; path = LifeBoard/Features/Home/UI/ViewModels/HabitRecoveryReflectionPrompt.swift; sourceTree = SOURCE_ROOT; };
 		4E198ED70A4BC795718CD06A /* PlanStore+WeeklyWorkspace.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "PlanStore+WeeklyWorkspace.swift"; path = "LifeBoard/Features/Plan/Domain/PlanStore+WeeklyWorkspace.swift"; sourceTree = SOURCE_ROOT; };
@@ -1401,7 +1377,6 @@
 		704D472AFA2ED7B387D4ED76 /* InsightsEvidenceDisclosure.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InsightsEvidenceDisclosure.swift; path = Foundation/Navigation/InsightsEvidenceDisclosure.swift; sourceTree = "<group>"; };
 		7068FE6EF42DB21BB959D209 /* WeeklyPlanningWorkspace.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyPlanningWorkspace.swift; path = LifeBoard/Features/Weekly/Domain/WeeklyPlanningWorkspace.swift; sourceTree = SOURCE_ROOT; };
 		70CF1C88BCCEBC000C9FEC38 /* LifeBoard/Features/Onboarding/Models/OnboardingNotificationNameExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingNotificationNameExtension.swift; sourceTree = SOURCE_ROOT; };
-		7163B97F4D083B9AB6B24476 /* LifeBoard/Features/Onboarding/Models/OnboardingJourneySnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingJourneySnapshot.swift; sourceTree = SOURCE_ROOT; };
 		716DC2714917FA44C1379546 /* WeeklyPlanningWorkspaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyPlanningWorkspaceView.swift; path = LifeBoard/Features/Weekly/UI/WeeklyPlanningWorkspaceView.swift; sourceTree = SOURCE_ROOT; };
 		718216D68E8278668DDB49BC /* SettingsFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFooterView.swift; sourceTree = "<group>"; };
 		7273F65E17455922134AB7A9 /* QuietHoursTimeBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietHoursTimeBar.swift; sourceTree = "<group>"; };
@@ -1475,7 +1450,6 @@
 		758D4D7B24A940C300AB57A8 /* ProjectEntity+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ProjectEntity+CoreDataClass.swift"; path = "LifeBoard/Persistence/Entities/ProjectEntity+CoreDataClass.swift"; sourceTree = SOURCE_ROOT; };
 		75A6315D2E8BDAB9006EEA59 /* HomeSearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeSearchViewModel.swift; path = LifeBoard/Features/Home/UI/HomeSearchViewModel.swift; sourceTree = SOURCE_ROOT; };
 		75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsPageViewController.swift; path = LifeBoard/Features/Settings/UI/SettingsPageViewController.swift; sourceTree = SOURCE_ROOT; };
-		75DD317FAC37A8674392A5B6 /* LifeBoard/Features/Onboarding/Models/CodingKeys2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/CodingKeys2.swift; sourceTree = SOURCE_ROOT; };
 		75DFF2D32DF22FC300EB8850 /* DateUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateUtils.swift; sourceTree = "<group>"; };
 		75DFF2D42DF22FC300EB8850 /* LoggingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingService.swift; sourceTree = "<group>"; };
 		75E9299B2E8C5C2D00207270 /* UIImage+Resize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Resize.swift"; sourceTree = "<group>"; };
@@ -1661,6 +1635,8 @@
 		A3100000000000000000021D /* PlanDriftResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDriftResolverTests.swift; sourceTree = "<group>"; };
 		A3100000000000000000021F /* PlanRepairDeckView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanRepairDeckView.swift; path = Features/Plan/UI/PlanRepairDeckView.swift; sourceTree = "<group>"; };
 		A31000000000000000000221 /* LifeBoardLensPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardLensPicker.swift; path = LifeBoard/DesignSystem/LensPicker.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009C6 /* LifeWeaveCommit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCommit.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCommit.swift; sourceTree = SOURCE_ROOT; };
+		A310000000000000000009C8 /* LifeWeaveEvaActivationDiagnostics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveEvaActivationDiagnostics.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveEvaActivationDiagnostics.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTokenBridge.swift; path = LifeBoard/DesignSystem/TokenBridge.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
@@ -1693,8 +1669,6 @@
 		A31000000000000000000544 /* HomeFastingWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeFastingWidget.swift; path = LifeBoard/Foundation/Design/HomeFastingWidget.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000546 /* HeroSurfaceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HeroSurfaceTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000548 /* LifeMapOnboardingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingModels.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingModels.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000054A /* LifeMapOnboardingModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingModel.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingModel.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000054E /* LifeMapOnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingView.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingView.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000550 /* HeroWelcomeHighCompressMb.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = HeroWelcomeHighCompressMb.mp4; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000552 /* LifeMapManagementView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapManagementView.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapManagementView.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000554 /* MotionDiagnosticsOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MotionDiagnosticsOverlay.swift; path = LifeBoard/DesignSystem/MotionDiagnosticsOverlay.swift; sourceTree = SOURCE_ROOT; };
@@ -1722,15 +1696,8 @@
 		A31000000000000000000582 /* LifeMapAccessibilityID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapAccessibilityID.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapAccessibilityID.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000584 /* LifeMapHeroBackdrop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapHeroBackdrop.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapHeroBackdrop.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000586 /* LifeMapOnboardingChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingChrome.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingChrome.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000588 /* LifeMapOnboardingIntentSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingIntentSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingIntentSteps.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000058A /* LifeMapOnboardingRevealSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingRevealSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingRevealSteps.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000058C /* LifeMapOnboardingShapeSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingShapeSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingShapeSteps.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000058E /* LifeMapOrbitCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOrbitCanvas.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOrbitCanvas.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000590 /* LifeMapProductPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapProductPreview.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapProductPreview.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000900 /* LifeMapOnboardingConnectSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingConnectSteps.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingConnectSteps.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000902 /* CelestialAssetPreheater.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CelestialAssetPreheater.swift; path = LifeBoard/Foundation/Design/CelestialAssetPreheater.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000904 /* LifeMapOnboardingEvaStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingEvaStep.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingEvaStep.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000906 /* LifeMapOnboardingTourStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapOnboardingTourStep.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapOnboardingTourStep.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000908 /* LifeMapEvaHandoff.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapEvaHandoff.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapEvaHandoff.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000090A /* LifeMapCommitCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMapCommitCoordinator.swift; path = LifeBoard/Features/Onboarding/LifeMap/LifeMapCommitCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000090C /* EvaRouteContextSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaRouteContextSections.swift; path = LifeBoard/Features/Eva/Cloud/EvaRouteContextSections.swift; sourceTree = SOURCE_ROOT; };
@@ -1776,12 +1743,10 @@
 		A31000000000000000000964 /* HealthHubSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthHubSections.swift; path = LifeBoard/Features/Health/HealthSync/HealthHubSections.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000966 /* JournalCaptureComposers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = JournalCaptureComposers.swift; path = LifeBoard/Features/Journal/UI/JournalCaptureComposers.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000972 /* CalendarPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CalendarPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/CalendarPowerUpView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000974 /* HealthPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/HealthPowerUpView.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000976 /* EvaPowerUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaPowerUpView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/EvaPowerUpView.swift; sourceTree = SOURCE_ROOT; };
-		A31000000000000000000978 /* PowerUpSummaryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PowerUpSummaryView.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/PowerUpSummaryView.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000978 /* LifeWeaveCopy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeaveCopy.swift; path = LifeBoard/Features/Onboarding/LifeWeave/LifeWeaveCopy.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000097A /* LifeWeavePowerUpFlow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpFlow.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpFlow.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000097C /* LifeWeavePowerUpCalendar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpCalendar.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpCalendar.swift; sourceTree = SOURCE_ROOT; };
-		A3100000000000000000097E /* LifeWeavePowerUpHealth.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpHealth.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpHealth.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000980 /* LifeWeavePowerUpEva.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeWeavePowerUpEva.swift; path = LifeBoard/Features/Onboarding/LifeWeave/PowerUp/LifeWeavePowerUpEva.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000982 /* EvaDecisionLoopModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EvaDecisionLoopModels.swift; path = LifeBoard/Features/Eva/Domain/EvaDecisionLoopModels.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000984 /* WeeklyResetProposalApplier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyResetProposalApplier.swift; path = LifeBoard/Features/Eva/Domain/WeeklyResetProposalApplier.swift; sourceTree = SOURCE_ROOT; };
@@ -1988,7 +1953,6 @@
 		C0FFEE00000000000000CF02 /* LifeBoard/LifeBoardDesign/Animations/lb_confetti.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = LifeBoard/LifeBoardDesign/Animations/lb_confetti.json; sourceTree = SOURCE_ROOT; };
 		C1256A6FF63A60FC9D9E82C2 /* LifeBoardWidgets/LifeBoardWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardWidgets/LifeBoardWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
 		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
-		C16F9565F3F8F2F079B9CE76 /* LifeBoard/Features/Onboarding/Models/OnboardingStarterHabitPreference.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingStarterHabitPreference.swift; sourceTree = SOURCE_ROOT; };
 		C1A100000000000000000003 /* LifeBoard/Features/Habits/Domain/HabitRuntimeUseCases.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Habits/Domain/HabitRuntimeUseCases.swift; sourceTree = SOURCE_ROOT; };
 		C1A100000000000000000004 /* CoreDataHabitRuntimeReadRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoreDataHabitRuntimeReadRepository.swift; path = LifeBoard/Persistence/Repositories/CoreDataHabitRuntimeReadRepository.swift; sourceTree = SOURCE_ROOT; };
 		C1A2B3C4D5E6F70011223345 /* LLMRuntimeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMRuntimeCoordinator.swift; sourceTree = "<group>"; };
@@ -2004,6 +1968,7 @@
 		C1B2C3D4E5F60718293A4B5C /* LifeManagementDestructiveFlowCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeManagementDestructiveFlowCoordinator.swift; sourceTree = "<group>"; };
 		C20400B4B017F188A0F00344 /* OverdueRescueDeck.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OverdueRescueDeck.swift; path = LifeBoard/Features/Home/UI/Modals/OverdueRescue/OverdueRescueDeck.swift; sourceTree = SOURCE_ROOT; };
 		C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardCompletionControl.swift; path = LifeBoard/DesignSystem/CompletionControl.swift; sourceTree = SOURCE_ROOT; };
+		19FE965F3841455A9099233B /* HabitProgressRing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HabitProgressRing.swift; path = LifeBoard/DesignSystem/HabitProgressRing.swift; sourceTree = SOURCE_ROOT; };
 		C2D3E4F5061728394A5B6C7C /* DeleteTaskDefinitionUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteTaskDefinitionUseCaseTests.swift; sourceTree = "<group>"; };
 		C2D47EF8C1159050CDCE28D6 /* LifeBoard/Features/Eva/Views/Chat/Chrome/EvaChatSunriseBackground.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Eva/Views/Chat/Chrome/EvaChatSunriseBackground.swift; sourceTree = SOURCE_ROOT; };
 		C2F100000000000000000001 /* LifeBoard/Features/Journal/Domain/LifeBoardPhaseIIModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Journal/Domain/LifeBoardPhaseIIModels.swift; sourceTree = SOURCE_ROOT; };
@@ -2034,7 +1999,6 @@
 		C4D5E6F70891A2B3C4D5E70E /* TimelineAnchorWaveShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TimelineAnchorWaveShape.swift; path = LifeBoard/Features/Home/UI/TimelineAnchorWaveShape.swift; sourceTree = SOURCE_ROOT; };
 		C4D5E6F70891A2B3C4D5E70F /* TimelineAnchorRitualSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TimelineAnchorRitualSheetView.swift; path = LifeBoard/Features/Home/UI/TimelineAnchorRitualSheetView.swift; sourceTree = SOURCE_ROOT; };
 		C4E67C5C94F45D6D66D5E526 /* LifeBoard/Features/Settings/LifeManagement/AccentIconBadge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/AccentIconBadge.swift; sourceTree = SOURCE_ROOT; };
-		C53A20FDEE1A1CCD05E76506 /* LifeBoard/Features/Onboarding/Components/ViewExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Components/ViewExtension.swift; sourceTree = SOURCE_ROOT; };
 		C58C70A0C8851CAB1139F1E7 /* OverdueRescueViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OverdueRescueViewModel.swift; path = LifeBoard/Features/Home/UI/Modals/OverdueRescue/OverdueRescueViewModel.swift; sourceTree = SOURCE_ROOT; };
 		C5A1D20E3F4B6789ABCDEF01 /* AddTaskCreateButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AddTaskCreateButton.swift; path = LifeBoard/Features/Tasks/UI/AddTaskCreateButton.swift; sourceTree = SOURCE_ROOT; };
 		C5A1D20E3F4B6789ABCDEF02 /* AddTaskDescriptionField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AddTaskDescriptionField.swift; path = LifeBoard/Features/Tasks/UI/AddTaskDescriptionField.swift; sourceTree = SOURCE_ROOT; };
@@ -2239,7 +2203,6 @@
 		E9EF3524C96CA56E66C86177 /* LifeBoard/Features/Plan/Domain/ResolveOccurrenceUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Plan/Domain/ResolveOccurrenceUseCase.swift; sourceTree = SOURCE_ROOT; };
 		E9FBA211F8998587F17C8785 /* HomeViewModel+TaskDetailMetadata.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+TaskDetailMetadata.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+TaskDetailMetadata.swift"; sourceTree = SOURCE_ROOT; };
 		EA9D6B0D45CD7BA946FCF6F3 /* AddTaskDatePresetRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AddTaskDatePresetRow.swift; path = LifeBoard/Features/Tasks/UI/AddTaskDatePresetRow.swift; sourceTree = SOURCE_ROOT; };
-		EB8BC6F60B76437F2E6148F7 /* LifeBoard/Features/Onboarding/Models/CodingKeys.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/CodingKeys.swift; sourceTree = SOURCE_ROOT; };
 		EC5308F1488478AD34963168 /* LifeBoard/Features/Eva/Views/Chat/Conversation/ChatTimeIntervalExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Eva/Views/Chat/Conversation/ChatTimeIntervalExtension.swift; sourceTree = SOURCE_ROOT; };
 		EC8C891FA22F9B04EA07D70E /* HomeViewModel+EvaFocus.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+EvaFocus.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+EvaFocus.swift"; sourceTree = SOURCE_ROOT; };
 		EDB7FC94C9527865510128DC /* TaskModelV3_KnowledgeNotes.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_KnowledgeNotes.xcdatamodel; sourceTree = "<group>"; };
@@ -2252,6 +2215,7 @@
 		EFD0A8DA9F2060C50BF6DA52 /* LifeBoard/Features/Eva/Views/Chat/Chrome/EvaChiefOfStaffGuideSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Eva/Views/Chat/Chrome/EvaChiefOfStaffGuideSection.swift; sourceTree = SOURCE_ROOT; };
 		F00D00000000000000001001 /* TaskDetailPresentationContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskDetailPresentationContracts.swift; path = LifeBoard/Features/Tasks/UI/TaskDetailPresentationContracts.swift; sourceTree = SOURCE_ROOT; };
 		F067D7763D4A025CC75BAB13 /* LifeBoardFoundationGallery.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardFoundationGallery.swift; path = Foundation/Design/LifeBoardFoundationGallery.swift; sourceTree = "<group>"; };
+		1A98763C6724486AA3297D65 /* HomeHabitsToday.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeHabitsToday.swift; path = Foundation/Design/HomeHabitsToday.swift; sourceTree = "<group>"; };
 		F09160000000000000000002 /* LifeBoardTests/HomeCardIsolationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardTests/HomeCardIsolationTests.swift; sourceTree = SOURCE_ROOT; };
 		F0A100000000000000000102 /* SeededFeaturePages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeededFeaturePages.swift; sourceTree = "<group>"; };
 		F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueRescueSeededUITests.swift; sourceTree = "<group>"; };
@@ -2319,7 +2283,6 @@
 		FB92AF0F70C629B9BB0501F5 /* HomeDerivedTaskRowsCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeDerivedTaskRowsCache.swift; path = LifeBoard/Features/Home/UI/ViewModels/HomeDerivedTaskRowsCache.swift; sourceTree = SOURCE_ROOT; };
 		FBD57F6EE143B982422A4505 /* CoreDataMigrationChainTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoreDataMigrationChainTests.swift; path = LifeBoardTests/CoreDataMigrationChainTests.swift; sourceTree = SOURCE_ROOT; };
 		FD3BCAD6C5A546608629F532 /* LifeBoardWidgets/FocusSeedWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardWidgets/FocusSeedWidget.swift; sourceTree = SOURCE_ROOT; };
-		FD40BE88D4061AEA79953253 /* LifeBoard/Features/Onboarding/Models/OnboardingStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingStep.swift; sourceTree = SOURCE_ROOT; };
 		FE19A169E4D9F72754B6E3E8 /* LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerInlineMessage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerInlineMessage.swift; sourceTree = SOURCE_ROOT; };
 		FEB72F108D49DD4AE2B58A99 /* HomeViewModel+AnalyticsRefresh.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+AnalyticsRefresh.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+AnalyticsRefresh.swift"; sourceTree = SOURCE_ROOT; };
 		FEEDFACE0000000000000001 /* SunriseLensLifeAreasSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SunriseLensLifeAreasSheet.swift; path = LifeBoard/Features/Home/UI/LensLifeAreasSheet.swift; sourceTree = SOURCE_ROOT; };
@@ -2487,6 +2450,7 @@
 			children = (
 				46AAACA6B4098F81A5F67D4E /* LifeBoardAtmosphereRenderer.swift */,
 				F067D7763D4A025CC75BAB13 /* LifeBoardFoundationGallery.swift */,
+				1A98763C6724486AA3297D65 /* HomeHabitsToday.swift */,
 			);
 			name = Design;
 			sourceTree = "<group>";
@@ -3223,30 +3187,20 @@
 				CA1A20000000000000000005 /* CalendarIntegrationService.swift */,
 				CA1A20000000000000000003 /* Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/CalendarComputationUseCases.swift */,
 				70CF1C88BCCEBC000C9FEC38 /* LifeBoard/Features/Onboarding/Models/OnboardingNotificationNameExtension.swift */,
-				4D1039EA2610A24D8D430EAD /* LifeBoard/Features/Onboarding/Models/OnboardingCopy.swift */,
-				3ACB1F98FD6BA7DDDC213D7B /* LifeBoard/Features/Onboarding/Models/OnboardingProgress.swift */,
 				12B9F0A506329D6FA33A3932 /* LifeBoard/Features/Onboarding/Models/onboardingLogLine.swift */,
 				AB34BB65B7298F039E9C6A1C /* LifeBoard/Features/Onboarding/Models/logOnboardingInfo.swift */,
 				D3FE2E5497D838BF7ACBA002 /* LifeBoard/Features/Onboarding/Models/logOnboardingError.swift */,
 				6396B895E176C6D9B55C30EC /* LifeBoard/Features/Onboarding/Models/OnboardingOutcome.swift */,
-				FD40BE88D4061AEA79953253 /* LifeBoard/Features/Onboarding/Models/OnboardingStep.swift */,
 				61B03639156A8E2D31701235 /* LifeBoard/Features/Onboarding/Models/OnboardingPrimaryGoal.swift */,
-				C16F9565F3F8F2F079B9CE76 /* LifeBoard/Features/Onboarding/Models/OnboardingStarterHabitPreference.swift */,
-				2D16AF9130E446C22AB65042 /* LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationPhase.swift */,
-				40541FE4F6750C143582AC0D /* LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationState.swift */,
 				B9CD88BD827717D7C56D112A /* LifeBoard/Features/Onboarding/Models/OnboardingFrictionProfile.swift */,
 				37DD8CAB8F66109195DD8D31 /* LifeBoard/Features/Onboarding/Models/OnboardingMode.swift */,
 				9632B2C3609C7092AB65BFF4 /* LifeBoard/Features/Onboarding/Models/OnboardingEntryContext.swift */,
 				098E6EFC49514867101BA977 /* LifeBoard/Features/Onboarding/Models/OnboardingTaskTemplateState.swift */,
 				862166F085A7F815ADA70872 /* LifeBoard/Features/Onboarding/Models/OnboardingWorkspaceSnapshot.swift */,
 				CF4E3B7EAAC54AE18553A302 /* LifeBoard/Features/Onboarding/Models/OnboardingEligibility.swift */,
-				1859F3D260EADFEA49FDBA98 /* LifeBoard/Features/Onboarding/Models/AppOnboardingSummary.swift */,
-				EB8BC6F60B76437F2E6148F7 /* LifeBoard/Features/Onboarding/Models/CodingKeys.swift */,
 				98AB62BE5A27121F39C5F499 /* LifeBoard/Features/Onboarding/Models/OnboardingProjectDraft.swift */,
 				E150AE4B6341CE9C52EA4AF0 /* LifeBoard/Features/Onboarding/Models/ResolvedLifeAreaSelection.swift */,
 				1A81F8713DDE19EF4F956288 /* LifeBoard/Features/Onboarding/Models/ResolvedProjectSelection.swift */,
-				7163B97F4D083B9AB6B24476 /* LifeBoard/Features/Onboarding/Models/OnboardingJourneySnapshot.swift */,
-				75DD317FAC37A8674392A5B6 /* LifeBoard/Features/Onboarding/Models/CodingKeys2.swift */,
 				4AADEA1EA2E960494BF2F708 /* LifeBoard/Features/Onboarding/Models/AppOnboardingState.swift */,
 				0D09C9507B3C691C73DA808A /* LifeBoard/Features/Onboarding/Models/PendingOnboardingPresentation.swift */,
 				2139792A102DCF4971E889CC /* LifeBoard/Features/Onboarding/Models/OnboardingPresentationQueue.swift */,
@@ -3267,9 +3221,7 @@
 				102FF39D56775B7335081882 /* LifeBoard/Features/Onboarding/Models/OnboardingPromptFooterMaterialModifier.swift */,
 				B1D4A4EDAF6692D9D7819FF1 /* LifeBoard/Features/Onboarding/Components/HomeOnboardingGuidanceBanner.swift */,
 				04856A49C5F0944D2A558B4F /* LifeBoard/Features/Onboarding/Models/OnboardingTheme.swift */,
-				4811259E3F517E7F0E457DCD /* LifeBoard/Features/Onboarding/Components/OnboardingPrimaryCTAButtonStyle.swift */,
 				3C9C1DCD3D8D37AB96401D40 /* LifeBoard/Features/Onboarding/Models/onboardingNaturalLanguageList.swift */,
-				C53A20FDEE1A1CCD05E76506 /* LifeBoard/Features/Onboarding/Components/ViewExtension.swift */,
 				4791B51EBAFFF32DE7642287 /* LifeBoard/Features/Onboarding/Models/LifeAreaRepositoryProtocolExtension.swift */,
 				41DF50E6CD46F6C802CC86EE /* LifeBoard/Features/Onboarding/Models/ProjectRepositoryProtocolExtension.swift */,
 				93E4A4DA88B81666171B5808 /* LifeBoard/Features/Onboarding/Models/HabitRepositoryProtocolExtension.swift */,
@@ -3709,6 +3661,8 @@
 				1F7B66C55583D3816BF548A5 /* HealthConnectionPresentation.swift */,
 				A3100000000000000000093C /* LifeWeaveEvaActivation.swift */,
 				A3100000000000000000093A /* LifeWeaveCapture.swift */,
+				A310000000000000000009C8 /* LifeWeaveEvaActivationDiagnostics.swift */,
+				A310000000000000000009C6 /* LifeWeaveCommit.swift */,
 				A31000000000000000000938 /* LifeWeaveChrome.swift */,
 				A31000000000000000000934 /* LifeWeaveCanvas.swift */,
 				A31000000000000000000932 /* LifeWeaveGeometry.swift */,
@@ -3718,12 +3672,10 @@
 				A31000000000000000000928 /* LifeWeaveMigration.swift */,
 				A31000000000000000000926 /* LifeWeaveDraft.swift */,
 				A31000000000000000000972 /* CalendarPowerUpView.swift */,
-				A31000000000000000000974 /* HealthPowerUpView.swift */,
 				A31000000000000000000976 /* EvaPowerUpView.swift */,
-				A31000000000000000000978 /* PowerUpSummaryView.swift */,
+				A31000000000000000000978 /* LifeWeaveCopy.swift */,
 				A3100000000000000000097A /* LifeWeavePowerUpFlow.swift */,
 				A3100000000000000000097C /* LifeWeavePowerUpCalendar.swift */,
-				A3100000000000000000097E /* LifeWeavePowerUpHealth.swift */,
 				A31000000000000000000980 /* LifeWeavePowerUpEva.swift */,
 				A31000000000000000000924 /* LifeWeaveIntent.swift */,
 				A3100000000000000000091E /* EvaMemoryStoreV2.swift */,
@@ -3741,16 +3693,9 @@
 				A31000000000000000000910 /* EvaUserInstructions.swift */,
 				A3100000000000000000090E /* AISuggestionPromptPayloads.swift */,
 				A3100000000000000000090C /* EvaRouteContextSections.swift */,
-				A31000000000000000000590 /* LifeMapProductPreview.swift */,
 				A3100000000000000000058E /* LifeMapOrbitCanvas.swift */,
-				A3100000000000000000058C /* LifeMapOnboardingShapeSteps.swift */,
-				A3100000000000000000058A /* LifeMapOnboardingRevealSteps.swift */,
 				A3100000000000000000090A /* LifeMapCommitCoordinator.swift */,
-				A31000000000000000000900 /* LifeMapOnboardingConnectSteps.swift */,
-				A31000000000000000000904 /* LifeMapOnboardingEvaStep.swift */,
-				A31000000000000000000906 /* LifeMapOnboardingTourStep.swift */,
 				A31000000000000000000908 /* LifeMapEvaHandoff.swift */,
-				A31000000000000000000588 /* LifeMapOnboardingIntentSteps.swift */,
 				A31000000000000000000586 /* LifeMapOnboardingChrome.swift */,
 				A31000000000000000000584 /* LifeMapHeroBackdrop.swift */,
 				A31000000000000000000582 /* LifeMapAccessibilityID.swift */,
@@ -3778,8 +3723,6 @@
 				A31000000000000000000556 /* ReflectionNoteRepositoryProtocolExtension.swift */,
 				A31000000000000000000554 /* MotionDiagnosticsOverlay.swift */,
 				A31000000000000000000552 /* LifeMapManagementView.swift */,
-				A3100000000000000000054E /* LifeMapOnboardingView.swift */,
-				A3100000000000000000054A /* LifeMapOnboardingModel.swift */,
 				A31000000000000000000548 /* LifeMapOnboardingModels.swift */,
 				A31000000000000000000536 /* WeeklyWorkspaceSectionCopy.swift */,
 				A31000000000000000000534 /* LifeMomentsViews.swift */,
@@ -3806,6 +3749,7 @@
 				A3100000000000000000053E /* LiveStatePill.swift */,
 				A31000000000000000000516 /* SignatureShaderComfortGate.swift */,
 				C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */,
+				19FE965F3841455A9099233B /* HabitProgressRing.swift */,
 				DA4C5F6B7E8D9201F3A4B5C6 /* LifeBoardCelestialDaypartIndicator.swift */,
 				1E1D1160B798444BA70D195D /* LifeBoardCardPrimitives.swift */,
 				CC4859B4442A41A595012DFD /* LifeBoardHomeCardBodies.swift */,
@@ -5197,30 +5141,20 @@
 				84F03ABBF9605F10AF9BB212 /* TimelinePhoneRenderModel.swift in Sources */,
 				200250316B998CD442EAD960 /* TimelineRendererModels.swift in Sources */,
 				E7DE591D7ACDB8FF504008CA /* LifeBoard/Features/Onboarding/Models/OnboardingNotificationNameExtension.swift in Sources */,
-				44E3EB20B7DF2407719E6B2F /* LifeBoard/Features/Onboarding/Models/OnboardingCopy.swift in Sources */,
-				4F19404CD237ADA1ADE1F528 /* LifeBoard/Features/Onboarding/Models/OnboardingProgress.swift in Sources */,
 				D4E0D80A4976DADBFEC9F159 /* LifeBoard/Features/Onboarding/Models/onboardingLogLine.swift in Sources */,
 				17EF835E3AB7BCA161FBFB5C /* LifeBoard/Features/Onboarding/Models/logOnboardingInfo.swift in Sources */,
 				8FE784A4B9FCFA802CE95542 /* LifeBoard/Features/Onboarding/Models/logOnboardingError.swift in Sources */,
 				4A52BB8E16EAECC2A970E287 /* LifeBoard/Features/Onboarding/Models/OnboardingOutcome.swift in Sources */,
-				8790268063CEA1C833D51C7A /* LifeBoard/Features/Onboarding/Models/OnboardingStep.swift in Sources */,
 				83CBA72051A1B8A5580FB888 /* LifeBoard/Features/Onboarding/Models/OnboardingPrimaryGoal.swift in Sources */,
-				70A9068D6C68CC20C0201150 /* LifeBoard/Features/Onboarding/Models/OnboardingStarterHabitPreference.swift in Sources */,
-				E428ECADD6A89C0B1D7F174B /* LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationPhase.swift in Sources */,
-				48756A3EF4DA7E57686EA3BF /* LifeBoard/Features/Onboarding/Models/OnboardingEvaPreparationState.swift in Sources */,
 				0ACC594D16D9F9D83D812052 /* LifeBoard/Features/Onboarding/Models/OnboardingFrictionProfile.swift in Sources */,
 				D86B5C7DF619A7A577D4874F /* LifeBoard/Features/Onboarding/Models/OnboardingMode.swift in Sources */,
 				AD8804130CE2160E653414FD /* LifeBoard/Features/Onboarding/Models/OnboardingEntryContext.swift in Sources */,
 				125D26BDB072E9A8F3E515D7 /* LifeBoard/Features/Onboarding/Models/OnboardingTaskTemplateState.swift in Sources */,
 				0B2EA9B1BC50C6D572DBDA14 /* LifeBoard/Features/Onboarding/Models/OnboardingWorkspaceSnapshot.swift in Sources */,
 				5E62A1F6764E8C4158AE395D /* LifeBoard/Features/Onboarding/Models/OnboardingEligibility.swift in Sources */,
-				01D3E1ADABC2FB7D419F301E /* LifeBoard/Features/Onboarding/Models/AppOnboardingSummary.swift in Sources */,
-				D6988674F7729285A707C98C /* LifeBoard/Features/Onboarding/Models/CodingKeys.swift in Sources */,
 				0FF401A34059E3AECC2B14B1 /* LifeBoard/Features/Onboarding/Models/OnboardingProjectDraft.swift in Sources */,
 				54E3898C156FECCEE5A57CE5 /* LifeBoard/Features/Onboarding/Models/ResolvedLifeAreaSelection.swift in Sources */,
 				C017F11E0720B026D1DC1692 /* LifeBoard/Features/Onboarding/Models/ResolvedProjectSelection.swift in Sources */,
-				66FBAD17B454FE9E6A36D30F /* LifeBoard/Features/Onboarding/Models/OnboardingJourneySnapshot.swift in Sources */,
-				9B5D983BDED5F3B292E2920D /* LifeBoard/Features/Onboarding/Models/CodingKeys2.swift in Sources */,
 				3BFDC99E090DF4551C917CE6 /* LifeBoard/Features/Onboarding/Models/AppOnboardingState.swift in Sources */,
 				CE101A5DFCA6C30A72A5CE61 /* LifeBoard/Features/Onboarding/Models/PendingOnboardingPresentation.swift in Sources */,
 				262A9D38982EE6BE9E44E616 /* LifeBoard/Features/Onboarding/Models/OnboardingPresentationQueue.swift in Sources */,
@@ -5241,9 +5175,7 @@
 				09CD9170481BB868874A059E /* LifeBoard/Features/Onboarding/Models/OnboardingPromptFooterMaterialModifier.swift in Sources */,
 				86E90FFDD209E7304B7D5BBE /* LifeBoard/Features/Onboarding/Components/HomeOnboardingGuidanceBanner.swift in Sources */,
 				90C6619892CA88CDC07F0618 /* LifeBoard/Features/Onboarding/Models/OnboardingTheme.swift in Sources */,
-				62DA1F2B6CF478CD9F07E040 /* LifeBoard/Features/Onboarding/Components/OnboardingPrimaryCTAButtonStyle.swift in Sources */,
 				974FDA7040049B93F737E5B9 /* LifeBoard/Features/Onboarding/Models/onboardingNaturalLanguageList.swift in Sources */,
-				390DB347BE033669B7CF9A28 /* LifeBoard/Features/Onboarding/Components/ViewExtension.swift in Sources */,
 				02828F570030008E7C1B441C /* LifeBoard/Features/Onboarding/Models/LifeAreaRepositoryProtocolExtension.swift in Sources */,
 				25FC3C1A435E0F8199ADBCD5 /* LifeBoard/Features/Onboarding/Models/ProjectRepositoryProtocolExtension.swift in Sources */,
 				B3002EA7B07545C684BF2B16 /* LifeBoard/Features/Onboarding/Models/HabitRepositoryProtocolExtension.swift in Sources */,
@@ -5498,6 +5430,7 @@
 				2F253B89141AAD16EF6E930D /* FoundationDisplayPanel.swift in Sources */,
 				4074DB4C2171B0566E75ECBE /* LifeBoardAtmosphereRenderer.swift in Sources */,
 				D6890E391458213A124FD9A4 /* LifeBoardFoundationGallery.swift in Sources */,
+				9E67BC24D3D2423185583FC6 /* HomeHabitsToday.swift in Sources */,
 				C2F200000000000000000001 /* LifeBoard/Features/Journal/Domain/LifeBoardPhaseIIModels.swift in Sources */,
 				C2F200000000000000000002 /* LifeBoard/Features/Journal/Data/LifeBoardPhaseIIPersistence.swift in Sources */,
 				C2F200000000000000000003 /* LifeBoardHealthService.swift in Sources */,
@@ -5554,6 +5487,8 @@
 				A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */,
 				A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
+				A310000000000000000009C9 /* LifeWeaveEvaActivationDiagnostics.swift in Sources */,
+				A310000000000000000009C7 /* LifeWeaveCommit.swift in Sources */,
 				A310000000000000000009C5 /* HomeAmbientArtwork.swift in Sources */,
 				A310000000000000000009C3 /* HomeSceneImageCache.swift in Sources */,
 				A310000000000000000009C1 /* HomeCardGeometryRecorder.swift in Sources */,
@@ -5618,12 +5553,10 @@
 				A31000000000000000000929 /* LifeWeaveMigration.swift in Sources */,
 				A31000000000000000000927 /* LifeWeaveDraft.swift in Sources */,
 				A31000000000000000000973 /* CalendarPowerUpView.swift in Sources */,
-				A31000000000000000000975 /* HealthPowerUpView.swift in Sources */,
 				A31000000000000000000977 /* EvaPowerUpView.swift in Sources */,
-				A31000000000000000000979 /* PowerUpSummaryView.swift in Sources */,
+				A31000000000000000000979 /* LifeWeaveCopy.swift in Sources */,
 				A3100000000000000000097B /* LifeWeavePowerUpFlow.swift in Sources */,
 				A3100000000000000000097D /* LifeWeavePowerUpCalendar.swift in Sources */,
-				A3100000000000000000097F /* LifeWeavePowerUpHealth.swift in Sources */,
 				A31000000000000000000981 /* LifeWeavePowerUpEva.swift in Sources */,
 				A31000000000000000000925 /* LifeWeaveIntent.swift in Sources */,
 				A3100000000000000000091F /* EvaMemoryStoreV2.swift in Sources */,
@@ -5636,16 +5569,9 @@
 				A31000000000000000000911 /* EvaUserInstructions.swift in Sources */,
 				A3100000000000000000090F /* AISuggestionPromptPayloads.swift in Sources */,
 				A3100000000000000000090D /* EvaRouteContextSections.swift in Sources */,
-				A31000000000000000000591 /* LifeMapProductPreview.swift in Sources */,
 				A3100000000000000000058F /* LifeMapOrbitCanvas.swift in Sources */,
-				A3100000000000000000058D /* LifeMapOnboardingShapeSteps.swift in Sources */,
-				A3100000000000000000058B /* LifeMapOnboardingRevealSteps.swift in Sources */,
 				A3100000000000000000090B /* LifeMapCommitCoordinator.swift in Sources */,
-				A31000000000000000000901 /* LifeMapOnboardingConnectSteps.swift in Sources */,
-				A31000000000000000000905 /* LifeMapOnboardingEvaStep.swift in Sources */,
-				A31000000000000000000907 /* LifeMapOnboardingTourStep.swift in Sources */,
 				A31000000000000000000909 /* LifeMapEvaHandoff.swift in Sources */,
-				A31000000000000000000589 /* LifeMapOnboardingIntentSteps.swift in Sources */,
 				A31000000000000000000587 /* LifeMapOnboardingChrome.swift in Sources */,
 				A31000000000000000000585 /* LifeMapHeroBackdrop.swift in Sources */,
 				A31000000000000000000583 /* LifeMapAccessibilityID.swift in Sources */,
@@ -5678,8 +5604,6 @@
 				A31000000000000000000557 /* ReflectionNoteRepositoryProtocolExtension.swift in Sources */,
 				A31000000000000000000555 /* MotionDiagnosticsOverlay.swift in Sources */,
 				A31000000000000000000553 /* LifeMapManagementView.swift in Sources */,
-				A3100000000000000000054F /* LifeMapOnboardingView.swift in Sources */,
-				A3100000000000000000054B /* LifeMapOnboardingModel.swift in Sources */,
 				A31000000000000000000549 /* LifeMapOnboardingModels.swift in Sources */,
 				A31000000000000000000537 /* WeeklyWorkspaceSectionCopy.swift in Sources */,
 				A31000000000000000000535 /* LifeMomentsViews.swift in Sources */,
@@ -5706,6 +5630,7 @@
 				A3100000000000000000053F /* LiveStatePill.swift in Sources */,
 				A31000000000000000000517 /* SignatureShaderComfortGate.swift in Sources */,
 				CDCE7BDD9D5A5F2FA1356E35 /* LifeBoardCompletionControl.swift in Sources */,
+				1547731E90164D00BC5CD984 /* HabitProgressRing.swift in Sources */,
 				CF3B4E5A6D7C8190E2F3A4B5 /* LifeBoardCelestialDaypartIndicator.swift in Sources */,
 				385234A92C6E4423B97234BB /* LifeBoardCardPrimitives.swift in Sources */,
 				590E061676974EDB8A8F2617 /* LifeBoardHomeCardBodies.swift in Sources */,
@@ -6711,8 +6636,9 @@
 				31B6628C331CCC0C6568E62B /* TaskModelV3_TaskStartDay.xcdatamodel */,
 				31B6628C331CCC0C6568E62C /* TaskModelV3_BehaviorFlagship.xcdatamodel */,
 				31B6628C331CCC0C6568E62D /* TaskModelV3_EvaDecisionLoops.xcdatamodel */,
+				DEFE437059AD453B9E3AC165 /* TaskModelV3_HabitProgress.xcdatamodel */,
 			);
-			currentVersion = 31B6628C331CCC0C6568E62D /* TaskModelV3_EvaDecisionLoops.xcdatamodel */;
+			currentVersion = DEFE437059AD453B9E3AC165 /* TaskModelV3_HabitProgress.xcdatamodel */;
 			path = LifeBoard/Persistence/Resources/TaskModelV3.xcdatamodeld;
 			sourceTree = SOURCE_ROOT;
 			versionGroupType = wrapper.xcdatamodel;
