@@ -129,12 +129,8 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
     let agePolicy: AgePolicy?
     let routes: [EvaCloudRoute: RoutePolicy]
 
-    var requiresAgeDecision: Bool {
-        cloudState != .disabled && (
-            agePolicy?.requiredRegionFailClosed == true
-            || agePolicy?.unknownAgeAllowed == false
-        )
-    }
+    // Legacy wire policy is decoded for compatibility; distribution owns eligibility.
+    var requiresAgeDecision: Bool { false }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion
