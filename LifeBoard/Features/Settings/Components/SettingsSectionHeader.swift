@@ -6,11 +6,13 @@ struct SettingsSectionHeader: View {
     var includeHorizontalPadding: Bool = true
 
     var body: some View {
+        // Built on the shared `SectionHeader` rather than its own bold title3:
+        // Settings had the only section headers in the product at a different
+        // size, and `DESIGN.md` calls an individually restyled header a defect.
+        // The subtitle stays as a separate line below it, which is where the
+        // header contract puts supporting copy.
         VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s4) {
-            Text(title)
-                .font(.lifeboard(.title3))
-                .fontWeight(.bold)
-                .foregroundColor(.lifeboard(.textPrimary))
+            SectionHeader(title)
 
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
