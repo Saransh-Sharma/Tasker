@@ -253,7 +253,7 @@ private struct WeeklyWizardHeader: View {
             }
 
             VStack(alignment: .leading, spacing: spacing.s8) {
-                Text(currentStep.stepLabel.uppercased())
+                Text(currentStep.stepLabel)
                     .font(.lifeboard(.eyebrow))
                     .tracking(0.8)
                     .foregroundStyle(Color.lifeboard.textSecondary)
@@ -294,6 +294,10 @@ struct WeeklyRitualScaffold<Content: View, Footer: View>: View {
     let steps: [WeeklyRitualStep]
     let message: String?
     let messageTone: StatusPillTone
+    /// Painted behind the ritual's hero. Root headers sit on the moving
+    /// atmosphere, where a scene reads as noise; a pushed ritual sits on the
+    /// calm canvas, which is where this artwork can actually be seen.
+    let headerScene: FeatureHeaderScene?
     let content: Content
     let footer: Footer
 
@@ -310,6 +314,7 @@ struct WeeklyRitualScaffold<Content: View, Footer: View>: View {
         steps: [WeeklyRitualStep],
         message: String?,
         messageTone: StatusPillTone,
+        headerScene: FeatureHeaderScene? = nil,
         @ViewBuilder content: () -> Content,
         @ViewBuilder footer: () -> Footer
     ) {
@@ -320,6 +325,7 @@ struct WeeklyRitualScaffold<Content: View, Footer: View>: View {
         self.steps = steps
         self.message = message
         self.messageTone = messageTone
+        self.headerScene = headerScene
         self.content = content()
         self.footer = footer()
     }
@@ -332,7 +338,8 @@ struct WeeklyRitualScaffold<Content: View, Footer: View>: View {
                     title: title,
                     subtitle: subtitle,
                     weekRange: weekRange,
-                    steps: steps
+                    steps: steps,
+                    scene: headerScene
                 )
 
                 if let message, message.isEmpty == false {
@@ -364,6 +371,7 @@ private struct WeeklyRitualHero: View {
     let subtitle: String
     let weekRange: String
     let steps: [WeeklyRitualStep]
+    var scene: FeatureHeaderScene?
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
@@ -373,7 +381,7 @@ private struct WeeklyRitualHero: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             VStack(alignment: .leading, spacing: spacing.s8) {
-                Text(eyebrow.uppercased())
+                Text(eyebrow)
                     .font(.lifeboard(.eyebrow))
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .tracking(0.8)
@@ -398,8 +406,11 @@ private struct WeeklyRitualHero: View {
             WeeklyProgressRow(steps: steps)
         }
         .padding(spacing.cardPadding)
+        // 24 is the hero radius `DESIGN.md` calls "the continuity"; 28 belongs
+        // to sheets and modal presentations.
+        .featureHeaderArtwork(scene ?? .plan, enabled: scene != nil, cornerRadius: Radius.hero)
         .lifeboardPremiumSurface(
-            cornerRadius: 28,
+            cornerRadius: Radius.hero,
             fillColor: Color.lifeboard.surfacePrimary,
             strokeColor: Color.lifeboard.strokeHairline.opacity(0.82),
             accentColor: Color.lifeboard.accentSecondary,
