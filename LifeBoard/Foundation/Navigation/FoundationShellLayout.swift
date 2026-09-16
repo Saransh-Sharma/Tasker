@@ -204,8 +204,13 @@ extension FoundationShell {
                             VStack(spacing: 3) {
                                 Image(systemName: destination.systemImage)
                                     // Scales with Dynamic Type; a fixed 17pt is
-                                    // the one size that cannot.
+                                    // the one size that cannot. Bounded at
+                                    // `accessibility1` because the dock is
+                                    // fixed chrome carrying five targets — past
+                                    // that the glyphs crowd each other out and
+                                    // start eating the composer above them.
                                     .font(.body.weight(router.selectedDestination == destination ? .semibold : .regular))
+                                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                                     .modifier(
                                         DockLift(
                                             isSelected: router.selectedDestination == destination,
