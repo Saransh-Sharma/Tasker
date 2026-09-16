@@ -4244,6 +4244,19 @@ final class JournalStore {
         await save(day)
     }
 
+    /// Saved words can be corrected. The store could only append, move, and
+    /// delete, so fixing a typo meant deleting the entry and retyping it.
+    /// Empty text is refused rather than saved: removing words is "Delete".
+    @discardableResult
+    func updateBlockText(dayID: UUID, blockID: UUID, text: String) async -> Bool {
+        guard var day = allDays.first(where: { $0.id == dayID }),
+              let index = day.blocks.firstIndex(where: { $0.id == blockID }) else { return false }
+        guard let updated = JournalBlockTextEdit.apply(text, to: day.blocks[index]) else { return false }
+        day.blocks[index] = updated
+        day.updatedAt = updated.updatedAt
+        return await save(day)
+    }
+
     func deleteBlock(dayID: UUID, blockID: UUID) async {
         guard var day = allDays.first(where: { $0.id == dayID }),
               let block = day.blocks.first(where: { $0.id == blockID }) else { return }
@@ -5051,6 +5064,9 @@ struct JournalModuleView: View {
             onDeleteBlock: { blockID in
                 Task { await store.deleteBlock(dayID: day.id, blockID: blockID) }
             },
+            onEditText: { blockID, text in
+                await store.updateBlockText(dayID: day.id, blockID: blockID, text: text)
+            },
             onSetAIExclusion: V2FeatureFlags.journalParityV1Enabled
                 ? { exclusion in Task { await store.setAIExclusion(exclusion, for: day) } }
                 : nil
@@ -5725,7 +5741,9 @@ private struct JournalDayCard: View {
     let onEditPhoto: (JournalMediaValue) -> Void
     let onMoveBlock: (UUID, Int) -> Void
     let onDeleteBlock: (UUID) -> Void
+    var onEditText: ((UUID, String) async -> Bool)? = nil
     @State private var blockPendingDeletion: UUID?
+    @State private var editingBlock: JournalBlockValue?
     var onSetAIExclusion: ((JournalAIExclusion) -> Void)?
     @State private var confirmsDelete = false
     @State private var playback = JournalAudioPlaybackController()
@@ -5791,7 +5809,10 @@ private struct JournalDayCard: View {
                         if let mood = block.mood {
                             Text("Feeling \(mood.title.lowercased())\(block.energy.map { ", energy \($0) of 5" } ?? "")")
                         }
-                        if let text = block.text, !text.isEmpty { Text(text).font(.body) }
+                        if let text = block.text, !text.isEmpty {
+                            Text(text).font(.body)
+                                .textSelection(.enabled)
+                        }
                         if block.kind == .photo,
                            let media = day.media.first(where: { $0.id == block.mediaID }),
                            let payload = media.payload,
@@ -5841,7 +5862,7 @@ private struct JournalDayCard: View {
                                 blockID: block.id
                             )
                         }
-                        Text(block.createdAt.formatted(date: .omitted, time: .shortened))
+                        Text(JournalBlockTextEdit.timestampLabel(for: block))
                             .font(.caption2)
                             .foregroundStyle(palette.color(for: .foregroundSecondary))
                     }
@@ -5854,6 +5875,9 @@ private struct JournalDayCard: View {
                                 inspectedPhoto = media
                             }
                             Button("Edit photo", systemImage: "crop.rotate") { onEditPhoto(media) }
+                        }
+                        if block.kind == .text, onEditText != nil {
+                            Button("Edit text", systemImage: "pencil") { editingBlock = block }
                         }
                         if day.blocks.first?.id != block.id {
                             Button("Move earlier", systemImage: "arrow.up") { onMoveBlock(block.id, -1) }
@@ -5880,6 +5904,11 @@ private struct JournalDayCard: View {
         }
         .padding(18)
         .lifeBoardPaperCard()
+        .sheet(item: $editingBlock) { block in
+            JournalBlockTextEditor(initialText: block.text ?? "") { text in
+                await onEditText?(block.id, text) ?? false
+            }
+        }
         .confirmationDialog(
             "Delete this entry?",
             isPresented: Binding(
@@ -6261,5 +6290,88 @@ enum JournalSpotlightIndexer {
 
     static func remove(dayID: UUID) async {
         try? await CSSearchableIndex.default().deleteSearchableItems(withIdentifiers: ["lifeboard-journal-\(dayID.uuidString)"])
+    }
+}
+
+/// Rules for correcting a saved journal text block.
+enum JournalBlockTextEdit {
+    /// The block with new text, or nil when there is nothing to save (empty, or
+    /// unchanged apart from surrounding whitespace).
+    static func apply(_ text: String, to block: JournalBlockValue, now: Date = Date()) -> JournalBlockValue? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard block.kind == .text, trimmed.isEmpty == false, trimmed != block.text else { return nil }
+        var updated = block
+        updated.text = trimmed
+        updated.updatedAt = now
+        return updated
+    }
+
+    /// "9:41 AM", or "9:41 AM · edited" once the words changed after writing —
+    /// a journal should not quietly rewrite its own history.
+    static func timestampLabel(for block: JournalBlockValue) -> String {
+        let time = block.createdAt.formatted(date: .omitted, time: .shortened)
+        return block.updatedAt > block.createdAt && block.kind == .text
+            ? "\(time) · edited"
+            : time
+    }
+}
+
+private struct JournalBlockTextEditor: View {
+    let initialText: String
+    let onSave: (String) async -> Bool
+    @State private var text: String
+    @State private var isSaving = false
+    @State private var saveFailed = false
+    @FocusState private var isFocused: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    init(initialText: String, onSave: @escaping (String) async -> Bool) {
+        self.initialText = initialText
+        self.onSave = onSave
+        _text = State(initialValue: initialText)
+    }
+
+    private var canSave: Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty == false && trimmed != initialText
+    }
+
+    var body: some View {
+        NavigationStack {
+            TextEditor(text: $text)
+                .font(.body)
+                .focused($isFocused)
+                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 16)
+                .accessibilityIdentifier("journal.block.editor")
+                .navigationTitle("Edit entry")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }.disabled(isSaving)
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            isSaving = true
+                            Task { @MainActor in
+                                let saved = await onSave(text)
+                                isSaving = false
+                                saveFailed = !saved
+                                if saved { dismiss() }
+                            }
+                        }
+                        .disabled(canSave == false || isSaving)
+                        .accessibilityIdentifier("journal.block.editor.save")
+                    }
+                }
+                .onAppear { isFocused = true }
+        }
+        .presentationDetents([.medium, .large])
+        .interactiveDismissDisabled(text != initialText || isSaving)
+        .alert("Couldn’t save your edit", isPresented: $saveFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your words are still here. Tap Save to try again.")
+        }
     }
 }
