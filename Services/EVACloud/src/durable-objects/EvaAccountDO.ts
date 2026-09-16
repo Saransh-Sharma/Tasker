@@ -671,13 +671,6 @@ export class EvaAccountDO extends DurableObject<Env> {
         result = { authorized: false, reason: 'session' }
       } else if (!device || device.platform !== body.platform) {
         result = { authorized: false, reason: 'attestation' }
-      } else if (!body.allowAgeManagement && device.ageLowerBound !== undefined && device.ageLowerBound < 13) {
-        result = { authorized: false, reason: 'age' }
-      } else if (body.requireAdult && (
-        !device.adultEligibleExpiresAt
-        || device.adultEligibleExpiresAt <= now
-      )) {
-        result = { authorized: false, reason: 'age' }
       } else {
         result = {
           authorized: true,
