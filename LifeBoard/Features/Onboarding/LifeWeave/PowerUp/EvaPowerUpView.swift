@@ -46,6 +46,7 @@ struct EvaPowerUpView: View {
     /// lives in defaults rather than in a published property, so the view keeps
     /// its own copy and updates it in the same action that writes it.
     @State private var prefersOffline = EvaProviderRouter.Preference.resolvedStoredPreference() == .offline
+    @State private var showsDataUse = false
     @State private var showsGrantReview = false
     @State private var showsProcessingDetail = false
 
@@ -84,6 +85,9 @@ struct EvaPowerUpView: View {
             readyTrigger &+= 1
         }
         .lifeboardFirstLight(trigger: readyTrigger, tint: Color.lifeboard(.accentPrimary))
+        .sheet(isPresented: $showsDataUse) {
+            EvaDataUseSheet { showsDataUse = false }
+        }
         .sheet(isPresented: $showsGrantReview) {
             EvaPowerUpGrantSheet(model: model, isLocked: isGrantSelectionLocked)
         }
@@ -93,12 +97,18 @@ struct EvaPowerUpView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            LifeMapEyebrow("POWER UP · EVA")
-            Text("Give your LifeBoard a planning partner.")
+            Image(systemName: "sparkles")
+                .lifeboardFont(.title2)
+                .foregroundStyle(Color.lifeboard(.accentPrimary))
+                .frame(width: 56, height: 56)
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.card)
+                .symbolEffect(.bounce, options: .nonRepeating)
+                .accessibilityHidden(true)
+            Text(String(localized: "Meet EVA"))
                 .lifeboardFont(.screenTitle)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .fixedSize(horizontal: false, vertical: true)
-            Text("EVA can use the LifeBoard you just built to help you decide what to do first, plan a week that survives contact with real life, and break big things down.")
+            Text(String(localized: "Ask what to do first, or plan your week."))
                 .lifeboardFont(.body)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -112,29 +122,42 @@ struct EvaPowerUpView: View {
         } else {
             switch evaAccess.state {
             case .hydrating, .needsActivation:
-                Text("Cloud EVA connects automatically. Journal, Health, life moments, and personal memory context are enabled by default. Manage what EVA can use in Settings. Prompts and available context pass through LifeBoard to OpenAI.")
-                    .lifeboardFont(.support)
+                // One trust line with the full disclosure a tap away — the
+                // same notice, in the same words, as the Ready screen.
+                Button { showsDataUse = true } label: {
+                    (Text(LifeWeaveCopy.Ready.evaNotice + " ")
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                     + Text(LifeWeaveCopy.Ready.evaNoticeLink)
+                        .foregroundStyle(Color.lifeboard(.accentPrimary))
+                        .underline())
+                        .lifeboardFont(.support)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("onboarding.eva.sheet.dataUse")
             case .activating:
                 activationCard
             case .ready:
                 readyCard
             case .temporarilyUnavailable(let message):
                 failureCard(
-                    title: "EVA couldn't finish connecting.",
-                    detail: resolvedDetail(message, fallback: "The connection didn't complete. Nothing was lost."),
-                    recovery: "Tap Retry Cloud EVA to pick up where this stopped."
+                    title: String(localized: "Couldn't connect EVA"),
+                    detail: resolvedDetail(message, fallback: String(localized: "Nothing was lost.")),
+                    recovery: String(localized: "Try again to pick up where it stopped.")
                 )
             case .quotaExhausted(let nextAvailableAt):
                 failureCard(
-                    title: "Today's included answers are used up.",
+                    title: String(localized: "You've used today's EVA answers"),
                     detail: quotaDetail(nextAvailableAt),
-                    recovery: "You can wait for the allowance to reset, or use Offline EVA now."
+                    recovery: String(localized: "Wait for more, or use EVA offline now.")
                 )
             case .appleReauthenticationRequired:
                 failureCard(
-                    title: "EVA needs your Apple sign-in again.",
-                    detail: resolvedDetail(nil, fallback: "Your saved EVA session expired, so EVA can't prove this is still you."),
-                    recovery: "Reconnecting with Apple restores the same EVA, with the same settings."
+                    title: String(localized: "Sign in with Apple again"),
+                    detail: resolvedDetail(nil, fallback: String(localized: "Your EVA session expired.")),
+                    recovery: String(localized: "Your EVA and its settings come back as they were.")
                 )
             }
         }
@@ -144,15 +167,14 @@ struct EvaPowerUpView: View {
 
     private var offlineCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            LifeMapEyebrow("OFFLINE EVA")
-            Text("EVA will run on this device.")
+            Text(String(localized: "EVA runs on this iPhone"))
                 .lifeboardFont(.bodyStrong)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
-            Text("Nothing you write leaves this iPhone. Choose and install a local model before EVA can answer. You can switch to Cloud EVA whenever you want.")
+            Text(String(localized: "Nothing leaves your iPhone. Download a model to start."))
                 .lifeboardFont(.support)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Use Cloud EVA instead") { selectCloud() }
+            Button(String(localized: "Use Cloud EVA instead")) { selectCloud() }
                 .buttonStyle(.lifeBoardChip)
                 .accessibilityIdentifier(EvaPowerUpAccessibilityID.cloud)
         }
@@ -170,9 +192,8 @@ struct EvaPowerUpView: View {
     /// "this is broken", and it costs nothing: the stage is already published.
     private var activationCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            LifeMapEyebrow("CONNECTING")
-            ProgressView("Connecting EVA…")
-            DisclosureGroup("Connection details", isExpanded: $showsActivationDetails) {
+            ProgressView(String(localized: "Connecting EVA…"))
+            DisclosureGroup(String(localized: "Details"), isExpanded: $showsActivationDetails) {
             ForEach(activationStages) { stage in
                 EvaPowerUpStageRow(
                     title: stage.title,
@@ -181,11 +202,7 @@ struct EvaPowerUpView: View {
                 )
             }
             }
-            Text("Your LifeBoard is already safe. If this doesn't work, you can keep using it.")
-                .lifeboardFont(.support)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
-            Text("You can continue using LifeBoard. EVA connects automatically in the background.")
+            Text(String(localized: "This keeps going in the background."))
                 .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textTertiary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -230,8 +247,7 @@ struct EvaPowerUpView: View {
 
     private var readyCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            LifeMapEyebrow("CLOUD EVA IS ON")
-            Text("EVA can plan with you now.")
+            Text(String(localized: "EVA is ready"))
                 .lifeboardFont(.bodyStrong)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
             Text(readyDetail)
@@ -258,9 +274,9 @@ struct EvaPowerUpView: View {
     private var readyDetail: String {
         let selected = evaAccess.account.consent?.grants.count ?? evaAccess.selectedGrants.count
         guard selected > 0 else {
-            return "It works from your life areas, tasks, and plans. Your settings exclude the optional categories."
+            return String(localized: "It uses your life areas, tasks, and plans.")
         }
-        return "It works from your life areas, tasks, and plans, plus the \(selected) optional \(selected == 1 ? "category" : "categories") enabled in your settings. You can change those any time in EVA settings."
+        return String(localized: "It uses your life areas, tasks, and plans, plus what you allow in Settings.")
     }
 
     /// Only for a guest session — an Apple-backed one already has recovery.
@@ -270,11 +286,11 @@ struct EvaPowerUpView: View {
 
     private var appleRecovery: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Button("Protect with Apple") { linkApple() }
+            Button(String(localized: "Back up with Apple")) { linkApple() }
                 .buttonStyle(.lifeBoardChip)
                 .disabled(evaAccess.isWorking)
                 .accessibilityIdentifier(EvaPowerUpAccessibilityID.protectWithApple)
-            Text("Optional. It lets this EVA come back if you reinstall LifeBoard or move to a new iPhone. Skipping it changes nothing today.")
+            Text(String(localized: "Optional. Keeps EVA if you reinstall or change iPhones."))
                 .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textTertiary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -287,7 +303,6 @@ struct EvaPowerUpView: View {
     /// LifeBoard is untouched, and what the one button will do about it.
     private func failureCard(title: String, detail: String, recovery: String) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            LifeMapEyebrow("NOT CONNECTED")
             Text(title)
                 .lifeboardFont(.bodyStrong)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
@@ -297,10 +312,6 @@ struct EvaPowerUpView: View {
                 .foregroundStyle(Color.lifeboard(.statusWarning))
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier(EvaPowerUpAccessibilityID.error)
-            Text("Your LifeBoard is finished and saved. Nothing here changes it.")
-                .lifeboardFont(.support)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
             Text(recovery)
                 .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textTertiary))
@@ -333,9 +344,8 @@ struct EvaPowerUpView: View {
     }
 
     private func quotaDetail(_ nextAvailableAt: Date?) -> String {
-        let base = "Cloud EVA includes a set number of answers a day, and today's are gone."
-        guard let nextAvailableAt else { return base }
-        return "\(base) More become available \(nextAvailableAt.formatted(date: .omitted, time: .shortened))."
+        guard let nextAvailableAt else { return String(localized: "More become available tomorrow.") }
+        return String(localized: "More at \(nextAvailableAt.formatted(date: .omitted, time: .shortened)).")
     }
 
     // MARK: - Actions
@@ -373,65 +383,12 @@ struct EvaPowerUpView: View {
             guard succeeded == false else { return }
             let reason = evaAccess.errorMessage
             _ = await evaAccess.ensureActivated(source: .onboarding)
-            appleLinkMessage = reason ?? "That didn't finish. EVA still works — you can protect it later in Settings."
+            appleLinkMessage = reason ?? String(localized: "That didn't finish. EVA still works.")
         }
     }
 }
 
 // MARK: - Stage checklist
-
-/// The disclosure frame, lifted out of `EvaPowerUpView`.
-///
-/// Its own type for two reasons: the parent's largest type was over the
-/// file-size guardrail, and this codebase has already been bitten by god-view
-/// bodies blowing the SwiftUI stack budget at `-Onone`. A section that owns its
-/// own body is the fix for both.
-private struct EvaPowerUpDisclosureSection: View {
-    @ObservedObject var model: LifeWeaveOnboardingModel
-    let isHydrating: Bool
-    let isWorking: Bool
-    @Binding var showsGrantReview: Bool
-    @Binding var showsProcessingDetail: Bool
-    let onChooseOffline: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            EvaCloudDisclosure(
-                grants: EvaConsentPolicy.Grant.allCases.map { grant in
-                    (grant, grant.onboardingTitle, Binding(
-                        get: { model.draft.resolvedEvaGrants.contains(grant) },
-                        set: { model.toggleEvaGrant(grant, enabled: $0) }
-                    ))
-                },
-                isWorking: isWorking,
-                identifierPrefix: "onboarding.lifeweave.powerup.eva"
-            )
-            offlineAlternative
-            if isHydrating {
-                Text("Checking EVA…")
-                    .lifeboardFont(.caption1)
-                    .foregroundStyle(Color.lifeboard(.textTertiary))
-            }
-        }
-        .accessibilityIdentifier(EvaPowerUpAccessibilityID.disclosure)
-    }
-
-    /// Offered, never imposed. A fallback the user did not choose is a downgrade
-    /// they were not told about.
-    private var offlineAlternative: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Button(model.offlineEvaActionTitle) { onChooseOffline() }
-                .buttonStyle(.lifeBoardChip)
-                .disabled(isWorking)
-                .accessibilityIdentifier(EvaPowerUpAccessibilityID.offline)
-            Text("Runs on this device. No account, nothing sent anywhere — slower, and it can't reason as well.")
-                .lifeboardFont(.caption1)
-                .foregroundStyle(Color.lifeboard(.textTertiary))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-}
 
 private enum EvaPowerUpStage: Int, Identifiable, CaseIterable {
     // Raw values follow activation order.
