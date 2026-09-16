@@ -11,6 +11,11 @@ public struct FocusActivityAttributes: ActivityAttributes, Sendable {
         public var updatedAt: Date
         public var primaryCommandToken: UUID
         public var endCommandToken: UUID
+        /// The session's full length, so the island can draw how much is done
+        /// rather than only a countdown. Nil for open-ended sessions.
+        public var targetDuration: TimeInterval?
+        /// Time actually focused, for the ended state ("Done · 25 min").
+        public var focusedDuration: TimeInterval?
 
         public init(
             phase: String,
@@ -18,7 +23,9 @@ public struct FocusActivityAttributes: ActivityAttributes, Sendable {
             expectedEndAt: Date?,
             updatedAt: Date,
             primaryCommandToken: UUID = UUID(),
-            endCommandToken: UUID = UUID()
+            endCommandToken: UUID = UUID(),
+            targetDuration: TimeInterval? = nil,
+            focusedDuration: TimeInterval? = nil
         ) {
             self.phase = phase
             self.remainingDuration = max(0, remainingDuration)
@@ -26,6 +33,16 @@ public struct FocusActivityAttributes: ActivityAttributes, Sendable {
             self.updatedAt = updatedAt
             self.primaryCommandToken = primaryCommandToken
             self.endCommandToken = endCommandToken
+            self.targetDuration = targetDuration
+            self.focusedDuration = focusedDuration
+        }
+
+        /// Where the progress ring starts: the moment the session would have
+        /// begun had it never paused, so `start...expectedEndAt` spans exactly
+        /// the target and the ring shows real progress.
+        public var progressStart: Date? {
+            guard let expectedEndAt, let targetDuration, targetDuration > 0 else { return nil }
+            return expectedEndAt.addingTimeInterval(-targetDuration)
         }
     }
 
