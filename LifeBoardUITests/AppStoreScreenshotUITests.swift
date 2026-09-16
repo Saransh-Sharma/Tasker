@@ -472,7 +472,7 @@ final class AppStoreScreenshotUITests: BaseUITest {
         try tap(composer)
         composer.typeText("Send the launch handoff to Maya tomorrow at 3pm for 30 min #work @studio")
         let send = app.buttons["lifeThread.composer.send"]
-        try require(send, timeout: 8, message: "Universal Capture did not expose Interpret input")
+        try require(send, timeout: 8, message: "Universal Capture did not expose its send control")
         try tap(send)
         try require(
             app.descendants(matching: .any)["addTask.view"],
