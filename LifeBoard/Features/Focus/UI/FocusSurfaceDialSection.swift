@@ -5,10 +5,10 @@ import SwiftUI
 /// Two constraints from `DESIGN.md` shape this, and both are easy to violate by
 /// accident:
 ///
-///   * "The dial does not run an ambient shader and becomes a static progress
-///     presentation under Reduce Motion." So there is no `.lifeboard*` effect
-///     anywhere in this file. The one shader here is `completionBurst`, and it
-///     fires once, on a persisted completion, from the parent.
+///   * The dial carries ambient motion only while a session is running, within
+///     the ambient budget, and settles to a static presentation when paused or
+///     finished. `completionBurst` fires once, on a persisted completion, from
+///     the parent.
 ///   * "Active, paused, and completed states use text, shape, and colour
 ///     together." Pause is therefore announced in the dial's own label, not
 ///     only by the arc changing tint.
@@ -22,21 +22,26 @@ struct FocusSurfaceDialSection: View {
     let store: PlanStore
     let session: FocusSessionV2
     let completionTrigger: Int
+    /// Non-nil once the ending is persisted; the clock freezes at that instant.
+    var settledAt: Date? = nil
+
+    private var isStill: Bool { settledAt != nil || session.state == .paused }
 
     var body: some View {
         ActiveVisibleTimeline(every: 1) { context in
+            let date = settledAt ?? context.date
             let display = FocusClock.display(
                 session: session,
                 companion: store.focusCompanion,
-                at: context.date
+                at: date
             )
             FocusDial(
                 progress: FocusClock.progress(
                     session: session,
                     companion: store.focusCompanion,
-                    at: context.date
+                    at: date
                 ),
-                isPaused: session.state == .paused,
+                isPaused: isStill,
                 accessibilityValue: display.label
             ) {
                 dialCentre(display)
@@ -48,7 +53,7 @@ struct FocusSurfaceDialSection: View {
         // while actually running: a paused dial that keeps breathing would be
         // saying the opposite of what the state is. DESIGN.md's Focus dial
         // contract permits exactly this, bounded by the ambient budget.
-        .lifeBoardAmbientBreath(role: .activeMetric, intensity: session.state == .paused ? 0 : 1)
+        .lifeBoardAmbientBreath(role: .activeMetric, intensity: isStill ? 0 : 1)
         .lifeboardCompletionBurst(trigger: completionTrigger)
         .accessibilityIdentifier("focus.surface.dial")
     }
@@ -76,7 +81,7 @@ struct FocusSurfaceDialSection: View {
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             }
 
-            Text(session.state == .paused ? "Paused" : "In focus")
+            Text(settledAt != nil ? "Saved" : session.state == .paused ? "Paused" : "In focus")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
