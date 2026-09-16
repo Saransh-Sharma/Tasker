@@ -629,6 +629,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendabl
     public var iconSymbolName: String?
     public var lifeAreaID: UUID?
     public var sectionID: UUID?
+    public var plannedDate: Date?
     public var dueDate: Date?
     public var scheduledStartAt: Date?
     public var scheduledEndAt: Date?
@@ -665,6 +666,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendabl
         iconSymbolName: String? = nil,
         lifeAreaID: UUID? = nil,
         sectionID: UUID? = nil,
+        plannedDate: Date? = nil,
         dueDate: Date? = nil,
         scheduledStartAt: Date? = nil,
         scheduledEndAt: Date? = nil,
@@ -699,6 +701,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendabl
         self.iconSymbolName = iconSymbolName
         self.lifeAreaID = lifeAreaID
         self.sectionID = sectionID
+        self.plannedDate = plannedDate
         self.dueDate = dueDate
         self.scheduledStartAt = scheduledStartAt
         self.scheduledEndAt = scheduledEndAt
