@@ -6,7 +6,7 @@ import AVFoundation
 import Network
 import MLXLMCommon
 
-private final class LifeMapOnboardingHostingController: UIHostingController<AnyView> {
+private final class LifeWeaveOnboardingHostingController: UIHostingController<AnyView> {
     override var preferredStatusBarStyle: UIStatusBarStyle {
         traitCollection.userInterfaceStyle == .dark ? .lightContent : .darkContent
     }
@@ -169,7 +169,11 @@ extension AppOnboardingCoordinator {
                 model: self.lifeWeaveModel,
                 onComplete: { [weak self] destination in
                     guard let self else { return }
-                    self.dismissFullFlow(animated: true) {
+                    // The first Home visit belongs to the user's first thing,
+                    // not to a tip about Home.
+                    OnboardingContextualTipState.suppressForArrival()
+                    OnboardingFirstActionSpotlight.arm()
+                    self.dismissFullFlow(animated: true, dissolve: true) {
                         self.deliverFinalizedDestination(destination)
                     }
                 }
@@ -185,12 +189,16 @@ extension AppOnboardingCoordinator {
         // without its own resolution the flow would read the default motion
         // context and a permanently-false shader readiness — which is exactly
         // why the onboarding view already hand-bridges `\.scenePhase`.
+        // Clay reads its specular angle from the daypart. Without it every raised
+        // surface in the first run was lit from the nil default, not the sky
+        // behind it.
+        .lifeBoardClayLight(DaypartResolver.resolve(at: Date()))
         .lifeBoardResolvedMotion(
             comfortProfile: FoundationCoordinator.shared.preferences.comfortProfile,
             requestedAmbientTierID: FoundationCoordinator.shared.preferences.renderingTier.rawValue
         )
 
-        let controller = LifeMapOnboardingHostingController(rootView: AnyView(rootView))
+        let controller = LifeWeaveOnboardingHostingController(rootView: AnyView(rootView))
         controller.modalPresentationStyle = .fullScreen
         controller.modalPresentationCapturesStatusBarAppearance = true
         controller.edgesForExtendedLayout = .all
@@ -201,12 +209,15 @@ extension AppOnboardingCoordinator {
         return true
     }
 
-    func dismissFullFlow(animated: Bool, completion: (() -> Void)? = nil) {
+    func dismissFullFlow(animated: Bool, dissolve: Bool = false, completion: (() -> Void)? = nil) {
         guard let onboardingHost else {
             completion?()
             return
         }
         self.onboardingHost = nil
+        // Finishing dissolves into Home rather than sliding away: the user is
+        // arriving somewhere, not leaving a form.
+        if dissolve { onboardingHost.modalTransitionStyle = .crossDissolve }
         onboardingHost.dismiss(animated: animated, completion: completion)
     }
 
