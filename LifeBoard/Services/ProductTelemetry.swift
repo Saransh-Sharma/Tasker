@@ -50,6 +50,12 @@ struct ProductEventV1: Codable, Sendable {
         case evaQuotaExhausted
         case evaTrustTierObserved
         case evaReadinessHydrated
+        case evaSessionRestored
+        case evaSessionRefreshed
+        case evaSessionMigrated
+        case evaSessionStorageDeferred
+        case evaGuestSessionRecovered
+        case evaAppleReauthenticationRequired
         case evaInlineActivationShown
         case evaActivationAutoResumed
         case evaActivationAndSendCompleted
