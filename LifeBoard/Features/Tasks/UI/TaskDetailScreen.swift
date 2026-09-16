@@ -336,12 +336,10 @@ struct TaskDetailScreen: View {
             HStack(alignment: .top, spacing: spacing.s12) {
                 CompletionControl(
                     isComplete: viewModel.isComplete,
-                    title: viewModel.taskName
-                ) { _ in
-                    viewModel.toggleRootCompletion()
-                }
+                    title: viewModel.taskName,
+                    onCommit: { await viewModel.setRootCompletion($0) }
+                )
                 .accessibilityIdentifier("taskDetail.completeButton")
-                .accessibilityHint("Double tap to toggle completion")
                 .padding(.top, 4)
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
@@ -381,9 +379,9 @@ struct TaskDetailScreen: View {
         )
         .completionCelebration(isComplete: viewModel.isComplete, tint: taskAccentColor)
         .lbCelebrationBurst(trigger: completionBurstTrigger, tint: taskAccentColor)
-        .onChange(of: viewModel.isComplete) { _, isComplete in
-            guard isComplete else { return }
-            // First completion this session earns the particle burst.
+        .onChange(of: viewModel.persistedCompletionCount) { _, _ in
+            // First *persisted* completion this session earns the particle
+            // burst; the optimistic flip of `isComplete` no longer does.
             if sawCompletionThisSession == false {
                 sawCompletionThisSession = true
                 completionBurstTrigger += 1
@@ -510,7 +508,6 @@ struct TaskDetailScreen: View {
                         ) { _ in
                             viewModel.toggleStepCompletion(step)
                         }
-                        .accessibilityHint("Toggle step completion")
 
                         Text(step.title)
                             .font(.lifeboard(.callout))
