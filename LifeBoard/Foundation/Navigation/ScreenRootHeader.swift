@@ -76,6 +76,7 @@ struct ScreenRootHeader: View {
                         .accessibilityIdentifier("eva.chat.back")
                     )
                     : nil,
+                contextAccessory: destination == .home ? AnyView(HomeModeMenu(router: runtime.router)) : nil,
                 secondaryActions: AnyView(
                     // Home's controls outgrew a menu. Atmosphere is a sequence
                     // — a day — and a menu can only list it; SwiftUI menus
@@ -166,5 +167,43 @@ struct ScreenRootHeader: View {
             }
         }
         .zIndex(20)
+    }
+}
+
+/// Home's mode, on the date line: "Wednesday, September 16 · Smart ⌄".
+///
+/// Smart, Work, Personal, and Low Energy change what Home includes, so the
+/// choice belongs where the day is named, not two levels down a display panel
+/// or in a second date row repeated beneath the header.
+private struct HomeModeMenu: View {
+    let router: AppRouter
+
+    var body: some View {
+        Menu {
+            Picker("Home mode", selection: Binding(
+                get: { router.dashboardMode },
+                set: { mode in
+                    Haptic.pick.play()
+                    router.dashboardMode = mode
+                }
+            )) {
+                ForEach(DashboardMode.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text("·").accessibilityHidden(true)
+                Text(router.dashboardMode.title)
+                Image(systemName: "chevron.down")
+                    .lifeboardFont(.caption2)
+                    .accessibilityHidden(true)
+            }
+            .lifeboardFont(.buttonSmall)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Home mode, \(router.dashboardMode.title)")
+        .accessibilityIdentifier("home.mode")
     }
 }
