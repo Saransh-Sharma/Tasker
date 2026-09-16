@@ -4,23 +4,34 @@
 **Audience:** Product, design, engineering, QA, support
 **Capability status:** Current workspace
 **Source authority:** Life Weave lifecycle/state, commit coordinator, Setup Center, signed runtime configuration
-**Last verified:** 2026-08-20
+**Last verified:** 2026-09-16
 **Persistence:** Life Weave draft schema 9; refresh version 1
 
 ## Outcome
 
 Life Weave creates the minimum useful LifeBoard system without requiring an account, network, permission, calendar, Health access, notifications, or an EVA model. That guarantee is unchanged by the Power-Up phase, because core completion is recorded before the phase begins. Setup Center remains the permanent surface for the same optional connections.
 
-The canonical core has six stages:
+The first run is **four screens**, each asking one question:
 
-1. **Arrival:** promise, privacy line, and one primary action.
-2. **Intent:** desired change and optional friction signals.
-3. **Life areas:** select two to five and choose the leading area.
-4. **Day shape:** choose a preset or explicitly edit working hours.
-5. **First Capture:** optionally interpret and confirm one real Task or Journal entry; Skip is always available.
-6. **Reveal:** read the deterministic result and explicitly choose **Power up LifeBoard** or **Start now**. The Reveal carries no connector setup and no consent controls of its own.
+1. **Welcome and intent** (`arrival`): a time-of-day greeting, "What do you want help with?", six short options with no subtitles, and one privacy line.
+2. **Life areas** (`lifeAreas`): "What's on your plate?" Pick two to five tiles. **Pick order is the ranking** — the first pick carries ① and leads. The dock says what is missing ("Pick 2 more").
+3. **First thing** (`firstCapture`): "What's on your mind?" The sentence is interpreted on a pause in typing and shown as a **Save as Task | Journal** choice. **Save** is the only action; **Skip** is always available. Nothing is written until Save.
+4. **Ready** (`reveal`): a receipt of facts (the saved thing, the leading area, weekday hours with **Edit**), optional **Calendar / Apple Health / EVA** rows that open as sheets and return here, a one-line EVA notice with **What EVA can see**, and **Start my day**.
 
-Calendar, Apple Health, and EVA are not *core* steps, core progress items, or completion requirements. They form the optional Power-Up phase that follows the Reveal, counted in its own vocabulary ("POWER UP 1 OF 3") so an optional phase is never mistaken for four more mandatory steps. Reminders remain contextual and are not part of first run at all.
+Usual hours and week start are defaults, edited from Ready — never asked. The optional "what gets in the way?" question is retired. `LifeWeaveStep` keeps all six cases so older drafts decode; `intent` resumes on Welcome and `dayShape` on Life areas.
+
+Calendar, Apple Health, and EVA are not core steps or completion requirements. They are sheets over Ready and never take a progress position. Reminders remain contextual and are not part of first run.
+
+## Content rules
+
+All first-run strings live in `LifeWeaveCopy` and go through `String(localized:)`. `LifeWeaveOnboardingTests` enforces:
+
+- **One screen, one question.** The title is the question.
+- **Budgets:** titles ≤ 6 words, options ≤ 4, support lines ≤ 10, buttons ≤ 3.
+- **User words, not system words:** never "route", "module", "life map", "weave", "power up", "clearest path", "boundary".
+- **The button names what happens,** and when disabled says what is missing.
+- **Defaults over questions;** privacy in one sentence with detail one tap away, never repeated on a screen.
+- **Delight is earned:** one signature moment per screen (first light on the welcome title, nodes blooming onto the map, the typed sentence landing on the receipt, checks drawing in on Ready), all opacity-only under Reduce Motion.
 
 ## Audience policy
 
@@ -39,9 +50,7 @@ The persisted lifecycle is `editing → committing → captureWritten → reveal
 
 - Canonical writes stop at `captureWritten`; this does not mark onboarding complete.
 - `revealReady` is persisted before Reveal appears.
-- Both Reveal exits invoke the same idempotent finalizer.
-- **Start my day** finalizes and opens Home.
-- **Personalize more** finalizes, opens Home, then routes to Setup Center.
+- **Start my day** invokes the idempotent finalizer, records any unopened connection as deferred, and dissolves into Home, where the first-action card is highlighted once and the Home tip waits for a later visit.
 - A relaunch before finalization restores the exact draft or persisted Reveal.
 - A relaunch after finalization delivers the stored destination without replaying writes.
 - Stable record identifiers and phase receipts make retries duplicate-safe.
