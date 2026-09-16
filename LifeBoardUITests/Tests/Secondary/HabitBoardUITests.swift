@@ -740,3 +740,44 @@ final class HabitBoardUITests: BaseUITest {
         accessibilityDateFormatter.string(from: date)
     }
 }
+
+/// The amount ring on the Board's Day lens: tap adds a step, holding fills to
+/// the target, and each change is announced in the person's own units.
+final class HabitAmountRingUITests: BaseUITest {
+    override var additionalLaunchArguments: [String] {
+        [
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
+            XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue,
+            XCUIApplication.LaunchArgumentKey.testPresentHabitBoard.rawValue,
+            "-LIFEBOARD_TEST_SEED_HABIT_AMOUNTS"
+        ]
+    }
+
+    func testRingAddsAStepOnTapAndFinishesOnHold() {
+        // In the Foundation shell the board is a typed Track leaf, reached from
+        // Home's routines card.
+        let openBoard = app.buttons["home.routines.openHabitBoard"]
+        for _ in 0..<10 where openBoard.exists == false || openBoard.isHittable == false {
+            app.swipeUp()
+        }
+        if openBoard.isHittable { openBoard.tap() }
+        let dayLens = app.buttons["habitBoard.lens.day"]
+        XCTAssertTrue(dayLens.waitForExistence(timeout: 12))
+        dayLens.tap()
+
+        let ring = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.day.ring.")).firstMatch
+        XCTAssertTrue(ring.waitForExistence(timeout: 10), "An amount habit shows a ring on the Day lens")
+        XCTAssertEqual(ring.value as? String, "0 of 8 glasses")
+
+        ring.tap()
+        XCTAssertTrue(waitForValue("1 of 8 glasses", on: ring), "A tap adds one step")
+
+        ring.press(forDuration: 1.4)
+        XCTAssertTrue(waitForValue("8 of 8 glasses", on: ring), "Holding fills the ring to the target")
+    }
+
+    private func waitForValue(_ expected: String, on element: XCUIElement, timeout: TimeInterval = 8) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", expected)
+        return XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
+    }
+}
