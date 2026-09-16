@@ -17,6 +17,9 @@ struct HomeCardPlacementSheet: View {
     let onAdd: (WidgetSizePreset) -> Void
 
     @State private var selectedSize: WidgetSizePreset
+    @State private var previewContentWidth: CGFloat = 353
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
@@ -45,6 +48,16 @@ struct HomeCardPlacementSheet: View {
                         Text("Choose how much this card should reveal. You can resize or move it any time.")
                             .font(.body)
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Sample preview")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        HomeCardSamplePreview(descriptor: descriptor, preset: selectedSize)
+                            .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : HomeCardPresentationStyle.cardWidth(
+                                contentWidth: previewContentWidth, preset: selectedSize, regular: horizontalSizeClass == .regular))
+                            .frame(maxWidth: .infinity)
                     }
 
                     homeMiniature
@@ -93,6 +106,11 @@ struct HomeCardPlacementSheet: View {
             }
         }
         .presentationDetents([.large])
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+            // Measure the container, never the child whose width this controls.
+            // Home's 20pt margins determine the corresponding card width.
+            previewContentWidth = max(0, width - 40)
+        }
     }
 
     @ViewBuilder
@@ -116,7 +134,7 @@ struct HomeCardPlacementSheet: View {
                   ? Color(SemanticColorTokens.inkPrimary)
                   : Color(SemanticColorTokens.inkSecondary))
             .accessibilityLabel(size.title)
-            .accessibilityHint("Uses (size.canonicalGridSpan.columns) columns and (size.canonicalGridSpan.rows) rows")
+            .accessibilityHint("Uses \(size.canonicalGridSpan.columns) columns and \(size.canonicalGridSpan.rows) rows")
             .accessibilityValue(selectedSize == size ? "Selected" : "")
         }
     }
