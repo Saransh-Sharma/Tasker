@@ -229,7 +229,7 @@ extension LifeThreadComposerHost {
                     withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
                         composer.state == .tools ? composer.focus() : composer.showTools()
                     }
-                    HapticFeedback.light()
+                    Haptic.pick.play()
                 } label: {
                     // The plus rotates into the close glyph rather than
                     // swapping, so the control reads as one object opening.
@@ -351,18 +351,23 @@ extension LifeThreadComposerHost {
                     }
                     .buttonStyle(.plain)
                     .disabled(composer.state == .working)
+                    // "Interpret input" was internal vocabulary read aloud to
+                    // the person. `DESIGN.md`: plain language, never internal
+                    // terminology.
                     .accessibilityLabel(
                         composer.hasDraft
-                            ? "Interpret input"
+                            ? "Send"
                             : (V2FeatureFlags.universalInputDictationEnabled ? "Start dictation" : "Record journal audio")
                     )
                     .accessibilityIdentifier("lifeThread.composer.send")
                 }
             }
             .padding(8)
-            .lifeBoardGlassSurface(cornerRadius: 27, interactive: true)
+            // `Radius.dock` (30) is the token for dock and composer clusters;
+            // 27 was off the shape vocabulary entirely.
+            .lifeBoardGlassSurface(cornerRadius: Radius.dock, interactive: true)
             .overlay {
-                RoundedRectangle(cornerRadius: 27, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.dock, style: .continuous)
                     .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
             }
             .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.16), radius: 12, y: 6)
@@ -379,7 +384,9 @@ extension LifeThreadComposerHost {
         .onChange(of: resolvedPresentation) { previous, next in
             guard previous != next else { return }
             presentation = next
-            Haptic.settle.play()
+            // No haptic: scrolling past a threshold is not a commit, a selection
+            // or a direct-manipulation settle, and buzzing on every compress and
+            // restore made ordinary scrolling feel like a series of decisions.
         }
     }
 }
