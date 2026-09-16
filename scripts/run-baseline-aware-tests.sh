@@ -20,6 +20,26 @@ trap 'rm -f "$FAILURES_FILE" "$SUMMARY_FILE" "$BASELINE_NORMALIZED"' EXIT
 rm -rf "$RESULT_BUNDLE"
 mkdir -p "$(dirname "$RESULT_BUNDLE")"
 
+PROFILE="${LIFEBOARD_TEST_PROFILE:-full}"
+PROFILE_FLAGS=()
+case "$PROFILE" in
+  full) ;;
+  representative-redesign)
+    PROFILE_FLAGS=(
+      -skip-testing:LifeBoardTests/HomeCardPresentationTests/testAccessibilityPreviewRemainsMeasurableForEveryKind
+      -skip-testing:LifeBoardTests/HomeCardPresentationTests/testPreviewDimensionsAndRenderEvidence
+      -skip-testing:LifeBoardTests/HomeCardPresentationTests/testExportInstrumentedElementSpecifications
+      -skip-testing:LifeBoardTests/TypographyTokenTests/testDisplayFontClampsToExpectedRange
+      -skip-testing:LifeBoardTests/TypographyTokenTests/testTextStylesAreDynamicTypeCompatibleAndNotHelvetica
+      -skip-testing:LifeBoardTests/TypographyTokenTests/testNonDisplayStylesScaleWithoutClampInLargeAccessibility
+      -skip-testing:LifeBoardTests/TypographyTokenTests/testDynamicFontPreservesLayoutClassScale
+      -skip-testing:LifeBoardTests/TypographyTokenTests/testEverySemanticTextRoleScalesAcrossPhonePadAndAccessibility
+    )
+    echo "Representative redesign profile: excludes XXXL, exhaustive sample geometry, and explicit specification exports."
+    ;;
+  *) echo "Unknown LIFEBOARD_TEST_PROFILE: $PROFILE" >&2; exit 2 ;;
+esac
+
 set +e
 xcodebuild \
   -workspace "LifeBoard.xcworkspace" \
@@ -27,6 +47,7 @@ xcodebuild \
   -destination "$DESTINATION" \
   -derivedDataPath "$DERIVED_DATA" \
   -only-testing:LifeBoardTests \
+  ${PROFILE_FLAGS[@]+"${PROFILE_FLAGS[@]}"} \
   -resultBundlePath "$RESULT_BUNDLE" \
   test
 XCODEBUILD_STATUS=$?
@@ -91,4 +112,4 @@ if [[ $XCODEBUILD_STATUS -ne 0 && ! -s "$FAILURES_FILE" ]]; then
   exit "$XCODEBUILD_STATUS"
 fi
 
-echo "✅ Full LifeBoardTests result matches the explicit legacy-failure baseline."
+echo "✅ LifeBoardTests ($PROFILE profile) result matches the explicit legacy-failure baseline."
