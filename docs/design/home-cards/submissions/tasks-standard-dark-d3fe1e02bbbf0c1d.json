@@ -1,0 +1,74 @@
+{
+  "id": "tasks-standard-dark",
+  "appearance": "dark",
+  "requested_canvas_pixels": [
+    2048,
+    2048
+  ],
+  "card_rect_pixels": [
+    683,
+    70,
+    682,
+    1907
+  ],
+  "final_export_pixels": [
+    682,
+    1907
+  ],
+  "submitted_prompt": "FRAMING HYPOTHESIS: Image 1 explicitly shows the exact narrow native card on a contrasting teal matte. Reproduce the WHOLE square canvas including the matte. The card must stay inside the exact central narrow rectangle, with all task circles and chevrons intact. Do not widen the card or crop away the matte. The matte is intentional removable canvas padding, never artwork or card content.\nUse case: ui-mockup. Stable ID tasks-standard-dark. Create one dark LifeBoard Today’s Tasks Home card reference.\nImage 2 is accepted scene artwork; Image 1 is the authoritative native structural fixture. Preserve its exact copy, symbols, line wrapping, foreground, controls, and relative geometry.\nLogical bounds 170.5 x 476.75 points. Final export 682 x 1907 pixels at 4 pixels per point. Requested generation canvas 2048 x 2048 pixels. Exact card placement x,y,width,height=[683, 70, 682, 1907]. Only the specified canvas padding is allowed. No extra internal or external margin, frame or drop-shadow canvas.\nNative elements in logical points (rectangles x,y,width,height), with exact visible text and resolved San Francisco typography: [{\"copy\": \"Today’s tasks\", \"id\": \"tasks.title\", \"rect\": [47.75, 16, 65.25, 40.75], \"role\": \"title\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 17, \"role\": \"headline\", \"weight\": \"semibold\"}}, {\"copy\": \"\", \"id\": \"tasks.row.00000000-0000-0000-0000-000000000001\", \"rect\": [16, 68.75, 138.5, 58], \"role\": \"row\"}, {\"copy\": \"\", \"id\": \"tasks.open.00000000-0000-0000-0000-000000000001\", \"rect\": [60, 68.75, 94.5, 58], \"role\": \"control\"}, {\"copy\": \"Sketch the first draft\", \"id\": \"tasks.text.00000000-0000-0000-0000-000000000001\", \"rect\": [60, 68.75, 74.25, 58], \"role\": \"text\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"subheadline\", \"weight\": \"medium\"}}, {\"copy\": \"\", \"id\": \"tasks.complete.00000000-0000-0000-0000-000000000001\", \"rect\": [5, 75.75, 44, 44], \"role\": \"control\"}, {\"copy\": \"\", \"id\": \"tasks.row.00000000-0000-0000-0000-000000000002\", \"rect\": [16, 138.75, 138.5, 58], \"role\": \"row\"}, {\"copy\": \"\", \"id\": \"tasks.open.00000000-0000-0000-0000-000000000002\", \"rect\": [60, 138.75, 94.5, 58], \"role\": \"control\"}, {\"copy\": \"Book a library visit\", \"id\": \"tasks.text.00000000-0000-0000-0000-000000000002\", \"rect\": [60, 138.75, 74.25, 58], \"role\": \"text\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"subheadline\", \"weight\": \"medium\"}}, {\"copy\": \"\", \"id\": \"tasks.complete.00000000-0000-0000-0000-000000000002\", \"rect\": [5, 145.75, 44, 44], \"role\": \"control\"}, {\"copy\": \"\", \"id\": \"tasks.row.00000000-0000-0000-0000-000000000003\", \"rect\": [16, 208.75, 138.5, 58], \"role\": \"row\"}, {\"copy\": \"Water the balcony plants\", \"id\": \"tasks.text.00000000-0000-0000-0000-000000000003\", \"rect\": [60, 208.75, 74.25, 58], \"role\": \"text\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"subheadline\", \"weight\": \"medium\"}}, {\"copy\": \"\", \"id\": \"tasks.open.00000000-0000-0000-0000-000000000003\", \"rect\": [60, 208.75, 94.5, 58], \"role\": \"control\"}, {\"copy\": \"\", \"id\": \"tasks.complete.00000000-0000-0000-0000-000000000003\", \"rect\": [5, 215.75, 44, 44], \"role\": \"control\"}, {\"copy\": \"\", \"id\": \"tasks.row.00000000-0000-0000-0000-000000000004\", \"rect\": [16, 278.75, 138.5, 78], \"role\": \"row\"}, {\"copy\": \"\", \"id\": \"tasks.open.00000000-0000-0000-0000-000000000004\", \"rect\": [60, 278.75, 94.5, 78], \"role\": \"control\"}, {\"copy\": \"Review the weekly plan\", \"id\": \"tasks.text.00000000-0000-0000-0000-000000000004\", \"rect\": [60, 278.75, 74.25, 78], \"role\": \"text\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"subheadline\", \"weight\": \"medium\"}}, {\"copy\": \"\", \"id\": \"tasks.complete.00000000-0000-0000-0000-000000000004\", \"rect\": [5, 295.75, 44, 44], \"role\": \"control\"}, {\"copy\": \"Add a task\", \"id\": \"tasks.add\", \"rect\": [16, 368.75, 99.25, 44], \"role\": \"control\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"subheadline\", \"weight\": \"semibold\"}}, {\"copy\": \"Show more\", \"id\": \"tasks.expansion\", \"rect\": [16, 416.75, 104.75, 44], \"role\": \"control\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"subheadline\", \"weight\": \"semibold\"}}]. Empty copy means a symbol-only control or grouping, never print the IDs, roles, or JSON metadata.\nArtwork fills the existing card background [0,0,170.5,476.75] beneath every native layer. Proportional fill clipped to 24-point rounded bounds. Opacity 0.28 multiplied by leading-to-trailing mask 0:0.08, 0.35:0.20, 1:1. Artwork should be as faint as Image 1. No separate artwork row, reserved text column, footer, or increased card height.\nPalette {\"surface\": \"#282A44\", \"ink\": \"#F7F1E7\", \"secondary\": \"#C9C3B8\", \"accent\": \"#E5B96D\"}. Subject Paper-and-pencil vignette; preserve the accepted scene objects and painterly medium. Opaque UI reference, no alpha required. Appearance is independent of morning daypart.\nReading and control regions: {\"reading_regions\": [[47.75, 16, 65.25, 40.75], [60, 68.75, 74.25, 58], [60, 138.75, 74.25, 58], [60, 208.75, 74.25, 58], [60, 278.75, 74.25, 78], [16, 368.75, 99.25, 44], [16, 416.75, 104.75, 44]], \"controls\": [[60, 68.75, 94.5, 58], [5, 75.75, 44, 44], [60, 138.75, 94.5, 58], [5, 145.75, 44, 44], [60, 208.75, 94.5, 58], [5, 215.75, 44, 44], [60, 278.75, 94.5, 78], [5, 295.75, 44, 44], [16, 368.75, 99.25, 44], [16, 416.75, 104.75, 44]], \"ambient_background\": [0, 0, 170.5, 476.75], \"edge_clearance\": 16}. Preserve exact native control sizes; retain opaque foreground text. Do not add buttons, rows, data, logos, watermark, device frame, completion or health claims.\nFixed fixture {\"appearance\": \"dark\", \"date\": \"2026-09-15\", \"daypart\": \"morning\", \"dynamic_type\": \"large\", \"fixture_version\": 4, \"id\": \"tasks-standard-dark\", \"locale\": \"en_US\", \"renderer\": \"shared-native-content-preview\", \"safe_areas\": \"isolated card; production-route safe areas require separate evidence\", \"time_zone\": \"UTC\", \"viewport_points\": [393, 852]}. References: [{\"name\": \"tasks-standard-dark accepted scene\", \"path\": \"DesignAssets/Sources/HomeCards/tasks-scene-dark.png\", \"role\": \"Image 2: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.\", \"sha256\": \"d3b527ff92b0b233ea7135010e22d6a57e264be658d2b383979f67ee0fd663b4\"}, {\"name\": \"tasks-standard-dark measured native structure\", \"path\": \"docs/design/home-cards/structural-canvases/tasks-standard-dark.png\", \"role\": \"Image 1: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.\", \"sha256\": \"38335a70066e00714b1355867cefdb23ff3e3b2904ffaac7773dfeb97bff574c\"}].\nOutput PNG: docs/design/home-cards/references/tasks-standard-dark.png. Preserve aspect ratio; never stretch. Record actual dimensions and explicit export transform; reject essential clipping and unintended aspect correction above 4%.\nAcceptance: exact copy and rows/actions, recognizable but quiet ambient art, readable native foreground, consistent appearance, correct dimensions, no extra margins or essential clipping.",
+  "references": [
+    {
+      "name": "tasks-standard-dark measured native structure",
+      "path": "docs/design/home-cards/structural-canvases/tasks-standard-dark.png",
+      "role": "Image 1: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.",
+      "sha256": "38335a70066e00714b1355867cefdb23ff3e3b2904ffaac7773dfeb97bff574c",
+      "frozen_path": "docs/design/home-cards/submissions/inputs/38335a70066e00714b1355867cefdb23ff3e3b2904ffaac7773dfeb97bff574c.png"
+    },
+    {
+      "name": "tasks-standard-dark accepted scene",
+      "path": "DesignAssets/Sources/HomeCards/tasks-scene-dark.png",
+      "role": "Image 2: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.",
+      "sha256": "d3b527ff92b0b233ea7135010e22d6a57e264be658d2b383979f67ee0fd663b4",
+      "frozen_path": "docs/design/home-cards/submissions/inputs/d3b527ff92b0b233ea7135010e22d6a57e264be658d2b383979f67ee0fd663b4.png"
+    }
+  ],
+  "specification_sha256": "52e9cd3419ef2f74d451e54014b8c8e296395249fe13267851dd4db0dacf333d",
+  "prepared_at": "2026-09-15T20:46:24.472575+00:00",
+  "revision_reason": "Explicit native structural canvas with contrasting matte preserves narrow card placement.",
+  "design_review_hypothesis": "Show exact 682x1907 native card within 2048 square teal matte at x683 y70, rather than describing padding only.",
+  "design_revision": "ambient-v1",
+  "source_signatures": {
+    "renderer": "d4235a8b1637963037114ea596d0616660ce5343ad82e93e59aa90090807ecb4",
+    "files": {
+      "LifeBoard/DesignSystem/HomeCards/HomeActionQueueCardContent.swift": "a580c2afb8345077b69c09ef16113577dae22536d2d9a74841463ddd3778abb7",
+      "LifeBoard/DesignSystem/HomeCards/HomeAmbientArtwork.swift": "736d53a858344b250f97c1fdca86aabb803101eddf43ca96aa9ee7d238f718d3",
+      "LifeBoard/DesignSystem/HomeCards/HomeCapacityCardContent.swift": "0f72e23164e726d6e011b499a2ed96a145ab9055529c77ca62507f5d9ca60874",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardGeometryRecorder.swift": "2d9c5207b043d0ee4615b2c8218a0df1fe392e64152299adb59c02f15d06727d",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardIllustratedSurface.swift": "b8c9698753f4e0987c358b8ec22ec5b34b292a33d6cd8edf796bfa32047e2d67",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardPresentationStyle.swift": "a91c562e1b47c08763b47f14179beb463caa78d60fe32cf0cf9e84486af07607",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardPreviewFixtures.swift": "b857c5884571494e76fd9923b74bdf4d1301fd5b8d273fa07990bfbfb3caa2b5",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardQueueRow.swift": "245e6a3bab9ff3b13e71f308d3987da45237a9cf64aafb28058d3589f37a2381",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardSamplePreview.swift": "21b7a6020bbdb9c78590a0c85da48c0b0e2208959d0ab9ddd0ed9d984127cbdb",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardScene.swift": "b144f3da2d34f81c30582f36b816413c0567568567d06d209c5cd70402d75e43",
+      "LifeBoard/DesignSystem/HomeCards/HomeFastingCardContent.swift": "8ae0a0ee7f7ce89989c408bed720356454349d67d5748ccd637409f76e4478d0",
+      "LifeBoard/DesignSystem/HomeCards/HomeFocusCardContent.swift": "d3993325eade0f56966b789c355c01844b42cf7b50466f4c788f06c6ff130d2c",
+      "LifeBoard/DesignSystem/HomeCards/HomeGlanceCardContent.swift": "4fa7d1dd716ff3724c3617b897640000d3a33c6db1e70ffdd68f0112954f9276",
+      "LifeBoard/DesignSystem/HomeCards/HomeJournalCardContent.swift": "549db340d0371ccbaea89223b48c9234482ae973de6e534900979f1d71fc3360",
+      "LifeBoard/DesignSystem/HomeCards/HomeLifeSnapshotCardContent.swift": "de6e15ea6fc5a483601859b86b972a70a2b6fb778f49d11dad4c8ca875bc9777",
+      "LifeBoard/DesignSystem/HomeCards/HomeProgressCardContent.swift": "6be6c0fe0692746a2f4d2b4d7d113529e294b949d794b0d7d49b3714fb51d566",
+      "LifeBoard/DesignSystem/HomeCards/HomeQuickCaptureCardContent.swift": "67fcbba772482f339af84915fe7cbaf60d1ac0adaebe2474292c9f5f6fa75c15",
+      "LifeBoard/DesignSystem/HomeCards/HomeSceneImageCache.swift": "1fd2da337373fb880f3b6246d5d30d4e9c4008de9d50bd1e844724f1efb7c0ae",
+      "LifeBoard/DesignSystem/HomeCards/HomeTasksCardContent.swift": "a44eb9cbaeb60dd1aa0d2fec53cc99cc53445a4aa1d750f06b4c0bc8f9c061b5",
+      "LifeBoard/DesignSystem/HomeCards/HomeTimelineCardContent.swift": "a148ecbb72894c90c185737a5c5ca8385d408aa4323ac19f5c0409cefbb02950",
+      "LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift": "94691ee7b91e0ffe5dc70f20904b219ca56ebdb0ced6975a66c9c7ebe743c724",
+      "LifeBoard/DesignSystem/LifeBoardCardPrimitives.swift": "297ea06af07927559ba266757024656a38a74d7bc74c3788a5060e8afd8e23b3",
+      "LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift": "2f0b215c4a69e06a496af4cb159eb22db48c77462c403d46cbfee8513fd18977",
+      "Packages/LifeBoardTokens/Sources/LifeBoardTokens/SemanticTypographyTokens.swift": "56b422cc854f08582a527320239590e574774afbf780cebef2fc5ad49b37d635",
+      "Packages/LifeBoardUI/Sources/LifeBoardUI/NumericRoll.swift": "519351aeb11829f080aacb72b92033e533e47638bfcbfd4acdbd61e5ca54ba30"
+    },
+    "typography": "56b422cc854f08582a527320239590e574774afbf780cebef2fc5ad49b37d635",
+    "fixture": "b857c5884571494e76fd9923b74bdf4d1301fd5b8d273fa07990bfbfb3caa2b5",
+    "artwork": "d3b527ff92b0b233ea7135010e22d6a57e264be658d2b383979f67ee0fd663b4",
+    "capture": "8bf9fffecb599f0a4be0aeebb182a706b2887373d23d63561ba6aab4aa174019"
+  }
+}
