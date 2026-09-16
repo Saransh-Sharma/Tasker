@@ -74,7 +74,7 @@ extension LifeThreadComposerHost {
                     preferredCaptureKind: kind
                 )
             )
-            HapticFeedback.light()
+            Haptic.pick.play()
         } label: {
             Label(title, systemImage: systemImage)
                 .font(.caption.weight(.semibold))
