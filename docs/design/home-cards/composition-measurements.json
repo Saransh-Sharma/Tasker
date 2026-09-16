@@ -1,0 +1,2578 @@
+{
+  "bodyMetric-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "bodyMetric-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "bodyMetric-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "bodyMetric-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "bodyMetric-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      179.5
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      179.5
+    ]
+  },
+  "bodyMetric-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      195
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      195
+    ]
+  },
+  "bodyMetric-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "bodyMetric-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "bodyMetric-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      187
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      187
+    ]
+  },
+  "bodyMetric-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      187
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      187
+    ]
+  },
+  "care-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "care-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "care-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      388.5
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      388.5
+    ]
+  },
+  "care-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      388.5
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      388.5
+    ]
+  },
+  "care-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      276.5
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      276.5
+    ]
+  },
+  "care-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      394.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      394.5
+    ]
+  },
+  "care-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      332.5
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      332.5
+    ]
+  },
+  "care-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      332.5
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      332.5
+    ]
+  },
+  "care-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      276.5
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      276.5
+    ]
+  },
+  "care-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      276.5
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      276.5
+    ]
+  },
+  "compactTimeline-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "compactTimeline-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "compactTimeline-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "compactTimeline-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      178
+    ]
+  },
+  "compactTimeline-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "compactTimeline-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "compactTimeline-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      203.5
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      203.5
+    ]
+  },
+  "compactTimeline-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      203.5
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      203.5
+    ]
+  },
+  "evaConversation-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "evaConversation-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      183
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      183
+    ]
+  },
+  "evaConversation-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "evaConversation-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "evaConversation-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "evaConversation-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      178
+    ]
+  },
+  "fasting-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "fasting-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "fasting-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "fasting-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "fasting-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "fasting-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      178
+    ]
+  },
+  "fasting-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "fasting-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "fasting-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "fasting-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      178
+    ]
+  },
+  "focusNow-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "focusNow-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "focusNow-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "focusNow-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      203
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      203
+    ]
+  },
+  "focusNow-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "focusNow-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "focusNow-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "focusNow-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      178
+    ]
+  },
+  "goals-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "goals-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "goals-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "goals-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      197.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      197.5
+    ]
+  },
+  "goals-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "goals-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "goals-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      186
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      186
+    ]
+  },
+  "goals-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      186
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      186
+    ]
+  },
+  "journal-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "journal-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "journal-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      231.5
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      231.5
+    ]
+  },
+  "journal-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      327.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      327.5
+    ]
+  },
+  "journal-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "journal-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "journal-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      211.5
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      211.5
+    ]
+  },
+  "journal-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      231.5
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      231.5
+    ]
+  },
+  "lifeMoment-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "lifeMoment-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "lifeMoment-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "lifeMoment-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "lifeMoment-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "lifeMoment-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      197.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      197.5
+    ]
+  },
+  "lifeMoment-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "lifeMoment-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "lifeMoment-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "lifeMoment-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      178
+    ]
+  },
+  "lifeSnapshot-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "lifeSnapshot-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "lifeSnapshot-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "lifeSnapshot-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      197.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      197.5
+    ]
+  },
+  "lifeSnapshot-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "lifeSnapshot-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "lifeSnapshot-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "lifeSnapshot-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      231.5
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      231.5
+    ]
+  },
+  "logMeal-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "logMeal-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "logMeal-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "logMeal-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      198.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      198.5
+    ]
+  },
+  "logMeal-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "logMeal-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      178
+    ]
+  },
+  "movement-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "movement-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "movement-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "movement-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "movement-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      180
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      180
+    ]
+  },
+  "movement-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      195.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      195.5
+    ]
+  },
+  "movement-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "movement-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "movement-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      187.5
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      187.5
+    ]
+  },
+  "movement-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      187.5
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      187.5
+    ]
+  },
+  "nutritionSummary-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "nutritionSummary-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "nutritionSummary-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "nutritionSummary-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "nutritionSummary-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      179.5
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      179.5
+    ]
+  },
+  "nutritionSummary-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      210.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      210.5
+    ]
+  },
+  "nutritionSummary-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "nutritionSummary-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "nutritionSummary-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      187
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      187
+    ]
+  },
+  "nutritionSummary-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      187
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      187
+    ]
+  },
+  "progressReflection-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "progressReflection-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "progressReflection-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "progressReflection-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "progressReflection-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "progressReflection-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      260.5224609375
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      260.5224609375
+    ]
+  },
+  "progressReflection-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "progressReflection-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "progressReflection-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "progressReflection-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      178
+    ]
+  },
+  "quickCapture-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "quickCapture-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "quickCapture-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "quickCapture-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      198.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      198.5
+    ]
+  },
+  "quickCapture-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "quickCapture-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      178
+    ]
+  },
+  "recentMeal-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "recentMeal-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "recentMeal-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "recentMeal-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      178
+    ]
+  },
+  "recentMeal-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "recentMeal-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "recentMeal-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "recentMeal-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      178
+    ]
+  },
+  "routines-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      412
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      412
+    ]
+  },
+  "routines-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      412
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      412
+    ]
+  },
+  "routines-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      300
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      300
+    ]
+  },
+  "routines-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      314
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      314
+    ]
+  },
+  "routines-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      356
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      356
+    ]
+  },
+  "routines-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      356
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      356
+    ]
+  },
+  "routines-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      300
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      300
+    ]
+  },
+  "routines-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      300
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      300
+    ]
+  },
+  "scheduleCapacity-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "scheduleCapacity-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "scheduleCapacity-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "scheduleCapacity-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      202.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      202.5
+    ]
+  },
+  "scheduleCapacity-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "scheduleCapacity-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "scheduleCapacity-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "scheduleCapacity-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      178
+    ]
+  },
+  "setupChecklist-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "setupChecklist-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      213
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      213
+    ]
+  },
+  "setupChecklist-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      186
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      186
+    ]
+  },
+  "setupChecklist-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      186
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      186
+    ]
+  },
+  "sleep-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "sleep-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "sleep-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "sleep-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "sleep-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      178
+    ]
+  },
+  "sleep-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      178
+    ]
+  },
+  "sleep-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "sleep-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "sleep-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      178
+    ]
+  },
+  "sleep-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      178
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      178
+    ]
+  },
+  "tasks-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      444.5
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      444.5
+    ]
+  },
+  "tasks-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      444.5
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      444.5
+    ]
+  },
+  "tasks-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      332.5
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      332.5
+    ]
+  },
+  "tasks-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      477
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      477
+    ]
+  },
+  "tasks-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      332.5
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      332.5
+    ]
+  },
+  "tasks-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      332.5
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      332.5
+    ]
+  },
+  "tasks-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      332.5
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      332.5
+    ]
+  },
+  "tasks-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      332.5
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      332.5
+    ]
+  },
+  "workout-compact-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      104
+    ]
+  },
+  "workout-compact-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      104
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      104
+    ]
+  },
+  "workout-expanded-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      340
+    ]
+  },
+  "workout-expanded-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      340
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      340
+    ]
+  },
+  "workout-standard-ipad" : {
+    "content" : [
+      0,
+      0,
+      391,
+      179.5
+    ],
+    "scene" : [
+      0,
+      0,
+      391,
+      179.5
+    ]
+  },
+  "workout-standard-iphone" : {
+    "content" : [
+      0,
+      0,
+      170.5,
+      179.5
+    ],
+    "scene" : [
+      0,
+      0,
+      170.5,
+      179.5
+    ]
+  },
+  "workout-tall-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      260
+    ]
+  },
+  "workout-tall-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      260
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      260
+    ]
+  },
+  "workout-wide-ipad" : {
+    "content" : [
+      0,
+      0,
+      794,
+      187
+    ],
+    "scene" : [
+      0,
+      0,
+      794,
+      187
+    ]
+  },
+  "workout-wide-iphone" : {
+    "content" : [
+      0,
+      0,
+      353,
+      187
+    ],
+    "scene" : [
+      0,
+      0,
+      353,
+      187
+    ]
+  }
+}
