@@ -994,9 +994,26 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
 
 public actor SystemPlanningCalendarContextRepository: PlanningCalendarContextRepository {
     private let eventStore: EKEventStore
+    private let selectedCalendarIDs: @Sendable () -> [String]
 
-    public init(eventStore: EKEventStore = EKEventStore()) {
+    public init(
+        eventStore: EKEventStore = EKEventStore(),
+        selectedCalendarIDs: @escaping @Sendable () -> [String] = { WorkspacePreferencesStore.shared.load().selectedCalendarIDs }
+    ) {
         self.eventStore = eventStore
+        self.selectedCalendarIDs = selectedCalendarIDs
+    }
+
+    /// The calendars the person chose in Settings. An empty choice means none
+    /// was made yet, so every calendar counts — which is also what Plan did
+    /// before it read the choice at all. A choice that matches no calendar on
+    /// this device (e.g. an account removed) falls back the same way rather than
+    /// silently emptying the day.
+    static func calendarsToQuery(selectedIDs: [String], available: [EKCalendar]) -> [EKCalendar]? {
+        guard selectedIDs.isEmpty == false else { return nil }
+        let selected = Set(selectedIDs)
+        let matches = available.filter { selected.contains($0.calendarIdentifier) }
+        return matches.isEmpty ? nil : matches
     }
 
     public func authorization() -> PlanningCalendarAuthorization {
@@ -1017,7 +1034,11 @@ public actor SystemPlanningCalendarContextRepository: PlanningCalendarContextRep
         guard status == .authorized, to > from else {
             return PlanningCalendarContext(authorization: status)
         }
-        let predicate = eventStore.predicateForEvents(withStart: from, end: to, calendars: nil)
+        let calendars = Self.calendarsToQuery(
+            selectedIDs: selectedCalendarIDs(),
+            available: eventStore.calendars(for: .event)
+        )
+        let predicate = eventStore.predicateForEvents(withStart: from, end: to, calendars: calendars)
         let events = eventStore.events(matching: predicate).filter { $0.status != .canceled }
         var commitments: [CalendarCommitment] = []
         commitments.reserveCapacity(events.count)
