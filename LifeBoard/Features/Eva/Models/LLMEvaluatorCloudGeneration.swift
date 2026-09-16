@@ -35,13 +35,21 @@ extension LLMEvaluator {
             lastTerminationReason = "cloud_runtime_missing_consent"
             return "Failed: Cloud EVA consent is not ready."
         }
-        let request = EvaInferenceRequest.make(
-            route: runtime.route,
-            promptSnapshot: promptSnapshot,
-            consentRevision: consentRevision,
-            userInstructions: promptSnapshot.userInstructions,
-            contractVersion: runtime.contractVersion
-        )
+        let request: EvaInferenceRequest
+        do {
+            request = try EvaInferenceRequest.make(
+                route: runtime.route,
+                promptSnapshot: promptSnapshot,
+                consentRevision: consentRevision,
+                userInstructions: promptSnapshot.userInstructions,
+                contractVersion: runtime.contractVersion
+            )
+        } catch {
+            runtimePhase = .failed
+            lastTerminationReason = "cloud_request_creation_failed"
+            output = "Failed: (error.localizedDescription)"
+            return output
+        }
         var emittedFirstToken = false
 
         defer {
