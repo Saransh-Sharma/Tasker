@@ -10,7 +10,7 @@ Cloud EVA is optional intelligence layered over a local-first LifeBoard. It send
 
 - Ordinary LifeBoard use and Offline EVA do not require a Cloud EVA account.
 - Remote context is purpose-bound and category-specific; it is not blanket access to the LifeBoard store.
-- Journal, health, Life Moments, and personal memory are independently reviewable. They may be preselected, but none is sent before explicit confirmation.
+- Journal, health, Life Moments, and personal memory are independently reviewable. They are enabled by default for new users; existing restrictions and later changes are preserved. Available context is sent only with EVA requests.
 - The cloud has no write authority. Broader changes require review; a narrow set of local, today-only captures can execute immediately under deterministic policy and always produce a receipt with undo.
 - The Worker stores no conversation or audio history and sends OpenAI requests with `store: false`.
 - `store: false` is not equivalent to Zero Data Retention. Production claims must reflect the OpenAI project's actual approved data-control status.
@@ -44,7 +44,7 @@ flowchart LR
 | Personal memory | Memory grant is enabled | Cloudflare, OpenAI | Not retained as content |
 | Speech source text | The person taps Speak and presents a valid ticket | Cloudflare, OpenAI | Not retained by EVA Worker |
 | PCM audio | Generated in response to Speak | Cloudflare transit, device | Streamed only; protected device cache optional |
-| Guest identity evidence | The person confirms Cloud EVA activation | Cloudflare | Server-random pseudonymous account and rotating session state |
+| Guest identity evidence | EVA automatically establishes a guest session | Cloudflare | Server-random pseudonymous account and rotating session state |
 | Apple identity evidence | The person chooses Protect & Sync or reauthenticates | Apple, Cloudflare | Encrypted refresh credential and pseudonymous linked account state |
 | Age-band evidence | The system provides a range or regional policy requires a decision | Apple, Cloudflare | Optional class/device/policy/time; never birthdate |
 | App trust evidence | iOS registers/asserts or Catalyst supplies App Transaction | Apple, Cloudflare | Key/session/counter and risk metadata |
@@ -94,11 +94,11 @@ App Attest binds supported iOS requests to an authentic app instance and exact r
 
 ## Age eligibility
 
-Cloud EVA is for ages 13+. A positively known lower bound below 13 is blocked. Users age 13+, adults, and users with no age signal receive the same experience. A signed server policy can require a current regional age decision; the client-supplied policy hint cannot relax it. In that mode declined, unavailable, missing, or expired evidence fails closed pending legal/compliance approval. LifeBoard never requests or infers a birth date.
+Age eligibility is guaranteed by app distribution and external mechanisms. The app does not request age ranges, and backend authorization does not gate sessions on legacy age declarations or their leases. Legacy wire fields remain temporarily for compatibility.
 
 ## Consent and revocation
 
-The server owns the authoritative context-policy revision. Guest bootstrap receives the exact grants confirmed on the activation screen. The app mirrors them locally, shows each sensitive category separately, and includes the revision on every model request. A stale request receives `consent_revision_conflict`; revocation therefore takes effect before the next accepted cloud request on every device. Apple linking intersects both accounts' grants and marks the result review-required until another explicit confirmation. Revocation does not remove local LifeBoard data.
+The server owns the authoritative context-policy revision. Guest bootstrap receives all four grants by default, or retained user restrictions when resuming setup. A versioned local activation record distinguishes automatic defaults from user selections. The app mirrors them locally, shows each sensitive category separately, and includes the revision on every model request. A stale request receives `consent_revision_conflict`; revocation therefore takes effect before the next accepted cloud request on every device. Apple linking intersects both accounts' grants and marks the result review-required; automatic activation acknowledges the same intersected grants without expanding them. Revocation does not remove local LifeBoard data.
 
 `RemoteEvaContextPolicy` in the app is **not** this gate. It is a local-only
 mirror of the same idea with an overlapping category enum and no production
