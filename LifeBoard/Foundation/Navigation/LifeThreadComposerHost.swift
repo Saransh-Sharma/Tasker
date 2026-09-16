@@ -112,7 +112,10 @@ extension LifeThreadComposerHost {
                 ComposerReceiptView(
                     receipt: receipt,
                     onUndo: { undoLifeThreadReceipt(receipt, router: router) },
-                    onDismiss: { lifeBoardActionReceipt = nil }
+                    onDismiss: { lifeBoardActionReceipt = nil },
+                    onOpen: {
+                        if let id = receipt.taskID { router.navigate(.taskDetail(id), in: .plan) }
+                    }
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -129,6 +132,15 @@ extension LifeThreadComposerHost {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
+            if dictationController.isRecording == false, composer.state != .working {
+                ComposerTokenSuggestionRow(
+                    draftText: composer.draftText,
+                    catalog: CaptureSuggestionCatalog.shared
+                ) { completed in
+                    composer.draftText = completed
+                }
+            }
+
             if let interpretation = composer.interpretation {
                 ComposerInterpretationRow(
                     interpretation: interpretation,
@@ -136,6 +148,10 @@ extension LifeThreadComposerHost {
                         let resolution = interpretation.resolution
                         composer.dismissInterpretation()
                         handleLifeThreadResolution(resolution, router: router)
+                    },
+                    onRemoveChip: { chip in
+                        composer.draftText = InterpretationChip.draft(composer.draftText, removing: chip.sourceTexts)
+                        Haptic.pick.play()
                     },
                     onDismiss: { composer.dismissInterpretation() }
                 )
@@ -266,7 +282,10 @@ extension LifeThreadComposerHost {
                     .submitLabel(.send)
                     .onSubmit { submitLifeThreadComposer(router: router) }
                     .onChange(of: lifeThreadComposerIsFocused) { _, focused in
-                        if focused { composer.focus() }
+                        if focused {
+                            composer.focus()
+                            CaptureSuggestionCatalog.shared.refresh()
+                        }
                     }
                     .onChange(of: composer.draftText) { _, _ in
                         liveResolveComposerIntent(router: router)
