@@ -512,6 +512,10 @@ struct TaskRowView: View, Equatable {
                 logDebug("HOME_TAP_UI row_tap id=\(task.id.uuidString)")
                 onTap?()
             }
+            // A tap gesture is invisible to VoiceOver, so opening a task was
+            // reachable only by gesture. `DESIGN.md`: every gesture has a
+            // visible control and a VoiceOver action.
+            .accessibilityAction(named: Text("Open")) { onTap?() }
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 Button {
                     onToggleComplete?()
@@ -645,9 +649,6 @@ struct TaskRowView: View, Equatable {
                     onToggleComplete?()
                 }
                 .accessibilityIdentifier("home.taskCheckbox.\(task.id.uuidString)")
-                .accessibilityLabel("Toggle completion for \(task.title)")
-                .accessibilityHint(task.isComplete ? "Double tap to mark as open" : "Double tap to mark as completed")
-                .accessibilityValue(accessibilityStateValue)
 
                 if let iconSymbolName = task.iconSymbolName ?? fallbackIconSymbolName {
                     Image(systemName: iconSymbolName)
