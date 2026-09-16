@@ -171,7 +171,7 @@ private extension SetupCenterView {
         SetupCenterDisclosureCard(snapshot: snapshot, isExpanded: expandedIntegration == .health, onToggle: { toggle(.health) }) {
             VStack(alignment: .leading, spacing: 14) {
                 explanation(snapshot)
-                Text("Health data stays on this device and is not shared with Cloud EVA unless you separately enable Health in EVA’s grants.")
+                Text("Health imports are processed on this device. Available Health context may accompany EVA requests; manage EVA context in Settings.")
                     .lifeboardFont(.caption1)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
@@ -201,9 +201,6 @@ private extension SetupCenterView {
         SetupCenterDisclosureCard(snapshot: snapshot, isExpanded: expandedIntegration == .eva, onToggle: { toggle(.eva) }) {
             VStack(alignment: .leading, spacing: 14) {
                 explanation(snapshot)
-                if providerPreference == .cloud, evaAccess.state == .needsDisclosure {
-                    SetupCenterEvaGrantsSection(grants: grantBindings)
-                }
                 if evaAccess.isWorking && providerPreference == .cloud {
                     ProgressView(evaAccess.account.activationStage.progressCaption ?? "Connecting Cloud EVA…")
                         .accessibilityIdentifier("setupCenter.eva.loading")
@@ -240,13 +237,13 @@ private extension SetupCenterView {
             }
         } else {
             switch evaAccess.state {
-            case .needsDisclosure:
-                SetupCenterPrimaryAction(title: "Continue with Cloud EVA", identifier: "setupCenter.eva.activate", action: activateCloudEva)
+            case .needsActivation:
+                SetupCenterPrimaryAction(title: "Retry connection", identifier: "setupCenter.eva.activate", action: activateCloudEva)
             case .temporarilyUnavailable:
                 SetupCenterPrimaryAction(title: "Retry Cloud EVA", identifier: "setupCenter.eva.retry", action: retryCloudEva)
             case .appleReauthenticationRequired:
                 SetupCenterPrimaryAction(title: "Reconnect with Apple", identifier: "setupCenter.eva.reconnectApple", action: reconnectAppleEva)
-            case .quotaExhausted, .ageBlocked:
+            case .quotaExhausted:
                 SetupCenterPrimaryAction(title: "Use Offline EVA", identifier: "setupCenter.eva.offline", action: chooseOfflineEva)
             case .ready:
                 SetupCenterPrimaryAction(title: "Manage EVA", identifier: "setupCenter.eva.manage") { onNavigate(.llm) }
@@ -262,7 +259,7 @@ private extension SetupCenterView {
             Button("Use Offline EVA", action: chooseOfflineEva)
                 .buttonStyle(.lifeBoardChip)
                 .accessibilityIdentifier("setupCenter.eva.provider.offline")
-            if evaAccess.state == .needsDisclosure {
+            if evaAccess.state == .needsActivation {
                 Button("Not now") { expandedIntegration = nil }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
@@ -273,7 +270,7 @@ private extension SetupCenterView {
             Button("Use Cloud EVA") {
                 evaAccess.selectCloud()
                 providerPreference = .cloud
-                Task { _ = await evaAccess.hydrate() }
+                Task { _ = await evaAccess.ensureActivated(source: .setupCenter) }
             }
             .buttonStyle(.lifeBoardChip)
             .accessibilityIdentifier("setupCenter.eva.provider.cloud")
@@ -345,15 +342,16 @@ private extension SetupCenterView {
     }
 
     func activateCloudEva() {
+        evaAccess.selectCloud()
         Task {
             await ProductTelemetry.shared.record(.connectorResult, outcome: "eva_cloud_started")
-            let succeeded = await evaAccess.confirmAndActivate(grants: evaAccess.selectedGrants, source: .setupCenter)
+            let succeeded = await evaAccess.ensureActivated(source: .setupCenter)
             await ProductTelemetry.shared.record(.connectorResult, outcome: succeeded ? "eva_cloud_completed" : "eva_cloud_failed")
         }
     }
     func retryCloudEva() {
         evaAccess.selectCloud()
-        Task { _ = await evaAccess.resumeConfirmedActivation(source: .setupCenter) }
+        Task { _ = await evaAccess.ensureActivated(source: .setupCenter) }
     }
     func reconnectAppleEva() { Task { _ = await evaAccess.reconnectApple() } }
     func chooseOfflineEva() {
@@ -385,7 +383,7 @@ private extension SetupCenterView {
         settingsViewModel.reload()
         providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
         await healthStore.bootstrap()
-        _ = await evaAccess.hydrate()
+        _ = await evaAccess.ensureActivated(source: .setupCenter)
         if selectRecommended && expandedIntegration == nil {
             expandedIntegration = status.recommendedNextAction
             scrollTarget = status.recommendedNextAction?.rawValue
