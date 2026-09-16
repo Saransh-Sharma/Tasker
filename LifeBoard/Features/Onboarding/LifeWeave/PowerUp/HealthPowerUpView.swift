@@ -71,6 +71,7 @@ struct HealthPowerUpView: View {
                 powerUpState.cancelHandoffDeadline()
             }
         }
+        .onDisappear { powerUpState.visitID = UUID() }
         .onChange(of: settledSummary) { _, summary in
             // One announcement when the screen settles. Announcing each metric as
             // it arrived turned a background import into a stream of
