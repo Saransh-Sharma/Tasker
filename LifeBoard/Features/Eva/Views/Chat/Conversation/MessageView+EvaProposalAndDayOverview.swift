@@ -88,23 +88,11 @@ extension MessageView {
 
                 Spacer()
 
-                Button {
-                    evaApplyMessage = "Thanks for the feedback."
-                } label: {
-                    Image(systemName: "hand.thumbsup")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.lifeboard(.textTertiary))
-                .accessibilityLabel("Helpful")
-
-                Button {
-                    evaApplyMessage = "Thanks. \(AssistantIdentityText.currentSnapshot().displayName) will use this feedback later."
-                } label: {
-                    Image(systemName: "hand.thumbsdown")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.lifeboard(.textTertiary))
-                .accessibilityLabel("Not helpful")
+                // The thumbs-up/down pair used to sit here. Nothing recorded
+                // what they were told: both only printed "Thanks", which is
+                // `DESIGN.md`'s "simulate success with a delay" in its plainest
+                // form — and both were bare glyphs well under the 44pt target.
+                // They come back when there is somewhere for the feedback to go.
             }
 
             if let evaApplyMessage {
