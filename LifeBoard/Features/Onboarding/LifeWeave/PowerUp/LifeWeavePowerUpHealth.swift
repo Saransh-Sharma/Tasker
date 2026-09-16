@@ -51,7 +51,7 @@ enum LifeWeaveHealthCopy {
     ]
 
     static let privacyLine =
-        "Health data is processed on this device. EVA does not use Health unless you allow that separately."
+        "Health imports are processed on this device. Available Health context may accompany EVA requests; manage EVA context in Settings."
 
     /// Mirrors the labels used by the Health detail screens, so the same type is
     /// never called two different things in two places.
@@ -95,6 +95,7 @@ final class LifeWeaveHealthPowerUpState {
 
     /// The system sheet is up (or the authorization call has not returned).
     var isAuthorizationInFlight = false
+    var visitID = UUID()
 
     /// The sheet returned and the import has been asked for, but the store's
     /// managed task may not have flipped `isRefreshing` yet. Without this, the
@@ -117,6 +118,7 @@ final class LifeWeaveHealthPowerUpState {
     /// Called when the screen appears, so a second pass through onboarding (or a
     /// step revisited by the back affordance) never inherits a stale spinner.
     func resetForVisit() {
+        visitID = UUID()
         firstSyncGraceTask?.cancel()
         firstSyncGraceTask = nil
         handoffTask?.cancel()
@@ -245,6 +247,7 @@ extension LifeWeaveOnboardingModel {
         let state = LifeWeaveHealthPowerUpState.shared
         guard state.isAuthorizationInFlight == false else { return }
         state.isAuthorizationInFlight = true
+        let requestVisit = state.visitID
         feedback.light()
 
         // Read-only, and read-only is a real request rather than a flag: the
@@ -252,7 +255,9 @@ extension LifeWeaveOnboardingModel {
         // `false` to `HealthConnectionStore.connectReadOnly`, which hands Apple
         // an empty writable set. Write-back is a separate, later opt-in in Setup
         // Center, and asking for it here would contradict the primer.
-        await powerUps.connectHealth(Set(HealthDomain.allCases), false)
+        let outcome = await HealthCoordinator.shared.connectionStore.connectReadOnly()
+        guard state.visitID == requestVisit else { return }
+        if powerUpStep == .health, outcome != .failed { advancePowerUp() }
 
         state.isAuthorizationInFlight = false
 
