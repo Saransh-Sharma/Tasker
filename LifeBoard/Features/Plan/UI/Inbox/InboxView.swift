@@ -14,6 +14,8 @@ final class InboxStore {
     /// Set after a triage applies; drives the Undo affordance.
     private(set) var lastReceipt: PlanMutationReceipt?
     private(set) var lastSummary: String?
+
+    func clearLastSummary() { lastSummary = nil }
     private(set) var isMutating = false
     private(set) var mutationError: String?
 
@@ -295,11 +297,23 @@ final class InboxStore {
 
     /// Removes an unreviewed capture from the App Group queue.
     ///
-    /// Safe to offer without a receipt because nothing canonical exists yet —
-    /// the capture was never committed, so there is no task to restore.
-    func discardCapture(_ item: InboxItem) async {
-        guard case let .pendingCapture(captureID) = item.origin else { return }
+    /// Returns the capture it removed so the caller can offer Undo. Nothing
+    /// canonical exists yet, but the captured text is the person's own words and
+    /// discarding it is the one irreversible thing in this screen —
+    /// `DESIGN.md` asks for a receipt with Undo wherever reversal is supported,
+    /// and here it is.
+    @discardableResult
+    func discardCapture(_ item: InboxItem) async -> PendingCapture? {
+        guard case let .pendingCapture(captureID) = item.origin else { return nil }
+        let removed = PendingCaptureInbox.read().first { $0.id == captureID }
         PendingCaptureInbox.remove(ids: [captureID])
+        await load()
+        return removed
+    }
+
+    /// Puts a discarded capture back in the queue.
+    func restoreCapture(_ capture: PendingCapture) async {
+        guard PendingCaptureInbox.upsert(capture) else { return }
         await load()
     }
 }
@@ -365,6 +379,9 @@ struct InboxView: View {
     /// lives beside the view rather than in the capture record, whose text,
     /// timestamp and id must stay exactly as captured.
     @State private var skipCounts: [UUID: Int] = [:]
+    /// The capture a Discard removed, kept only long enough for Undo.
+    @State private var discardedCapture: PendingCapture?
+    @State private var discardReceipt: ActionReceiptPresentation?
     @State private var triageSettleTrigger = 0
     @State private var triageSettleDirection = 1.0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -404,6 +421,24 @@ struct InboxView: View {
             // has to be in view the moment the sheet closes — at the bottom of the
             // stack it landed beneath the floating composer and had to be
             // scrolled for.
+            if let receipt = discardReceipt {
+                ReceiptBar(
+                    receipt,
+                    undo: {
+                        guard let capture = discardedCapture else { return }
+                        discardReceipt = nil
+                        discardedCapture = nil
+                        Task { await store.restoreCapture(capture) }
+                    },
+                    onDismiss: {
+                        discardReceipt = nil
+                        discardedCapture = nil
+                    }
+                )
+                .accessibilityIdentifier("plan.inbox.discard.receipt")
+                .lifeBoardMotion(.contentInsertion, value: receipt.id)
+            }
+
             if let summary = store.lastSummary {
                 undoRow(summary)
             }
@@ -516,6 +551,13 @@ struct InboxView: View {
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .accessibilityIdentifier("plan.inbox.deck.position")
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Capture's panoramic scene, which used to sit behind the root
+            // header where the atmosphere swallowed it. Inbox is where captures
+            // are actually reviewed, and its canvas is quiet enough to show it.
+            .featureHeaderArtwork(.capture, cornerRadius: Radius.row)
 
             ZStack {
                 RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
@@ -671,7 +713,14 @@ struct InboxView: View {
             Menu {
                 Button("Discard capture", systemImage: "trash", role: .destructive) {
                     forgetSkips(for: item)
-                    Task { await store.discardCapture(item) }
+                    Task {
+                        guard let removed = await store.discardCapture(item) else { return }
+                        discardedCapture = removed
+                        discardReceipt = ActionReceiptPresentation(
+                            message: "Discarded “\(item.title)”",
+                            detail: "It is out of your inbox. Undo puts it back."
+                        )
+                    }
                 }
             } label: {
                 Image(systemName: "ellipsis")
@@ -784,31 +833,28 @@ struct InboxView: View {
     /// Deliberately not shaped like `emptyState`. A failed fetch that looks like
     /// an empty inbox congratulates someone for a load that never completed.
     private var loadFailure: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Couldn’t load your inbox", systemImage: "exclamationmark.arrow.circlepath")
-                .font(.headline)
-                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-            Text("Nothing has been lost. Your captures are still saved.")
-                .font(.subheadline)
-                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            Button("Try again") { Task { await store.load() } }
-                .buttonStyle(.lifeBoardPrimary)
-                .accessibilityIdentifier("plan.inbox.retry")
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
+        // The shared state surface, so a recoverable failure here looks like a
+        // recoverable failure everywhere else in the product — and says what
+        // remains safe.
+        StatusSurface(
+            state: .recoverableError,
+            title: "Couldn’t load your inbox",
+            message: "Nothing has been lost. Your captures are still saved.",
+            actionTitle: "Try again",
+            action: { Task { await store.load() } }
+        )
         .accessibilityIdentifier("plan.inbox.loadFailure")
     }
 
     /// An empty Inbox is a success state, not a void.
     private var emptyState: some View {
-        stateMessage(
+        StatusSurface(
+            state: store.scope == .untriaged ? .empty : .noRecord,
             title: store.scope == .untriaged ? "Inbox clear" : "Nothing here",
-            detail: store.scope == .untriaged
+            message: store.scope == .untriaged
                 ? "Everything you captured has somewhere to be."
                 : "Items you set aside will appear here.",
-            symbol: store.scope == .untriaged ? "checkmark.circle" : "tray"
+            density: .compact
         )
     }
 
@@ -962,23 +1008,18 @@ struct InboxView: View {
         .accessibilityIdentifier("plan.inbox.batchBar")
     }
 
+    /// The filing receipt.
+    ///
+    /// Was a hand-rolled footnote-sized row that never stacked at accessibility
+    /// text sizes. `ReceiptBar` is the primitive for this, and it keeps Undo
+    /// reachable rather than on a timer.
     private func undoRow(_ summary: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color.lifeboard.statusSuccess)
-            Text(summary)
-                .font(.footnote)
-                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 8)
-            Button("Undo") { Task { await store.undoLast() } }
-                .font(.footnote.weight(.semibold))
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityIdentifier("plan.inbox.undo")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 4)
-        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
+        ReceiptBar(
+            ActionReceiptPresentation(message: summary),
+            undo: { Task { await store.undoLast() } },
+            onDismiss: { store.clearLastSummary() }
+        )
+        .accessibilityIdentifier("plan.inbox.undo")
         .transition(.opacity)
         .lifeBoardMotion(.contentInsertion, value: summary)
     }
