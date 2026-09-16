@@ -411,7 +411,7 @@ struct EvaMascotView: View {
     }
 
     private func shouldAnimate(placement: EvaMascotPlacement) -> Bool {
-        guard reduceMotion == false else { return false }
+        guard MotionOverride.resolve(reduceMotion) == false else { return false }
         let animation = EvaMascotPlacementResolver.animation(for: placement)
         if size.points >= EvaMascotSize.inline.points { return true }
         switch animation {
@@ -423,7 +423,7 @@ struct EvaMascotView: View {
     }
 
     private func shouldAnimate(animation: MascotAnimation) -> Bool {
-        guard reduceMotion == false else { return false }
+        guard MotionOverride.resolve(reduceMotion) == false else { return false }
         if size.points >= EvaMascotSize.inline.points { return true }
         return animation == .waiting || animation == .running
     }
