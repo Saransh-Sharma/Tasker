@@ -22,8 +22,11 @@ import SwiftUI
 /// widgets, notifications, Eva and routine steps. This is the 44 pt control the
 /// task-row contract calls for.
 ///
-/// Callers own the write. This view reports intent and plays the reward; it
-/// never assumes the mutation succeeded.
+/// Callers own the write. With the `onCommit` initializer the reward waits for
+/// the caller to report that the write persisted — `DESIGN.md`: "`completionBurst`
+/// … only after persisted completion". The synchronous `onToggle` initializer is
+/// kept for callers whose write has no result to await yet; it still rewards on
+/// tap, and is the one to migrate away from.
 public struct CompletionControl: View {
     /// How large the *mark* is drawn. The touch target never changes: it is
     /// 44 pt in every density, because the control this replaced shipped a 30 pt
@@ -52,7 +55,8 @@ public struct CompletionControl: View {
     private let title: String
     private let isEnabled: Bool
     private let density: Density
-    private let onToggle: (Bool) -> Void
+    private let onToggle: ((Bool) -> Void)?
+    private let onCommit: ((Bool) async -> Bool)?
 
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -60,6 +64,7 @@ public struct CompletionControl: View {
 
     @State private var progress: Double = 0
     @State private var burstTrigger = 0
+    @State private var isCommitting = false
 
     /// Resolved through `MotionOverride` so the in-app "Full motion" setting
     /// reaches this control. Idempotent, so the `MotionPolicy.resolve` below is
@@ -84,6 +89,25 @@ public struct CompletionControl: View {
         self.isEnabled = isEnabled
         self.density = density
         self.onToggle = onToggle
+        self.onCommit = nil
+    }
+
+    /// Rewards only after `onCommit` returns `true`. The mark still moves on tap
+    /// so the control feels direct, returns if the write fails, and ignores
+    /// further taps while the write is in flight.
+    public init(
+        isComplete: Bool,
+        title: String,
+        isEnabled: Bool = true,
+        density: Density = .standard,
+        onCommit: @escaping (Bool) async -> Bool
+    ) {
+        self.isComplete = isComplete
+        self.title = title
+        self.isEnabled = isEnabled
+        self.density = density
+        self.onToggle = nil
+        self.onCommit = onCommit
     }
 
     public var body: some View {
@@ -133,14 +157,34 @@ public struct CompletionControl: View {
 
     private func toggle() {
         let target = isComplete == false
+        guard let onCommit else {
+            settle(to: target ? 1 : 0)
+            reward(target)
+            onToggle?(target)
+            return
+        }
+        guard isCommitting == false else { return }
+        isCommitting = true
         settle(to: target ? 1 : 0)
+        Task { @MainActor in
+            let persisted = await onCommit(target)
+            isCommitting = false
+            if persisted {
+                reward(target)
+            } else {
+                settle(to: isComplete ? 1 : 0)
+                Haptic.fail.play(policy: motionPolicy)
+            }
+        }
+    }
+
+    private func reward(_ target: Bool) {
         if target {
             burstTrigger &+= 1
             Haptic.commit.play(policy: motionPolicy)
         } else {
             Haptic.decline.play(policy: motionPolicy)
         }
-        onToggle(target)
     }
 
     private var motionPolicy: MotionPolicy {
