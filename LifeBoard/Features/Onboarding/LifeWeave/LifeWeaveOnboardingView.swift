@@ -113,6 +113,7 @@ struct LifeWeaveOnboardingView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(LifeWeaveAccessibilityID.flow)
+        .task { _ = await evaAccess.ensureActivated(source: .onboarding) }
         .sheet(item: Binding(
             get: { model.usesStreamlinedOnboarding ? model.powerUpStep : nil },
             set: { if $0 == nil { model.deferCurrentPowerUp() } }
@@ -152,7 +153,12 @@ struct LifeWeaveOnboardingView: View {
         case .lifeAreas: LifeWeaveLifeAreasStep(model: model)
         case .dayShape: LifeWeaveDayShapeStep(model: model)
         case .firstCapture: LifeWeaveCaptureStep(model: model)
-        case .reveal: LifeWeaveRevealStep(model: model)
+        case .reveal:
+            LifeWeaveRevealStep(model: model)
+            Text("Cloud EVA connects automatically. Journal, Health, life moments, and personal memory context are enabled by default; your existing choices are kept. Prompts and available context pass through LifeBoard to OpenAI. Manage EVA context in Settings.")
+                .lifeboardFont(.caption1)
+                .foregroundStyle(Color.lifeboard(.textSecondary))
+                .accessibilityIdentifier("onboarding.eva.automaticDisclosure")
         }
     }
 
@@ -333,7 +339,10 @@ struct LifeWeaveOnboardingView: View {
     @ViewBuilder
     private func connectorSheet(_ connector: LifeWeavePowerUpStep) -> some View {
         if connector == .health {
-            HealthConnectionSheet(context: .init(.health, from: .onboarding))
+            HealthConnectionSheet(context: .init(.health, from: .onboarding), onAuthorizationResult: { outcome in
+                guard model.powerUpStep == .health, outcome != .failed else { return }
+                model.finishConnector()
+            })
         } else {
             NavigationStack {
                 ScrollView { powerUpContent(connector).padding(24) }
