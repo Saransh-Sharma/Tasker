@@ -138,6 +138,7 @@ struct TrackFastingSection: View {
             }
             .padding(isHero ? 20 : 16)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .featureHeaderArtwork(.fasting)
             .modifier(TrackFastingSurface(isHero: isHero, palette: DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)))
             .accessibilityIdentifier("track.fasting")
         }
@@ -262,6 +263,7 @@ struct FastingDestinationView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .featureHeaderArtwork(.fasting)
         .lifeBoardHeroSurface(palette: palette)
     }
 
