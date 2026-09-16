@@ -301,8 +301,13 @@ extension ChatComposerView {
                     Image(systemName: "xmark.circle.fill")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard(.textTertiary))
+                        // The glyph is small; the target is not.
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Cancel command")
+                .accessibilityIdentifier("chat.command_chip.cancel")
 
                 Spacer()
             }
@@ -362,8 +367,14 @@ extension ChatComposerView {
                     Circle()
                         .fill(canSubmit ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.glassFill.opacity(0.68))
                 )
+                // The drawn circle stays 32pt; the target around it is 44.
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .disabled(!canSubmit)
+        // VoiceOver read the SF Symbol's name, "Up Arrow", because the button
+        // had no label of its own.
+        .accessibilityLabel("Send")
         .accessibilityIdentifier("chat.send_button")
         #if os(iOS) || os(visionOS)
             .padding(.trailing, Theme.Spacing.md)
@@ -393,8 +404,11 @@ extension ChatComposerView {
                     Circle()
                         .fill(Color.lifeboard(.statusDanger))
                 )
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .disabled(llmCancelled)
+        .accessibilityLabel("Stop response")
         .accessibilityIdentifier("chat.stop_button")
         #if os(iOS) || os(visionOS)
             .padding(.trailing, Theme.Spacing.md)
