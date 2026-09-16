@@ -46,6 +46,7 @@ struct PlanOrientationBar: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 12)
         .frame(minHeight: 52)
+        .homeAmbientArtwork(.compactTimeline)
         .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
         .accessibilityIdentifier("plan.header")
     }
