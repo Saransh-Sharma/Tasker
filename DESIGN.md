@@ -692,3 +692,17 @@ Haptics confirm commit, selection, lift, threshold, settle, decline, and failure
 - **Do** preserve privacy in notifications, widgets, previews, and diagnostics; **don't** reveal Journal, health, audio, media, or assistant context outside its authorized surface.
 - **Do** design iPad compositions for their window; **don't** stretch phone cards or fill extra space with more metrics.
 - **Do** end consequential work with a clear receipt and Undo when supported; **don't** hide destructive consequences behind playful motion.
+
+
+## Ambient illustration contract (2026-09-16)
+
+Current working-tree artwork uses static painterly layers within existing native surfaces. Home cards use 22 appearance-paired scene families; 17 feature-header families have separate panoramic assets. Generated UI references are design evidence and must never replace native cards.
+
+- Native content determines intrinsic height; preset minimum heights are floors. Artwork adds no row, footer, or reserved text column.
+- Crop visible painted bounds for runtime packaging, scale proportionally, and clip to the owning surface. Protect the reading field with the shared directional mask; suppress decoration before compromising content.
+- Retain shared section-header typography and spacing. Feature identity comes from subject and supporting palette, not arbitrary fonts or header heights.
+- Native values/actions, privacy messages, recovery controls, and supported user media take precedence. Suppress scenes for protected, unresolved, degraded, or unavailable content.
+- Appearance remains independent of daypart. Eva violet/persona boundaries remain in force. Static artwork adds no ambient timers or per-card animation loops.
+- Load optimized appearance-paired catalog assets through the prepared-image cache; never load generation originals or UI references at runtime.
+
+The detailed [implemented artwork guide](docs/design/home-cards/IMPLEMENTED_DESIGN_SYSTEM.md) defines layering, row budgets, operations, and evidence limits. [Creative directions](docs/design/home-cards/FUTURE_CREATIVE_DIRECTIONS.md) are explicitly unimplemented proposals. This section documents source-level implementation; [release validation](docs/design/home-cards/VALIDATION.md) remains incomplete.
