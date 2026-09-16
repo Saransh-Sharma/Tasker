@@ -177,6 +177,7 @@ public final class UseCaseCoordinator: @unchecked Sendable {
     public let maintainHabitRuntime: MaintainHabitRuntimeUseCase
     public let resolveHabitOccurrence: ResolveHabitOccurrenceUseCase
     public let resetHabitOccurrence: ResetHabitOccurrenceUseCase
+    public let logHabitAmount: LogHabitAmountUseCase
     public let getDueHabitsForDate: GetDueHabitsForDateUseCase
     public let getHabitHistory: GetHabitHistoryUseCase
     public let getHabitSignalsInRange: GetHabitSignalsInRangeUseCase
@@ -433,6 +434,12 @@ public final class UseCaseCoordinator: @unchecked Sendable {
             occurrenceRepository: v2Dependencies.occurrenceRepository,
             recomputeHabitStreaksUseCase: recomputeHabitStreaks,
             gamificationEngine: engine
+        )
+        self.logHabitAmount = LogHabitAmountUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            occurrenceRepository: v2Dependencies.occurrenceRepository,
+            resolveUseCase: self.resolveHabitOccurrence,
+            resetUseCase: self.resetHabitOccurrence
         )
         self.manageHabits = ManageHabitsUseCase(repository: v2Dependencies.habitRepository)
         self.generateOccurrences = GenerateOccurrencesUseCase(engine: v2Dependencies.scheduleEngine)
