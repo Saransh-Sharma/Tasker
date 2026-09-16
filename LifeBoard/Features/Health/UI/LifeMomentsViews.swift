@@ -201,6 +201,7 @@ private struct LifeMomentFocusedDetail: View {
                 .accessibilityIdentifier("lifeMoment.edit")
         }
         .padding(20)
+        .featureHeaderArtwork(.moment)
         .lifeBoardClaySurface(.raised, cornerRadius: Radius.largeCard)
         .accessibilityElement(children: .contain)
     }
