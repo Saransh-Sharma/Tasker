@@ -1,17 +1,8 @@
 import XCTest
 
-/// The v6 "Life Weave" first run.
-///
-/// This file previously drove the nine-step flow that was deleted two redesigns
-/// ago — it asserted "Step 2 of 9" and tapped `onboarding.primaryGoal.*`
-/// identifiers that no longer exist anywhere in the app target, so it could not
-/// have passed. It went unnoticed because CI runs `-only-testing:LifeBoardTests`
-/// and no UI test is in the gate at all.
-///
-/// v6 is on by default in Debug, so these need no flag argument. The v5 walk is
-/// pinned explicitly where it is still needed (`ChatPlanApplyUndoTests`).
+/// The four-screen first run: welcome and intent, life areas, one real thing,
+/// Ready. Connections open as sheets over Ready and return there.
 final class LifeWeaveOnboardingUITests: BaseUITest {
-    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_DISABLE_SEAMLESS_ONBOARDING"] }
     override var shouldSkipOnboarding: Bool { false }
 
     private var flow: XCUIElement { app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.flow] }
@@ -22,148 +13,119 @@ final class LifeWeaveOnboardingUITests: BaseUITest {
         app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.step(suffix)]
     }
 
-    private func powerUpStep(_ suffix: String) -> XCUIElement {
-        app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.powerUpStep(suffix)]
-    }
-
-    /// Six decisions, then Home. The point of the walk is that each step accepts
-    /// a real answer and the flow ends — not that any particular pixel appears.
-    func testCoreFlowReachesTheRevealInSixSteps() throws {
+    private func requireFlow() throws {
         guard flow.waitForExistence(timeout: 20) else {
             throw XCTSkip("Onboarding did not present; this test needs a clean install. \(app.debugDescription)")
         }
+    }
+
+    /// Four screens, then Home. Each screen accepts a real answer, and the
+    /// primary says what is missing until it can act.
+    func testCoreFlowReachesReadyInFourScreens() throws {
+        try requireFlow()
 
         XCTAssertTrue(step("arrival").waitForExistence(timeout: 10))
-        primary.tap()
-
-        // Intent — the primary stays disabled until something is chosen, which
-        // is the contract that stops a blank answer reaching the profile.
-        XCTAssertTrue(step("intent").waitForExistence(timeout: 10))
-        XCTAssertFalse(primary.isEnabled, "Continue must not be available before an intent is picked")
+        XCTAssertFalse(primary.isEnabled, "the primary must not act before an intent is picked")
+        XCTAssertEqual(primary.label, "Pick one")
         app.buttons[AccessibilityIdentifiers.LifeWeave.intent("clarityToday")].firstMatch.tap()
-        XCTAssertTrue(primary.isEnabled)
+        XCTAssertEqual(primary.label, "Continue")
         primary.tap()
 
-        // Life areas — two is the stated minimum, so one must not advance.
         XCTAssertTrue(step("lifeAreas").waitForExistence(timeout: 10))
+        XCTAssertEqual(primary.label, "Pick 2 more")
         app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea("work-career")].firstMatch.tap()
-        XCTAssertFalse(primary.isEnabled, "one area is below the stated 2–5 minimum")
+        XCTAssertFalse(primary.isEnabled, "one area is below the minimum of two")
+        XCTAssertEqual(primary.label, "Pick 1 more")
         app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea("health-self")].firstMatch.tap()
         XCTAssertTrue(primary.isEnabled)
         primary.tap()
 
-        XCTAssertTrue(step("dayShape").waitForExistence(timeout: 10))
-        app.buttons[AccessibilityIdentifiers.LifeWeave.dayShapePreset("typical")].firstMatch.tap()
-        primary.tap()
-
         XCTAssertTrue(step("firstCapture").waitForExistence(timeout: 10))
-        secondary.tap() // Skip for now
-        primary.tap() // Finish setup
+        secondary.tap() // Skip
 
         XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
         XCTAssertTrue(
             app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.revealReceipt].exists,
-            "the reveal must show what was actually saved"
+            "Ready must show what was actually saved"
         )
-        // "Start now" — the explicit decline. Core is already committed, so this
-        // has to end the flow without asking for a single permission.
-        secondary.tap()
+        XCTAssertEqual(primary.label, "Start my day")
+        primary.tap()
 
-        XCTAssertTrue(flow.waitForNonExistence(timeout: 15), "Start now must leave onboarding")
+        XCTAssertTrue(flow.waitForNonExistence(timeout: 15), "Start my day must leave onboarding")
+        XCTAssertFalse(
+            app.descendants(matching: .any)["onboarding.tip.home"].waitForExistence(timeout: 3),
+            "arriving at Home from Ready must not meet a tip about Home"
+        )
     }
 
-    /// The optional phase is reachable, named, and does not begin until the user
-    /// asks for it — the reveal's primary is an invitation, not a permission.
-    func testPowerUpBeginsOnlyWhenInvitedAndStartsAtCalendar() throws {
-        guard flow.waitForExistence(timeout: 20) else {
-            throw XCTSkip("Onboarding did not present; this test needs a clean install. \(app.debugDescription)")
-        }
-        try walkToCapture()
-        secondary.tap() // Skip for now
-        primary.tap()   // Finish setup
-
-        XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.revealPowerUpInvitation].exists,
-            "the reveal must name the optional phase before entering it"
-        )
-        primary.tap()
-
-        XCTAssertTrue(
-            powerUpStep("calendar").waitForExistence(timeout: 15),
-            "powering up starts at the first connector, with no second intro screen"
-        )
-        XCTAssertTrue(flow.exists, "the host stays mounted through the optional phase")
-    }
-
-    /// Every connector is skippable, and skipping one must not end the journey.
-    func testNotNowAdvancesThroughEveryConnectorWithoutEndingTheFlow() throws {
-        guard flow.waitForExistence(timeout: 20) else {
-            throw XCTSkip("Onboarding did not present. \(app.debugDescription)")
-        }
+    /// Usual hours are a default on Ready, editable in a sheet — never a screen.
+    func testHoursAreEditedFromReadyNotAsked() throws {
+        try requireFlow()
         try walkToCapture()
         secondary.tap()
-        primary.tap()
 
         XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
-        primary.tap()
+        let edit = app.buttons[AccessibilityIdentifiers.LifeWeave.hoursEdit]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        edit.tap()
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.LifeWeave.dayShapePreset("early")].firstMatch.waitForExistence(timeout: 5))
+        app.buttons[AccessibilityIdentifiers.LifeWeave.dayShapePreset("early")].firstMatch.tap()
+        app.buttons[AccessibilityIdentifiers.LifeWeave.dayShapeDone].tap()
+        XCTAssertTrue(step("reveal").waitForExistence(timeout: 5))
+        XCTAssertTrue(flow.exists, "editing hours returns to Ready")
+    }
 
-        XCTAssertTrue(powerUpStep("calendar").waitForExistence(timeout: 15))
-        secondary.tap() // Not now
-        XCTAssertTrue(powerUpStep("health").waitForExistence(timeout: 10))
-        secondary.tap() // Not now
-        XCTAssertTrue(powerUpStep("eva").waitForExistence(timeout: 10))
-        secondary.tap() // Not now
-        XCTAssertTrue(powerUpStep("complete").waitForExistence(timeout: 10))
-        XCTAssertTrue(flow.exists, "declining every connector still lands on the receipt")
+    /// The Cloud EVA disclosure is one line on Ready with the full detail a tap away.
+    func testEvaDataUseIsOneTapFromReady() throws {
+        try requireFlow()
+        try walkToCapture()
+        secondary.tap()
+
+        XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
+        let notice = app.buttons["onboarding.eva.automaticDisclosure"]
+        if notice.waitForExistence(timeout: 5) == false || notice.isHittable == false { app.swipeUp() }
+        XCTAssertTrue(notice.waitForExistence(timeout: 5))
+        notice.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding.eva.dataUse.sheet"].waitForExistence(timeout: 5))
     }
 
     /// A skipped capture is an honest empty state, never a fabricated task.
     func testSkippingCaptureStillProducesAWorkspace() throws {
-        guard flow.waitForExistence(timeout: 20) else {
-            throw XCTSkip("Onboarding did not present. \(app.debugDescription)")
-        }
+        try requireFlow()
         try walkToCapture()
         secondary.tap()
-        primary.tap()
 
         XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
-        let receipt = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.revealReceipt]
-        XCTAssertTrue(receipt.exists)
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.revealReceipt].exists)
         XCTAssertFalse(
-            receipt.label.contains("captured"),
-            "nothing was captured, so the receipt must not claim anything was"
+            app.descendants(matching: .any)["onboarding.savedCapture"].exists,
+            "nothing was captured, so Ready must not claim anything was"
         )
     }
 
     /// Back moves the step and leaves the answers alone.
     func testBackDoesNotDestroyAnAnswer() throws {
-        guard flow.waitForExistence(timeout: 20) else {
-            throw XCTSkip("Onboarding did not present. \(app.debugDescription)")
-        }
+        try requireFlow()
         XCTAssertTrue(step("arrival").waitForExistence(timeout: 10))
-        primary.tap()
-
-        XCTAssertTrue(step("intent").waitForExistence(timeout: 10))
-        let choice = app.buttons[AccessibilityIdentifiers.LifeWeave.intent("reduceMentalLoad")].firstMatch
-        choice.tap()
+        app.buttons[AccessibilityIdentifiers.LifeWeave.intent("reduceMentalLoad")].firstMatch.tap()
         primary.tap()
 
         XCTAssertTrue(step("lifeAreas").waitForExistence(timeout: 10))
         app.buttons[AccessibilityIdentifiers.LifeWeave.back].tap()
 
-        XCTAssertTrue(step("intent").waitForExistence(timeout: 10))
+        XCTAssertTrue(step("arrival").waitForExistence(timeout: 10))
         XCTAssertTrue(primary.isEnabled, "returning to a step must find the answer still there")
     }
 
     /// The map is one semantic element, not a pile of decorative paths.
     func testLifeMapIsSummarisedRatherThanExploded() throws {
-        guard flow.waitForExistence(timeout: 20) else {
-            throw XCTSkip("Onboarding did not present. \(app.debugDescription)")
-        }
+        try requireFlow()
         XCTAssertTrue(step("arrival").waitForExistence(timeout: 10))
+        app.buttons[AccessibilityIdentifiers.LifeWeave.intent("clarityToday")].firstMatch.tap()
+        primary.tap()
+        XCTAssertTrue(step("lifeAreas").waitForExistence(timeout: 10))
         let canvas = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.canvas]
-        XCTAssertTrue(canvas.exists)
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
         XCTAssertTrue(
             canvas.label.contains("Life Map"),
             "the map must publish one summary; VoiceOver cannot see geometry"
@@ -172,15 +134,11 @@ final class LifeWeaveOnboardingUITests: BaseUITest {
 
     private func walkToCapture() throws {
         XCTAssertTrue(step("arrival").waitForExistence(timeout: 10))
-        primary.tap()
-        XCTAssertTrue(step("intent").waitForExistence(timeout: 10))
         app.buttons[AccessibilityIdentifiers.LifeWeave.intent("clarityToday")].firstMatch.tap()
         primary.tap()
         XCTAssertTrue(step("lifeAreas").waitForExistence(timeout: 10))
         app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea("work-career")].firstMatch.tap()
         app.buttons[AccessibilityIdentifiers.LifeWeave.lifeArea("health-self")].firstMatch.tap()
-        primary.tap()
-        XCTAssertTrue(step("dayShape").waitForExistence(timeout: 10))
         primary.tap()
         XCTAssertTrue(step("firstCapture").waitForExistence(timeout: 10))
     }
@@ -194,9 +152,7 @@ final class OnboardingPresentationUITests: BaseUITest {
     /// A completed workspace is never interrupted by a launch prompt.
     func testCompletedWorkspaceIsNotInterrupted() {
         let flow = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.flow]
-        let legacy = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeMap.flow]
         XCTAssertFalse(flow.waitForExistence(timeout: 4))
-        XCTAssertFalse(legacy.exists)
     }
 }
 
@@ -267,7 +223,6 @@ private extension XCUIElement {
 
 final class SeamlessOnboardingUITests: BaseUITest {
     override var shouldSkipOnboarding: Bool { false }
-    override var additionalLaunchArguments: [String] { ["-LIFEBOARD_ENABLE_SEAMLESS_ONBOARDING"] }
 
     private var primary: XCUIElement { app.buttons[AccessibilityIdentifiers.LifeWeave.primaryAction] }
 
@@ -281,6 +236,7 @@ final class SeamlessOnboardingUITests: BaseUITest {
         primary.tap()
         let skip = app.buttons[AccessibilityIdentifiers.LifeWeave.secondaryAction]
         XCTAssertTrue(skip.waitForExistence(timeout: 5))
+        XCTAssertEqual(skip.label, "Skip")
         skip.tap()
         let health = app.buttons["onboarding.connection.health"]
         XCTAssertTrue(health.waitForExistence(timeout: 15))
@@ -308,7 +264,7 @@ final class SeamlessOnboardingUITests: BaseUITest {
 final class SeamlessOnboardingLargeTextUITests: BaseUITest {
     override var shouldSkipOnboarding: Bool { false }
     override var additionalLaunchArguments: [String] {
-        ["-LIFEBOARD_ENABLE_SEAMLESS_ONBOARDING", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
     }
 
     func testSaveRealTaskWithLargeText() {
@@ -327,8 +283,9 @@ final class SeamlessOnboardingLargeTextUITests: BaseUITest {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("Prepare the project outline")
-        primary.tap()
-        XCTAssertTrue(app.buttons["Save and continue"].waitForExistence(timeout: 10))
+        // Save is available from the first character; interpretation happens
+        // on a pause or, if there was none, as part of Save itself.
+        XCTAssertEqual(primary.label, "Save")
         primary.tap()
         XCTAssertTrue(app.buttons["Start my day"].waitForExistence(timeout: 15))
         primary.tap()
