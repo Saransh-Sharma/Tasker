@@ -235,9 +235,9 @@ final class EvaActivationTests: XCTestCase {
         let suite = "eva.activation.secure-storage.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let sessionStore = EvaCloudSessionStore { operation in
+        let sessionStore = EvaCloudSessionStore(securityStatusOverride: { operation in
             operation == .load ? errSecMissingEntitlement : nil
-        }
+        })
         let coordinator = EvaCloudAccessCoordinator(
             account: EvaCloudAccountState(),
             defaults: defaults,
@@ -299,7 +299,7 @@ final class EvaActivationTests: XCTestCase {
                 previousIdentityKind: .guest,
                 nextAvailableAt: nil
             ),
-            .needsDisclosure
+            .needsActivation
         )
         XCTAssertEqual(
             EvaCloudAccessCoordinator.resolveState(
@@ -327,7 +327,7 @@ final class EvaActivationTests: XCTestCase {
                 previousIdentityKind: nil,
                 nextAvailableAt: nil
             ),
-            .ageBlocked(EvaProviderError.adultEligibilityRequired.localizedDescription)
+            .temporarilyUnavailable("EVA could not connect. Please try again.")
         )
     }
 
@@ -343,7 +343,7 @@ final class EvaActivationTests: XCTestCase {
 
         coordinator.selectOffline()
         XCTAssertEqual(EvaProviderRouter.Preference.resolvedStoredPreference(defaults: defaults), .offline)
-        let resumedWhileOffline = await coordinator.resumeConfirmedActivation(source: .appLaunch)
+        let resumedWhileOffline = await coordinator.ensureActivated(source: .appLaunch)
         XCTAssertFalse(resumedWhileOffline)
 
         coordinator.selectCloud()
@@ -395,7 +395,7 @@ final class EvaActivationTests: XCTestCase {
     /// `lastError` holds the text of the most recent transient failure and is
     /// cleared only by a fully successful refresh. Checking it first would hide
     /// the one state the user can actually act on behind a network string.
-    func testReadinessReportsMissingAgeVerificationRatherThanAStaleTransientError() {
+    func testReadinessReportsConfigurationFailureWithoutInventingAgeRejection() {
         let error = EvaCloudAccountState.readinessError(
             configuration: nil,
             isAuthenticated: true,
@@ -406,9 +406,7 @@ final class EvaActivationTests: XCTestCase {
             lastError: "The request timed out."
         )
 
-        guard case .adultEligibilityRequired = error else {
-            return XCTFail("Expected .adultEligibilityRequired, got \(String(describing: error))")
-        }
+        XCTAssertEqual(error?.localizedDescription, "The request timed out.")
     }
 
     func testReadinessReportsSignInRequiredRatherThanAStaleTransientError() {
@@ -504,7 +502,7 @@ final class EvaActivationTests: XCTestCase {
     func testChallengeRequestRetriesOnceAfterATimeout() async {
         EvaStubURLProtocol.reset()
         EvaStubURLProtocol.respond { _ in .failure(URLError(.timedOut)) }
-        let transport = EvaCloudTransport(session: EvaStubURLProtocol.makeSession())
+        let transport = EvaCloudTransport(sessionStore: EvaCloudSessionStore(inMemory: true), session: EvaStubURLProtocol.makeSession())
 
         do {
             _ = try await transport.signInChallenge()
@@ -525,7 +523,7 @@ final class EvaActivationTests: XCTestCase {
         EvaStubURLProtocol.respond { attempt in
             attempt == 1 ? .failure(URLError(.networkConnectionLost)) : .success((200, payload))
         }
-        let transport = EvaCloudTransport(session: EvaStubURLProtocol.makeSession())
+        let transport = EvaCloudTransport(sessionStore: EvaCloudSessionStore(inMemory: true), session: EvaStubURLProtocol.makeSession())
 
         let challenge = try await transport.signInChallenge()
 
@@ -539,7 +537,7 @@ final class EvaActivationTests: XCTestCase {
     func testAppleExchangeIsNeverRetried() async {
         EvaStubURLProtocol.reset()
         EvaStubURLProtocol.respond { _ in .failure(URLError(.timedOut)) }
-        let transport = EvaCloudTransport(session: EvaStubURLProtocol.makeSession())
+        let transport = EvaCloudTransport(sessionStore: EvaCloudSessionStore(inMemory: true), session: EvaStubURLProtocol.makeSession())
 
         do {
             _ = try await transport.exchangeAppleCredential(
@@ -713,7 +711,7 @@ final class EvaActivationTests: XCTestCase {
     func testRetryIsSkippedForErrorsARetryCannotFix() async {
         EvaStubURLProtocol.reset()
         EvaStubURLProtocol.respond { _ in .failure(URLError(.userAuthenticationRequired)) }
-        let transport = EvaCloudTransport(session: EvaStubURLProtocol.makeSession())
+        let transport = EvaCloudTransport(sessionStore: EvaCloudSessionStore(inMemory: true), session: EvaStubURLProtocol.makeSession())
 
         _ = try? await transport.signInChallenge()
 
@@ -1429,11 +1427,11 @@ final class EvaContractNegotiationTests: XCTestCase {
             cloudContext: [],
             userInstructions: EvaUserInstructions(persona: "Be blunt.")
         )
-        let v1 = EvaInferenceRequest.make(
+        let v1 = try EvaInferenceRequest.make(
             route: .chat, promptSnapshot: snapshot, consentRevision: 0,
             userInstructions: snapshot.userInstructions, contractVersion: 1
         )
-        let v2 = EvaInferenceRequest.make(
+        let v2 = try EvaInferenceRequest.make(
             route: .chat, promptSnapshot: snapshot, consentRevision: 0,
             userInstructions: snapshot.userInstructions, contractVersion: 2
         )
@@ -2036,4 +2034,308 @@ final class EvaStubURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     override func stopLoading() {}
+}
+
+
+@MainActor
+final class EvaAutomaticActivationTests: XCTestCase {
+    func testFreshInstallAutomaticallyActivatesOnceAcrossEntryPoints() async throws {
+        let name = "eva.automatic.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        var activations = 0
+        var ready = false
+        var grants: [EvaConsentPolicy.Grant] = []
+        let coordinator = EvaCloudAccessCoordinator(
+            account: EvaCloudAccountState(), defaults: defaults,
+            sessionStore: EvaCloudSessionStore(inMemory: true),
+            refreshAccount: { await _Concurrency.Task.yield() },
+            readinessError: { ready ? nil : .authenticationRequired },
+            activateAccount: { received, preserve in
+                XCTAssertTrue(preserve)
+                activations += 1
+                grants = received
+                await _Concurrency.Task.yield()
+                ready = true
+            }
+        )
+        async let launch = coordinator.ensureActivated(source: .appLaunch)
+        async let chat = coordinator.ensureActivated(source: .chatSend)
+        let results = await [launch, chat]
+        XCTAssertEqual(results, [true, true])
+        XCTAssertEqual(activations, 1)
+        XCTAssertEqual(Set(grants), Set(EvaConsentPolicy.Grant.allCases))
+        XCTAssertEqual(EvaCloudActivationRecordStore.load(defaults: defaults)?.origin, .automaticDefaults)
+        XCTAssertNil(EvaCloudActivationReceiptStore.load(defaults: defaults))
+        XCTAssertEqual(coordinator.state, .ready)
+    }
+
+    func testMigratesOldRestrictionsEvenWhenDisclosureRevisionIsStale() throws {
+        let name = "eva.migration.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let old = EvaCloudActivationReceiptV1(grants: [.journal], disclosureRevision: 0)
+        defaults.set(try JSONEncoder.evaCloud.encode(old), forKey: EvaCloudActivationReceiptStore.key)
+        let record = try XCTUnwrap(EvaCloudActivationRecordStore.load(defaults: defaults))
+        XCTAssertEqual(record.grants, [.journal])
+        XCTAssertEqual(record.origin, .userSelection)
+        XCTAssertEqual(record.version, 3)
+    }
+
+    func testDisabledCloudDoesNotHydrateOrActivate() async throws {
+        let name = "eva.disabled.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let coordinator = EvaCloudAccessCoordinator(
+            account: EvaCloudAccountState(), defaults: defaults,
+            sessionStore: EvaCloudSessionStore(inMemory: true),
+            refreshAccount: { XCTFail("Disabled Cloud must not refresh") },
+            activateAccount: { _, _ in XCTFail("Disabled Cloud must not activate") }
+        )
+        coordinator.disableAutomaticActivation()
+        let result = await coordinator.ensureActivated(source: .appLaunch)
+        XCTAssertFalse(result)
+        coordinator.selectCloud()
+        XCTAssertTrue(coordinator.automaticActivationAllowed)
+    }
+
+    func testInterruptedActivationUsesStoredRestrictionsAndBacksOff() async throws {
+        let name = "eva.retry.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        EvaCloudActivationRecordStore.save(grants: [], origin: .userSelection, defaults: defaults)
+        var attempts = 0
+        let coordinator = EvaCloudAccessCoordinator(
+            account: EvaCloudAccountState(), defaults: defaults,
+            sessionStore: EvaCloudSessionStore(inMemory: true),
+            refreshAccount: {}, readinessError: { .authenticationRequired },
+            activateAccount: { grants, preserve in
+                XCTAssertTrue(grants.isEmpty)
+                XCTAssertTrue(preserve)
+                attempts += 1
+                throw URLError(.notConnectedToInternet)
+            }
+        )
+        let first = await coordinator.ensureActivated(source: .onboarding)
+        let second = await coordinator.ensureActivated(source: .chatSend)
+        XCTAssertFalse(first)
+        XCTAssertFalse(second)
+        XCTAssertEqual(attempts, 1)
+        guard case .temporarilyUnavailable = coordinator.state else { return XCTFail("Expected a retryable failure") }
+        coordinator.disableAutomaticActivation()
+    }
+
+    func testExistingAppleSessionRequiresRecoveryWithoutCreatingGuest() async throws {
+        let name = "eva.apple-recovery.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let sessions = EvaCloudSessionStore(inMemory: true)
+        try await sessions.save(EvaSessionCredentials(accountId: "linked", familyId: UUID(),
+            accessToken: "test", accessTokenExpiresAt: .distantPast, refreshToken: "test",
+            refreshTokenExpiresAt: .distantPast, installationId: UUID(), platform: "ios",
+            appleUserIdentifier: "test-apple-user", identityKind: .apple))
+        let coordinator = EvaCloudAccessCoordinator(account: EvaCloudAccountState(),
+            defaults: defaults, sessionStore: sessions, refreshAccount: {},
+            readinessError: { .authenticationRequired },
+            activateAccount: { _, _ in XCTFail("Must recover the linked account") })
+        let result = await coordinator.ensureActivated(source: .appLaunch)
+        XCTAssertFalse(result)
+        XCTAssertEqual(coordinator.state, .appleReauthenticationRequired)
+    }
+
+    func testDisablingDuringActivationDrainsWorkAndDoesNotPublishReady() async throws {
+        let name = "eva.stop.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        var continuation: CheckedContinuation<Void, Never>?
+        let coordinator = EvaCloudAccessCoordinator(account: EvaCloudAccountState(),
+            defaults: defaults, sessionStore: EvaCloudSessionStore(inMemory: true),
+            refreshAccount: {}, readinessError: { .authenticationRequired },
+            activateAccount: { _, _ in
+                await withCheckedContinuation { continuation = $0 }
+            })
+        let activation = _Concurrency.Task { await coordinator.ensureActivated(source: .appLaunch) }
+        while continuation == nil { await _Concurrency.Task.yield() }
+        let stop = _Concurrency.Task { await coordinator.stopAutomaticActivation() }
+        while coordinator.automaticActivationAllowed { await _Concurrency.Task.yield() }
+        continuation?.resume()
+        let activated = await activation.value
+        await stop.value
+        XCTAssertFalse(activated)
+        XCTAssertEqual(coordinator.state, .needsActivation)
+        XCTAssertFalse(coordinator.automaticActivationAllowed)
+    }
+
+    func testMissingAgeMetadataDoesNotBlockReadyAccount() {
+        // The existing configuration fixture is intentionally absent here: the
+        // failure must describe configuration, never an invented age verdict.
+        let error = EvaCloudAccountState.readinessError(configuration: nil,
+            isAuthenticated: true, isAdultEligible: false, hasConsent: true,
+            creditBalance: 10, route: .chat, lastError: "Configuration unavailable")
+        XCTAssertEqual(error?.localizedDescription, "Configuration unavailable")
+    }
+}
+
+/// The backing records outlive each store instance, just as Keychain outlives
+/// the process. Faults exercise production encoding and migration paths.
+private final class EvaRecordStorageFake: EvaSecureRecordStorage, @unchecked Sendable {
+    private let lock = NSLock()
+    private var records: [String: Data] = [:]
+    private var failure: EvaSecureStorageOperation?
+
+    func fail(_ operation: EvaSecureStorageOperation?) {
+        lock.withLock { failure = operation }
+    }
+    func load(account: String) throws -> Data? {
+        try lock.withLock {
+            if failure == .load { throw EvaSecureStorageError(operation: .load, status: errSecInteractionNotAllowed) }
+            return records[account]
+        }
+    }
+    func save(_ data: Data, account: String) throws {
+        try lock.withLock {
+            if failure == .update { throw EvaSecureStorageError(operation: .update, status: errSecInteractionNotAllowed) }
+            records[account] = data
+        }
+    }
+    func delete(account: String) throws {
+        try lock.withLock {
+            if failure == .delete { throw EvaSecureStorageError(operation: .delete, status: errSecInteractionNotAllowed) }
+            records.removeValue(forKey: account)
+        }
+    }
+}
+
+@MainActor
+final class EvaSessionPersistenceTests: XCTestCase {
+    private let installation = UUID()
+
+    private func credentials() -> EvaSessionCredentials {
+        EvaSessionCredentials(accountId: "persisted-account", familyId: UUID(),
+            accessToken: "test-access", accessTokenExpiresAt: Date(timeIntervalSince1970: 2_000_000_000),
+            refreshToken: "test-refresh", refreshTokenExpiresAt: Date(timeIntervalSince1970: 2_100_000_000),
+            installationId: installation, platform: "ios", appleUserIdentifier: nil, identityKind: .guest)
+    }
+
+    private func store(_ backing: EvaRecordStorageFake) -> EvaCloudSessionStore {
+        let id = installation
+        return EvaCloudSessionStore(recordStorage: backing, installationIDProvider: { id })
+    }
+
+    func testNewStoreRestoresSameAccountAndBootstrapAfterUpgrade() async throws {
+        let backing = EvaRecordStorageFake()
+        let first = store(backing)
+        let expected = credentials()
+        try await first.save(expected)
+        let bootstrap = try await first.guestBootstrapID(for: installation)
+        let relaunched = store(backing)
+        let restored = await relaunched.restoreOutcome()
+        let recoveredBootstrap = try await relaunched.guestBootstrapID(for: installation)
+        XCTAssertEqual(restored, .restored(expected))
+        XCTAssertEqual(recoveredBootstrap, bootstrap)
+        XCTAssertEqual(EvaCloudKeychainNamespace.service, "app.getlifeboard.eva-cloud")
+        XCTAssertEqual(EvaCloudKeychainNamespace.accessibility, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String)
+    }
+
+    func testV1MigrationPreservesEveryCredentialField() async throws {
+        let backing = EvaRecordStorageFake()
+        let expected = credentials()
+        try backing.save(JSONEncoder.evaCloud.encode(expected), account: "session-v1")
+        let restored = await store(backing).restoreOutcome()
+        XCTAssertEqual(restored, .restored(expected))
+        XCTAssertNil(try backing.load(account: "session-v1"))
+        XCTAssertNotNil(try backing.load(account: "session-v2"))
+        let relaunched = await store(backing).restoreOutcome()
+        XCTAssertEqual(relaunched, .restored(expected))
+    }
+
+    func testFailedMigrationKeepsLegacySessionForRetry() async throws {
+        let backing = EvaRecordStorageFake()
+        let expected = credentials()
+        try backing.save(JSONEncoder.evaCloud.encode(expected), account: "session-v1")
+        backing.fail(.update)
+        let deferred = await store(backing).restoreOutcome()
+        guard case .temporarilyUnavailable = deferred else { return XCTFail("Migration must defer") }
+        XCTAssertNotNil(try backing.load(account: "session-v1"))
+        backing.fail(nil)
+        let restored = await store(backing).restoreOutcome()
+        XCTAssertEqual(restored, .restored(expected))
+    }
+
+    func testLockedStorageNeverBecomesMissingAndRetainsSession() async throws {
+        let backing = EvaRecordStorageFake()
+        let expected = credentials()
+        try await store(backing).save(expected)
+        backing.fail(.load)
+        let deferred = await store(backing).restoreOutcome()
+        guard case .temporarilyUnavailable = deferred else { return XCTFail("Locked storage must defer") }
+        backing.fail(nil)
+        let restored = await store(backing).restoreOutcome()
+        XCTAssertEqual(restored, .restored(expected))
+    }
+
+    func testCorruptRecordIsRetainedAndNeverBecomesMissing() async throws {
+        let backing = EvaRecordStorageFake()
+        let bytes = Data("broken-session".utf8)
+        try backing.save(bytes, account: "session-v2")
+        let result = await store(backing).restoreOutcome()
+        guard case .corrupt = result else { return XCTFail("Corrupt storage must be explicit") }
+        XCTAssertEqual(try backing.load(account: "session-v2"), bytes)
+    }
+
+    func testInstallationMismatchRetainsCredentials() async throws {
+        let backing = EvaRecordStorageFake()
+        let expected = credentials()
+        try await store(backing).save(expected)
+        let otherID = UUID()
+        let other = EvaCloudSessionStore(recordStorage: backing, installationIDProvider: { otherID })
+        let result = await other.restoreOutcome()
+        XCTAssertEqual(result, .identityMismatch(expected))
+        let retained = try await other.load()
+        XCTAssertEqual(retained, expected)
+    }
+
+    func testReplacementSessionClearsObservedRevocation() async throws {
+        let backing = EvaRecordStorageFake()
+        let sessions = store(backing)
+        let old = credentials()
+        await sessions.markServerRevoked(old)
+        let result = await sessions.restoreOutcome()
+        XCTAssertEqual(result, .serverRevoked(old))
+        await sessions.markServerRevoked(old)
+        let replacement = credentials()
+        try await sessions.save(replacement)
+        let restored = await sessions.restoreOutcome()
+        XCTAssertEqual(restored, .restored(replacement))
+    }
+
+    func testExplicitClearRemovesCurrentAndLegacyRecords() async throws {
+        let backing = EvaRecordStorageFake()
+        let sessions = store(backing)
+        try backing.save(JSONEncoder.evaCloud.encode(credentials()), account: "session-v1")
+        try await sessions.save(credentials())
+        try await sessions.clear()
+        let result = await sessions.restoreOutcome()
+        XCTAssertEqual(result, .missing)
+        XCTAssertNil(try backing.load(account: "session-v1"))
+    }
+
+    func testOfflineIntentSurvivesNewCoordinator() async throws {
+        let name = "eva.offline.persisted.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        EvaCloudActivationRecordStore.save(grants: [.journal], origin: .userSelection,
+            defaults: defaults, lastServerConsentRevision: 7, explicitOffline: true)
+        let coordinator = EvaCloudAccessCoordinator(defaults: defaults,
+            sessionStore: EvaCloudSessionStore(inMemory: true),
+            refreshAccount: { XCTFail("Offline must not hydrate") },
+            activateAccount: { _, _ in XCTFail("Offline must not activate") })
+        let activated = await coordinator.ensureActivated(source: .appLaunch)
+        XCTAssertFalse(activated)
+        coordinator.selectCloud()
+        XCTAssertTrue(coordinator.automaticActivationAllowed)
+        let saved = EvaCloudActivationRecordStore.load(defaults: defaults)
+        XCTAssertEqual(saved?.grants, [.journal])
+        XCTAssertEqual(saved?.lastServerConsentRevision, 7)
+    }
 }
