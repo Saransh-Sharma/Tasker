@@ -35,19 +35,19 @@ enum OnboardingContextualTip: String, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .home: "This is Today."
-        case .plan: "Plan around reality."
-        case .track: "Record what helps."
-        case .eva: "Ask, then stay in control."
+        case .home: String(localized: "This is Today")
+        case .plan: String(localized: "Plan around your day")
+        case .track: String(localized: "Track what helps")
+        case .eva: String(localized: "Ask EVA")
         }
     }
 
     var detail: String {
         switch self {
-        case .home: "LifeBoard keeps the next useful thing here and lets the rest wait."
-        case .plan: "Add work to open time. Fixed calendar events stay read-only."
-        case .track: "Start with one quick log. Missing data is never treated as failure."
-        case .eva: "Eva can explain or prepare changes. You review meaningful ones before they happen."
+        case .home: String(localized: "Your next thing lives here.")
+        case .plan: String(localized: "Drop tasks into open time.")
+        case .track: String(localized: "A missed day isn't a failure.")
+        case .eva: String(localized: "You approve changes before they happen.")
         }
     }
 
@@ -80,8 +80,20 @@ public enum OnboardingContextualTipState {
     /// A user who completed the v5 journey already sat through the root tour;
     /// showing them the same four sentences again would be the product
     /// forgetting what it had already told them.
-    static func shouldShow(_ tip: OnboardingContextualTip, hasCompletedLifeWeave: Bool) -> Bool {
+    /// Set when the first run finishes, for the rest of the process.
+    ///
+    /// Arriving at Home from Ready used to meet a tip about Home in the same
+    /// instant — the product explaining itself over the top of the user's own
+    /// first thing. The Home tip now waits for a later visit.
+    @MainActor private static var suppressedForArrival = false
+
+    @MainActor static func suppressForArrival() {
+        suppressedForArrival = true
+    }
+
+    @MainActor static func shouldShow(_ tip: OnboardingContextualTip, hasCompletedLifeWeave: Bool) -> Bool {
         guard hasCompletedLifeWeave else { return false }
+        if tip == .home, suppressedForArrival { return false }
         return defaults.bool(forKey: key(tip)) == false
     }
 
