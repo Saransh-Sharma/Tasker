@@ -29,12 +29,6 @@ struct EvaCloudProvider: EvaInferenceProviding {
         request: EvaInferenceRequest,
         onText: @MainActor @Sendable @escaping (String) -> Void
     ) async throws -> String {
-        let requiresAgeDecision = await MainActor.run {
-            EvaCloudAccountState.shared.configuration?.requiresAgeDecision == true
-        }
-        if requiresAgeDecision {
-            try await EvaAgeEligibilityService().revalidateIfNeeded(using: transport)
-        }
         if UserDefaults.standard.bool(forKey: "eva.cloud.first-prompt.sent") == false {
             await ProductTelemetry.shared.record(.evaFirstPromptSent)
             UserDefaults.standard.set(true, forKey: "eva.cloud.first-prompt.sent")
@@ -118,7 +112,6 @@ final class EvaCloudAccountState {
         case idle
         case creatingGuest
         case verifyingDevice
-        case confirmingAge
         case finalizing
 
         var progressCaption: String? {
@@ -126,7 +119,6 @@ final class EvaCloudAccountState {
             case .idle: nil
             case .creatingGuest: String(localized: "Activating Cloud EVA…")
             case .verifyingDevice: String(localized: "Verifying this device…")
-            case .confirmingAge: String(localized: "Confirming your age range…")
             case .finalizing: String(localized: "Securing your EVA session…")
             }
         }
@@ -142,6 +134,12 @@ final class EvaCloudAccountState {
     private(set) var isAdultEligible = false
     private(set) var lastError: String?
     private(set) var activationStage: ActivationStage = .idle
+    let transport: EvaCloudTransport
+    private var accountRefreshTask: Task<Void, Never>?
+
+    init(transport: EvaCloudTransport = .shared) {
+        self.transport = transport
+    }
 
     var canUseCloud: Bool {
         canUseCloud(route: .chat)
@@ -176,13 +174,9 @@ final class EvaCloudAccountState {
         route: EvaCloudRoute,
         lastError: String?
     ) -> EvaProviderError? {
-        // `lastError` is checked last, not first. It holds the text of the most
-        // recent transient failure and is cleared only by a fully successful
-        // refresh, so leading with it would mask an accurate, actionable state
-        // (“confirm your age”) behind a stale network string for as long as the
-        // next refresh takes to succeed.
+        // Structural errors take precedence over stale transient failures.
+        // Eligibility belongs to app distribution, not session readiness.
         guard isAuthenticated else { return .authenticationRequired }
-        guard isAdultEligible else { return .adultEligibilityRequired }
         guard let configuration else {
             return .unavailable(lastError ?? String(localized: "Cloud configuration could not be verified."))
         }
@@ -201,9 +195,21 @@ final class EvaCloudAccountState {
     }
 
     func refresh(
-        using transport: EvaCloudTransport = .shared,
+        using suppliedTransport: EvaCloudTransport? = nil,
         forceConfigurationRefresh: Bool = false
     ) async {
+        if let accountRefreshTask { return await accountRefreshTask.value }
+        let transport = suppliedTransport ?? self.transport
+        let task = Task { @MainActor in
+            await self.refreshAccount(using: transport, forceConfigurationRefresh: forceConfigurationRefresh)
+        }
+        accountRefreshTask = task
+        await task.value
+        accountRefreshTask = nil
+    }
+
+    private func refreshAccount(using transport: EvaCloudTransport, forceConfigurationRefresh: Bool) async {
+        var persistedCredentials: EvaSessionCredentials?
         do {
             guard let credentials = try await transport.sessionStore.load() else {
                 configuration = nil
@@ -217,9 +223,18 @@ final class EvaCloudAccountState {
                 lastError = nil
                 return
             }
+            persistedCredentials = credentials
+            identityKind = credentials.resolvedIdentityKind
             if credentials.resolvedIdentityKind == .apple {
-                guard await EvaAppleIdentityService.shared.credentialIsAuthorized() else {
-                    await handleAppleCredentialInvalidation()
+                switch await EvaAppleIdentityService.shared.credentialAuthorization(for: credentials) {
+                case .authorized:
+                    break
+                case .revoked:
+                    await handleAppleCredentialInvalidation(using: transport, credentials: credentials)
+                    return
+                case .unavailable:
+                    isAuthenticated = true
+                    lastError = String(localized: "Apple account status is temporarily unavailable. Cloud EVA will retry automatically.")
                     return
                 }
             }
@@ -242,13 +257,18 @@ final class EvaCloudAccountState {
         } catch let error as URLError where error.code == .cancelled {
             return
         } catch {
-            isAuthenticated = (try? await EvaCloudSessionStore.shared.load()) != nil
-            // Only an explicit server verdict clears eligibility. A timed-out
-            // credits call says nothing about the user's age.
-            if let envelope = error as? EvaErrorEnvelope,
-               envelope.code == "adult_eligibility_required" || envelope.code == "age_eligibility_required" {
-                isAdultEligible = false
-                EvaAgeEligibilityService.invalidateCachedEligibility()
+            isAuthenticated = persistedCredentials != nil
+            if let persistedCredentials {
+                identityKind = persistedCredentials.resolvedIdentityKind
+            }
+            if error.evaRequiresReauthentication, let persistedCredentials {
+                EvaCloudRecoveryStore.saveApple(credentials: persistedCredentials)
+                try? await transport.sessionStore.clear()
+                await transport.sessionStore.markServerRevoked(persistedCredentials)
+                isAuthenticated = false
+                if persistedCredentials.resolvedIdentityKind == .apple {
+                    await ProductTelemetry.shared.record(.evaAppleReauthenticationRequired, outcome: "refresh")
+                }
             }
             lastError = error.localizedDescription
         }
@@ -258,23 +278,26 @@ final class EvaCloudAccountState {
     /// retrying after a stalled network hop picks up where it stopped instead of
     /// re-presenting the Apple sheet and spending another of the five exchanges
     /// the server allows per minute.
-    func activateCloud(grants: [EvaConsentPolicy.Grant] = EvaConsentPolicy.Grant.allCases) async throws {
+    func activateCloud(grants: [EvaConsentPolicy.Grant] = EvaConsentPolicy.Grant.allCases, preserveExistingGrants: Bool = false) async throws {
         lastError = nil
         activationStage = .creatingGuest
         defer { activationStage = .idle }
         await ProductTelemetry.shared.record(.evaActivationStarted)
 
-        configuration = try await EvaCloudTransport.shared.runtimeConfiguration(forceRefresh: true)
+        if EvaCloudRecoveryStore.load()?.identityKind == .apple {
+            throw EvaProviderError.authenticationRequired
+        }
+        configuration = try await transport.runtimeConfiguration(forceRefresh: true)
         if try await resumeStoredSession() {
             isAuthenticated = true
-            let currentConsent = try await EvaCloudTransport.shared.consent()
+            let currentConsent = try await transport.consent()
             let requestedGrants = Set(grants)
-            if Set(currentConsent.grants) == requestedGrants {
+            if (preserveExistingGrants || Set(currentConsent.grants) == requestedGrants), currentConsent.reviewRequired != true {
                 consent = currentConsent
             } else {
-                consent = try await EvaCloudTransport.shared.updateConsent(
+                consent = try await transport.updateConsent(
                     expectedRevision: currentConsent.revision,
-                    grants: grants
+                    grants: preserveExistingGrants ? currentConsent.grants : grants
                 )
             }
         } else {
@@ -283,8 +306,7 @@ final class EvaCloudAccountState {
                     configuration?.maintenanceMessage ?? String(localized: "Guest Cloud EVA is not enabled yet.")
                 )
             }
-            await ProductTelemetry.shared.record(.evaActivationReviewConfirmed)
-            let credentials = try await EvaCloudTransport.shared.bootstrapGuest(grants: grants)
+            let credentials = try await transport.bootstrapGuest(grants: grants)
             identityKind = credentials.resolvedIdentityKind
             trustTier = credentials.trustTier
             isAuthenticated = true
@@ -293,20 +315,11 @@ final class EvaCloudAccountState {
     }
 
     private func finishGuestActivation() async throws {
-        if configuration?.requiresAgeDecision == true {
-            activationStage = .confirmingAge
-            let age = try await EvaAgeEligibilityService().requestAndRegister(policyRequired: true)
-            guard age.eligible else { throw EvaProviderError.adultEligibilityRequired }
-            isAdultEligible = true
-        } else {
-            isAdultEligible = true
-        }
-
         activationStage = .verifyingDevice
-        let highTrust = await EvaAppAttestService.shared.registerIfNeeded(using: .shared)
+        let highTrust = await EvaAppAttestService.shared.registerIfNeeded(using: transport)
         trustTier = highTrust ? "high" : (trustTier ?? "low")
         activationStage = .finalizing
-        await refresh(forceConfigurationRefresh: true)
+        await refresh(using: transport, forceConfigurationRefresh: true)
         if let readinessError = readinessError() { throw readinessError }
     }
 
@@ -321,10 +334,39 @@ final class EvaCloudAccountState {
     /// permanent dead end: every tap re-reads the same dead credentials and
     /// reports "Your EVA session has expired" with no route back to sign-in.
     private func resumeStoredSession() async throws -> Bool {
-        guard let credentials = try? await EvaCloudSessionStore.shared.load(),
-              credentials.refreshTokenExpiresAt > Date() else { return false }
-        if credentials.resolvedIdentityKind == .apple,
-           await EvaAppleIdentityService.shared.credentialIsAuthorized() == false { return false }
+        guard let credentials = try await transport.sessionStore.load() else { return false }
+        // A credential from another installation is never an invitation to
+        // bootstrap a replacement guest. This check also covers a stale
+        // ThisDeviceOnly item that survived an uninstall while the identity
+        // marker is being recreated.
+        if await transport.sessionStore.isInMemoryStorage() == false {
+            let installationID = try EvaInstallationIdentity.resolved()
+            if credentials.installationId != installationID {
+                throw EvaProviderError.unavailable(
+                    String(localized: "Cloud EVA is restoring this installation. Try again when secure storage is available.")
+                )
+            }
+        }
+        guard credentials.refreshTokenExpiresAt > Date() else {
+            if credentials.resolvedIdentityKind == .apple {
+                EvaCloudRecoveryStore.saveApple(credentials: credentials)
+                try? await transport.sessionStore.clear()
+                await ProductTelemetry.shared.record(.evaAppleReauthenticationRequired, outcome: "expired")
+                throw EvaProviderError.authenticationRequired
+            }
+            return false
+        }
+        if credentials.resolvedIdentityKind == .apple {
+            switch await EvaAppleIdentityService.shared.credentialAuthorization(for: credentials) {
+            case .authorized:
+                break
+            case .revoked:
+                await handleAppleCredentialInvalidation(using: transport, credentials: credentials)
+                throw EvaProviderError.authenticationRequired
+            case .unavailable:
+                throw EvaProviderError.unavailable(String(localized: "Apple account status is temporarily unavailable."))
+            }
+        }
 
         activationStage = .verifyingDevice
         do {
@@ -332,16 +374,24 @@ final class EvaCloudAccountState {
             // forces a token refresh when needed and makes the server rule on
             // the family. App Attest registration cannot serve here — it
             // short-circuits whenever a key already exists, proving nothing.
-            quota = try await EvaCloudTransport.shared.quota()
+            quota = try await transport.quota()
             credits = Self.creditProjection(from: quota)
             // Sign-in would have done this; the resume path has to, or the
             // attested eligibility POST fails for want of a key.
-            let highTrust = await EvaAppAttestService.shared.registerIfNeeded(using: .shared)
+            let highTrust = await EvaAppAttestService.shared.registerIfNeeded(using: transport)
             identityKind = credentials.resolvedIdentityKind
             trustTier = highTrust ? "high" : credentials.trustTier
             return true
         } catch let error where error.evaRequiresReauthentication {
-            await discardStoredSession()
+            if credentials.resolvedIdentityKind == .apple {
+                EvaCloudRecoveryStore.saveApple(credentials: credentials)
+                await discardStoredSession(using: transport)
+                await transport.sessionStore.markServerRevoked(credentials)
+                await ProductTelemetry.shared.record(.evaAppleReauthenticationRequired, outcome: "server_revoked")
+                throw EvaProviderError.authenticationRequired
+            }
+            await discardStoredSession(using: transport)
+            await transport.sessionStore.markServerRevoked(credentials)
             return false
         }
         // Any other failure — a timeout, a 5xx — propagates. It says nothing
@@ -349,10 +399,9 @@ final class EvaCloudAccountState {
         // spend an exchange to solve a problem that was never authentication.
     }
 
-    private func discardStoredSession() async {
-        try? await EvaCloudSessionStore.shared.clear()
+    private func discardStoredSession(using transport: EvaCloudTransport) async {
+        try? await transport.sessionStore.clear()
         await EvaAppAttestService.shared.clearRegistration()
-        EvaAgeEligibilityService.invalidateCachedEligibility()
         configuration = nil
         consent = nil
         credits = nil
@@ -374,9 +423,27 @@ final class EvaCloudAccountState {
 
     func accept(credits: EvaCreditState?) { accept(quota: nil, credits: credits) }
 
+    /// Updates consent through the account's injected transport. Keeping this
+    /// here prevents Settings or another scene from accidentally using a
+    /// different static transport/session store than the coordinator.
+    @discardableResult
+    func updateConsent(grants: [EvaConsentPolicy.Grant]) async throws -> EvaConsentPolicy {
+        guard let policy = consent else { throw EvaProviderError.consentRequired }
+        let updated = try await transport.updateConsent(
+            expectedRevision: policy.revision,
+            grants: grants
+        )
+        consent = updated
+        lastError = nil
+        return updated
+    }
+
     func deactivateCloud() async {
-        await EvaCloudTransport.shared.logout()
+        await EvaCloudAccessCoordinator.shared.stopAutomaticActivation()
+        if let accountRefreshTask { await accountRefreshTask.value }
+        await transport.logout()
         EvaCloudActivationReceiptStore.clear()
+        EvaCloudRecoveryStore.clear()
         configuration = nil
         consent = nil
         credits = nil
@@ -388,25 +455,51 @@ final class EvaCloudAccountState {
     }
 
     func handleAppleCredentialInvalidation() async {
-        guard identityKind == .apple else { return }
-        await EvaCloudTransport.shared.logout()
+        do {
+            let credentials = try await transport.sessionStore.load()
+            await handleAppleCredentialInvalidation(using: transport, credentials: credentials)
+        } catch {
+            // Preserve the durable account identity until secure storage can
+            // be read, even when a revocation notification has arrived.
+            lastError = error.localizedDescription
+        }
+    }
+
+    private func handleAppleCredentialInvalidation(
+        using transport: EvaCloudTransport,
+        credentials: EvaSessionCredentials?
+    ) async {
+        guard identityKind == .apple || credentials?.resolvedIdentityKind == .apple else { return }
+        if let credentials { EvaCloudRecoveryStore.saveApple(credentials: credentials) }
+        await transport.logout()
         configuration = nil
         consent = nil
         credits = nil
         quota = nil
-        identityKind = nil
+        identityKind = .apple
         trustTier = nil
         isAuthenticated = false
         isAdultEligible = false
-        lastError = String(localized: "Your protected Cloud EVA session changed. Activate Cloud EVA again to continue.")
+        lastError = String(localized: "Your protected Cloud EVA session changed. Sign in with Apple to reconnect.")
     }
 
     func deleteCloudAccount() async throws {
         if identityKind == .apple {
-            try await EvaAppleIdentityService.shared.reauthenticate()
+            try await EvaAppleIdentityService.shared.reauthenticate(using: transport)
         }
-        try await EvaCloudTransport.shared.deleteAccount()
+        await EvaCloudAccessCoordinator.shared.stopAutomaticActivation()
+        if let accountRefreshTask { await accountRefreshTask.value }
+        try await transport.deleteAccount()
         EvaCloudActivationReceiptStore.clear()
+        EvaCloudActivationRecordStore.clear()
+        // Deletion must remain an explicit stop even though its context record
+        // is removed. Only a later Cloud selection may create a new account.
+        UserDefaults.standard.set(true, forKey: EvaCloudActivationRecordStore.disabledKey)
+        EvaCloudRecoveryStore.clear()
+        // Account deletion is an explicit installation boundary. Remove the
+        // durable device identity as well as the session so a later first run
+        // cannot accidentally recover the deleted guest account.
+        try? EvaInstallationIdentity.reset()
         configuration = nil
         consent = nil
         credits = nil
@@ -420,18 +513,20 @@ final class EvaCloudAccountState {
     func protectWithApple() async throws {
         guard identityKind == .guest else { return }
         do {
-            _ = try await EvaCloudTransport.shared.quota()
+            _ = try await transport.quota()
         } catch let error where error.evaRequiresReauthentication {
             // A link may have committed while its response was lost. In that
             // case the guest family is intentionally revoked; a normal Apple
             // exchange recovers the canonical account without another merge.
-            _ = try await EvaAppleIdentityService.shared.signIn()
+            _ = try await EvaAppleIdentityService.shared.signIn(using: transport)
             identityKind = .apple
-            await refresh(forceConfigurationRefresh: true)
+            EvaCloudRecoveryStore.clear()
+            await refresh(using: transport, forceConfigurationRefresh: true)
             return
         }
-        _ = try await EvaAppleIdentityService.shared.linkGuest()
-        await refresh(forceConfigurationRefresh: true)
+        _ = try await EvaAppleIdentityService.shared.linkGuest(using: transport)
+        EvaCloudRecoveryStore.clear()
+        await refresh(using: transport, forceConfigurationRefresh: true)
         guard identityKind == .apple else { throw EvaProviderError.invalidResponse }
     }
 
@@ -678,7 +773,7 @@ extension EvaInferenceRequest {
         userInstructions: EvaUserInstructions? = nil,
         contractVersion: Int = 1,
         surface: EvaSurface = .evaTab
-    ) -> EvaInferenceRequest {
+    ) throws -> EvaInferenceRequest {
         let messages = promptSnapshot.messages.compactMap { message -> EvaCloudMessage? in
             switch message.role {
             case .user: EvaCloudMessage(role: .user, content: message.content)
@@ -700,7 +795,7 @@ extension EvaInferenceRequest {
             userInstructions: contractVersion >= 2 ? userInstructions : nil,
             clientVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
             platform: EvaInstallationIdentity.platform,
-            installationId: EvaInstallationIdentity.current,
+            installationId: try EvaInstallationIdentity.resolved(),
             consentRevision: consentRevision,
             providerCapabilities: .init(streaming: true, structuredOutput: true, spokenOutput: true)
         )
