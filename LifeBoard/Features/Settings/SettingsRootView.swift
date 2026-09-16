@@ -104,11 +104,16 @@ struct SettingsRootView: View {
     private var sectionTopPadding: CGFloat {
         SettingsMetrics.sectionSpacing
     }
-    /// The compact Life OS composer and destination dock float above pushed
-    /// routes. Giving scroll content a deliberate tail keeps the final setting
-    /// comfortably reachable instead of merely visible beneath the glass.
+    /// A deliberate tail below the last setting.
+    ///
+    /// This used to be a hard-coded 172 on phone, chosen to clear the floating
+    /// dock and composer. The shell already measures that chrome and reserves it
+    /// as a bottom safe-area inset for every destination
+    /// (`FoundationShell.reservedChromeHeight`), so the constant reserved it a
+    /// second time and left a dead band under the list that grew or shrank with
+    /// nothing. What remains is breathing room, the same on both layouts.
     private var premiumBottomClearance: CGFloat {
-        isPadLayout ? spacing.s32 : 172
+        spacing.s32
     }
 
     private var setupStatus: SettingsSetupStatus {
