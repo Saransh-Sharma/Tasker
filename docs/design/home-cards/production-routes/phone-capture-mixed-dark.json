@@ -1,0 +1,92 @@
+{
+  "appearance" : "dark",
+  "arrangement" : "mixed",
+  "clockScope" : "all evidence-owned clocks fixed to the seeded morning fixture",
+  "contentBounds" : [
+    0,
+    59,
+    393,
+    458
+  ],
+  "evidenceLevel" : "actual-production-route-seeded-repositories",
+  "fixtureDate" : "2026-09-15T09:00:00Z",
+  "placementDescriptors" : [
+    {
+      "id" : "E7100000-0000-4000-8000-000000000001",
+      "ownership" : "pinned",
+      "semanticSize" : "standard",
+      "widgetKind" : "care"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000002",
+      "ownership" : "pinned",
+      "semanticSize" : "standard",
+      "widgetKind" : "routines"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000003",
+      "ownership" : "pinned",
+      "semanticSize" : "wide",
+      "widgetKind" : "tasks"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000004",
+      "ownership" : "pinned",
+      "semanticSize" : "tall",
+      "widgetKind" : "journal"
+    }
+  ],
+  "placements" : {
+    "E7100000-0000-4000-8000-000000000001" : [
+      23.840000000000003,
+      731.33333333333326,
+      162.98666666666665,
+      208.8266666666666
+    ],
+    "E7100000-0000-4000-8000-000000000002" : [
+      206.49916666666667,
+      731.33333333333326,
+      162.66833333333335,
+      212.00999999999999
+    ],
+    "E7100000-0000-4000-8000-000000000003" : [
+      27.942499999999995,
+      965.33333333333326,
+      337.11500000000001,
+      317.37833333333333
+    ],
+    "E7100000-0000-4000-8000-000000000004" : [
+      27.942499999999995,
+      1309.6666666666665,
+      337.11500000000001,
+      248.29999999999995
+    ]
+  },
+  "rendererRevision" : "30afaec8bc31f2278623414cad619f36b3236426+working-tree:b1669cbe8a460cd0ca7cafe56173a1ff17c86659d12218a7e6726914aabb108f",
+  "route" : "capture",
+  "safeArea" : [
+    59,
+    0,
+    335,
+    0
+  ],
+  "shellFrame" : [
+    0,
+    59,
+    393,
+    458
+  ],
+  "sourceIdentityScope" : "stable seeded repository identifiers",
+  "sourceTaskIDs" : [
+    "E7200000-0000-4000-8000-000000000001",
+    "E7200000-0000-4000-8000-000000000002",
+    "E7200000-0000-4000-8000-000000000003",
+    "E7200000-0000-4000-8000-000000000004",
+    "E7200000-0000-4000-8000-000000000005",
+    "E7200000-0000-4000-8000-000000000006"
+  ],
+  "viewport" : [
+    393,
+    852
+  ]
+}
