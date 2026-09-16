@@ -16,7 +16,7 @@ struct LifeWeaveAreaPresentation: Identifiable, Equatable {
 /// One of the five operating strands.
 ///
 /// A strand is *structure*, not a label. Through the whole of setup these are
-/// faint unlabelled geometry, and `showsLabels` is false until the reveal.
+/// faint unlabelled geometry; the dock names the roots once Home arrives.
 ///
 /// That restraint is the entire reconciliation of this design. The five roots
 /// and the user's life areas answer different questions — the roots are how you
@@ -63,9 +63,6 @@ struct LifeWeavePresentation: Equatable {
     var capturedObjectTitle: String?
     var capturedObjectAreaID: String?
     var phase: LifeWeaveStep
-
-    /// Labels are the reveal's privilege. See `LifeWeaveStrandPresentation`.
-    var showsStrandLabels: Bool { phase == .reveal }
 
     static func make(from draft: LifeWeaveDraft) -> LifeWeavePresentation {
         let templates = draft.orderedLifeAreaTemplateIDs.compactMap { id in
