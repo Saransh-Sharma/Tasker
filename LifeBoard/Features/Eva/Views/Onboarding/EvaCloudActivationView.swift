@@ -28,13 +28,13 @@ struct EvaCloudActivationView: View {
             VStack(alignment: .leading, spacing: spacing.sectionGap) {
                 EvaContentHeader(
                     title: String(localized: "Connect Cloud EVA"),
-                    bodyText: String(localized: "Continue once to create a private guest session and activate Luna. Successful answers use a rolling allowance shown in EVA settings."),
+                    bodyText: String(localized: "EVA connects automatically with a private guest session. Successful answers use a rolling allowance shown in EVA settings."),
                     eyebrow: String(localized: "POWERED BY LUNA")
                 )
 
                 EvaSectionCard(
                     title: String(localized: "What happens next"),
-                    subtitle: String(localized: "No prompt or LifeBoard context leaves this device until you confirm."),
+                    subtitle: String(localized: "Prompts and available context are sent when you use EVA."),
                     accessibilityIdentifier: "eva.activation.cloud.requirements"
                 ) {
                     VStack(alignment: .leading, spacing: spacing.s12) {
@@ -44,27 +44,15 @@ struct EvaCloudActivationView: View {
                     }
                 }
 
-                EvaSectionCard(
-                    title: String(localized: "Choose cloud context"),
-                    subtitle: String(localized: "These sensitive categories are preselected. Turn off anything you do not want included in bounded EVA requests."),
-                    accessibilityIdentifier: "eva.activation.cloud.consent"
-                ) {
-                    EvaCloudDisclosure(grants: EvaConsentPolicy.Grant.allCases.map { grant in
-                        (grant, grant.onboardingTitle, Binding(
-                            get: { access.selectedGrants.contains(grant) },
-                            set: { enabled in
-                                if enabled { access.selectedGrants.insert(grant) } else { access.selectedGrants.remove(grant) }
-                            }
-                        ))
-                    }, isWorking: isWorking, identifierPrefix: "eva.activation.cloud")
-                }
+                Text("Journal, Health, life moments, and personal memory context are enabled by default. Manage what EVA can use in Settings.")
+                    .font(.lifeboard(.callout))
 
                 EvaSectionCard(
                     title: String(localized: "Clear boundaries"),
                     subtitle: String(localized: "Cloud EVA is for text answers and optional spoken output—not a full-duplex voice assistant."),
                     accessibilityIdentifier: "eva.activation.cloud.boundaries"
                 ) {
-                    Text("Prompts and the context you confirm pass through LifeBoard's Cloudflare service to OpenAI. LifeBoard does not keep cloud chat or audio history. Guest access cannot be recovered after reinstall unless you later protect it with Apple.")
+                    Text("Prompts and available context pass through LifeBoard's Cloudflare service to OpenAI. LifeBoard does not keep cloud chat or audio history. Guest access cannot be recovered after reinstall unless you later protect it with Apple.")
                         .font(.lifeboard(.callout))
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
@@ -86,13 +74,13 @@ struct EvaCloudActivationView: View {
         }
         .accessibilityIdentifier("eva.activation.cloud_setup")
         .task {
-            _ = await access.hydrate()
+            if await access.ensureActivated(source: .evaEntry) { onCloudReady() }
         }
     }
 
     private var primaryTitle: String {
         if isWorking { return String(localized: "Connecting…") }
-        return account.canUseCloud ? String(localized: "Continue to First Win") : String(localized: "Enable Cloud EVA")
+        return account.canUseCloud ? String(localized: "Continue to First Win") : String(localized: "Retry connection")
     }
 
     private func requirement(_ title: String, icon: String) -> some View {
@@ -112,12 +100,7 @@ struct EvaCloudActivationView: View {
         errorMessage = nil
         Task { @MainActor in
             defer { isWorking = false }
-            let ready: Bool
-            if access.hasCurrentReceipt {
-                ready = await access.resumeConfirmedActivation(source: .evaEntry)
-            } else {
-                ready = await access.confirmAndActivate(grants: access.selectedGrants, source: .evaEntry)
-            }
+            let ready = await access.ensureActivated(source: .evaEntry)
             if ready { onCloudReady() } else { errorMessage = access.errorMessage }
 
         }
