@@ -267,7 +267,7 @@ extension FoundationShell {
                     RoundedRectangle(cornerRadius: Radius.dock, style: .continuous)
                         .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
                 }
-                .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.18), radius: 12, y: 6)
+                .lifeboardElevation(.e3, cornerRadius: Radius.dock, includesBorder: false)
             }
         }
     }
