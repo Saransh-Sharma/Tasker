@@ -559,7 +559,30 @@ struct HabitBoardScreen: View {
         case .day:
             HabitBoardDayLens(
                 sections: groupedSections(from: viewModel.boardRows),
-                onSelect: selectHabit(_:)
+                onSelect: selectHabit(_:),
+                logAction: { habitID in
+                    guard viewModel.canLogFromBoard else { return nil }
+                    return HabitBoardLogAction(
+                        title: viewModel.todayAction(for: habitID) == .abstained ? "Stayed clean" : "Done",
+                        isLogging: viewModel.loggingHabitIDs.contains(habitID),
+                        perform: { Task { await viewModel.logToday(habitID: habitID) } },
+                        amount: viewModel.amountTarget(for: habitID).flatMap { target in
+                            HabitAmountRule.target(for: target).map { goal in
+                                HabitBoardAmount(
+                                    value: viewModel.todayAmounts[habitID] ?? 0,
+                                    target: goal,
+                                    step: HabitAmountRule.step(for: target),
+                                    unit: {
+                                        if case let .quantitative(_, unit) = target { return unit }
+                                        return ""
+                                    }(),
+                                    isTimed: { if case .timed = target { return true }; return false }(),
+                                    onChange: { change in await viewModel.logAmount(habitID: habitID, change: change) }
+                                )
+                            }
+                        }
+                    )
+                }
             )
         case .graph:
             HabitBoardGraphLens(
@@ -1879,9 +1902,29 @@ private struct HabitBoardScoreHeader: View {
 // MARK: - Day lens
 
 /// Grouped "today" cards — quick status for every habit, tap to open detail.
+/// The one logging action a Day card offers for today.
+private struct HabitBoardLogAction {
+    let title: String
+    let isLogging: Bool
+    let perform: () -> Void
+    /// Present for habits with an amount target: they log on a ring instead of
+    /// a single check.
+    var amount: HabitBoardAmount?
+}
+
+private struct HabitBoardAmount {
+    let value: Double
+    let target: Double
+    let step: Double
+    let unit: String
+    let isTimed: Bool
+    let onChange: (HabitAmountChange) async -> Bool
+}
+
 private struct HabitBoardDayLens: View {
     let sections: [HabitBoardGroupedSection]
     let onSelect: (UUID) -> Void
+    var logAction: (UUID) -> HabitBoardLogAction? = { _ in nil }
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
@@ -1893,7 +1936,11 @@ private struct HabitBoardDayLens: View {
                 VStack(alignment: .leading, spacing: spacing.s8) {
                     HabitBoardSectionHeader(section: section)
                     ForEach(section.rows) { row in
-                        HabitBoardDayCard(row: row, onSelect: { onSelect(row.habitID) })
+                        HabitBoardDayCard(
+                            row: row,
+                            onSelect: { onSelect(row.habitID) },
+                            logAction: logAction(row.habitID)
+                        )
                     }
                 }
             }
@@ -1918,6 +1965,7 @@ private struct HabitBoardSectionHeader: View {
 private struct HabitBoardDayCard: View {
     let row: HabitBoardRowPresentation
     let onSelect: () -> Void
+    var logAction: HabitBoardLogAction? = nil
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
@@ -1926,6 +1974,49 @@ private struct HabitBoardDayCard: View {
     private var status: HabitTodayStatus { HabitTodayStatus.status(for: row.cells.last?.state) }
 
     var body: some View {
+        HStack(spacing: spacing.s8) {
+            openButton
+            // Logging sits beside the card, not inside it: one tap checks the
+            // habit off where it is listed, and the card itself still opens detail.
+            if let logAction, let amount = logAction.amount {
+                // Amount habits stay loggable after the target: extra effort is
+                // shown as a second lap, not refused.
+                HabitProgressRing(
+                    title: row.title,
+                    value: amount.value,
+                    target: amount.target,
+                    step: amount.step,
+                    unit: amount.unit,
+                    isTimed: amount.isTimed,
+                    size: .board,
+                    onChange: amount.onChange
+                )
+                .accessibilityIdentifier("habitBoard.day.ring.\(row.habitID.uuidString)")
+            } else if status == .pending, let logAction {
+                Button(action: logAction.perform) {
+                    Group {
+                        if logAction.isLogging {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "checkmark")
+                                .font(.lifeboard(.body).weight(.bold))
+                        }
+                    }
+                    .foregroundStyle(accent)
+                    .frame(width: 48, height: 48)
+                    .background(Circle().strokeBorder(accent.opacity(0.55), lineWidth: 2))
+                    .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(logAction.isLogging)
+                .sensoryFeedback(.success, trigger: logAction.isLogging) { wasLogging, isLogging in wasLogging && !isLogging }
+                .accessibilityLabel("\(logAction.title): \(row.title)")
+                .accessibilityIdentifier("habitBoard.day.log.\(row.habitID.uuidString)")
+            }
+        }
+    }
+
+    private var openButton: some View {
         Button(action: onSelect) {
             HStack(spacing: spacing.s12) {
                 Image(systemName: row.iconSymbolName)
