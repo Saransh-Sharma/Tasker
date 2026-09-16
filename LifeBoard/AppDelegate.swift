@@ -211,8 +211,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         HealthCoordinator.shared.prepareForLaunch()
 
         EvaFeatureProviderRegistration.install()
-        Task { @MainActor in
-            _ = await EvaCloudAccessCoordinator.shared.resumeConfirmedActivation(source: .appLaunch)
+        if !ProcessInfo.processInfo.arguments.contains("-UI_TESTING"),
+           ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            EvaCloudAccessCoordinator.shared.startAutomaticActivation()
         }
 
         let launchArguments = ProcessInfo.processInfo.arguments
