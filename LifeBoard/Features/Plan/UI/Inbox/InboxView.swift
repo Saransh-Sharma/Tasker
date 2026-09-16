@@ -858,24 +858,6 @@ struct InboxView: View {
         )
     }
 
-    private func stateMessage(title: String, detail: String, symbol: String) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.title2)
-                .foregroundStyle(Color.lifeboard.textTertiary)
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-            Text(detail)
-                .font(.subheadline)
-                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 28)
-        .accessibilityElement(children: .combine)
-    }
-
     /// The title as it would be filed: the parser strips the date phrase, so
     /// showing the raw text next to a date chip would misrepresent what filing
     /// this capture actually produces.
