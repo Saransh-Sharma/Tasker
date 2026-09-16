@@ -121,6 +121,11 @@ final class PlanStore {
         scenarioRefreshResult = nil
     }
 
+    func adoptScenario(_ scenario: PlanningScenario) {
+        pendingScenario = scenario
+        scenarioRefreshResult = nil
+    }
+
     func dismissScenario() {
         pendingScenario = nil
         scenarioRefreshResult = nil
@@ -680,7 +685,7 @@ final class PlanStore {
         let blocks = allBlocks.filter { $0.startAt < bounds.end && $0.endAt > bounds.start }
         let planned = tasks.filter {
             $0.metadata.unscheduledDisposition != .deleted
-                && $0.metadata.planningDay == day
+                && PlanDayProjectionInputs.effectivePlanningDay(for: $0, calendar: calendar) == day
                 && $0.metadata.availability == .actionable
         }
         return CapacityBudgetService.calculate(
@@ -705,7 +710,7 @@ final class PlanStore {
     func plannedTasks(on day: PlanningDay) -> [PlanningTaskSummary] {
         tasks.filter {
             $0.metadata.unscheduledDisposition != .deleted
-                && $0.metadata.planningDay == day
+                && PlanDayProjectionInputs.effectivePlanningDay(for: $0, calendar: calendar) == day
                 && $0.metadata.availability == .actionable
         }
     }
@@ -1044,7 +1049,7 @@ final class PlanStore {
                 )
             },
             unplannedTasks: visibleTasks.filter {
-                $0.metadata.planningDay == nil && $0.metadata.unscheduledDisposition != .archived
+                PlanDayProjectionInputs.effectivePlanningDay(for: $0, calendar: calendar) == nil && $0.metadata.unscheduledDisposition != .archived
             },
             generatedAt: Date()
         )
@@ -1107,7 +1112,7 @@ final class PlanStore {
             guard task.metadata.unscheduledDisposition != .deleted else { continue }
             if task.metadata.availability == .waiting { groups[.waiting, default: []].append(task); continue }
             if task.metadata.availability == .paused { groups[.paused, default: []].append(task); continue }
-            guard let date = task.metadata.planningDay?.startDate(calendar: calendar) else {
+            guard let date = PlanDayProjectionInputs.effectivePlanningDay(for: task, calendar: calendar)?.startDate(calendar: calendar) else {
                 let group: BacklogGroup = switch task.metadata.unscheduledDisposition {
                 case .inbox: .inbox
                 case .someday: .someday
@@ -1539,7 +1544,7 @@ struct PlanDayProjectionInputs: Sendable {
         let blocks = allBlocks.filter { $0.startAt < bounds.end && $0.endAt > bounds.start }
         let planned = tasks.filter {
             $0.metadata.unscheduledDisposition != .deleted
-                && $0.metadata.planningDay == day
+                && effectivePlanningDay(for: $0) == day
                 && $0.metadata.availability == .actionable
         }
         let working = workingIntervals(for: day)
@@ -1550,18 +1555,24 @@ struct PlanDayProjectionInputs: Sendable {
             userBuffer: workingProfile?.bufferDuration ?? 30 * 60,
             plannedEstimates: planned.map(\.estimatedDuration)
         )
-        let occupied = externalCommitments.map { DateInterval(start: $0.startAt, end: $0.endAt) }
+        let linkedTaskIDs = Set(blocks.compactMap(\.taskID))
+        let timedIntervals = planned.compactMap { task -> DateInterval? in
+            guard !linkedTaskIDs.contains(task.id), let start = task.scheduledStartAt else { return nil }
+            return DateInterval(start: start, end: task.scheduledEndAt ?? start.addingTimeInterval(task.estimatedDuration ?? 30 * 60))
+        }
+        let occupied = timedIntervals + externalCommitments.map { DateInterval(start: $0.startAt, end: $0.endAt) }
             + blocks.map { DateInterval(start: $0.startAt, end: $0.endAt) }
         let freeWindows = FreeWindowService.calculate(
             workingIntervals: working,
             occupiedIntervals: occupied
         )
         let unscheduled = tasks.filter {
-            $0.metadata.planningDay == nil
+            effectivePlanningDay(for: $0) == nil
                 && $0.metadata.availability == .actionable
                 && $0.metadata.unscheduledDisposition == .inbox
         }
         return PlanDaySnapshot(
+            workingIntervals: working,
             day: day,
             capacity: capacity,
             commitments: externalCommitments.map {
@@ -1587,6 +1598,20 @@ struct PlanDayProjectionInputs: Sendable {
             unscheduledTasks: unscheduled,
             generatedAt: now
         )
+    }
+
+    private func effectivePlanningDay(for task: PlanningTaskSummary) -> PlanningDay? {
+        Self.effectivePlanningDay(for: task, calendar: calendar)
+    }
+
+    /// The day a task is planned for: its planning day, or — for a task that was
+    /// only ever given a start time — the day of that start. Every Plan surface
+    /// (Day, Week, Backlog, capacity) must read this one rule, or a timed task
+    /// is "planned" on Day while Week still lists it as unplanned.
+    static func effectivePlanningDay(for task: PlanningTaskSummary, calendar: Calendar) -> PlanningDay? {
+        task.metadata.planningDay ?? task.scheduledStartAt.map {
+            PlanningDay(date: $0, timeZone: calendar.timeZone, calendar: calendar)
+        }
     }
 
     private func workingIntervals(for day: PlanningDay) -> [DateInterval] {
