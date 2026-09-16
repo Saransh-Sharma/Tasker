@@ -148,3 +148,12 @@ Provider composition, Smart Slot schedule/freeze, continuous packing,
 restoration, native navigation, and Rescue are represented in the current
 workspace. Automated and signed-device evidence is recorded only in the
 [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
+
+
+## Ambient cards and size previews
+
+Working-tree cards place decorative scenes within their existing native backgrounds. Small cards do not gain a separate illustration row; card height follows native information and controls with a minimum-height floor. Larger presets expose available context or rows. Task completion, Undo, date selection, expansion, source routes, privacy, and user-media precedence remain native behavior.
+
+The pinning sheet shows one selected supported size with synthetic sample content. Changing size updates that preview; Add passes the selected size through the existing placement command. Save/Cancel remains transactional, with existing ownership, singleton, and source identity rules. The preview is inert and must not mutate records or navigate.
+
+See the [detailed composition and preview guide](../design/home-cards/IMPLEMENTED_DESIGN_SYSTEM.md), [representative evidence](../design/home-cards/index.html), and [open release gates](../design/home-cards/VALIDATION.md). These source-level descriptions do not certify all interaction scenarios as passed.
