@@ -28,32 +28,21 @@ switch is an emergency kill switch, not a route back to v5. Legacy v5 and
 interrupted v6 drafts are accepted only as migration inputs and resume in the
 six-stage graph without losing confirmed answers.
 
-### v6 — Life Weave (six core steps, schema 9)
+### v6 — Life Weave (four screens)
 
-1. **Arrival.** The promise, the privacy line, and one action. No feature list,
-   no root names, no percentage.
-2. **Intent.** What would make this week feel lighter. The sources of friction
-   unfold *inline* under the chosen answer, are optional, and never gate the
-   primary action.
-3. **Life areas.** Two to five, and — inline, after the second selection — which
-   one needs the clearest path first. One tap replaces the drag ranking.
-4. **Day shape.** Presets first, including "my days move around" as a
-   first-class answer. Exact hours, weekends, and week start sit behind `Edit
-   hours`; week start is derived from the locale and shown as a fact with a way
-   to change it, not as a question.
-5. **First capture.** One real sentence, interpreted in front of the person and
-   reviewed in place. Nothing is written until they keep it. When the
-   interpretation is genuinely uncertain the destination is *asked*, never
-   guessed. Onboarding offers Task and Journal, which are the two stores it
-   actually writes.
-6. **Reveal.** A deterministic personalised sentence, a receipt of what was
-   saved, and explicit **Start my day** and **Personalize more** exits. Both
-   finalize; the second opens Home and then Setup Center.
+1. **Welcome and intent.** Greeting, one question, six short options, one
+   privacy line. No feature list, no root names, no percentage.
+2. **Life areas.** Two to five tiles; pick order is the ranking.
+3. **First thing.** One real sentence, interpreted on a pause in typing and
+   saved as Task or Journal. Nothing is written until Save.
+4. **Ready.** A receipt of facts, hours with Edit, optional connection sheets,
+   a one-line Cloud EVA notice with the full disclosure one tap away, and
+   **Start my day**.
 
-Calendar, Apple Health, and Cloud EVA are offered in an optional **Power-Up
-phase** that begins *after* core completion has been recorded, and are also
-permanently available in Setup Center. Reminders stay contextual and are still
-never requested during first run.
+The full rules and copy contract are in `LIFE_WEAVE_V6_AND_SETUP_CENTER.md`.
+Calendar, Apple Health, and Cloud EVA open as sheets over Ready and are also
+permanently available in Setup Center. Reminders are never requested during
+first run.
 
 They remain **completion gates for nothing**. `AppOnboardingStateStore.completeCore`
 writes the completion before the first connector is offered, so a denied
