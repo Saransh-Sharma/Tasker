@@ -290,6 +290,9 @@ public struct TrendChart: View {
     private let tint: Color
     private let unit: String?
     private let showsAxis: Bool
+    /// What the chart is *of*. "Trend chart" alone tells a VoiceOver user
+    /// nothing about which reading they are hearing.
+    private let accessibilityTitle: String
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealProgress: Double = 0
@@ -298,12 +301,14 @@ public struct TrendChart: View {
         points: [HomeSeriesPoint],
         tint: Color,
         unit: String? = nil,
-        showsAxis: Bool = true
+        showsAxis: Bool = true,
+        accessibilityTitle: String = "Trend chart"
     ) {
         self.points = points
         self.tint = tint
         self.unit = unit
         self.showsAxis = showsAxis
+        self.accessibilityTitle = accessibilityTitle
     }
 
     public var body: some View {
@@ -346,15 +351,25 @@ public struct TrendChart: View {
             }
         }
         .lifeboardChartRevealSweep(progress: revealProgress)
-        .onAppear {
+        // The sweep draws once, when data first appears — not on every appear,
+        // which re-announced "data arrived" every time a card scrolled back
+        // into view, and swept an empty chart besides.
+        .onAppear { revealProgress = points.isEmpty ? 0 : 1 }
+        .onChange(of: points.count) { previous, updated in
+            guard updated > 0 else {
+                revealProgress = 0
+                return
+            }
+            guard previous == 0 else { return }
             guard reduceMotion == false else {
                 revealProgress = 1
                 return
             }
+            revealProgress = 0
             withAnimation(.easeOut(duration: 0.42)) { revealProgress = 1 }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Trend chart")
+        .accessibilityLabel(accessibilityTitle)
         .accessibilityValue(textEquivalent)
     }
 
@@ -389,6 +404,7 @@ public struct ProgressRing: View {
     private let label: String?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.homeCardGeometryRecorder) private var evidenceRecorder
     @State private var animatedFraction: Double = 0
 
     public init(
@@ -410,12 +426,13 @@ public struct ProgressRing: View {
             Circle()
                 .stroke(trackTint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
             Circle()
-                .trim(from: 0, to: max(0.001, min(1, animatedFraction)))
+                .trim(from: 0, to: max(0.001, min(1, evidenceRecorder == nil ? animatedFraction : fraction)))
                 .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             if let label, label.isEmpty == false {
                 Text(label)
                     .lifeboardFont(.caption1)
+                    .homeCardEvidence("body.progress.label", role: "text", copy: label, typography: .init(role: "caption1", points: 13, weight: "regular", alignment: "center"))
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
