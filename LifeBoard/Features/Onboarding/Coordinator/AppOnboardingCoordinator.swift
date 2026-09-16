@@ -103,24 +103,6 @@ final class AppOnboardingCoordinator: NSObject {
         )
     }()
 
-    lazy var lifeMapModel: LifeMapOnboardingModel = {
-        LifeMapOnboardingModel(
-            stateStore: stateStore,
-            commitCoordinator: commitCoordinator,
-            feedback: feedbackController,
-            // Merge mode preseeds from the areas the user already has, so the
-            // commit upserts their real records instead of creating near-duplicates.
-            existingLifeAreas: { [weak self] in
-                guard let self else { return [] }
-                return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
-            },
-            powerUps: Self.makePowerUpDependencies(
-                calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService,
-                appManager: evaAppManager
-            )
-        )
-    }()
-
     /// The v6 journey. Same commit path, same power-up services, same merge-mode
     /// preseed — only the questions and the map differ.
     lazy var lifeWeaveModel: LifeWeaveOnboardingModel = {
