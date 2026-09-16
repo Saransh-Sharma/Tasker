@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The distraction-free focus session.
 ///
@@ -58,7 +59,8 @@ struct FocusSurface: View {
                     // those are three more.
                     DecisionSurface(
                         title: FocusSurfaceCommitmentSection.headline(
-                            companion: store.focusCompanion
+                            companion: store.focusCompanion,
+                            taskTitle: liveSession.taskID.flatMap { store.task(for: $0)?.title }
                         ),
                         context: FocusSurfaceCommitmentSection.context(
                             session: liveSession,
@@ -120,6 +122,40 @@ struct FocusSurface: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("focus.surface")
+        // A running session keeps the screen awake, the way a timer on a desk
+        // would; paused, settled, or gone, the system decides again.
+        .onAppear { updateIdleTimer() }
+        .onChange(of: liveSession.state) { _, _ in updateIdleTimer() }
+        .onChange(of: settledAt) { _, _ in updateIdleTimer() }
+        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+        // Pomodoro phases used to wait for someone to press "Next phase", so a
+        // rest could silently run an hour. The phase now turns over at its end
+        // while the surface is open; the store ends the session after the last.
+        // Keyed on state too: a phase paused past its end must re-check on resume.
+        .task(id: PomodoroWaitKey(endsAt: store.focusCompanion?.pomodoroPhase?.phaseEndsAt, state: liveSession.state)) {
+            await advancePomodoroWhenPhaseEnds()
+        }
+    }
+
+    private func updateIdleTimer() {
+        UIApplication.shared.isIdleTimerDisabled = settledAt == nil && liveSession.state == .running
+    }
+
+    private func advancePomodoroWhenPhaseEnds() async {
+        guard let endsAt = store.focusCompanion?.pomodoroPhase?.phaseEndsAt else { return }
+        let wait = endsAt.timeIntervalSinceNow
+        if wait > 0 {
+            try? await Task.sleep(for: .seconds(wait))
+        }
+        guard Task.isCancelled == false,
+              FocusPomodoroAutoAdvance.shouldAdvance(
+                  session: liveSession,
+                  companion: store.focusCompanion,
+                  isSettled: settledAt != nil,
+                  now: Date()
+              ) else { return }
+        Haptic.threshold.play()
+        await store.advancePomodoro()
     }
 
     /// Success motion and the receipt both begin *after* the store reports the
@@ -152,4 +188,25 @@ struct FocusSurface: View {
         case .intentionallyDeferred: "Focus deferred."
         }
     }
+}
+
+/// When a Pomodoro phase should turn over on its own.
+enum FocusPomodoroAutoAdvance {
+    static func shouldAdvance(
+        session: FocusSessionV2,
+        companion: FocusSessionCompanion?,
+        isSettled: Bool,
+        now: Date
+    ) -> Bool {
+        guard isSettled == false,
+              session.state == .running,
+              case .pomodoro = companion?.mode,
+              let phase = companion?.pomodoroPhase else { return false }
+        return now >= phase.phaseEndsAt
+    }
+}
+
+private struct PomodoroWaitKey: Equatable {
+    let endsAt: Date?
+    let state: FocusSessionState
 }
