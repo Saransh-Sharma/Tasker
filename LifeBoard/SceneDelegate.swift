@@ -594,6 +594,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// Executes sceneDidBecomeActive.
     func sceneDidBecomeActive(_ scene: UIScene) {
+        if !ProcessInfo.processInfo.arguments.contains("-UI_TESTING"),
+           ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            Task { _ = await EvaCloudAccessCoordinator.shared.ensureActivated(source: .appLaunch) }
+        }
         foundationDomainMaintenance?.setScene(scene.session.persistentIdentifier, active: true)
         // Called when the scene has moved from an inactive state to an active state.
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
