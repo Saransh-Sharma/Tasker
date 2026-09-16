@@ -7,6 +7,9 @@ struct WeeklyReviewView: View {
 
     @Environment(\.lifeboardTokens) private var tokens
     @State private var showingReflectionComposer = false
+    /// The commit phase for "Finish review", so running, success and a
+    /// recoverable failure are all distinguishable.
+    @State private var finishPhase: AsyncActionPhase<String> = .idle
 
     init(
         viewModel: WeeklyReviewViewModel,
@@ -29,7 +32,8 @@ struct WeeklyReviewView: View {
                 weekRange: viewModel.weekRangeText,
                 steps: renderedSnapshot?.reviewSteps ?? viewModel.reviewSteps,
                 message: viewModel.saveMessage,
-                messageTone: .accent
+                messageTone: .accent,
+                headerScene: .insights
             ) {
                 if viewModel.hasLoadedInitialData == false {
                     if viewModel.isLoading {
@@ -99,14 +103,31 @@ struct WeeklyReviewView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } trailing: {
-                    Button(viewModel.isSaving ? "Saving..." : WeeklyCopy.finishReview) {
+                    // Was a title swap to "Saving..." on a plain button. The
+                    // shared control carries running, success and recoverable
+                    // failure as real phases, which is what `DESIGN.md` asks of
+                    // a commit.
+                    AsyncActionControl(
+                        title: WeeklyCopy.finishReview,
+                        runningTitle: "Finishing review",
+                        successTitle: "Review saved",
+                        phase: finishPhase
+                    ) {
+                        guard viewModel.isSaving == false else { return }
+                        finishPhase = .running(progress: nil)
                         viewModel.completeReview { result in
-                            if case .success(let message) = result {
+                            switch result {
+                            case .success(let message):
+                                finishPhase = .success(receipt: message)
                                 onCompleted(message)
+                            case .failure(let error):
+                                finishPhase = .recoverableFailure(.init(
+                                    message: error.localizedDescription,
+                                    recovery: .retry
+                                ))
                             }
                         }
                     }
-                    .buttonStyle(.lifeBoardPrimaryCompact)
                     .disabled(viewModel.isSaving || !viewModel.footerSnapshot.canFinishReview)
                 }
             }
@@ -298,6 +319,8 @@ private struct WeeklyReviewCleanupStep: View {
     let onSelectDisposition: (WeeklyReviewTaskDisposition, UUID) -> Void
     let onApplyToAll: (WeeklyReviewTaskDisposition) -> Void
 
+    @State private var confirmsDropAll = false
+
     var body: some View {
         WeeklySectionCard(
             title: WeeklyCopy.reviewSteps[2],
@@ -307,7 +330,25 @@ private struct WeeklyReviewCleanupStep: View {
                 HStack(spacing: 8) {
                     bulkDecisionButton(title: "Carry all", disposition: .carry)
                     bulkDecisionButton(title: "Move all later", disposition: .later)
-                    bulkDecisionButton(title: "Drop all", disposition: .drop)
+                    // Dropping every unfinished task at once is the one bulk
+                    // decision that throws work away, so it says so first.
+                    // `DESIGN.md`: explain consequences before a consequential
+                    // action.
+                    bulkDecisionButton(title: "Drop all", disposition: .drop) {
+                        confirmsDropAll = true
+                    }
+                }
+                .confirmationDialog(
+                    "Drop every unfinished task?",
+                    isPresented: $confirmsDropAll,
+                    titleVisibility: .visible
+                ) {
+                    Button("Drop all \(unfinishedTasks.count)", role: .destructive) {
+                        onApplyToAll(.drop)
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("These tasks leave your plan. You can still set each one individually instead.")
                 }
 
                 if unfinishedTasks.isEmpty {
@@ -328,12 +369,21 @@ private struct WeeklyReviewCleanupStep: View {
         }
     }
 
-    private func bulkDecisionButton(title: String, disposition: WeeklyReviewTaskDisposition) -> some View {
+    private func bulkDecisionButton(
+        title: String,
+        disposition: WeeklyReviewTaskDisposition,
+        action: (() -> Void)? = nil
+    ) -> some View {
         Button(title) {
-            onApplyToAll(disposition)
+            if let action {
+                action()
+            } else {
+                onApplyToAll(disposition)
+            }
         }
         .buttonStyle(.bordered)
         .tint(disposition.tintColor)
+        .frame(minHeight: 44)
     }
 }
 
@@ -392,11 +442,17 @@ private struct WeeklyReviewReflectionStep: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                                             .fill(perceivedWeekRating == rating ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                                     )
                             }
                             .buttonStyle(.plain)
+                            // Colour alone carried the selection, and the label
+                            // read as a bare number. `DESIGN.md`: selection uses
+                            // accessibility state, never tint alone.
+                            .accessibilityLabel("Week felt \(rating) out of 5")
+                            .accessibilityAddTraits(perceivedWeekRating == rating ? [.isSelected] : [])
+                            .accessibilityIdentifier("weekly.review.rating.\(rating)")
                         }
                     }
                 }
