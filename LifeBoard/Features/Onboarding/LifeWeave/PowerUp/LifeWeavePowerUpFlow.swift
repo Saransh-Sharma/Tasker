@@ -1,10 +1,43 @@
 import Foundation
+import LifeBoardDomain
+
+/// The outside-world services the power-up chain drives.
+///
+/// Injected as closures for the same reason `LifeMapCommitCoordinator` is:
+/// every one of these touches a system permission dialog, EventKit, HealthKit,
+/// or the network, none of which a unit test can stand up. The defaults below
+/// are the real wiring, so production callers construct the model unchanged.
+@MainActor
+struct LifeMapPowerUpDependencies {
+    var offlineEvaReady: () -> Bool = { false }
+    /// Returns whether calendar access was actually granted. Deliberately not
+    /// `PermissionPrimingCoordinator.performRequest`, whose calendar seam is
+    /// `() -> Void` and reports nothing.
+    var requestCalendarAccess: () async -> Bool = { false }
+    /// Every calendar EventKit reports, after access was granted.
+    var availableCalendars: () async -> [CalendarSourceSnapshot] = { [] }
+    /// The real authorization status, read back rather than inferred.
+    ///
+    /// Without this the only readable signal is "did a fetch return calendars",
+    /// which collapses `restricted` and `writeOnly` into `denied` — so a device
+    /// under a configuration profile was told to open Settings and turn on a
+    /// switch it does not have, and a write-only grant was never offered the
+    /// upgrade to full access that would actually fix it.
+    var calendarAuthorizationStatus: () async -> CalendarAuthorizationStatus = { .notDetermined }
+    var updateSelectedCalendarIDs: ([String]) async -> Void = { _ in }
+    /// Events in the coming week, used only to decide whether the opening
+    /// prompt may mention the calendar at all.
+    var upcomingEventCount: () async -> Int? = { nil }
+    var requestNotificationAccess: () async -> Bool = { false }
+    var connectHealth: (Set<HealthDomain>, Bool) async -> Void = { _, _ in }
+    var setHealthWriteEnabled: (Bool, HealthDomain) async -> Void = { _, _ in }
+}
 
 /// Entering, advancing, deferring, and leaving the optional second phase.
 ///
-/// The only place that writes `draft.powerUpStep`. Everything else reads
-/// `draft.route`, so the two axes — where the user is in core, and where they
-/// are in Power Up — can never disagree.
+/// The only place that writes `draft.powerUpStep`. A connector opens as a sheet
+/// over the Ready screen and returns there, so `draft.step` stays at `.reveal`
+/// for the whole phase and the two never disagree.
 ///
 /// This file holds journey position only. What Calendar, Health, and EVA are
 /// actually *doing* belongs to their own services; the per-connector extensions
@@ -12,7 +45,14 @@ import Foundation
 @MainActor
 extension LifeWeaveOnboardingModel {
 
-    var powerUpStep: LifeWeavePowerUpStep? { draft.powerUpStep }
+    var powerUpStep: LifeWeavePowerUpStep? { draft.resolvedPowerUpStep }
+
+    /// The Health connector's live state, read straight from its store. The
+    /// sheet renders from `HealthConnectionStore` itself; this is only for the
+    /// outcome token below.
+    var healthFirstSyncOutcome: HealthFirstSyncOutcome {
+        HealthCoordinator.shared.connectionStore.presentation
+    }
 
     /// Presentation switch only. Off, the journey ends at the reveal exactly as
     /// it did before the phase existed — and every connection a user already
@@ -34,7 +74,7 @@ extension LifeWeaveOnboardingModel {
         recordCoreCompletion()
         mutateDraft {
             $0.lifecyclePhase = .poweringUp
-            $0.powerUpStep = connector
+            $0.powerUpStep = connector.rawValue
         }
         feedback.light()
         Task {
@@ -46,15 +86,8 @@ extension LifeWeaveOnboardingModel {
         }
     }
 
-    /// Move to the next power-up screen, or finish if there is none.
-    func advancePowerUp() {
-        if usesStreamlinedOnboarding { finishConnector(); return }
-        guard let current = draft.powerUpStep, let next = current.next else { return }
-        setPowerUpStep(next, from: current)
-    }
-
     func finishConnector() {
-        if let connector = draft.powerUpStep { recordConnectorResult(connector) }
+        if let connector = draft.resolvedPowerUpStep { recordConnectorResult(connector) }
         mutateDraft {
             $0.powerUpStep = nil
             $0.step = .reveal
@@ -70,9 +103,9 @@ extension LifeWeaveOnboardingModel {
     /// `recordOnboardingDeferral` costs no snooze and no decline count, so a
     /// later in-context offer is still allowed to happen once.
     func deferCurrentPowerUp() {
-        guard let current = draft.powerUpStep, current.connectorIndex != nil else { return }
+        guard let current = draft.resolvedPowerUpStep else { return }
         recordDeferral(of: current)
-        advancePowerUp()
+        finishConnector()
     }
 
     /// Reveal secondary — "Start now". Defers everything unresolved by explicit
@@ -88,60 +121,6 @@ extension LifeWeaveOnboardingModel {
             recordConnectorResult(connector)
         }
         return finalize(destination: .home)
-    }
-
-    /// Stops Home nagging about a choice the user already made.
-    ///
-    /// `completeCore` resets the Home card's dismissal so a genuinely
-    /// interrupted setup can be resumed — but somebody who tapped "Start now",
-    /// or "Not now" on all three connectors, has *finished*: they declined. The
-    /// resume card exists for interruption, and showing it here would answer a
-    /// decision with the same question again.
-    func suppressHomeCardIfEverythingWasDeclined() {
-        let declined = draft.resolvedDeferredPowerUps
-        guard LifeWeavePowerUpStep.connectors.allSatisfy(declined.contains) else { return }
-        SetupCenterHomeCardPreference.dismiss()
-    }
-
-    /// Back inside the phase. Never into a resolved system prompt.
-    var previousPowerUpStep: LifeWeavePowerUpStep? {
-        switch draft.powerUpStep {
-        case .health: .calendar
-        case .eva: .health
-        // `.calendar` has the reveal behind it, which is a commit boundary, and
-        // `.complete` has a resolved system prompt behind it.
-        case .calendar, .complete, .none: nil
-        }
-    }
-
-    func goBackInPowerUp() {
-        guard let previous = previousPowerUpStep, let current = draft.powerUpStep else { return }
-        Task {
-            await ProductTelemetry.shared.record(
-                .onboardingBack,
-                flowVersion: AppOnboardingState.currentVersion,
-                outcome: "powerup_\(current.identifierSuffix)"
-            )
-        }
-        setPowerUpStep(previous, from: current)
-    }
-
-    // MARK: - Unified navigation
-
-    /// One back affordance for both phases, so the shell does not have to know
-    /// which axis it is on.
-    var canGoBackInFlow: Bool {
-        switch draft.route {
-        case .core: previousStep != nil
-        case .powerUp: previousPowerUpStep != nil
-        }
-    }
-
-    func goBackInFlow() {
-        switch draft.route {
-        case .core: goBack()
-        case .powerUp: goBackInPowerUp()
-        }
     }
 
     // MARK: - Internals
@@ -179,39 +158,16 @@ extension LifeWeaveOnboardingModel {
         case .eva:
             if evaPrefersOffline { return "offline" }
             return draft.evaCloudReady ? "ready" : "not_started"
-        case .complete:
-            return "n_a"
         }
     }
 
     private func recordConnectorResult(_ connector: LifeWeavePowerUpStep) {
-        guard connector.connectorIndex != nil else { return }
         let outcome = "\(connector.identifierSuffix)_\(connectorOutcomeToken(for: connector))"
         Task {
             await ProductTelemetry.shared.record(
                 .connectorResult,
                 flowVersion: AppOnboardingState.currentVersion,
                 outcome: outcome
-            )
-        }
-    }
-
-    private func setPowerUpStep(_ step: LifeWeavePowerUpStep, from previous: LifeWeavePowerUpStep) {
-        // Recorded on the way out, when the connector's outcome is settled.
-        recordConnectorResult(previous)
-        mutateDraft { $0.powerUpStep = step }
-        MotionDiagnosticsState.shared.record("onboarding:powerup:\(step.identifierSuffix)")
-        feedback.light()
-        Task {
-            await ProductTelemetry.shared.record(
-                .onboardingStepCompleted,
-                flowVersion: AppOnboardingState.currentVersion,
-                outcome: "powerup_\(previous.identifierSuffix)"
-            )
-            await ProductTelemetry.shared.record(
-                .onboardingStepViewed,
-                flowVersion: AppOnboardingState.currentVersion,
-                outcome: "powerup_\(step.identifierSuffix)"
             )
         }
     }
@@ -232,7 +188,7 @@ extension LifeWeaveOnboardingModel {
         switch connector {
         case .calendar: PermissionPromptState.recordOnboardingDeferral(.calendar)
         case .health: PermissionPromptState.recordOnboardingDeferral(.appleHealth)
-        case .eva, .complete: break
+        case .eva: break
         }
         Task {
             await ProductTelemetry.shared.record(
