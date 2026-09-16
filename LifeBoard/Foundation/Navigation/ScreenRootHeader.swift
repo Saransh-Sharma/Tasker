@@ -52,12 +52,12 @@ struct ScreenRootHeader: View {
                         captureState.highlightedKind = nil
                         captureRippleTrigger &+= 1
                     }
-                    HapticFeedback.light()
+                    Haptic.pick.play()
                 },
                 leadingAccessory: destination == .eva
                     ? AnyView(
                         Button {
-                            HapticFeedback.light()
+                            Haptic.pick.play()
                             runtime.router.select(.home)
                         } label: {
                             Image(systemName: "chevron.left")
@@ -86,7 +86,7 @@ struct ScreenRootHeader: View {
                         if destination == .home {
                             Button {
                                 showsHomeDisplayPanel = true
-                                HapticFeedback.light()
+                                Haptic.pick.play()
                             } label: {
                                 Image(systemName: "ellipsis")
                                     .frame(width: 44, height: 44)
