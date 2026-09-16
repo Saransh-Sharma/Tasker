@@ -93,15 +93,28 @@ struct PlanDaySection: View {
                     )
                 }
 
-                PlanSectionHeader("Planned work", systemImage: "checklist")
+                PlanSectionHeader(
+                    "Planned work",
+                    systemImage: "checklist",
+                    count: snapshot.plannedTasks.isEmpty ? nil : snapshot.plannedTasks.count
+                )
                 if snapshot.plannedTasks.isEmpty {
                     PlanOpenDayRescueCard(store: store, onOpenOverdueRescue: onOpenOverdueRescue)
                 } else {
                     ForEach(snapshot.plannedTasks) { taskCard($0, planned: true).lifeBoardScrollEntrance() }
                 }
 
-                PlanSectionHeader("Unscheduled", systemImage: "tray")
-                ForEach(snapshot.unscheduledTasks.prefix(8)) { taskCard($0, planned: false).lifeBoardScrollEntrance() }
+                // A header over nothing is a heading VoiceOver announces and a
+                // line the eye has to skip. It appears only when there is
+                // something under it.
+                if snapshot.unscheduledTasks.isEmpty == false {
+                    PlanSectionHeader(
+                        "Unscheduled",
+                        systemImage: "tray",
+                        count: snapshot.unscheduledTasks.count
+                    )
+                    ForEach(snapshot.unscheduledTasks.prefix(8)) { taskCard($0, planned: false).lifeBoardScrollEntrance() }
+                }
             }
         }
     }
