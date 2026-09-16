@@ -1059,6 +1059,84 @@ public struct TaskEditorDraft: Equatable, Sendable {
     }
 }
 
+/// Scheduling changes never manufacture or rewrite a deadline.
+public enum TaskWhenSelection: Equatable, Sendable {
+    case anytime
+    case day(Date)
+    case timed(Date)
+
+    public func applying(to source: TaskEditorDraft, calendar: Calendar = .current) -> TaskEditorDraft {
+        var result = source
+        switch self {
+        case .anytime:
+            result.planning.planningDay = nil
+            result.scheduledStartAt = nil
+            result.scheduledEndAt = nil
+            result.isAllDay = false
+        case .day(let date):
+            result.planning.planningDay = PlanningDay(date: date, timeZone: calendar.timeZone, calendar: calendar)
+            result.scheduledStartAt = nil
+            result.scheduledEndAt = nil
+            result.isAllDay = true
+        case .timed(let date):
+            result.planning.planningDay = PlanningDay(date: date, timeZone: calendar.timeZone, calendar: calendar)
+            result.scheduledStartAt = date
+            result.scheduledEndAt = date.addingTimeInterval(max(source.estimatedDuration ?? 30 * 60, 60))
+            result.isAllDay = false
+        }
+        return result
+    }
+
+    /// Where a new time lands when someone switches a task from "Day" to
+    /// "Day + time". The planning day's own start is midnight, which is never
+    /// what they meant: today it is the next quarter hour, any other day 9 AM.
+    public static func defaultStart(on day: Date, now: Date = Date(), calendar: Calendar = .current) -> Date {
+        if calendar.isDate(day, inSameDayAs: now) {
+            // Rebuilt from components: `date(bySetting:)` searches *forward*
+            // for a match, so zeroing the seconds of 14:07:42 yields 14:08.
+            var parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: now)
+            let minute = parts.minute ?? 0
+            parts.minute = (minute / 15 + 1) * 15
+            let roundedUp = calendar.date(from: parts) ?? now
+            // Late evening can round past midnight; keep the task on the day chosen.
+            return calendar.isDate(roundedUp, inSameDayAs: day) ? roundedUp : now
+        }
+        return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: day) ?? day
+    }
+}
+
+/// Runs async work one piece at a time, on the main actor.
+///
+/// The task editor autosaves from several triggers — a debounce, a field
+/// change, losing focus, leaving the screen. `save()` used to return early when
+/// another save was in flight, so a flush on leave could be silently dropped
+/// and the last edit lost. Callers now wait their turn instead.
+@MainActor
+final class SerializedWork {
+    private var isBusy = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    var isRunning: Bool { isBusy }
+
+    func run<T>(_ work: () async -> T) async -> T {
+        await waitForIdle()
+        isBusy = true
+        defer {
+            isBusy = false
+            let resumed = waiters
+            waiters = []
+            resumed.forEach { $0.resume() }
+        }
+        return await work()
+    }
+
+    func waitForIdle() async {
+        while isBusy {
+            await withCheckedContinuation { waiters.append($0) }
+        }
+    }
+}
+
 /// One editor state holder for every task route.
 ///
 /// The editor coordinates the canonical definition row, tag/dependency links,
@@ -1081,6 +1159,31 @@ public final class TaskEditorStore {
     private let dependencies: PlanFeatureDependencies
     private var persistedTask: TaskDefinition?
     private var persistedPlanning: PlanningTaskMetadata?
+    private var autosaveTask: Task<Void, Never>?
+    private let saveQueue = SerializedWork()
+    private var saveIsRunning = false
+    private var undoAfterSave = false
+
+    public func scheduleAutosave(textOnly: Bool) {
+        autosaveTask?.cancel()
+        guard hasUnsavedChanges else { return }
+        autosaveTask = Task { @MainActor [weak self] in
+            if textOnly {
+                do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
+            }
+            guard !Task.isCancelled, let self else { return }
+            _ = await self.save()
+        }
+    }
+
+    public func flushAutosave() async {
+        autosaveTask?.cancel()
+        // Let a save already in flight finish first; checking for unsaved
+        // changes before it lands would compare against the old persisted copy.
+        await saveQueue.waitForIdle()
+        if hasUnsavedChanges { _ = await save() }
+    }
+
 
     init(taskID: UUID, dependencies: PlanFeatureDependencies) {
         self.taskID = taskID
@@ -1161,12 +1264,25 @@ public final class TaskEditorStore {
 
     @discardableResult
     public func save() async -> TaskEditorReceipt? {
+        await saveQueue.run {
+            // A save that waited its turn may find the one ahead of it already
+            // persisted everything; writing again would only replace the Undo.
+            guard hasUnsavedChanges else { return nil }
+            return await performSave()
+        }
+    }
+
+    private func performSave() async -> TaskEditorReceipt? {
         guard let beforeTask = persistedTask, let beforePlanning = persistedPlanning else {
             return nil
         }
+        guard !saveIsRunning else { return nil }
+        saveIsRunning = true
+        defer { saveIsRunning = false }
+        let submittedDraft = draft
         mutationState = .saving
         do {
-            var afterTask = draft.task
+            var afterTask = submittedDraft.task
             afterTask.title = afterTask.title.trimmingCharacters(in: .whitespacesAndNewlines)
             try afterTask.validate()
             if let start = afterTask.scheduledStartAt,
@@ -1189,7 +1305,7 @@ public final class TaskEditorStore {
             }
             afterTask.updatedAt = Date()
 
-            var afterPlanning = draft.planning
+            var afterPlanning = submittedDraft.planning
             let planningChanged = afterPlanning != beforePlanning
             if planningChanged { afterPlanning.updatedAt = Date() }
 
@@ -1246,12 +1362,21 @@ public final class TaskEditorStore {
                 planningReceiptID: planningReceiptID,
                 createdAt: Date()
             )
-            draft = TaskEditorDraft(task: afterTask, planning: afterPlanning)
+            if draft == submittedDraft {
+                draft = TaskEditorDraft(task: afterTask, planning: afterPlanning)
+            }
             persistedTask = afterTask
             persistedPlanning = afterPlanning
             replaceTaskCandidates(with: relatedTaskChanges.after)
             activeReceipt = receipt
             mutationState = .saved(receiptID: receipt.id)
+            saveIsRunning = false
+            if undoAfterSave {
+                undoAfterSave = false
+                await undo()
+            } else if hasUnsavedChanges {
+                scheduleAutosave(textOnly: true)
+            }
             return receipt
         } catch {
             mutationState = .failed(message: error.localizedDescription)
@@ -1260,6 +1385,8 @@ public final class TaskEditorStore {
     }
 
     public func undo() async {
+        autosaveTask?.cancel()
+        if saveIsRunning { undoAfterSave = true; return }
         guard let receipt = activeReceipt else { return }
         mutationState = .undoing
         do {
