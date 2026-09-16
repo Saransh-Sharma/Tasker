@@ -14,15 +14,7 @@ enum LifeWeaveDayShapePreset: String, Codable, CaseIterable, Sendable {
     case flexible
     case custom
 
-    var title: String {
-        switch self {
-        case .typical: "Typical weekdays"
-        case .early: "Early days"
-        case .later: "Later days"
-        case .flexible: "My days move around"
-        case .custom: "My own hours"
-        }
-    }
+    var title: String { LifeWeaveCopy.Hours.presetTitle(self) }
 
     /// Weekday window in minutes from midnight, or `nil` where the preset does
     /// not assert one.
@@ -133,8 +125,12 @@ struct LifeWeaveDraft: Codable, Equatable {
     // property to be present. A throw here would strand the whole journey
     // before `LifeWeaveMigration` ever ran.
 
-    /// Where the user is in the optional second phase. `nil` means never entered.
-    var powerUpStep: LifeWeavePowerUpStep?
+    /// Where the user is in the optional second phase, as a raw value. `nil`
+    /// means never entered. Stored as a string, like `deferredPowerUpIDs`, so a
+    /// draft written before a case was retired (`complete`) still decodes and
+    /// resolves to "not in a connector" instead of throwing the whole state
+    /// away and re-onboarding a finished user.
+    var powerUpStep: String?
     /// Connectors the user explicitly said "Not now" to. Distinct from "not
     /// reached" and from "denied in the system sheet": only this one means the
     /// person made a choice, and it is why Setup Center must not nag afterwards.
@@ -173,22 +169,10 @@ struct LifeWeaveDraft: Codable, Equatable {
         Set((deferredPowerUpIDs ?? []).compactMap(LifeWeavePowerUpStep.init(rawValue:)))
     }
 
-    /// The one place the flow decides which screen it is on.
-    ///
-    /// Derived rather than stored so the two axes cannot drift: `step` remains
-    /// the core position the user can go back through, and entering the
-    /// power-up phase never rewrites it.
-    var route: LifeWeaveRoute {
-        powerUpStep.map(LifeWeaveRoute.powerUp) ?? .core(step)
+    /// The connector currently open as a sheet over Ready, or `nil`.
+    var resolvedPowerUpStep: LifeWeavePowerUpStep? {
+        powerUpStep.flatMap(LifeWeavePowerUpStep.init(rawValue:))
     }
-
-    var isPoweringUp: Bool { powerUpStep != nil }
-}
-
-/// Which screen the flow shows, across both phases.
-enum LifeWeaveRoute: Equatable {
-    case core(LifeWeaveStep)
-    case powerUp(LifeWeavePowerUpStep)
 }
 
 enum LifeWeaveLifecyclePhase: String, Codable, Equatable, Sendable {
@@ -247,42 +231,28 @@ enum LifeWeaveStep: Int, CaseIterable, Codable, Identifiable {
 }
 
 
-/// The optional second phase: three connectors, each skippable, none of which
-/// can invalidate the LifeBoard that was committed before it started.
+/// The optional connections: three, each skippable, none of which can
+/// invalidate the LifeBoard that was committed before it was offered.
 ///
 /// Deliberately *not* additional `LifeWeaveStep` cases. Core is a promise the
 /// product keeps offline; folding optional connectors into the same enum would
-/// make "3 of 6" become "3 of 10" and quietly recast an optional phase as
-/// mandatory — and it would break `LifeWeaveStep.core == allCases`.
+/// make "3 of 4" become "3 of 7" and quietly recast an optional phase as
+/// mandatory.
 enum LifeWeavePowerUpStep: String, Codable, CaseIterable, Identifiable, Sendable {
     case calendar
     case health
     case eva
-    case complete
 
     var id: String { rawValue }
 
-    /// The three that are actually connectors. `complete` is the receipt, and
-    /// counting it would overstate what is being asked.
-    ///
-    /// There is deliberately no separate intro step: the reveal already carries
-    /// the invitation, and a second "here is what Power Up is" screen would be
-    /// the same page twice.
+    /// Least sensitive first, and value before AI. There is deliberately no
+    /// intro or receipt step: the reveal already carries the invitation, and
+    /// each connection returns to it.
     static let connectors: [Self] = [.calendar, .health, .eva]
-    static var connectorCount: Int { connectors.count }
 
-    /// 1-based position among the connectors, or `nil` for the framing screens.
+    /// 1-based position among the connectors.
     var connectorIndex: Int? {
         Self.connectors.firstIndex(of: self).map { $0 + 1 }
-    }
-
-    var next: Self? {
-        switch self {
-        case .calendar: .health
-        case .health: .eva
-        case .eva: .complete
-        case .complete: nil
-        }
     }
 
     /// Stable accessibility-identifier suffixes must not drift with case names.
@@ -291,17 +261,6 @@ enum LifeWeavePowerUpStep: String, Codable, CaseIterable, Identifiable, Sendable
         case .calendar: "calendar"
         case .health: "health"
         case .eva: "eva"
-        case .complete: "complete"
-        }
-    }
-
-    /// Human names, not case names. VoiceOver reads this aloud.
-    var spokenName: String {
-        switch self {
-        case .calendar: "Calendar"
-        case .health: "Apple Health"
-        case .eva: "EVA"
-        case .complete: "All set"
         }
     }
 }
