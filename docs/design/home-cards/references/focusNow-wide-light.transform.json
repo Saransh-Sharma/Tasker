@@ -1,0 +1,41 @@
+{
+  "actual_canvas_pixels" : [
+    1770,
+    889
+  ],
+  "actual_card_rect_pixels" : [
+    13.286111111111071,
+    4.9388888888888891,
+    1743.4277777777779,
+    879.12222222222226
+  ],
+  "canvas_origin_in_actual_pixels" : [
+    5.8777777777777374,
+    0
+  ],
+  "canvas_uniform_scale" : 1.2347222222222223,
+  "coordinate_system" : "top-left pixels",
+  "export_uniform_scale" : 0.80963302752293576,
+  "final_export_pixels" : [
+    1412,
+    712
+  ],
+  "integral_crop_rect_pixels" : [
+    13,
+    4,
+    1744,
+    881
+  ],
+  "intentional_padding_fraction" : 0.019444444444444486,
+  "requested_canvas_pixels" : [
+    1424,
+    720
+  ],
+  "requested_card_rect_pixels" : [
+    6,
+    4,
+    1412,
+    712
+  ],
+  "unintended_crop_fraction" : 0.008433475235671839
+}
