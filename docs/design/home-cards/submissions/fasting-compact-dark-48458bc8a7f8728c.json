@@ -1,0 +1,72 @@
+{
+  "id": "fasting-compact-dark",
+  "appearance": "dark",
+  "requested_canvas_pixels": [
+    688,
+    416
+  ],
+  "card_rect_pixels": [
+    3,
+    0,
+    682,
+    416
+  ],
+  "final_export_pixels": [
+    682,
+    416
+  ],
+  "submitted_prompt": "Precise UI reconstruction: reproduce Image 1 with its exact native framing, typography, buttons, and barely visible background paint. Image 2 documents the painting subject only; it must not increase the paint contrast. No external border, no additional top or bottom space.\nUse case: ui-mockup. Stable ID fasting-compact-dark. Create one dark LifeBoard Active Fast Home card reference.\nImage 2 is accepted scene artwork; Image 1 is the authoritative native structural fixture. Preserve its exact copy, symbols, line wrapping, foreground, controls, and relative geometry.\nLogical bounds 170.5 x 104 points. Final export 682 x 416 pixels at 4 pixels per point. Requested generation canvas 688 x 416 pixels. Exact card placement x,y,width,height=[3, 0, 682, 416]. Only the specified canvas padding is allowed. No extra internal or external margin, frame or drop-shadow canvas.\nNative elements in logical points (rectangles x,y,width,height), with exact visible text and resolved San Francisco typography: [{\"copy\": \"\", \"id\": \"glance.open\", \"rect\": [0, 0, 170.5, 96], \"role\": \"control\"}, {\"copy\": \"Active Fast\", \"id\": \"glance.title\", \"rect\": [55, 21.25, 65, 14.5], \"role\": \"title\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 12, \"role\": \"caption\", \"weight\": \"semibold\"}}, {\"copy\": \"No active fast\", \"id\": \"glance.summary\", \"rect\": [55, 38.75, 68.5, 36], \"role\": \"value\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"support\", \"weight\": \"regular\"}}]. Empty copy means a symbol-only control or grouping, never print the IDs, roles, or JSON metadata.\nArtwork fills the existing card background [0,0,170.5,104] beneath every native layer. Proportional fill clipped to 24-point rounded bounds. Opacity 0.18 multiplied by leading-to-trailing mask 0:0.08, 0.35:0.20, 1:1. Artwork should be as faint as Image 1. No separate artwork row, reserved text column, footer, or increased card height.\nPalette {\"surface\": \"#282A44\", \"ink\": \"#F7F1E7\", \"secondary\": \"#C9C3B8\", \"accent\": \"#E5B96D\"}. Subject Ceramic still life; preserve the accepted scene objects and painterly medium. Opaque UI reference, no alpha required. Appearance is independent of morning daypart.\nReading and control regions: {\"reading_regions\": [[55, 21.25, 65, 14.5], [55, 38.75, 68.5, 36]], \"controls\": [[0, 0, 170.5, 96]], \"ambient_background\": [0, 0, 170.5, 104], \"edge_clearance\": 14}. Preserve exact native control sizes; retain opaque foreground text. Do not add buttons, rows, data, logos, watermark, device frame, completion or health claims.\nFixed fixture {\"appearance\": \"dark\", \"date\": \"2026-09-15\", \"daypart\": \"morning\", \"dynamic_type\": \"large\", \"fixture_version\": 4, \"id\": \"fasting-compact-dark\", \"locale\": \"en_US\", \"renderer\": \"shared-native-content-preview\", \"safe_areas\": \"isolated card; production-route safe areas require separate evidence\", \"time_zone\": \"UTC\", \"viewport_points\": [393, 852]}. References: [{\"name\": \"fasting-compact-dark accepted scene\", \"path\": \"DesignAssets/Sources/HomeCards/fasting-scene-dark.png\", \"role\": \"Image 2: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.\", \"sha256\": \"d2598fc9582c92ba1c607f8ec1bb6d16f9706018782be0b49f144bf95234fc5a\"}, {\"name\": \"fasting-compact-dark measured native structure\", \"path\": \"docs/design/home-cards/native-specifications/fasting-compact-dark.png\", \"role\": \"Image 1: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.\", \"sha256\": \"d8cc8e804c423f5b8542d37094b0269e539d6387bf0007d75013669ca2109e6a\"}].\nOutput PNG: docs/design/home-cards/references/fasting-compact-dark.png. Preserve aspect ratio; never stretch. Record actual dimensions and explicit export transform; reject essential clipping and unintended aspect correction above 4%.\nAcceptance: exact copy and rows/actions, recognizable but quiet ambient art, readable native foreground, consistent appearance, correct dimensions, no extra margins or essential clipping.",
+  "references": [
+    {
+      "name": "fasting-compact-dark measured native structure",
+      "path": "docs/design/home-cards/native-specifications/fasting-compact-dark.png",
+      "role": "Image 1: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.",
+      "sha256": "d8cc8e804c423f5b8542d37094b0269e539d6387bf0007d75013669ca2109e6a",
+      "frozen_path": "docs/design/home-cards/submissions/inputs/d8cc8e804c423f5b8542d37094b0269e539d6387bf0007d75013669ca2109e6a.png"
+    },
+    {
+      "name": "fasting-compact-dark accepted scene",
+      "path": "DesignAssets/Sources/HomeCards/fasting-scene-dark.png",
+      "role": "Image 2: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.",
+      "sha256": "d2598fc9582c92ba1c607f8ec1bb6d16f9706018782be0b49f144bf95234fc5a",
+      "frozen_path": "docs/design/home-cards/submissions/inputs/d2598fc9582c92ba1c607f8ec1bb6d16f9706018782be0b49f144bf95234fc5a.png"
+    }
+  ],
+  "specification_sha256": "03073e3a3583b4256c352b81337f0693ecfb506a13961c8f7ce9b2bd2526db05",
+  "prepared_at": "2026-09-15T19:57:26.073235+00:00",
+  "revision_reason": "Current native-first reference using measured Swift fixture copy, typography, controls, and ambient framing.",
+  "design_revision": "ambient-v1",
+  "source_signatures": {
+    "renderer": "8c2bd1df786d5273aba97cf3d129aa4bb1a568173f5884446d753fa16b00d666",
+    "files": {
+      "LifeBoard/DesignSystem/HomeCards/HomeActionQueueCardContent.swift": "48b5346f1f6a9534367549b65e7861b1ff20dfea20ade98ad8553ed9e5c6edb7",
+      "LifeBoard/DesignSystem/HomeCards/HomeAmbientArtwork.swift": "736d53a858344b250f97c1fdca86aabb803101eddf43ca96aa9ee7d238f718d3",
+      "LifeBoard/DesignSystem/HomeCards/HomeCapacityCardContent.swift": "486cf0e781cfdb0d91a73934059067b262fd4913ce67983a7493a63593c6116f",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardGeometryRecorder.swift": "f6d20ba4a6c87b92b14b23d262f7544641dcf752e212d9768a2e9241c39718b4",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardIllustratedSurface.swift": "b8c9698753f4e0987c358b8ec22ec5b34b292a33d6cd8edf796bfa32047e2d67",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardPresentationStyle.swift": "707df19c8631e9f3511414343dd185fe9bc34e7d2b941360f1611f5989b901ca",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardPreviewFixtures.swift": "b857c5884571494e76fd9923b74bdf4d1301fd5b8d273fa07990bfbfb3caa2b5",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardQueueRow.swift": "245e6a3bab9ff3b13e71f308d3987da45237a9cf64aafb28058d3589f37a2381",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardSamplePreview.swift": "21b7a6020bbdb9c78590a0c85da48c0b0e2208959d0ab9ddd0ed9d984127cbdb",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardScene.swift": "4394252e5061130a2cff71755559e200b4ca8d7691ab2a0e04d45fc953cb0c22",
+      "LifeBoard/DesignSystem/HomeCards/HomeFastingCardContent.swift": "f9c5cec02e56c6eedaf3625ec68ecfc4c726a6d8d0c60bdd2be458a15ac8fa86",
+      "LifeBoard/DesignSystem/HomeCards/HomeFocusCardContent.swift": "63414a5bc58ef4c3da6f1e63aaa77df7f5043ab10fbd4315c243311621fb00ee",
+      "LifeBoard/DesignSystem/HomeCards/HomeGlanceCardContent.swift": "4fa7d1dd716ff3724c3617b897640000d3a33c6db1e70ffdd68f0112954f9276",
+      "LifeBoard/DesignSystem/HomeCards/HomeJournalCardContent.swift": "6dbda67979f320f66a7fb892310279d8e32125aa828abb5bc0b28afeeec73141",
+      "LifeBoard/DesignSystem/HomeCards/HomeLifeSnapshotCardContent.swift": "f9d78a14ca56912a523c0bbf731fed41b38faba1f10e1a74acb3edb26e7fe651",
+      "LifeBoard/DesignSystem/HomeCards/HomeProgressCardContent.swift": "a4b19e889b3f90b09c445ae2e355676eea73d470ae6bf3fe03e6ac12989c3051",
+      "LifeBoard/DesignSystem/HomeCards/HomeQuickCaptureCardContent.swift": "e362a0b3fb848bee0cd32c1201f86c64dc7c08657fc1fcfe87164acad7d6edf5",
+      "LifeBoard/DesignSystem/HomeCards/HomeSceneImageCache.swift": "1fd2da337373fb880f3b6246d5d30d4e9c4008de9d50bd1e844724f1efb7c0ae",
+      "LifeBoard/DesignSystem/HomeCards/HomeTasksCardContent.swift": "a44eb9cbaeb60dd1aa0d2fec53cc99cc53445a4aa1d750f06b4c0bc8f9c061b5",
+      "LifeBoard/DesignSystem/HomeCards/HomeTimelineCardContent.swift": "37e476a828597658100e5a56763fb6c2679b50cf4c7dd7235bd7f7780c35d23b",
+      "LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift": "792beffdd540757b355e10b4fb43cf8121a4094f9c1e11f4d170ae2055c69b8c",
+      "LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift": "236c1af1917123c8abce25ffb4ac96ef2794a87da51c181c98f0179dbfd75ba5",
+      "Packages/LifeBoardTokens/Sources/LifeBoardTokens/SemanticTypographyTokens.swift": "56b422cc854f08582a527320239590e574774afbf780cebef2fc5ad49b37d635",
+      "Packages/LifeBoardUI/Sources/LifeBoardUI/NumericRoll.swift": "59ab5c8578c27cdda36d70325ee0954ef49166e846537ef65cbcd357a83efca0"
+    },
+    "typography": "56b422cc854f08582a527320239590e574774afbf780cebef2fc5ad49b37d635",
+    "fixture": "b857c5884571494e76fd9923b74bdf4d1301fd5b8d273fa07990bfbfb3caa2b5",
+    "artwork": "d2598fc9582c92ba1c607f8ec1bb6d16f9706018782be0b49f144bf95234fc5a",
+    "capture": "d8cc8e804c423f5b8542d37094b0269e539d6387bf0007d75013669ca2109e6a"
+  }
+}
