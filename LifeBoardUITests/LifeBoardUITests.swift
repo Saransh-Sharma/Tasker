@@ -24,6 +24,91 @@ class LifeBoardUITests: XCTestCase {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
+
+    /// Explicit capture command writes durable files; ordinary XCTest runs only attach evidence.
+    func testProductionArtworkRouteEvidence() throws {
+        let env = ProcessInfo.processInfo.environment
+        let routes = (env["LIFEBOARD_EVIDENCE_ROUTES"] ?? "home").split(separator: ",").map(String.init)
+        let arrangements = (env["LIFEBOARD_EVIDENCE_ARRANGEMENTS"] ?? "mixed").split(separator: ",").map(String.init)
+        let appearances = (env["LIFEBOARD_EVIDENCE_APPEARANCES"] ?? "light,dark").split(separator: ",").map(String.init)
+        for appearance in appearances {
+            for route in routes {
+                for arrangement in (route == "home" ? arrangements : ["mixed"]) {
+                    let app = productionEvidenceApp(route: route, arrangement: arrangement, appearance: appearance)
+                    app.launch()
+                    defer { app.terminate() }
+                    let geometry = app.descendants(matching: .any)["home.productionEvidence.geometry"]
+                    XCTAssertTrue(geometry.waitForExistence(timeout: 30), "The real FoundationShell must mount.")
+                    let frame = app.windows.firstMatch.frame
+                    let isTablet = frame.width > 700
+                    XCTAssertEqual(frame.width, isTablet ? 834 : 393, accuracy: 0.5)
+                    XCTAssertEqual(frame.height, isTablet ? 1194 : 852, accuracy: 0.5)
+                    let expected: [String: String] = [
+                        "home": "home.header", "plan": "plan.header", "track": "track.header",
+                        "eva": "foundation.eva", "insights": "foundation.insights", "journal": "journal.workspace",
+                        "care": "track.medication.new", "routines": "track.routines.destination", "goals": "track.goals.destination",
+                        "fasting": "fasting.workspace", "body": "wellness.workspace", "workout": "wellness.workspace",
+                        "sleep": "wellness.workspace", "movement": "wellness.workspace", "nutrition": "nutrition.timeline",
+                        "moment": "lifeMoments.workspace", "capture": "addTask.view"
+                    ]
+                    if let identifier = expected[route] {
+                        XCTAssertTrue(app.descendants(matching: .any)[identifier].waitForExistence(timeout: 20), "Actual route \(route) must mount \(identifier).")
+                    } else {
+                        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 15))
+                    }
+                    if route == "home" && arrangement != "lowEnergy" {
+                        // The primary capture is the initial production composition. Scroll
+                        // reachability is checked independently so a header control cannot
+                        // change the framing of the saved evidence image.
+                        let customize = app.buttons["home.customize"]
+                        XCTAssertTrue(customize.waitForExistence(timeout: 12), "Home must expose customization.")
+                        let scrollSurface = app.scrollViews.firstMatch
+                        if scrollSurface.exists {
+                            scrollUntilHittableWithSmallSteps(customize, in: app, maximumSteps: 8)
+                        }
+                        XCTAssertTrue(customize.isHittable, "Home customization must remain reachable.")
+                    }
+                    let name = "\(isTablet ? "tablet" : "phone")-\(route)-\(arrangement)-\(appearance)"
+                    let screenshot = XCUIScreen.main.screenshot()
+                    let attachment = XCTAttachment(screenshot: screenshot)
+                    attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+                    if env["LIFEBOARD_CAPTURE_PRODUCTION_ROUTES"] == "1", let output = env["LIFEBOARD_EVIDENCE_OUTPUT"] {
+                        let directory = URL(fileURLWithPath: output)
+                        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                        try screenshot.pngRepresentation.write(to: directory.appendingPathComponent(name + ".png"), options: .atomic)
+                        var metadata = (geometry.value as? String).flatMap { $0.data(using: .utf8) }
+                            .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+                        metadata["viewport"] = [frame.width, frame.height]
+                        metadata["appearance"] = appearance
+                        metadata["rendererRevision"] = env["LIFEBOARD_EVIDENCE_RENDERER_REVISION"] ?? "unrecorded"
+                        metadata["evidenceLevel"] = "actual-production-route-seeded-repositories"
+                        try JSONSerialization.data(withJSONObject: metadata, options: [.prettyPrinted, .sortedKeys])
+                            .write(to: directory.appendingPathComponent(name + ".json"), options: .atomic)
+                        try app.debugDescription.write(to: directory.appendingPathComponent(name + ".accessibility.txt"), atomically: true, encoding: .utf8)
+                    }
+                    app.terminate()
+                }
+            }
+        }
+    }
+
+    private func productionEvidenceApp(route: String, arrangement: String, appearance: String) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UI_TESTING", "-RESET_APP_STATE", "-SKIP_ONBOARDING", "-DISABLE_CLOUD_SYNC",
+            "-LIFEBOARD_PRODUCTION_EVIDENCE", "-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE",
+            "-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED", "-LIFEBOARD_CELESTIAL_PHASE=morning",
+            "-LIFEBOARD_DISABLE_HOME_LOOP_SPINE_V1", "-LIFEBOARD_DISABLE_DAY_OPEN_COMMIT_V1", "-LIFEBOARD_DISABLE_DAY_CLOSE_V1",
+            "-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-AppleInterfaceStyle", appearance == "dark" ? "Dark" : "Light",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments += ["LIFE_OS_FOUNDATION", "DASHBOARD_CUSTOMIZATION_V2", "TRACKERS_V1", "HEALTH_INTEGRATIONS_V1",
+            "JOURNAL_V1", "KNOWLEDGE_NOTES_V1", "PLANNING_CORE_V1", "FOCUS_EXECUTION_V2", "TRACK_FOUNDATIONS_V2",
+            "GOALS_ROUTINES_V1", "CARE_MODULES_V2", "LIFE_OS_UNIFIED_PRESENTATION_V2", "PREMIUM_IA_V5",
+            "WELLNESS_CORE_V1", "FASTING_V2", "NUTRITION_V1", "LIFE_MOMENTS_V1"].map { "-LIFEBOARD_ENABLE_" + $0 }
+        app.launchEnvironment = ["PERFORMANCE_TEST": "1", "TZ": "UTC",
+            "LIFEBOARD_EVIDENCE_ROUTE": route, "LIFEBOARD_EVIDENCE_ARRANGEMENT": arrangement]
+        return app
+    }
+
     func testLaunchPerformance() {
         if #available(macOS 10.15, iOS 13.0, tvOS 13.0, *) {
             // This measures how long it takes to launch your application.
@@ -844,20 +929,19 @@ class LifeBoardUITests: XCTestCase {
     }
 
     func testFoundationHomePrimaryActionsUseTypedNativeDestinations() {
-        let app = launchFoundationApp(
-            accessibilityCategory: "UICTContentSizeCategoryL",
-            seedEstablishedWorkspace: true
-        )
+        let app = productionEvidenceApp(route: "home", arrangement: "actions", appearance: "light")
+        app.launch()
         defer { app.terminate() }
-
-        assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
+        XCTAssertTrue(app.descendants(matching: .any)["home.header"].waitForExistence(timeout: 30))
 
         tapHomeAction("home.care.open", in: app)
         XCTAssertTrue(
             waitForAccessibilityValue("Detail depth 1", on: app.buttons["foundation.destination.track"]),
             "Care must open as a typed Track leaf."
         )
-        XCTAssertTrue(app.buttons["Overview"].waitForExistence(timeout: 8))
+        // careLibrary resolves to BehaviorAreaRouteView(initialArea: .medication),
+        // not TrackRootView's Overview module picker.
+        XCTAssertTrue(app.buttons["track.medication.new"].waitForExistence(timeout: 8))
 
         assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
         tapHomeAction("home.capacity.openDay", in: app)
@@ -1497,6 +1581,12 @@ class LifeBoardUITests: XCTestCase {
         line: UInt = #line
     ) {
         let action = app.buttons[identifier]
+        if !action.isHittable {
+            for _ in 0..<8 {
+                if app.descendants(matching: .any)["home.signalRow"].isHittable { break }
+                app.swipeDown()
+            }
+        }
         scrollUntilHittableWithSmallSteps(action, in: app, maximumSteps: 32)
         XCTAssertTrue(action.waitForExistence(timeout: 8), file: file, line: line)
         XCTAssertTrue(action.isHittable, "Home action \(identifier) must remain reachable.", file: file, line: line)
