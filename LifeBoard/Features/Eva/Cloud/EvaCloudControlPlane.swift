@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import StoreKit
 
 private struct EvaCloudConfigurationEnvelope: Decodable {
@@ -71,7 +72,7 @@ extension EvaCloudTransport {
 
     func bootstrapGuest(grants: [EvaConsentPolicy.Grant]) async throws -> EvaSessionCredentials {
         await ProductTelemetry.shared.record(.evaGuestBootstrapStarted)
-        let installationID = EvaInstallationIdentity.current
+        let installationID = try await resolvedInstallationID()
         let bootstrapID = try await sessionStore.guestBootstrapID(for: installationID)
         let body = EvaGuestBootstrapRequest(
             bootstrapId: bootstrapID,
@@ -90,9 +91,13 @@ extension EvaCloudTransport {
                 attested: false
             )
             let response = try JSONDecoder.evaCloud.decode(EvaCloudExchangeResponse.self, from: data)
-            let credentials = credentials(from: response, appleUserIdentifier: nil, defaultIdentityKind: .guest)
+            let credentials = try await credentials(from: response, appleUserIdentifier: nil, defaultIdentityKind: .guest)
             try await sessionStore.save(credentials)
             await ProductTelemetry.shared.record(.evaGuestBootstrapSucceeded)
+            await ProductTelemetry.shared.record(
+                .evaGuestSessionRecovered,
+                outcome: response.created == true ? "created" : "recovered"
+            )
             await ProductTelemetry.shared.record(.evaTrustTierObserved, outcome: response.trustTier ?? "low")
             return credentials
         } catch {
@@ -114,7 +119,7 @@ extension EvaCloudTransport {
             nonce: nonce,
             identityToken: identityToken,
             authorizationCode: authorizationCode,
-            installationId: EvaInstallationIdentity.current,
+            installationId: try await resolvedInstallationID(),
             platform: EvaInstallationIdentity.platform,
             signedAppTransaction: signedAppTransaction
         )
@@ -126,8 +131,9 @@ extension EvaCloudTransport {
             attested: false
         )
         let response = try JSONDecoder.evaCloud.decode(EvaCloudExchangeResponse.self, from: data)
-        let credentials = credentials(from: response, appleUserIdentifier: appleUserIdentifier, defaultIdentityKind: .apple)
+        let credentials = try await credentials(from: response, appleUserIdentifier: appleUserIdentifier, defaultIdentityKind: .apple)
         try await sessionStore.save(credentials)
+        EvaCloudRecoveryStore.clear()
         return EvaAppleExchangeOutcome(
             credentials: credentials,
             requiresAdultEligibility: response.requiresAdultEligibility ?? true,
@@ -150,7 +156,7 @@ extension EvaCloudTransport {
             nonce: nonce,
             identityToken: identityToken,
             authorizationCode: authorizationCode,
-            installationId: EvaInstallationIdentity.current,
+            installationId: try await resolvedInstallationID(),
             platform: EvaInstallationIdentity.platform,
             signedAppTransaction: signedAppTransaction
         )
@@ -168,8 +174,9 @@ extension EvaCloudTransport {
           throw error
         }
         let response = try JSONDecoder.evaCloud.decode(EvaCloudExchangeResponse.self, from: data)
-        let credentials = credentials(from: response, appleUserIdentifier: appleUserIdentifier, defaultIdentityKind: .apple)
+        let credentials = try await credentials(from: response, appleUserIdentifier: appleUserIdentifier, defaultIdentityKind: .apple)
         try await sessionStore.save(credentials)
+        EvaCloudRecoveryStore.clear()
         await ProductTelemetry.shared.record(.evaAppleLinkSucceeded)
         return EvaAppleExchangeOutcome(
             credentials: credentials,
@@ -225,6 +232,7 @@ extension EvaCloudTransport {
             identityKind: current.identityKind,
             trustTier: current.trustTier
         ))
+        EvaCloudRecoveryStore.clear()
     }
 
     func attestationChallenge() async throws -> String {
@@ -324,7 +332,7 @@ extension EvaCloudTransport {
         from response: EvaCloudExchangeResponse,
         appleUserIdentifier: String?,
         defaultIdentityKind: EvaIdentityKind
-    ) -> EvaSessionCredentials {
+    ) async throws -> EvaSessionCredentials {
         EvaSessionCredentials(
             accountId: response.accountId,
             familyId: response.familyId,
@@ -332,12 +340,21 @@ extension EvaCloudTransport {
             accessTokenExpiresAt: response.accessTokenExpiresAt,
             refreshToken: response.refreshToken,
             refreshTokenExpiresAt: response.refreshTokenExpiresAt,
-            installationId: EvaInstallationIdentity.current,
+            installationId: try await resolvedInstallationID(),
             platform: EvaInstallationIdentity.platform,
             appleUserIdentifier: appleUserIdentifier,
             identityKind: response.identityKind ?? defaultIdentityKind,
             trustTier: response.trustTier
         )
+    }
+
+    private func resolvedInstallationID() async throws -> UUID {
+        if await sessionStore.isInMemoryStorage() {
+            // Preview/test transports intentionally do not have the app's
+            // keychain entitlement. Production still uses the throwing path.
+            return EvaInstallationIdentity.current
+        }
+        return try EvaInstallationIdentity.resolved()
     }
 
     private static func signedAppTransaction() async throws -> String? {
