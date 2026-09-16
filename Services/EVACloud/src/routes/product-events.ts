@@ -16,6 +16,8 @@ const eventNames = [
   'evaActivationReviewConfirmed', 'evaGuestBootstrapStarted', 'evaGuestBootstrapSucceeded',
   'evaGuestBootstrapFailed', 'evaFirstPromptSent', 'evaFirstAnswerCompleted', 'evaAppleLinkStarted',
   'evaAppleLinkSucceeded', 'evaAppleLinkFailed', 'evaQuotaExhausted', 'evaTrustTierObserved',
+  'evaSessionRestored', 'evaSessionRefreshed', 'evaSessionMigrated', 'evaSessionStorageDeferred',
+  'evaGuestSessionRecovered', 'evaAppleReauthenticationRequired',
 ] as const
 
 const ProductEventSchema = Type.Object({
