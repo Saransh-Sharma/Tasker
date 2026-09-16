@@ -166,8 +166,8 @@ struct PowerUpSummaryView: View {
         case .ready: return "Ready"
         case .activating, .hydrating: return "Connecting"
         case .quotaExhausted: return "Limited"
-        case .ageBlocked, .temporarilyUnavailable, .appleReauthenticationRequired: return "Needs attention"
-        case .needsDisclosure: return "Not set up"
+        case .temporarilyUnavailable, .appleReauthenticationRequired: return "Needs attention"
+        case .needsActivation: return "Not set up"
         }
     }
 }
