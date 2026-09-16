@@ -22,14 +22,13 @@ Use this hierarchy:
 
 ## Complete onboarding
 
-1. Read Arrival, then choose the desired change and optional recurring frictions.
-2. Select two to five life areas and tap the one that needs the clearest path first.
-3. Choose a day-shape preset or explicitly edit working hours.
-4. Optionally route one real thought to Task or Journal and review it before saving, or skip it.
-5. Inspect the assembled Life Map.
-6. Choose **Start my day**, or **Personalize more** to enter Home and then open Setup Center.
+1. Pick what you want help with.
+2. Pick two to five life areas. The first one you pick leads.
+3. Add one thing to do or remember and tap **Save** — or **Skip**.
+4. On **You're all set**, check the receipt, tap **Edit** to change your usual hours, and connect Calendar, Apple Health, or EVA if you want. Tap **What EVA can see** for how Cloud EVA uses your data.
+5. Tap **Start my day**.
 
-Onboarding saves both the exact step and commit/reveal lifecycle. LifeBoard creates no sample chores or fake activity; only a capture you explicitly review may create a record. Calendar, notifications, Health, and EVA remain optional in Setup Center and never block completion.
+LifeBoard creates no sample chores or fake activity; only something you save becomes a record. Connections never block setup and stay available in Setup Center.
 
 ## Configure the daily environment
 
