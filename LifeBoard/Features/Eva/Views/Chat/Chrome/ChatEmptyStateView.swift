@@ -193,7 +193,7 @@ struct ChatEmptyStateView: View {
 
     var guideButton: some View {
         Button(action: onOpenEvaGuide) {
-            HStack(spacing: 7) {
+            HStack(spacing: Theme.Spacing.xs) {
                 Image(systemName: "sparkles")
                     .lifeboardFont(.meta)
                 Text("Guide")
@@ -203,8 +203,10 @@ struct ChatEmptyStateView: View {
             .foregroundStyle(EvaChatSunriseGlass.primary)
             .padding(.horizontal, Theme.Spacing.md)
             .frame(minHeight: 44)
+            // A second glass surface on a screen whose composer is already
+            // glass. Clay keeps the one-per-screen claim intact.
             .background {
-                Color.clear.lifeBoardSystemGlass(.regular, in: Capsule(style: .continuous), interactive: true)
+                Color.clear.lifeBoardClaySurface(.resting, cornerRadius: Radius.pill)
             }
         }
         .buttonStyle(.plain)
@@ -239,15 +241,13 @@ struct ChatEmptyStateView: View {
             }
             .padding(.horizontal, Theme.Spacing.md)
             .padding(.vertical, Theme.Spacing.md)
-            .frame(width: 236, alignment: .leading)
+            // Was a hard 236pt, which clipped its own two lines at large text
+            // sizes. A minimum lets the chip grow with the words in it.
+            .frame(minWidth: 236, maxWidth: 320, alignment: .leading)
             .frame(minHeight: 78, alignment: .leading)
-            .lifeboardPremiumSurface(
-                cornerRadius: Theme.CornerRadius.lg,
-                fillColor: EvaChatSunriseGlass.glassFill,
-                strokeColor: EvaChatSunriseGlass.assistantBorder.opacity(0.72),
-                accentColor: EvaChatSunriseGlass.primary,
-                level: .e1
-            )
+            // Clay, not glass: `DESIGN.md` reserves glass for the composer, the
+            // privacy bar and the one hero, and these chips are content.
+            .lifeBoardClaySurface(.raised, cornerRadius: Radius.row)
         }
         .buttonStyle(.plain)
         .lifeboardPressFeedback()
