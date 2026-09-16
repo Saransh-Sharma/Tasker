@@ -31,13 +31,20 @@ struct FocusSurfaceCommitmentSection: View {
         .accessibilityIdentifier("focus.surface.commitment")
     }
 
-    static func headline(companion: FocusSessionCompanion?) -> String {
-        guard let intention = companion?.intention, intention.isEmpty == false else {
-            // No stated intention is a real state, not a blank. Naming it keeps
-            // the dominant line from collapsing to empty space.
-            return "Focusing"
+    /// The intention if one was stated, else the task the session is on, else
+    /// "Focusing". A session started on a task used to read "Focusing" — the
+    /// screen whose one job is holding a commitment did not say what it was.
+    static func headline(companion: FocusSessionCompanion?, taskTitle: String? = nil) -> String {
+        if let intention = companion?.intention.trimmingCharacters(in: .whitespacesAndNewlines),
+           intention.isEmpty == false {
+            return intention
         }
-        return intention
+        if let taskTitle = taskTitle?.trimmingCharacters(in: .whitespacesAndNewlines), taskTitle.isEmpty == false {
+            return taskTitle
+        }
+        // No stated intention is a real state, not a blank. Naming it keeps
+        // the dominant line from collapsing to empty space.
+        return "Focusing"
     }
 
     /// Mode and round, folded into one quiet line. Two separate metadata rows
