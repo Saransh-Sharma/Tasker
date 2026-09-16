@@ -1,0 +1,110 @@
+{
+  "appearance": "light",
+  "date": "2026-09-15",
+  "daypart": "morning",
+  "dynamic_type": "large",
+  "elements": [
+    {
+      "copy": "Active fast",
+      "id": "fasting.title",
+      "rect": [
+        16,
+        16,
+        321,
+        20.5
+      ],
+      "role": "title",
+      "typography": {
+        "alignment": "leading",
+        "design": "default",
+        "points": 17,
+        "role": "headline",
+        "weight": "semibold"
+      }
+    },
+    {
+      "copy": "No fast is active",
+      "id": "fasting.empty",
+      "rect": [
+        16,
+        50.5,
+        321,
+        19
+      ],
+      "role": "text",
+      "typography": {
+        "alignment": "leading",
+        "design": "default",
+        "points": 15,
+        "role": "subheadline",
+        "weight": "regular"
+      }
+    },
+    {
+      "copy": "Start a fast",
+      "id": "fasting.start",
+      "rect": [
+        16,
+        83.5,
+        79,
+        44
+      ],
+      "role": "control",
+      "typography": {
+        "alignment": "leading",
+        "design": "default",
+        "points": 15,
+        "role": "subheadline",
+        "weight": "semibold"
+      }
+    }
+  ],
+  "fixture_version": 4,
+  "id": "fasting-expanded-light",
+  "locale": "en_US",
+  "logical_card_points": [
+    353,
+    340
+  ],
+  "renderer": "shared-native-content-preview",
+  "safe_areas": "isolated card; production-route safe areas require separate evidence",
+  "time_zone": "UTC",
+  "viewport_points": [
+    393,
+    852
+  ],
+  "source_signatures": {
+    "renderer": "d4235a8b1637963037114ea596d0616660ce5343ad82e93e59aa90090807ecb4",
+    "files": {
+      "LifeBoard/DesignSystem/HomeCards/HomeActionQueueCardContent.swift": "a580c2afb8345077b69c09ef16113577dae22536d2d9a74841463ddd3778abb7",
+      "LifeBoard/DesignSystem/HomeCards/HomeAmbientArtwork.swift": "736d53a858344b250f97c1fdca86aabb803101eddf43ca96aa9ee7d238f718d3",
+      "LifeBoard/DesignSystem/HomeCards/HomeCapacityCardContent.swift": "0f72e23164e726d6e011b499a2ed96a145ab9055529c77ca62507f5d9ca60874",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardGeometryRecorder.swift": "2d9c5207b043d0ee4615b2c8218a0df1fe392e64152299adb59c02f15d06727d",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardIllustratedSurface.swift": "b8c9698753f4e0987c358b8ec22ec5b34b292a33d6cd8edf796bfa32047e2d67",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardPresentationStyle.swift": "a91c562e1b47c08763b47f14179beb463caa78d60fe32cf0cf9e84486af07607",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardPreviewFixtures.swift": "b857c5884571494e76fd9923b74bdf4d1301fd5b8d273fa07990bfbfb3caa2b5",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardQueueRow.swift": "245e6a3bab9ff3b13e71f308d3987da45237a9cf64aafb28058d3589f37a2381",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardSamplePreview.swift": "21b7a6020bbdb9c78590a0c85da48c0b0e2208959d0ab9ddd0ed9d984127cbdb",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardScene.swift": "b144f3da2d34f81c30582f36b816413c0567568567d06d209c5cd70402d75e43",
+      "LifeBoard/DesignSystem/HomeCards/HomeFastingCardContent.swift": "8ae0a0ee7f7ce89989c408bed720356454349d67d5748ccd637409f76e4478d0",
+      "LifeBoard/DesignSystem/HomeCards/HomeFocusCardContent.swift": "d3993325eade0f56966b789c355c01844b42cf7b50466f4c788f06c6ff130d2c",
+      "LifeBoard/DesignSystem/HomeCards/HomeGlanceCardContent.swift": "4fa7d1dd716ff3724c3617b897640000d3a33c6db1e70ffdd68f0112954f9276",
+      "LifeBoard/DesignSystem/HomeCards/HomeJournalCardContent.swift": "549db340d0371ccbaea89223b48c9234482ae973de6e534900979f1d71fc3360",
+      "LifeBoard/DesignSystem/HomeCards/HomeLifeSnapshotCardContent.swift": "de6e15ea6fc5a483601859b86b972a70a2b6fb778f49d11dad4c8ca875bc9777",
+      "LifeBoard/DesignSystem/HomeCards/HomeProgressCardContent.swift": "6be6c0fe0692746a2f4d2b4d7d113529e294b949d794b0d7d49b3714fb51d566",
+      "LifeBoard/DesignSystem/HomeCards/HomeQuickCaptureCardContent.swift": "67fcbba772482f339af84915fe7cbaf60d1ac0adaebe2474292c9f5f6fa75c15",
+      "LifeBoard/DesignSystem/HomeCards/HomeSceneImageCache.swift": "1fd2da337373fb880f3b6246d5d30d4e9c4008de9d50bd1e844724f1efb7c0ae",
+      "LifeBoard/DesignSystem/HomeCards/HomeTasksCardContent.swift": "a44eb9cbaeb60dd1aa0d2fec53cc99cc53445a4aa1d750f06b4c0bc8f9c061b5",
+      "LifeBoard/DesignSystem/HomeCards/HomeTimelineCardContent.swift": "a148ecbb72894c90c185737a5c5ca8385d408aa4323ac19f5c0409cefbb02950",
+      "LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift": "94691ee7b91e0ffe5dc70f20904b219ca56ebdb0ced6975a66c9c7ebe743c724",
+      "LifeBoard/DesignSystem/LifeBoardCardPrimitives.swift": "297ea06af07927559ba266757024656a38a74d7bc74c3788a5060e8afd8e23b3",
+      "LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift": "2f0b215c4a69e06a496af4cb159eb22db48c77462c403d46cbfee8513fd18977",
+      "Packages/LifeBoardTokens/Sources/LifeBoardTokens/SemanticTypographyTokens.swift": "56b422cc854f08582a527320239590e574774afbf780cebef2fc5ad49b37d635",
+      "Packages/LifeBoardUI/Sources/LifeBoardUI/NumericRoll.swift": "519351aeb11829f080aacb72b92033e533e47638bfcbfd4acdbd61e5ca54ba30"
+    },
+    "typography": "56b422cc854f08582a527320239590e574774afbf780cebef2fc5ad49b37d635",
+    "fixture": "b857c5884571494e76fd9923b74bdf4d1301fd5b8d273fa07990bfbfb3caa2b5",
+    "artwork": "8d964068fd2f957fe21680e41d7473d19e93df2e5485377ef0b0d8e75a97d156",
+    "capture": "8997c1e232a723e884a537369dbeb88f7116c943eaf03aa027b24e069fb02852"
+  }
+}
