@@ -40,7 +40,7 @@ final class SetupCenterFocusTests: XCTestCase {
             selectedCalendarCount: 1,
             healthStatuses: [:],
             healthHasObservableData: true,
-            evaAccessState: .needsDisclosure,
+            evaAccessState: .needsActivation,
             evaUsesOfflineProvider: true,
             offlineModelReady: false
         )
@@ -49,7 +49,7 @@ final class SetupCenterFocusTests: XCTestCase {
             selectedCalendarCount: 1,
             healthStatuses: [:],
             healthHasObservableData: true,
-            evaAccessState: .needsDisclosure,
+            evaAccessState: .needsActivation,
             evaUsesOfflineProvider: true,
             offlineModelReady: true
         )
@@ -63,7 +63,7 @@ final class SetupCenterFocusTests: XCTestCase {
             selectedCalendarCount: 0,
             healthStatuses: [:],
             healthHasObservableData: false,
-            evaAccessState: .needsDisclosure,
+            evaAccessState: .needsActivation,
             evaUsesOfflineProvider: false,
             offlineModelReady: false
         )
