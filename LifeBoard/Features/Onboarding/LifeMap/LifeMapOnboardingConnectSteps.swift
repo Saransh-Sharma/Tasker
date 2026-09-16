@@ -123,47 +123,38 @@ private struct LifeMapCalendarRow: View {
 
 // MARK: - Health
 
-/// Reading and writing are two different questions.
-///
-/// `connect(domains:)` defaults to switching write-back on for every writable
-/// domain, which is right for an in-app surface that named writing explicitly
-/// and wrong for a first run. Onboarding authorizes reads, then asks about
-/// writing separately — and starts every write toggle off.
+/// Health onboarding is deliberately read-only. Sync management and write-back
+/// controls live in Settings and the Health hub, where they can be explained
+/// without interrupting the first-run flow.
 struct LifeMapHealthStep: View {
     let isConnected: Bool
     let isBusy: Bool
-    let writableDomains: [HealthDomain]
-    let writeBackDomainIDs: [String]
+    let authorizationFailed: Bool
     let onConnect: () -> Void
-    let onToggleWriteBack: (HealthDomain, Bool) -> Void
     let onSkip: () -> Void
 
     var body: some View {
         LifeMapQuestionScaffold(
             title: "Bring your health in",
             support: isConnected
-                ? "Reading is on. Choose anything LifeBoard may also write back."
+                ? "Access has been reviewed. You can manage sync and write-back later in Settings."
                 : "Optional. Declining never blocks LifeBoard."
         ) {
             if isConnected {
-                if writableDomains.isEmpty {
-                    Text("Nothing you chose writes back to Apple Health. LifeBoard will only read.")
-                        .font(.lifeboard(.body))
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
-                        .padding(Theme.Spacing.lg)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lifeBoardClaySurface(.resting, cornerRadius: 20)
-                } else {
-                    writeBackList
-                }
+                Label("Apple Health access has been reviewed", systemImage: "checkmark.circle.fill")
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
+                    .padding(Theme.Spacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lifeBoardClaySurface(.resting, cornerRadius: 20)
             } else {
                 LifeMapConnectPitch(
                     symbol: "heart.text.square",
                     headline: "LifeBoard reads what you already log.",
-                    detail: "Health data stays on this device. It is never sent to EVA's cloud unless you grant that separately."
+                    detail: "Health imports are processed on this device. Available Health context may accompany EVA requests; manage EVA context in Settings."
                 )
                 HStack(spacing: Theme.Spacing.sm) {
-                    Button(PermissionKind.appleHealth.allowTitle, action: onConnect)
+                    Button(authorizationFailed ? "Retry Health access" : "Connect Apple Health", action: onConnect)
                         .buttonStyle(LifeMapPrimaryButtonStyle())
                         .disabled(isBusy)
                         .accessibilityIdentifier(LifeMapAccessibilityID.permission(PermissionKind.appleHealth.id))
@@ -171,39 +162,14 @@ struct LifeMapHealthStep: View {
                         .buttonStyle(LifeMapSecondaryButtonStyle())
                         .accessibilityIdentifier(LifeMapAccessibilityID.permissionSkip(PermissionKind.appleHealth.id))
                 }
+                if authorizationFailed {
+                    Text("The Health access request didn’t finish. Try again or choose Not now.")
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                }
             }
         }
         .accessibilityIdentifier(LifeMapAccessibilityID.step(.health))
-    }
-
-    private var writeBackList: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text("LET LIFEBOARD WRITE")
-                .font(.lifeboard(.eyebrow))
-                .tracking(1.2)
-                .foregroundStyle(Color.lifeboard(.textTertiary))
-            ForEach(writableDomains) { domain in
-                Toggle(isOn: Binding(
-                    get: { writeBackDomainIDs.contains(domain.id) },
-                    set: { onToggleWriteBack(domain, $0) }
-                )) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(domain.title)
-                            .font(.lifeboard(.bodyStrong))
-                            .foregroundStyle(Color.lifeboard(.textPrimary))
-                        Text("What you log in LifeBoard also appears in Apple Health.")
-                            .font(.lifeboard(.caption1))
-                            .foregroundStyle(Color.lifeboard(.textTertiary))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .tint(Color.lifeboard(.accentPrimary))
-                .padding(Theme.Spacing.md + 2)
-                .lifeBoardClaySurface(.resting, cornerRadius: 16)
-                .accessibilityIdentifier(LifeMapAccessibilityID.healthWriteBackRow(domain.id))
-            }
-        }
-        .accessibilityIdentifier(LifeMapAccessibilityID.healthWriteBackList)
     }
 }
 
