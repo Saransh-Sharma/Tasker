@@ -87,6 +87,34 @@ private extension UnscheduledDisposition {
 @MainActor
 @Observable
 final class HomeLifeOSProjectionStore {
+    #if DEBUG
+    private var designFixtureDate: Date?
+
+    /// Installs canonical projection values for explicit visual evidence runs.
+    /// This does not load repositories or replace live mutation handlers.
+    func installDesignFixture(date: Date, tasks: [PlanningTaskSummary], plan: PlanDaySnapshot,
+                              track: TrackTodaySnapshot, hero: AdaptiveHeroSnapshot,
+                              snapshots: [String: HomeCardSnapshot]) {
+        designFixtureDate = date
+        planningTasks = tasks
+        taskAgendaDate = date
+        taskAgenda = HomeTaskAgendaProjection(selectedDate: date, overdueTasks: [], dueTasks: tasks)
+        planSnapshot = plan
+        trackSnapshot = track
+        heroSnapshot = hero
+        focusTask = tasks.first
+        cardSnapshots = snapshots
+        hasLoadedCore = true
+    }
+    #endif
+
+    var presentationDate: Date {
+        #if DEBUG
+        if let designFixtureDate { return designFixtureDate }
+        #endif
+        return HomeReferenceClock.now
+    }
+
     private(set) var planSnapshot: PlanDaySnapshot?
     var taskAgendaDate: Date {
         didSet { rebuildTaskAgenda() }
@@ -181,7 +209,7 @@ final class HomeLifeOSProjectionStore {
         lifeMomentRepository: (any LifeMomentRepository)? = nil,
         healthMetrics: (any HealthMetricsReading)? = nil,
         rankingService: any FocusRankingService = DeterministicFocusRankingService(),
-        taskAgendaDate: Date = Date(),
+        taskAgendaDate: Date = HomeReferenceClock.now,
         calendarRepository: any PlanningCalendarContextRepository = SystemPlanningCalendarContextRepository()
     ) {
         self.taskAgendaDate = taskAgendaDate
@@ -299,7 +327,7 @@ final class HomeLifeOSProjectionStore {
                         return .failed("Task projection is unavailable.")
                     }
                     guard self.sourceIsCurrent(revision, domains: [.tasks, .focus]) else { continue }
-                    self.publishCore(core, now: Date())
+                    self.publishCore(core, now: HomeReferenceClock.now)
                     return .applied(revision)
                 }
                 return .failed("Tasks changed while refreshing. Refresh again to see the latest changes.")
@@ -322,7 +350,7 @@ final class HomeLifeOSProjectionStore {
     /// Publish canonical tasks and the active focus session as soon as they are
     /// available. Calendar capacity, Track and meal providers complete separately;
     /// each publication validates the same refresh and mutation ownership.
-    private func performLoadPass(now: Date = Date(), isCurrent: @escaping @MainActor () -> Bool) async {
+    private func performLoadPass(now: Date = HomeReferenceClock.now, isCurrent: @escaping @MainActor () -> Bool) async {
         let mutation = mutationRevision
         let revision = refreshDrain.revision
         async let canonical = projectionReader.read(now: now, onCore: { [weak self] core in
@@ -520,7 +548,7 @@ final class HomeLifeOSProjectionStore {
             .lastSampleAt
     }
 
-    func resetTaskAgendaDateToToday(now: Date = Date()) {
+    func resetTaskAgendaDateToToday(now: Date = HomeReferenceClock.now) {
         taskAgendaDate = now
     }
 
@@ -556,7 +584,7 @@ final class HomeLifeOSProjectionStore {
                     let fallback = self.moodFallbackRevisions
                     self.moodReadCount &+= 1
                     PerformanceTrace.event("HomeMoodRead", value: self.moodReadCount)
-                    let input = try await self.projectionReader.readMood(now: Date())
+                    let input = try await self.projectionReader.readMood(now: HomeReferenceClock.now)
                     guard !Task.isCancelled, presentation == self.committedPresentationGeneration else { return .cancelled }
                     guard input.revisions != nil || fallback == self.moodFallbackRevisions else { continue }
                     guard self.revisionsAreCurrent(input.revisions, ledger: self.moodRevisionLedger,
@@ -566,13 +594,13 @@ final class HomeLifeOSProjectionStore {
                     let changed = self.latestMood != input.value
                     if changed { self.latestMood = input.value }
                     self.rebuildFocus()
-                    self.rebuildHero(now: Date())
+                    self.rebuildHero(now: HomeReferenceClock.now)
                     if changed || previousHero != self.heroSnapshot || previousFocus != self.focusResult {
                         self.loadCommitCount &+= 1
                         PerformanceTrace.event("HomeProjectionCommitted", value: self.loadCommitCount)
                     }
                     self.lastMoodRevision = input.revisions?[.wellness] ?? fallback[.wellness]
-                    self.lastMoodDay = Calendar.current.startOfDay(for: Date())
+                    self.lastMoodDay = Calendar.current.startOfDay(for: HomeReferenceClock.now)
                     self.moodRefreshError = nil
                     return .applied(input.revisions ?? fallback)
                 }
@@ -602,7 +630,7 @@ final class HomeLifeOSProjectionStore {
             guard !Task.isCancelled, presentation == committedPresentationGeneration else { return }
             guard let event = subscription.takePending() else { continue }
             if let revision = lastMoodRevision, revision >= event.revisions[.wellness],
-               lastMoodDay == Calendar.current.startOfDay(for: Date()) { continue }
+               lastMoodDay == Calendar.current.startOfDay(for: HomeReferenceClock.now) { continue }
             let outcome = await refreshCommittedMood()
             guard !Task.isCancelled, presentation == committedPresentationGeneration else { return }
             if case .failed(let message) = outcome, moodRefreshError != message {
@@ -618,8 +646,8 @@ final class HomeLifeOSProjectionStore {
     func latestMoodCheckInToday() async -> MoodEnergyCheckInValue? {
         if let latestMood { return latestMood }
         guard let phaseIIRepository else { return nil }
-        let start = Calendar.current.startOfDay(for: Date())
-        let values = try? await phaseIIRepository.fetchMoodCheckIns(from: start, to: Date().addingTimeInterval(1))
+        let start = Calendar.current.startOfDay(for: HomeReferenceClock.now)
+        let values = try? await phaseIIRepository.fetchMoodCheckIns(from: start, to: HomeReferenceClock.now.addingTimeInterval(1))
         return values?.first
     }
 
@@ -642,7 +670,7 @@ final class HomeLifeOSProjectionStore {
     func refreshCardSnapshots(
         requests: [(kind: DashboardWidgetKind, size: HomeCardSize)],
         permitsSensitive: Bool,
-        at date: Date = Date(),
+        at date: Date = HomeReferenceClock.now,
         isCurrent: @escaping @MainActor () -> Bool = { true },
         providerRegistry: HomeCardProviderRegistry? = nil
     ) async {
@@ -734,23 +762,23 @@ final class HomeLifeOSProjectionStore {
                 for _ in 0..<3 {
                     self.hydrationReadCount &+= 1
                     PerformanceTrace.event("HomeHydrationRead", value: self.hydrationReadCount)
-                    let input = try await self.projectionReader.readHydration(now: Date())
+                    let input = try await self.projectionReader.readHydration(now: HomeReferenceClock.now)
                     guard !Task.isCancelled, presentation == self.committedPresentationGeneration else { return .cancelled }
-                    guard input.day == Calendar.current.startOfDay(for: Date()) else { continue }
+                    guard input.day == Calendar.current.startOfDay(for: HomeReferenceClock.now) else { continue }
                     guard self.revisionsAreCurrent(input.revisions, ledger: trackRepository.sourceRevisions,
                                                    domains: [.tracking]) else { continue }
                     // A first hydration action can finish before the other Track
                     // inputs. Preserve existing content and mark a new shell partial.
                     var next = self.trackSnapshot ?? TrackTodaySnapshot(unresolvedMedicationEvents: [],
                         habitGrades: [], dueRoutines: [], goals: [], hydrationAmountMilliliters: nil,
-                        hydrationTargetMilliliters: nil, completeness: .partial, generatedAt: Date())
+                        hydrationTargetMilliliters: nil, completeness: .partial, generatedAt: HomeReferenceClock.now)
                     next.hydrationAmountMilliliters = input.amount
                     next.hydrationTargetMilliliters = input.target
                     let changed = self.trackSnapshot != next || self.hydrationRefreshError != nil
                     if self.trackSnapshot != next {
-                        next.generatedAt = Date()
+                        next.generatedAt = HomeReferenceClock.now
                         self.trackSnapshot = next
-                        self.rebuildHero(now: Date())
+                        self.rebuildHero(now: HomeReferenceClock.now)
                     }
                     if changed {
                         self.loadCommitCount &+= 1
@@ -787,7 +815,7 @@ final class HomeLifeOSProjectionStore {
             guard !Task.isCancelled, presentation == committedPresentationGeneration else { return }
             guard let event = subscription.takePending() else { continue }
             if let revision = lastHydrationRevision, revision >= event.revisions[.tracking],
-               lastHydrationDay == Calendar.current.startOfDay(for: Date()) { continue }
+               lastHydrationDay == Calendar.current.startOfDay(for: HomeReferenceClock.now) { continue }
             let outcome = await refreshCommittedHydration()
             guard !Task.isCancelled, presentation == committedPresentationGeneration else { return }
             if case .failed(let message) = outcome, hydrationRefreshError != message {
@@ -830,7 +858,7 @@ final class HomeLifeOSProjectionStore {
     func startFast(
         targetDuration: TimeInterval?,
         reminderOffsets: [TimeInterval] = [],
-        at date: Date = Date()
+        at date: Date = HomeReferenceClock.now
     ) async -> Bool {
         guard let fastingTimerStore else {
             fastingMutationError = "Fasting is unavailable right now."
@@ -852,7 +880,7 @@ final class HomeLifeOSProjectionStore {
     }
 
     @discardableResult
-    func endActiveFast(at date: Date = Date()) async -> Bool {
+    func endActiveFast(at date: Date = HomeReferenceClock.now) async -> Bool {
         guard let fastingTimerStore else {
             fastingMutationError = "Fasting is unavailable right now."
             return false
@@ -894,7 +922,7 @@ final class HomeLifeOSProjectionStore {
     /// Home renders only these display-ready projections. The provider registry
     /// is deliberately assembled at the domain boundary so card views do not
     /// know which repositories produced the values.
-    func makeHomeCardProviderRegistry(at date: Date = Date(),
+    func makeHomeCardProviderRegistry(at date: Date = HomeReferenceClock.now,
         requestedSizes: [DashboardWidgetKind: Set<HomeCardSize>]? = nil) throws -> HomeCardProviderRegistry {
         let registry = DefaultDashboardWidgetRegistry.shared
         let kinds: [(DashboardWidgetKind, Destination)] = [
@@ -1331,7 +1359,7 @@ final class HomeLifeOSProjectionStore {
     /// all. Absent is not zero drift, but the honest rendering of "we don't
     /// know" on the spine is the same as "nothing to show" — and it is far
     /// better than asking someone to repair a day we failed to read.
-    private func rebuildDrift(now: Date = Date()) {
+    private func rebuildDrift(now: Date = HomeReferenceClock.now) {
         guard let snapshot = planSnapshot else {
             if repairProposals.isEmpty == false { repairProposals = [] }
             if driftCount != 0 { driftCount = 0 }
@@ -1388,7 +1416,7 @@ final class HomeLifeOSProjectionStore {
         if focusTask != nextTask { focusTask = nextTask }
     }
 
-    private func rebuildHero(now: Date = Date()) {
+    private func rebuildHero(now: Date = HomeReferenceClock.now) {
         if let session = activeFocusSession, session.state == .running || session.state == .paused {
             publishHero(.init(
                 id: "active-focus:\(session.id.uuidString)", priority: .activeFocus,
