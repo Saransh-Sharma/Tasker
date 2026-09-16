@@ -147,7 +147,11 @@ public enum InboxTriageMutation: Equatable, Sendable {
     /// affordance rather than a log.
     public var summary: String {
         switch self {
-        case .schedule: return "Scheduled"
+        case let .schedule(_, _, after):
+            guard let date = after.startDate() else { return "Scheduled" }
+            if Calendar.current.isDateInToday(date) { return "Planned for today" }
+            if Calendar.current.isDateInTomorrow(date) { return "Planned for tomorrow" }
+            return "Planned for \(date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))"
         case .moveToProject: return "Moved to project"
         case let .setDisposition(_, _, after):
             switch after {
