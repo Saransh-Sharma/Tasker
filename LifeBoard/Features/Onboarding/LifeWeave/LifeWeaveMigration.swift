@@ -98,11 +98,22 @@ enum LifeWeaveMigration {
         return migrated
     }
 
+    /// Where a six-step position lives in the four-screen flow.
+    ///
+    /// The enum keeps all six cases so any stored draft still decodes; only the
+    /// position a person resumes into is normalised.
+    static func streamlinedStep(for step: LifeWeaveStep) -> LifeWeaveStep {
+        switch step {
+        case .intent: .arrival
+        case .dayShape: .lifeAreas
+        default: step
+        }
+    }
+
     /// Keep enum raw values decodable for rollback, normalize only presentation.
     static func streamlined(_ snapshot: LifeWeaveDraft) -> LifeWeaveDraft {
         var draft = snapshot
-        if draft.step == .intent { draft.step = .arrival }
-        if draft.step == .dayShape { draft.step = .lifeAreas }
+        draft.step = streamlinedStep(for: draft.step)
         if draft.powerUpStep != nil || draft.resolvedLifecyclePhase == .poweringUp {
             draft.powerUpStep = nil
             draft.step = .reveal
