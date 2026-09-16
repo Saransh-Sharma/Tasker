@@ -28,6 +28,7 @@ actor EvaAppAttestService {
         #if targetEnvironment(macCatalyst)
         return false
         #else
+        guard let installationID = try? EvaInstallationIdentity.resolved() else { return false }
         guard let accountID = await client.currentAccountIDForAttestation() else { return false }
         guard DCAppAttestService.shared.isSupported else {
             await client.recordLowTrust(for: accountID)
@@ -36,7 +37,7 @@ actor EvaAppAttestService {
         }
         if let registration = storedRegistration,
            registration.accountID == accountID,
-           registration.installationID == EvaInstallationIdentity.current {
+           registration.installationID == installationID {
             // App Attest private keys do not survive reinstall, migration, or
             // restore even when preferences containing a key identifier do.
             // Prove the stored key still works before reporting high trust.
@@ -62,7 +63,7 @@ actor EvaAppAttestService {
             let registration = Registration(
                 keyIdentifier: keyIdentifier,
                 accountID: accountID,
-                installationID: EvaInstallationIdentity.current
+                installationID: installationID
             )
             UserDefaults.standard.set(try JSONEncoder().encode(registration), forKey: registrationKey)
             await client.recordHighTrust(for: accountID)
