@@ -103,8 +103,10 @@ actor FocusLiveActivityCoordinator {
         }
 
         if session.state == .ended {
+            // "Done · 25 min" stays on the Lock Screen for a minute, so ending
+            // from the island reads as finished rather than as vanished.
             if let existing {
-                await existing.end(content, dismissalPolicy: .immediate)
+                await existing.end(content, dismissalPolicy: .after(now.addingTimeInterval(60)))
             }
             return true
         }
@@ -141,7 +143,9 @@ actor FocusLiveActivityCoordinator {
             phase: session.state.rawValue,
             remainingDuration: remaining,
             expectedEndAt: session.state == .running ? now.addingTimeInterval(remaining) : nil,
-            updatedAt: now
+            updatedAt: now,
+            targetDuration: session.targetDuration > 0 ? session.targetDuration : nil,
+            focusedDuration: focused
         )
     }
 }
@@ -177,3 +181,32 @@ enum FocusLiveActivityDeepLink {
     static func command(from url: URL) -> FocusSessionCommand? { nil }
 }
 #endif
+
+/// Runs a focus command that arrived from outside the app's own screens — a
+/// Live Activity button's intent or a `lifeboard://focus` link — and brings the
+/// activity and notification fallback in line with the result.
+enum FocusLiveActivityCommandRunner {
+    static func run(_ command: FocusSessionCommand, repository: CoreDataPlanningRepository) async throws {
+        let session = try await repository.handle(command)
+        let liveActivitiesAvailable = await FocusLiveActivityCoordinator.shared.synchronize(session: session)
+        await FocusNotificationFallbackCoordinator.shared.synchronize(
+            session: session,
+            title: "Focus session",
+            liveActivitiesAvailable: liveActivitiesAvailable
+        )
+        await MainActor.run {
+            // Plan and Focus reload what the Lock Screen just changed.
+            NotificationCenter.default.post(name: .foundationDomainMaintenanceCommitted, object: nil)
+        }
+    }
+
+    #if os(iOS) && !targetEnvironment(macCatalyst)
+    /// Installed at launch so Live Activity buttons act without opening the app.
+    static func installIntentBridge(makeRepository: @escaping @Sendable () -> CoreDataPlanningRepository) {
+        FocusLiveActivityIntentBridge.perform = { url in
+            guard let command = FocusLiveActivityDeepLink.command(from: url) else { return }
+            try? await run(command, repository: makeRepository())
+        }
+    }
+    #endif
+}
