@@ -153,6 +153,22 @@ public protocol OccurrenceRepositoryProtocol: Sendable {
     func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
     /// Executes deleteOccurrences.
     func deleteOccurrences(ids: [UUID], completion: @escaping @Sendable (Result<Void, Error>) -> Void)
+    /// Records progress toward an amount target on one occurrence. Only these
+    /// two attributes change; state and resolutions are left to `resolve`.
+    func setRecordedValue(occurrenceID: UUID, value: Double?, updatedAt: Date, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
+}
+
+public enum OccurrenceRecordedValueError: Error, Equatable {
+    case unsupported
+    case occurrenceNotFound
+}
+
+public extension OccurrenceRepositoryProtocol {
+    /// Stores without amount support (test doubles, write-closed adapters)
+    /// fail loudly rather than dropping the value.
+    func setRecordedValue(occurrenceID: UUID, value: Double?, updatedAt: Date, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        completion(.failure(OccurrenceRecordedValueError.unsupported))
+    }
 }
 
 public extension HabitRepositoryProtocol {
