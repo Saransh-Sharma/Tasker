@@ -1,0 +1,56 @@
+{
+  "appearance" : "light",
+  "arrangement" : "solitary",
+  "clockScope" : "all evidence-owned clocks fixed to the seeded morning fixture",
+  "contentBounds" : [
+    0,
+    59,
+    393,
+    759
+  ],
+  "evidenceLevel" : "actual-production-route-seeded-repositories",
+  "fixtureDate" : "2026-09-15T09:00:00Z",
+  "placementDescriptors" : [
+    {
+      "id" : "E7100000-0000-4000-8000-000000000001",
+      "ownership" : "pinned",
+      "semanticSize" : "standard",
+      "widgetKind" : "care"
+    }
+  ],
+  "placements" : {
+    "E7100000-0000-4000-8000-000000000001" : [
+      20,
+      481.33333333333326,
+      353,
+      178
+    ]
+  },
+  "rendererRevision" : "30afaec8bc31f2278623414cad619f36b3236426+working-tree:ac73aee0685bb38f4c34c7c6e504d9204c659ae7e03c30261bca2d0f013c0e85",
+  "route" : "home",
+  "safeArea" : [
+    59,
+    0,
+    34,
+    0
+  ],
+  "shellFrame" : [
+    0,
+    59,
+    393,
+    759
+  ],
+  "sourceIdentityScope" : "stable seeded repository identifiers",
+  "sourceTaskIDs" : [
+    "E7200000-0000-4000-8000-000000000001",
+    "E7200000-0000-4000-8000-000000000002",
+    "E7200000-0000-4000-8000-000000000003",
+    "E7200000-0000-4000-8000-000000000004",
+    "E7200000-0000-4000-8000-000000000005",
+    "E7200000-0000-4000-8000-000000000006"
+  ],
+  "viewport" : [
+    393,
+    852
+  ]
+}
