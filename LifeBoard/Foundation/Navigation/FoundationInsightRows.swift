@@ -10,14 +10,31 @@ import VisionKit
 /// `RoundedRectangle` at a radius nothing else used, which made a grid of
 /// identical facts render in two different materials.
 struct InsightMetric: View {
-    let value: String
     let label: String
+    /// The reading, not a pre-rendered string. Every tile used to report
+    /// `.recorded`, so an absent value rendered the word "Unknown" at metric
+    /// scale and a real zero was indistinguishable from no record —
+    /// `DESIGN.md` makes those six separate states.
+    let reading: MetricReading
+
+    init(label: String, reading: MetricReading) {
+        self.label = label
+        self.reading = reading
+    }
+
+    /// Counts: an explicit zero is a recorded zero, not a missing one.
+    init(count: Int, label: String) {
+        self.label = label
+        self.reading = count == 0
+            ? .explicitZero(unit: nil)
+            : .recorded(value: "\(count)", unit: nil)
+    }
 
     var body: some View {
         MetricHeroWell(
             MetricHero(
                 label: label,
-                reading: .recorded(value: value, unit: nil),
+                reading: reading,
                 accessibilityID: "insights.metric"
             )
         )
