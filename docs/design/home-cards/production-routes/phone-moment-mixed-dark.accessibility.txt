@@ -1,0 +1,83 @@
+Attributes: Application, 0x116e34280, pid: 84436, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x116e34280, pid: 84436, label: 'LifeBoard'
+    Window (Main), 0x116e343c0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x116e34500, {{0.0, 0.0}, {393.0, 852.0}}
+        Other, 0x116e34640, {{0.0, 0.0}, {393.0, 852.0}}
+          Other, 0x116e34780, {{0.0, 0.0}, {393.0, 852.0}}
+            Other, 0x116e348c0, {{0.0, 0.0}, {393.0, 852.0}}
+              Other, 0x116e34a00, {{0.0, 0.0}, {393.0, 852.0}}
+                Other, 0x116e34b40, {{0.0, 0.0}, {393.0, 852.0}}
+                  Other, 0x116e34c80, {{0.0, 0.0}, {393.0, 852.0}}
+                    Button, 0x116f6a800, {{196.5, 438.5}, {0.0, 0.0}}
+                    Other, 0x116f6a940, {{0.0, 0.0}, {393.0, 852.0}}
+                    Other, 0x116f6aa80, {{0.0, 0.0}, {393.0, 852.0}}
+                      Other, 0x116f6abc0, {{0.0, 0.0}, {393.0, 852.0}}
+                        Other, 0x116f6ad00, {{0.0, 0.0}, {393.0, 852.0}}
+                          Other, 0x116f6ae40, {{0.0, 0.0}, {393.0, 852.0}}
+                            Other, 0x116f6af80, {{0.0, 0.0}, {393.0, 852.0}}
+                              Other, 0x116f6b0c0, {{0.0, 0.0}, {393.0, 852.0}}
+                                Other, 0x116f6b200, {{0.0, 59.0}, {393.0, 613.0}}
+                                Other, 0x116f6b340, {{0.0, 0.0}, {393.0, 852.0}}
+                                  NavigationBar, 0x116f74000, {{0.0, 59.0}, {393.0, 106.0}}, identifier: 'Life Moments'
+                                    Button, 0x116f74140, {{16.0, 59.0}, {44.0, 44.0}}, identifier: 'BackButton', label: 'Track'
+                                    Button, 0x116f74280, {{337.0, 63.0}, {36.0, 36.0}}, label: 'Add moment'
+                                  Other, 0x116f743c0, {{0.0, 0.0}, {393.0, 852.0}}
+                                    Other, 0x116f74500, {{0.0, 0.0}, {393.0, 852.0}}
+                                      Other, 0x116f74640, {{0.0, 0.0}, {393.0, 852.0}}
+                                        Other, 0x116f74780, {{0.0, 0.0}, {393.0, 852.0}}
+                                          Image, 0x116f748c0, {{-43.3, 0.0}, {479.7, 852.0}}
+                                          Image, 0x116f74a00, {{226.0, 20.4}, {163.9, 163.9}}
+                                          Other, 0x116f74b40, {{196.5, 165.0}, {0.0, 0.0}}
+                                          Other, 0x116f74c80, {{0.0, 0.0}, {393.0, 852.0}}
+                                          ScrollView, 0x116f74dc0, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'lifeMoments.workspace'
+                                            Other, 0x116f74f00, {{0.0, 0.0}, {393.0, 852.0}}
+                                              Other, 0x116f75040, {{0.0, 0.0}, {393.0, 167.8}}
+                                            Other, 0x116f75180, {{0.0, 0.0}, {393.0, 852.0}}
+                                            Other, 0x116f752c0, {{0.0, 165.0}, {393.0, 336.0}}
+                                              Other, 0x116f75400, {{20.0, 213.0}, {353.0, 155.3}}
+                                                Other, 0x116f75540, {{20.0, 213.0}, {353.0, 95.3}}, identifier: 'lifeboard.status.empty'
+                                                  Image, 0x116f75680, {{41.3, 233.0}, {17.0, 20.3}}, identifier: 'sparkles', label: 'Sparkle'
+                                                  StaticText, 0x116f757c0, {{76.0, 229.0}, {232.7, 20.3}}, label: 'Keep a meaningful date close'
+                                                  StaticText, 0x116f75900, {{76.0, 254.3}, {262.7, 38.0}}, label: 'Countdowns and anniversaries stay private unless you allow Home display.'
+                                                Button, 0x116f75a40, {{121.7, 320.3}, {150.0, 48.0}}, label: 'Add moment'
+                                            Other, 0x116f75b80, {{360.0, 113.0}, {30.0, 684.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                              Other, 0x116f75cc0, {{387.0, 449.0}, {3.0, 345.0}}
+                                            Other, 0x116f75e00, {{360.0, 113.0}, {30.0, 684.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                              Other, 0x116f75f40, {{387.0, 449.0}, {3.0, 345.0}}
+                                  Other, 0x116f76080, {{0.0, 0.0}, {393.0, 852.0}}
+                                    Other, 0x116f761c0, {{0.0, 0.0}, {393.0, 852.0}}
+                      Other, 0x116f76300, {{0.0, 769.0}, {393.0, 83.0}}
+                        Other, 0x116f76440, {{0.0, 0.0}, {393.0, 852.0}}
+                        Other, 0x116f76580, {{0.0, 769.0}, {393.0, 83.0}}
+                    Other, 0x116f766c0, {{0.0, 650.0}, {393.0, 162.5}}, identifier: 'LifeBoardCompactChrome'
+                      Button, 0x116f76800, {{20.0, 680.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.toolsToggle', label: 'Open capture tools'
+                      TextField, 0x116f76940, {{72.0, 691.0}, {249.0, 22.0}}, identifier: 'home.lifeThread.composer', placeholderValue: 'Log something or reflect on how you feel'
+                        Other, 0x116f76a80, {{72.0, 699.0}, {249.0, 11.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                          Other, 0x116f76bc0, {{75.0, 707.0}, {243.0, 3.0}}
+                      Button, 0x116f76d00, {{329.0, 680.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.send', label: 'Start dictation'
+                      Button, 0x116f76e40, {{20.0, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.home', label: 'Home', value: Root
+                        Image, 0x116f76f80, {{45.3, 761.0}, {20.0, 17.7}}, identifier: 'house', label: 'Home'
+                        StaticText, 0x116f770c0, {{39.8, 782.7}, {31.0, 13.3}}, label: 'Home'
+                      Button, 0x116f77200, {{90.7, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.plan', label: 'Plan', value: Root
+                        Image, 0x116f77340, {{117.7, 762.3}, {16.7, 15.3}}, identifier: 'calendar', label: 'Calendar'
+                        StaticText, 0x116f77480, {{114.6, 781.5}, {22.7, 13.3}}, label: 'Plan'
+                      Button, 0x116f775c0, {{161.3, 752.0}, {70.3, 52.0}}, identifier: 'foundation.destination.track', label: 'Track', value: Detail depth 1, Selected
+                        Image, 0x116f77700, {{185.7, 762.0}, {22.0, 16.0}}, identifier: 'chart.bar.fill', label: 'Chart Column'
+                        StaticText, 0x116f77840, {{181.2, 782.2}, {30.7, 13.3}}, label: 'Track'
+                      Button, 0x116f77980, {{231.7, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.insights', label: 'Insights', value: Root
+                        Image, 0x116f77ac0, {{259.3, 760.3}, {15.7, 19.0}}, identifier: 'sparkles', label: 'Sparkle'
+                        StaticText, 0x116f77c00, {{246.4, 783.3}, {41.3, 13.3}}, label: 'Insights'
+                      Button, 0x116f77d40, {{302.3, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.eva', label: 'Eva', value: Root
+                        Image, 0x116f77e80, {{325.7, 760.3}, {24.0, 19.0}}, identifier: 'bubble.left.and.bubble.right', label: 'Conversation'
+                        StaticText, 0x116f78000, {{328.4, 783.3}, {18.7, 13.3}}, label: 'Eva'
+                    Other, 0x116f78140, {{0.0, 59.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.morning', label: 'Celestial atmosphere: morning'
+                    Button, 0x116f78280, {{0.0, 59.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                    Other, 0x116f783c0, {{0.0, 59.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x116e34280, pid: 84436, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x116f78500, pid: 84436, label: 'LifeBoard'
+  }
