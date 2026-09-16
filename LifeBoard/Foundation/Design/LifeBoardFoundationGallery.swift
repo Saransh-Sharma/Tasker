@@ -3582,38 +3582,33 @@ private struct HomeFastingEndReceipt: View {
     @Binding var fastingStateChangeTrigger: Int
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Fast saved")
-                    .font(.subheadline.weight(.semibold))
-                Text("Your open-window clock is running.")
-                    .font(.caption)
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-            }
-            Spacer(minLength: 8)
-            Button("Undo") {
+        // The shared receipt bar: one silhouette for every receipt in the
+        // product, copy that stacks at accessibility sizes, and an Undo that
+        // does not sit on a timer.
+        ReceiptBar(
+            ActionReceiptPresentation(
+                message: "Fast saved",
+                detail: "Your open-window clock is running."
+            ),
+            undo: {
                 Task {
                     if await lifeOSStore.undoLastFastEnd() {
                         withAnimation(reduceMotion ? nil : .spring(duration: 0.34, bounce: 0.12)) {
                             showsFastEndReceipt = false
                         }
                         fastingStateChangeTrigger &+= 1
-                        Haptic.commit.play()
+                        Haptic.decline.play()
                     } else {
                         showsFastingError = true
                     }
                 }
+            },
+            onDismiss: {
+                withAnimation(reduceMotion ? nil : .spring(duration: 0.34, bounce: 0.12)) {
+                    showsFastEndReceipt = false
+                }
             }
-            .font(.subheadline.weight(.semibold))
-            .frame(minWidth: 44, minHeight: 44)
-        }
-        .padding(.leading, 14)
-        .padding(.trailing, 12)
-        .padding(.vertical, 8)
-        .lifeBoardClaySurface(.raised, cornerRadius: 16)
-        .accessibilityElement(children: .contain)
+        )
         .accessibilityIdentifier("home.fasting.receipt")
     }
 }
