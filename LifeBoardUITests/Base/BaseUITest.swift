@@ -74,15 +74,7 @@ class BaseUITest: XCTestCase {
 
         if !shouldSkipOnboarding {
             let lifeWeaveFlow = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.flow]
-            let onboardingFlow = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.flow]
-            let onboardingPrompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
-            let onboardingFinish = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.finish]
-            let onboardingExists =
-                lifeWeaveFlow.waitForExistence(timeout: 20)
-                || onboardingFlow.waitForExistence(timeout: 4)
-                || onboardingPrompt.waitForExistence(timeout: 4)
-                || onboardingFinish.waitForExistence(timeout: 4)
-            if onboardingExists {
+            if lifeWeaveFlow.waitForExistence(timeout: 20) {
                 return
             }
         }
@@ -118,8 +110,6 @@ class BaseUITest: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
-        dismissOnboardingIfNeeded()
-
         let home = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
         let allFilter = app.buttons[AccessibilityIdentifiers.Home.sunriseFilter("all")]
         let bottomBarHome = app.buttons[AccessibilityIdentifiers.Home.bottomBarHome]
@@ -148,30 +138,6 @@ class BaseUITest: XCTestCase {
         return true
     }
 
-    private func dismissOnboardingIfNeeded() {
-        let prompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
-        if prompt.waitForExistence(timeout: 1.5) {
-            let dismissCandidates = [
-                app.buttons[AccessibilityIdentifiers.Onboarding.promptDismiss],
-                app.buttons["Not now"],
-                app.buttons["Skip for now"]
-            ]
-            if let dismiss = dismissCandidates.first(where: { $0.exists && $0.isHittable }) {
-                dismiss.tap()
-            }
-        }
-
-        let successHome = app.buttons[AccessibilityIdentifiers.Onboarding.goHome]
-        if successHome.waitForExistence(timeout: 1), successHome.isHittable {
-            successHome.tap()
-            return
-        }
-
-        let skip = app.buttons[AccessibilityIdentifiers.Onboarding.skipButton]
-        if skip.waitForExistence(timeout: 1), skip.isHittable {
-            skip.tap()
-        }
-    }
 
     @discardableResult
     func ensurePerformanceAppReady(
@@ -187,8 +153,6 @@ class BaseUITest: XCTestCase {
             if home.exists || bottomBar.exists || foundationHome.exists {
                 return true
             }
-
-            dismissOnboardingIfNeeded()
 
             if let blockingDescription = blockingSetupSurfaceDescription() {
                 XCTFail(
@@ -216,9 +180,7 @@ class BaseUITest: XCTestCase {
 
     private func blockingSetupSurfaceDescription() -> String? {
         let setupIdentifiers = [
-            AccessibilityIdentifiers.Onboarding.flow,
-            AccessibilityIdentifiers.Onboarding.prompt,
-            AccessibilityIdentifiers.Onboarding.finish,
+            AccessibilityIdentifiers.LifeWeave.flow,
             "eva.activation.intro",
             "eva.activation.about_you",
             "eva.activation.goals",
