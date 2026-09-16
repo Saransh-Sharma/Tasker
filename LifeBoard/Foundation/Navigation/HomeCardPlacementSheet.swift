@@ -262,34 +262,20 @@ struct ComposerReceiptView: View {
     let receipt: ActionReceipt
     let onUndo: () -> Void
     let onDismiss: () -> Void
+    var onOpen: (() -> Void)? = nil
 
+    /// The shared `ReceiptBar`, not a composer-only capsule: one receipt
+    /// language across the app (Open, Undo, dismiss; stacked at accessibility
+    /// sizes; never auto-dismissed, because Undo must stay reachable).
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
-            Text(receipt.message)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                .frame(maxWidth: .infinity, alignment: .leading)
-            if receipt.canUndo {
-                Button("Undo", action: onUndo)
-                    .font(.caption.weight(.semibold))
-                    .frame(minWidth: 44, minHeight: 44)
-            }
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("Dismiss receipt")
-        }
-        .padding(.leading, 14)
-        .padding(.trailing, 4)
-        .lifeBoardGlassSurface(cornerRadius: 22, interactive: true)
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
-        }
-        .accessibilityElement(children: .contain)
+        ReceiptBar(
+            ActionReceiptPresentation(id: receipt.id, message: receipt.message),
+            undo: receipt.canUndo ? onUndo : nil,
+            destination: onOpen.flatMap { open in
+                receipt.taskID == nil ? nil : ReceiptBar.Destination(title: "Open", action: open)
+            },
+            onDismiss: onDismiss
+        )
         .accessibilityIdentifier("lifeThread.receipt")
     }
 }
