@@ -28,6 +28,15 @@ enum HealthHubFormat {
         }
     }
 
+    /// Freshness read from the sample rather than asserted. "Today" was
+    /// hard-coded onto every row, including week-old records.
+    static func freshness(_ lastSampleAt: Date?) -> String {
+        guard let lastSampleAt else { return "no sample time recorded" }
+        if Calendar.current.isDateInToday(lastSampleAt) { return "Today" }
+        if Calendar.current.isDateInYesterday(lastSampleAt) { return "Yesterday" }
+        return lastSampleAt.formatted(date: .abbreviated, time: .omitted)
+    }
+
     static func title(_ metric: HealthMetric) -> String {
         metric.rawValue
             .replacingOccurrences(of: "walkingRunning", with: "walking running ")
@@ -106,6 +115,10 @@ struct HealthHubMovementSection: View {
                 HealthHubMetricRing(store: store, metric: .activeEnergy, target: 500, label: "Active kcal")
                 HealthHubMetricRing(store: store, metric: .walkingRunningDistance, target: 5_000, label: "Distance")
             }
+            // The water-goal warp used to fire here, on the movement rings —
+            // an effect celebrating a metric this section does not show.
+            // `DESIGN.md`: signature effects belong to the recorded state they
+            // correspond to. It now lives on Hydration.
             .lifeboardVitalOrbWarp(trigger: warpTrigger)
         }
         .padding(16)
@@ -152,6 +165,8 @@ private struct HealthHubMetricRing: View {
 
 struct HealthHubHydrationSection: View {
     let store: HealthConnectionStore
+    /// Bumped when the day's hydration goal is first met.
+    var warpTrigger: Int = 0
     let onLogWater: () -> Void
 
     var body: some View {
@@ -183,13 +198,20 @@ struct HealthHubHydrationSection: View {
                 .accessibilityHidden(true)
             }
 
-            Text(value.map { "\(Int($0)) mL today · Apple Health + LifeBoard" } ?? "No hydration data available")
+            // Provenance travels with the value, and it names the sources the
+            // record actually has rather than asserting both every time.
+            Text(
+                value.map {
+                    "\(Int($0)) mL today · \(store.aggregates[.water]?.sourceLabel ?? "Apple Health")"
+                } ?? "No hydration data available"
+            )
                 .lifeboardFont(.support)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .lifeBoardClaySurface(.raised)
+        .lifeboardVitalOrbWarp(trigger: warpTrigger)
     }
 }
 
@@ -208,16 +230,32 @@ struct HealthHubNutritionSection: View {
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
 
-            Chart(values) { item in
-                BarMark(
-                    x: .value("Nutrient", item.label),
-                    y: .value("Value", item.value)
+            if values.isEmpty {
+                // Four bars at zero said "you ate nothing today" when what
+                // happened was that nothing was recorded. `DESIGN.md`: unknown
+                // data is not zero, and no-record is its own state.
+                StatusSurface(
+                    state: .noRecord,
+                    title: "No nutrition recorded today",
+                    message: "Nothing has come from Apple Health yet.",
+                    density: .compact
                 )
-                .foregroundStyle(Color.lifeboard(.accentSecondary))
+            } else {
+                Chart(values) { item in
+                    BarMark(
+                        x: .value("Nutrient", item.label),
+                        y: .value("Value", item.value)
+                    )
+                    .foregroundStyle(Color.lifeboard(.accentSecondary))
+                }
+                .frame(height: 150)
+                // A chart hidden from VoiceOver leaves its evidence unreadable.
+                // `DESIGN.md` asks charts for a prose equivalent.
+                .accessibilityElement()
+                .accessibilityLabel("Nutrition recorded today, from Apple Health")
+                .accessibilityValue(chartSummary)
+                .lifeboardChartRevealSweep(progress: revealProgress)
             }
-            .frame(height: 150)
-            .accessibilityHidden(true)
-            .lifeboardChartRevealSweep(progress: revealProgress)
 
             if let last = store.aggregates[.dietaryEnergy]?.lastSampleAt {
                 Text("Last dietary energy: \(last.formatted(date: .abbreviated, time: .shortened))")
@@ -240,17 +278,27 @@ struct HealthHubNutritionSection: View {
         }
     }
 
-    private var hasData: Bool {
-        values.contains { $0.value > 0 }
+    private var hasData: Bool { values.isEmpty == false }
+
+    /// Only nutrients that actually have a record. A missing aggregate used to
+    /// be plotted as `0`, which is a different claim entirely.
+    private var values: [HealthNutritionChartValue] {
+        let nutrients: [(String, HealthMetric)] = [
+            ("kcal", .dietaryEnergy),
+            ("Protein", .dietaryProtein),
+            ("Carbs", .dietaryCarbohydrates),
+            ("Fat", .dietaryFat)
+        ]
+        return nutrients.compactMap { label, domain in
+            guard let aggregate = store.aggregates[domain] else { return nil }
+            return HealthNutritionChartValue(label: label, value: aggregate.value)
+        }
     }
 
-    private var values: [HealthNutritionChartValue] {
-        [
-            .init(label: "kcal", value: store.aggregates[.dietaryEnergy]?.value ?? 0),
-            .init(label: "Protein", value: store.aggregates[.dietaryProtein]?.value ?? 0),
-            .init(label: "Carbs", value: store.aggregates[.dietaryCarbohydrates]?.value ?? 0),
-            .init(label: "Fat", value: store.aggregates[.dietaryFat]?.value ?? 0)
-        ]
+    private var chartSummary: String {
+        values
+            .map { "\($0.label) \($0.value.formatted(.number.precision(.fractionLength(0))))" }
+            .joined(separator: ", ")
     }
 }
 
@@ -315,7 +363,10 @@ struct HealthHubValuesSection: View {
                             .foregroundStyle(Color.lifeboard(.textPrimary))
                         // Provenance travels with the value: a number without a
                         // source is not evidence.
-                        Text("\(item.sourceLabel) · Today")
+                        // Was hard-coded "· Today", which claimed a freshness
+                        // the record may not have. `DESIGN.md`: never imply
+                        // freshness a value cannot support.
+                        Text("\(item.sourceLabel) · \(HealthHubFormat.freshness(item.lastSampleAt))")
                             .lifeboardFont(.caption2)
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
@@ -379,7 +430,10 @@ private struct HealthHubConnectionRow: View {
             }
             Spacer()
             if domain.supportsWriteBack {
-                Toggle("", isOn: Binding(
+                // Was `Toggle("")`, so VoiceOver announced a switch with no
+                // name. The label stays visually hidden; it is the control's
+                // accessible name.
+                Toggle("Save \(domain.title) to Apple Health", isOn: Binding(
                     get: { status.writeEnabled },
                     set: { enabled in
                         if enabled && status.readRequestState == .neverRequested {
