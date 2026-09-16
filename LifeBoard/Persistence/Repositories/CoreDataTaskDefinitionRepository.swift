@@ -281,6 +281,13 @@ enum TaskDefinitionMutationApplier {
         setAttribute("energy", value: request.energy.rawValue, on: entity)
         setAttribute("category", value: request.category.rawValue, on: entity)
         setAttribute("context", value: request.context.rawValue, on: entity)
+        // The task and its planned day commit in the same Core Data save.
+        let calendar = Calendar.current
+        let components = request.plannedDate.map { calendar.dateComponents([.year, .month, .day], from: $0) }
+        setAttribute("planningDayYear", value: components?.year, on: entity)
+        setAttribute("planningDayMonth", value: components?.month, on: entity)
+        setAttribute("planningDayDay", value: components?.day, on: entity)
+        setAttribute("planningDayTimeZoneIdentifier", value: request.plannedDate == nil ? nil : calendar.timeZone.identifier, on: entity)
         setAttribute("dueDate", value: request.dueDate, on: entity)
         setAttribute("scheduledStartAt", value: request.scheduledStartAt, on: entity)
         setAttribute("scheduledEndAt", value: request.scheduledEndAt, on: entity)
