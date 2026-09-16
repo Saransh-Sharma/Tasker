@@ -1,0 +1,23 @@
+{
+  "workspace" : {
+    "name" : "LifeBoard",
+    "schemes" : [
+      "JournalFeature",
+      "KnowledgeFeature",
+      "LifeBoard",
+      "LifeBoardCalendar",
+      "LifeBoardContracts",
+      "LifeBoardDomain",
+      "LifeBoardPerformance",
+      "LifeBoardPersistence",
+      "LifeBoardShareExtension",
+      "LifeBoardTokens",
+      "LifeBoardTranscription",
+      "LifeBoardUI",
+      "LifeBoardWatch",
+      "LifeBoardWatchWidgets",
+      "LifeBoardWidgets",
+      "MarkdownUI"
+    ]
+  }
+}
