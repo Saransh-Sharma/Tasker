@@ -1,0 +1,73 @@
+{
+  "id": "sleep-compact-dark",
+  "appearance": "dark",
+  "requested_canvas_pixels": [
+    688,
+    416
+  ],
+  "card_rect_pixels": [
+    3,
+    0,
+    682,
+    416
+  ],
+  "final_export_pixels": [
+    682,
+    416
+  ],
+  "submitted_prompt": "Precise UI reconstruction: reproduce Image 1 with its exact native framing, typography, buttons, and barely visible background paint. Image 2 documents the painting subject only; it must not increase the paint contrast. No external border, no additional top or bottom space.\nUse case: ui-mockup. Stable ID sleep-compact-dark. Create one dark LifeBoard Sleep Note Home card reference.\nImage 2 is accepted scene artwork; Image 1 is the authoritative native structural fixture. Preserve its exact copy, symbols, line wrapping, foreground, controls, and relative geometry.\nLogical bounds 170.5 x 104 points. Final export 682 x 416 pixels at 4 pixels per point. Requested generation canvas 688 x 416 pixels. Exact card placement x,y,width,height=[3, 0, 682, 416]. Only the specified canvas padding is allowed. No extra internal or external margin, frame or drop-shadow canvas.\nNative elements in logical points (rectangles x,y,width,height), with exact visible text and resolved San Francisco typography: [{\"copy\": \"\", \"id\": \"glance.open\", \"rect\": [0, 0, 170.5, 96], \"role\": \"control\"}, {\"copy\": \"Sleep Note\", \"id\": \"glance.title\", \"rect\": [55, 30.25, 64.5, 14.5], \"role\": \"title\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 12, \"role\": \"caption\", \"weight\": \"semibold\"}}, {\"copy\": \"7.5 hours\", \"id\": \"glance.summary\", \"rect\": [55, 47.75, 62.25, 18], \"role\": \"value\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"support\", \"weight\": \"regular\"}}]. Empty copy means a symbol-only control or grouping, never print the IDs, roles, or JSON metadata.\nArtwork fills the existing card background [0,0,170.5,104] beneath every native layer. Proportional fill clipped to 24-point rounded bounds. Opacity 0.18 multiplied by leading-to-trailing mask 0:0.08, 0.35:0.20, 1:1. Artwork should be as faint as Image 1. No separate artwork row, reserved text column, footer, or increased card height.\nPalette {\"surface\": \"#282A44\", \"ink\": \"#F7F1E7\", \"secondary\": \"#C9C3B8\", \"accent\": \"#E5B96D\"}. Subject Moonlit window; preserve the accepted scene objects and painterly medium. Opaque UI reference, no alpha required. Appearance is independent of morning daypart.\nReading and control regions: {\"reading_regions\": [[55, 30.25, 64.5, 14.5], [55, 47.75, 62.25, 18]], \"controls\": [[0, 0, 170.5, 96]], \"ambient_background\": [0, 0, 170.5, 104], \"edge_clearance\": 14}. Preserve exact native control sizes; retain opaque foreground text. Do not add buttons, rows, data, logos, watermark, device frame, completion or health claims.\nFixed fixture {\"appearance\": \"dark\", \"date\": \"2026-09-15\", \"daypart\": \"morning\", \"dynamic_type\": \"large\", \"fixture_version\": 4, \"id\": \"sleep-compact-dark\", \"locale\": \"en_US\", \"renderer\": \"shared-native-content-preview\", \"safe_areas\": \"isolated card; production-route safe areas require separate evidence\", \"time_zone\": \"UTC\", \"viewport_points\": [393, 852]}. References: [{\"name\": \"sleep-compact-dark accepted scene\", \"path\": \"DesignAssets/Sources/HomeCards/sleep-scene-dark.png\", \"role\": \"Image 2: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.\", \"sha256\": \"c3a0ac49076be85ec3c7620e0502c78ea44f8aebd59ad2d8a7f02eaa0e6e192c\"}, {\"name\": \"sleep-compact-dark measured native structure\", \"path\": \"docs/design/home-cards/native-specifications/sleep-compact-dark.png\", \"role\": \"Image 1: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.\", \"sha256\": \"1a6941cb4d253b6b96a12f876d3c1c7ecd2da41298bece4f985a9086fa517e5f\"}].\nOutput PNG: docs/design/home-cards/references/sleep-compact-dark.png. Preserve aspect ratio; never stretch. Record actual dimensions and explicit export transform; reject essential clipping and unintended aspect correction above 4%.\nAcceptance: exact copy and rows/actions, recognizable but quiet ambient art, readable native foreground, consistent appearance, correct dimensions, no extra margins or essential clipping.",
+  "references": [
+    {
+      "name": "sleep-compact-dark measured native structure",
+      "path": "docs/design/home-cards/native-specifications/sleep-compact-dark.png",
+      "role": "Image 1: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.",
+      "sha256": "1a6941cb4d253b6b96a12f876d3c1c7ecd2da41298bece4f985a9086fa517e5f",
+      "frozen_path": "docs/design/home-cards/submissions/inputs/1a6941cb4d253b6b96a12f876d3c1c7ecd2da41298bece4f985a9086fa517e5f.png"
+    },
+    {
+      "name": "sleep-compact-dark accepted scene",
+      "path": "DesignAssets/Sources/HomeCards/sleep-scene-dark.png",
+      "role": "Image 2: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.",
+      "sha256": "c3a0ac49076be85ec3c7620e0502c78ea44f8aebd59ad2d8a7f02eaa0e6e192c",
+      "frozen_path": "docs/design/home-cards/submissions/inputs/c3a0ac49076be85ec3c7620e0502c78ea44f8aebd59ad2d8a7f02eaa0e6e192c.png"
+    }
+  ],
+  "specification_sha256": "f2dc8206a35d7b3c8c230c3811da3f0552a9c2d5d9e5c7937f3c8d3968967136",
+  "prepared_at": "2026-09-15T20:09:18.375652+00:00",
+  "revision_reason": "Current native-first reference using measured Swift fixture copy, typography, controls, and ambient framing.",
+  "design_review_hypothesis": null,
+  "design_revision": "ambient-v1",
+  "source_signatures": {
+    "renderer": "f64aabefb6bbf6ca0ef307f66716cb8850605b1b9e42bafe6992272f1bb20129",
+    "files": {
+      "LifeBoard/DesignSystem/HomeCards/HomeActionQueueCardContent.swift": "a580c2afb8345077b69c09ef16113577dae22536d2d9a74841463ddd3778abb7",
+      "LifeBoard/DesignSystem/HomeCards/HomeAmbientArtwork.swift": "736d53a858344b250f97c1fdca86aabb803101eddf43ca96aa9ee7d238f718d3",
+      "LifeBoard/DesignSystem/HomeCards/HomeCapacityCardContent.swift": "0f72e23164e726d6e011b499a2ed96a145ab9055529c77ca62507f5d9ca60874",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardGeometryRecorder.swift": "d8aa195a34a29fef141aca0550af9d2e485b548e9031d085634ced74399c777f",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardIllustratedSurface.swift": "b8c9698753f4e0987c358b8ec22ec5b34b292a33d6cd8edf796bfa32047e2d67",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardPresentationStyle.swift": "a91c562e1b47c08763b47f14179beb463caa78d60fe32cf0cf9e84486af07607",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardPreviewFixtures.swift": "b857c5884571494e76fd9923b74bdf4d1301fd5b8d273fa07990bfbfb3caa2b5",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardQueueRow.swift": "245e6a3bab9ff3b13e71f308d3987da45237a9cf64aafb28058d3589f37a2381",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardSamplePreview.swift": "21b7a6020bbdb9c78590a0c85da48c0b0e2208959d0ab9ddd0ed9d984127cbdb",
+      "LifeBoard/DesignSystem/HomeCards/HomeCardScene.swift": "b144f3da2d34f81c30582f36b816413c0567568567d06d209c5cd70402d75e43",
+      "LifeBoard/DesignSystem/HomeCards/HomeFastingCardContent.swift": "e6b3d3354673dc361e435acb47f4eead8b353052d2fb7c90cf83cb775445b6a2",
+      "LifeBoard/DesignSystem/HomeCards/HomeFocusCardContent.swift": "d3993325eade0f56966b789c355c01844b42cf7b50466f4c788f06c6ff130d2c",
+      "LifeBoard/DesignSystem/HomeCards/HomeGlanceCardContent.swift": "4fa7d1dd716ff3724c3617b897640000d3a33c6db1e70ffdd68f0112954f9276",
+      "LifeBoard/DesignSystem/HomeCards/HomeJournalCardContent.swift": "6dbda67979f320f66a7fb892310279d8e32125aa828abb5bc0b28afeeec73141",
+      "LifeBoard/DesignSystem/HomeCards/HomeLifeSnapshotCardContent.swift": "de6e15ea6fc5a483601859b86b972a70a2b6fb778f49d11dad4c8ca875bc9777",
+      "LifeBoard/DesignSystem/HomeCards/HomeProgressCardContent.swift": "91bd7e2642ff0028d384fde4cc1bc97f6cb99bc757650fd3f7c70756663232b4",
+      "LifeBoard/DesignSystem/HomeCards/HomeQuickCaptureCardContent.swift": "67fcbba772482f339af84915fe7cbaf60d1ac0adaebe2474292c9f5f6fa75c15",
+      "LifeBoard/DesignSystem/HomeCards/HomeSceneImageCache.swift": "1fd2da337373fb880f3b6246d5d30d4e9c4008de9d50bd1e844724f1efb7c0ae",
+      "LifeBoard/DesignSystem/HomeCards/HomeTasksCardContent.swift": "a44eb9cbaeb60dd1aa0d2fec53cc99cc53445a4aa1d750f06b4c0bc8f9c061b5",
+      "LifeBoard/DesignSystem/HomeCards/HomeTimelineCardContent.swift": "a148ecbb72894c90c185737a5c5ca8385d408aa4323ac19f5c0409cefbb02950",
+      "LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift": "792beffdd540757b355e10b4fb43cf8121a4094f9c1e11f4d170ae2055c69b8c",
+      "LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift": "2f0b215c4a69e06a496af4cb159eb22db48c77462c403d46cbfee8513fd18977",
+      "Packages/LifeBoardTokens/Sources/LifeBoardTokens/SemanticTypographyTokens.swift": "56b422cc854f08582a527320239590e574774afbf780cebef2fc5ad49b37d635",
+      "Packages/LifeBoardUI/Sources/LifeBoardUI/NumericRoll.swift": "59ab5c8578c27cdda36d70325ee0954ef49166e846537ef65cbcd357a83efca0"
+    },
+    "typography": "56b422cc854f08582a527320239590e574774afbf780cebef2fc5ad49b37d635",
+    "fixture": "b857c5884571494e76fd9923b74bdf4d1301fd5b8d273fa07990bfbfb3caa2b5",
+    "artwork": "c3a0ac49076be85ec3c7620e0502c78ea44f8aebd59ad2d8a7f02eaa0e6e192c",
+    "capture": "1a6941cb4d253b6b96a12f876d3c1c7ecd2da41298bece4f985a9086fa517e5f"
+  }
+}
