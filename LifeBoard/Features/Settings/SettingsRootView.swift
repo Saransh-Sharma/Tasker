@@ -383,7 +383,7 @@ struct SettingsRootView: View {
         }
         if route.isCategory {
             selectedPadCategory = route
-            HapticFeedback.selection()
+            Haptic.pick.play()
         } else {
             navigate(route)
         }
@@ -1129,7 +1129,7 @@ private extension SettingsRootView {
                         action: {
                             #if os(iOS)
                             UIPasteboard.general.string = "v\(viewModel.appVersion) (\(viewModel.buildNumber))"
-                            HapticFeedback.selection()
+                            Haptic.pick.play()
                             withAnimation(LifeBoardAnimation.roleLocalState) { copiedVersion = true }
                             Task { @MainActor in
                                 try? await Task.sleep(for: .seconds(1.4))
