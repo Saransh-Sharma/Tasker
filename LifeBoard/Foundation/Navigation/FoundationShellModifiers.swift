@@ -50,6 +50,15 @@ struct ShellSheets: ViewModifier {
                             routineLinkedMutationApplier: routineLinkedMutationApplier,
                             mutationCoordinator: lifeBoardMutationCoordinator,
                             onReceipt: { receipt in lifeBoardActionReceipt = receipt },
+                            onCaptureSaved: {
+                                // Clear only the draft this capture came from; a
+                                // draft typed since then stays.
+                                guard let seedText = request.captureSeed?.rawText ?? request.prefilledText else { return }
+                                let draft = lifeThreadComposer.draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if draft == seedText.trimmingCharacters(in: .whitespacesAndNewlines) {
+                                    lifeThreadComposer.dismissDraft()
+                                }
+                            },
                             onClose: { runtime.captureRouter.cancelActiveRequest() },
                             onOpenHabitBoard: {
                                 runtime.captureRouter.completeActiveRequest()
