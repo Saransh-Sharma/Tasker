@@ -17,12 +17,18 @@ struct SnackbarData: Equatable {
     let actions: [SnackbarAction]
     let autoDismissSeconds: TimeInterval
 
-    /// Initializes a new instance.
-    init(id: UUID = UUID(), message: String, actions: [SnackbarAction] = [], autoDismissSeconds: TimeInterval = 5.0) {
+    /// A snackbar carrying actions stays until it is dismissed.
+    ///
+    /// The default 5-second timer took Undo with it, which turns a reversible
+    /// action into an irreversible one for anyone reading at their own pace.
+    /// `DESIGN.md` requires Undo to stay exposed while reversal is supported, so
+    /// only a message-only snackbar auto-dismisses. Pass `autoDismissSeconds`
+    /// explicitly to override either way.
+    init(id: UUID = UUID(), message: String, actions: [SnackbarAction] = [], autoDismissSeconds: TimeInterval? = nil) {
         self.id = id
         self.message = message
         self.actions = actions
-        self.autoDismissSeconds = autoDismissSeconds
+        self.autoDismissSeconds = autoDismissSeconds ?? (actions.isEmpty ? 5.0 : 0)
     }
 
     /// Executes ==.
@@ -122,10 +128,13 @@ struct ReceiptToast: View {
             }
             UIAccessibility.post(notification: .announcement, argument: data.message)
             autoDismissTask?.cancel()
-            autoDismissTask = Task { @MainActor in
-                try? await Task.sleep(for: .seconds(data.autoDismissSeconds))
-                guard Task.isCancelled == false else { return }
-                dismissSnackbar()
+            // Zero means "stays until dismissed" — see `SnackbarData.init`.
+            if data.autoDismissSeconds > 0 {
+                autoDismissTask = Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(data.autoDismissSeconds))
+                    guard Task.isCancelled == false else { return }
+                    dismissSnackbar()
+                }
             }
         }
         .onDisappear { autoDismissTask?.cancel() }
