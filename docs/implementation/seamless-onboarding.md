@@ -16,7 +16,7 @@ All four optional EVA categories default on for new unconfirmed users and are vi
 
 ## Release control
 
-Connection correctness fixes apply independently. The shortened presentation uses `feature.onboarding.seamless_v1`: enabled by default in Debug, disabled by default in Release. Use `-LIFEBOARD_ENABLE_SEAMLESS_ONBOARDING` / `-LIFEBOARD_DISABLE_SEAMLESS_ONBOARDING` for deterministic validation. Promote only after device acceptance and a measured baseline. Disabling the presentation retains consent receipts, connection authorities, write preferences and committed tasks; legacy step raw values remain decodable.
+As of 2026-09-16 the four-screen flow is the only presentation. `feature.onboarding.seamless_v1` and its launch arguments are removed; six-step drafts are normalised on resume (`LifeWeaveMigration.streamlinedStep`). The device acceptance and conversion baseline below are still open and were not re-run for this change.
 
 ## Automated validation
 
