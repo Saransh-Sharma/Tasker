@@ -17,6 +17,7 @@ enum EvaMemoryProposalService {
     static func propose(from userTurn: String) async -> EvaMemoryCandidate? {
         let trimmedTurn = userTurn.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedTurn.isEmpty == false else { return nil }
+        guard let installationID = try? EvaInstallationIdentity.resolved() else { return nil }
 
         let account = EvaCloudAccountState.shared
         guard let configuration = account.configuration,
@@ -61,7 +62,7 @@ enum EvaMemoryProposalService {
             userInstructions: nil,
             clientVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
             platform: EvaInstallationIdentity.platform,
-            installationId: EvaInstallationIdentity.current,
+            installationId: installationID,
             consentRevision: consent.revision,
             providerCapabilities: .init(streaming: true, structuredOutput: true, spokenOutput: false)
         )
