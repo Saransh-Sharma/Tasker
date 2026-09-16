@@ -8,27 +8,38 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     @Published private(set) var draft = LifeWeaveDraft()
     @Published var captureText = "" {
         didSet {
+            captureEditGeneration &+= 1
             draft.unreviewedCaptureText = captureText
             persist()
         }
     }
+    /// Bumped on every edit. An interpretation captures it before awaiting the
+    /// resolver and is discarded if the text moved on in the meantime, so a slow
+    /// answer for an old sentence can never overwrite the one on screen.
+    private(set) var captureEditGeneration = 0
+    /// The interpretation currently awaiting the resolver, keyed by the exact
+    /// sentence it is reading. Save joins it rather than starting a second.
+    var captureResolution: (text: String, task: Task<Void, Never>)?
     @Published var isResolvingCapture = false
     /// Set when the resolver could not honestly claim a destination, so the
     /// review card shows the chooser instead of a confident answer.
     @Published var isCaptureAmbiguous = false
     @Published var isCommitting = false
+    /// The pending pause-to-interpret pass. See `scheduleCaptureInterpretation`.
+    var captureInterpretationTask: Task<Void, Never>?
     @Published var errorMessage: String?
     @Published var showsOfflineSetup = false
     @Published private(set) var openingPrompts: [EvaStarterPrompt] = []
 
     let feedback: OnboardingFeedbackController
     private let stateStore: AppOnboardingStateStore
-    private let commitCoordinator: LifeMapCommitCoordinator
+    let commitCoordinator: LifeMapCommitCoordinator
     private let existingLifeAreas: () async throws -> [LifeArea]
-    /// Same construction as the shell's: the deterministic adapters plus the
-    /// semantic one, so a sentence classifies identically here and in the
-    /// composer the user meets a minute later.
-    let universalInput = UniversalInputCoordinator()
+    /// By default the same construction as the shell's `UniversalInputCoordinator`:
+    /// the deterministic adapters plus the semantic one, so a sentence classifies
+    /// identically here and in the composer the user meets a minute later. Tests
+    /// hand in a gated resolver to drive the interleavings deterministically.
+    let captureResolver: any LifeWeaveCaptureResolving
     let powerUps: LifeMapPowerUpDependencies
 
     init(
@@ -36,19 +47,20 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         commitCoordinator: LifeMapCommitCoordinator,
         feedback: OnboardingFeedbackController,
         existingLifeAreas: @escaping () async throws -> [LifeArea] = { [] },
-        powerUps: LifeMapPowerUpDependencies = LifeMapPowerUpDependencies()
+        powerUps: LifeMapPowerUpDependencies = LifeMapPowerUpDependencies(),
+        captureResolver: any LifeWeaveCaptureResolving = UniversalInputCoordinator()
     ) {
         self.stateStore = stateStore
         self.commitCoordinator = commitCoordinator
         self.feedback = feedback
         self.existingLifeAreas = existingLifeAreas
         self.powerUps = powerUps
+        self.captureResolver = captureResolver
     }
 
     var step: LifeWeaveStep { draft.step }
-    var usesStreamlinedOnboarding: Bool { draft.streamlinedJourney == true && V2FeatureFlags.seamlessOnboardingEnabled }
-    var coreSteps: [LifeWeaveStep] { usesStreamlinedOnboarding ? LifeWeaveStep.streamlined : LifeWeaveStep.core }
-    var offlineEvaActionTitle: String { powerUps.offlineEvaReady() ? "Use Offline EVA" : "Set up Offline EVA" }
+    var coreSteps: [LifeWeaveStep] { LifeWeaveStep.streamlined }
+    var offlineEvaActionTitle: String { powerUps.offlineEvaReady() ? String(localized: "Use EVA offline") : String(localized: "Set up offline EVA") }
 
 
     var selectedAreaTemplates: [StarterLifeAreaTemplate] {
@@ -107,10 +119,8 @@ final class LifeWeaveOnboardingModel: ObservableObject {
             draft.entryContext = entryContext
             draft.lifecyclePhase = .editing
         }
-        if draft.streamlinedJourney == nil { draft.streamlinedJourney = V2FeatureFlags.seamlessOnboardingEnabled }
-        if usesStreamlinedOnboarding {
-            draft = LifeWeaveMigration.streamlined(draft)
-        }
+        draft.streamlinedJourney = true
+        draft = LifeWeaveMigration.streamlined(draft)
         // A server consent or confirmed receipt outranks unconfirmed defaults.
         if let consent = EvaCloudAccessCoordinator.shared.account.consent {
             draft.evaSelectedGrantIDs = consent.grants.map(\.rawValue)
@@ -165,49 +175,37 @@ final class LifeWeaveOnboardingModel: ObservableObject {
 
     func selectIntent(_ value: LifeWeaveIntent) {
         draft.intent = value
-        feedback.medium()
-        persist()
-    }
-
-    /// Optional and inline. Never gates the primary action.
-    func toggleBlocker(_ id: String) {
-        if let index = draft.blockerIDs.firstIndex(of: id) {
-            draft.blockerIDs.remove(at: index)
-        } else if draft.blockerIDs.count < LifeWeaveDraft.maximumBlockers {
-            draft.blockerIDs.append(id)
-        }
         feedback.selection()
         persist()
     }
 
+    /// Pick order is the ranking.
+    ///
+    /// The first area picked leads, and the commit writes `sortOrder = index`
+    /// straight from this array. That replaced a separate "which one first?"
+    /// question: numbered picks answer it without asking, and deselecting the
+    /// leader promotes the next pick instead of leaving a dangling primary.
     func toggleLifeArea(_ template: StarterLifeAreaTemplate) {
+        let wasValid = draft.isLifeAreaSelectionValid
         if let index = draft.orderedLifeAreaTemplateIDs.firstIndex(of: template.id) {
             draft.orderedLifeAreaTemplateIDs.remove(at: index)
-            // Deselecting the primary area must not leave a dangling pointer to
-            // it; the next area in order inherits the emphasis rather than the
-            // map showing a primary that is no longer on it.
-            if draft.primaryLifeAreaTemplateID == template.id {
-                draft.primaryLifeAreaTemplateID = draft.orderedLifeAreaTemplateIDs.first
-            }
         } else if draft.orderedLifeAreaTemplateIDs.count < LifeWeaveDraft.maximumLifeAreas {
             draft.orderedLifeAreaTemplateIDs.append(template.id)
         }
-        feedback.medium()
+        draft.primaryLifeAreaTemplateID = draft.orderedLifeAreaTemplateIDs.first
+        // One settle when the selection becomes enough to continue, rather than
+        // the same tick on every tap.
+        if wasValid == false, draft.isLifeAreaSelectionValid {
+            feedback.medium()
+        } else {
+            feedback.selection()
+        }
         persist()
     }
 
-    /// One tap replaces v5's drag ranking.
-    ///
-    /// The chosen area moves to index 0 because the commit writes
-    /// `sortOrder = index` straight from this array — keeping the emphasis and
-    /// the stored order in one place is what stops them drifting apart.
-    func selectPrimaryLifeArea(_ templateID: String) {
-        guard let index = draft.orderedLifeAreaTemplateIDs.firstIndex(of: templateID) else { return }
-        draft.primaryLifeAreaTemplateID = templateID
-        let value = draft.orderedLifeAreaTemplateIDs.remove(at: index)
-        draft.orderedLifeAreaTemplateIDs.insert(value, at: 0)
-        feedback.medium()
-        persist()
+    /// Picks remaining before the areas step can continue. Zero once it can.
+    var lifeAreasStillNeeded: Int {
+        max(0, LifeWeaveDraft.minimumLifeAreas - draft.orderedLifeAreaTemplateIDs.count)
     }
 
     func selectDayShapePreset(_ preset: LifeWeaveDayShapePreset) {
@@ -218,7 +216,7 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         }
         // A preset is an explicit answer, so the merge-mode commit may act on it.
         draft.didEditDayShape = true
-        feedback.medium()
+        feedback.selection()
         persist()
     }
 
@@ -232,6 +230,7 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     }
 
     func skipCapture() {
+        captureInterpretationTask?.cancel()
         draft.skippedCapture = true
         draft.stagedCapture = nil
         captureText = ""
@@ -242,30 +241,22 @@ final class LifeWeaveOnboardingModel: ObservableObject {
 
     // MARK: - Navigation
 
-    func advance() async -> Bool {
-        guard !isCommitting else { return false }
+    func advance() async {
+        guard !isCommitting else { return }
         errorMessage = nil
         switch step {
-        case .arrival:
-            if usesStreamlinedOnboarding {
-                guard draft.intent != nil else { return false }
-                setStep(.lifeAreas)
-            } else { setStep(.intent) }
-        case .intent:
-            guard draft.intent != nil else { return false }
+        case .arrival, .intent:
+            guard draft.intent != nil else { return }
             setStep(.lifeAreas)
-        case .lifeAreas:
-            guard draft.isLifeAreaSelectionValid else { return false }
-            setStep(usesStreamlinedOnboarding ? .firstCapture : .dayShape)
-        case .dayShape:
+        case .lifeAreas, .dayShape:
+            guard draft.isLifeAreaSelectionValid else { return }
             setStep(.firstCapture)
         case .firstCapture:
-            guard draft.isCaptureResolved else { return false }
+            guard draft.isCaptureResolved else { return }
             await assemble()
         case .reveal:
-            return false
+            break
         }
-        return false
     }
 
     /// Where Back goes, or `nil` when there is nowhere calm to go.
@@ -284,64 +275,6 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         guard let previousStep else { return }
         Task { await ProductTelemetry.shared.record(.onboardingBack, outcome: step.identifierSuffix) }
         setStep(previousStep)
-    }
-
-    // MARK: - Commit
-
-    /// The transient assemble phase.
-    ///
-    /// On failure the draft stays on `.firstCapture` with its snapshot intact and
-    /// `commitPhase` recording how far it got, so the primary action resumes
-    /// rather than restarts. Nothing is cleared until the commit reports success.
-    private func assemble() async {
-        isCommitting = true
-        defer { isCommitting = false }
-        let startedAt = Date()
-        await ProductTelemetry.shared.record(.commitStarted, flowVersion: 6)
-        do {
-            draft.lifecyclePhase = .committing
-            persist()
-            let legacy = draft.makeCommitDraft(moduleIDs: recommendedModuleIDs)
-            let committed = try await commitCoordinator.commit(legacy) { [weak self] partial in
-                guard let self else { return }
-                self.draft.absorbCommitResult(partial)
-                self.persist()
-            }
-            draft.absorbCommitResult(committed)
-            draft.lifecyclePhase = .captureWritten
-            persist()
-            await ProductTelemetry.shared.record(.commitCompleted, flowVersion: 6)
-            await holdAssemblyFloor(since: startedAt)
-            await prepareRevealAfterCanonicalCommit()
-        } catch {
-            errorMessage = error.localizedDescription
-            persist()
-            await ProductTelemetry.shared.record(.commitFailed, flowVersion: 6, errorCode: "canonical_commit")
-        }
-    }
-
-    /// Keeps the assemble sequence legible without exceeding `DESIGN.md`'s 800 ms
-    /// signature-moment ceiling. Under reduced motion there is no sequence to
-    /// protect, so the overlay crossfades out immediately.
-    private func holdAssemblyFloor(since startedAt: Date) async {
-        guard MotionOverride.effectiveReduceMotion == false else { return }
-        let remaining = Self.assemblyFloor - Date().timeIntervalSince(startedAt)
-        guard remaining > 0 else { return }
-        try? await Task.sleep(for: .seconds(remaining))
-    }
-
-    private static let assemblyFloor: TimeInterval = 0.62
-
-    private func prepareRevealAfterCanonicalCommit() async {
-        guard draft.resolvedLifecyclePhase == .captureWritten else { return }
-        await performEvaHandoff()
-        draft.step = .reveal
-        draft.lifecyclePhase = .revealReady
-        persist()
-        recordCoreCompletion()
-        OnboardingFirstAction.save(from: draft)
-        feedback.successSignature()
-        await ProductTelemetry.shared.record(.revealViewed, flowVersion: 6)
     }
 
     @discardableResult
@@ -423,31 +356,5 @@ final class LifeWeaveOnboardingModel: ObservableObject {
             $0.evaDeferred = ready == false
             $0.evaActivationPending = pending
         }
-    }
-}
-
-/// Seeds bounded local context and starter prompts after canonical onboarding
-/// writes. Cloud activation is confirmed on the reveal after these local writes.
-@MainActor
-extension LifeWeaveOnboardingModel {
-    func performEvaHandoff() async {
-        let legacy = draft.makeCommitDraft(moduleIDs: recommendedModuleIDs)
-
-        if draft.didWriteEvaProfile == false {
-            let profile = LifeMapEvaProfileMapper.profileDraft(from: legacy)
-            let merged = EvaMemoryMapper.mergeIntoV3Store(
-                draft: profile,
-                existing: EvaMemoryDefaultsStoreV3.load()
-            )
-            EvaMemoryDefaultsStoreV3.save(merged)
-            mutateDraft { $0.didWriteEvaProfile = true }
-        }
-
-        let prompts = LifeMapEvaOpeningPrompt.prompts(
-            for: legacy,
-            upcomingEventCount: await powerUps.upcomingEventCount()
-        )
-        recordOpeningPrompts(prompts)
-        EvaOpeningPromptStore.stage(prompts)
     }
 }
