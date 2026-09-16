@@ -9675,7 +9675,8 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
         let expectedStart = AddTaskViewModel.defaultScheduledStart(now: now)
 
         XCTAssertEqual(viewModel.scheduledStartAt, expectedStart)
-        XCTAssertEqual(viewModel.dueDate, expectedStart)
+        // A suggested slot is when to do it; it must not become a deadline.
+        XCTAssertNil(viewModel.dueDate)
         XCTAssertEqual(viewModel.estimatedDuration, 15 * 60)
         XCTAssertEqual(viewModel.scheduledEndAt, expectedStart.addingTimeInterval(15 * 60))
         XCTAssertFalse(viewModel.hasUnsavedChanges)
@@ -9754,7 +9755,8 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
 
         let request = repository.lastCreateRequest
-        XCTAssertEqual(request?.dueDate, viewModel.scheduledStartAt)
+        XCTAssertNil(request?.dueDate)
+        XCTAssertEqual(request?.plannedDate, viewModel.scheduledStartAt)
         XCTAssertEqual(request?.scheduledStartAt, viewModel.scheduledStartAt)
         XCTAssertEqual(request?.scheduledEndAt, viewModel.scheduledEndAt)
         XCTAssertEqual(request?.estimatedDuration, 90 * 60)
@@ -17274,5 +17276,758 @@ final class HomeLifeAreaStreamSectionBuilderTests: XCTestCase {
                 calendar: calendar
             ).isEmpty
         )
+    }
+}
+
+// MARK: - Quick Capture seeding (anytime tasks, tokens that used to be dropped)
+
+@MainActor
+final class AddTaskCaptureSeedTests: XCTestCase {
+    private let calendar = Calendar.current
+    private var now: Date {
+        calendar.date(from: DateComponents(year: 2030, month: 5, day: 20, hour: 10, minute: 0))!
+    }
+
+    func testDateWithoutTimeSeedsAnAnytimeTaskOnThatDay() {
+        let viewModel = makeAddTaskScheduleViewModel(now: now)
+        let friday = calendar.date(from: DateComponents(year: 2030, month: 5, day: 24))!
+        viewModel.applyCaptureSeed(
+            ParsedCapture(cleanTitle: "Dentist", dueDate: friday, isAllDay: true, matchedText: "fri"),
+            rawText: "Dentist fri"
+        )
+
+        XCTAssertEqual(viewModel.taskName, "Dentist")
+        XCTAssertNil(viewModel.scheduledStartAt)
+        XCTAssertNil(viewModel.dueDate)
+        XCTAssertEqual(viewModel.plannedDate, calendar.startOfDay(for: friday))
+        XCTAssertTrue(viewModel.hasExplicitSchedule)
+        XCTAssertTrue(viewModel.viewState.canSubmit)
+    }
+
+    func testAnytimeTaskIsCreatedAllDayWithoutAStartTime() {
+        let repository = CapturingAddTaskRepository()
+        let viewModel = makeAddTaskScheduleViewModel(now: now, repository: repository)
+        let friday = calendar.date(from: DateComponents(year: 2030, month: 5, day: 24))!
+        viewModel.applyCaptureSeed(
+            ParsedCapture(cleanTitle: "Dentist", dueDate: friday, isAllDay: true, matchedText: "fri"),
+            rawText: "Dentist fri"
+        )
+
+        let created = expectation(description: "create request captured")
+        repository.onCreateRequest = { request in
+            XCTAssertNil(request.scheduledStartAt)
+            XCTAssertNil(request.dueDate)
+            XCTAssertEqual(request.plannedDate, self.calendar.startOfDay(for: friday))
+            XCTAssertTrue(request.isAllDay)
+            created.fulfill()
+        }
+        viewModel.createTask()
+        waitForExpectations(timeout: 2)
+    }
+
+    func testDateWithTimeSeedsAScheduledStart() {
+        let viewModel = makeAddTaskScheduleViewModel(now: now)
+        let slot = calendar.date(from: DateComponents(year: 2030, month: 5, day: 24, hour: 15, minute: 0))!
+        viewModel.applyCaptureSeed(
+            ParsedCapture(cleanTitle: "Dentist", dueDate: slot, isAllDay: false, matchedText: "fri 3pm"),
+            rawText: "Dentist fri 3pm"
+        )
+
+        XCTAssertEqual(viewModel.scheduledStartAt, slot)
+        XCTAssertEqual(viewModel.plannedDate, slot)
+        // "fri 3pm" says when to do it, not when it is due; a parsed time must
+        // never invent a deadline.
+        XCTAssertNil(viewModel.dueDate)
+    }
+
+    func testCaptureWithoutADateIsUnscheduledNotGivenADefaultSlot() {
+        let viewModel = makeAddTaskScheduleViewModel(now: now)
+        viewModel.restoreDefaultSchedule()
+        viewModel.applyCaptureSeed(
+            ParsedCapture(cleanTitle: "Buy milk", dueDate: nil, isAllDay: false, matchedText: nil),
+            rawText: "Buy milk"
+        )
+
+        XCTAssertNil(viewModel.scheduledStartAt)
+        XCTAssertNil(viewModel.dueDate)
+        XCTAssertTrue(viewModel.hasExplicitSchedule)
+    }
+
+    func testCaptureKeepsContextAndUnknownPlacesStayInTheTitle() {
+        let known = makeAddTaskScheduleViewModel(now: now)
+        known.applyCaptureSeed(
+            ParsedCapture(cleanTitle: "Print forms", dueDate: nil, isAllDay: false, matchedText: "@work", context: "work"),
+            rawText: "Print forms @work"
+        )
+        XCTAssertEqual(known.selectedContext, .office)
+        XCTAssertEqual(known.taskName, "Print forms")
+
+        let unknown = makeAddTaskScheduleViewModel(now: now)
+        unknown.applyCaptureSeed(
+            ParsedCapture(cleanTitle: "Pick up keys", dueDate: nil, isAllDay: false, matchedText: "@library", context: "library"),
+            rawText: "Pick up keys @library"
+        )
+        XCTAssertEqual(unknown.selectedContext, .anywhere)
+        XCTAssertEqual(unknown.taskName, "Pick up keys @library")
+    }
+
+    func testCaptureProjectResolvesByNameOnceProjectsLoad() {
+        let personal = Project(id: UUID(), name: "Personal")
+        let viewModel = makeAddTaskScheduleViewModel(now: now, projects: [Project.createInbox(), personal])
+        viewModel.applyCaptureSeed(
+            ParsedCapture(cleanTitle: "Renew passport", dueDate: nil, isAllDay: false, matchedText: "+personal", projectName: "personal"),
+            rawText: "Renew passport +personal"
+        )
+
+        let resolved = expectation(description: "project resolved")
+        func poll(_ attempts: Int) {
+            if viewModel.selectedProjectID == personal.id {
+                resolved.fulfill()
+            } else if attempts == 0 {
+                XCTFail("The +project token never resolved to the Personal project")
+                resolved.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { poll(attempts - 1) }
+            }
+        }
+        viewModel.loadProjects()
+        poll(20)
+        waitForExpectations(timeout: 2)
+    }
+
+    func testAnytimeLabelNamesTheDay() {
+        XCTAssertEqual(AddTaskViewModel.anytimeLabel(day: nil), "Anytime")
+        XCTAssertEqual(AddTaskViewModel.anytimeLabel(day: Date()), "Today · Anytime")
+    }
+}
+
+// MARK: - Home "Up next"
+
+final class HomeUpNextItemTests: XCTestCase {
+    private let calendar = Calendar.current
+    private var now: Date { calendar.date(from: DateComponents(year: 2030, month: 5, day: 20, hour: 14, minute: 0))! }
+    private func at(_ hour: Int, _ minute: Int = 0, dayOffset: Int = 0) -> Date {
+        let day = calendar.date(byAdding: .day, value: dayOffset, to: now)!
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day)!
+    }
+
+    func testShowsWhatIsAheadTodaySoonestFirstIncludingWhatIsUnderWay() {
+        let taskID = UUID()
+        let items = HomeUpNextItem.build(
+            commitments: [
+                PlanningFixedCommitment(id: "standup", title: "Standup", startAt: at(9), endAt: at(9, 15), source: .externalCalendar),
+                PlanningFixedCommitment(id: "review", title: "Design review", startAt: at(16), endAt: at(17), source: .externalCalendar),
+                PlanningFixedCommitment(id: "tomorrow", title: "Tomorrow sync", startAt: at(10, dayOffset: 1), endAt: at(11, dayOffset: 1), source: .externalCalendar)
+            ],
+            blocks: [InternalTimeBlock(title: "Deep work", startAt: at(13, 30), endAt: at(15), taskID: taskID)],
+            plannedTasks: [
+                PlanningTaskSummary(id: taskID, title: "Deep work task", metadata: .init(taskID: taskID), scheduledStartAt: at(13, 30), scheduledEndAt: at(15)),
+                PlanningTaskSummary(id: UUID(), title: "Call dentist", metadata: .init(taskID: UUID()), scheduledStartAt: at(15, 30))
+            ],
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(items.map(\.title), ["Deep work", "Call dentist", "Design review"])
+        XCTAssertTrue(items[0].isHappeningNow)
+        XCTAssertEqual(items[2].kind, .event)
+    }
+
+    func testDropsAnInternalBlockThatReappearsAsACommitment() {
+        let items = HomeUpNextItem.build(
+            commitments: [PlanningFixedCommitment(id: "b", title: "Gym", startAt: at(18), endAt: at(19), source: .internalBlock)],
+            blocks: [InternalTimeBlock(title: "Gym", startAt: at(18), endAt: at(19))],
+            plannedTasks: [],
+            now: now,
+            calendar: calendar
+        )
+        XCTAssertEqual(items.count, 1)
+    }
+}
+
+// MARK: - Plan canvas drops
+
+final class PlanCanvasDropResolverTests: XCTestCase {
+    func testDropLandsOnTheNearestQuarterHour() {
+        let calendar = Calendar.current
+        let start = calendar.date(from: DateComponents(year: 2030, month: 5, day: 20, hour: 8))!
+        let hourHeight: CGFloat = 66
+
+        // 6h 14m below 8:00 → 14:14 → snaps to 14:15.
+        let y = hourHeight * (6 + 14.0 / 60)
+        let landed = PlanCanvasDropResolver.start(forY: y, timelineStart: start, hourHeight: hourHeight)
+        XCTAssertEqual(calendar.dateComponents([.hour, .minute], from: landed), DateComponents(hour: 14, minute: 15))
+
+        // Above the canvas clamps to its first minute.
+        XCTAssertEqual(PlanCanvasDropResolver.start(forY: -40, timelineStart: start, hourHeight: hourHeight), start)
+    }
+}
+
+final class InboxScheduleShortcutTests: XCTestCase {
+    func testNextWeekIsTheComingMondayAndNeverToday() {
+        let calendar = Calendar(identifier: .gregorian)
+        func date(_ day: Int) -> Date { calendar.date(from: DateComponents(year: 2030, month: 5, day: day, hour: 10))! }
+        // 2030-05-19 is a Sunday, 05-20 a Monday, 05-25 a Saturday.
+        XCTAssertEqual(InboxScheduleShortcut.daysUntilNextWeek(now: date(19), calendar: calendar), 1)
+        XCTAssertEqual(InboxScheduleShortcut.daysUntilNextWeek(now: date(20), calendar: calendar), 7)
+        XCTAssertEqual(InboxScheduleShortcut.daysUntilNextWeek(now: date(25), calendar: calendar), 2)
+    }
+
+    func testScheduleSummaryNamesTheDay() {
+        let today = InboxScheduleShortcut.day(daysFromToday: 0)
+        let tomorrow = InboxScheduleShortcut.day(daysFromToday: 1)
+        XCTAssertEqual(InboxTriageMutation.schedule(taskID: UUID(), before: nil, after: today).summary, "Planned for today")
+        XCTAssertEqual(InboxTriageMutation.schedule(taskID: UUID(), before: nil, after: tomorrow).summary, "Planned for tomorrow")
+    }
+}
+
+extension HomeUpNextItemTests {
+    func testATaskOnBothThePlanAndTheAgendaAppearsOnce() {
+        let id = UUID()
+        let task = PlanningTaskSummary(id: id, title: "Review deck", metadata: .init(taskID: id), scheduledStartAt: at(17))
+        let items = HomeUpNextItem.build(commitments: [], blocks: [], plannedTasks: [task, task], now: now, calendar: calendar)
+        XCTAssertEqual(items.map(\.title), ["Review deck"])
+    }
+}
+
+// MARK: - Habit reminders
+
+final class HabitReminderPolicyTests: XCTestCase {
+    private func row(
+        cadence: HabitCadenceDraft = .daily(),
+        reminder: String? = "09:30",
+        isPaused: Bool = false,
+        isArchived: Bool = false
+    ) -> HabitLibraryRow {
+        HabitLibraryRow(
+            habitID: UUID(), title: "Stretch", kind: .positive, trackingMode: .dailyCheckIn,
+            cadence: cadence, lifeAreaID: nil, lifeAreaName: "Health",
+            isPaused: isPaused, isArchived: isArchived, currentStreak: 0, bestStreak: 0,
+            reminderWindowStart: reminder
+        )
+    }
+
+    func testDailyHabitGetsOneRepeatingReminderAtItsTime() {
+        let requests = HabitReminderPolicy.requests(for: row())
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertNil(requests[0].weekday)
+        XCTAssertEqual(requests[0].hour, 9)
+        XCTAssertEqual(requests[0].minute, 30)
+    }
+
+    func testWeeklyHabitGetsOneReminderPerChosenWeekday() {
+        let requests = HabitReminderPolicy.requests(for: row(cadence: .weekly(daysOfWeek: [2, 4, 6, 4])))
+        XCTAssertEqual(requests.map(\.weekday), [2, 4, 6])
+        XCTAssertTrue(requests.allSatisfy { HabitReminderPolicy.identifiers(for: self.row().habitID).count == 8 && $0.identifier.contains(".") })
+    }
+
+    func testNoReminderWhenPausedArchivedUnsetMalformedOrInterval() {
+        XCTAssertTrue(HabitReminderPolicy.requests(for: row(isPaused: true)).isEmpty)
+        XCTAssertTrue(HabitReminderPolicy.requests(for: row(isArchived: true)).isEmpty)
+        XCTAssertTrue(HabitReminderPolicy.requests(for: row(reminder: nil)).isEmpty)
+        XCTAssertTrue(HabitReminderPolicy.requests(for: row(reminder: "25:00")).isEmpty)
+        XCTAssertTrue(HabitReminderPolicy.requests(for: row(cadence: .interval(days: 3))).isEmpty)
+    }
+
+    func testIdentifiersCoverEveryShapeAHabitCouldHaveScheduled() {
+        let habit = row(cadence: .weekly(daysOfWeek: [1, 7]))
+        let all = Set(HabitReminderPolicy.identifiers(for: habit.habitID))
+        XCTAssertTrue(HabitReminderPolicy.requests(for: habit).allSatisfy { all.contains($0.identifier) })
+        XCTAssertTrue(HabitReminderPolicy.requests(for: row()).allSatisfy { !all.contains($0.identifier) })
+    }
+}
+
+// MARK: - Journal text edits
+
+final class JournalBlockTextEditTests: XCTestCase {
+    private func block(_ text: String?, kind: JournalBlockKind = .text) -> JournalBlockValue {
+        let written = Date(timeIntervalSince1970: 1_000_000)
+        return JournalBlockValue(dayID: UUID(), kind: kind, text: text, createdAt: written, updatedAt: written)
+    }
+
+    func testEditReplacesTrimmedTextAndStampsTheChange() {
+        let original = block("Walked to the pier")
+        let later = original.createdAt.addingTimeInterval(3_600)
+        let edited = JournalBlockTextEdit.apply("  Walked to the pier at dusk \n", to: original, now: later)
+        XCTAssertEqual(edited?.text, "Walked to the pier at dusk")
+        XCTAssertEqual(edited?.updatedAt, later)
+        XCTAssertEqual(edited?.id, original.id)
+        XCTAssertTrue(JournalBlockTextEdit.timestampLabel(for: edited!).hasSuffix("· edited"))
+        XCTAssertFalse(JournalBlockTextEdit.timestampLabel(for: original).contains("edited"))
+    }
+
+    func testEmptyUnchangedOrNonTextEditsAreRefused() {
+        XCTAssertNil(JournalBlockTextEdit.apply("   ", to: block("Hello")))
+        XCTAssertNil(JournalBlockTextEdit.apply("Hello ", to: block("Hello")))
+        XCTAssertNil(JournalBlockTextEdit.apply("New words", to: block(nil, kind: .mood)))
+    }
+}
+
+final class MilestoneOneSchedulingTests: XCTestCase {
+    func testWhenPreservesDeadlineAcrossAllModes() {
+        let deadline = Date(timeIntervalSince1970: 2_000_000_000)
+        let task = TaskDefinition(id: UUID(), title: "Report", dueDate: deadline)
+        let original = TaskEditorDraft(task: task, planning: PlanningTaskMetadata(taskID: task.id))
+        for selection in [TaskWhenSelection.anytime, .day(deadline), .timed(deadline)] {
+            let edited = selection.applying(to: original)
+            XCTAssertEqual(edited.dueDate, deadline)
+        }
+        let timed = TaskWhenSelection.timed(deadline).applying(to: original)
+        let anytime = TaskWhenSelection.anytime.applying(to: timed)
+        XCTAssertNil(anytime.scheduledStartAt)
+        XCTAssertNil(anytime.scheduledEndAt)
+        XCTAssertNil(anytime.planning.planningDay)
+    }
+
+    func testLegacyTimedTasksArePlannedAndNeverUnscheduled() {
+        let now = Date()
+        let day = PlanningDay(date: now)
+        let task = PlanningTaskSummary(id: UUID(), title: "Dentist", metadata: .init(taskID: UUID()), scheduledStartAt: now)
+        let inputs = PlanDayProjectionInputs(tasks: [task], allBlocks: [], workingProfile: nil,
+            calendarContext: .init(authorization: .notDetermined), calendarState: .notRequested,
+            calendar: .current, now: now)
+        XCTAssertEqual(inputs.snapshot(for: day).plannedTasks.count, 1)
+        XCTAssertTrue(inputs.snapshot(for: day).unscheduledTasks.isEmpty)
+        let tomorrow = PlanningDay(date: Calendar.current.date(byAdding: .day, value: 1, to: now)!)
+        XCTAssertTrue(inputs.snapshot(for: tomorrow).plannedTasks.isEmpty)
+        XCTAssertTrue(inputs.snapshot(for: tomorrow).unscheduledTasks.isEmpty)
+    }
+
+    func testAddingATimeToADayStartsAtTheNextQuarterHourTodayOrNineOtherwise() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let now = calendar.date(from: DateComponents(year: 2030, month: 5, day: 24, hour: 14, minute: 7, second: 42))!
+        XCTAssertEqual(
+            TaskWhenSelection.defaultStart(on: now, now: now, calendar: calendar),
+            calendar.date(from: DateComponents(year: 2030, month: 5, day: 24, hour: 14, minute: 15))
+        )
+        let onTheQuarter = calendar.date(from: DateComponents(year: 2030, month: 5, day: 24, hour: 14, minute: 15))!
+        XCTAssertEqual(
+            TaskWhenSelection.defaultStart(on: onTheQuarter, now: onTheQuarter, calendar: calendar),
+            calendar.date(from: DateComponents(year: 2030, month: 5, day: 24, hour: 14, minute: 30))
+        )
+        let tomorrow = calendar.date(from: DateComponents(year: 2030, month: 5, day: 25))!
+        XCTAssertEqual(
+            TaskWhenSelection.defaultStart(on: tomorrow, now: now, calendar: calendar),
+            calendar.date(from: DateComponents(year: 2030, month: 5, day: 25, hour: 9))
+        )
+        let lateNight = calendar.date(from: DateComponents(year: 2030, month: 5, day: 24, hour: 23, minute: 50))!
+        let lateStart = TaskWhenSelection.defaultStart(on: lateNight, now: lateNight, calendar: calendar)
+        XCTAssertTrue(calendar.isDate(lateStart, inSameDayAs: lateNight))
+    }
+
+    @MainActor
+    func testAFlushWaitsForTheSaveInFlightInsteadOfBeingDropped() async {
+        @MainActor final class Log { var entries: [String] = [] }
+        let log = Log()
+        let queue = SerializedWork()
+        let first = _Concurrency.Task { @MainActor in
+            await queue.run {
+                log.entries.append("save 1 started")
+                try? await _Concurrency.Task.sleep(for: .milliseconds(50))
+                log.entries.append("save 1 landed")
+            }
+        }
+        await _Concurrency.Task.yield()
+        XCTAssertTrue(queue.isRunning)
+
+        // What `flushAutosave()` does when the editor disappears mid-save.
+        await queue.waitForIdle()
+        log.entries.append("flush checked for changes")
+        await queue.run { log.entries.append("save 2") }
+        await first.value
+
+        XCTAssertEqual(log.entries, ["save 1 started", "save 1 landed", "flush checked for changes", "save 2"])
+        XCTAssertFalse(queue.isRunning)
+    }
+
+    func testEveryPlanSurfaceReadsOnePlannedDayRule() {
+        let calendar = Calendar.current
+        let now = Date()
+        let today = PlanningDay(date: now, timeZone: calendar.timeZone, calendar: calendar)
+        let timedOnly = PlanningTaskSummary(id: UUID(), title: "Dentist", metadata: .init(taskID: UUID()), scheduledStartAt: now)
+        XCTAssertEqual(PlanDayProjectionInputs.effectivePlanningDay(for: timedOnly, calendar: calendar), today)
+
+        // An explicit planning day wins over a start time on another day: the
+        // person moved the work, and the old start must not drag it back.
+        let tomorrow = PlanningDay(date: calendar.date(byAdding: .day, value: 1, to: now)!, timeZone: calendar.timeZone, calendar: calendar)
+        var moved = PlanningTaskMetadata(taskID: UUID())
+        moved.planningDay = tomorrow
+        let movedTask = PlanningTaskSummary(id: UUID(), title: "Report", metadata: moved, scheduledStartAt: now)
+        XCTAssertEqual(PlanDayProjectionInputs.effectivePlanningDay(for: movedTask, calendar: calendar), tomorrow)
+
+        let loose = PlanningTaskSummary(id: UUID(), title: "Someday", metadata: .init(taskID: UUID()))
+        XCTAssertNil(PlanDayProjectionInputs.effectivePlanningDay(for: loose, calendar: calendar))
+    }
+
+    func testTokenRangesAddressOriginalUnicodeText() {
+        let raw = "  🦷 Dentist tomorrow #health  "
+        let pieces = TaskCaptureParser.pieces(raw)
+        XCTAssertFalse(pieces.isEmpty)
+        for piece in pieces {
+            guard let range = piece.sourceRange else { return XCTFail("Missing range") }
+            XCTAssertEqual((raw as NSString).substring(with: range).trimmingCharacters(in: .whitespaces), piece.text)
+        }
+    }
+
+    func testImmediateJournalEditRetainsIdentityAndCreationTime() {
+        let now = Date()
+        let block = JournalBlockValue(dayID: UUID(), kind: .text, text: "Before", createdAt: now, updatedAt: now)
+        let edited = JournalBlockTextEdit.apply("After", to: block, now: now.addingTimeInterval(1))!
+        XCTAssertEqual(edited.createdAt, now)
+        XCTAssertEqual(edited.id, block.id)
+        XCTAssertTrue(JournalBlockTextEdit.timestampLabel(for: edited).contains("edited"))
+    }
+}
+
+
+final class PlanDayHeaderAndCanvasTests: XCTestCase {
+    private func budget(working: TimeInterval, planned: TimeInterval) -> CapacityBudget {
+        CapacityBudget(
+            workingDuration: working,
+            fixedCalendarDuration: 0,
+            internalFixedDuration: 0,
+            bufferDuration: 0,
+            plannedEstimatedDuration: planned,
+            missingEstimateCount: 0
+        )
+    }
+
+    func testCapacitySpeaksInOpenAndOverAndNamesMissingHours() {
+        XCTAssertEqual(PlanCapacityCopy.openLabel(budget(working: 8 * 3600, planned: 4 * 3600 + 50 * 60)), "3h 10m open")
+        XCTAssertEqual(PlanCapacityCopy.openLabel(budget(working: 2 * 3600, planned: 3 * 3600 + 20 * 60)), "1h 20m over")
+        // A full day is an explicit zero, not a missing value.
+        XCTAssertEqual(PlanCapacityCopy.openLabel(budget(working: 3600, planned: 3600)), "0m open")
+        XCTAssertEqual(PlanCapacityCopy.openLabel(budget(working: 0, planned: 3600)), "No working hours set")
+    }
+
+    func testDecisionLineKeepsTheDecisionSlotPriority() {
+        func resolve(focus: Bool = false, reflection: Bool = false, scenario: Bool = false, repairs: Int = 0, over: Bool = false, calendar: Bool = false) -> PlanDecisionLineKind {
+            PlanDecisionLineKind.resolve(
+                hasActiveFocus: focus,
+                hasPendingReflection: reflection,
+                hasStagedScenario: scenario,
+                repairCount: repairs,
+                isOverCapacityToday: over,
+                calendarNotRequested: calendar
+            )
+        }
+        XCTAssertEqual(resolve(focus: true, reflection: true, scenario: true, repairs: 2, over: true, calendar: true), .activeFocus)
+        XCTAssertEqual(resolve(reflection: true, scenario: true, repairs: 2), .focusReflection)
+        XCTAssertEqual(resolve(scenario: true, repairs: 2, over: true), .stagedScenario)
+        XCTAssertEqual(resolve(repairs: 2, over: true, calendar: true), .repair(count: 2))
+        XCTAssertEqual(resolve(over: true, calendar: true), .overCapacity)
+        XCTAssertEqual(resolve(calendar: true), .calendarPrompt)
+        XCTAssertEqual(PlanDecisionLineKind.resolve(hasActiveFocus: false, hasPendingReflection: false, hasStagedScenario: false, repairCount: 0, isOverCapacityToday: false, calendarNotRequested: true, rescueCount: 3), .rescue(count: 3))
+        XCTAssertEqual(PlanDecisionLineKind.resolve(hasActiveFocus: false, hasPendingReflection: false, hasStagedScenario: false, repairCount: 1, isOverCapacityToday: false, calendarNotRequested: false, rescueCount: 3), .repair(count: 1))
+        XCTAssertEqual(resolve(), .none)
+    }
+
+    func testRulerNamesHoursPlainly() {
+        XCTAssertEqual(PlanCanvasGeometry.hourLabel(0), "12 AM")
+        XCTAssertEqual(PlanCanvasGeometry.hourLabel(6), "6 AM")
+        XCTAssertEqual(PlanCanvasGeometry.hourLabel(12), "Noon")
+        XCTAssertEqual(PlanCanvasGeometry.hourLabel(18), "6 PM")
+        XCTAssertEqual(PlanCanvasGeometry.hourLabel(24), "12 AM")
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        XCTAssertEqual(PlanCanvasGeometry.nowLabel(utc.date(from: DateComponents(year: 2030, month: 1, day: 1, hour: 19, minute: 5))!, calendar: utc), "7:05")
+        XCTAssertEqual(PlanCanvasGeometry.nowLabel(utc.date(from: DateComponents(year: 2030, month: 1, day: 1, hour: 0, minute: 30))!, calendar: utc), "12:30")
+        XCTAssertFalse(PlanCanvasGeometry.labelsOpenWindow(duration: 30 * 60))
+        XCTAssertTrue(PlanCanvasGeometry.labelsOpenWindow(duration: 45 * 60))
+        XCTAssertEqual(PlanCanvasGeometry.initialAnchor(isToday: true).y, 0.33, accuracy: 0.001)
+        XCTAssertEqual(PlanCanvasGeometry.initialAnchor(isToday: false), .top)
+    }
+
+    func testNonworkingShadeFollowsWorkingHoursToTheMinute() {
+        let base = Date(timeIntervalSince1970: 1_900_000_000)
+        func at(_ hours: Double) -> Date { base.addingTimeInterval(hours * 3600) }
+        let span = DateInterval(start: at(5), end: at(21))
+        let working = [DateInterval(start: at(13), end: at(18)), DateInterval(start: at(8), end: at(12.5))]
+        XCTAssertEqual(
+            PlanCanvasGeometry.nonworkingIntervals(within: span, working: working),
+            [DateInterval(start: at(5), end: at(8)), DateInterval(start: at(12.5), end: at(13)), DateInterval(start: at(18), end: at(21))]
+        )
+        XCTAssertEqual(PlanCanvasGeometry.nonworkingIntervals(within: span, working: []), [span])
+    }
+
+    func testUnscheduledDrawerNamesWhatIsWaitingAndSettlesLikeTheWeeklyShelf() {
+        XCTAssertEqual(PlanDrawerGeometry.summary(anytimeCount: 0, unscheduledCount: 6), "6 unscheduled")
+        XCTAssertEqual(PlanDrawerGeometry.summary(anytimeCount: 2, unscheduledCount: 6), "6 unscheduled · 2 anytime today")
+        XCTAssertEqual(PlanDrawerGeometry.summary(anytimeCount: 2, unscheduledCount: 0), "2 anytime today")
+        XCTAssertTrue(PlanDrawerGeometry.isExpanded(afterTravel: 80, wasExpanded: false))
+        XCTAssertFalse(PlanDrawerGeometry.isExpanded(afterTravel: -80, wasExpanded: true))
+        XCTAssertTrue(PlanDrawerGeometry.isExpanded(afterTravel: 20, wasExpanded: true))
+        XCTAssertFalse(PlanDrawerGeometry.isExpanded(afterTravel: 20, wasExpanded: false))
+        XCTAssertEqual(PlanDrawerGeometry.expandedHeight(itemCount: 1, screenHeight: 800), 108)
+        XCTAssertEqual(PlanDrawerGeometry.expandedHeight(itemCount: 20, screenHeight: 800), 320)
+        XCTAssertFalse(PlanDrawerGeometry.isVisible(anytimeCount: 0, unscheduledCount: 0))
+    }
+
+    func testAnytimeRowHoldsUntimedWorkAndWorkWhoseTimeBelongsToAnotherDay() {
+        let calendar = Calendar.current
+        let now = Date()
+        let today = PlanningDay(date: now)
+        let lastWeek = calendar.date(byAdding: .day, value: -7, to: now)!
+        func planned(_ title: String, start: Date?) -> PlanningTaskSummary {
+            var metadata = PlanningTaskMetadata(taskID: UUID())
+            metadata.planningDay = today
+            return PlanningTaskSummary(id: UUID(), title: title, metadata: metadata, scheduledStartAt: start)
+        }
+        let inputs = PlanDayProjectionInputs(
+            tasks: [planned("Untimed", start: nil), planned("Kept from rescue", start: lastWeek), planned("At noon", start: now)],
+            allBlocks: [], workingProfile: nil,
+            calendarContext: .init(authorization: .notDetermined), calendarState: .notRequested,
+            calendar: calendar, now: now
+        )
+        XCTAssertEqual(PlanAnytimeRow.tasks(from: inputs.snapshot(for: today)).map(\.title).sorted(), ["Kept from rescue", "Untimed"])
+    }
+
+    func testRescuePoolIsOpenWorkDueBeforeToday() {
+        let now = Date()
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: now)!
+        var archived = PlanningTaskMetadata(taskID: UUID())
+        archived.unscheduledDisposition = .archived
+        let tasks = [
+            PlanningTaskSummary(id: UUID(), title: "Late", dueDate: yesterday, metadata: .init(taskID: UUID())),
+            PlanningTaskSummary(id: UUID(), title: "Due today", dueDate: now, metadata: .init(taskID: UUID())),
+            PlanningTaskSummary(id: UUID(), title: "No deadline", metadata: .init(taskID: UUID())),
+            PlanningTaskSummary(id: UUID(), title: "Let go", dueDate: yesterday, metadata: archived)
+        ]
+        XCTAssertEqual(PlanRescuePool.count(tasks, now: now), 1)
+        var keptToday = PlanningTaskMetadata(taskID: UUID())
+        keptToday.planningDay = PlanningDay(date: now)
+        let kept = PlanningTaskSummary(id: UUID(), title: "Kept", dueDate: yesterday, metadata: keptToday)
+        XCTAssertEqual(PlanRescuePool.count(tasks + [kept], now: now), 1, "Work already given today is decided")
+    }
+
+    func testDaySwipeCommitsOnlyForDeliberateSidewaysTravel() {
+        let width: CGFloat = 400
+        XCTAssertEqual(PlanDaySwipe.dayDelta(translation: CGSize(width: -140, height: 10), predictedEndTranslation: CGSize(width: -150, height: 10), width: width), 1)
+        XCTAssertEqual(PlanDaySwipe.dayDelta(translation: CGSize(width: 140, height: -10), predictedEndTranslation: CGSize(width: 150, height: -10), width: width), -1)
+        // A short, fast flick still counts.
+        XCTAssertEqual(PlanDaySwipe.dayDelta(translation: CGSize(width: -60, height: 0), predictedEndTranslation: CGSize(width: -260, height: 0), width: width), 1)
+        // Too short, or mostly vertical (scrolling, dragging a block in time): spring back.
+        XCTAssertEqual(PlanDaySwipe.dayDelta(translation: CGSize(width: -60, height: 0), predictedEndTranslation: CGSize(width: -80, height: 0), width: width), 0)
+        XCTAssertEqual(PlanDaySwipe.dayDelta(translation: CGSize(width: -140, height: 120), predictedEndTranslation: CGSize(width: -300, height: 200), width: width), 0)
+        // A flick back toward the start never changes day.
+        XCTAssertEqual(PlanDaySwipe.dayDelta(translation: CGSize(width: -40, height: 0), predictedEndTranslation: CGSize(width: 300, height: 0), width: width), 0)
+    }
+}
+
+
+final class TaskEditorChipCopyTests: XCTestCase {
+    func testChipsReadTheirValuesAndEmptyChipsStayEmpty() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let now = calendar.date(from: DateComponents(year: 2030, month: 5, day: 24, hour: 9))!
+        var task = TaskDefinition(id: UUID(), title: "Report")
+        task.estimatedDuration = 90 * 60
+        task.dueDate = calendar.date(from: DateComponents(year: 2030, month: 5, day: 25))
+        var draft = TaskEditorDraft(task: task, planning: PlanningTaskMetadata(taskID: task.id))
+        func value(_ field: String, tags: [String] = [], project: String? = nil) -> String? {
+            TaskEditorChipCopy.value(for: field, draft: draft, projectName: project, tagNames: tags, calendar: calendar, now: now)
+        }
+        XCTAssertNil(value("When"))
+        XCTAssertEqual(value("Duration"), "1h 30m")
+        XCTAssertEqual(value("Deadline"), "Due Tomorrow")
+        XCTAssertEqual(value("Tags", tags: ["health", "admin"]), "#admin +1")
+        XCTAssertNil(value("Tags"))
+        // The Inbox is the absence of a project, not a project to show.
+        XCTAssertNil(value("Project", project: "Inbox"))
+        XCTAssertNil(value("Priority"))
+
+        draft.planning.planningDay = PlanningDay(date: now, timeZone: calendar.timeZone, calendar: calendar)
+        XCTAssertEqual(value("When"), "Today")
+    }
+}
+
+
+final class HomeQuietDayTests: XCTestCase {
+    func testAQuietDayIsSaidOnceAndNeverBeforeTheAgendaLoads() {
+        XCTAssertTrue(HomeQuietDay.isQuiet(upNextCount: 0, agendaTaskCount: 0, hasLoaded: true))
+        XCTAssertFalse(HomeQuietDay.isQuiet(upNextCount: 0, agendaTaskCount: 0, hasLoaded: false))
+        XCTAssertFalse(HomeQuietDay.isQuiet(upNextCount: 1, agendaTaskCount: 0, hasLoaded: true))
+        XCTAssertFalse(HomeQuietDay.isQuiet(upNextCount: 0, agendaTaskCount: 2, hasLoaded: true))
+    }
+}
+
+
+final class HomeRepairPhaseTests: XCTestCase {
+    func testRepairAlwaysPassesThroughAPreviewAndEndsOnTheDeck() {
+        var phase = HomeRepairPhase.deck
+        phase = phase.next(.chose)
+        XCTAssertEqual(phase, .staging)
+        // Nothing can be applied before a preview exists.
+        XCTAssertEqual(phase.next(.applied), .staging)
+        phase = phase.next(.staged)
+        XCTAssertEqual(phase, .preview)
+        XCTAssertEqual(phase.next(.chose), .preview, "A second tap must not restage over an open preview")
+        XCTAssertEqual(phase.next(.notNow), .deck)
+        phase = phase.next(.applied)
+        XCTAssertEqual(phase, .applied)
+        XCTAssertEqual(phase.next(.undone), .deck)
+        XCTAssertEqual(phase.next(.dismissedReceipt), .deck)
+        XCTAssertEqual(HomeRepairPhase.staging.next(.stagingFailed), .deck)
+    }
+
+    func testDiffRowsSpeakTheChangeInPlainWords() {
+        let move = PlanningScenarioDiff(title: "Write report", before: "2:00 PM", after: "4:00 PM")
+        XCTAssertEqual(PlanScenarioDiffRow.accessibilityText(move, isResolved: false), "Write report, from 2:00 PM to 4:00 PM")
+        XCTAssertEqual(PlanScenarioDiffRow.accessibilityText(move, isResolved: true), "Write report, moved from 2:00 PM to 4:00 PM")
+        XCTAssertEqual(PlanScenarioDiffRow.accessibilityText(PlanningScenarioDiff(title: "Rest"), isResolved: false), "Rest")
+    }
+}
+
+
+final class CaptureTokenCompletionTests: XCTestCase {
+    func testFindsTheTokenBeingTypedAndIgnoresLookalikes() {
+        XCTAssertEqual(CaptureTokenCompletion.activeToken(in: "Dentist #he"), .init(kind: .tag, prefix: "he"))
+        XCTAssertEqual(CaptureTokenCompletion.activeToken(in: "Report +"), .init(kind: .project, prefix: ""))
+        XCTAssertEqual(CaptureTokenCompletion.activeToken(in: "@of"), .init(kind: .context, prefix: "of"))
+        XCTAssertNil(CaptureTokenCompletion.activeToken(in: "Dentist #health "), "A finished token is not being typed")
+        XCTAssertNil(CaptureTokenCompletion.activeToken(in: "learn C#"), "A sigil glued to a word is not a token")
+        XCTAssertNil(CaptureTokenCompletion.activeToken(in: "call mom @3pm"), "@3pm is a time")
+        XCTAssertNil(CaptureTokenCompletion.activeToken(in: "plain words"))
+    }
+
+    func testSuggestsPrefixMatchesFirstAndOffersANewTag() {
+        let tags = ["Health", "home", "Admin", "Household", "health"]
+        let token = CaptureTokenCompletion.ActiveToken(kind: .tag, prefix: "ho")
+        XCTAssertEqual(
+            CaptureTokenCompletion.suggestions(for: token, candidates: tags).map(\.name),
+            ["home", "Household", "ho"]
+        )
+        XCTAssertEqual(CaptureTokenCompletion.suggestions(for: token, candidates: tags).last?.isNew, true)
+        let exact = CaptureTokenCompletion.ActiveToken(kind: .tag, prefix: "health")
+        XCTAssertEqual(CaptureTokenCompletion.suggestions(for: exact, candidates: tags).map(\.name), ["Health"])
+        // Projects must exist; nothing is invented for them.
+        let project = CaptureTokenCompletion.ActiveToken(kind: .project, prefix: "zz")
+        XCTAssertTrue(CaptureTokenCompletion.suggestions(for: project, candidates: ["Work"]).isEmpty)
+    }
+
+    func testApplyWritesSomethingTheParserReadsBack() {
+        let text = CaptureTokenCompletion.apply("Side Project", kind: .project, to: "Draft outline +si")
+        XCTAssertEqual(text, "Draft outline +Side-Project ")
+        XCTAssertEqual(TaskCaptureParser.parse(text).projectName.map(CaptureTokenCompletion.normalized), "side project")
+        XCTAssertEqual(CaptureTokenCompletion.apply("health", kind: .tag, to: "Dentist #he"), "Dentist #health ")
+    }
+}
+
+
+final class HabitAmountRuleTests: XCTestCase {
+    func testOnlyDailyAmountTargetsCanBeLogged() {
+        XCTAssertEqual(HabitAmountRule.target(for: .quantitative(value: 8, unit: "glasses")), 8)
+        XCTAssertEqual(HabitAmountRule.target(for: .timed(seconds: 1_200)), 1_200)
+        XCTAssertEqual(HabitAmountRule.target(for: .quota(count: 3, period: .day)), 3)
+        XCTAssertNil(HabitAmountRule.target(for: .quota(count: 3, period: .week)), "a day cannot hold a weekly quota")
+        XCTAssertNil(HabitAmountRule.target(for: .binary))
+        XCTAssertNil(HabitAmountRule.target(for: .avoidance))
+    }
+
+    func testOneTapIsAFriendlyStepTowardTheTarget() {
+        XCTAssertEqual(HabitAmountRule.step(for: .quantitative(value: 8, unit: "glasses")), 1)
+        XCTAssertEqual(HabitAmountRule.step(for: .quantitative(value: 2_000, unit: "ml")), 250)
+        XCTAssertEqual(HabitAmountRule.step(for: .quantitative(value: 500, unit: "ml")), 100)
+        XCTAssertEqual(HabitAmountRule.step(for: .quantitative(value: 10_000, unit: "steps")), 1_000)
+        XCTAssertEqual(HabitAmountRule.step(for: .quantitative(value: 50, unit: "pages")), 5)
+        XCTAssertEqual(HabitAmountRule.step(for: .quantitative(value: 30, unit: "pushups")), 5)
+        XCTAssertEqual(HabitAmountRule.step(for: .timed(seconds: 20 * 60)), 5 * 60)
+        XCTAssertEqual(HabitAmountRule.step(for: .timed(seconds: 5 * 60)), 60)
+        XCTAssertEqual(HabitAmountRule.step(for: .quota(count: 3, period: .day)), 1)
+    }
+
+    func testAmountsNeverGoNegativeOrRunAway() {
+        XCTAssertEqual(HabitAmountRule.apply(.add(-3), to: 2, target: 8), 0)
+        XCTAssertEqual(HabitAmountRule.apply(.set(1_000), to: 2, target: 8), 80)
+        XCTAssertEqual(HabitAmountRule.apply(.add(1), to: 2, target: 8), 3)
+        XCTAssertEqual(HabitAmountRule.apply(.set(.nan), to: 2, target: 8), 2)
+    }
+
+    func testCrossingTheTargetCompletesAndFallingBackUncompletes() {
+        XCTAssertTrue(HabitAmountRule.transition(before: 7, after: 8, target: 8, isCompleted: false).resolve)
+        XCTAssertFalse(HabitAmountRule.transition(before: 8, after: 9, target: 8, isCompleted: true).resolve, "XP and streaks move once, on the crossing")
+        XCTAssertTrue(HabitAmountRule.transition(before: 8, after: 7, target: 8, isCompleted: true).unresolve)
+        let progress = HabitAmountRule.transition(before: 2, after: 3, target: 8, isCompleted: false)
+        XCTAssertFalse(progress.resolve)
+        XCTAssertFalse(progress.unresolve)
+    }
+}
+
+
+final class HabitRingGeometryTests: XCTestCase {
+    func testAPressIsATapUntilItBecomesAHoldThatFillsInSixHundredMilliseconds() {
+        XCTAssertNil(HabitRingGeometry.holdProgress(elapsed: 0.2))
+        XCTAssertEqual(HabitRingGeometry.holdProgress(elapsed: 0.25), 0)
+        XCTAssertEqual(HabitRingGeometry.holdProgress(elapsed: 0.55) ?? -1, 0.5, accuracy: 0.001)
+        XCTAssertEqual(HabitRingGeometry.holdProgress(elapsed: 2), 1)
+        XCTAssertEqual(HabitRingGeometry.holdValue(progress: 0.5, saved: 2, target: 8), 5)
+        XCTAssertEqual(HabitRingGeometry.holdValue(progress: 1, saved: 10, target: 8), 10, "a hold never lowers extra effort")
+    }
+
+    func testScrubbingFollowsTheFingerClockwiseAndCarriesIntoASecondLap() {
+        let center = CGPoint(x: 50, y: 50)
+        // Three o'clock is a quarter turn: 2 of 8.
+        XCTAssertEqual(HabitRingGeometry.scrubValue(at: CGPoint(x: 90, y: 50), center: center, previous: 1, target: 8, step: 1), 2)
+        // Just past twelve, coming from near the target, continues past 8 rather than dropping to 0.
+        XCTAssertEqual(HabitRingGeometry.scrubValue(at: CGPoint(x: 55, y: 10), center: center, previous: 7.8, target: 8, step: 1), 8)
+        XCTAssertEqual(HabitRingGeometry.scrubValue(at: CGPoint(x: 90, y: 50), center: center, previous: 9, target: 8, step: 1), 10)
+        // The ceiling holds at one and a half laps.
+        XCTAssertEqual(HabitRingGeometry.scrubValue(at: CGPoint(x: 50, y: 90), center: center, previous: 11.9, target: 8, step: 1), 12)
+        XCTAssertLessThanOrEqual(HabitRingGeometry.scrubValue(at: CGPoint(x: 10, y: 50), center: center, previous: 12, target: 8, step: 1), 12)
+    }
+
+    func testDetentHapticsThinOutForLargeTargets() {
+        XCTAssertEqual(HabitRingGeometry.detentsCrossed(from: 2, to: 5, step: 1, target: 8), 3)
+        XCTAssertEqual(HabitRingGeometry.detentsCrossed(from: 0, to: 10, step: 1, target: 100), 0, "100 steps share 8 detents")
+        XCTAssertEqual(HabitRingGeometry.detentsCrossed(from: 0, to: 25, step: 1, target: 100), 2)
+    }
+
+    func testTicksAppearOnlyForSmallTargets() {
+        XCTAssertEqual(HabitRingGeometry.tickFractions(target: 4, step: 1), [0.25, 0.5, 0.75])
+        XCTAssertTrue(HabitRingGeometry.tickFractions(target: 100, step: 1).isEmpty)
+    }
+
+    func testTheRingSpeaksInThePersonsUnits() {
+        XCTAssertEqual(HabitRingGeometry.accessibilityValue(value: 3, target: 8, unit: "glasses", isTimed: false), "3 of 8 glasses")
+        XCTAssertEqual(HabitRingGeometry.accessibilityValue(value: 720, target: 1_200, unit: "", isTimed: true), "12 of 20 minutes")
+        XCTAssertEqual(HabitRingGeometry.centerText(value: 2.5, target: 8, isTimed: false), "2.5/8")
+    }
+}
+
+
+final class HabitResilienceCopyTests: XCTestCase {
+    func testMilestonesAreNotedOnceAndMissesAreNeverMentioned() {
+        XCTAssertEqual(HabitResilienceCopy.note(streak: 7, previousStreak: 6, recoveredFromLapse: false), "7 days of showing up")
+        XCTAssertNil(HabitResilienceCopy.note(streak: 7, previousStreak: 7, recoveredFromLapse: false), "only on the day it is reached")
+        XCTAssertNil(HabitResilienceCopy.note(streak: 8, previousStreak: 7, recoveredFromLapse: false))
+        XCTAssertEqual(HabitResilienceCopy.note(streak: 1, previousStreak: 0, recoveredFromLapse: true), "Back at it")
+        XCTAssertNil(HabitResilienceCopy.note(streak: 1, previousStreak: 0, recoveredFromLapse: false))
+        XCTAssertEqual(HabitResilienceCopy.receipt(title: "Water", note: nil), "Water done")
+        XCTAssertEqual(HabitResilienceCopy.receipt(title: "Water", note: "30 days of showing up"), "Water done · 30 days of showing up")
+    }
+}
+
+
+final class HomeHabitsTodayOrderTests: XCTestCase {
+    func testTilesKeepTheirPlaceWhenTheBoardResorts() {
+        let a = UUID(), b = UUID(), c = UUID()
+        let order = HomeHabitsTodayOrder.merged([], with: [a, b, c])
+        XCTAssertEqual(order, [a, b, c])
+        // Completing b moves it first on the board; Home keeps the old order,
+        // appends a newcomer, and forgets a habit that left.
+        let d = UUID()
+        XCTAssertEqual(HomeHabitsTodayOrder.merged(order, with: [b, c, d]), [b, c, d].sorted { order.firstIndex(of: $0) ?? 9 < order.firstIndex(of: $1) ?? 9 })
+        XCTAssertEqual(HomeHabitsTodayOrder.merged(order, with: [b, a, d, c]), [a, b, c, d])
+    }
+
+    func testAReturnNeedsProgressBeforeTheMiss() {
+        let day = Date()
+        func cell(_ state: HabitBoardCellState, today: Bool = false) -> HabitBoardCell {
+            HabitBoardCell(date: day, state: state, isToday: today, isWeekend: false)
+        }
+        XCTAssertTrue(HomeHabitsTodayOrder.isReturnAfterLapse([cell(.done(depth: 1)), cell(.missed), cell(.todayPending, today: true)]))
+        XCTAssertFalse(HomeHabitsTodayOrder.isReturnAfterLapse([cell(.missed), cell(.missed), cell(.todayPending, today: true)]), "a first completion is not a return")
+        XCTAssertFalse(HomeHabitsTodayOrder.isReturnAfterLapse([cell(.missed), cell(.done(depth: 1)), cell(.todayPending, today: true)]))
     }
 }
