@@ -406,6 +406,7 @@ public struct ComposerSection<Content: View>: View {
     private let footer: String?
     private let depth: ClayDepth
     private let cornerRadius: CGFloat
+    private let ambientKind: DashboardWidgetKind?
     private let spacing: CGFloat
     private let content: Content
 
@@ -418,6 +419,7 @@ public struct ComposerSection<Content: View>: View {
         depth: ClayDepth = .resting,
         cornerRadius: CGFloat? = nil,
         spacing: CGFloat = 12,
+        ambientKind: DashboardWidgetKind? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.header = header
@@ -428,6 +430,7 @@ public struct ComposerSection<Content: View>: View {
         // silently overrode the clay scale for all 51 composer sections in the
         // app — none of which had ever asked for a different corner.
         self.cornerRadius = cornerRadius ?? depth.cornerRadius
+        self.ambientKind = ambientKind
         self.spacing = spacing
         self.content = content()
     }
@@ -457,6 +460,7 @@ public struct ComposerSection<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
+            .homeAmbientArtwork(ambientKind, cornerRadius: cornerRadius)
             .lifeBoardClaySurface(depth, cornerRadius: cornerRadius)
 
             if let footer {
