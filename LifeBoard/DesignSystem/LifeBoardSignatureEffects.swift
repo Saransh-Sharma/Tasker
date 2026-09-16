@@ -1106,11 +1106,19 @@ private struct ChartRevealSweepModifierEnvironment: ViewModifier {
     }
 }
 
-struct ChartRevealSweepModifier: ViewModifier {
-    let progress: Double
+struct ChartRevealSweepModifier: ViewModifier, @preconcurrency Animatable {
+    var progress: Double
     let reduceMotion: Bool
     let sceneIsActive: Bool
     @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
+
+    /// Without this, `withAnimation { progress = 1 }` never interpolated: the
+    /// modifier received 1 on the first frame, removed its shader, and the
+    /// reveal every caller asked for was a cut.
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
 
     func body(content: Content) -> some View {
         // A settled chart carries no shader at all, so there is no residual
