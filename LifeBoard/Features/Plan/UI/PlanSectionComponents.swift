@@ -43,25 +43,28 @@ enum PlanSectionCopy {
     }
 }
 
+/// Plan's section header, now a thin wrapper over the shared one.
+///
+/// It used to be its own `HStack` with its own font and no `.isHeader` trait, so
+/// nine of Plan's sections were invisible to VoiceOver's heading rotor and none
+/// of them stacked at accessibility text sizes. `DESIGN.md`: one type size and
+/// one spacing across the product, and a restyled section header is a defect.
+/// The wrapper stays so Plan's call sites keep reading in Plan's own vocabulary.
 struct PlanSectionHeader<Trailing: View>: View {
     let title: String
     let systemImage: String
+    var count: Int?
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
-        HStack {
-            Label(title, systemImage: systemImage).font(Typography.sectionTitle())
-            Spacer()
-            trailing()
-        }
-        .padding(.top, 8)
-        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+        SectionHeader(title, symbol: systemImage, count: count, trailing: trailing)
+            .padding(.top, 8)
     }
 }
 
 extension PlanSectionHeader where Trailing == EmptyView {
-    init(_ title: String, systemImage: String) {
-        self.init(title: title, systemImage: systemImage) { EmptyView() }
+    init(_ title: String, systemImage: String, count: Int? = nil) {
+        self.init(title: title, systemImage: systemImage, count: count) { EmptyView() }
     }
 }
 
