@@ -1820,6 +1820,14 @@ public final class HabitDetailViewModel: ObservableObject {
             row: row,
             date: cell.date
         )
+        // A day that had no record and was just resolved can be put back as it
+        // was. `DESIGN.md` asks for Undo wherever reversal is supported, and
+        // marking the wrong day complete is the mistake this screen invites.
+        if case .resolve = request, cell.state == .empty || cell.state == .notScheduled {
+            undoableDayCell = cell
+        } else {
+            undoableDayCell = nil
+        }
         isSaving = true
         errorMessage = nil
 
@@ -1868,6 +1876,19 @@ public final class HabitDetailViewModel: ObservableObject {
 
     public func clearMutationFeedback() {
         mutationFeedback = nil
+    }
+
+    /// The day a resolve just filled in, if putting it back is possible.
+    @Published public private(set) var undoableDayCell: HabitDetailDayCell?
+
+    /// Clears the day the last mutation recorded, restoring "no record".
+    public func undoLastDayMutation(completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
+        guard let cell = undoableDayCell else {
+            completion?(false)
+            return
+        }
+        undoableDayCell = nil
+        performDayMutation(cell: cell, request: .reset, completion: completion)
     }
 
     private func updateCalendarViewState(referenceDate: Date = Date()) {
