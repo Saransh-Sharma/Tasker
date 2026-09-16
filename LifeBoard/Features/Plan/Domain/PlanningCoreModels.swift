@@ -482,6 +482,7 @@ public struct PlanningProjectSummary: Codable, Hashable, Identifiable, Sendable 
 }
 
 public struct PlanDaySnapshot: Codable, Equatable, Sendable {
+    public var workingIntervals: [DateInterval] = []
     public var day: PlanningDay
     public var capacity: CapacityBudget
     public var commitments: [PlanningFixedCommitment]
