@@ -1,0 +1,37 @@
+{
+  "id": "journal-wide-dark",
+  "appearance": "dark",
+  "requested_canvas_pixels": [
+    1424,
+    928
+  ],
+  "card_rect_pixels": [
+    6,
+    1,
+    1412,
+    926
+  ],
+  "final_export_pixels": [
+    1412,
+    926
+  ],
+  "submitted_prompt": "Precise UI reconstruction: reproduce Image 1 with its exact native framing, typography, buttons, and barely visible background paint. Image 2 documents the painting subject only; it must not increase the paint contrast. No external border, no additional top or bottom space.\nUse case: ui-mockup. Stable ID journal-wide-dark. Create one dark LifeBoard Journal Home card reference.\nImage 2 is accepted scene artwork; Image 1 is the authoritative native structural fixture. Preserve its exact copy, symbols, line wrapping, foreground, controls, and relative geometry.\nLogical bounds 353 x 231.5 points. Final export 1412 x 926 pixels at 4 pixels per point. Requested generation canvas 1424 x 928 pixels. Exact card placement x,y,width,height=[6, 1, 1412, 926]. Only the specified canvas padding is allowed. No extra internal or external margin, frame or drop-shadow canvas.\nNative elements in logical points (rectangles x,y,width,height), with exact visible text and resolved San Francisco typography: [{\"copy\": \"Journal\", \"id\": \"journal.title\", \"rect\": [16, 16, 321, 20.5], \"role\": \"title\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 17, \"role\": \"headline\", \"weight\": \"semibold\"}}, {\"copy\": \"Keep one honest moment from today—words, photos, or audio.\", \"id\": \"journal.body\", \"rect\": [16, 49.5, 316.25, 38], \"role\": \"text\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"subheadline\", \"weight\": \"regular\"}}, {\"copy\": \"Search\", \"id\": \"journal.search\", \"rect\": [182.5, 100.5, 154.5, 58], \"role\": \"control\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 17, \"role\": \"body\", \"weight\": \"regular\"}}, {\"copy\": \"Write\", \"id\": \"journal.write\", \"rect\": [16, 105.5, 154.5, 48], \"role\": \"control\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 17, \"role\": \"button\", \"weight\": \"semibold\"}}, {\"copy\": \"Weekly reflection\", \"id\": \"journal.reflection\", \"rect\": [16, 171.5, 321, 44], \"role\": \"control\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"subheadline\", \"weight\": \"semibold\"}}]. Empty copy means a symbol-only control or grouping, never print the IDs, roles, or JSON metadata.\nArtwork fills the existing card background [0,0,353,231.5] beneath every native layer. Proportional fill clipped to 24-point rounded bounds. Opacity 0.28 multiplied by leading-to-trailing mask 0:0.08, 0.35:0.20, 1:1. Artwork should be as faint as Image 1. No separate artwork row, reserved text column, footer, or increased card height.\nPalette {\"surface\": \"#282A44\", \"ink\": \"#F7F1E7\", \"secondary\": \"#C9C3B8\", \"accent\": \"#E5B96D\"}. Subject Writing nook; preserve the accepted scene objects and painterly medium. Opaque UI reference, no alpha required. Appearance is independent of morning daypart.\nReading and control regions: {\"reading_regions\": [[16, 16, 321, 20.5], [16, 49.5, 316.25, 38], [182.5, 100.5, 154.5, 58], [16, 105.5, 154.5, 48], [16, 171.5, 321, 44]], \"controls\": [[182.5, 100.5, 154.5, 58], [16, 105.5, 154.5, 48], [16, 171.5, 321, 44]], \"ambient_background\": [0, 0, 353, 231.5], \"edge_clearance\": 16}. Preserve exact native control sizes; retain opaque foreground text. Do not add buttons, rows, data, logos, watermark, device frame, completion or health claims.\nFixed fixture {\"appearance\": \"dark\", \"date\": \"2026-09-15\", \"daypart\": \"morning\", \"dynamic_type\": \"large\", \"fixture_version\": 4, \"id\": \"journal-wide-dark\", \"locale\": \"en_US\", \"renderer\": \"shared-native-content-preview\", \"safe_areas\": \"isolated card; production-route safe areas require separate evidence\", \"time_zone\": \"UTC\", \"viewport_points\": [393, 852]}. References: [{\"name\": \"journal-wide-dark accepted scene\", \"path\": \"DesignAssets/Sources/HomeCards/journal-scene-dark.png\", \"role\": \"Image 2: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.\", \"sha256\": \"9e451ea6e6b201c149b32bccd6b82c7d38a82589717287860efe9eae1fab3180\"}, {\"name\": \"journal-wide-dark measured native structure\", \"path\": \"docs/design/home-cards/native-specifications/journal-wide-dark.png\", \"role\": \"Image 1: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.\", \"sha256\": \"a4355bd61385fca590f82b0eb1b11ae778162b4dad3de39923c2286712abe632\"}].\nOutput PNG: docs/design/home-cards/references/journal-wide-dark.png. Preserve aspect ratio; never stretch. Record actual dimensions and explicit export transform; reject essential clipping and unintended aspect correction above 4%.\nAcceptance: exact copy and rows/actions, recognizable but quiet ambient art, readable native foreground, consistent appearance, correct dimensions, no extra margins or essential clipping.",
+  "references": [
+    {
+      "name": "journal-wide-dark measured native structure",
+      "path": "docs/design/home-cards/native-specifications/journal-wide-dark.png",
+      "role": "Image 1: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.",
+      "sha256": "a4355bd61385fca590f82b0eb1b11ae778162b4dad3de39923c2286712abe632"
+    },
+    {
+      "name": "journal-wide-dark accepted scene",
+      "path": "DesignAssets/Sources/HomeCards/journal-scene-dark.png",
+      "role": "Image 2: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.",
+      "sha256": "9e451ea6e6b201c149b32bccd6b82c7d38a82589717287860efe9eae1fab3180"
+    }
+  ],
+  "specification_sha256": "b12e49ff591f7190e637bc8927cfce86351d6520e73767b71f3c591783cccf0f",
+  "prepared_at": "2026-09-15T19:29:36.673829+00:00",
+  "revision_reason": "Change reference priority: structural native image first; original scene only supplies subject, not prominence.",
+  "design_revision": "ambient-v1"
+}
