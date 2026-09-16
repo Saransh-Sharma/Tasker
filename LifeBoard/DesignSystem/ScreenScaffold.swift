@@ -105,6 +105,10 @@ public struct AppRootHeader: View {
     /// hides the dock while its composer is focused, so it needs an exit that
     /// does not disappear with the keyboard.
     public let leadingAccessory: AnyView?
+    /// Rides the context line (Home's "Smart ⌄" mode menu beside the date), so
+    /// a root's lens lives where the person reads what day it is instead of in
+    /// a second, repeated date row below the header.
+    public let contextAccessory: AnyView?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     public init(
@@ -113,6 +117,7 @@ public struct AppRootHeader: View {
         usesInverseInk: Bool = false,
         onCapture: @escaping () -> Void,
         leadingAccessory: AnyView? = nil,
+        contextAccessory: AnyView? = nil,
         secondaryActions: AnyView? = nil
     ) {
         self.model = model
@@ -121,6 +126,7 @@ public struct AppRootHeader: View {
         self.onCapture = onCapture
         self.secondaryActions = secondaryActions
         self.leadingAccessory = leadingAccessory
+        self.contextAccessory = contextAccessory
     }
 
     private var primaryInk: Color {
@@ -164,14 +170,20 @@ public struct AppRootHeader: View {
                         .modifier(OptionalKineticGreeting(isEnabled: model.titleRespondsToTouch))
                 }
                 if let context = model.context {
-                    Text(context)
-                        .font(usesAccessibilityLayout ? .body : .subheadline)
-                        .foregroundStyle(secondaryInk)
-                        .lineLimit(usesAccessibilityLayout ? nil : 2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        // Line the context up under the title rather than under
-                        // the accessory that now precedes it.
-                        .padding(.leading, leadingAccessory == nil ? 0 : 52)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(context)
+                            .font(usesAccessibilityLayout ? .body : .subheadline)
+                            .foregroundStyle(secondaryInk)
+                            .lineLimit(usesAccessibilityLayout ? nil : 2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let contextAccessory {
+                            contextAccessory
+                                .foregroundStyle(primaryInk)
+                        }
+                    }
+                    // Line the context up under the title rather than under
+                    // the accessory that now precedes it.
+                    .padding(.leading, leadingAccessory == nil ? 0 : 52)
                 }
             }
             if usesAccessibilityLayout == false {
