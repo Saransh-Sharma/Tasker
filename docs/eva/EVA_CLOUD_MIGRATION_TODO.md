@@ -6,6 +6,20 @@ This file is the implementation ledger for the Luna text and spoken-output migra
 
 Portfolio state, consolidated priorities, and exit criteria live in [Eva roadmap status and gap analysis](EVA_ROADMAP_STATUS.md). This ledger retains historical evidence, so several unchecked items describe the same P0 release gate. Count the consolidated status report, not raw unchecked boxes, when reporting roadmap progress.
 
+## Durable automatic activation and Health onboarding — 2026-09-16
+
+- [x] Replace confirmation-gated activation with one shared automatic activation coordinator; preserve explicit Offline EVA and sign-out intent.
+- [x] Version and migrate session and guest-bootstrap records; store credentials and installation identity with AfterFirstUnlockThisDeviceOnly protection under the existing Keychain service.
+- [x] Distinguish missing, restored, unavailable, corrupt, identity-mismatched, and server-revoked sessions. Preserve unreadable credentials and Apple account recovery identity.
+- [x] Preserve server context restrictions, migrate local preferences, and enable all four context categories only for new defaults.
+- [x] Remove current age-sheet, inference, and backend authorization gates while retaining legacy wire fields.
+- [x] Use short read-only Health onboarding, authorization completion independent of imports, Retry/Not now, and stale-callback guards.
+- [x] Pass simulator activation, persistence, and Health/onboarding suites: 161 tests; pass backend typecheck and 72 tests, including repeat bootstrap/account/consent/family recovery.
+- [x] Pass Worker packaging dry-run and staging/production remote preflight. Live signed policies match the checked-in staging v4 and production v3 policies, including disabled in-app age enforcement.
+- [x] Deploy compatible Worker authorization to staging (`6ecb4c73-0922-494f-8b96-4201943772bf`) and production (`fbd8eddc-f85a-4ed5-a515-f4a7845fbded`). Staging authenticated smoke verified guest activation, refresh, same-account recovery, preserved restrictions, and retired-family rejection; the synthetic account was deleted.
+- [ ] Verify deployed authorization behavior with a legacy age-blocked authenticated installation before shipping the client. Signed-policy verification alone does not prove a deployed Worker authorization path.
+- [ ] Qualify physical-device reboot before first unlock, unlock recovery, app upgrade, multiple scenes, native Health permission completion, and accessible Retry/Not now actions.
+
 ## Production-readiness correction — 2026-08-14
 
 The first implementation pass established the end-to-end architecture, but its original checkboxes treated a working skeleton as completion. The remaining work below is authoritative. Earlier phase summaries are retained as implementation history and no longer imply production readiness.
