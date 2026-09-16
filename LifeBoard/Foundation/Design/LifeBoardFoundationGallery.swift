@@ -27,14 +27,6 @@ struct AdaptiveHomeProjectionSnapshot: Equatable, Sendable {
     var calendarNeedsSetup = true
 }
 
-private struct HomeTodayStoryItem: Identifiable, Equatable {
-    let id: String
-    let title: String
-    let detail: String
-    let symbol: String
-    let destination: Destination
-}
-
 /// App-level composition for the canonical Home projection.
 ///
 /// The coordinator owns the stores that Adaptive Home reads and applies the
@@ -998,6 +990,7 @@ struct AdaptiveHome: View {
 
     @State private var store: AdaptiveHomeStore
     @State private var lifeOSStore: HomeLifeOSProjectionStore
+    @State private var repairStore: PlanStore?
     @State private var healthStore = HealthCoordinator.shared.connectionStore
     @State private var selectedMood: JournalMood = .none
     @State private var moodEnergy: Int?
@@ -1094,6 +1087,10 @@ struct AdaptiveHome: View {
             candidateProviders.append(LifeMomentContextCandidateSource(repository: lifeMomentRepository))
         }
         self.contextProviderRegistry = HomeContextCandidateProviderRegistry(providers: candidateProviders)
+        _repairStore = State(initialValue: planningRepository.map {
+            PlanStore(planningRepository: $0, blockRepository: $0,
+                scenarioCoordinator: DefaultPlanningScenarioCoordinator(planning: $0, mutations: $0))
+        })
         _store = State(initialValue: AdaptiveHomeStore(repository: repository))
         _lifeOSStore = State(initialValue: HomeLifeOSProjectionStore(
             planningRepository: planningRepository,
@@ -1152,8 +1149,64 @@ struct AdaptiveHome: View {
                         nowSection(palette: palette)
                     }
 
+                    // On a quiet day Up next has nothing to show, and Today's task
+                    // card already says so (and keeps its Add button), so the day
+                    // is described once rather than by two empty cards.
+                    if budget.showsDayAhead, HomeQuietDay.isQuiet(
+                        upNextCount: HomeTodayStorySection.upNextItems(lifeOSStore: lifeOSStore, now: Date()).count,
+                        agendaTaskCount: lifeOSStore.taskAgenda.tasks.count,
+                        hasLoaded: lifeOSStore.hasLoadedCore
+                    ) == false {
+                        HomeTodayStorySection(
+                            projectionAdapter: projectionAdapter,
+                            lifeOSStore: lifeOSStore,
+                            router: router,
+                            captureRouter: captureRouter,
+                            palette: palette
+                        )
+                    }
+
+                    // Today's committed work sits directly under orientation.
+                    // It previously fell through to "Your space" and rendered
+                    // below wellbeing and reflection on a default install.
+                    // Habits are logged here, where the day is read, rather than
+                    // only behind a link to the Habit Board.
+                    if CompositionRoot.shared.isConfiguredForRuntime {
+                        HomeHabitsTodaySection(
+                            router: router,
+                            palette: ambientPalette,
+                            viewModel: CompositionRoot.shared.makeHabitBoardViewModel()
+                        )
+                    }
+
+                    if budget.showsToday {
+                        placementSection(
+                            "Today",
+                            placements: renderPlan.today,
+                            renderPlan: renderPlan,
+                            daypart: daypart,
+                            palette: palette,
+                            ambientPalette: ambientPalette
+                        )
+                    }
+
+                    if lifeOSStore.taskAgenda.overdueTasks.isEmpty == false {
+                        HomeSectionHeading("Needs you", palette: palette)
+                        HomeUpNextRescueRow(count: lifeOSStore.taskAgenda.overdueTasks.count, palette: palette) {
+                            router.navigate(.weeklyPlanningWorkspace(.overdue), in: .plan)
+                        }
+                    }
+                    if budget.showsNeedsAttention, store.contextSelection.candidates.count > 1 {
+                        HomeNeedsAttentionSection(
+                            store: store,
+                            router: router,
+                            palette: palette,
+                            onPinAfterAction: pinContextAfterAction
+                        )
+                    }
+
                     homeSectionHeading(
-                        "Signals",
+                        "Keep steady",
                         palette: ambientPalette
                     )
                     HomeSignalRow(
@@ -1184,45 +1237,16 @@ struct AdaptiveHome: View {
                             ))
                     }
 
-                    // Today's committed work sits directly under orientation.
-                    // It previously fell through to "Your space" and rendered
-                    // below wellbeing and reflection on a default install.
-                    if budget.showsToday {
-                        placementSection(
-                            "Today",
-                            placements: renderPlan.today,
-                            renderPlan: renderPlan,
-                            daypart: daypart,
-                            palette: palette,
-                            ambientPalette: ambientPalette
-                        )
-                    }
-
-                    if budget.showsDayAhead {
-                        HomeTodayStorySection(
-                            projectionAdapter: projectionAdapter,
-                            lifeOSStore: lifeOSStore,
-                            router: router,
-                            palette: palette
-                        )
-                    }
-
-                    if budget.showsNeedsAttention, store.contextSelection.candidates.count > 1 {
-                        HomeNeedsAttentionSection(
-                            store: store,
-                            router: router,
-                            palette: palette,
-                            onPinAfterAction: pinContextAfterAction
-                        )
-                    }
-
+                    // Same group as the signal row above, which already carries
+                    // the "Keep steady" heading; a second one read as a stutter.
                     placementSection(
                         "Keep steady",
                         placements: renderPlan.keepSteady,
                         renderPlan: renderPlan,
                         daypart: daypart,
                         palette: palette,
-                        ambientPalette: ambientPalette
+                        ambientPalette: ambientPalette,
+                        showsHeading: false
                     )
 
                     // Outside the budget on purpose. `showsCloseLoop` is false
@@ -1824,10 +1848,13 @@ struct AdaptiveHome: View {
         renderPlan: HomeDashboardRenderPlan,
         daypart: ResolvedDaypart,
         palette: DaypartPalette,
-        ambientPalette: DaypartPalette
+        ambientPalette: DaypartPalette,
+        showsHeading: Bool = true
     ) -> some View {
         if placements.isEmpty == false {
-            homeSectionHeading(title, palette: ambientPalette)
+            if showsHeading {
+                homeSectionHeading(title, palette: ambientPalette)
+            }
             DashboardFlowLayout(
                 isRegular: horizontalSizeClass == .regular,
                 usesSingleColumn: dynamicTypeSize.isAccessibilitySize
@@ -2079,7 +2106,7 @@ struct AdaptiveHome: View {
             case .act:
                 nowSection(palette: palette, showsHeading: false)
             case .repair:
-                HomeSpineRepairBody(lifeOSStore: lifeOSStore, router: router)
+                HomeSpineRepairBody(lifeOSStore: lifeOSStore, router: router, repairStore: repairStore)
             case .rest:
                 HomeSpineRestBody()
             }
@@ -2454,7 +2481,9 @@ enum HomeSectionCopy {
     static func taskWidgetEmptyMessage(_ lifeOSStore: HomeLifeOSProjectionStore) -> String {
         let selectedDate = lifeOSStore.taskAgenda.selectedDate
         if Calendar.current.isDate(selectedDate, inSameDayAs: lifeOSStore.presentationDate) {
-            return "No overdue tasks or tasks due today"
+            // When Up next is also empty this is the only line about the day.
+            let upNext = HomeTodayStorySection.upNextItems(lifeOSStore: lifeOSStore, now: Date())
+            return upNext.isEmpty ? "Nothing else today. Open time is fine." : "No overdue tasks or tasks due today"
         }
         let date = selectedDate.formatted(.dateTime.month(.abbreviated).day())
         return "No overdue tasks or tasks due \(date)"
@@ -2836,105 +2865,258 @@ private struct HomeContextReasonSheet: View {
     }
 }
 
+/// One row of Home's "Up next": a calendar event, a planned block, or a timed
+/// task, whichever the person will meet next.
+struct HomeUpNextItem: Identifiable, Equatable {
+    enum Kind: Equatable { case event, block, task }
+
+    let id: String
+    let title: String
+    let startAt: Date
+    let endAt: Date?
+    let kind: Kind
+    let isHappeningNow: Bool
+
+    var symbol: String {
+        switch kind {
+        case .event: "calendar"
+        case .block: "square.stack.3d.up"
+        case .task: "checkmark.circle"
+        }
+    }
+
+    /// Everything still ahead today (or under way), soonest first. A block that
+    /// carries a task and the task itself are one thing, so the task row is
+    /// dropped; so are duplicates of the same title at the same minute, which is
+    /// how an internal block reappears as a fixed commitment.
+    static func build(
+        commitments: [PlanningFixedCommitment],
+        blocks: [InternalTimeBlock],
+        plannedTasks: [PlanningTaskSummary],
+        now: Date,
+        calendar: Calendar = .current,
+        limit: Int = 3
+    ) -> [HomeUpNextItem] {
+        var items: [HomeUpNextItem] = []
+        var seen: Set<String> = []
+        func key(_ title: String, _ start: Date) -> String {
+            "\(title.lowercased())|\(Int(start.timeIntervalSince1970 / 60))"
+        }
+        func append(_ item: HomeUpNextItem) {
+            guard calendar.isDate(item.startAt, inSameDayAs: now) || item.isHappeningNow else { return }
+            guard seen.insert(key(item.title, item.startAt)).inserted else { return }
+            items.append(item)
+        }
+        for event in commitments where event.endAt > now {
+            append(.init(
+                id: "event:\(event.id)", title: event.title, startAt: event.startAt, endAt: event.endAt,
+                kind: event.source == .externalCalendar ? .event : .block,
+                isHappeningNow: event.startAt <= now
+            ))
+        }
+        let blockTaskIDs = Set(blocks.compactMap(\.taskID))
+        for block in blocks where block.endAt > now {
+            append(.init(
+                id: "block:\(block.id.uuidString)", title: block.title, startAt: block.startAt, endAt: block.endAt,
+                kind: .block, isHappeningNow: block.startAt <= now
+            ))
+        }
+        var seenTaskIDs: Set<UUID> = []
+        for task in plannedTasks where blockTaskIDs.contains(task.id) == false {
+            guard seenTaskIDs.insert(task.id).inserted, let start = task.scheduledStartAt else { continue }
+            let end = task.scheduledEndAt
+            guard (end ?? start) > now else { continue }
+            append(.init(
+                id: "task:\(task.id.uuidString)", title: task.title, startAt: start, endAt: end,
+                kind: .task, isHappeningNow: start <= now
+            ))
+        }
+        return Array(items.sorted { $0.startAt < $1.startAt }.prefix(limit))
+    }
+}
+
+/// "Up next" — what the person will meet next today, with times, and the one
+/// recovery door (overdue work) that used to be reachable only by typing
+/// "/overdue". It replaced "Day ahead", which never showed an event and whose
+/// empty state sent people to Eva instead of letting them capture.
 private struct HomeTodayStorySection: View {
     let projectionAdapter: HomeProjectionCoordinator
     let lifeOSStore: HomeLifeOSProjectionStore
     let router: AppRouter
+    var captureRouter: CaptureRouter? = nil
     let palette: DaypartPalette
 
     var body: some View {
-        let items = todayStoryItems
-        VStack(alignment: .leading, spacing: 14) {
-            HomeSectionHeading(
-                "Day ahead",
-                state: items.isEmpty ? nil : "\(items.count) moments",
-                palette: palette
-            )
-            VStack(spacing: 0) {
-                ForEach(items) { item in
-                    Button {
-                        router.select(item.destination)
-                    } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: item.symbol)
-                                .lifeboardFont(.headline)
-                                .frame(width: 30, height: 30)
-                                .background(palette.color(for: .canvasSecondary), in: Circle())
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(item.title)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(item.detail)
-                                    .font(.caption)
-                                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+        TimelineView(.everyMinute) { context in
+            let items = Self.upNextItems(lifeOSStore: lifeOSStore, now: context.date)
+            VStack(alignment: .leading, spacing: 12) {
+                HomeSectionHeading(
+                    "Up next",
+                    state: items.isEmpty ? nil : "Today",
+                    palette: palette
+                )
+                VStack(spacing: 0) {
+                    if items.isEmpty {
+                        HomeUpNextEmptyRow(palette: palette) {
+                            if let captureRouter {
+                                captureRouter.request(kind: .task, source: .shell)
+                            } else {
+                                router.navigate(.planDay, in: .plan)
                             }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
                         }
-                        .padding(.vertical, 13)
                     }
-                    .buttonStyle(.plain)
-                    if item.id != items.last?.id {
-                        Divider().padding(.leading, 42)
+                    ForEach(items) { item in
+                        HomeUpNextRow(item: item, now: context.date, palette: palette) {
+                            router.navigate(.planDay, in: .plan)
+                        }
+                        if item.id != items.last?.id {
+                            Divider().padding(.leading, 70)
+                        }
                     }
+
                 }
+                .padding(.horizontal, 16)
+                .lifeBoardRaisedClayCard(palette: palette)
             }
-            .padding(.horizontal, 14)
-            .lifeBoardRaisedClayCard(palette: palette)
         }
         .accessibilityIdentifier("home.todayStory")
     }
 
-    private var todayStoryItems: [HomeTodayStoryItem] {
-        var items: [HomeTodayStoryItem] = []
-        if projectionAdapter.snapshot.openTaskCount > 0 {
-            items.append(.init(
-                id: "tasks",
-                title: "Today is still in motion",
-                detail: "\(projectionAdapter.snapshot.openTaskCount) open tasks remain; choose what still deserves today.",
-                symbol: "checklist",
-                destination: .plan
-            ))
+    /// Plan's day snapshot only counts tasks that carry a planning day, but a
+    /// task given a time in the editor is on today's agenda without one — the
+    /// same agenda "Today's tasks" reads. Both sources, deduplicated by ID.
+    static func upNextItems(lifeOSStore: HomeLifeOSProjectionStore, now: Date) -> [HomeUpNextItem] {
+        let snapshot = lifeOSStore.planSnapshot
+        return HomeUpNextItem.build(
+            commitments: snapshot?.commitments ?? [],
+            blocks: snapshot?.blocks ?? [],
+            plannedTasks: (snapshot?.plannedTasks ?? []) + lifeOSStore.taskAgenda.dueTasks,
+            now: now
+        )
+    }
+}
+
+private struct HomeUpNextRow: View {
+    let item: HomeUpNextItem
+    let now: Date
+    let palette: DaypartPalette
+    let onOpen: () -> Void
+
+    private var timeText: String {
+        item.isHappeningNow ? "Now" : item.startAt.formatted(date: .omitted, time: .shortened)
+    }
+
+    private var detailText: String {
+        let kind = switch item.kind {
+        case .event: "Calendar"
+        case .block: "Planned block"
+        case .task: "Task"
         }
-        if let mood = lifeOSStore.latestMood {
-            items.append(.init(
-                id: "mood",
-                title: "You checked in as \(mood.mood.title.lowercased())",
-                detail: mood.energy.map { "Energy was \($0) out of 5." } ?? "No energy score was needed.",
-                symbol: "face.smiling",
-                destination: .track
-            ))
+        guard let end = item.endAt else { return kind }
+        if item.isHappeningNow {
+            let minutes = max(1, Int(end.timeIntervalSince(now) / 60))
+            return "\(kind) · \(minutes) min left"
         }
-        if projectionAdapter.snapshot.completionRate > 0 {
-            // This read "N% of today's planned work is complete", which broke
-            // the copy law twice on a closed day. It reported 100% after an
-            // evening reconciliation where one task was carried to tomorrow and
-            // one was let go — neither is completion — and it asserted a
-            // confident percentage for a day that had nothing scheduled at all,
-            // so "absent" rendered as "100%". Counts say what happened; a rate
-            // says what someone should conclude from it.
-            let openCount = projectionAdapter.snapshot.openTaskCount
-            items.append(.init(
-                id: "progress",
-                title: "Progress is settling in",
-                detail: openCount == 0
-                    ? "Nothing you committed to is still open."
-                    : "\(openCount) still open.",
-                symbol: "chart.line.uptrend.xyaxis",
-                destination: .insights
-            ))
+        return "\(kind) · until \(end.formatted(date: .omitted, time: .shortened))"
+    }
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(alignment: .center, spacing: 12) {
+                Text(timeText)
+                    .lifeboardFont(.caption1)
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                    .foregroundStyle(item.isHappeningNow ? palette.color(for: .foreground) : palette.color(for: .foregroundSecondary))
+                    .frame(width: 58, alignment: .leading)
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(item.title, systemImage: item.symbol)
+                        .lifeboardFont(.support)
+                        .fontWeight(.semibold)
+                        .lineLimit(2)
+                    Text(detailText)
+                        .lifeboardFont(.caption1)
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
         }
-        if items.isEmpty {
-            items.append(.init(
-                id: "empty",
-                title: "The day is still open",
-                detail: "Capture one thought or choose one useful next step.",
-                symbol: "sparkles",
-                destination: .eva
-            ))
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens today in Plan")
+    }
+}
+
+private struct HomeUpNextRescueRow: View {
+    let count: Int
+    let palette: DaypartPalette
+    let onRescue: () -> Void
+
+    var body: some View {
+        Button(action: onRescue) {
+            HStack(spacing: 12) {
+                Image(systemName: "arrow.uturn.forward.circle")
+                    .lifeboardFont(.headline)
+                    .frame(width: 58, alignment: .leading)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(count == 1 ? "1 task slipped past its day" : "\(count) tasks slipped past their day")
+                        .lifeboardFont(.support)
+                        .fontWeight(.semibold)
+                    Text("Keep, move, or let go — one at a time")
+                        .lifeboardFont(.caption1)
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                }
+                Spacer(minLength: 8)
+                Text("Rescue")
+                    .lifeboardFont(.caption1)
+                    .fontWeight(.semibold)
+            }
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
         }
-        return Array(items.prefix(3))
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.upNext.rescue")
+    }
+}
+
+private struct HomeUpNextEmptyRow: View {
+    let palette: DaypartPalette
+    let onCapture: () -> Void
+
+    var body: some View {
+        Button(action: onCapture) {
+            HStack(spacing: 12) {
+                Image(systemName: "sun.max")
+                    .lifeboardFont(.headline)
+                    .frame(width: 58, alignment: .leading)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Nothing else is scheduled today")
+                        .lifeboardFont(.support)
+                        .fontWeight(.semibold)
+                    Text("Open time is fine. Add a task if something is on your mind.")
+                        .lifeboardFont(.caption1)
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "plus.circle")
+                    .lifeboardFont(.headline)
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.upNext.empty")
     }
 }
 
@@ -3136,41 +3318,171 @@ private struct HomeDayRitualRow: View {
 private struct HomeSpineRepairBody: View {
     let lifeOSStore: HomeLifeOSProjectionStore
     let router: AppRouter
+    let repairStore: PlanStore?
+    @State private var phase: HomeRepairPhase = .deck
+    /// The last previewed diff, kept after Apply clears the scenario so the
+    /// rows can show old → new resolving before they fold into the receipt.
+    @State private var stagedDiff: [PlanningScenarioDiff] = []
+    @State private var showsResolution = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let count = lifeOSStore.driftCount
         VStack(alignment: .leading, spacing: 12) {
-            Text(
-                count == 1
-                    ? "One thing didn't happen when you planned it. Nothing has changed yet."
-                    : "\(count) things didn't happen when you planned them. Nothing has changed yet."
-            )
-            .font(Typography.body())
-            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            .fixedSize(horizontal: false, vertical: true)
+            switch phase {
+            case .deck, .staging:
+                Text(
+                    count == 1
+                        ? "One thing didn't happen when you planned it. Nothing has changed yet."
+                        : "\(count) things didn't happen when you planned them. Nothing has changed yet."
+                )
+                .font(Typography.body())
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                .fixedSize(horizontal: false, vertical: true)
 
-            PlanRepairDeck(
-                proposals: lifeOSStore.repairProposals,
-                // The spine already says "Worth a look"; a second header here
-                // would title the same thing twice.
-                header: nil,
-                // The service's own wording — "this planned block has passed
-                // without a completion receipt" — is a sentence about our data
-                // model, not about the person's day.
-                fallbackExplanation: "This one didn't get its window today."
-            ) { action, _ in
-                // Home decides, Plan commits. Choosing a direction only *stages*
-                // a scenario, and staging needs a `PlanningScenarioCoordinator`
-                // that Home's `PlanStore` is built without — so acting here
-                // would look like it worked and quietly do nothing.
-                if action == .askEva {
-                    router.select(.eva)
-                } else {
-                    router.navigate(.planDay, in: .plan)
+                PlanRepairDeck(
+                    proposals: lifeOSStore.repairProposals,
+                    // The spine already says "Worth a look"; a second header here
+                    // would title the same thing twice.
+                    header: nil,
+                    // The service's own wording — "this planned block has passed
+                    // without a completion receipt" — is a sentence about our data
+                    // model, not about the person's day.
+                    fallbackExplanation: "This one didn't get its window today."
+                ) { action, proposal in
+                    choose(action, proposal: proposal)
                 }
+                .disabled(phase == .staging || repairStore == nil)
+                .overlay {
+                    if phase == .staging {
+                        ProgressView("Preparing a preview")
+                            .lifeboardFont(.support)
+                    }
+                }
+            case .preview:
+                if let repairStore {
+                    // The preview takes the deck's place: one decision on Home,
+                    // answered here, with Plan as the quiet way out.
+                    PlanMinimumViableDayCard(store: repairStore)
+                    Button("Open in Plan") {
+                        if let scenario = repairStore.pendingScenario {
+                            HomePlanningHandoff.pending = (repairStore.selectedDay, scenario)
+                            router.navigate(.planDay, in: .plan)
+                        }
+                    }
+                    .lifeboardFont(.buttonSmall)
+                    .frame(minHeight: 44)
+                    .accessibilityHint("Review this change on the day's timeline instead")
+                }
+            case .applied:
+                if showsResolution {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(stagedDiff) { change in
+                            PlanScenarioDiffRow(change: change, isResolved: true)
+                        }
+                    }
+                    .padding(16)
+                    .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
+                    .transition(.opacity)
+                }
+                ReceiptBar(
+                    ActionReceiptPresentation(
+                        message: stagedDiff.count == 1 ? "Plan updated" : "\(stagedDiff.count) changes applied",
+                        detail: stagedDiff.count == 1 ? stagedDiff.first.map { PlanScenarioDiffRow.accessibilityText($0, isResolved: true) } : nil
+                    ),
+                    undo: {
+                        guard let repairStore else { return }
+                        Task {
+                            if await repairStore.undoLastMutation() {
+                                await lifeOSStore.load()
+                            }
+                            advance(.undone)
+                        }
+                    },
+                    destination: .init(title: "Open") { router.navigate(.planDay, in: .plan) },
+                    onDismiss: { advance(.dismissedReceipt) }
+                )
+            }
+            if let error = repairStore?.errorMessage, phase != .applied {
+                Text(error)
+                    .lifeboardFont(.support)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            }
+        }
+        .onChange(of: repairStore?.pendingScenario?.id) { _, scenarioID in
+            if let diff = repairStore?.pendingScenario?.diff { stagedDiff = diff }
+            // Apply and "Not now" both clear the scenario; the receipt ID is
+            // what tells them apart.
+            if phase == .preview, scenarioID == nil {
+                advance(repairStore?.lastMutationReceiptID != nil ? .applied : .notNow)
             }
         }
         .accessibilityIdentifier("home.loopSpine.repair.body")
+    }
+
+    private func choose(_ action: PlanRepairAction, proposal: PlanRepairProposal?) {
+        guard let repairStore, phase == .deck else { return }
+        if action == .askEva { router.select(.eva); return }
+        Haptic.pick.play()
+        advance(.chose)
+        Task { @MainActor in
+            await repairStore.load()
+            if let proposal { repairStore.previewRepair(proposal, action: action) }
+            else { repairStore.previewMinimumViableDay() }
+            if let scenario = repairStore.pendingScenario {
+                stagedDiff = scenario.diff
+                advance(.staged)
+            } else {
+                advance(.stagingFailed)
+            }
+        }
+    }
+
+    private func advance(_ event: HomeRepairPhase.Event) {
+        let next = phase.next(event)
+        guard next != phase else { return }
+        if next == .applied {
+            Haptic.commit.play()
+            // Show old → new resolving, then fold into the one-line receipt.
+            showsResolution = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(reduceMotion ? 0 : 900))
+                withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
+                    showsResolution = false
+                }
+                await lifeOSStore.load()
+            }
+        }
+        withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
+            phase = next
+        }
+    }
+}
+
+/// Home's in-place repair, as a value: the deck, a preview being prepared, the
+/// preview awaiting an answer, and the applied receipt. Every transition not
+/// listed is ignored, so a late event (a second tap, a stale apply) can never
+/// skip the preview or resurrect a dismissed receipt.
+enum HomeRepairPhase: Equatable {
+    case deck
+    case staging
+    case preview
+    case applied
+
+    enum Event {
+        case chose, staged, stagingFailed, notNow, applied, undone, dismissedReceipt
+    }
+
+    func next(_ event: Event) -> HomeRepairPhase {
+        switch (self, event) {
+        case (.deck, .chose): .staging
+        case (.staging, .staged): .preview
+        case (.staging, .stagingFailed): .deck
+        case (.preview, .notNow): .deck
+        case (.preview, .applied): .applied
+        case (.applied, .undone), (.applied, .dismissedReceipt): .deck
+        default: self
+        }
     }
 }
 
@@ -3991,7 +4303,20 @@ private struct HomeGlanceWidget: View {
     }
 }
 
+/// Starts a Focus session on a task without leaving Home's intent behind: the
+/// session begins, then its surface opens. Absent where Plan's focus commands
+/// are not wired, in which case "Start" opens Plan as it always did.
+struct HomeStartFocusAction {
+    /// Returns whether a session is running afterwards.
+    let start: @MainActor (_ taskID: UUID) async -> Bool
+}
+
+extension EnvironmentValues {
+    @Entry var homeStartFocus: HomeStartFocusAction? = nil
+}
+
 private struct HomeFocusNowWidget: View {
+    @Environment(\.homeStartFocus) private var startFocus
     let preset: WidgetSizePreset
     let lifeOSStore: HomeLifeOSProjectionStore
     let projectionAdapter: HomeProjectionCoordinator
@@ -4022,7 +4347,20 @@ private struct HomeFocusNowWidget: View {
         switch hero.priority {
         case .safetySensitiveCare, .timedRoutine:
             router.select(.track)
-        case .activeFocus, .fixedCommitment, .urgentPlannedWork, .generalFocus, .recovery:
+        case .urgentPlannedWork, .generalFocus:
+            // "Start" means start. It used to switch to the Plan tab and leave
+            // the person to find the task and start it again from there.
+            if let taskID = hero.sourceID, let startFocus {
+                Haptic.commit.play()
+                Task { @MainActor in
+                    if await startFocus.start(taskID) == false {
+                        router.select(.plan)
+                    }
+                }
+                return
+            }
+            router.select(.plan)
+        case .activeFocus, .fixedCommitment, .recovery:
             router.select(.plan)
         }
         Haptic.pick.play()
@@ -5265,5 +5603,23 @@ private struct ReferenceHabitCard: View {
         .frame(maxWidth: .infinity, minHeight: 94)
         .lifeBoardPaperCard()
         .accessibilityElement(children: .combine)
+    }
+}
+
+@MainActor
+enum HomePlanningHandoff {
+    static var pending: (PlanningDay, PlanningScenario)?
+}
+
+
+/// Whether Home's day is quiet enough to say so once.
+///
+/// "Up next" and "Today's tasks" used to render two large empty cards saying
+/// nearly the same thing. When both are empty — and only once the agenda has
+/// actually loaded, so a slow launch never hides a real task list — Home says
+/// it in one line.
+enum HomeQuietDay {
+    static func isQuiet(upNextCount: Int, agendaTaskCount: Int, hasLoaded: Bool) -> Bool {
+        hasLoaded && upNextCount == 0 && agendaTaskCount == 0
     }
 }
