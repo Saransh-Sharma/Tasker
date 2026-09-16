@@ -62,7 +62,9 @@ struct FocusSurfaceDialSection: View {
     private func dialCentre(_ display: FocusClockDisplay) -> some View {
         VStack(spacing: 8) {
             if display.showsClock {
-                Text(PlanSectionCopy.duration(display.value))
+                // A timer reads in minutes and seconds. "25m" stood still for
+                // a whole minute, so a running session looked frozen.
+                Text(FocusClock.clockText(display.value))
                     // Token-backed rather than a fixed 46pt: a hard-coded size
                     // is the one thing that cannot scale, and this is the single
                     // most important number on the screen for someone who needs
@@ -105,6 +107,15 @@ struct FocusClockDisplay {
 /// is more honest than making the copy layer nonisolated to suit one consumer.
 @MainActor
 enum FocusClock {
+    /// "24:37", or "1:05:09" past an hour.
+    nonisolated static func clockText(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded(.down)))
+        let hours = total / 3_600, minutes = (total % 3_600) / 60, secs = total % 60
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, secs)
+            : String(format: "%d:%02d", minutes, secs)
+    }
+
     static func progress(
         session: FocusSessionV2,
         companion: FocusSessionCompanion?,
