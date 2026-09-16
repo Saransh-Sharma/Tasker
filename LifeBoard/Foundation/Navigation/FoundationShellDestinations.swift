@@ -199,7 +199,7 @@ extension FoundationShell {
                     transaction: transaction
                 )
             }
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            Haptic.pick.play()
         } catch {
             runtime.router.activeAlert = .init(
                 title: "Couldn’t update Home",
@@ -258,7 +258,7 @@ extension FoundationShell {
             return AnyView(PlanRootView(
                 dependencies: planDependencies,
                 rescueRefreshGeneration: planRescueRefreshGeneration,
-                onOpenFocus: { _ in router.select(.plan) },
+                onOpenFocus: { router.push(.focusSession($0), in: .plan) },
                 onAskEva: { router.select(.eva) },
                 onOpenWeeklyPlanner: { router.push(.weeklyPlanningWorkspace(.week), in: .plan) },
                 onOpenWeeklyReview: { router.push(.weeklyReview, in: .plan) },
