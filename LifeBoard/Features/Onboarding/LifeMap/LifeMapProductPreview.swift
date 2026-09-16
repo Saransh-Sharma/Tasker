@@ -62,6 +62,7 @@ struct LifeMapProductPreview: View {
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             }
         }
+        .homeAmbientArtwork(.setupChecklist)
         .accessibilityElement(children: .combine)
     }
 
