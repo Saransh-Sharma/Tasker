@@ -285,12 +285,11 @@ struct SettingsCategoryGroup: View {
             }
         }
         .padding(.horizontal, SwiftUITokens.spacing.s12)
-        .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color.lifeboard(.borderSubtle), lineWidth: 1)
-        }
-        .lifeboardElevation(.e1, cornerRadius: 24, includesBorder: false)
+        // `Radius.card` (20), not 24: the 24pt radius is the hero's, and it is
+        // what carries a card and the hero it opens into as one silhouette.
+        // A settings group is raised clay, so it uses the clay primitive rather
+        // than a hand-rolled fill, stroke and elevation.
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("settings.categoryGroup")
     }
