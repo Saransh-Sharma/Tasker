@@ -73,7 +73,7 @@ struct EvaPowerUpView: View {
             // already chosen offline, so a dead network cannot paint a cloud
             // failure over a screen that is not asking for the cloud.
             guard prefersOffline == false else { return }
-            _ = await evaAccess.hydrate()
+            _ = await evaAccess.ensureActivated(source: .onboarding)
         }
         .onChange(of: currentStageIndex) { _, newIndex in announceStage(newIndex) }
         // Fires on the real readiness boundary — a resolved activation — not on
@@ -111,15 +111,9 @@ struct EvaPowerUpView: View {
             offlineCard
         } else {
             switch evaAccess.state {
-            case .hydrating, .needsDisclosure:
-                EvaPowerUpDisclosureSection(
-                    model: model,
-                    isHydrating: evaAccess.state == .hydrating,
-                    isWorking: evaAccess.isWorking,
-                    showsGrantReview: $showsGrantReview,
-                    showsProcessingDetail: $showsProcessingDetail,
-                    onChooseOffline: selectOffline
-                )
+            case .hydrating, .needsActivation:
+                Text("Cloud EVA connects automatically. Journal, Health, life moments, and personal memory context are enabled by default. Manage what EVA can use in Settings. Prompts and available context pass through LifeBoard to OpenAI.")
+                    .lifeboardFont(.support)
             case .activating:
                 activationCard
             case .ready:
@@ -135,12 +129,6 @@ struct EvaPowerUpView: View {
                     title: "Today's included answers are used up.",
                     detail: quotaDetail(nextAvailableAt),
                     recovery: "You can wait for the allowance to reset, or use Offline EVA now."
-                )
-            case .ageBlocked(let message):
-                failureCard(
-                    title: "Cloud EVA isn't available for this account.",
-                    detail: resolvedDetail(message, fallback: "Your account isn't eligible for Cloud EVA."),
-                    recovery: "Offline EVA has no account and no age requirement."
                 )
             case .appleReauthenticationRequired:
                 failureCard(
@@ -197,7 +185,7 @@ struct EvaPowerUpView: View {
                 .lifeboardFont(.support)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
-            Text("You can continue using LifeBoard. Confirmed setup resumes without asking you to agree again.")
+            Text("You can continue using LifeBoard. EVA connects automatically in the background.")
                 .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textTertiary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -209,26 +197,12 @@ struct EvaPowerUpView: View {
         .accessibilityIdentifier(EvaPowerUpAccessibilityID.activating)
     }
 
-    /// The real execution order, which is not the order the stages are declared
-    /// in: age is confirmed *before* the device is verified.
-    ///
-    /// The age step is skipped outright when the signed configuration does not
-    /// ask for a decision, so the row is dropped rather than drawn as complete —
-    /// a checklist that ticks a step nobody ran is worse than a shorter list.
-    private var activationStages: [EvaPowerUpStage] {
-        var stages: [EvaPowerUpStage] = [.session]
-        if evaAccess.account.configuration?.requiresAgeDecision == true {
-            stages.append(.ageRange)
-        }
-        stages.append(contentsOf: [.device, .securing])
-        return stages
-    }
+    private var activationStages: [EvaPowerUpStage] { [.session, .device, .securing] }
 
     private var currentStageIndex: Int? {
         switch evaAccess.account.activationStage {
         case .idle: nil
         case .creatingGuest: EvaPowerUpStage.session.rawValue
-        case .confirmingAge: EvaPowerUpStage.ageRange.rawValue
         case .verifyingDevice: EvaPowerUpStage.device.rawValue
         case .finalizing: EvaPowerUpStage.securing.rawValue
         }
@@ -282,11 +256,11 @@ struct EvaPowerUpView: View {
     }
 
     private var readyDetail: String {
-        let selected = model.draft.resolvedEvaGrants.count
+        let selected = evaAccess.account.consent?.grants.count ?? evaAccess.selectedGrants.count
         guard selected > 0 else {
-            return "It works from your life areas, tasks, and plans. You allowed none of the optional categories, and EVA will not ask for them mid-answer."
+            return "It works from your life areas, tasks, and plans. Your settings exclude the optional categories."
         }
-        return "It works from your life areas, tasks, and plans, plus the \(selected) optional \(selected == 1 ? "category" : "categories") you allowed. You can change those any time in EVA settings."
+        return "It works from your life areas, tasks, and plans, plus the \(selected) optional \(selected == 1 ? "category" : "categories") enabled in your settings. You can change those any time in EVA settings."
     }
 
     /// Only for a guest session — an Apple-backed one already has recovery.
@@ -347,7 +321,7 @@ struct EvaPowerUpView: View {
     /// two buttons with one verb is a choice the user does not have.
     private var isOfflineOfferedOnFailure: Bool {
         switch evaAccess.state {
-        case .quotaExhausted, .ageBlocked: false
+        case .quotaExhausted: false
         default: true
         }
     }
@@ -382,7 +356,7 @@ struct EvaPowerUpView: View {
         model.chooseCloudEva()
         prefersOffline = false
         appleLinkMessage = nil
-        Task { _ = await evaAccess.hydrate() }
+        Task { _ = await evaAccess.ensureActivated(source: .onboarding) }
     }
 
     /// Recovery must never cost the user a working EVA.
@@ -398,7 +372,7 @@ struct EvaPowerUpView: View {
             let succeeded = await evaAccess.reconnectApple()
             guard succeeded == false else { return }
             let reason = evaAccess.errorMessage
-            _ = await evaAccess.hydrate()
+            _ = await evaAccess.ensureActivated(source: .onboarding)
             appleLinkMessage = reason ?? "That didn't finish. EVA still works — you can protect it later in Settings."
         }
     }
@@ -460,10 +434,8 @@ private struct EvaPowerUpDisclosureSection: View {
 }
 
 private enum EvaPowerUpStage: Int, Identifiable, CaseIterable {
-    // Raw values are the real execution order, which is why `ageRange` sits
-    // between the session and the device check rather than after them.
+    // Raw values follow activation order.
     case session = 0
-    case ageRange = 1
     case device = 2
     case securing = 3
 
@@ -472,7 +444,6 @@ private enum EvaPowerUpStage: Int, Identifiable, CaseIterable {
     var title: String {
         switch self {
         case .session: "Starting your EVA session"
-        case .ageRange: "Confirming your age range"
         case .device: "Verifying this device"
         case .securing: "Securing your EVA session"
         }
@@ -481,7 +452,6 @@ private enum EvaPowerUpStage: Int, Identifiable, CaseIterable {
     var identifierSuffix: String {
         switch self {
         case .session: "session"
-        case .ageRange: "ageRange"
         case .device: "device"
         case .securing: "securing"
         }
@@ -598,8 +568,8 @@ private struct EvaPowerUpGrantSheet: View {
 
     private var footerText: String {
         isLocked
-            ? "These were sent with your confirmation. Change them any time in EVA settings — it takes effect before EVA's next answer, on every device."
-            : "Nothing here is sent until you tap Enable Cloud EVA. Turning one off later takes effect before EVA's next answer, on every device."
+            ? "These are active for your Cloud EVA session. Change them any time in EVA settings — updates take effect before EVA's next answer, on every device."
+            : "Cloud EVA enables these categories by default. Change them any time in EVA settings — updates take effect before EVA's next answer, on every device."
     }
 
     private func binding(for grant: EvaConsentPolicy.Grant) -> Binding<Bool> {
