@@ -24,7 +24,7 @@ final class LifeWeaveOnboardingTests: XCTestCase {
 
     /// Numeric position is published for VoiceOver even though the sighted UI
     /// deliberately shows a track instead of a percentage.
-    func testCoreIndexIsOneBasedForEveryCoreStep() {
+    func testCoreIndexIsOneBasedForEveryLegacyStep() {
         XCTAssertEqual(LifeWeaveStep.arrival.coreIndex, 1)
         XCTAssertEqual(LifeWeaveStep.lifeAreas.coreIndex, 3)
         XCTAssertEqual(LifeWeaveStep.reveal.coreIndex, 6)
@@ -275,61 +275,98 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertEqual(legacy.orderedLifeAreaTemplateIDs, draft.orderedLifeAreaTemplateIDs)
     }
 
-    // MARK: - Reveal copy
+    // MARK: - Ready copy
 
-    /// Never fabricate. A skipped capture is an honest empty state.
+    /// Never fabricate. A skipped or unreviewed capture is an honest empty
+    /// state, and the receipt says so in plain words.
     func testReceiptClaimsACaptureOnlyWhenOneWasReviewed() {
         var draft = LifeWeaveDraft()
         draft.orderedLifeAreaTemplateIDs = ["work-career", "health-self", "money"]
 
-        XCTAssertFalse(LifeWeaveRevealCopy.receipt(for: draft).contains { $0.contains("captured") })
+        XCTAssertEqual(LifeWeaveRevealCopy.receipt(for: draft).first, LifeWeaveCopy.Ready.emptyCapture)
 
         draft.stagedCapture = LifeMapStagedCapture(text: "Renew passport", kind: .task, isReviewed: false)
-        XCTAssertFalse(
-            LifeWeaveRevealCopy.receipt(for: draft).contains { $0.contains("captured") },
+        XCTAssertEqual(
+            LifeWeaveRevealCopy.receipt(for: draft).first,
+            LifeWeaveCopy.Ready.emptyCapture,
             "an unreviewed capture is not written, so the receipt must not claim it"
         )
 
         draft.stagedCapture?.isReviewed = true
-        XCTAssertTrue(LifeWeaveRevealCopy.receipt(for: draft).contains("1 thing captured"))
-        XCTAssertTrue(LifeWeaveRevealCopy.receipt(for: draft).contains("3 life areas"))
+        let receipt = LifeWeaveRevealCopy.receipt(for: draft)
+        XCTAssertEqual(receipt.first, "Renew passport · Task")
+        XCTAssertTrue(receipt.contains("Work & Career first, plus 2 more"))
     }
 
-    /// The emotional high point of the first run must not be the one thing that
-    /// fails offline, so the sentence is a template rather than a generation.
-    func testRevealSentenceNamesThePrimaryAreaFirst() {
+    /// Pick order is the ranking, so the receipt names the first pick.
+    func testReceiptNamesTheFirstPickAndTheHours() {
         var draft = LifeWeaveDraft()
-        draft.orderedLifeAreaTemplateIDs = ["work-career", "health-self"]
-        let sentence = LifeWeaveRevealCopy.sentence(for: draft)
-        XCTAssertTrue(sentence.hasPrefix("Work & Career"))
-        XCTAssertTrue(sentence.contains("Health & Self"))
+        draft.orderedLifeAreaTemplateIDs = ["health-self"]
+        let receipt = LifeWeaveRevealCopy.receipt(for: draft)
+        XCTAssertTrue(receipt.contains("Health & Self first"))
+        XCTAssertTrue(receipt.contains { $0.hasPrefix("Weekdays ") }, "hours are a default shown with an Edit link, never asked")
     }
 
     // MARK: - Copy hygiene
 
-    /// Internal vocabulary must not reach first-run copy. The user did not come
-    /// to route an entity or to select a module.
-    func testFirstRunCopyDoesNotLeakImplementationVocabulary() {
-        let banned = ["route", "module", "canonical", "projection", "provider", "authority"]
-        var copy: [String] = []
-        for intent in LifeWeaveIntent.allCases {
-            copy.append(intent.title)
-            if let subtitle = intent.subtitle { copy.append(subtitle) }
-        }
-        for preset in LifeWeaveDayShapePreset.allCases { copy.append(preset.title) }
-        var draft = LifeWeaveDraft()
-        draft.orderedLifeAreaTemplateIDs = ["work-career", "health-self"]
-        copy.append(LifeWeaveRevealCopy.sentence(for: draft))
-        for intent in LifeWeaveIntent.allCases {
-            if let line = LifeWeaveRevealCopy.intentLine(for: intent) { copy.append(line) }
-        }
+    /// Every visible first-run string, gathered from the one file that owns them.
+    private var firstRunCopy: [String] {
+        var copy: [String] = [
+            LifeWeaveCopy.Welcome.title, LifeWeaveCopy.Welcome.privacy,
+            LifeWeaveCopy.Areas.title, LifeWeaveCopy.Areas.support,
+            LifeWeaveCopy.Capture.title, LifeWeaveCopy.Capture.support, LifeWeaveCopy.Capture.saveAs,
+            LifeWeaveCopy.Ready.title, LifeWeaveCopy.Ready.emptyCapture, LifeWeaveCopy.Ready.connectHeader,
+            LifeWeaveCopy.Ready.evaNotice, LifeWeaveCopy.Ready.evaNoticeLink,
+            LifeWeaveCopy.Hours.title, LifeWeaveCopy.Hours.support,
+            LifeWeaveCopy.Failure.title, LifeWeaveCopy.Failure.body
+        ]
+        copy += LifeWeaveIntent.allCases.map(\.title)
+        copy += LifeWeaveDayShapePreset.allCases.map(\.title)
+        copy += LifeWeavePowerUpStep.connectors.map(LifeWeaveCopy.Connection.value)
+        copy += LifeWeaveCopy.EvaData.bullets
+        return copy
+    }
 
-        for line in copy {
+    /// Internal vocabulary must not reach first-run copy. The user did not come
+    /// to route an entity, select a module, or power anything up.
+    func testFirstRunCopyDoesNotLeakImplementationVocabulary() {
+        let banned = [
+            "route", "module", "canonical", "projection", "provider", "authority",
+            "clearest path", "life map", "weave", "power up", "boundary"
+        ]
+        for line in firstRunCopy {
             let lower = line.lowercased()
             for word in banned {
                 XCTAssertFalse(lower.contains(word), "\"\(line)\" leaks \"\(word)\" into first-run copy")
             }
         }
+    }
+
+    /// The budgets the redesign was held to. A title is the question, an option
+    /// is a label, a button is a verb — and none of them is a paragraph.
+    func testFirstRunCopyStaysWithinItsWordBudgets() {
+        func words(_ text: String) -> Int { text.split(whereSeparator: \.isWhitespace).count }
+
+        let titles = [
+            LifeWeaveCopy.Welcome.title, LifeWeaveCopy.Areas.title,
+            LifeWeaveCopy.Capture.title, LifeWeaveCopy.Ready.title, LifeWeaveCopy.Hours.title
+        ]
+        for title in titles { XCTAssertLessThanOrEqual(words(title), 6, "title too long: \(title)") }
+
+        let options = LifeWeaveIntent.allCases.map(\.title)
+            + LifeWeaveDayShapePreset.allCases.map(\.title)
+            + StarterWorkspaceCatalog.allLifeAreas.map(\.name)
+        for option in options { XCTAssertLessThanOrEqual(words(option), 4, "option too long: \(option)") }
+
+        let buttons = [
+            LifeWeaveCopy.Dock.continue, LifeWeaveCopy.Dock.pickOne, LifeWeaveCopy.Dock.save,
+            LifeWeaveCopy.Dock.skip, LifeWeaveCopy.Dock.startMyDay, LifeWeaveCopy.Dock.pickMore(2),
+            LifeWeaveCopy.Dock.notNow
+        ]
+        for button in buttons { XCTAssertLessThanOrEqual(words(button), 3, "button too long: \(button)") }
+
+        let supports = [LifeWeaveCopy.Areas.support, LifeWeaveCopy.Capture.support, LifeWeaveCopy.Hours.support]
+        for line in supports { XCTAssertLessThanOrEqual(words(line), 10, "support too long: \(line)") }
     }
 
     // MARK: - Life-area identity
@@ -350,41 +387,21 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         )
     }
 
-    // MARK: - Power-Up phase shape
+    // MARK: - Connections shape
 
-    /// The core promise is six steps that need no permission. Power Up must be a
-    /// second axis, never four more cases on `LifeWeaveStep` — that would turn
-    /// "3 of 6" into "3 of 10" and recast an optional phase as mandatory.
-    func testPowerUpIsASeparateAxisFromTheCoreSteps() {
-        XCTAssertEqual(LifeWeaveStep.allCases.count, 6)
+    /// The core promise needs no permission. Connections must be a second axis,
+    /// never more cases on `LifeWeaveStep` — that would turn "3 of 4" into
+    /// "3 of 7" and recast an optional phase as mandatory.
+    func testConnectionsAreASeparateAxisFromTheCoreSteps() {
+        XCTAssertEqual(LifeWeaveStep.streamlined.count, 4)
         XCTAssertEqual(LifeWeavePowerUpStep.connectors, [.calendar, .health, .eva])
-        XCTAssertEqual(LifeWeavePowerUpStep.connectorCount, 3)
+        XCTAssertEqual(LifeWeavePowerUpStep.allCases, LifeWeavePowerUpStep.connectors)
     }
 
-    /// Only the three connectors are counted. `intro` and `complete` are framing,
-    /// and numbering them would overstate what is being asked of the user.
-    func testOnlyConnectorsCarryAPosition() {
+    func testEveryConnectorCarriesAPosition() {
         XCTAssertEqual(LifeWeavePowerUpStep.calendar.connectorIndex, 1)
         XCTAssertEqual(LifeWeavePowerUpStep.health.connectorIndex, 2)
         XCTAssertEqual(LifeWeavePowerUpStep.eva.connectorIndex, 3)
-        XCTAssertNil(LifeWeavePowerUpStep.complete.connectorIndex)
-    }
-
-    func testPowerUpAdvancesThroughEveryConnectorToTheReceipt() {
-        var visited: [LifeWeavePowerUpStep] = [.calendar]
-        var cursor = LifeWeavePowerUpStep.calendar
-        while let next = cursor.next {
-            visited.append(next)
-            cursor = next
-        }
-        XCTAssertEqual(visited, [.calendar, .health, .eva, .complete])
-        XCTAssertNil(LifeWeavePowerUpStep.complete.next)
-    }
-
-    /// The reveal already carries the invitation, so there is no separate intro
-    /// screen to walk through before the first connector.
-    func testThePhaseStartsAtTheFirstConnectorWithNoIntroScreen() {
-        XCTAssertEqual(LifeWeavePowerUpStep.allCases, [.calendar, .health, .eva, .complete])
     }
 
     func testEveryPowerUpStepPublishesAStableUniqueIdentifierSuffix() {
@@ -393,20 +410,38 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertFalse(suffixes.contains { $0.isEmpty })
     }
 
-    // MARK: - Route derivation
+    // MARK: - Connector position
 
-    /// Entering Power Up must not rewrite the core position. The reveal is still
-    /// where the user was, which is what makes the phase genuinely additive.
-    func testRouteFollowsThePowerUpStepWithoutDisturbingTheCoreStep() {
+    /// Opening a connector must not rewrite the core position. The reveal is
+    /// still where the user was, which is what makes the phase additive.
+    func testOpeningAConnectorLeavesTheCoreStepAtTheReveal() {
         var draft = LifeWeaveDraft()
         draft.step = .reveal
-        XCTAssertEqual(draft.route, .core(.reveal))
-        XCTAssertFalse(draft.isPoweringUp)
+        XCTAssertNil(draft.resolvedPowerUpStep)
 
-        draft.powerUpStep = .calendar
-        XCTAssertEqual(draft.route, .powerUp(.calendar))
-        XCTAssertTrue(draft.isPoweringUp)
+        draft.powerUpStep = LifeWeavePowerUpStep.calendar.rawValue
+        XCTAssertEqual(draft.resolvedPowerUpStep, .calendar)
         XCTAssertEqual(draft.step, .reveal, "core position survives the phase change")
+    }
+
+    /// The retired `complete` receipt step is still on disk for some users. It
+    /// must decode as "not in a connector", never throw and re-onboard them.
+    func testALegacyCompletePowerUpStepDecodesToNilInsteadOfThrowing() throws {
+        var draft = LifeWeaveDraft()
+        draft.step = .reveal
+        draft.lifecyclePhase = .poweringUp
+        draft.powerUpStep = "complete"
+        let data = try JSONEncoder().encode(draft)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["powerUpStep"] as? String, "complete")
+        object["powerUpStep"] = "complete"
+        let decoded = try JSONDecoder().decode(LifeWeaveDraft.self, from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertNil(decoded.resolvedPowerUpStep)
+        XCTAssertEqual(decoded.step, .reveal)
+
+        object.removeValue(forKey: "powerUpStep")
+        let withoutKey = try JSONDecoder().decode(LifeWeaveDraft.self, from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertNil(withoutKey.resolvedPowerUpStep)
     }
 
     func testDeferralsResolveFromRawValuesAndIgnoreUnknownOnes() {
@@ -418,26 +453,17 @@ final class LifeWeaveOnboardingTests: XCTestCase {
 
     // MARK: - Progress vocabulary
 
-    /// Two vocabularies, deliberately. The core track shows segments and no
-    /// number; the power-up track names itself so an optional phase never reads
-    /// as a continuation of a mandatory one.
-    func testCoreAndPowerUpUseDifferentProgressVocabularies() {
-        let core = LifeWeaveProgressModel.resolve(.core(.lifeAreas))
-        XCTAssertEqual(core.index, 3)
-        XCTAssertEqual(core.total, 6)
-        XCTAssertNil(core.eyebrow, "the core phase deliberately shows no number")
-        XCTAssertEqual(core.spokenLabel, "Core setup, step 3 of 6, Life areas")
+    /// Four anonymous segments; VoiceOver hears the position in words.
+    /// Connections open as sheets over Ready and never take a position.
+    func testProgressCountsFourScreensAndNamesThemForVoiceOver() {
+        let areas = LifeWeaveProgressModel.resolve(.lifeAreas)
+        XCTAssertEqual(areas.index, 2)
+        XCTAssertEqual(areas.total, 4)
+        XCTAssertEqual(areas.spokenLabel, "Setup, step 2 of 4, Life areas")
 
-        let powerUp = LifeWeaveProgressModel.resolve(.powerUp(.health))
-        XCTAssertEqual(powerUp.index, 2)
-        XCTAssertEqual(powerUp.total, 3)
-        XCTAssertEqual(powerUp.eyebrow, "POWER UP 2 OF 3")
-        XCTAssertEqual(powerUp.spokenLabel, "Power up, step 2 of 3, Apple Health")
-    }
-
-    func testFramingScreensCarryNoProgress() {
-        XCTAssertEqual(LifeWeaveProgressModel.resolve(.powerUp(.complete)), .none)
-        XCTAssertNil(LifeWeaveProgressModel.resolve(.powerUp(.complete)).index)
+        XCTAssertEqual(LifeWeaveProgressModel.resolve(.dayShape).index, 2, "a legacy position maps onto its streamlined screen")
+        XCTAssertEqual(LifeWeaveProgressModel.resolve(.reveal).index, 4, "a connection sits over Ready and never takes a position")
+        XCTAssertEqual(LifeWeaveProgressModel.resolve(.arrival).spokenLabel, "Setup, step 1 of 4, Welcome")
     }
 
     // MARK: - Schema 11 migration
@@ -463,7 +489,7 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertEqual(migrated.schemaVersion, LifeWeaveDraft.currentSchemaVersion)
         XCTAssertNil(migrated.powerUpStep, "an old draft never entered the phase")
         XCTAssertEqual(migrated.deferredPowerUpIDs, [], "seeded so later writes append")
-        XCTAssertEqual(migrated.route, .core(.reveal))
+        XCTAssertEqual(migrated.step, .reveal)
         XCTAssertEqual(migrated.intent, .clarityToday)
         XCTAssertEqual(migrated.orderedLifeAreaTemplateIDs, ["work", "health"])
         XCTAssertEqual(migrated.primaryLifeAreaTemplateID, "work")
@@ -499,7 +525,7 @@ final class SeamlessOnboardingTests: XCTestCase {
     func testInterruptedConnectionReturnsToReadyWorkspace() {
         var draft = LifeWeaveDraft()
         draft.lifecyclePhase = .poweringUp
-        draft.powerUpStep = .eva
+        draft.powerUpStep = LifeWeavePowerUpStep.eva.rawValue
         draft.evaActivationPending = true
         draft.commitPhase = .captureWritten
         var state = AppOnboardingState()
@@ -538,4 +564,252 @@ final class SeamlessOnboardingTests: XCTestCase {
         EvaPendingActivationDraftStore.clear(threadID: thread, defaults: defaults)
         XCTAssertNil(EvaPendingActivationDraftStore.load(threadID: thread, defaults: defaults))
     }
+}
+
+/// The four-screen redesign's behaviour, exercised through the real model.
+@MainActor
+final class LifeWeaveRedesignTests: XCTestCase {
+
+    private func makeModel(
+        resolver: (any LifeWeaveCaptureResolving)? = nil
+    ) -> (model: LifeWeaveOnboardingModel, cleanup: () -> Void) {
+        let suite = "life.weave.redesign.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let store = AppOnboardingStateStore(userDefaults: defaults)
+        let commit = LifeMapCommitCoordinator(
+            dependencies: .init(
+                fetchLifeAreas: { [] },
+                createLifeArea: { LifeArea(name: $0.name, color: $0.colorHex, icon: $0.icon) },
+                updateLifeArea: { $0 },
+                fetchTask: { _ in nil },
+                createTask: { $0.toTaskDefinition(projectName: $0.projectName) },
+                fetchReflection: { _ in nil },
+                saveReflection: { $0 },
+                saveWorkingHours: { _ in },
+                fetchHomeLayout: { nil },
+                saveHomeLayout: { _ in }
+            ),
+            stateStore: store,
+            profileStore: LifeMapProfileStore(defaults: defaults),
+            preferencesStore: WorkspacePreferencesStore(defaults: defaults)
+        )
+        let model = LifeWeaveOnboardingModel(
+            stateStore: store,
+            commitCoordinator: commit,
+            feedback: OnboardingFeedbackController(),
+            captureResolver: resolver ?? UniversalInputCoordinator()
+        )
+        model.prepareForPresentation(snapshot: nil, legacySnapshot: nil)
+        return (model, { defaults.removePersistentDomain(forName: suite) })
+    }
+
+    /// Polls until the gated resolver has seen `count` sentences.
+    private func waitForRequests(_ count: Int, on resolver: GatedCaptureResolver, file: StaticString = #filePath, line: UInt = #line) async {
+        let deadline = Date().addingTimeInterval(2)
+        while await resolver.requestCount() < count, Date() < deadline {
+            try? await _Concurrency.Task.sleep(for: .milliseconds(10))
+        }
+        let seen = await resolver.requestCount()
+        XCTAssertGreaterThanOrEqual(seen, count, "resolver saw \(seen) request(s)", file: file, line: line)
+    }
+
+    private func settle() async {
+        try? await _Concurrency.Task.sleep(for: .milliseconds(60))
+    }
+
+    private func template(_ id: String) -> StarterLifeAreaTemplate {
+        StarterWorkspaceCatalog.allLifeAreas.first { $0.id == id }!
+    }
+
+    func testEveryNewJourneyIsTheFourScreenFlow() {
+        let (model, cleanup) = makeModel()
+        defer { cleanup() }
+        XCTAssertEqual(model.coreSteps, [.arrival, .lifeAreas, .firstCapture, .reveal])
+        XCTAssertEqual(model.draft.streamlinedJourney, true)
+    }
+
+    /// The first pick leads; deselecting it promotes the next pick.
+    func testPickOrderIsThePrimaryArea() {
+        let (model, cleanup) = makeModel()
+        defer { cleanup() }
+
+        model.toggleLifeArea(template("health-self"))
+        model.toggleLifeArea(template("work-career"))
+        XCTAssertEqual(model.draft.primaryLifeAreaTemplateID, "health-self")
+        XCTAssertEqual(model.draft.orderedLifeAreaTemplateIDs, ["health-self", "work-career"])
+
+        model.toggleLifeArea(template("health-self"))
+        XCTAssertEqual(model.draft.primaryLifeAreaTemplateID, "work-career")
+    }
+
+    /// The disabled dock says what is missing.
+    func testAreasStillNeededCountsDownToZero() {
+        let (model, cleanup) = makeModel()
+        defer { cleanup() }
+        XCTAssertEqual(model.lifeAreasStillNeeded, 2)
+        model.toggleLifeArea(template("money"))
+        XCTAssertEqual(model.lifeAreasStillNeeded, 1)
+        model.toggleLifeArea(template("relationships"))
+        XCTAssertEqual(model.lifeAreasStillNeeded, 0)
+        XCTAssertEqual(LifeWeaveCopy.Dock.pickMore(1), "Pick 1 more")
+    }
+
+    /// Save never needs a separate "make sense of this" tap: it interprets if
+    /// the pause has not happened yet, then keeps the result as reviewed.
+    // MARK: Interpretation races
+
+    /// Type, pause (interpretation in flight), type more, Save. The saved
+    /// sentence is the one on screen; the older interpretation lands late and
+    /// must not overwrite it.
+    func testAStaleInterpretationNeverOverwritesTheSentenceTheUserSaved() async {
+        let resolver = GatedCaptureResolver()
+        let (model, cleanup) = makeModel(resolver: resolver)
+        defer { cleanup() }
+
+        model.captureText = "Call Mum"
+        model.scheduleCaptureInterpretation(after: .zero)
+        await waitForRequests(1, on: resolver)
+
+        model.captureText = "Call Mum Sunday"
+        let save = _Concurrency.Task { await model.saveCapture() }
+        await waitForRequests(2, on: resolver)
+
+        await resolver.release("Call Mum Sunday")
+        await save.value
+        await resolver.release("Call Mum")
+        await settle()
+
+        XCTAssertEqual(model.draft.stagedCapture?.text, "Call Mum Sunday")
+        XCTAssertEqual(model.draft.stagedCapture?.isReviewed, true)
+        XCTAssertFalse(model.isResolvingCapture)
+    }
+
+    /// Save pressed while the pause-triggered interpretation is still reading
+    /// joins it instead of asking the resolver the same question twice.
+    func testSaveJoinsTheInFlightInterpretationInsteadOfStartingASecond() async {
+        let resolver = GatedCaptureResolver()
+        let (model, cleanup) = makeModel(resolver: resolver)
+        defer { cleanup() }
+
+        model.captureText = "Call Mum"
+        model.scheduleCaptureInterpretation(after: .zero)
+        await waitForRequests(1, on: resolver)
+
+        let save = _Concurrency.Task { await model.saveCapture() }
+        await settle()
+        let seen = await resolver.requestCount()
+        XCTAssertEqual(seen, 1, "Save must join the in-flight pass")
+
+        await resolver.release("Call Mum")
+        await save.value
+
+        XCTAssertEqual(model.draft.stagedCapture?.text, "Call Mum")
+        XCTAssertEqual(model.draft.stagedCapture?.isReviewed, true)
+        XCTAssertFalse(model.isResolvingCapture)
+    }
+
+    /// Clearing the field while an interpretation is in flight withdraws the
+    /// spinner immediately; the late answer is dropped, not staged.
+    func testClearingTheFieldMidInterpretationDropsTheLateAnswer() async {
+        let resolver = GatedCaptureResolver()
+        let (model, cleanup) = makeModel(resolver: resolver)
+        defer { cleanup() }
+
+        model.captureText = "Call Mum"
+        model.scheduleCaptureInterpretation(after: .zero)
+        await waitForRequests(1, on: resolver)
+        XCTAssertTrue(model.isResolvingCapture)
+
+        model.captureText = ""
+        model.scheduleCaptureInterpretation()
+        XCTAssertFalse(model.isResolvingCapture)
+
+        await resolver.release("Call Mum")
+        await settle()
+        XCTAssertNil(model.draft.stagedCapture)
+        XCTAssertFalse(model.isResolvingCapture)
+    }
+
+    func testSaveBeforeInterpretationStillProducesAReviewedCapture() async {
+        let (model, cleanup) = makeModel()
+        defer { cleanup() }
+        model.toggleLifeArea(template("relationships"))
+        model.toggleLifeArea(template("money"))
+        model.captureText = "Call Mum on Sunday"
+
+        await model.saveCapture()
+
+        XCTAssertEqual(model.draft.stagedCapture?.text, "Call Mum on Sunday")
+        XCTAssertEqual(model.draft.stagedCapture?.isReviewed, true)
+        XCTAssertTrue(model.draft.isCaptureResolved)
+    }
+
+    /// The user's own Task/Journal choice survives until Save.
+    func testChosenKindIsKeptOnSave() async {
+        let (model, cleanup) = makeModel()
+        defer { cleanup() }
+        model.captureText = "Felt calmer after the walk"
+        await model.resolveCapture()
+        model.chooseCaptureKind(.journal)
+
+        await model.saveCapture()
+
+        XCTAssertEqual(model.draft.stagedCapture?.kind, .journal)
+        XCTAssertEqual(model.draft.stagedCapture?.isReviewed, true)
+    }
+
+    /// Clearing the field withdraws an unreviewed proposal rather than leaving a
+    /// stale one for Save to keep.
+    func testClearingTheFieldWithdrawsTheProposal() async {
+        let (model, cleanup) = makeModel()
+        defer { cleanup() }
+        model.captureText = "Renew passport photos"
+        await model.resolveCapture()
+        XCTAssertNotNil(model.draft.stagedCapture)
+
+        model.captureText = ""
+        model.scheduleCaptureInterpretation()
+        XCTAssertNil(model.draft.stagedCapture)
+    }
+
+    func testSixStepPositionsResumeIntoTheirStreamlinedScreen() {
+        XCTAssertEqual(LifeWeaveMigration.streamlinedStep(for: .intent), .arrival)
+        XCTAssertEqual(LifeWeaveMigration.streamlinedStep(for: .dayShape), .lifeAreas)
+        XCTAssertEqual(LifeWeaveMigration.streamlinedStep(for: .firstCapture), .firstCapture)
+    }
+
+    func testTheWelcomeNeverSaysGoodNight() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let late = calendar.date(from: DateComponents(year: 2026, month: 9, day: 16, hour: 23))!
+        let morning = calendar.date(from: DateComponents(year: 2026, month: 9, day: 16, hour: 8))!
+        XCTAssertEqual(LifeWeaveIntentStep.daypartGreeting(at: late, calendar: calendar), "Good evening")
+        XCTAssertEqual(LifeWeaveIntentStep.daypartGreeting(at: morning, calendar: calendar), "Good morning")
+    }
+}
+
+/// A resolver that holds every sentence until the test releases it, so the
+/// order in which interpretations land is the test's to choose.
+private actor GatedCaptureResolver: LifeWeaveCaptureResolving {
+    private var requests: [String] = []
+    private var waiters: [String: [CheckedContinuation<LifeThreadIntentResolution, Never>]] = [:]
+    private var released: [String: LifeThreadIntentResolution] = [:]
+
+    func resolve(_ input: LifeThreadIntentInput) async -> LifeThreadIntentResolution {
+        requests.append(input.text)
+        if let answer = released[input.text] { return answer }
+        return await withCheckedContinuation { continuation in
+            waiters[input.text, default: []].append(continuation)
+        }
+    }
+
+    func release(_ text: String, kind: CaptureKind = .task) {
+        let answer = LifeThreadIntentResolution.captureDraft(
+            LifeThreadCaptureDraft(kind: kind, text: text, destination: .home)
+        )
+        released[text] = answer
+        waiters.removeValue(forKey: text)?.forEach { $0.resume(returning: answer) }
+    }
+
+    func requestCount() -> Int { requests.count }
 }
