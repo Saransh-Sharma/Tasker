@@ -10,7 +10,7 @@
 
 Eva helps a person understand what matters, turn ambiguity into a workable plan, capture small facts without friction, and recover when reality changes. It is not an autonomous operator. It explains, answers, classifies, navigates, breaks work down, and prepares bounded proposals. A narrow set of today-only, reversible captures may execute locally and immediately; broader or consequential changes use LifeBoard's canonical review and apply path.
 
-Cloud EVA extends that experience with Luna while preserving Offline EVA through MLX and deterministic fallbacks. Cloud is explicit, 13+, guest-first, consent-scoped, rolling-quota controlled, and independently disableable. Ordinary LifeBoard remains useful without it.
+Cloud EVA extends that experience with Luna while preserving Offline EVA through MLX and deterministic fallbacks. Cloud activates automatically with a guest session, defaults all four optional context categories on, preserves existing restrictions, and remains quota-controlled and independently disableable. Age eligibility is handled by distribution. Ordinary LifeBoard remains useful without it.
 
 ## What ships in the implementation
 
@@ -43,7 +43,7 @@ The person may request an AI-generated reading of a successful answer. The first
 - Server-random guest accounts with rotating 15-minute access/30-day refresh sessions, reuse detection, active-session deletion, and unrecoverable-by-default reinstall semantics.
 - Optional Protect & Sync with Apple, including quota union, consent intersection/re-review, session migration, revocation observation, and recently reauthenticated Apple-account deletion.
 - App Attest exact-request binding, DeviceCheck/App Transaction risk signals, and low-trust fallback without quota reduction.
-- Optional 13+ age-band evidence with known-under-13 denial and signed mandatory-region fail-closed mode.
+- Distribution-owned age eligibility; legacy age wire fields remain compatible without gating access.
 - Account-wide consent revisions, 20-answer rolling quota, 100-helper rolling quota, and request/speech idempotency.
 
 ### Context controls
@@ -80,24 +80,21 @@ overstate and the second is easy to miss:
 
 ### Activate Cloud EVA
 
-Activation happens in post-onboarding Setup Center. Core Life Weave completion
-never activates EVA. The ordinary Setup Center path presents Cloud EVA only;
-Offline EVA remains an advanced Settings option and explicit recovery route.
+Activation starts automatically at launch and resumes through onboarding, chat, and Settings. All entry points share one operation and bounded retry policy.
 
-1. The person reviews the cloud processor disclosure and preselected sensitive-context grants.
-2. One **Continue with Cloud EVA** action confirms those grants and creates/resumes a server-random guest account; no Apple sheet appears.
-3. App Attest registration follows bootstrap and assigns high or low trust without changing the 20-answer allowance.
-4. The app force-refreshes signed configuration, consent, and rolling quota. Mandatory-region age policy may require a 13+ system decision; ordinary unknown-age users continue.
-5. Cloud EVA becomes available and onboarding stages opening prompts composed from the person's own Life Map answers. Protect & Sync with Apple remains an optional Settings upgrade.
+1. A private guest session is created or resumed without an activation or age-confirmation sheet.
+2. Journal, Health, life moments, and personal memory context default on. Existing restrictions and later user changes are retained; onboarding explains the defaults and Settings exposes the controls.
+3. App Attest follows bootstrap and assigns high or low trust without changing the allowance.
+4. The app refreshes signed configuration, context policy, and quota. Age eligibility belongs to distribution; legacy age metadata does not block access.
+5. Activation and Health import do not block onboarding. A submitted chat draft resumes only if it is still unchanged and the chat is still active.
 
-Declining or deferring is a first-class outcome: the prompts are staged either
-way, and the EVA tab offers connection inline rather than reopening setup.
+Explicit Offline EVA and disabled choices are respected. Apple account recovery is requested only for an existing linked account; Protect & Sync remains optional.
 
 ### Ask and review
 
 1. The app builds a bounded context projection using the current consent revision.
 2. One immutable turn runtime selects Cloud or explicitly selected Offline before context assembly.
-3. The Worker validates body, session/device binding, age policy, route, consent, rate, rolling quota, and budget.
+3. The Worker validates body, session/device binding, route, consent, rate, rolling quota, and budget.
 4. Input plus projected context is moderated as untrusted content.
 5. Luna streams safe text or returns one validated structured object.
 6. One rolling timestamp commits only for a nonempty, nonrefusal, valid result.
@@ -138,7 +135,7 @@ flowchart TB
     Runtime --> Context["Route manifest + consent + retrieval + whole-turn budget"]
     Context --> Router["EvaProviderRouter"]
     Router -->|"explicit Offline selection"| MLX["EvaMLXProvider"]
-    Router -->|"guest/Apple session + age policy + consent + quota + signed policy"| Cloud["EvaCloudProvider"]
+    Router -->|"guest/Apple session + consent + quota + signed policy"| Cloud["EvaCloudProvider"]
     Router -->|"no eligible model provider"| Deterministic["Deterministic recovery"]
     Cloud --> Transport["URLSession + normalized SSE"]
     Transport --> Worker["Cloudflare Hono Worker"]
@@ -205,7 +202,7 @@ Repairs, retries, failures, refusals, moderation responses, cancellation, determ
 ## Known release gaps
 
 - Provision `APPLE_DEVICECHECK_KEY_ID` and `APPLE_DEVICECHECK_PRIVATE_KEY_P8` in both staging and production, then rerun remote preflight before deployment.
-- Complete a fresh physical-iPhone staging run through guest consent confirmation, bootstrap, optional App Attest/DeviceCheck signals, the first Luna response, rolling-quota exhaustion, optional Apple linking, refresh, deletion, and TTS.
+- Complete a fresh physical-iPhone staging run through automatic guest activation, bootstrap, optional App Attest/DeviceCheck signals, the first Luna response, rolling-quota exhaustion, optional Apple linking, refresh, deletion, and TTS.
 - Complete regional age-assurance and legal review before enabling guest access outside approved launch regions.
 - Qualify real Sandbox and Production Catalyst App Transaction chains.
 - Observe live route evaluation and 10× launch load thresholds.
