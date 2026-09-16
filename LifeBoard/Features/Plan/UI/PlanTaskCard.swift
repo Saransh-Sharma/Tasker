@@ -35,10 +35,9 @@ struct PlanTaskCard: View {
                 CompletionControl(
                     isComplete: false,
                     title: task.title,
-                    isEnabled: task.dependenciesReady
-                ) { _ in
-                    Task { await store.setCompletion(task, to: true) }
-                }
+                    isEnabled: task.dependenciesReady,
+                    onCommit: { _ in await store.setCompletion(task, to: true) }
+                )
                 .padding(.leading, -11)
             } else {
                 Image(systemName: task.dependenciesReady ? "circle" : "lock.circle")
@@ -61,7 +60,9 @@ struct PlanTaskCard: View {
                     HStack(spacing: 7) {
                         Text(task.title).font(.body.weight(.medium)).lineLimit(2)
                         if task.metadata.commitmentLevel == .mustDo {
-                            Text("MUST DO").font(.caption2.weight(.bold)).padding(.horizontal, 8).padding(.vertical, 3)
+                            // Sentence case: `DESIGN.md` bars uppercase for
+                            // hierarchy, and shouting at a task is not warmth.
+                            Text("Must do").font(Typography.metadata()).padding(.horizontal, 8).padding(.vertical, 3)
                                 .background(Color(SemanticColorTokens.foundationApricotAccent).opacity(0.22), in: Capsule())
                         }
                     }
