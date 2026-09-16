@@ -1,0 +1,138 @@
+{
+  "body-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "body-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "capture-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "capture-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "care-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "care-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "eva-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "eva-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "fasting-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "fasting-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "goals-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "goals-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "home-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "home-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "insights-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "insights-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "journal-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "journal-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "moment-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "moment-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "movement-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "movement-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "nutrition-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "nutrition-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "plan-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "plan-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "routines-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "routines-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "sleep-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "sleep-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "track-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "track-light" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "workout-dark" : {
+    "height" : 52,
+    "width" : 353
+  },
+  "workout-light" : {
+    "height" : 52,
+    "width" : 353
+  }
+}
