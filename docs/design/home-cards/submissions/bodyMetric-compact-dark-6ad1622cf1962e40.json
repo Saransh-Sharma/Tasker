@@ -1,0 +1,37 @@
+{
+  "id": "bodyMetric-compact-dark",
+  "appearance": "dark",
+  "requested_canvas_pixels": [
+    688,
+    416
+  ],
+  "card_rect_pixels": [
+    3,
+    0,
+    682,
+    416
+  ],
+  "final_export_pixels": [
+    682,
+    416
+  ],
+  "submitted_prompt": "Use case: ui-mockup. Stable ID bodyMetric-compact-dark. Create one dark LifeBoard Body Metric Home card reference.\nImage 1 is accepted scene artwork; Image 2 is the authoritative native structural fixture. Preserve its exact copy, symbols, line wrapping, foreground, controls, and relative geometry.\nLogical bounds 170.5 x 104 points. Final export 682 x 416 pixels at 4 pixels per point. Requested generation canvas 688 x 416 pixels. Exact card placement x,y,width,height=[3, 0, 682, 416]. Only the specified canvas padding is allowed. No extra internal or external margin, frame or drop-shadow canvas.\nNative elements in logical points (rectangles x,y,width,height), with exact visible text and resolved San Francisco typography: [{\"copy\": \"\", \"id\": \"glance.open\", \"rect\": [0, 0, 170.5, 96], \"role\": \"control\"}, {\"copy\": \"Body Metric\", \"id\": \"glance.title\", \"rect\": [55, 30.25, 71, 14.5], \"role\": \"title\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 12, \"role\": \"caption\", \"weight\": \"semibold\"}}, {\"copy\": \"72.4 kg\", \"id\": \"glance.summary\", \"rect\": [55, 47.75, 50.75, 18], \"role\": \"value\", \"typography\": {\"alignment\": \"leading\", \"design\": \"default\", \"points\": 15, \"role\": \"support\", \"weight\": \"regular\"}}]. Empty copy means a symbol-only control or grouping, never print the IDs, roles, or JSON metadata.\nArtwork fills the existing card background [0,0,170.5,104] beneath every native layer. Proportional fill clipped to 24-point rounded bounds. Opacity 0.18 multiplied by leading-to-trailing mask 0:0.08, 0.35:0.20, 1:1. Artwork should be as faint as Image 2. No separate artwork row, reserved text column, footer, or increased card height.\nPalette {\"surface\": \"#282A44\", \"ink\": \"#F7F1E7\", \"secondary\": \"#C9C3B8\", \"accent\": \"#E5B96D\"}. Subject Neutral balanced forms; preserve the accepted scene objects and painterly medium. Opaque UI reference, no alpha required. Appearance is independent of morning daypart.\nReading and control regions: {\"reading_regions\": [[55, 30.25, 71, 14.5], [55, 47.75, 50.75, 18]], \"controls\": [[0, 0, 170.5, 96]], \"ambient_background\": [0, 0, 170.5, 104], \"edge_clearance\": 14}. Preserve exact native control sizes; retain opaque foreground text. Do not add buttons, rows, data, logos, watermark, device frame, completion or health claims.\nFixed fixture {\"appearance\": \"dark\", \"date\": \"2026-09-15\", \"daypart\": \"morning\", \"dynamic_type\": \"large\", \"fixture_version\": 4, \"id\": \"bodyMetric-compact-dark\", \"locale\": \"en_US\", \"renderer\": \"shared-native-content-preview\", \"safe_areas\": \"isolated card; production-route safe areas require separate evidence\", \"time_zone\": \"UTC\", \"viewport_points\": [393, 852]}. References: [{\"name\": \"bodyMetric-compact-dark accepted scene\", \"path\": \"DesignAssets/Sources/HomeCards/bodyMetric-scene-dark.png\", \"role\": \"Image 1: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.\", \"sha256\": \"157fa3b2d4e9fb5f28a2be1b6a6456cb789e1fb795f4a1583f18e81f94864da7\"}, {\"name\": \"bodyMetric-compact-dark measured native structure\", \"path\": \"docs/design/home-cards/native-specifications/bodyMetric-compact-dark.png\", \"role\": \"Image 2: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.\", \"sha256\": \"fea879238b1557335a9508a453b1aaa33d56c5cd41c3fd87574e1620a6b9adf3\"}].\nOutput PNG: docs/design/home-cards/references/bodyMetric-compact-dark.png. Preserve aspect ratio; never stretch. Record actual dimensions and explicit export transform; reject essential clipping and unintended aspect correction above 4%.\nAcceptance: exact copy and rows/actions, recognizable but quiet ambient art, readable native foreground, consistent appearance, correct dimensions, no extra margins or essential clipping.\nTARGETED REVISION: Prioritize Image 2 over Image 1. The earlier attempt made the vase and flowers far too strong. Match Image 2 literally for the low-contrast indigo background: the artwork is barely visible, especially behind the title. Do not beautify the artwork by increasing its exposure or saturation. Preserve Image 2 title, symbol and value position and scale.",
+  "references": [
+    {
+      "name": "bodyMetric-compact-dark accepted scene",
+      "path": "DesignAssets/Sources/HomeCards/bodyMetric-scene-dark.png",
+      "role": "Image 1: scene subject, palette, texture and objects. Reuse the visible paint proportionally across the surface.",
+      "sha256": "157fa3b2d4e9fb5f28a2be1b6a6456cb789e1fb795f4a1583f18e81f94864da7"
+    },
+    {
+      "name": "bodyMetric-compact-dark measured native structure",
+      "path": "docs/design/home-cards/native-specifications/bodyMetric-compact-dark.png",
+      "role": "Image 2: exact outer aspect ratio, native content, copy, controls and ambient composition. This structural input is not a generated reference.",
+      "sha256": "fea879238b1557335a9508a453b1aaa33d56c5cd41c3fd87574e1620a6b9adf3"
+    }
+  ],
+  "specification_sha256": "e2f49fbea99580ac39bc766d1213415450bc0978d61b270222cee296c8a8b4b6",
+  "prepared_at": "2026-09-15T19:22:32.512426+00:00",
+  "revision_reason": "Reduce scene exposure to structural fixture; prioritize native opacity over full-strength scene source.",
+  "design_revision": "ambient-v1"
+}
