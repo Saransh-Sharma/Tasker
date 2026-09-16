@@ -203,7 +203,9 @@ extension FoundationShell {
                         } label: {
                             VStack(spacing: 3) {
                                 Image(systemName: destination.systemImage)
-                                    .font(.system(size: 17, weight: router.selectedDestination == destination ? .semibold : .regular))
+                                    // Scales with Dynamic Type; a fixed 17pt is
+                                    // the one size that cannot.
+                                    .font(.body.weight(router.selectedDestination == destination ? .semibold : .regular))
                                     .modifier(
                                         DockLift(
                                             isSelected: router.selectedDestination == destination,
@@ -257,9 +259,14 @@ extension FoundationShell {
                     radius: 0.16,
                     strength: 1
                 )
-                .lifeBoardGlassSurface(cornerRadius: 30, interactive: true)
+                .lifeBoardGlassSurface(cornerRadius: Radius.dock, interactive: true)
                 .lifeBoardGlassIdentity(.dockSelection)
-                .overlay { RoundedRectangle(cornerRadius: 30).stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1) }
+                .overlay {
+                    // Continuous corners, like every other rounded shape in the
+                    // product; a plain `cornerRadius:` draws circular ones.
+                    RoundedRectangle(cornerRadius: Radius.dock, style: .continuous)
+                        .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
+                }
                 .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.18), radius: 12, y: 6)
             }
         }
@@ -386,6 +393,10 @@ extension FoundationShell {
                 expandedRootSwitcher(router: router)
             }
         }
+        // The switcher only mounts at the root of a stack, and it carried the
+        // ⌘⌥1–5 shortcuts, so pushing into any detail screen silently removed
+        // them. `DESIGN.md` iPad: "root shortcuts are part of the design."
+        .background { rootShortcutKeys(router: router) }
         .overlay(alignment: .bottom) {
             // Capture is not iPhone-only: the composer anchors to the detail
             // column at regular width too.
@@ -424,6 +435,26 @@ extension FoundationShell {
         }
     }
 
+    /// Always-mounted ⌘⌥1–5 root shortcuts.
+    ///
+    /// Hidden from sight and from accessibility: the visible, labelled way to
+    /// change root is the switcher or the dock. This exists so the keyboard
+    /// path survives navigation depth.
+    func rootShortcutKeys(router: AppRouter) -> some View {
+        ZStack {
+            ForEach(Array(Destination.allCases.enumerated()), id: \.element) { index, destination in
+                Button("Go to \(destination.title)") { router.select(destination) }
+                    .keyboardShortcut(
+                        KeyEquivalent(Character(String(index + 1))),
+                        modifiers: [.command, .option]
+                    )
+            }
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
+    }
+
     func expandedRootSwitcher(router: AppRouter) -> some View {
         @Bindable var router = router
         return HStack(spacing: 4) {
@@ -445,8 +476,17 @@ extension FoundationShell {
                         .contentShape(Rectangle())
                         .background {
                             if isSelected {
+                                // One lens that moves between roots, as on the
+                                // phone dock — `DESIGN.md` asks the iPad
+                                // switcher for the same contract, and a capsule
+                                // drawn inside each button simply appeared and
+                                // disappeared.
                                 Capsule(style: .continuous)
                                     .fill(Color(SemanticColorTokens.foundationCanvasSoft).opacity(0.82))
+                                    .matchedGeometryEffect(
+                                        id: "foundation.dock.selection",
+                                        in: dockSelectionNamespace
+                                    )
                             }
                         }
                 }
@@ -458,15 +498,10 @@ extension FoundationShell {
                 .hoverEffect(.highlight)
                 .accessibilityIdentifier("foundation.expanded.destination.\(destination.rawValue)")
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
-                .keyboardShortcut(
-                    KeyEquivalent(Character(String(
-                        Destination.allCases.firstIndex(of: destination).map { $0 + 1 } ?? 0
-                    ))),
-                    modifiers: [.command, .option]
-                )
             }
         }
         .padding(8)
+        .animation(MotionProfile.selection.animation(reduceMotion: reduceMotion), value: router.selectedDestination)
         .frame(maxWidth: 720)
         // The switcher is the iPad's dock. `DESIGN.md`'s shape vocabulary gives
         // dock and composer clusters 30; 24 is the *hero* radius, which the
