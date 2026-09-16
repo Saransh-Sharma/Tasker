@@ -698,6 +698,8 @@ class LifeBoardUITests: XCTestCase {
 
         let fasting = app.buttons["home.signal.fasting"]
         XCTAssertTrue(fasting.waitForExistence(timeout: 10))
+        // Keep steady sits under Up next and Today, so it may start below the fold.
+        scrollUntilHittableWithSmallSteps(fasting, in: app, maximumSteps: 24)
         XCTAssertTrue(fasting.isHittable)
         fasting.tap()
 
@@ -888,11 +890,9 @@ class LifeBoardUITests: XCTestCase {
         app.typeKey("a", modifierFlags: .command)
         title.typeText(editedTitle)
 
+        // The editor autosaves; leaving the title field flushes the edit, so
+        // there is no Save button to press.
         app.navigationBars["Task"].tap()
-        let save = app.buttons["task.editor.save.toolbar"]
-        XCTAssertTrue(save.waitForExistence(timeout: 8))
-        XCTAssertTrue(save.isHittable)
-        save.tap()
         XCTAssertTrue(app.staticTexts["Task updated"].waitForExistence(timeout: 10))
 
         app.terminate()
@@ -1018,6 +1018,45 @@ class LifeBoardUITests: XCTestCase {
                 || app.descendants(matching: .any)["journal.privacy.lock"].exists,
             "Weekly reflection must mount its native report or privacy gate."
         )
+    }
+
+    func testFoundationHomeHabitsTodayCompletesACheckInOnHoldNotTap() {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedHabits: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
+        let section = app.descendants(matching: .any)["home.habitsToday"]
+        scrollUntilVisible(section, in: app, maximumSwipes: 10)
+        XCTAssertTrue(section.waitForExistence(timeout: 10), "Home lists today's habits where they can be logged")
+
+        let ring = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@ AND value == %@", "Drink water after breakfast", "Not done"))
+            .firstMatch
+        XCTAssertTrue(ring.waitForExistence(timeout: 8))
+        scrollUntilHittable(ring, in: app, maximumSwipes: 6)
+
+        keepScreenshot(app, named: "home-habits-today-before")
+        ring.press(forDuration: 1.4)
+        let done = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@ AND value == %@", "Drink water after breakfast", "Done"))
+            .firstMatch
+        XCTAssertTrue(done.waitForExistence(timeout: 8), "Holding completes a check-in habit in place")
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Drink water after breakfast done")).firstMatch
+                .waitForExistence(timeout: 6),
+            "Completion leaves a receipt with Undo"
+        )
+        keepScreenshot(app, named: "home-habits-today-after")
+    }
+
+    private func keepScreenshot(_ app: XCUIApplication, named name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     func testFoundationHomeRoutineFallbackUsesTypedHabitBoardRoute() {
@@ -1232,10 +1271,9 @@ class LifeBoardUITests: XCTestCase {
         scrollUntilVisible(canvas, in: app, maximumSwipes: 8)
         XCTAssertTrue(canvas.waitForExistence(timeout: 10), "Day should expose the real time canvas.")
 
-        let presentation = app.segmentedControls["plan.day.presentation"]
-        scrollUntilHittable(presentation, in: app, maximumSwipes: 12)
+        let presentation = app.buttons["plan.day.presentation.toggle"]
         XCTAssertTrue(presentation.waitForExistence(timeout: 8))
-        presentation.buttons["Agenda"].tap()
+        presentation.tap()
 
         let addBlock = app.buttons["plan.day.addBlock"]
         scrollUntilHittable(addBlock, in: app, maximumSwipes: 12)
@@ -1304,7 +1342,10 @@ class LifeBoardUITests: XCTestCase {
             "Closing rescue should return to the existing Plan context."
         )
 
-        let plannedTask = app.staticTexts.matching(
+        // On the Timeline, work kept for today with no time on it sits in the
+        // Anytime row as a chip, which is a button to assistive tech, so match
+        // the label on any element rather than on static text.
+        let plannedTask = app.descendants(matching: .any).matching(
             NSPredicate(format: "label == %@", "Rescue oldest")
         ).firstMatch
         scrollUntilVisible(plannedTask, in: app, maximumSwipes: 12)
