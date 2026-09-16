@@ -86,7 +86,7 @@ extension LifeThreadComposerHost {
                 composer.dismissDraft()
                 lifeThreadComposerIsFocused = false
                 router.activateRoot(.eva)
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                Haptic.pick.play()
             } catch {
                 composer.focus()
                 router.activeAlert = .init(
@@ -127,7 +127,7 @@ extension LifeThreadComposerHost {
                 composer.dismissDraft()
                 lifeThreadComposerIsFocused = false
                 router.activateRoot(.eva)
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                Haptic.pick.play()
             } catch {
                 composer.focus()
                 router.activeAlert = .init(
@@ -226,6 +226,9 @@ extension LifeThreadComposerHost {
         _ preview: TransactionPreview,
         router: AppRouter
     ) {
+        // A second tap while the first apply is in flight must not apply the
+        // same preview twice. `DESIGN.md`: running prevents duplicate submission.
+        guard composer.state != .working else { return }
         composer.beginWorking("Saving locally")
         Task {
             do {
@@ -234,7 +237,7 @@ extension LifeThreadComposerHost {
                     lifeBoardActionReceipt = receipt
                     composer.dismissDraft()
                     composer.settle()
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    Haptic.commit.play()
                 }
                 try? await Task.sleep(for: .milliseconds(220))
                 await MainActor.run { composer.finishSettling() }
@@ -259,7 +262,7 @@ extension LifeThreadComposerHost {
                 try await lifeBoardMutationCoordinator.undo(receiptID: receipt.id)
                 await MainActor.run {
                     lifeBoardActionReceipt = nil
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    Haptic.decline.play()
                 }
             } catch {
                 await MainActor.run {
