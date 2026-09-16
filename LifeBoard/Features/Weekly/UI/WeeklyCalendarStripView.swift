@@ -67,10 +67,12 @@ private struct WeeklyCalendarDayCell: View, Equatable {
 
     var body: some View {
         VStack(spacing: 4) {
+            // Token-backed and Dynamic Type-aware. Fixed point sizes are the
+            // one thing that cannot scale, and `DESIGN.md` bars uppercase for
+            // hierarchy.
             Text(dayLabel)
-                .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
+                .font(.lifeboard(.caption2).weight(isSelected ? .bold : .medium))
                 .foregroundColor(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary.opacity(0.7))
-                .textCase(.uppercase)
 
             ZStack {
                 if isSelected {
@@ -84,7 +86,8 @@ private struct WeeklyCalendarDayCell: View, Equatable {
                 }
 
                 Text("\(dayNumber)")
-                    .font(.system(size: 15, weight: isSelected ? .bold : .medium, design: .rounded))
+                    .font(.lifeboard(.caption1).weight(isSelected ? .bold : .medium))
+                    .monospacedDigit()
                     .foregroundColor(
                         isSelected
                             ? Color.lifeboard.accentOnPrimary
@@ -277,7 +280,8 @@ struct WeeklyCalendarStripView: View {
                 }
 
                 Text("\(dayNumber)")
-                    .font(.system(size: 13, weight: isSelected ? .bold : .regular, design: .rounded))
+                    .font(.lifeboard(.caption2).weight(isSelected ? .bold : .regular))
+                    .monospacedDigit()
                     .foregroundColor(
                         isSelected
                             ? Color.lifeboard.accentOnPrimary
@@ -342,7 +346,7 @@ struct WeeklyCalendarStripView: View {
 
     /// Executes dayAbbreviation.
     private func dayAbbreviation(_ date: Date) -> String {
-        Self.weekdayFormatter.string(from: date).uppercased()
+        Self.weekdayFormatter.string(from: date)
     }
 
     /// Executes monthYearText.
