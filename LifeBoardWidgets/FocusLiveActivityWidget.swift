@@ -49,37 +49,41 @@ struct FocusLiveActivityWidget: Widget {
                     focusTime(context.state)
                 }
                 Spacer(minLength: 8)
-                Link(destination: primaryURL(context)) {
-                    Image(systemName: context.state.phase == "paused" ? "play.fill" : "pause.fill")
+                if context.state.phase == "ended" {
+                    Image(systemName: "checkmark")
                         .frame(width: 44, height: 44)
-                        .background(WidgetPalette.sun, in: Circle())
+                        .background(WidgetPalette.completionGround, in: Circle())
+                        .accessibilityLabel("Focus done")
+                } else {
+                    FocusActivityControls(context: context)
                 }
-                .accessibilityLabel(context.state.phase == "paused" ? "Resume focus" : "Pause focus")
-                Link(destination: FocusActivityLink.url(
-                    sessionID: context.attributes.sessionID,
-                    command: "end",
-                    token: context.state.endCommandToken
-                )) {
-                    Image(systemName: "stop.fill").frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("End focus")
             }
             .padding(16)
             .activityBackgroundTint(WidgetPalette.canvas)
             .activitySystemActionForegroundColor(WidgetPalette.ink)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) { Image(systemName: "scope") }
-                DynamicIslandExpandedRegion(.trailing) { focusTime(context.state) }
+                DynamicIslandExpandedRegion(.leading) {
+                    FocusProgressRing(state: context.state, diameter: 44)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    if context.state.phase != "ended" {
+                        FocusActivityControls(context: context)
+                    }
+                }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(context.attributes.title).font(.caption).lineLimit(1)
+                    HStack {
+                        Text(context.attributes.title).font(.caption).lineLimit(1)
+                        Spacer(minLength: 8)
+                        focusTime(context.state)
+                    }
                 }
             } compactLeading: {
-                Image(systemName: "scope")
+                Image(systemName: context.state.phase == "paused" ? "pause.fill" : "scope")
             } compactTrailing: {
-                focusTime(context.state)
+                FocusProgressRing(state: context.state, diameter: 18)
             } minimal: {
-                Image(systemName: "scope")
+                FocusProgressRing(state: context.state, diameter: 18)
             }
             .keylineTint(WidgetPalette.sun)
         }
@@ -87,7 +91,14 @@ struct FocusLiveActivityWidget: Widget {
 
     @ViewBuilder
     private func focusTime(_ state: FocusActivityAttributes.ContentState) -> some View {
-        if state.phase == "running", let end = state.expectedEndAt {
+        if state.phase == "ended" {
+            Text("Done · \(Int(((state.focusedDuration ?? 0) / 60).rounded())) min")
+                .font(.subheadline.monospacedDigit())
+        } else if state.phase == "paused" {
+            Text("Paused \(durationLabel(state.remainingDuration))")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+        } else if state.phase == "running", let end = state.expectedEndAt {
             Text(timerInterval: Date()...max(Date().addingTimeInterval(1), end), countsDown: true)
                 .font(.subheadline.monospacedDigit())
         } else {
@@ -97,17 +108,70 @@ struct FocusLiveActivityWidget: Widget {
         }
     }
 
-    private func primaryURL(_ context: ActivityViewContext<FocusActivityAttributes>) -> URL {
-        FocusActivityLink.url(
-            sessionID: context.attributes.sessionID,
-            command: context.state.phase == "paused" ? "resume" : "pause",
-            token: context.state.primaryCommandToken
-        )
-    }
-
     private func durationLabel(_ interval: TimeInterval) -> String {
         let seconds = max(0, Int(interval.rounded()))
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+}
+
+/// Pause or resume, and end — acting in place through an intent instead of
+/// opening the app, so a glance at the Lock Screen is enough.
+private struct FocusActivityControls: View {
+    let context: ActivityViewContext<FocusActivityAttributes>
+
+    private var isPaused: Bool { context.state.phase == "paused" }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(intent: FocusLiveActivityCommandIntent(
+                sessionID: context.attributes.sessionID,
+                command: isPaused ? "resume" : "pause",
+                token: context.state.primaryCommandToken
+            )) {
+                Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 44, height: 44)
+                    .background(WidgetPalette.sun, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isPaused ? "Resume focus" : "Pause focus")
+            Button(intent: FocusLiveActivityCommandIntent(
+                sessionID: context.attributes.sessionID,
+                command: "end",
+                token: context.state.endCommandToken
+            )) {
+                Image(systemName: "stop.fill").frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("End focus")
+        }
+    }
+}
+
+/// How much of the session is done. Driven by the system timer while running,
+/// so it advances with no updates from the app; frozen and honest while paused.
+private struct FocusProgressRing: View {
+    let state: FocusActivityAttributes.ContentState
+    let diameter: CGFloat
+
+    var body: some View {
+        Group {
+            if state.phase == "running", let start = state.progressStart, let end = state.expectedEndAt, end > start {
+                ProgressView(timerInterval: start...end, countsDown: false) {
+                    EmptyView()
+                } currentValueLabel: {
+                    EmptyView()
+                }
+                .progressViewStyle(.circular)
+            } else {
+                let target = state.targetDuration ?? 0
+                let done = state.phase == "ended" ? 1 : (target > 0 ? max(0, min(1, 1 - state.remainingDuration / target)) : 0)
+                ProgressView(value: done)
+                    .progressViewStyle(.circular)
+            }
+        }
+        .tint(WidgetPalette.sun)
+        .frame(width: diameter, height: diameter)
     }
 }
 
