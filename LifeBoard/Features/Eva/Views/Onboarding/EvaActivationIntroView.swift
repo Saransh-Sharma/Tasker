@@ -62,6 +62,17 @@ struct EvaActivationIntroView: View {
                     )
                 )
 
+            // Eva's panoramic scene. It used to sit behind the Eva root header,
+            // where the live atmosphere left almost nothing of it visible; here
+            // it paints the activation hero, over the gradient and under the
+            // mascot.
+            Color.clear
+                .featureHeaderArtwork(
+                    .eva,
+                    cornerRadius: layoutClass.isPad ? Theme.CornerRadius.modal : 0
+                )
+                .accessibilityHidden(true)
+
             EvaMascotView(
                 placement: .chatHelp,
                 size: .custom(layoutClass.isPad ? 240 : 204),
@@ -112,7 +123,7 @@ struct EvaActivationIntroView: View {
             }
             .enhancedStaggeredAppearance(index: 2)
 
-            Text("Cloud EVA starts with a private guest session. You confirm which sensitive context may be shared, and can protect and sync EVA with Apple later.")
+            Text("Cloud EVA starts with a private guest session. Journal, Health, life moments, and personal memory context are enabled by default; you can change those settings later or protect EVA with Apple.")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: .leading)
