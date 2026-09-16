@@ -1,0 +1,89 @@
+Attributes: Application, 0x116cbe1c0, pid: 82862, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x116cbe1c0, pid: 82862, label: 'LifeBoard'
+    Window (Main), 0x116cbe300, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x116cbe440, {{0.0, 0.0}, {393.0, 852.0}}
+        Other, 0x116cbe580, {{0.0, 0.0}, {393.0, 852.0}}
+          Other, 0x116cbe800, {{0.0, 0.0}, {393.0, 852.0}}
+            Other, 0x116cbe6c0, {{0.0, 0.0}, {393.0, 852.0}}
+              Other, 0x116cbe940, {{0.0, 0.0}, {393.0, 852.0}}
+                Other, 0x116cfea80, {{0.0, 0.0}, {393.0, 852.0}}
+                  Other, 0x116cfebc0, {{0.0, 0.0}, {393.0, 852.0}}
+                    Button, 0x116cfed00, {{196.5, 438.5}, {0.0, 0.0}}
+                    Other, 0x116cfee40, {{0.0, 0.0}, {393.0, 852.0}}
+                    Other, 0x116cfef80, {{0.0, 0.0}, {393.0, 852.0}}
+                      Other, 0x116cff0c0, {{0.0, 0.0}, {393.0, 852.0}}
+                        Other, 0x116cff200, {{0.0, 0.0}, {393.0, 852.0}}
+                          Other, 0x116cff340, {{0.0, 0.0}, {393.0, 852.0}}
+                            Other, 0x116cff480, {{0.0, 0.0}, {393.0, 852.0}}
+                              Other, 0x116cff5c0, {{0.0, 0.0}, {393.0, 852.0}}
+                                Other, 0x116d00000, {{0.0, 59.0}, {393.0, 613.0}}
+                                Other, 0x116d00140, {{0.0, 0.0}, {393.0, 852.0}}
+                                  NavigationBar, 0x116d00280, {{0.0, 59.0}, {393.0, 54.0}}, identifier: 'Goals'
+                                    Button, 0x116d003c0, {{16.0, 59.0}, {44.0, 44.0}}, identifier: 'BackButton', label: 'Track'
+                                    StaticText, 0x116d00500, {{174.0, 70.7}, {45.0, 20.7}}, label: 'Goals'
+                                  Other, 0x116d00640, {{0.0, 0.0}, {393.0, 852.0}}
+                                    Other, 0x116d00780, {{0.0, 0.0}, {393.0, 852.0}}
+                                      Other, 0x116d008c0, {{0.0, 0.0}, {393.0, 852.0}}
+                                        Other, 0x116d00a00, {{0.0, 0.0}, {393.0, 852.0}}
+                                          Image, 0x116d00b40, {{-43.3, 0.0}, {479.7, 852.0}}
+                                          Image, 0x116d00c80, {{229.7, 29.7}, {163.9, 163.9}}
+                                          Other, 0x116d00dc0, {{196.5, 113.0}, {0.0, 0.0}}
+                                          Other, 0x116d00f00, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'track.goals.destination'
+                                          ScrollView, 0x116d01040, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'track.goals.destination'
+                                            Other, 0x116d01180, {{0.0, 0.0}, {393.0, 852.0}}
+                                              Other, 0x116d012c0, {{0.0, 0.0}, {393.0, 167.8}}
+                                            Other, 0x116d01400, {{0.0, 0.0}, {393.0, 852.0}}
+                                            Other, 0x116d01540, {{0.0, 113.0}, {393.0, 386.0}}
+                                              Other, 0x116d01680, {{-18.3, 113.0}, {391.3, 306.0}}
+                                                Image, 0x116d017c0, {{-18.3, 113.0}, {391.3, 130.7}}
+                                                StaticText, 0x116d01900, {{20.0, 113.0}, {171.3, 33.7}}, label: 'Goals and progress'
+                                                StaticText, 0x116d01a40, {{20.0, 151.7}, {176.3, 58.0}}, label: 'Progress comes from the sources you choose to link.'
+                                                Button, 0x116d01b80, {{228.7, 113.0}, {144.3, 48.0}}, identifier: 'goals.add', label: 'Add goal'
+                                                  Image, 0x116d01cc0, {{254.7, 130.0}, {14.3, 14.3}}, identifier: 'plus', label: 'Add'
+                                                  StaticText, 0x116d01e00, {{254.7, 126.8}, {94.3, 20.3}}, label: 'Add goal'
+                                                Other, 0x116d01f40, {{20.0, 259.7}, {353.0, 95.3}}, identifier: 'lifeboard.status.empty'
+                                                  Image, 0x116d02080, {{41.3, 279.3}, {17.0, 20.3}}, identifier: 'sparkles', label: 'Sparkle'
+                                                  StaticText, 0x116d021c0, {{76.0, 275.7}, {98.3, 20.3}}, label: 'No goals yet'
+                                                  StaticText, 0x116d02300, {{76.0, 301.0}, {171.3, 38.0}}, label: 'Add a goal when it helps organize action.'
+                                                Button, 0x116d02440, {{137.7, 371.0}, {118.0, 48.0}}, label: 'Add goal'
+                                            Other, 0x116d02580, {{360.0, 113.0}, {30.0, 684.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                              Other, 0x116d026c0, {{387.0, 435.0}, {3.0, 359.0}}
+                                            Other, 0x116d02800, {{360.0, 113.0}, {30.0, 684.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                              Other, 0x116d02940, {{387.0, 435.0}, {3.0, 359.0}}
+                                  Other, 0x116d02a80, {{0.0, 0.0}, {393.0, 852.0}}
+                                    Other, 0x116d02bc0, {{0.0, 0.0}, {393.0, 852.0}}
+                      Other, 0x116d02d00, {{0.0, 769.0}, {393.0, 83.0}}
+                        Other, 0x116d02e40, {{0.0, 0.0}, {393.0, 852.0}}
+                        Other, 0x116d02f80, {{0.0, 769.0}, {393.0, 83.0}}
+                    Other, 0x116d030c0, {{0.0, 650.0}, {393.0, 162.5}}, identifier: 'LifeBoardCompactChrome'
+                      Button, 0x116d03200, {{20.0, 680.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.toolsToggle', label: 'Open capture tools'
+                      TextField, 0x116d03340, {{72.0, 691.0}, {249.0, 22.0}}, identifier: 'home.lifeThread.composer', placeholderValue: 'Log something or reflect on how you feel'
+                        Other, 0x116d03480, {{72.0, 699.0}, {249.0, 11.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                          Other, 0x116d035c0, {{75.0, 707.0}, {243.0, 3.0}}
+                      Button, 0x116d03700, {{329.0, 680.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.send', label: 'Start dictation'
+                      Button, 0x116d03840, {{20.0, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.home', label: 'Home', value: Root
+                        Image, 0x116d03980, {{45.3, 761.0}, {20.0, 17.7}}, identifier: 'house', label: 'Home'
+                        StaticText, 0x116d03ac0, {{39.8, 782.7}, {31.0, 13.3}}, label: 'Home'
+                      Button, 0x116d03c00, {{90.7, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.plan', label: 'Plan', value: Root
+                        Image, 0x116d03d40, {{117.7, 762.3}, {16.7, 15.3}}, identifier: 'calendar', label: 'Calendar'
+                        StaticText, 0x116d03e80, {{114.6, 781.5}, {22.7, 13.3}}, label: 'Plan'
+                      Button, 0x116d04000, {{161.3, 752.0}, {70.3, 52.0}}, identifier: 'foundation.destination.track', label: 'Track', value: Detail depth 1, Selected
+                        Image, 0x116d04140, {{185.7, 762.0}, {22.0, 16.0}}, identifier: 'chart.bar.fill', label: 'Chart Column'
+                        StaticText, 0x116d04280, {{181.2, 782.2}, {30.7, 13.3}}, label: 'Track'
+                      Button, 0x116d043c0, {{231.7, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.insights', label: 'Insights', value: Root
+                        Image, 0x116d04500, {{259.3, 760.3}, {15.7, 19.0}}, identifier: 'sparkles', label: 'Sparkle'
+                        StaticText, 0x116d04640, {{246.4, 783.3}, {41.3, 13.3}}, label: 'Insights'
+                      Button, 0x116d04780, {{302.3, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.eva', label: 'Eva', value: Root
+                        Image, 0x116d048c0, {{325.7, 760.3}, {24.0, 19.0}}, identifier: 'bubble.left.and.bubble.right', label: 'Conversation'
+                        StaticText, 0x116d04a00, {{328.4, 783.3}, {18.7, 13.3}}, label: 'Eva'
+                    Other, 0x116d04b40, {{0.0, 59.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.morning', label: 'Celestial atmosphere: morning'
+                    Button, 0x116d04c80, {{0.0, 59.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                    Other, 0x116d04dc0, {{0.0, 59.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x116cbe1c0, pid: 82862, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x116d04f00, pid: 82862, label: 'LifeBoard'
+  }
