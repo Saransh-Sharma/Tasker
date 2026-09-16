@@ -3,17 +3,19 @@
 **Service:** Cloudflare Worker in `Services/EVACloud`
 **Contract:** `Shared/EVACloudContracts`
 **Production API:** `https://api.getlifeboard.app`
-**Last verified:** 2026-08-25
+**Last verified:** 2026-09-16
 
 ## Current environment state
 
 | Environment | Client | Policy | Text routes | TTS | Notes |
 |---|---|---|---|---|---|
 | Development | Local Worker/manual clients | Fail closed unless explicitly seeded | Operator controlled | Operator controlled | Local secrets only in ignored `.dev.vars` |
-| Staging | Debug iOS/Catalyst | Live policy v2; desired v3 | Live older 13-route set | Live enabled | Current Worker/policy promotion blocked by missing DeviceCheck secrets |
-| Production | Release iOS/Catalyst | Live disabled fallback; desired v2 | Disabled | Disabled | 15-route/100% policy validated but not published |
+| Staging | Debug iOS/Catalyst | Live verified v4 | Enabled | Enabled | Compatible automatic-activation Worker deployed; authenticated recovery smoke passed |
+| Production | Release iOS/Catalyst | Live verified v3 | Enabled | Enabled | Compatible automatic-activation Worker deployed; device qualification remains pending |
 
-The desired policies are `config/runtime-config.staging.json` (v3) and `config/runtime-config.production.json` (v2). Staging enables all 16 routes including `debugSmoke`; production enables the 15 supported routes and keeps `debugSmoke` off. Both enable Cloud EVA, TTS, guest bootstrap/inference, Apple linking, and guest rollout at 100%. On 25 August 2026 remote preflight stopped deployment because both environments lacked the two dedicated DeviceCheck secrets. Until they are provisioned and staging passes, production remains fail-closed. Do not publish a policy merely to make documentation match an intended state.
+The checked-in policies are `config/runtime-config.staging.json` (v4) and `config/runtime-config.production.json` (v3). Both live signed policies match those files. Both enable Cloud EVA, TTS, guest bootstrap/inference, Apple linking, and guest rollout at 100%, and set the legacy `requiredRegionFailClosed` field to false. Current authorization no longer uses age metadata. Remote deployment preflight and signed-policy verification pass for both environments.
+
+The compatible Worker was deployed to staging as `6ecb4c73-0922-494f-8b96-4201943772bf` and production as `fbd8eddc-f85a-4ed5-a515-f4a7845fbded`. Staging authenticated smoke verified automatic guest creation, refresh rotation, same-account bootstrap recovery, preservation of restricted context grants, rejection of the retired family, and deletion of the synthetic account. Physical-device upgrade, protected-storage, Apple reauthentication, and native Health-sheet qualification remain release checks.
 
 The production zone also serves the GitHub Pages marketing site. EVA changes may touch only `api.getlifeboard.app` and the Worker/custom-domain configuration. Never alter or proxy the apex `getlifeboard.app` or `www.getlifeboard.app` records during an EVA deploy or rollback.
 
@@ -105,7 +107,7 @@ npm --workspace @lifeboard/eva-cloud run config:prepare-rollback:staging
 npm --workspace @lifeboard/eva-cloud run config:prepare-rollback:production
 ```
 
-For the current desired revisions these produce staging v4 and production v3 rollback documents under `.eva-provisioning/`. Prepare them before any remote mutation; do not publish them unless containment is required.
+For the current desired revisions these produce staging v5 and production v4 rollback documents under `.eva-provisioning/`. Prepare them before any remote mutation; do not publish them unless containment is required.
 
 Enabled/degraded cloud requires `priceSchedule.approved: true`. TTS cannot be enabled while cloud is disabled. Missing, malformed, wrong-environment, future-dated, rolled-back, unapproved, or otherwise invalid policy returns a signed disabled fallback.
 
@@ -145,10 +147,10 @@ Authenticated CLI smoke/evaluation may use a short-lived session exported from a
 
 Physical iOS qualification must prove, in order:
 
-1. One-action guest activation with confirmed context and no Apple sheet.
+1. Automatic guest activation with default context, retained user restrictions, and no Apple or age sheet.
 2. Low-trust and high-trust App Attest/DeviceCheck paths with the same 20-answer allowance.
 3. Optional Apple link, usage union, consent intersection/re-review, guest-session revocation, and reinstall recovery.
-4. Known-under-13 denial, ordinary unknown-age access, and mandatory-region fail-closed behavior.
+4. Legacy missing, negative, and expired age metadata does not block activation, quota, or inference.
 5. Token refresh rotation and guest/Apple deletion.
 6. Exactly 20 rolling successful answers, 100 rolling helper successes, 10/minute helper burst, plus refusal/moderation/cancellation/replay reconciliation.
 7. TTS ticket, PCM first audio, cancellation, playback completion, and accounting.
@@ -237,3 +239,18 @@ Never add payload sampling to improve observability. Correlate a network `reques
 - Cost spike: close the global budget, disable cloud, and reconcile before re-enable.
 
 Never reduce a configuration version already accepted by clients. Never weaken session binding, age policy, consent, quota, or budget gates to restore availability. Low-trust access is an intentional policy tier, not a bypass. Follow `INCIDENT_RUNBOOK.md` for severity, containment, and recovery.
+
+
+## Automatic activation rollout — 2026-09-16
+
+- [x] Remove age enforcement from account authorization and current client activation/inference.
+- [x] Preserve legacy wire fields, existing grants, and explicit Offline/disabled preferences.
+- [x] Validate backend typecheck, 72 Worker tests, and deployment dry run.
+- [x] Pass 191 focused iOS simulator tests, including seven automatic-activation regressions and concurrent read-only Health authorization.
+- [x] Verify existing live signed policies and remote secret names before mutation.
+- [x] Deploy staging Worker `48f0a655-de40-4e8d-a913-01d9e4f5e084`; publish and verify policy v4.
+- [x] Deploy production Worker `0bf7ff9d-caf1-4825-a0d9-d193fd42944c` at 100%; publish and verify policy v3.
+- [x] Prepare disabled rollback policies (staging v5, production v4) under ignored `.eva-provisioning/`.
+- [ ] Verify Apple Health's real permission sheet and App Attest on a signed physical-device build before shipping the client.
+
+The server changes are live. Client automatic activation and the Health onboarding handoff require the updated app build. Health unit tests use a fake gateway; a successful permission request is not proof of read access. No HealthKit or App Attest bypass was introduced.
