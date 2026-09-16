@@ -477,6 +477,39 @@ final class HealthSyncTests: XCTestCase {
     }
 
     @MainActor
+    func testConcurrentReadOnlyRequestsCompleteWithoutDataAndAskOnlyOnce() async {
+        let previous = V2FeatureFlags.healthIntegrationsV1Enabled
+        V2FeatureFlags.healthIntegrationsV1Enabled = true
+        HealthAuthorizationPromptState.reset()
+        defer {
+            V2FeatureFlags.healthIntegrationsV1Enabled = previous
+            HealthAuthorizationPromptState.reset()
+        }
+        let gateway = HealthGatewayFake()
+        let gate = HealthImportGate()
+        gateway.authorizationGate = gate
+        let ledger = InMemoryHealthSyncLedger()
+        let store = HealthConnectionStore(gateway: gateway, engineProvider: { nil },
+            ledgerProvider: { ledger }, invalidationHub: HealthSyncInvalidationService())
+        let first = _Concurrency.Task { await store.connectReadOnly() }
+        await gate.waitUntilEntered()
+        var secondStarted = false
+        let second = _Concurrency.Task {
+            secondStarted = true
+            return await store.connectReadOnly()
+        }
+        while !secondStarted { await _Concurrency.Task.yield() }
+        await gate.open()
+        let firstResult = await first.value
+        let secondResult = await second.value
+        XCTAssertEqual(firstResult, .reviewed)
+        XCTAssertEqual(secondResult, .reviewed)
+        XCTAssertEqual(gateway.requestedWriteDomains, [[]])
+        XCTAssertTrue(store.aggregates.isEmpty)
+        XCTAssertNil(store.lastSuccessfulSync)
+    }
+
+    @MainActor
     func testConcurrentReadAndWriteAuthorizationPreservesBothIntents() async {
         let previous = V2FeatureFlags.healthIntegrationsV1Enabled
         V2FeatureFlags.healthIntegrationsV1Enabled = true
