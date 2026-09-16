@@ -1,5 +1,20 @@
 # Dark-mode asset brief
 
+**Classification:** Asset operations reference and historical audit
+
+**Audience:** Design, iOS engineering, and QA
+**Capability status:** Current artwork guidance; legacy inventory preserved as history
+**Source authority:** DESIGN.md, current semantic tokens, artwork manifests, and runtime scene components
+**Last verified:** 2026-09-16 (ambient artwork rules; legacy inventory not re-counted)
+
+## Current ambient artwork rules
+
+Home has 44 scene variants and feature headers have 34 variants in separate catalogs. Each family has explicit light/dark artwork. Transparency alone does not establish cross-appearance suitability. Use dark surface `#282A44` and parchment ink `#F7F1E7`; appearance is independent of daypart. The shared runtime scene uses proportional cropping, a directional reading mask, and appearance-specific opacity without brightness hacks or additional animation loops. See the [implemented guide](home-cards/IMPLEMENTED_DESIGN_SYSTEM.md) for packaging, cache, privacy, and validation limits.
+
+## Historical audit — 22 August 2026
+
+The counts and proposed asset work below describe the August audit, not current catalog completeness. Where its rendering or palette suggestions conflict with the current rules above, use the current rules.
+
 Generated 2026-08-22 from an audit of `LifeBoard/Assets.xcassets` (104 imagesets)
 and `LifeBoard/Features/Journal/Resources/Moods.xcassets` (30).
 
@@ -28,9 +43,9 @@ dropping the dark file into the new well. Keep the same filename convention with
 
 ## Palette to generate against
 
-Light canvas `#FFF7D8` · dark canvas `#151B2D` · dark surface `#202741` ·
-dark ink `#F4EBDD`. Warm paper and cocoa by day; warm indigo and parchment by
-night. The house voice is *calm, personal, unhurried* — not a productivity
+Light canvas `#FFF7D8` · dark canvas `#151B2D` · dark surface `#282A44` ·
+dark ink `#F7F1E7`. Warm paper and cocoa in light appearance; indigo and parchment in
+dark appearance. Appearance is independent of daypart. The house voice is *calm, personal, unhurried* — not a productivity
 dashboard. Avoid: neon, high-saturation gradients, glossy 3D, stock-photo people,
 clutter, any text baked into the image.
 
