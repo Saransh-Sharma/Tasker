@@ -1,0 +1,17 @@
+{
+  "scope": "Read-only source comparison. This is not an isolated comparison build and does not establish causal classification.",
+  "files": [
+    {
+      "path": "LifeBoard/Features/Tasks/UI/TaskDetailScreen.swift",
+      "working_sha256": "e460dd96686e97f1617c88c165548fbc7a01844c46cef91a07eba782a1d4c643",
+      "head_sha256": "e460dd96686e97f1617c88c165548fbc7a01844c46cef91a07eba782a1d4c643",
+      "source_identical_to_head": true
+    },
+    {
+      "path": "LifeBoard/Services/V2FeatureFlags.swift",
+      "working_sha256": "a35ead59274ce05c6359e867b9fbccc44898e73ad699862945474b53520fb291",
+      "head_sha256": "a35ead59274ce05c6359e867b9fbccc44898e73ad699862945474b53520fb291",
+      "source_identical_to_head": true
+    }
+  ]
+}
