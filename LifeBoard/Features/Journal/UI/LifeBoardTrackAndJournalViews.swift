@@ -1481,6 +1481,7 @@ struct BehaviorNativeAreasView: View {
                 .accessibilityIdentifier(title == "Trackers" ? "track.tracker.new" : "track.medication.new")
         }
         .padding(.top, 4)
+        .featureHeaderArtwork(title == "Trackers" ? .track : .care)
     }
 
     private func medicationResolution(
@@ -2826,7 +2827,14 @@ private struct TrackerHistoryView: View {
                     // chart permanently settled, so its reveal could never play
                     // — the effect was wired but inert.
                     .lifeboardChartRevealSweep(progress: chartRevealProgress)
-                    .accessibilityHidden(true)
+                    // Hidden from VoiceOver, this chart's evidence simply did
+                    // not exist for anyone using it. `DESIGN.md` asks charts for
+                    // a prose or table equivalent.
+                    .accessibilityElement()
+                    .accessibilityLabel("Recent history, most recent last")
+                    .accessibilityValue(
+                        entries.suffix(7).map(value).joined(separator: ", ")
+                    )
                 }
             }
         }
@@ -4486,6 +4494,7 @@ struct JournalModuleView: View {
             )
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
+            .featureHeaderArtwork(.journal, enabled: privacy.state == .unlocked)
 
             if !store.watchRecoveryRecords.isEmpty {
                 watchRecoveryBanner
@@ -4975,7 +4984,10 @@ struct JournalModuleView: View {
             LazyVStack(spacing: 12) {
                 HStack {
                     TextField("Search your journal", text: $store.searchText)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                        .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
                         .accessibilityLabel("Search journal")
                     Button { showsVoiceSearch = true } label: {
                         Image(systemName: "mic.circle").frame(width: 44, height: 44)
@@ -4992,8 +5004,22 @@ struct JournalModuleView: View {
                 }
                 searchStatus(palette: palette)
                 if store.days.isEmpty {
-                    StatusSurface(state: .empty, title: "No entries found", message: "Try another search or add a thought today.")
+                    // "Try another search" is wrong advice when nothing was
+                    // searched for. `DESIGN.md`: a successful-empty state offers
+                    // one relevant next step, and no-record is its own state.
+                    if store.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        StatusSurface(
+                            state: .noRecord,
+                            title: "Nothing written yet",
+                            message: "Today is a good place to start.",
+                            actionTitle: "Write something",
+                            action: { showsTextComposer = true }
+                        )
                         .padding(.top, 40)
+                    } else {
+                        StatusSurface(state: .empty, title: "No entries found", message: "Try another search.")
+                            .padding(.top, 40)
+                    }
                 } else {
                     ForEach(store.days) { day in
                         journalDayCard(day, palette: palette, onDelete: { Task { await store.delete(day) } })
@@ -5355,8 +5381,8 @@ struct JournalModuleView: View {
                     .background(Color.lifeboard(.accentPrimary).opacity(0.12), in: Circle())
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(insight.category.rawValue.uppercased())
-                        .font(.caption2.weight(.bold))
+                    Text(insight.category.rawValue.capitalized)
+                        .font(Typography.metadata())
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                     Text(insight.title)
                         .font(.headline)
@@ -5732,11 +5758,20 @@ private struct JournalDayCard: View {
                     .accessibilityLabel("AI visibility for this day")
                     .accessibilityValue(exclusionAccessibilityValue)
                 }
-                Button(action: onStar) { Image(systemName: day.isStarred ? "star.fill" : "star") }
-                    .accessibilityLabel(day.isStarred ? "Unstar journal day" : "Star journal day")
+                Button(action: onStar) {
+                    Image(systemName: day.isStarred ? "star.fill" : "star")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(day.isStarred ? "Unstar journal day" : "Star journal day")
+                .accessibilityAddTraits(day.isStarred ? [.isSelected] : [])
                 if onDelete != nil {
-                    Button(role: .destructive) { confirmsDelete = true } label: { Image(systemName: "trash") }
-                        .accessibilityLabel("Delete journal day")
+                    Button(role: .destructive) { confirmsDelete = true } label: {
+                        Image(systemName: "trash")
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("Delete journal day")
                 }
             }
             if day.aiExclusion != .included {
@@ -5843,11 +5878,15 @@ private struct JournalDayCard: View {
             Button("Delete day", role: .destructive) { onDelete?() }
             Button("Cancel", role: .cancel) {}
         } message: { Text("Text, mood, photos, and local audio for this day will be removed.") }
-        .onAppear {
-            mediaRevealProgress = reduceMotion ? 1 : 0
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.48)) {
-                mediaRevealProgress = 1
-            }
+        // `journalMediaReveal` is for media that was just committed. Replaying
+        // it on every appear re-developed photos from months ago each time a
+        // library row scrolled back into view, which says "this just arrived"
+        // about something that did not.
+        .onAppear { mediaRevealProgress = 1 }
+        .onChange(of: day.blocks.count) { previous, updated in
+            guard reduceMotion == false, updated > previous else { return }
+            mediaRevealProgress = 0
+            withAnimation(.easeOut(duration: 0.48)) { mediaRevealProgress = 1 }
         }
         .onDisappear { playback.stop() }
         .sheet(item: $inspectedPhoto) { media in
