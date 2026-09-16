@@ -1,0 +1,61 @@
+{
+  "scope": "Source comparison only; no completed controlled build. Does not causally classify any test failure.",
+  "files": [
+    {
+      "path": "LifeBoard/Features/Tasks/UI/TaskDetailScreen.swift",
+      "current_sha256": "e460dd96686e97f1617c88c165548fbc7a01844c46cef91a07eba782a1d4c643",
+      "control_sha256": "e460dd96686e97f1617c88c165548fbc7a01844c46cef91a07eba782a1d4c643",
+      "head_sha256": "e460dd96686e97f1617c88c165548fbc7a01844c46cef91a07eba782a1d4c643",
+      "current_identical_to_control": true,
+      "current_identical_to_head": true
+    },
+    {
+      "path": "LifeBoard/Services/V2FeatureFlags.swift",
+      "current_sha256": "a35ead59274ce05c6359e867b9fbccc44898e73ad699862945474b53520fb291",
+      "control_sha256": "a35ead59274ce05c6359e867b9fbccc44898e73ad699862945474b53520fb291",
+      "head_sha256": "a35ead59274ce05c6359e867b9fbccc44898e73ad699862945474b53520fb291",
+      "current_identical_to_control": true,
+      "current_identical_to_head": true
+    },
+    {
+      "path": "LifeBoard/Persistence/Resources/TaskModelV3.xcdatamodeld/.xccurrentversion",
+      "current_sha256": "4e37821e5907c127d6c6a340530606ab1542dae51bb4d26015bf272744392dcf",
+      "control_sha256": "4e37821e5907c127d6c6a340530606ab1542dae51bb4d26015bf272744392dcf",
+      "head_sha256": "4e37821e5907c127d6c6a340530606ab1542dae51bb4d26015bf272744392dcf",
+      "current_identical_to_control": true,
+      "current_identical_to_head": true
+    },
+    {
+      "path": "LifeBoardTests/LifeBoardTests.swift",
+      "current_sha256": "71ae3e8c13a3bd94581a410d122cb66d35e0328cc14279350a8f6706513e4842",
+      "control_sha256": "71ae3e8c13a3bd94581a410d122cb66d35e0328cc14279350a8f6706513e4842",
+      "head_sha256": "71ae3e8c13a3bd94581a410d122cb66d35e0328cc14279350a8f6706513e4842",
+      "current_identical_to_control": true,
+      "current_identical_to_head": true
+    },
+    {
+      "path": "LifeBoardTests/AppOnboardingTests.swift",
+      "current_sha256": "1aa6b6972a550a6c39bb79edd567f2b2dbb6d4757f48b1cabedae332917209d0",
+      "control_sha256": "1aa6b6972a550a6c39bb79edd567f2b2dbb6d4757f48b1cabedae332917209d0",
+      "head_sha256": "1aa6b6972a550a6c39bb79edd567f2b2dbb6d4757f48b1cabedae332917209d0",
+      "current_identical_to_control": true,
+      "current_identical_to_head": true
+    },
+    {
+      "path": "LifeBoardTests/LifeOSFoundationTests.swift",
+      "current_sha256": "a3436009be241840004417d99bd2c7aa7bdeced93a7df94058f5681d0117fe95",
+      "control_sha256": "a3436009be241840004417d99bd2c7aa7bdeced93a7df94058f5681d0117fe95",
+      "head_sha256": "a3436009be241840004417d99bd2c7aa7bdeced93a7df94058f5681d0117fe95",
+      "current_identical_to_control": true,
+      "current_identical_to_head": true
+    },
+    {
+      "path": "LifeBoardTests/AssistantPlannerServiceTests.swift",
+      "current_sha256": "34e1abf48e6e4d0d0686b1e6fab8817ed83d19131577edad7a30460c4c5a1438",
+      "control_sha256": "34e1abf48e6e4d0d0686b1e6fab8817ed83d19131577edad7a30460c4c5a1438",
+      "head_sha256": "34e1abf48e6e4d0d0686b1e6fab8817ed83d19131577edad7a30460c4c5a1438",
+      "current_identical_to_control": true,
+      "current_identical_to_head": true
+    }
+  ]
+}
