@@ -21,7 +21,9 @@ end
 living << root.join("docs", "README.md")
 living.uniq!
 
-errors << "expected 44 living documents, found #{living.length}" unless living.length == 44
+# The top-level asset brief is a living operations reference with its August
+# inventory explicitly historical. It is included alongside the prior 44 docs.
+errors << "expected 45 living documents, found #{living.length}" unless living.length == 45
 
 metadata = ["Classification", "Audience", "Capability status", "Source authority", "Last verified"]
 living.each do |path|
