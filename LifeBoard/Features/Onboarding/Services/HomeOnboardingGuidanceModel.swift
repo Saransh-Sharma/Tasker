@@ -33,8 +33,8 @@ final class HomeOnboardingGuidanceModel: ObservableObject {
     func showLifeMapInvitation() {
         state = State(
             taskID: UUID(),
-            title: "Build your Life Map",
-            message: "Shape LifeBoard around what you're carrying. Your existing areas and records are preserved.",
+            title: String(localized: "Set up LifeBoard"),
+            message: String(localized: "Tell us what matters. Your data stays as is."),
             isInvitation: true
         )
     }
