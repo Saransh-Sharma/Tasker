@@ -31,30 +31,14 @@ extension LifeWeaveOnboardingModel {
     /// while automatic activation continues in the background, retries a
     /// recoverable failure, or opens the explicit Offline path.
     var evaPrimaryTitle: String {
-        if evaPrefersOffline { return "Continue" }
+        if evaPrefersOffline { return LifeWeaveCopy.Dock.done }
         switch evaAccess.state {
-        case .hydrating, .needsActivation: return "Continue"
-        case .activating: return "Continue"
-        case .ready: return "Continue"
-        case .temporarilyUnavailable: return "Retry Cloud EVA"
-        case .appleReauthenticationRequired: return "Reconnect with Apple"
+        case .hydrating, .needsActivation: return LifeWeaveCopy.Dock.continue
+        case .activating: return LifeWeaveCopy.Dock.done
+        case .ready: return LifeWeaveCopy.Dock.done
+        case .temporarilyUnavailable: return String(localized: "Try again")
+        case .appleReauthenticationRequired: return String(localized: "Sign in with Apple")
         case .quotaExhausted: return offlineEvaActionTitle
-        }
-    }
-
-    /// "Not now" everywhere a decision is still open.
-    ///
-    /// Nil once EVA is ready: there is nothing left to defer, and offering to
-    /// skip a finished connection reads as an undo that it is not. During
-    /// activation it becomes "Finish later" — see `performEvaSecondary()`.
-    var evaSecondaryTitle: String? {
-        if evaPrefersOffline { return nil }
-        switch evaAccess.state {
-        case .ready: return nil
-        case .activating: return "Continue using LifeBoard"
-        case .hydrating, .needsActivation, .temporarilyUnavailable,
-             .quotaExhausted, .appleReauthenticationRequired:
-            return "Not now"
         }
     }
 
@@ -70,7 +54,7 @@ extension LifeWeaveOnboardingModel {
         }
         switch evaAccess.state {
         case .needsActivation, .hydrating:
-            advancePowerUp()
+            finishConnector()
             Task { _ = await evaAccess.ensureActivated(source: .onboarding) }
         case .temporarilyUnavailable:
             await retryCloudEva()
@@ -82,22 +66,11 @@ extension LifeWeaveOnboardingModel {
             chooseOfflineEva()
         case .ready:
             recordEvaActivation(ready: true, pending: false)
-            advancePowerUp()
+            finishConnector()
         case .activating:
             recordEvaActivation(ready: false, pending: true)
-            advancePowerUp()
+            finishConnector()
         }
-    }
-
-    func performEvaSecondary() {
-        // Activation is a single-flight task inside the coordinator and cannot
-        // be cancelled from here. Rather than offer a "Cancel" that would stop
-        // nothing, leaving mid-flight records the attempt as resumable so Setup
-        // Center can finish it without asking for consent a second time.
-        if evaAccess.state == .activating {
-            recordEvaActivation(ready: false, pending: true)
-        }
-        deferCurrentPowerUp()
     }
 
     // MARK: - Choosing between cloud and offline
@@ -127,7 +100,7 @@ extension LifeWeaveOnboardingModel {
         // means "not on Cloud EVA" rather than "skipped" — the summary and the
         // final destination both key off `evaCloudReady`, and offline is not it.
         recordEvaActivation(ready: false, pending: false)
-        advancePowerUp()
+        finishConnector()
     }
 
     // MARK: - Activation recovery
