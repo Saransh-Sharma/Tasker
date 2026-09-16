@@ -16,6 +16,13 @@ public final class HabitBoardViewModel: ObservableObject {
 
     private let getHabitLibraryUseCase: GetHabitLibraryUseCase
     private let getHabitHistoryUseCase: GetHabitHistoryUseCase
+    private let resolveHabitOccurrenceUseCase: ResolveHabitOccurrenceUseCase?
+    private let logHabitAmountUseCase: LogHabitAmountUseCase?
+    private let resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase?
+    /// Today's logged amount per amount habit, for the Day lens rings.
+    @Published public private(set) var todayAmounts: [UUID: Double] = [:]
+    /// Habits being logged right now, so a second tap cannot double-log.
+    @Published public private(set) var loggingHabitIDs: Set<UUID> = []
     private var hasLoadedOnce = false
     private var hasLoadedGraph = false
     private let graphSpan = 182
@@ -30,16 +37,108 @@ public final class HabitBoardViewModel: ObservableObject {
     public init(
         getHabitLibraryUseCase: GetHabitLibraryUseCase,
         getHabitHistoryUseCase: GetHabitHistoryUseCase,
+        resolveHabitOccurrenceUseCase: ResolveHabitOccurrenceUseCase? = nil,
+        logHabitAmountUseCase: LogHabitAmountUseCase? = nil,
+        resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase? = nil,
         endingOn: Date = Date(),
         viewportColumnCount: Int = 7,
         historySpan: Int = 28
     ) {
         self.getHabitLibraryUseCase = getHabitLibraryUseCase
         self.getHabitHistoryUseCase = getHabitHistoryUseCase
+        self.resolveHabitOccurrenceUseCase = resolveHabitOccurrenceUseCase
+        self.logHabitAmountUseCase = logHabitAmountUseCase
+        self.resetHabitOccurrenceUseCase = resetHabitOccurrenceUseCase
         self.endingOn = endingOn
         let resolvedViewport = max(1, viewportColumnCount)
         self.viewportColumnCount = resolvedViewport
         self.historySpan = max(historySpan, resolvedViewport)
+    }
+
+    /// Logging on the board. The board used to be view-only — every tap opened
+    /// detail, and the only place to check a habit off was a Home row.
+    public var canLogFromBoard: Bool { resolveHabitOccurrenceUseCase != nil }
+
+    /// The action "done for today" means for this habit: complete a build habit,
+    /// record a clean day for a quit habit.
+    public func todayAction(for habitID: UUID) -> HabitOccurrenceAction {
+        libraryRow(for: habitID)?.kind == .negative ? .abstained : .complete
+    }
+
+    @discardableResult
+    public func logToday(habitID: UUID) async -> Bool {
+        guard let resolveHabitOccurrenceUseCase, loggingHabitIDs.contains(habitID) == false else { return false }
+        loggingHabitIDs.insert(habitID)
+        defer { loggingHabitIDs.remove(habitID) }
+        let action = todayAction(for: habitID)
+        let result: Result<Void, Error> = await withCheckedContinuation { continuation in
+            resolveHabitOccurrenceUseCase.execute(habitID: habitID, action: action, on: Date()) {
+                continuation.resume(returning: $0)
+            }
+        }
+        switch result {
+        case .success:
+            refresh()
+            return true
+        case .failure(let error):
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Undo for a check-in: today goes back to not done.
+    @discardableResult
+    public func resetToday(habitID: UUID) async -> Bool {
+        guard let resetHabitOccurrenceUseCase else { return false }
+        let result: Result<Void, Error> = await withCheckedContinuation { continuation in
+            resetHabitOccurrenceUseCase.execute(habitID: habitID, on: Date()) { continuation.resume(returning: $0) }
+        }
+        switch result {
+        case .success:
+            refresh()
+            return true
+        case .failure(let error):
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// The amount target a habit is logged against, if it has one.
+    public func amountTarget(for habitID: UUID) -> HabitTarget? {
+        guard let target = libraryRow(for: habitID)?.targetConfig?.effectiveTarget,
+              HabitAmountRule.target(for: target) != nil else { return nil }
+        return target
+    }
+
+    /// Log part of an amount from the board. Returns once it is saved, so the
+    /// ring only celebrates a completion that persisted.
+    @discardableResult
+    public func logAmount(habitID: UUID, change: HabitAmountChange) async -> Bool {
+        guard let logHabitAmountUseCase else { return false }
+        do {
+            let receipt = try await logHabitAmountUseCase.execute(habitID: habitID, change: change)
+            todayAmounts[habitID] = receipt.after
+            if receipt.resolvedNow || receipt.unresolvedNow { refresh() }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    private func loadTodayAmounts(for rows: [HabitLibraryRow]) {
+        guard let logHabitAmountUseCase else { return }
+        let amountHabitIDs = rows.compactMap { row -> UUID? in
+            guard let target = row.targetConfig?.effectiveTarget, HabitAmountRule.target(for: target) != nil else { return nil }
+            return row.habitID
+        }
+        Task { @MainActor [weak self] in
+            var amounts: [UUID: Double] = [:]
+            for habitID in amountHabitIDs {
+                amounts[habitID] = await logHabitAmountUseCase.currentAmount(habitID: habitID)
+            }
+            self?.todayAmounts = amounts
+        }
     }
 
     public func loadIfNeeded() {
@@ -66,6 +165,7 @@ public final class HabitBoardViewModel: ObservableObject {
                 case .success(let rows):
                     let activeRows = rows.filter { !$0.isArchived && !$0.isPaused }
                     self.libraryRows = activeRows
+                    self.loadTodayAmounts(for: activeRows)
                     self.loadHistory(for: activeRows, generation: generation)
                 }
             }
