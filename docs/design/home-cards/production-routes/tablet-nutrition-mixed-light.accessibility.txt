@@ -1,0 +1,109 @@
+Attributes: Application, 0x118616440, pid: 85240, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x118616440, pid: 85240, label: 'LifeBoard'
+    Window (Main), 0x118616580, {{0.0, 0.0}, {834.0, 1194.0}}
+      Other, 0x1186166c0, {{0.0, 0.0}, {834.0, 1194.0}}
+        Other, 0x118616800, {{0.0, 0.0}, {834.0, 1194.0}}
+          Other, 0x118616940, {{0.0, 0.0}, {834.0, 1194.0}}
+            Other, 0x118616a80, {{0.0, 0.0}, {834.0, 1194.0}}
+              Other, 0x118616bc0, {{0.0, 0.0}, {834.0, 1194.0}}
+                Other, 0x118616d00, {{0.0, 0.0}, {834.0, 1194.0}}
+                  Other, 0x118616e40, {{0.0, 0.0}, {834.0, 1194.0}}
+                    Other, 0x118616f80, {{0.0, 0.0}, {834.0, 1194.0}}
+                      Button, 0x1186170c0, {{417.0, 603.0}, {0.0, 0.0}}
+                      Other, 0x118617200, {{0.0, 0.0}, {834.0, 1194.0}}
+                        Other, 0x118617340, {{0.0, 0.0}, {834.0, 1194.0}}
+                        Other, 0x118617480, {{0.0, 0.0}, {834.0, 1194.0}}
+                          Other, 0x1186175c0, {{0.0, 0.0}, {834.0, 1194.0}}
+                            Other, 0x118617700, {{0.0, 0.0}, {834.0, 1194.0}}
+                              Other, 0x118617840, {{0.0, 0.0}, {834.0, 1194.0}}
+                                Other, 0x118617980, {{0.0, 0.0}, {834.0, 1194.0}}
+                                  Other, 0x118617ac0, {{0.0, 32.0}, {834.0, 1070.0}}
+                                  Other, 0x118617c00, {{0.0, 0.0}, {834.0, 1194.0}}
+                                    NavigationBar, 0x118617d40, {{0.0, 32.0}, {834.0, 106.0}}, identifier: 'Nutrition'
+                                      Button, 0x118617e80, {{10.0, 32.0}, {44.0, 44.0}}, identifier: 'BackButton', label: 'Track'
+                                      StaticText, 0x11861c000, {{382.0, 43.5}, {70.0, 21.0}}, label: 'Nutrition'
+                                      Button, 0x11861c140, {{616.0, 36.0}, {40.0, 36.0}}, identifier: 'nutrition.goal.open', label: 'Daily target'
+                                      Button, 0x11861c280, {{672.0, 36.0}, {40.0, 36.0}}, label: 'Scan barcode'
+                                      Button, 0x11861c3c0, {{728.0, 36.0}, {39.0, 36.0}}, label: 'Log by voice'
+                                      Button, 0x11861c500, {{783.0, 36.0}, {37.0, 36.0}}, label: 'Log meal'
+                                    Other, 0x11861c640, {{0.0, 0.0}, {834.0, 1194.0}}
+                                      Other, 0x11861c780, {{0.0, 0.0}, {834.0, 1194.0}}
+                                        Other, 0x11861c8c0, {{0.0, 0.0}, {834.0, 1194.0}}
+                                          Other, 0x11861ca00, {{0.0, 0.0}, {834.0, 1194.0}}
+                                            Image, 0x11861cb40, {{0.0, -144.5}, {834.0, 1483.0}}
+                                            Image, 0x11861cc80, {{81.0, 0.0}, {672.0, 1194.0}}
+                                            Image, 0x11861cdc0, {{425.2, 34.7}, {215.2, 214.7}}
+                                            Other, 0x11861cf00, {{417.0, 86.0}, {0.0, 0.0}}
+                                            Other, 0x11861d040, {{0.0, 0.0}, {834.0, 1194.0}}
+                                            ScrollView, 0x11861d180, {{0.0, 0.0}, {834.0, 1194.0}}, identifier: 'nutrition.timeline'
+                                              Other, 0x11861d2c0, {{0.0, 0.0}, {834.0, 1194.0}}
+                                                Other, 0x11861d400, {{0.0, 0.0}, {834.0, 140.8}}
+                                              Other, 0x11861d540, {{0.0, 0.0}, {834.0, 1194.0}}
+                                              Other, 0x11861d680, {{0.0, 86.0}, {834.0, 1090.0}}
+                                                Other, 0x11861d7c0, {{19.5, 106.0}, {795.0, 1315.0}}
+                                                  StaticText, 0x11861d900, {{20.0, 106.0}, {263.5, 33.5}}, label: 'Today’s nourishment'
+                                                  StaticText, 0x11861da40, {{20.0, 147.5}, {401.0, 18.0}}, label: 'A factual record of what you choose to log—never a grade.'
+                                                  Other, 0x11861db80, {{20.0, 131.5}, {794.0, 265.5}}
+                                                    Image, 0x11861dcc0, {{20.0, 131.5}, {794.0, 265.5}}
+                                                    Other, 0x11861de00, {{40.0, 203.5}, {103.5, 57.5}}, identifier: 'nutrition.hero.energy', label: 'Energy today', value: Not recorded, from...
+                                                      StaticText, 0x11861df40, {{40.0, 203.5}, {78.0, 14.5}}, label: 'Energy today'
+                                                      StaticText, 0x11861e080, {{40.0, 222.0}, {103.5, 20.5}}, label: 'Not recorded'
+                                                      StaticText, 0x11861e1c0, {{40.0, 246.5}, {91.0, 14.5}}, label: 'LifeBoard meals'
+                                                    Button, 0x11861e300, {{40.0, 277.0}, {754.0, 48.0}}, identifier: 'nutrition.hero.log', label: 'Log a meal'
+                                                      Image, 0x11861e440, {{361.5, 292.0}, {17.5, 17.5}}, identifier: 'plus.circle.fill', label: 'Add'
+                                                      StaticText, 0x11861e580, {{361.5, 291.0}, {112.5, 20.5}}, label: 'Log a meal'
+                                                  Other, 0x11861e6c0, {{20.0, 363.0}, {794.0, 124.0}}
+                                                    Image, 0x11861e800, {{36.0, 378.5}, {13.0, 18.5}}, identifier: 'heart.text.clipboard', label: 'heart.text.clipboard'
+                                                    StaticText, 0x11861e940, {{36.0, 378.5}, {179.5, 18.5}}, label: 'Connect Apple Health'
+                                                    StaticText, 0x11861ea80, {{34.0, 406.5}, {523.5, 14.5}}, label: 'Use Apple Health totals for calories and macros while named meals stay private in LifeBoard.'
+                                                    Button, 0x11861ebc0, {{34.0, 442.0}, {111.5, 18.0}}, label: 'Connect Health'
+                                                  Other, 0x11861ed00, {{19.5, 505.0}, {795.0, 124.5}}
+                                                    StaticText, 0x11861ee40, {{20.0, 505.0}, {68.0, 24.0}}, label: 'Macros'
+                                                      StaticText, 0x11861ef80, {{20.0, 505.0}, {68.0, 24.0}}, label: 'Macros'
+                                                    Other, 0x11861f0c0, {{32.0, 565.5}, {103.5, 39.0}}, identifier: 'nutrition.macro.protein', label: 'Protein', value: Not recorded
+                                                      StaticText, 0x11861f200, {{32.0, 565.5}, {42.5, 14.5}}, label: 'Protein'
+                                                      StaticText, 0x11861f340, {{32.0, 584.0}, {103.5, 20.5}}, label: 'Not recorded'
+                                                    Other, 0x11861f480, {{299.3, 565.5}, {103.5, 39.0}}, identifier: 'nutrition.macro.carbs', label: 'Carbs', value: Not recorded
+                                                      StaticText, 0x11861f5c0, {{299.3, 565.5}, {35.0, 14.5}}, label: 'Carbs'
+                                                      StaticText, 0x11861f700, {{299.3, 584.0}, {103.5, 20.5}}, label: 'Not recorded'
+                                                    Other, 0x11861f840, {{566.7, 565.5}, {103.5, 39.0}}, identifier: 'nutrition.macro.fat', label: 'Fat', value: Not recorded
+                                                      StaticText, 0x11861f980, {{566.7, 565.5}, {18.5, 14.5}}, label: 'Fat'
+                                                      StaticText, 0x11861fac0, {{566.7, 584.0}, {103.5, 20.5}}, label: 'Not recorded'
+                                                  Image, 0x11861fc00, {{20.0, 281.0}, {794.0, 820.5}}
+                                                  StaticText, 0x11861fd40, {{36.0, 663.0}, {96.0, 26.5}}, label: 'Breakfast'
+                                                  StaticText, 0x11861fe80, {{36.0, 701.5}, {106.0, 18.0}}, label: 'Nothing logged'
+                                                  Image, 0x118624000, {{20.0, 387.5}, {794.0, 820.5}}
+                                                  StaticText, 0x118624140, {{36.0, 769.5}, {62.5, 26.5}}, label: 'Lunch'
+                                                  StaticText, 0x118624280, {{36.0, 808.0}, {106.0, 18.0}}, label: 'Nothing logged'
+                                                  Image, 0x1186243c0, {{20.0, 494.0}, {794.0, 820.5}}
+                                                  StaticText, 0x118624500, {{36.0, 876.0}, {66.5, 26.5}}, label: 'Dinner'
+                                                  StaticText, 0x118624640, {{36.0, 914.5}, {106.0, 18.0}}, label: 'Nothing logged'
+                                                  Image, 0x118624780, {{20.0, 600.5}, {794.0, 820.5}}
+                                                  StaticText, 0x1186248c0, {{36.0, 982.5}, {62.5, 26.5}}, label: 'Snack'
+                                                  StaticText, 0x118624a00, {{36.0, 1021.0}, {106.0, 18.0}}, label: 'Nothing logged'
+                                                  StaticText, 0x118624b40, {{20.0, 1073.0}, {114.5, 26.5}}, label: 'Past 7 days'
+                                                  StaticText, 0x118624c80, {{20.0, 1111.5}, {205.0, 14.5}}, label: 'Energy from named LifeBoard meals'
+                                                  StaticText, 0x118624dc0, {{20.0, 1138.0}, {344.5, 18.0}}, label: 'Logged meals will build this picture over the week.'
+                                              Other, 0x118624f00, {{801.0, 86.0}, {30.0, 1076.0}}, label: 'Vertical scroll bar, 2 pages', value: 0%
+                                                Other, 0x118625040, {{828.0, 229.0}, {3.0, 930.0}}
+                                              Other, 0x118625180, {{801.0, 86.0}, {30.0, 1076.0}}, label: 'Vertical scroll bar, 2 pages', value: 0%
+                                                Other, 0x1186252c0, {{828.0, 229.0}, {3.0, 930.0}}
+                                    Other, 0x118625400, {{0.0, 0.0}, {834.0, 1194.0}}
+                                      Other, 0x118625540, {{0.0, 0.0}, {834.0, 1194.0}}
+                      Other, 0x118625680, {{56.5, 1101.5}, {721.0, 61.0}}, identifier: 'LifeBoardExpandedChrome'
+                        Button, 0x1186257c0, {{65.0, 1110.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.toolsToggle', label: 'Open capture tools'
+                        TextField, 0x118625900, {{117.0, 1121.0}, {600.0, 22.0}}, identifier: 'home.lifeThread.composer', placeholderValue: 'Log something or reflect on how you feel'
+                          Other, 0x118625a40, {{117.0, 1129.0}, {600.0, 11.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                            Other, 0x118625b80, {{120.0, 1137.0}, {594.0, 3.0}}
+                        Button, 0x118625cc0, {{725.0, 1110.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.send', label: 'Start dictation'
+                      Other, 0x118625e00, {{0.0, 32.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.morning', label: 'Celestial atmosphere: morning'
+                      Button, 0x118625f40, {{0.0, 32.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                      Other, 0x118626080, {{0.0, 32.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x118616440, pid: 85240, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x1186261c0, pid: 85240, label: 'LifeBoard'
+  }
