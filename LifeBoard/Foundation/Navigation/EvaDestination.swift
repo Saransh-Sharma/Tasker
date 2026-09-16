@@ -9,6 +9,9 @@ struct EvaDestination: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isPrivacyDetailExpanded = false
+    /// The badge must say where Eva's context actually goes: when cloud Eva is
+    /// active, "on-device" is false.
+    @ObservedObject private var cloudAccess = EvaCloudAccessCoordinator.shared
 
     @StateObject private var appManager: AppManager
     @StateObject private var activationCoordinator: EvaActivationCoordinator
@@ -153,10 +156,10 @@ struct EvaDestination: View {
             }
         } label: {
             HStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: "lock.shield")
+                Image(systemName: usesCloudEva ? "cloud" : "lock.shield")
                     .font(.lifeboard(.caption1))
                 if isPrivacyDetailExpanded {
-                    Text("Private on-device context")
+                    Text(privacyBadgeTitle)
                         .font(.lifeboard(.caption1))
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
@@ -169,7 +172,7 @@ struct EvaDestination: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Private on-device context")
+        .accessibilityLabel(privacyBadgeTitle)
         .accessibilityHint(
             isPrivacyDetailExpanded
                 ? "Hides Eva's evidence sharing controls"
@@ -177,6 +180,14 @@ struct EvaDestination: View {
         )
         .accessibilityIdentifier("eva.privacy.badge")
         .lifeboardPressFeedback()
+    }
+
+    private var usesCloudEva: Bool {
+        cloudAccess.state == .ready && cloudAccess.automaticActivationAllowed
+    }
+
+    private var privacyBadgeTitle: String {
+        usesCloudEva ? "Cloud Eva · only context you allow" : "Private on-device context"
     }
 
     private var evidenceSharingMenu: some View {
