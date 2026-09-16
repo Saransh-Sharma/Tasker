@@ -192,8 +192,10 @@ An explicit zero is a recorded value. It must not render as missing.
   deterministic language patterns, bounded semantic classifier, then EVA.
 - Semantic output maps only to allow-listed native actions and cannot execute
   arbitrary routes or code.
-- Classification does not save. A native editor or explicit confirmation is the
-  commit boundary.
+- Classification does not save. The commit boundary is a native editor, an
+  explicit confirmation, or Send on typed input whose interpretation chips were
+  visible. Dictated or ambiguous input always opens the editor, and every
+  in-place save produces a receipt with Open and Undo.
 - Drafts must survive clarification, permission failure, recoverable
   presentation changes, and background interruption where supported.
 - Speech and inference stay on-device on the current local path.
