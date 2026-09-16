@@ -3,67 +3,68 @@ import LifeBoardTokens
 import LifeBoardUI
 import SwiftUI
 
-/// The v6 flow shell.
+/// The four-screen first run.
 ///
 /// One persistent background, one persistent weave, and a step-shaped content
-/// column between them. The weave is deliberately *not* replaced between steps:
-/// the payoff only reads if the user watches one object accumulate their
-/// answers rather than nine unrelated screens going by.
+/// column between them. Welcome and intent, life areas, one real thing, Ready.
+/// Connections open as sheets over Ready and return there.
 struct LifeWeaveOnboardingView: View {
     @ObservedObject var model: LifeWeaveOnboardingModel
     let onComplete: (LifeWeaveCompletionDestination) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @State private var clayTrigger = 0
-    private var displayedRoute: LifeWeaveRoute {
-        model.usesStreamlinedOnboarding && model.powerUpStep != nil ? .core(.reveal) : model.draft.route
+    /// Which way the last step change went, so content arrives from the side
+    /// the user is travelling toward.
+    @State private var isMovingForward = true
+    /// The capture sentence travels from its field to the receipt through this.
+    @Namespace private var pillNamespace
+
+    /// Connections open as sheets over the Ready screen, so the flow itself only
+    /// ever shows one of the four core screens.
+    private var displayedStep: LifeWeaveStep {
+        if model.powerUpStep != nil { return .reveal }
+        return LifeWeaveMigration.streamlinedStep(for: model.step)
     }
 
     // The dock's titles are derived from connector state, and connector state
-    // does not live in the draft. Without these three the primary button would
-    // keep a stale label through a permission return, a first sync, or an EVA
+    // does not live in the draft. Without these the primary button would keep a
+    // stale label through a permission return, a first sync, or an EVA
     // activation completing — none of which is a draft write.
     @StateObject private var evaAccess = EvaCloudAccessCoordinator.shared
     @StateObject private var calendarSession = CalendarPowerUpSession.shared
-    @State private var healthStore = HealthCoordinator.shared.connectionStore
-    @State private var healthPowerUp = LifeWeaveHealthPowerUpState.shared
 
-    /// The map yields before the copy does, always.
+    /// The map shows up where it has something to say.
     ///
-    /// `DESIGN.md`: "At large text sizes, use one content column … Never shrink
-    /// type to preserve a layout." So the weave gives up its height first, then
-    /// its labels, then itself — the question is what the screen is for.
+    /// On the areas screen it grows a node for every pick; on the Ready screen
+    /// it holds the finished result. The welcome has nothing on it yet, and on
+    /// the capture screen the keyboard needs the room.
     private var weaveHeightFraction: CGFloat {
         if dynamicTypeSize >= .accessibility3 { return 0 }
-        if dynamicTypeSize >= .accessibility1 { return 0.11 }
-        switch displayedRoute {
-        // Arrival and Reveal are the two beats where the map *is* the content,
-        // so they keep a little more room. Every question screen gives it back:
-        // the map is there to acknowledge the answer, not to compete with it.
-        case .core(.arrival), .core(.reveal): return 0.22
-        case .core: return 0.16
-        // The summary is a receipt about the map, so it earns the taller frame.
-        // The connectors are dense — primer, chooser, sync states — and the map
-        // has nothing to say about a permission sheet.
-        case .powerUp(.complete): return 0.22
-        case .powerUp: return 0.12
+        switch displayedStep {
+        case .lifeAreas, .dayShape: return dynamicTypeSize >= .accessibility1 ? 0.10 : 0.16
+        case .reveal: return dynamicTypeSize >= .accessibility1 ? 0.11 : 0.20
+        case .arrival, .intent, .firstCapture: return 0
         }
     }
 
-    /// A share of the window on a phone, but a *capped* height on iPad.
-    ///
-    /// A fraction of a 1180-point window is 350 points of mostly-empty field
-    /// above six short rows — `DESIGN.md` is explicit that extra iPad space is
-    /// not to be filled just because it exists. The proper answer is the
-    /// two-pane composition (map beside the question); until that lands, the map
-    /// takes what it needs and gives the rest back.
+    /// A share of the window on a phone, but a capped height on iPad, where a
+    /// fraction of a tall window is mostly empty field.
     private func weaveHeight(in size: CGSize) -> CGFloat {
         let proportional = size.height * weaveHeightFraction
         guard horizontalSizeClass == .regular else { return proportional }
-        let isTallBeat = model.draft.route == .core(.reveal)
-            || model.draft.route == .powerUp(.complete)
-        return min(proportional, isTallBeat ? 240 : 200)
+        return min(proportional, displayedStep == .reveal ? 240 : 200)
+    }
+
+    private var stepTransition: AnyTransition {
+        guard MotionOverride.resolve(systemReduceMotion) == false else { return .opacity }
+        let edge: Edge = isMovingForward ? .trailing : .leading
+        return .asymmetric(
+            insertion: .move(edge: edge).combined(with: .opacity),
+            removal: .opacity
+        )
     }
 
     var body: some View {
@@ -72,16 +73,16 @@ struct LifeWeaveOnboardingView: View {
             GeometryReader { proxy in
                 VStack(spacing: Theme.Spacing.md) {
                     LifeWeaveTopBar(
-                        route: displayedRoute,
-                        canGoBack: model.canGoBackInFlow,
-                        onBack: model.goBackInFlow,
-                        isStreamlined: model.usesStreamlinedOnboarding
+                        step: displayedStep,
+                        canGoBack: model.previousStep != nil,
+                        onBack: goBack
                     )
 
                     if weaveHeightFraction > 0 {
                         LifeWeaveCanvas(presentation: LifeWeavePresentation.make(from: model.draft))
                             .frame(height: weaveHeight(in: proxy.size))
                             .accessibilityIdentifier(LifeWeaveAccessibilityID.canvas)
+                            .transition(.opacity)
                     }
 
                     ScrollView {
@@ -89,253 +90,173 @@ struct LifeWeaveOnboardingView: View {
                             .padding(.bottom, Theme.Spacing.lg)
                     }
                     .scrollBounceBehavior(.basedOnSize)
-
-                    if let errorMessage = model.errorMessage {
-                        LifeWeaveErrorBanner(message: errorMessage)
+                    .scrollDismissesKeyboard(.interactively)
+                    // The system edge effect drew a hard-edged band behind the
+                    // dock over the hero video. The glass dock already separates
+                    // itself from the content scrolling under it.
+                    .scrollEdgeEffectHidden(true, for: .bottom)
+                    // The dock rides the keyboard. As a VStack sibling it was
+                    // only incidentally above it; as an inset it is guaranteed,
+                    // and the scroll content gets the right bottom clearance.
+                    .safeAreaInset(edge: .bottom, spacing: Theme.Spacing.sm) {
+                        VStack(spacing: Theme.Spacing.sm) {
+                            if model.errorMessage != nil {
+                                LifeWeaveErrorBanner(onRetry: performPrimary)
+                                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            }
+                            LifeMapBottomDock(
+                                primaryTitle: primaryTitle,
+                                secondaryTitle: secondaryTitle,
+                                isPrimaryDisabled: isPrimaryDisabled,
+                                clayTrigger: clayTrigger,
+                                onPrimary: performPrimary,
+                                onSecondary: performSecondary,
+                                primaryAccessibilityID: LifeWeaveAccessibilityID.primaryAction,
+                                secondaryAccessibilityID: LifeWeaveAccessibilityID.secondaryAction
+                            )
+                            .lifeBoardMotion(.controlMorph, value: primaryTitle)
+                        }
+                        .lifeBoardMotion(.contentInsertion, value: model.errorMessage)
                     }
-
-                    LifeMapBottomDock(
-                        primaryTitle: primaryTitle,
-                        secondaryTitle: secondaryTitle,
-                        isPrimaryDisabled: isPrimaryDisabled,
-                        clayTrigger: clayTrigger,
-                        onPrimary: performPrimary,
-                        onSecondary: performSecondary,
-                        primaryAccessibilityID: LifeWeaveAccessibilityID.primaryAction,
-                        secondaryAccessibilityID: LifeWeaveAccessibilityID.secondaryAction
-                    )
                 }
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.vertical, Theme.Spacing.md)
                 .frame(maxWidth: 680)
                 .frame(maxWidth: .infinity)
+                .lifeBoardMotion(.route, value: displayedStep)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(LifeWeaveAccessibilityID.flow)
         .task { _ = await evaAccess.ensureActivated(source: .onboarding) }
+        .onChange(of: model.step) { previous, next in
+            let order = LifeWeaveStep.streamlined
+            let from = order.firstIndex(of: LifeWeaveMigration.streamlinedStep(for: previous)) ?? 0
+            let to = order.firstIndex(of: LifeWeaveMigration.streamlinedStep(for: next)) ?? 0
+            isMovingForward = to >= from
+        }
         .sheet(item: Binding(
-            get: { model.usesStreamlinedOnboarding ? model.powerUpStep : nil },
+            get: { model.powerUpStep },
             set: { if $0 == nil { model.deferCurrentPowerUp() } }
         )) { connector in
             connectorSheet(connector)
-        }
-        .sheet(isPresented: Binding(get: { !model.usesStreamlinedOnboarding && model.showsOfflineSetup }, set: { model.showsOfflineSetup = $0 })) {
-            NavigationStack {
-                ModelsSettingsView()
-                    .toolbar { ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { model.showsOfflineSetup = false }
-                    } }
-            }
         }
     }
 
     @ViewBuilder
     private var stepContent: some View {
         Group {
-            switch displayedRoute {
-            case .core(let step): coreContent(step)
-            case .powerUp(let step): powerUpContent(step)
+            switch displayedStep {
+            case .arrival, .intent: LifeWeaveIntentStep(model: model)
+            case .lifeAreas, .dayShape: LifeWeaveLifeAreasStep(model: model)
+            case .firstCapture: LifeWeaveCaptureStep(model: model, pillNamespace: pillNamespace)
+            case .reveal: LifeWeaveRevealStep(model: model, pillNamespace: pillNamespace)
             }
         }
+        .id(displayedStep)
+        .transition(stepTransition)
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(LifeWeaveAccessibilityID.route(model.draft.route))
+        .accessibilityIdentifier(LifeWeaveAccessibilityID.step(displayedStep))
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private func coreContent(_ step: LifeWeaveStep) -> some View {
-        switch step {
-        case .arrival:
-            if model.usesStreamlinedOnboarding { LifeWeaveIntentStep(model: model) }
-            else { LifeWeaveArrivalStep() }
-        case .intent: LifeWeaveIntentStep(model: model)
-        case .lifeAreas: LifeWeaveLifeAreasStep(model: model)
-        case .dayShape: LifeWeaveDayShapeStep(model: model)
-        case .firstCapture: LifeWeaveCaptureStep(model: model)
-        case .reveal:
-            LifeWeaveRevealStep(model: model)
-            Text("Cloud EVA connects automatically. Journal, Health, life moments, and personal memory context are enabled by default; your existing choices are kept. Prompts and available context pass through LifeBoard to OpenAI. Manage EVA context in Settings.")
-                .lifeboardFont(.caption1)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .accessibilityIdentifier("onboarding.eva.automaticDisclosure")
-        }
     }
 
     @ViewBuilder
     private func powerUpContent(_ step: LifeWeavePowerUpStep) -> some View {
         switch step {
         case .calendar: CalendarPowerUpView(model: model)
-        case .health: HealthPowerUpView(model: model)
+        // Health opens the shared `HealthConnectionSheet`; see `connectorSheet`.
+        case .health: EmptyView()
         case .eva: EvaPowerUpView(model: model)
-        case .complete: PowerUpSummaryView(model: model)
         }
     }
 
     // MARK: - Dock
 
+    private var trimmedCaptureText: String {
+        model.captureText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// One stable verb per screen. When the primary cannot act yet, it says
+    /// what is missing instead of greying out a "Continue" that explains nothing.
     private var primaryTitle: String {
-        switch displayedRoute {
-        case .core(.arrival): model.usesStreamlinedOnboarding ? "Continue" : "Build my LifeBoard"
-        case .core(.intent): "Continue"
-        case .core(.lifeAreas): "Shape my map"
-        case .core(.dayShape): "Use this rhythm"
-        case .core(.firstCapture): capturePrimaryTitle
-        // No longer "Start with Cloud EVA". The reveal's job is to hand over a
-        // finished LifeBoard, not to spend the one dominant action on a network
-        // call that can fail.
-        case .core(.reveal): model.usesStreamlinedOnboarding ? "Start my day" : (model.isPowerUpAvailable ? "Power up LifeBoard" : "Start my day")
-        // Each connector owns its own verbs, because the primary means something
-        // different in every one of its states.
-        case .powerUp(.calendar): model.calendarPrimaryTitle
-        case .powerUp(.health): model.healthPrimaryTitle
-        case .powerUp(.eva): model.evaPrimaryTitle
-        case .powerUp(.complete): summaryPrimaryTitle
+        switch displayedStep {
+        case .arrival, .intent:
+            model.draft.intent == nil ? LifeWeaveCopy.Dock.pickOne : LifeWeaveCopy.Dock.continue
+        case .lifeAreas, .dayShape:
+            model.lifeAreasStillNeeded > 0
+                ? LifeWeaveCopy.Dock.pickMore(model.lifeAreasStillNeeded)
+                : LifeWeaveCopy.Dock.continue
+        case .firstCapture:
+            // After a skip there is nothing to save; the same button finishes.
+            model.draft.skippedCapture && trimmedCaptureText.isEmpty
+                ? LifeWeaveCopy.Dock.continue
+                : LifeWeaveCopy.Dock.save
+        case .reveal:
+            LifeWeaveCopy.Dock.startMyDay
         }
-    }
-
-    /// Only offered when EVA can actually answer. Routing someone to a planning
-    /// partner that is not ready would be a worse ending than Home.
-    private var summaryPrimaryTitle: String {
-        model.draft.evaCloudReady ? "Ask EVA where to start" : "Start my day"
-    }
-
-    /// The capture step's primary means three different things in sequence, and
-    /// a fourth once the step has been skipped.
-    ///
-    /// Skipping used to leave the label on "Make sense of this" with nothing to
-    /// make sense of, and `isPrimaryDisabled` kept it disabled — so "Skip for
-    /// now" stranded the user on the one screen they had just declined.
-    private var capturePrimaryTitle: String {
-        if model.captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
-           model.draft.stagedCapture == nil {
-            return "Make sense of this"
-        }
-        if let capture = model.draft.stagedCapture {
-            return model.usesStreamlinedOnboarding ? "Save and continue" : (capture.isReviewed ? "Finish setup" : "Keep this")
-        }
-        return model.draft.skippedCapture ? "Finish setup" : "Make sense of this"
     }
 
     private var secondaryTitle: String? {
-        switch displayedRoute {
-        case .core(.firstCapture):
-            model.draft.stagedCapture == nil && model.draft.skippedCapture == false ? "Skip for now" : nil
-        case .core(.reveal): model.usesStreamlinedOnboarding ? nil : (model.isPowerUpAvailable ? "Start now" : nil)
-        // Every connector is skippable — but each decides when offering "Not now"
-        // still makes sense. Once a system permission has been answered there is
-        // nothing left for this screen to decline.
-        case .powerUp(.calendar): model.calendarSecondaryTitle
-        case .powerUp(.health): model.healthSecondaryTitle
-        case .powerUp(.eva): model.evaSecondaryTitle
-        case .powerUp(.complete): model.draft.evaCloudReady ? "Start my day" : nil
-        default: nil
+        switch displayedStep {
+        case .firstCapture:
+            model.draft.isCaptureResolved ? nil : LifeWeaveCopy.Dock.skip
+        default:
+            nil
         }
     }
 
     private var isPrimaryDisabled: Bool {
-        switch displayedRoute {
-        case .core(.arrival): model.usesStreamlinedOnboarding && model.draft.intent == nil
-        case .core(.intent): model.draft.intent == nil
-        case .core(.lifeAreas): model.draft.isLifeAreaSelectionValid == false
-        case .core(.firstCapture):
-            // A resolved step — skipped, or reviewed — can always continue. Without
-            // the `isCaptureResolved` term, "Skip for now" left the primary
-            // disabled and stranded the user on the screen they had just declined.
-            model.isCommitting || model.isResolvingCapture
-                || (model.draft.isCaptureResolved == false
-                    && model.draft.stagedCapture == nil
-                    && model.captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        case .powerUp(.calendar): model.isCalendarPrimaryDisabled
-        case .powerUp(.health): model.isHealthPrimaryDisabled
-        case .powerUp(.eva): model.isEvaPrimaryDisabled
-        default: model.isCommitting
+        guard model.isCommitting == false else { return true }
+        switch displayedStep {
+        case .arrival, .intent: return model.draft.intent == nil
+        case .lifeAreas, .dayShape: return model.draft.isLifeAreaSelectionValid == false
+        case .firstCapture:
+            return trimmedCaptureText.isEmpty && model.draft.isCaptureResolved == false
+        case .reveal: return false
         }
+    }
+
+    private func goBack() {
+        isMovingForward = false
+        model.goBack()
     }
 
     private func performPrimary() {
         clayTrigger += 1
+        isMovingForward = true
         Task { @MainActor in
-            // The capture step's primary action means three different things in
-            // sequence — interpret, keep, finish — so it is resolved here rather
-            // than by `advance()`, which owns step transitions only.
-            // Only while the step is still unresolved. Without that guard a
-            // skipped capture routed back into `resolveCapture()`, which no-ops
-            // on empty text — so "Finish setup" did nothing at all and the user
-            // was stuck one screen from the end.
-            if model.step == .firstCapture, model.draft.isCaptureResolved == false {
-                if model.draft.stagedCapture == nil {
-                    await model.resolveCapture()
-                    return
+            switch displayedStep {
+            case .firstCapture:
+                if trimmedCaptureText.isEmpty == false, model.draft.stagedCapture?.isReviewed != true {
+                    await model.saveCapture()
                 }
-                if model.draft.stagedCapture?.isReviewed == false {
-                    model.keepCapture(
-                        kind: model.draft.stagedCapture?.kind ?? .task,
-                        areaTemplateID: model.draft.stagedCapture?.lifeAreaTemplateID
-                    )
-                    if model.usesStreamlinedOnboarding { _ = await model.advance() }
-                    return
-                }
+                await model.advance()
+            case .reveal:
+                if model.deferAllPowerUpsAndFinish() { onComplete(.home) }
+            default:
+                await model.advance()
             }
-
-            if case .powerUp(let powerUpStep) = model.draft.route {
-                await performPowerUpPrimary(powerUpStep)
-                return
-            }
-
-            if model.step == .reveal {
-                if model.usesStreamlinedOnboarding {
-                    if model.deferAllPowerUpsAndFinish() { onComplete(.home) }
-                } else if model.isPowerUpAvailable {
-                    model.beginPowerUp()
-                } else if model.finalize(destination: .home) {
-                    onComplete(.home)
-                }
-                return
-            }
-
-            _ = await model.advance()
         }
+    }
+
+    private func performSecondary() {
+        guard displayedStep == .firstCapture else { return }
+        isMovingForward = true
+        model.skipCapture()
+        Task { await model.advance() }
     }
 
     private func performPowerUpPrimary(_ step: LifeWeavePowerUpStep) async {
         switch step {
         case .calendar: await model.performCalendarPrimary()
-        case .health: await model.performHealthPrimary()
+        case .health: break
         case .eva: await model.performEvaPrimary()
-        case .complete:
-            finishJourney(destination: model.draft.evaCloudReady ? .eva : .home)
         }
     }
 
-    private func finishJourney(destination: LifeWeaveCompletionDestination) {
-        // Reaching the summary having declined all three is still a decision,
-        // not an interruption, so Home must not ask again.
-        model.suppressHomeCardIfEverythingWasDeclined()
-        guard model.finalize(destination: destination) else { return }
-        onComplete(destination)
-    }
-
-    private func performSecondary() {
-        switch displayedRoute {
-        case .core(.firstCapture):
-            model.skipCapture()
-            if model.usesStreamlinedOnboarding { Task { _ = await model.advance() } }
-        case .core(.reveal):
-            // An explicit "not now" for everything, so Home shows no nag card.
-            if model.deferAllPowerUpsAndFinish() { onComplete(.home) }
-        // Not always a plain deferral: a connector may need to record an outcome
-        // or step out of a recovery state, so each owns what its secondary means.
-        case .powerUp(.calendar): model.performCalendarSecondary()
-        case .powerUp(.health): model.performHealthSecondary()
-        case .powerUp(.eva): model.performEvaSecondary()
-        case .powerUp(.complete):
-            finishJourney(destination: .home)
-        default:
-            break
-        }
-    }
-
+    /// One layout for every connection: what it gives, one trust line, one
+    /// primary, and Not now. Health keeps its own shared sheet, which already
+    /// follows the same shape and is reused outside onboarding.
     @ViewBuilder
     private func connectorSheet(_ connector: LifeWeavePowerUpStep) -> some View {
         if connector == .health {
@@ -345,63 +266,91 @@ struct LifeWeaveOnboardingView: View {
             })
         } else {
             NavigationStack {
-                ScrollView { powerUpContent(connector).padding(24) }
-                    .safeAreaInset(edge: .bottom) {
-                        VStack(spacing: 12) {
-                            Button(connector == .eva ? model.evaPrimaryTitle : model.calendarPrimaryTitle) {
-                                Task { await performPowerUpPrimary(connector) }
-                            }
-                            .buttonStyle(.lifeBoardPrimary)
-                            .disabled(connector == .eva ? model.isEvaPrimaryDisabled : model.isCalendarPrimaryDisabled)
-                            .accessibilityIdentifier("onboarding.connection.primary")
-                            Button("Continue using LifeBoard") { model.deferCurrentPowerUp() }
-                                .frame(minHeight: 44)
+                ScrollView {
+                    powerUpContent(connector)
+                        .padding(.horizontal, Theme.Spacing.lg)
+                        .padding(.top, Theme.Spacing.sm)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .safeAreaInset(edge: .bottom) {
+                    VStack(spacing: Theme.Spacing.xs) {
+                        Button(connector == .eva ? model.evaPrimaryTitle : model.calendarPrimaryTitle) {
+                            Task { await performPowerUpPrimary(connector) }
                         }
-                        .padding()
-                        .background(Color.lifeboard(.bgCanvas))
+                        .buttonStyle(.lifeBoardPrimary)
+                        .disabled(connector == .eva ? model.isEvaPrimaryDisabled : model.isCalendarPrimaryDisabled)
+                        .accessibilityIdentifier("onboarding.connection.primary")
+                        Button(LifeWeaveCopy.Dock.notNow) { model.deferCurrentPowerUp() }
+                            .lifeboardFont(.bodyStrong)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .accessibilityIdentifier("onboarding.connection.notNow")
                     }
-                    .onChange(of: evaAccess.state) { _, state in
-                        if connector == .eva, state == .ready {
-                            model.recordEvaActivation(ready: true, pending: false)
-                            model.finishConnector()
-                        }
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.vertical, Theme.Spacing.sm)
+                    .background(Color.lifeboard(.bgElevated))
+                }
+                .background(Color.lifeboard(.bgElevated))
+                .onChange(of: evaAccess.state) { _, state in
+                    if connector == .eva, state == .ready {
+                        model.recordEvaActivation(ready: true, pending: false)
+                        model.finishConnector()
                     }
-                    .navigationTitle(connector.spokenName)
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar { ToolbarItem(placement: .cancellationAction) {
-                        Button("Close") { model.deferCurrentPowerUp() }
-                    } }
-                    .sheet(isPresented: $model.showsOfflineSetup) {
-                        NavigationStack {
-                            ModelsSettingsView().toolbar { ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") { model.showsOfflineSetup = false }
-                            } }
-                        }
+                }
+                .navigationTitle(LifeWeaveCopy.Connection.name(connector))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) {
+                    Button(LifeWeaveCopy.Dock.close) { model.deferCurrentPowerUp() }
+                } }
+                .sheet(isPresented: $model.showsOfflineSetup) {
+                    NavigationStack {
+                        ModelsSettingsView().toolbar { ToolbarItem(placement: .confirmationAction) {
+                            Button(LifeWeaveCopy.Dock.done) { model.showsOfflineSetup = false }
+                        } }
                     }
+                }
             }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Color.lifeboard(.bgElevated))
+            .presentationCornerRadius(30)
         }
     }
-
 }
 
-/// Failure keeps the user's work mounted and says what can be retried.
+/// Failure keeps the user's work mounted and offers the one thing to do next.
+///
+/// It used to append the raw `localizedDescription`, which on a first run is
+/// the least helpful sentence the app could say. That now goes to the log.
 private struct LifeWeaveErrorBanner: View {
-    let message: String
+    let onRetry: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("We couldn't finish setting up LifeBoard.")
+        HStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .lifeboardFont(.title3)
+                .foregroundStyle(Color.lifeboard(.statusWarning))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(LifeWeaveCopy.Failure.title)
+                    .lifeboardFont(.bodyStrong)
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
+                Text(LifeWeaveCopy.Failure.body)
+                    .lifeboardFont(.caption1)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: Theme.Spacing.xs)
+            Button(LifeWeaveCopy.Failure.retry, action: onRetry)
                 .lifeboardFont(.bodyStrong)
-                .foregroundStyle(Color.lifeboard(.textPrimary))
-            Text("Your choices are still here. \(message)")
-                .lifeboardFont(.caption1)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
+                .foregroundStyle(Color.lifeboard(.accentPrimary))
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("onboarding.lifeweave.error.retry")
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(LifeWeaveAccessibilityID.errorBanner)
-        .accessibilityElement(children: .combine)
     }
 }
