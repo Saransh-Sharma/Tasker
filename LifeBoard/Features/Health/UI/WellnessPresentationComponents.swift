@@ -47,6 +47,7 @@ struct NutritionTodayHero: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .featureHeaderArtwork(.nutrition, enabled: !isPartial)
         .lifeBoardHeroSurface(palette: palette)
         .accessibilityElement(children: .contain)
     }
@@ -82,6 +83,7 @@ struct WellnessHero: View {
     let timeframe: String?
     let actionTitle: String
     let action: () -> Void
+    var sceneKind: DashboardWidgetKind = .bodyMetric
 
     @Environment(PresentationPreferences.self) private var preferences
     @Environment(\.colorScheme) private var colorScheme
@@ -105,9 +107,24 @@ struct WellnessHero: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .featureHeaderArtwork(headerScene, enabled: permitsArtwork)
         .lifeBoardHeroSurface(palette: palette)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(label)
+    }
+    private var headerScene: FeatureHeaderScene {
+        switch sceneKind {
+        case .workout: .workout
+        case .sleep: .sleep
+        case .movement: .movement
+        default: .body
+        }
+    }
+    private var permitsArtwork: Bool {
+        switch reading {
+        case .recorded, .explicitZero, .noRecord: true
+        case .stale, .denied, .unavailable: false
+        }
     }
 }
 
