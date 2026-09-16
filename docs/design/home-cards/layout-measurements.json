@@ -1,0 +1,738 @@
+{
+  "bodyMetric-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "bodyMetric-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "bodyMetric-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "bodyMetric-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "bodyMetric-standard-ipad" : {
+    "height" : 179.5,
+    "width" : 391
+  },
+  "bodyMetric-standard-iphone" : {
+    "height" : 195,
+    "width" : 170.5
+  },
+  "bodyMetric-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "bodyMetric-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "bodyMetric-wide-ipad" : {
+    "height" : 187,
+    "width" : 794
+  },
+  "bodyMetric-wide-iphone" : {
+    "height" : 187,
+    "width" : 353
+  },
+  "care-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "care-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "care-expanded-ipad" : {
+    "height" : 388.5,
+    "width" : 794
+  },
+  "care-expanded-iphone" : {
+    "height" : 388.5,
+    "width" : 353
+  },
+  "care-standard-ipad" : {
+    "height" : 276.5,
+    "width" : 391
+  },
+  "care-standard-iphone" : {
+    "height" : 394.5,
+    "width" : 170.5
+  },
+  "care-tall-ipad" : {
+    "height" : 332.5,
+    "width" : 794
+  },
+  "care-tall-iphone" : {
+    "height" : 332.5,
+    "width" : 353
+  },
+  "care-wide-ipad" : {
+    "height" : 276.5,
+    "width" : 794
+  },
+  "care-wide-iphone" : {
+    "height" : 276.5,
+    "width" : 353
+  },
+  "compactTimeline-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "compactTimeline-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "compactTimeline-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "compactTimeline-standard-iphone" : {
+    "height" : 178,
+    "width" : 170.5
+  },
+  "compactTimeline-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "compactTimeline-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "compactTimeline-wide-ipad" : {
+    "height" : 203.5,
+    "width" : 794
+  },
+  "compactTimeline-wide-iphone" : {
+    "height" : 203.5,
+    "width" : 353
+  },
+  "evaConversation-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "evaConversation-standard-iphone" : {
+    "height" : 183,
+    "width" : 170.5
+  },
+  "evaConversation-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "evaConversation-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "evaConversation-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "evaConversation-wide-iphone" : {
+    "height" : 178,
+    "width" : 353
+  },
+  "fasting-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "fasting-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "fasting-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "fasting-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "fasting-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "fasting-standard-iphone" : {
+    "height" : 178,
+    "width" : 170.5
+  },
+  "fasting-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "fasting-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "fasting-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "fasting-wide-iphone" : {
+    "height" : 178,
+    "width" : 353
+  },
+  "focusNow-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "focusNow-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "focusNow-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "focusNow-standard-iphone" : {
+    "height" : 203,
+    "width" : 170.5
+  },
+  "focusNow-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "focusNow-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "focusNow-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "focusNow-wide-iphone" : {
+    "height" : 178,
+    "width" : 353
+  },
+  "goals-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "goals-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "goals-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "goals-standard-iphone" : {
+    "height" : 197.5,
+    "width" : 170.5
+  },
+  "goals-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "goals-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "goals-wide-ipad" : {
+    "height" : 186,
+    "width" : 794
+  },
+  "goals-wide-iphone" : {
+    "height" : 186,
+    "width" : 353
+  },
+  "journal-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "journal-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "journal-standard-ipad" : {
+    "height" : 231.5,
+    "width" : 391
+  },
+  "journal-standard-iphone" : {
+    "height" : 327.5,
+    "width" : 170.5
+  },
+  "journal-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "journal-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "journal-wide-ipad" : {
+    "height" : 211.5,
+    "width" : 794
+  },
+  "journal-wide-iphone" : {
+    "height" : 231.5,
+    "width" : 353
+  },
+  "lifeMoment-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "lifeMoment-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "lifeMoment-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "lifeMoment-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "lifeMoment-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "lifeMoment-standard-iphone" : {
+    "height" : 197.5,
+    "width" : 170.5
+  },
+  "lifeMoment-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "lifeMoment-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "lifeMoment-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "lifeMoment-wide-iphone" : {
+    "height" : 178,
+    "width" : 353
+  },
+  "lifeSnapshot-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "lifeSnapshot-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "lifeSnapshot-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "lifeSnapshot-standard-iphone" : {
+    "height" : 197.5,
+    "width" : 170.5
+  },
+  "lifeSnapshot-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "lifeSnapshot-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "lifeSnapshot-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "lifeSnapshot-wide-iphone" : {
+    "height" : 231.5,
+    "width" : 353
+  },
+  "logMeal-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "logMeal-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "logMeal-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "logMeal-standard-iphone" : {
+    "height" : 198.5,
+    "width" : 170.5
+  },
+  "logMeal-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "logMeal-wide-iphone" : {
+    "height" : 178,
+    "width" : 353
+  },
+  "movement-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "movement-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "movement-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "movement-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "movement-standard-ipad" : {
+    "height" : 180,
+    "width" : 391
+  },
+  "movement-standard-iphone" : {
+    "height" : 195.5,
+    "width" : 170.5
+  },
+  "movement-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "movement-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "movement-wide-ipad" : {
+    "height" : 187.5,
+    "width" : 794
+  },
+  "movement-wide-iphone" : {
+    "height" : 187.5,
+    "width" : 353
+  },
+  "nutritionSummary-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "nutritionSummary-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "nutritionSummary-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "nutritionSummary-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "nutritionSummary-standard-ipad" : {
+    "height" : 179.5,
+    "width" : 391
+  },
+  "nutritionSummary-standard-iphone" : {
+    "height" : 210.5,
+    "width" : 170.5
+  },
+  "nutritionSummary-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "nutritionSummary-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "nutritionSummary-wide-ipad" : {
+    "height" : 187,
+    "width" : 794
+  },
+  "nutritionSummary-wide-iphone" : {
+    "height" : 187,
+    "width" : 353
+  },
+  "progressReflection-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "progressReflection-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "progressReflection-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "progressReflection-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "progressReflection-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "progressReflection-standard-iphone" : {
+    "height" : 261,
+    "width" : 170.5
+  },
+  "progressReflection-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "progressReflection-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "progressReflection-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "progressReflection-wide-iphone" : {
+    "height" : 178,
+    "width" : 353
+  },
+  "quickCapture-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "quickCapture-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "quickCapture-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "quickCapture-standard-iphone" : {
+    "height" : 198.5,
+    "width" : 170.5
+  },
+  "quickCapture-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "quickCapture-wide-iphone" : {
+    "height" : 178,
+    "width" : 353
+  },
+  "recentMeal-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "recentMeal-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "recentMeal-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "recentMeal-standard-iphone" : {
+    "height" : 178,
+    "width" : 170.5
+  },
+  "recentMeal-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "recentMeal-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "recentMeal-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "recentMeal-wide-iphone" : {
+    "height" : 178,
+    "width" : 353
+  },
+  "routines-expanded-ipad" : {
+    "height" : 412,
+    "width" : 794
+  },
+  "routines-expanded-iphone" : {
+    "height" : 412,
+    "width" : 353
+  },
+  "routines-standard-ipad" : {
+    "height" : 300,
+    "width" : 391
+  },
+  "routines-standard-iphone" : {
+    "height" : 314,
+    "width" : 170.5
+  },
+  "routines-tall-ipad" : {
+    "height" : 356,
+    "width" : 794
+  },
+  "routines-tall-iphone" : {
+    "height" : 356,
+    "width" : 353
+  },
+  "routines-wide-ipad" : {
+    "height" : 300,
+    "width" : 794
+  },
+  "routines-wide-iphone" : {
+    "height" : 300,
+    "width" : 353
+  },
+  "scheduleCapacity-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "scheduleCapacity-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "scheduleCapacity-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "scheduleCapacity-standard-iphone" : {
+    "height" : 202.5,
+    "width" : 170.5
+  },
+  "scheduleCapacity-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "scheduleCapacity-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "scheduleCapacity-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "scheduleCapacity-wide-iphone" : {
+    "height" : 178,
+    "width" : 353
+  },
+  "setupChecklist-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "setupChecklist-standard-iphone" : {
+    "height" : 213,
+    "width" : 170.5
+  },
+  "setupChecklist-wide-ipad" : {
+    "height" : 186,
+    "width" : 794
+  },
+  "setupChecklist-wide-iphone" : {
+    "height" : 186,
+    "width" : 353
+  },
+  "sleep-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "sleep-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "sleep-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "sleep-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "sleep-standard-ipad" : {
+    "height" : 178,
+    "width" : 391
+  },
+  "sleep-standard-iphone" : {
+    "height" : 178,
+    "width" : 170.5
+  },
+  "sleep-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "sleep-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "sleep-wide-ipad" : {
+    "height" : 178,
+    "width" : 794
+  },
+  "sleep-wide-iphone" : {
+    "height" : 178,
+    "width" : 353
+  },
+  "tasks-expanded-ipad" : {
+    "height" : 444.5,
+    "width" : 794
+  },
+  "tasks-expanded-iphone" : {
+    "height" : 444.5,
+    "width" : 353
+  },
+  "tasks-standard-ipad" : {
+    "height" : 332.5,
+    "width" : 391
+  },
+  "tasks-standard-iphone" : {
+    "height" : 477,
+    "width" : 170.5
+  },
+  "tasks-tall-ipad" : {
+    "height" : 332.5,
+    "width" : 794
+  },
+  "tasks-tall-iphone" : {
+    "height" : 332.5,
+    "width" : 353
+  },
+  "tasks-wide-ipad" : {
+    "height" : 332.5,
+    "width" : 794
+  },
+  "tasks-wide-iphone" : {
+    "height" : 332.5,
+    "width" : 353
+  },
+  "workout-compact-ipad" : {
+    "height" : 104,
+    "width" : 391
+  },
+  "workout-compact-iphone" : {
+    "height" : 104,
+    "width" : 170.5
+  },
+  "workout-expanded-ipad" : {
+    "height" : 340,
+    "width" : 794
+  },
+  "workout-expanded-iphone" : {
+    "height" : 340,
+    "width" : 353
+  },
+  "workout-standard-ipad" : {
+    "height" : 179.5,
+    "width" : 391
+  },
+  "workout-standard-iphone" : {
+    "height" : 179.5,
+    "width" : 170.5
+  },
+  "workout-tall-ipad" : {
+    "height" : 260,
+    "width" : 794
+  },
+  "workout-tall-iphone" : {
+    "height" : 260,
+    "width" : 353
+  },
+  "workout-wide-ipad" : {
+    "height" : 187,
+    "width" : 794
+  },
+  "workout-wide-iphone" : {
+    "height" : 187,
+    "width" : 353
+  }
+}
