@@ -361,7 +361,10 @@ extension CompositionRoot {
         assertConfigured()
         return HabitBoardViewModel(
             getHabitLibraryUseCase: useCaseCoordinator.getHabitLibrary,
-            getHabitHistoryUseCase: useCaseCoordinator.getHabitHistory
+            getHabitHistoryUseCase: useCaseCoordinator.getHabitHistory,
+            resolveHabitOccurrenceUseCase: useCaseCoordinator.resolveHabitOccurrence,
+            logHabitAmountUseCase: useCaseCoordinator.logHabitAmount,
+            resetHabitOccurrenceUseCase: useCaseCoordinator.resetHabitOccurrence
         )
     }
 
