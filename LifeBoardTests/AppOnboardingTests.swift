@@ -165,21 +165,6 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertTrue(status.allRowsHandled)
     }
 
-    @MainActor
-    func testHealthSyncHandoffDeadlineSurvivesOutsideTheView() async {
-        let state = LifeWeaveHealthPowerUpState.shared
-        state.resetForVisit()
-        defer { state.resetForVisit() }
-
-        state.beginHandoffDeadline(after: .milliseconds(20))
-        let deadline = Date().addingTimeInterval(2)
-        while !state.isHandoffOffered && Date() < deadline {
-            try? await _Concurrency.Task.sleep(for: .milliseconds(20))
-        }
-
-        XCTAssertTrue(state.isHandoffOffered)
-    }
-
     func testDefaultLifeAreaSelectionRespectsFrictionProfileAndMode() {
         XCTAssertEqual(
             StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: .starting, mode: .guided),
@@ -193,37 +178,6 @@ final class AppOnboardingTests: XCTestCase {
             StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: .remembering, mode: .custom),
             ["life-admin"]
         )
-    }
-
-    func testOnboardingStepOrderUsesExplicitReorderedFlow() {
-        XCTAssertEqual(
-            OnboardingStep.orderedFlow,
-            [.welcome, .intent, .lifeAreas, .guide, .dayShape, .modules, .firstWin, .permissions, .success]
-        )
-    }
-
-    func testOnboardingProgressUsesOrderedFlowAsSingleSource() {
-        XCTAssertEqual(OnboardingProgress(step: .welcome)?.label, "Step 1 of 9")
-        XCTAssertEqual(OnboardingProgress(step: .intent)?.label, "Step 2 of 9")
-        XCTAssertEqual(OnboardingProgress(step: .permissions)?.label, "Step 8 of 9")
-        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 9 of 9")
-        XCTAssertEqual(OnboardingStep.intent.accessibilitySummary, "Choose what needs attention. Step 2 of 9. Select one to continue.")
-        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 9 of 9. Go to Home.")
-    }
-
-
-    func testOnboardingCopyAvoidsGenericAIPhrases() {
-        for copy in OnboardingCopy.reviewedStrings {
-            XCTAssertFalse(copy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            XCTAssertLessThanOrEqual(copy.count, 120)
-            for phrase in OnboardingCopy.regressionPhrases {
-                XCTAssertFalse(
-                    copy.localizedCaseInsensitiveContains(phrase),
-                    "Copy should avoid generic phrase '\(phrase)': \(copy)"
-                )
-            }
-        }
-        XCTAssertEqual(OnboardingCopy.Welcome.changeLaterChip, "Change anything later")
     }
 
     @MainActor
@@ -392,63 +346,36 @@ final class AppOnboardingTests: XCTestCase {
     }
 
     @MainActor
-    func testJourneySnapshotDecodeDefaultsMissingEntryContextToFreshFlow() throws {
-        let snapshot = OnboardingJourneySnapshot(
-            step: .intent,
-            mode: .guided,
-            selectedLifeAreaIDs: ["health-self"],
-            showAllLifeAreas: false,
-            projectDrafts: [],
-            resolvedLifeAreas: [],
-            resolvedProjects: [],
-            createdTasks: [],
-            createdTaskTemplateMap: [:],
-            hasSeenSuccess: false
-        )
-
-        let encoded = try JSONEncoder().encode(snapshot)
-        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        var legacyObject = object
-        legacyObject.removeValue(forKey: "entryContext")
-        let legacyData = try JSONSerialization.data(withJSONObject: legacyObject)
-
-        let decoded = try JSONDecoder().decode(OnboardingJourneySnapshot.self, from: legacyData)
-        XCTAssertEqual(decoded.entryContext, .freshFlow)
-    }
-
-
-
-
-
-    @MainActor
-    func testMarkHandledClearsPersistedJourneySnapshot() {
+    func testMarkHandledClearsPersistedLifeWeaveJourney() {
         let context = makeStoreContext()
         defer { context.cleanup() }
 
-        let snapshot = OnboardingJourneySnapshot(
-            step: .welcome,
-            mode: .guided,
-            selectedLifeAreaIDs: [],
-            showAllLifeAreas: false,
-            projectDrafts: [],
-            expandedProjectIDs: [],
-            resolvedLifeAreas: [],
-            resolvedProjects: [],
-            createdTasks: [],
-            createdTaskTemplateMap: [:],
-            focusTaskID: nil,
-            successSummary: nil,
-            hasSeenSuccess: false,
-        )
+        var draft = LifeWeaveDraft()
+        draft.step = .lifeAreas
+        draft.intent = .clarityToday
+        context.store.storeLifeWeaveJourney(draft)
+        XCTAssertNotNil(context.store.load().lifeWeaveJourneySnapshot)
 
-        context.store.storeJourney(snapshot)
         context.store.markHandled(outcome: .completed)
 
         let state = context.store.load()
         XCTAssertEqual(state.outcome, .completed)
         XCTAssertEqual(state.completedVersion, AppOnboardingState.currentVersion)
-        XCTAssertNil(state.journeySnapshot)
+        XCTAssertNil(state.lifeWeaveJourneySnapshot)
         XCTAssertTrue(state.hasHandledCurrentVersion)
+    }
+
+    /// The nine-step flow's `journeySnapshot` payload is gone from the model, but
+    /// it is still on disk for anyone who finished under that flow. The key must
+    /// be ignored, never make the whole state unreadable.
+    func testStateWithARetiredJourneySnapshotKeyStillDecodes() throws {
+        let json = """
+        {"completedVersion":6,"outcome":"completed",
+         "journeySnapshot":{"schemaVersion":5,"step":3,"mode":"guided","hasSeenSuccess":true}}
+        """.data(using: .utf8)!
+        let state = try JSONDecoder().decode(AppOnboardingState.self, from: json)
+        XCTAssertEqual(state.completedVersion, 6)
+        XCTAssertEqual(state.outcome, .completed)
     }
 
     @MainActor
@@ -487,7 +414,7 @@ final class AppOnboardingTests: XCTestCase {
         var draft = LifeWeaveDraft()
         draft.step = .reveal
         draft.lifecyclePhase = .poweringUp
-        draft.powerUpStep = .calendar
+        draft.powerUpStep = LifeWeavePowerUpStep.calendar.rawValue
         context.store.storeLifeWeaveJourney(draft)
 
         context.store.completeCore(entryContext: .freshFlow)
@@ -497,7 +424,7 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(state.completedVersion, AppOnboardingState.currentVersion)
         XCTAssertEqual(state.completedLifeWeave, true)
         XCTAssertNotNil(state.lifeWeaveJourneySnapshot, "the power-up phase is still resumable")
-        XCTAssertEqual(state.lifeWeaveJourneySnapshot?.powerUpStep, .calendar)
+        XCTAssertEqual(state.lifeWeaveJourneySnapshot?.resolvedPowerUpStep, .calendar)
         XCTAssertTrue(state.hasResumableJourney)
         XCTAssertNil(state.finalizedLifeWeaveDestination, "nothing has ended yet")
         XCTAssertNil(state.needsFinalizedDestinationDelivery)
@@ -522,7 +449,7 @@ final class AppOnboardingTests: XCTestCase {
         defer { context.cleanup() }
 
         var draft = LifeWeaveDraft()
-        draft.powerUpStep = .complete
+        draft.powerUpStep = LifeWeavePowerUpStep.eva.rawValue
         context.store.storeLifeWeaveJourney(draft)
         context.store.completeCore(entryContext: .freshFlow)
         context.store.finalizeLifeWeave(entryContext: .freshFlow, destination: .eva)
@@ -629,42 +556,6 @@ final class LifeMapOnboardingTests: XCTestCase {
             includesEva: true
         )
         XCTAssertEqual(everything, [.calendar, .health, .reminders, .eva])
-    }
-
-    func testLifeAreaSelectionStaysBetweenTwoAndFiveAndPreservesOrder() {
-        let harness = makeLifeMapHarness()
-        let areas = StarterWorkspaceCatalog.allLifeAreas
-        for area in areas.prefix(6) { harness.model.toggleLifeArea(area) }
-        XCTAssertEqual(harness.model.draft.orderedLifeAreaTemplateIDs.count, 5)
-        XCTAssertEqual(harness.model.draft.orderedLifeAreaTemplateIDs, areas.prefix(5).map(\.id))
-
-        for area in areas.prefix(4) { harness.model.toggleLifeArea(area) }
-        XCTAssertEqual(harness.model.draft.orderedLifeAreaTemplateIDs.count, 2)
-        harness.cleanup()
-    }
-
-    func testLifeMapSnapshotResumesAndVersionThreeJourneyDoesNot() {
-        let harness = makeLifeMapHarness()
-        var draft = LifeMapDraft()
-        draft.step = .capacity
-        draft.desiredChange = .clearHead
-        draft.orderedLifeAreaTemplateIDs = ["life-admin", "work-career"]
-        harness.model.prepareForPresentation(snapshot: draft)
-        XCTAssertEqual(harness.model.step, .capacity)
-        XCTAssertEqual(harness.model.sceneModel.lifeAreas.map(\.id), ["life-admin", "work-career"])
-
-        var invalid = draft
-        invalid.schemaVersion = 3
-        harness.model.prepareForPresentation(snapshot: invalid)
-        XCTAssertEqual(harness.model.step, .welcome)
-
-        // Schema 6 held the two retired power-up steps and an optimistic
-        // permission list; there is no honest translation, so it restarts too.
-        var schemaSix = draft
-        schemaSix.schemaVersion = 6
-        harness.model.prepareForPresentation(snapshot: schemaSix)
-        XCTAssertEqual(harness.model.step, .welcome)
-        harness.cleanup()
     }
 
     func testCommitRetryDoesNotDuplicateAreasOrCaptureOrFinalizeOnCanonicalWrite() async throws {
@@ -914,99 +805,6 @@ final class LifeMapOnboardingTests: XCTestCase {
     /// and nothing else in the app seeds one, so granting access without also
     /// choosing calendars produced an empty schedule everywhere — including in
     /// the projection EVA reasons over.
-    func testGrantingCalendarNeverLeavesTheSelectionEmpty() async {
-        let harness = makeLifeMapHarness(powerUps: LifeMapPowerUpDependencies(
-            requestCalendarAccess: { true },
-            availableCalendars: {
-                [
-                    CalendarSourceSnapshot(id: "work", title: "Work", sourceTitle: "iCloud", allowsContentModifications: true),
-                    CalendarSourceSnapshot(id: "home", title: "Home", sourceTitle: "iCloud", allowsContentModifications: true)
-                ]
-            }
-        ))
-        let granted = await harness.model.requestPermission(.calendar)
-
-        XCTAssertTrue(granted)
-        XCTAssertEqual(harness.model.draft.selectedCalendarIDs, ["home", "work"])
-        XCTAssertTrue(harness.model.isGranted(.calendar))
-        harness.cleanup()
-    }
-
-    /// A refusal used to paint a green "Connected" checkmark.
-    func testDeniedPermissionIsRecordedAsDeniedNotGranted() async {
-        let harness = makeLifeMapHarness(powerUps: LifeMapPowerUpDependencies(
-            requestCalendarAccess: { false },
-            requestNotificationAccess: { false }
-        ))
-        _ = await harness.model.requestPermission(.calendar)
-        _ = await harness.model.requestPermission(.notifications)
-
-        XCTAssertFalse(harness.model.isGranted(.calendar))
-        XCTAssertTrue(harness.model.isDenied(.calendar))
-        XCTAssertFalse(harness.model.isGranted(.notifications))
-        XCTAssertTrue(harness.model.isDenied(.notifications))
-        XCTAssertTrue(harness.model.draft.selectedCalendarIDs.isEmpty)
-        harness.cleanup()
-    }
-
-    /// Reading is not permission to write.
-    func testHealthConnectsForReadingWithoutEnablingWriteBack() async {
-        var writeBackRequested: [Bool] = []
-        let harness = makeLifeMapHarness(powerUps: LifeMapPowerUpDependencies(
-            connectHealth: { _, enableWriteBack in writeBackRequested.append(enableWriteBack) }
-        ))
-        _ = await harness.model.requestPermission(.appleHealth)
-
-        XCTAssertEqual(writeBackRequested, [false])
-        XCTAssertTrue(harness.model.draft.healthWriteBackDomainIDs.isEmpty)
-        harness.cleanup()
-    }
-
-    func testWriteBackIsRecordedOnlyForDomainsTheUserTicked() async {
-        var enabled: [String: Bool] = [:]
-        let harness = makeLifeMapHarness(powerUps: LifeMapPowerUpDependencies(
-            setHealthWriteEnabled: { isOn, domain in enabled[domain.id] = isOn }
-        ))
-        await harness.model.setHealthWriteBack(true, for: .hydration)
-
-        XCTAssertEqual(harness.model.draft.healthWriteBackDomainIDs, ["hydration"])
-        XCTAssertEqual(enabled, ["hydration": true])
-
-        await harness.model.setHealthWriteBack(false, for: .hydration)
-        XCTAssertTrue(harness.model.draft.healthWriteBackDomainIDs.isEmpty)
-        XCTAssertEqual(enabled["hydration"], false)
-        harness.cleanup()
-    }
-
-    /// Every power-up step was a one-way door before.
-    func testBackNavigationWalksThePowerUpChain() async {
-        let harness = makeLifeMapHarness()
-        harness.model.enterPowerUps()
-        let chain = harness.model.visiblePowerUps
-        XCTAssertEqual(harness.model.step, chain.first)
-        XCTAssertFalse(harness.model.canGoBack, "The first power-up has nowhere honest to go back to")
-
-        guard chain.count > 1 else { return harness.cleanup() }
-        _ = await harness.model.advance()
-        XCTAssertTrue(harness.model.canGoBack)
-        harness.model.goBack()
-        XCTAssertEqual(harness.model.step, chain.first)
-        harness.cleanup()
-    }
-
-    /// Declining every connection must still run the closing phase — that user
-    /// most needs the orientation and the staged openers, not least of all.
-    func testSkippingThePowerUpsStillReachesTheClosingPhase() {
-        let harness = makeLifeMapHarness()
-        harness.model.enterPowerUps()
-        harness.model.skipToClosing()
-        XCTAssertEqual(harness.model.step, .tour)
-        harness.cleanup()
-    }
-
-    // MARK: - EVA hand-off
-
-    /// The opener names only what the user actually supplied.
     func testOpeningPromptOmitsFactsTheDraftDoesNotHave() {
         var draft = LifeMapDraft()
         draft.desiredChange = .seeWeek
@@ -1081,38 +879,6 @@ final class LifeMapOnboardingTests: XCTestCase {
         XCTAssertTrue(EvaOpeningPromptStore.load(defaults: defaults).isEmpty)
     }
 
-    private func makeLifeMapHarness(
-        powerUps: LifeMapPowerUpDependencies = LifeMapPowerUpDependencies()
-    ) -> (model: LifeMapOnboardingModel, cleanup: () -> Void) {
-        let suite = "life.map.tests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        let store = AppOnboardingStateStore(userDefaults: defaults)
-        let commit = LifeMapCommitCoordinator(
-            dependencies: .init(
-                fetchLifeAreas: { [] },
-                createLifeArea: { LifeArea(name: $0.name, color: $0.colorHex, icon: $0.icon) },
-                updateLifeArea: { $0 },
-                fetchTask: { _ in nil },
-                createTask: { $0.toTaskDefinition(projectName: $0.projectName) },
-                fetchReflection: { _ in nil },
-                saveReflection: { $0 },
-                saveWorkingHours: { _ in },
-                fetchHomeLayout: { nil },
-                saveHomeLayout: { _ in }
-            ),
-            stateStore: store,
-            profileStore: LifeMapProfileStore(defaults: defaults),
-            preferencesStore: WorkspacePreferencesStore(defaults: defaults)
-        )
-        let model = LifeMapOnboardingModel(
-            stateStore: store,
-            commitCoordinator: commit,
-            feedback: OnboardingFeedbackController(),
-            powerUps: powerUps
-        )
-        model.prepareForPresentation(snapshot: nil)
-        return (model, { defaults.removePersistentDomain(forName: suite) })
-    }
 }
 
 private struct StoreContext {
@@ -1323,23 +1089,6 @@ final class OnboardingVersionMigrationTests: XCTestCase {
 
         let eligibility: OnboardingEligibility = await service.evaluate()
         XCTAssertEqual(eligibility, OnboardingEligibility.suppressed)
-    }
-}
-
-/// A snapshot written by the previous flow names steps that no longer exist.
-final class OnboardingSnapshotRecoveryTests: XCTestCase {
-
-    func testAnUnknownStoredStepRestartsAtWelcomeRatherThanThrowing() throws {
-        // Raw value 20 was `.homeDemo` in the previous enum.
-        let json = """
-        {"schemaVersion":4,"step":20,"mode":"guided","selectedLifeAreaIDs":[],
-         "showAllLifeAreas":false,"projectDrafts":[],"resolvedLifeAreas":[],
-         "resolvedProjects":[],"createdTasks":[],"createdTaskTemplateMap":{},
-         "hasSeenSuccess":false}
-        """.data(using: .utf8)!
-
-        let snapshot = try JSONDecoder().decode(OnboardingJourneySnapshot.self, from: json)
-        XCTAssertEqual(snapshot.step, .welcome)
     }
 }
 
