@@ -10,7 +10,7 @@ This document explains the public boundary between LifeBoard and the EVA Cloud W
 ## Contract principles
 
 - The client selects a semantic route, never an OpenAI model, system prompt, tool, token budget, price, or safety identifier.
-- Every request is authenticated, device-bound where the platform permits, age-eligible, consent-revision checked, rate limited, and budgeted before model work.
+- Every request is authenticated, device-bound where the platform permits, consent-revision checked, rate limited, and budgeted before model work.
 - Stored LifeBoard objects never cross the boundary. The client sends bounded projection DTOs containing only categories the person enabled.
 - A provider is selected once per run. A failed cloud run offers Offline EVA; it never silently changes provider mid-answer.
 - The API cannot write LifeBoard state. It returns text, navigation intent, direct-capture commands, or reviewable proposals. The device independently validates and executes only locally authorized commands.
@@ -33,12 +33,12 @@ This document explains the public boundary between LifeBoard and the EVA Cloud W
 | `POST /v1/attestation/challenge` | Access token | None | Issue single-use App Attest challenge |
 | `POST /v1/attestation/register` | Access token | App Attest attestation | Register an iOS device key |
 | `POST /v1/attestation/verify` | Access token | App Attest assertion | Prove a persisted device key still exists before retaining high trust |
-| `POST /v1/age/eligibility` | Access token | Assertion when available | Register optional 13+ evidence or a mandatory regional decision |
+| `POST /v1/age/eligibility` | Access token | Assertion when available | Legacy metadata endpoint; no longer gates authorization |
 | `GET /v1/eva/quota` | Access token | Session binding | Rolling answer quota |
 | `GET /v1/eva/credits` | Access token | Session binding | Temporary one-client-version quota projection |
 | `GET /v1/eva/consent` | Access token | Device trust | Authoritative remote-context policy |
 | `PUT /v1/eva/consent` | Access token | Device trust and revision | Update context grants atomically |
-| `POST /v1/eva/responses` | Access token | Trust, age, consent, credits/budget | Luna response stream |
+| `POST /v1/eva/responses` | Access token | Trust, consent, credits/budget | Luna response stream |
 | `POST /v1/eva/speech` | Access token | Trust and signed speech ticket | `tts-1` PCM stream |
 | `DELETE /v1/account` | Active guest session or recent Apple reauthentication | Assertion when available | Delete Cloud EVA data |
 
@@ -46,15 +46,15 @@ All JSON request objects reject unknown properties. The Worker applies a 256 KiB
 
 ## Authentication and trust lifecycle
 
-1. The activation screen confirms cloud processing and the exact sensitive grants, then sends one idempotent guest bootstrap request.
+1. The activation coordinator automatically sends one idempotent guest bootstrap request using all four context grants by default or retained user restrictions. Automatic defaults are recorded separately from user selections.
 2. A server-owned mapping assigns a random guest account ID unrelated to network or installation identifiers and issues a 15-minute access token plus rotating opaque refresh token. Rollout cohorts use a secret-keyed digest of the retry-stable bootstrap ID; clients cannot calculate eligible IDs offline.
 3. App Attest registration follows bootstrap. Challenges are independently single-use, so concurrent account operations cannot overwrite one another. App Attest, DeviceCheck, and App Transaction results assign risk tiers but do not reduce the 20-answer allowance.
 4. Protect & Sync obtains a nonce-bound Apple link credential. A canonical-account lock serializes links. A durable reconciliation record freezes the guest session, unions rolling usage, intersects consent, merges device trust, tombstones the guest, and retries after cross-object interruption before a canonical session is returned.
-5. The linked consent revision remains review-required until explicitly confirmed again.
+5. The linked consent revision is acknowledged with the same intersected grants by the activation coordinator; restrictions are never expanded during recovery.
 6. Refresh-token reuse, Apple credential revocation, or account deletion revokes the affected session. The iOS transport single-flights refresh so concurrent calls never present the same rotating token twice. A Durable Object outage remains retryable and does not falsely erase local credentials.
 7. Apple-linked deletion uses the dedicated reauthentication endpoint. The server requires the presented Apple subject to derive the already-active account ID; choosing another Apple account cannot switch or delete that account.
 
-The signed runtime policy—not the request body—decides whether a current regional age decision is mandatory. Known lower bounds below 13 are always denied. When the mandatory policy is active, the server also checks the 24-hour eligibility lease on every model and account-read admission.
+Age eligibility is owned by distribution. Current clients do not request age information. Legacy age declarations, missing evidence, and expired leases do not gate account or inference authorization. Legacy age-policy fields and the metadata endpoint remain temporarily wire-compatible.
 
 ## Inference request
 
