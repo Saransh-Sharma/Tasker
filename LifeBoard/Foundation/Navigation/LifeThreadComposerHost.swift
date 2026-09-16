@@ -370,7 +370,7 @@ extension LifeThreadComposerHost {
                 RoundedRectangle(cornerRadius: Radius.dock, style: .continuous)
                     .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
             }
-            .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.16), radius: 12, y: 6)
+            .lifeboardElevation(.e3, cornerRadius: Radius.dock, includesBorder: false)
             // Shares its identity with the orb, so the two are one surface
             // changing shape rather than two views crossfading. Both sit inside
             // the shell's single GlassEffectContainer, which is what lets the
