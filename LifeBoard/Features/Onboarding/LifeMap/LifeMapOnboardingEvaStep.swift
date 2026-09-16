@@ -6,36 +6,31 @@ import SwiftUI
 ///
 /// This replaces the standalone `EvaCloudActivationView`, which asked the same
 /// questions a second time after the user had already signed in here. The
-/// checklist below is the honest version of the old one: its third row used to
-/// claim "Choose EVA's boundaries" was satisfied by cloud readiness, while no
-/// consent surface was ever shown. Sensitive-context grants are now real,
-/// visible, and explicitly confirmed before bootstrap.
-///
-/// The visible activation action confirms the selected grants and creates the
-/// guest account in one transaction; no prompt or LifeBoard context is sent
-/// before that confirmation.
+/// checklist below explains the automatic connection and keeps context choices
+/// visible without turning onboarding into an activation gate. Sensitive
+/// context grants are sent only after the server session is ready.
 struct LifeMapEvaStep: View {
     let isAuthenticated: Bool
-    let isAdultEligible: Bool
     let isCloudReady: Bool
     let isWorking: Bool
     let progressCaption: String?
     let errorMessage: String?
     let selectedGrants: Set<EvaConsentPolicy.Grant>
     let onToggleGrant: (EvaConsentPolicy.Grant, Bool) -> Void
+    let onRetry: () -> Void
     let onChooseOffline: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
             LifeMapEyebrow("OPTIONAL · PRIVATE · RESUMABLE")
-            Text(isCloudReady ? "EVA is connected." : "Enable Cloud EVA.")
+            Text(isCloudReady ? "EVA is connected." : "Cloud EVA is connecting.")
                 .font(.lifeboard(.heroDisplay))
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .minimumScaleFactor(0.75)
                 .fixedSize(horizontal: false, vertical: true)
             Text(isCloudReady
                  ? "Your private cloud session is ready, with a rolling allowance for successful answers."
-                 : "One confirmation creates a pseudonymous guest session. You can protect and sync it with Apple later.")
+                 : "Cloud EVA connects automatically with private defaults. You can change what it can use in Settings.")
                 .font(.lifeboard(.title3))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -61,6 +56,10 @@ struct LifeMapEvaStep: View {
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.statusWarning))
                     .fixedSize(horizontal: false, vertical: true)
+
+                Button("Retry Cloud EVA", action: onRetry)
+                    .buttonStyle(LifeMapSecondaryButtonStyle())
+                    .disabled(isWorking)
             }
 
             Button("Prefer everything on-device") { onChooseOffline() }
@@ -85,12 +84,6 @@ struct LifeMapEvaStep: View {
                 isComplete: isAuthenticated
             )
             LifeMapEvaRequirement(
-                symbol: "checkmark.shield.fill",
-                title: "Available for ages 13+",
-                detail: "Known under-13 accounts are blocked",
-                isComplete: isAdultEligible
-            )
-            LifeMapEvaRequirement(
                 symbol: "clock.arrow.circlepath",
                 title: "Successful answers are limited",
                 detail: "Rolling window; failures do not count",
@@ -102,7 +95,8 @@ struct LifeMapEvaStep: View {
         .accessibilityIdentifier(LifeMapAccessibilityID.evaRequirements)
     }
 
-    /// Preselected, but never sent until the activation button confirms them.
+    /// The four categories are enabled for a new automatic activation. These
+    /// controls remain available for an explicit choice and mirror Settings.
     ///
     /// These are the four categories that never travel with a normal request.
     /// Base context — tasks, projects, habits, a read-only calendar projection —
