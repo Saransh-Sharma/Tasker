@@ -191,7 +191,9 @@ struct FocusSessionRouteView: View {
                 focusUnavailable(
                     state: .recoverableError,
                     title: "Focus could not be opened",
-                    detail: message
+                    detail: message,
+                    actionTitle: "Try again",
+                    action: { Task { await load() } }
                 )
             }
         }
@@ -210,15 +212,17 @@ struct FocusSessionRouteView: View {
     private func focusUnavailable(
         state: StatusSurface.State,
         title: String,
-        detail: String
+        detail: String,
+        actionTitle: String = "Open Plan",
+        action: (() -> Void)? = nil
     ) -> some View {
         VStack {
             StatusSurface(
                 state: state,
                 title: title,
                 message: detail,
-                actionTitle: "Open Plan",
-                action: { router.popToRoot(in: .plan) }
+                actionTitle: actionTitle,
+                action: action ?? { router.popToRoot(in: .plan) }
             )
             Spacer(minLength: 0)
         }
