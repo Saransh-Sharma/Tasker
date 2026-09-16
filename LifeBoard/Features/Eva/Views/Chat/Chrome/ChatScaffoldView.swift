@@ -417,19 +417,6 @@ private struct EvaCloudAccessCard: View {
                 }
             }
 
-            if state == .needsDisclosure {
-                ScrollView {
-                    EvaCloudDisclosure(grants: EvaConsentPolicy.Grant.allCases.map { grant in
-                        (grant, grant.onboardingTitle, Binding(
-                            get: { selectedGrants.contains(grant) },
-                            set: { enabled in
-                                if enabled { selectedGrants.insert(grant) } else { selectedGrants.remove(grant) }
-                            }
-                        ))
-                    }, identifierPrefix: "chat.cloudAccess")
-                }
-                .frame(maxHeight: 280)
-            }
             if showsActions {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: Theme.Spacing.sm) { actions }
@@ -447,8 +434,8 @@ private struct EvaCloudAccessCard: View {
     @ViewBuilder
     private var actions: some View {
         switch state {
-        case .needsDisclosure:
-            Button(hasPendingSend ? "Enable and send" : "Enable Cloud EVA", action: onActivate)
+        case .needsActivation:
+            Button("Retry connection", action: onRetry)
                 .buttonStyle(.lifeBoardPrimaryCompact)
                 .accessibilityIdentifier("chat.cloudAccess.activate")
             Button("Review context", action: onReviewContext)
@@ -468,7 +455,7 @@ private struct EvaCloudAccessCard: View {
                 .accessibilityIdentifier("chat.cloudAccess.reconnectApple")
             Button(offlineModelReady ? "Use Offline EVA" : "Set up Offline EVA", action: onUseOffline)
                 .buttonStyle(.bordered)
-        case .quotaExhausted, .ageBlocked:
+        case .quotaExhausted:
             Button(offlineModelReady ? "Use Offline EVA" : "Set up Offline EVA", action: onUseOffline)
                 .buttonStyle(.bordered)
         case .hydrating, .ready, .activating:
@@ -478,8 +465,8 @@ private struct EvaCloudAccessCard: View {
 
     private var showsActions: Bool {
         switch state {
-        case .needsDisclosure, .temporarilyUnavailable, .quotaExhausted,
-             .ageBlocked, .appleReauthenticationRequired:
+        case .needsActivation, .temporarilyUnavailable, .quotaExhausted,
+             .appleReauthenticationRequired:
             true
         case .hydrating, .ready, .activating:
             false
@@ -488,13 +475,12 @@ private struct EvaCloudAccessCard: View {
 
     private var title: String {
         switch state {
-        case .hydrating: "Checking Cloud EVA…"
+        case .hydrating: "Restoring Cloud EVA…"
         case .ready: "Cloud EVA is ready"
-        case .needsDisclosure: "Activate Cloud EVA"
+        case .needsActivation: "Connecting Cloud EVA"
         case .activating: "Activating Cloud EVA…"
         case .temporarilyUnavailable: "Cloud EVA needs attention"
         case .quotaExhausted: "Cloud EVA limit reached"
-        case .ageBlocked: "Cloud EVA isn't available"
         case .appleReauthenticationRequired: "Reconnect protected EVA"
         }
     }
@@ -505,8 +491,8 @@ private struct EvaCloudAccessCard: View {
             "Restoring the protected session on this device."
         case .ready:
             "Luna is ready."
-        case .needsDisclosure:
-            "Prompts and the context you confirm pass through LifeBoard's Cloudflare service to OpenAI. Review the context choices below before enabling EVA."
+        case .needsActivation:
+            "EVA connects automatically. Prompts and available context pass through LifeBoard to OpenAI. Manage context in Settings."
         case .activating:
             "Your draft is safe. You can keep using LifeBoard while EVA connects."
         case .temporarilyUnavailable(let message):
@@ -514,8 +500,6 @@ private struct EvaCloudAccessCard: View {
         case .quotaExhausted(let nextAvailableAt):
             nextAvailableAt.map { "Your rolling allowance begins returning \($0.formatted(date: .omitted, time: .shortened))." }
                 ?? "Your rolling answer allowance is currently used."
-        case .ageBlocked(let message):
-            message
         case .appleReauthenticationRequired:
             "Apple confirmation restores this linked account. LifeBoard won't replace it with a new guest."
         }
@@ -525,10 +509,9 @@ private struct EvaCloudAccessCard: View {
         switch state {
         case .hydrating, .activating: "cloud"
         case .ready: "checkmark.circle.fill"
-        case .needsDisclosure: "cloud.sun.fill"
+        case .needsActivation: "cloud.sun.fill"
         case .temporarilyUnavailable: "exclamationmark.triangle.fill"
         case .quotaExhausted: "clock.arrow.circlepath"
-        case .ageBlocked: "hand.raised.fill"
         case .appleReauthenticationRequired: "apple.logo"
         }
     }
