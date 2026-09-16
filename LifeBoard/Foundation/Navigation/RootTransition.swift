@@ -23,6 +23,21 @@ extension EnvironmentValues {
         get { self[RootActivityStateKey.self] }
         set { self[RootActivityStateKey.self] = newValue }
     }
+
+    /// Bumped each time Overdue Rescue launched from Plan closes.
+    ///
+    /// An environment value, not an initializer argument: `StableDestinationRoot`
+    /// builds each root once and keeps that view, so an argument stays frozen at
+    /// its first value and Plan never reloaded after a rescue. The environment
+    /// still flows into the kept view, like `lifeBoardRootActivity` above.
+    var planRescueRefreshGeneration: Int {
+        get { self[PlanRescueRefreshGenerationKey.self] }
+        set { self[PlanRescueRefreshGenerationKey.self] = newValue }
+    }
+}
+
+private struct PlanRescueRefreshGenerationKey: EnvironmentKey {
+    static let defaultValue = 0
 }
 
 /// Where each root rests relative to the one on screen.
