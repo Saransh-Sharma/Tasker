@@ -23,7 +23,6 @@ struct AppOnboardingState: Codable, Equatable {
     var outcome: OnboardingOutcome?
     var completedVersion: Int?
     var establishedWorkspacePromptDismissedVersion: Int?
-    var journeySnapshot: OnboardingJourneySnapshot?
     /// Schema 7 is intentionally a separate payload. Version-3 snapshots remain
     /// decodable but are never resumed into the Life Map step graph.
     var lifeMapJourneySnapshot: LifeMapDraft?
