@@ -115,9 +115,9 @@ struct ConversationView: View {
                     } label: {
                         Label("New response", systemImage: "arrow.down")
                             .font(.subheadline.weight(.semibold))
+                            .frame(minHeight: 44)
                     }
                     .buttonStyle(.bordered)
-                    .controlSize(.small)
                     .padding(.trailing, Theme.Spacing.lg)
                     .padding(.bottom, Theme.Spacing.md)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -160,6 +160,13 @@ struct ConversationView: View {
                    oldPhase != .answering,
                    V2FeatureFlags.llmChatAnswerPhaseHapticsEnabled {
                     appManager.playHaptic()
+                }
+
+                // A reply that finishes streaming is a state change nothing
+                // announced, so VoiceOver users had to keep probing the
+                // transcript to find out whether Eva was done.
+                if oldPhase == .answering, newPhase != .answering {
+                    AccessibilityNotification.Announcement("Eva finished responding").post()
                 }
             }
             .onChange(of: scrollID) { _, _ in
