@@ -5119,8 +5119,7 @@ struct JournalModuleView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("Noticed for you")
-                                    .font(.title3.weight(.semibold))
+                                SectionHeader("Noticed for you", symbol: "sparkles")
                                 Text("Private, on-device patterns with their supporting moments.")
                                     .font(.caption)
                                     .foregroundStyle(palette.color(for: .foregroundSecondary))
@@ -5156,8 +5155,7 @@ struct JournalModuleView: View {
                 }
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text("Weekly reflection")
-                            .font(.title3.weight(.semibold))
+                        SectionHeader("Weekly reflection")
                             .accessibilityIdentifier("journal.weeklyReflection.header")
                         Spacer()
                         if store.reflectionReports.count > 1 {
@@ -5727,6 +5725,7 @@ private struct JournalDayCard: View {
     let onEditPhoto: (JournalMediaValue) -> Void
     let onMoveBlock: (UUID, Int) -> Void
     let onDeleteBlock: (UUID) -> Void
+    @State private var blockPendingDeletion: UUID?
     var onSetAIExclusion: ((JournalAIExclusion) -> Void)?
     @State private var confirmsDelete = false
     @State private var playback = JournalAudioPlaybackController()
@@ -5862,7 +5861,14 @@ private struct JournalDayCard: View {
                         if day.blocks.last?.id != block.id {
                             Button("Move later", systemImage: "arrow.down") { onMoveBlock(block.id, 1) }
                         }
-                        Button("Delete block", systemImage: "trash", role: .destructive) { onDeleteBlock(block.id) }
+                        // Deleting a block removes the person's own words,
+                        // photo or audio. Deleting a whole day already asks
+                        // first; a single block was the one destructive path
+                        // here that did not. `DESIGN.md`: explain consequences
+                        // before a destructive action.
+                        Button("Delete block", systemImage: "trash", role: .destructive) {
+                            blockPendingDeletion = block.id
+                        }
                     } label: {
                         Image(systemName: "ellipsis")
                             .frame(width: 44, height: 44)
@@ -5874,6 +5880,22 @@ private struct JournalDayCard: View {
         }
         .padding(18)
         .lifeBoardPaperCard()
+        .confirmationDialog(
+            "Delete this entry?",
+            isPresented: Binding(
+                get: { blockPendingDeletion != nil },
+                set: { if $0 == false { blockPendingDeletion = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete entry", role: .destructive) {
+                if let blockID = blockPendingDeletion { onDeleteBlock(blockID) }
+                blockPendingDeletion = nil
+            }
+            Button("Keep it", role: .cancel) { blockPendingDeletion = nil }
+        } message: {
+            Text("This removes its text, photo or audio from the day. It cannot be undone.")
+        }
         .confirmationDialog("Delete this entire journal day?", isPresented: $confirmsDelete, titleVisibility: .visible) {
             Button("Delete day", role: .destructive) { onDelete?() }
             Button("Cancel", role: .cancel) {}
