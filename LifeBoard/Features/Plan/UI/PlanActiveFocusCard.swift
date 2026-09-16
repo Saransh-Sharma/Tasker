@@ -106,6 +106,7 @@ struct PlanActiveFocusCard: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
             }
         }
+        .homeAmbientArtwork(.focusNow)
         .foundationClayCard()
         .overlay {
             RoundedRectangle(cornerRadius: Radius.card)
