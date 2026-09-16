@@ -6,6 +6,24 @@
 import Foundation
 import SwiftData
 import UIKit
+import SwiftUI
+
+/// Fixed time is available only to explicit DEBUG production evidence runs.
+/// Normal app and UI-test launches keep the system clock.
+enum HomeReferenceClock {
+    static let productionEvidenceDate = Date(timeIntervalSince1970: 1_789_462_800)
+    static var isProductionEvidenceEnabled: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_PRODUCTION_EVIDENCE")
+        #else
+        return false
+        #endif
+    }
+    static var now: Date {
+        if isProductionEvidenceEnabled { return productionEvidenceDate }
+        return Date()
+    }
+}
 
 @MainActor
 final class HomeUITestWorkspaceSeeder {
@@ -38,7 +56,7 @@ final class HomeUITestWorkspaceSeeder {
 
         // Fixed identifiers so `plan.inbox.row.<uuid>` is addressable from a test,
         // and descending offsets so the newest-first order is deterministic.
-        let reference = Date()
+        let reference = HomeReferenceClock.now
         let captures = [
             // Rich parse: date, duration, tag and context all produce chips. The
             // parser needs the literal "for" before a duration and a letter after
@@ -112,60 +130,71 @@ final class HomeUITestWorkspaceSeeder {
                     )
                 )
 
+                #if DEBUG
+                let evidenceDate: Date? = HomeProductionEvidenceProfile.enabled ? HomeProductionEvidenceProfile.date : nil
+                #else
+                let evidenceDate: Date? = nil
+                #endif
                 var requests = [
                     CreateTaskDefinitionRequest(
+                        id: evidenceDate == nil ? UUID() : UUID(uuidString: "E7200000-0000-4000-8000-000000000001")!,
                         title: "Draft update",
                         details: "UI test established-workspace seed",
                         projectID: project.id,
                         projectName: project.name,
                         lifeAreaID: lifeArea.id,
-                        dueDate: DatePreset.today.resolvedDueDate(),
-                        createdAt: Date()
+                        dueDate: evidenceDate ?? DatePreset.today.resolvedDueDate(),
+                        createdAt: evidenceDate ?? HomeReferenceClock.now
                     ),
                     CreateTaskDefinitionRequest(
+                        id: evidenceDate == nil ? UUID() : UUID(uuidString: "E7200000-0000-4000-8000-000000000002")!,
                         title: "Send recap",
                         details: "UI test established-workspace seed",
                         projectID: project.id,
                         projectName: project.name,
                         lifeAreaID: lifeArea.id,
-                        dueDate: DatePreset.today.resolvedDueDate(),
-                        createdAt: Date()
+                        dueDate: evidenceDate ?? DatePreset.today.resolvedDueDate(),
+                        createdAt: evidenceDate ?? HomeReferenceClock.now
                     ),
                     CreateTaskDefinitionRequest(
+                        id: evidenceDate == nil ? UUID() : UUID(uuidString: "E7200000-0000-4000-8000-000000000003")!,
                         title: "Plan next step",
                         details: "UI test established-workspace seed",
                         projectID: project.id,
                         projectName: project.name,
                         lifeAreaID: lifeArea.id,
-                        dueDate: DatePreset.today.resolvedDueDate(),
-                        createdAt: Date()
+                        dueDate: evidenceDate ?? DatePreset.today.resolvedDueDate(),
+                        createdAt: evidenceDate ?? HomeReferenceClock.now
                     ),
                     CreateTaskDefinitionRequest(
+                        id: evidenceDate == nil ? UUID() : UUID(uuidString: "E7200000-0000-4000-8000-000000000004")!,
                         title: "Review metrics",
                         details: "UI test expandable Home task card seed",
                         projectID: project.id,
                         projectName: project.name,
                         lifeAreaID: lifeArea.id,
-                        dueDate: DatePreset.today.resolvedDueDate(),
-                        createdAt: Date()
+                        dueDate: evidenceDate ?? DatePreset.today.resolvedDueDate(),
+                        createdAt: evidenceDate ?? HomeReferenceClock.now
                     ),
                     CreateTaskDefinitionRequest(
+                        id: evidenceDate == nil ? UUID() : UUID(uuidString: "E7200000-0000-4000-8000-000000000005")!,
                         title: "Email launch notes",
                         details: "UI test expandable Home task card seed",
                         projectID: project.id,
                         projectName: project.name,
                         lifeAreaID: lifeArea.id,
-                        dueDate: DatePreset.today.resolvedDueDate(),
-                        createdAt: Date()
+                        dueDate: evidenceDate ?? DatePreset.today.resolvedDueDate(),
+                        createdAt: evidenceDate ?? HomeReferenceClock.now
                     ),
                     CreateTaskDefinitionRequest(
+                        id: evidenceDate == nil ? UUID() : UUID(uuidString: "E7200000-0000-4000-8000-000000000006")!,
                         title: "Archive brief",
                         details: "UI test expandable Home task card seed",
                         projectID: project.id,
                         projectName: project.name,
                         lifeAreaID: lifeArea.id,
-                        dueDate: DatePreset.today.resolvedDueDate(),
-                        createdAt: Date()
+                        dueDate: evidenceDate ?? DatePreset.today.resolvedDueDate(),
+                        createdAt: evidenceDate ?? HomeReferenceClock.now
                     )
                 ]
 
@@ -177,8 +206,8 @@ final class HomeUITestWorkspaceSeeder {
                             projectID: project.id,
                             projectName: project.name,
                             lifeAreaID: lifeArea.id,
-                            dueDate: DatePreset.today.resolvedDueDate(),
-                            createdAt: Date()
+                            dueDate: evidenceDate ?? DatePreset.today.resolvedDueDate(),
+                            createdAt: evidenceDate ?? HomeReferenceClock.now
                         )
                     })
                 }
@@ -232,7 +261,7 @@ final class HomeUITestWorkspaceSeeder {
                 let createHabit = presentationDependencyContainer.coordinator.createHabit
                 let resolveHabitOccurrence = presentationDependencyContainer.coordinator.resolveHabitOccurrence
                 let calendar = Calendar.current
-                let now = Date()
+                let now = HomeReferenceClock.now
                 let startOfDay = calendar.startOfDay(for: now)
 
                 let lifeArea = try await manageLifeAreas.createAsync(
@@ -383,7 +412,7 @@ final class HomeUITestWorkspaceSeeder {
                 let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
 
                 let calendar = Calendar.current
-                let now = Date()
+                let now = HomeReferenceClock.now
                 let anchorDay = calendar.startOfDay(for: now)
                 let includeHiddenRescueRow = shouldSeedExpandedRescue
 
@@ -618,7 +647,7 @@ final class HomeUITestWorkspaceSeeder {
                     )
                 )
 
-                let anchor = DatePreset.today.resolvedDueDate() ?? Date()
+                let anchor = DatePreset.today.resolvedDueDate() ?? HomeReferenceClock.now
                 let calendar = Calendar.current
                 let startOfDay = calendar.startOfDay(for: anchor)
                 let focusRowID = UUID(uuidString: "10000000-0000-0000-0000-000000000001") ?? UUID()
@@ -637,7 +666,7 @@ final class HomeUITestWorkspaceSeeder {
                         dueDate: calendar.date(byAdding: .hour, value: 8, to: startOfDay),
                         priority: .high,
                         estimatedDuration: 900,
-                        createdAt: Date()
+                        createdAt: HomeReferenceClock.now
                     ),
                     CreateTaskDefinitionRequest(
                         id: focusAID,
@@ -649,7 +678,7 @@ final class HomeUITestWorkspaceSeeder {
                         dueDate: calendar.date(byAdding: .hour, value: 9, to: startOfDay),
                         priority: .high,
                         estimatedDuration: 900,
-                        createdAt: Date()
+                        createdAt: HomeReferenceClock.now
                     ),
                     CreateTaskDefinitionRequest(
                         id: focusBID,
@@ -661,7 +690,7 @@ final class HomeUITestWorkspaceSeeder {
                         dueDate: calendar.date(byAdding: .hour, value: 10, to: startOfDay),
                         priority: .high,
                         estimatedDuration: 1_200,
-                        createdAt: Date()
+                        createdAt: HomeReferenceClock.now
                     ),
                     CreateTaskDefinitionRequest(
                         id: focusCID,
@@ -673,7 +702,7 @@ final class HomeUITestWorkspaceSeeder {
                         dueDate: calendar.date(byAdding: .hour, value: 11, to: startOfDay),
                         priority: .high,
                         estimatedDuration: 2_400,
-                        createdAt: Date()
+                        createdAt: HomeReferenceClock.now
                     ),
                     CreateTaskDefinitionRequest(
                         id: focusDID,
@@ -685,7 +714,7 @@ final class HomeUITestWorkspaceSeeder {
                         dueDate: calendar.date(byAdding: .hour, value: 12, to: startOfDay),
                         priority: .high,
                         estimatedDuration: 2_400,
-                        createdAt: Date()
+                        createdAt: HomeReferenceClock.now
                     )
                 ]
 
@@ -1476,7 +1505,7 @@ final class HomeUITestWorkspaceSeeder {
                 )
 
                 let calendar = Calendar.current
-                let now = Date()
+                let now = HomeReferenceClock.now
                 let startOfDay = calendar.startOfDay(for: now)
                 let designReviewStart = calendar.date(byAdding: .hour, value: 10, to: startOfDay) ?? now
                 let overlapStart = calendar.date(byAdding: .minute, value: 10, to: designReviewStart) ?? designReviewStart
@@ -1642,3 +1671,142 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 }
+
+#if DEBUG
+/// Explicit production evidence profile. No synthetic view replaces a route.
+/// Canonical repositories are reset/seeded by the existing UI-test launch gate.
+@MainActor
+enum HomeProductionEvidenceProfile {
+    static var enabled: Bool { HomeReferenceClock.isProductionEvidenceEnabled }
+    static let date = HomeReferenceClock.productionEvidenceDate // 2026-09-15 09:00 UTC
+    static var arrangement: String { ProcessInfo.processInfo.environment["LIFEBOARD_EVIDENCE_ARRANGEMENT"] ?? "mixed" }
+    static var route: String { ProcessInfo.processInfo.environment["LIFEBOARD_EVIDENCE_ROUTE"] ?? "home" }
+    static var layout: DashboardLayoutValue {
+        let pairs: [(DashboardWidgetKind, WidgetSizePreset)]
+        switch arrangement {
+        case "paired": pairs = [(.care, .standard), (.routines, .standard)]
+        case "solitary": pairs = [(.care, .standard)]
+        case "actions": pairs = [(.care, .wide), (.scheduleCapacity, .wide), (.progressReflection, .wide), (.journal, .wide)]
+        default: pairs = [(.care, .standard), (.routines, .standard), (.tasks, .wide), (.journal, .tall)]
+        }
+        let placements = pairs.enumerated().map { index, item in
+            var placement = DashboardWidgetPlacementValue(
+                id: UUID(uuidString: String(format: "E7100000-0000-4000-8000-%012d", index + 1))!,
+                widgetKind: item.0.rawValue, semanticSize: item.1, ordinal: index)
+            placement.updateHomeConfiguration {
+                $0.placement.ownership = .pinned
+                $0.placement.sectionOverride = .userSpace
+                $0.placement.smartSlot = nil
+            }
+            return placement
+        }
+        return DashboardLayoutValue(id: UUID(uuidString: "E7100000-0000-4000-8000-000000000000")!,
+            mode: arrangement == "lowEnergy" ? .lowEnergy : .smart, isDefault: false,
+            createdAt: date, updatedAt: date, placements: HomeGridPackingService.normalized(placements))
+    }
+    static var placementDescriptors: [[String: String]] {
+        layout.placements.map { placement in
+            [
+                "id": placement.id.uuidString,
+                "widgetKind": placement.widgetKind,
+                "semanticSize": placement.semanticSize.rawValue,
+                "ownership": placement.ownership.rawValue
+            ]
+        }
+    }
+    static func activate(runtime: FoundationCoordinator) {
+        guard enabled else { return }
+        runtime.preferences.daypartSelection = .morning
+        runtime.router.dashboardMode = arrangement == "lowEnergy" ? .lowEnergy : .smart
+        let router = runtime.router
+        switch route {
+        case "plan": router.activateRoot(.plan)
+        case "track": router.activateRoot(.track)
+        case "insights": router.activateRoot(.insights)
+        case "eva": router.activateRoot(.eva)
+        case "journal": router.openProtectedJournalRoute(.journalSearch, in: .home)
+        case "care": router.openLeaf(.careLibrary, in: .track)
+        case "routines": router.openLeaf(.routines(.library), in: .track)
+        case "goals": router.openLeaf(.goals, in: .track)
+        case "fasting": router.openLeaf(.fasting, in: .track)
+        case "body": router.openLeaf(.wellness(.bodyMetric(.bodyMass)), in: .track)
+        case "workout": router.openLeaf(.wellness(.workouts), in: .track)
+        case "sleep": router.openLeaf(.wellness(.sleep), in: .track)
+        case "movement": router.openLeaf(.wellness(.movement), in: .track)
+        case "nutrition": router.openLeaf(.nutrition(.dailySummary), in: .track)
+        case "moment": router.openLeaf(.lifeMoments(.overview), in: .track)
+        case "capture":
+            router.activateRoot(.home)
+            runtime.captureRouter.request(kind: .task, source: .shell)
+        default: router.activateRoot(.home)
+        }
+    }
+}
+
+private struct HomeProductionPlacementFrames: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+struct HomeProductionPlacementEvidence: ViewModifier {
+    let id: UUID
+    func body(content: Content) -> some View {
+        content.background {
+            if HomeProductionEvidenceProfile.enabled {
+                GeometryReader { geometry in
+                    Color.clear.preference(key: HomeProductionPlacementFrames.self,
+                        value: [id.uuidString: geometry.frame(in: .global)])
+                }
+            }
+        }
+    }
+}
+struct HomeProductionEvidenceModifier: ViewModifier {
+    @State private var frames: [String: CGRect] = [:]
+    @State private var cacheSnapshot = "{}"
+    func body(content: Content) -> some View {
+        content.onPreferenceChange(HomeProductionPlacementFrames.self) { frames = $0 }
+            .overlay(alignment: .topLeading) {
+                if HomeProductionEvidenceProfile.enabled {
+                    GeometryReader { geometry in
+                        Button {
+                            if let data = try? JSONSerialization.data(withJSONObject: HomeSceneImageCache.shared.designEvidenceSnapshot, options: [.sortedKeys]) {
+                                cacheSnapshot = String(data: data, encoding: .utf8) ?? "{}"
+                            }
+                        } label: { Color.clear.frame(width: 44, height: 44) }
+                        .accessibilityIdentifier("home.evidence.cache")
+                        .accessibilityLabel("Sample artwork cache")
+                        .accessibilityValue(cacheSnapshot)
+                        Color.clear.frame(width: 1, height: 1)
+                            .accessibilityElement()
+                            .accessibilityIdentifier("home.productionEvidence.geometry")
+                            .accessibilityLabel("Production evidence geometry")
+                            .accessibilityValue(metadata(geometry))
+                    }
+                }
+            }
+    }
+    private func metadata(_ geometry: GeometryProxy) -> String {
+        func rect(_ value: CGRect) -> [Double] { [value.minX, value.minY, value.width, value.height].map(Double.init) }
+        let payload: [String: Any] = [
+            "route": HomeProductionEvidenceProfile.route,
+            "arrangement": HomeProductionEvidenceProfile.arrangement,
+            "shellFrame": rect(geometry.frame(in: .global)),
+            "contentBounds": rect(geometry.frame(in: .global)),
+            "safeArea": [geometry.safeAreaInsets.top, geometry.safeAreaInsets.leading,
+                geometry.safeAreaInsets.bottom, geometry.safeAreaInsets.trailing].map(Double.init),
+            "placements": frames.mapValues(rect),
+            "placementDescriptors": HomeProductionEvidenceProfile.placementDescriptors,
+            "sourceTaskIDs": (1...6).map { String(format: "E7200000-0000-4000-8000-%012d", $0) },
+            "sourceIdentityScope": "stable seeded repository identifiers",
+            "fixtureDate": "2026-09-15T09:00:00Z",
+            "clockScope": "all evidence-owned clocks fixed to the seeded morning fixture",
+            "rendererRevision": ProcessInfo.processInfo.environment["LIFEBOARD_EVIDENCE_RENDERER_REVISION"] ?? "unrecorded"
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+            let text = String(data: data, encoding: .utf8) else { return "{}" }
+        return text
+    }
+}
+#endif
