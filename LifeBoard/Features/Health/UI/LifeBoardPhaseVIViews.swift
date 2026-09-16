@@ -639,7 +639,7 @@ struct NutritionView: View {
     private var weeklyReportSection: some View {
         let report = store.weeklyReport
         return VStack(alignment: .leading, spacing: 12) {
-            Text("Past 7 days").font(Typography.sectionTitle())
+            SectionHeader("Past 7 days")
             Text(store.summary.source == .appleHealth ? "Daily energy totals from Apple Health" : "Energy from named LifeBoard meals")
                 .font(.caption)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -810,6 +810,7 @@ private struct NutritionMealSectionView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .homeAmbientArtwork(.recentMeal)
         .lifeBoardClaySurface(.raised)
     }
 
@@ -951,7 +952,7 @@ private struct NutritionFoodSection: View {
     @Binding var slot: NutritionMealSlot
 
     var body: some View {
-        ComposerSection("Food") {
+        ComposerSection("Food", ambientKind: .logMeal) {
             ComposerField(
                 "Name",
                 prompt: "What you ate",
@@ -1543,7 +1544,9 @@ struct WellnessView: View {
         WellnessHero(
             label: "Today",
             reading: bodyMetricReading,
-            provenance: nil,
+            // "A number without a source is not evidence." The hero had the
+            // sample in hand and passed nil.
+            provenance: todaySamples.first.map { sourceLabel($0.source) },
             timeframe: bodyMetricTimeframe,
             actionTitle: todaySamples.isEmpty ? "Log today’s \(kind.title.lowercased())" : "Add another value",
             action: beginAdd
@@ -1608,7 +1611,7 @@ struct WellnessView: View {
     private var sourceConflictsSection: some View {
         if !store.conflicts.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Source review").font(Typography.sectionTitle())
+                SectionHeader("Source review")
                 Text("These readings arrived close together from different sources. Choosing one changes only the display; source history stays intact.")
                     .font(.caption)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -2131,7 +2134,7 @@ extension WellnessView {
             }
             sourceConflictsSection
             VStack(alignment: .leading, spacing: 12) {
-                Text("History").font(Typography.sectionTitle())
+                SectionHeader("History")
                 if filteredSamples.isEmpty, searchText.isEmpty == false {
                     Text("No entries match “\(searchText)”. History is unchanged.")
                         .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary)).padding(.vertical, 8)
@@ -2162,7 +2165,7 @@ extension WellnessView {
                     provenance: sourceLabel(latest.source),
                     timeframe: latest.startedAt.formatted(date: .abbreviated, time: .shortened),
                     actionTitle: section.addTitle,
-                    action: beginAdd
+                    action: beginAdd, sceneKind: .workout
                 )
             } else {
                 emptyState(title: "No workouts recorded", symbol: "figure.run")
@@ -2173,7 +2176,9 @@ extension WellnessView {
                 HStack(spacing: 8) {
                     MetricHeroWell(MetricHero(
                         label: "Last 7 days",
-                        reading: .recorded(value: Self.durationLabel(trailingSevenDayWorkoutDuration), unit: nil),
+                        reading: trailingSevenDayWorkoutDuration == 0
+                            ? .explicitZero(unit: nil)
+                            : .recorded(value: Self.durationLabel(trailingSevenDayWorkoutDuration), unit: nil),
                         accessibilityID: "wellness.workouts.week.duration"
                     ))
                     MetricHeroWell(MetricHero(
@@ -2196,7 +2201,7 @@ extension WellnessView {
                 )
                 .frame(height: 120)
             }
-            Text("History").font(Typography.sectionTitle())
+            SectionHeader("History")
             ForEach(filteredWorkouts) { workout in
                 WellnessHistoryRow(
                     timestamp: workout.startedAt,
@@ -2221,7 +2226,7 @@ extension WellnessView {
                     provenance: sleepNightDetail(latest),
                     timeframe: nil,
                     actionTitle: section.addTitle,
-                    action: beginAdd
+                    action: beginAdd, sceneKind: .sleep
                 )
             } else {
                 emptyState(title: "No sleep notes recorded", symbol: "bed.double")
@@ -2260,7 +2265,7 @@ extension WellnessView {
                 )
                 .frame(height: 120)
             }
-            Text("Nightly history").font(Typography.sectionTitle())
+            SectionHeader("Nightly history")
             ForEach(nights) { night in
                 let editable = night.samples.count == 1
                     ? night.samples.first(where: { $0.source.permitsManualCorrection })
@@ -2291,7 +2296,7 @@ extension WellnessView {
                     provenance: movementSummaryDetail(summary),
                     timeframe: nil,
                     actionTitle: section.addTitle,
-                    action: beginAdd
+                    action: beginAdd, sceneKind: .movement
                 )
             } else {
                 emptyState(title: "No movement recorded", symbol: "figure.walk")
@@ -2301,7 +2306,7 @@ extension WellnessView {
                     .frame(height: 120)
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text("Custom records").font(Typography.sectionTitle())
+                SectionHeader("Custom records")
                 Text("Custom LifeBoard records stay separate from Apple Health totals.")
                     .font(.caption)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
