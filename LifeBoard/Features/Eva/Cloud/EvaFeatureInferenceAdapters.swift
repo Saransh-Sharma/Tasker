@@ -169,7 +169,7 @@ private enum EvaFeatureTextGenerator {
                 userInstructions: nil,
                 clientVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
                 platform: EvaInstallationIdentity.platform,
-                installationId: EvaInstallationIdentity.current,
+                installationId: try EvaInstallationIdentity.resolved(),
                 consentRevision: runtime.consentRevision ?? 0,
                 providerCapabilities: .init(streaming: true, structuredOutput: true, spokenOutput: true)
             )
