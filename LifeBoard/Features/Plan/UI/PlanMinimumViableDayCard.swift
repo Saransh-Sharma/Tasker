@@ -33,14 +33,7 @@ struct PlanMinimumViableDayCard: View {
                     .font(.caption)
                 }
                 ForEach(scenario.diff) { change in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(change.title).font(.subheadline.weight(.semibold))
-                        if let after = change.after {
-                            Text(after)
-                                .font(.caption)
-                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                        }
-                    }
+                    PlanScenarioDiffRow(change: change, isResolved: false)
                 }
                 ForEach(scenario.validationIssues, id: \.self) { issue in
                     Label(issue, systemImage: "exclamationmark.circle")
@@ -53,12 +46,16 @@ struct PlanMinimumViableDayCard: View {
                     chooser(snapshot)
                 }
                 HStack {
-                    Button(
-                        scenario.source == .minimumViableDay
-                            ? "Keep current day"
-                            : "Keep current plan"
-                    ) { store.dismissScenario() }
+                    // "Not now", the proposal contract's own words: nothing has
+                    // changed, and the choice can come back later.
+                    Button("Not now") {
+                        Haptic.pick.play()
+                        store.dismissScenario()
+                    }
                         .buttonStyle(.bordered)
+                        .accessibilityHint(
+                            scenario.source == .minimumViableDay ? "Keeps the current day" : "Keeps the current plan"
+                        )
                     Button(
                         Self.applyTitle(scenario.source)
                     ) {
@@ -173,5 +170,56 @@ struct PlanMinimumViableDayCard: View {
             .buttonStyle(.bordered)
         }
         .accessibilityIdentifier("plan.minimumViableDay.chooser")
+    }
+}
+
+/// One proposed change: what it is, what it was, what it becomes.
+///
+/// Shared by Plan's staged scenario and Home's in-place repair. `isResolved`
+/// is the after-apply state: the old value fades and is struck through while
+/// the new one settles in, so "what changed" is shown rather than asserted.
+struct PlanScenarioDiffRow: View {
+    let change: PlanningScenarioDiff
+    let isResolved: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(change.title)
+                .lifeboardFont(.support)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if let before = change.before {
+                    Text(before)
+                        .strikethrough(isResolved)
+                        .opacity(isResolved ? 0.5 : 1)
+                    Image(systemName: "arrow.right")
+                        .lifeboardFont(.caption2)
+                        .accessibilityHidden(true)
+                }
+                if let after = change.after {
+                    Text(after)
+                        .fontWeight(isResolved ? .semibold : .regular)
+                        .foregroundStyle(Color(isResolved ? SemanticColorTokens.inkPrimary : SemanticColorTokens.inkSecondary))
+                        .contentTransition(.opacity)
+                }
+            }
+            .lifeboardFont(.caption1)
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(PlanScenarioDiffRow.accessibilityText(change, isResolved: isResolved))
+    }
+
+    static func accessibilityText(_ change: PlanningScenarioDiff, isResolved: Bool) -> String {
+        let movement: String
+        switch (change.before, change.after) {
+        case let (before?, after?): movement = isResolved ? "moved from \(before) to \(after)" : "from \(before) to \(after)"
+        case let (nil, after?): movement = after
+        case let (before?, nil): movement = isResolved ? "removed from \(before)" : "remove from \(before)"
+        case (nil, nil): movement = ""
+        }
+        return movement.isEmpty ? change.title : "\(change.title), \(movement)"
     }
 }
