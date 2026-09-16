@@ -82,18 +82,23 @@ extension EvaCloudTransport {
 
     func validCredentials() async throws -> EvaSessionCredentials {
         guard let credentials = try await sessionStore.load() else { throw EvaProviderError.authenticationRequired }
-        guard credentials.installationId == EvaInstallationIdentity.current else {
-            // ThisDeviceOnly Keychain items can outlive app deletion on some
-            // systems. The preference-backed installation marker is the
-            // deliberate reinstall boundary, so never resurrect an old device
-            // session under a new installation identity.
-            try? await sessionStore.clear()
-            try? await sessionStore.clearGuestBootstrapID()
-            await EvaAppAttestService.shared.clearRegistration()
-            throw EvaProviderError.authenticationRequired
+        if await sessionStore.isInMemoryStorage() == false {
+            let installationID = try EvaInstallationIdentity.resolved()
+            guard credentials.installationId == installationID else {
+                // ThisDeviceOnly Keychain items can outlive app deletion on
+                // some systems. The preference-backed installation marker is
+                // the deliberate reinstall boundary. Keep the old records
+                // intact until that boundary is confirmed; an identity
+                // mismatch alone must never turn a temporary read problem
+                // into a replacement guest account.
+                throw EvaProviderError.unavailable(
+                    String(localized: "Cloud EVA is restoring this installation. Try again when secure storage is available.")
+                )
+            }
         }
         if credentials.accessTokenExpiresAt.timeIntervalSinceNow > 30 { return credentials }
         guard credentials.refreshTokenExpiresAt > Date() else {
+            EvaCloudRecoveryStore.saveApple(credentials: credentials)
             try? await sessionStore.clear()
             throw EvaProviderError.authenticationRequired
         }
@@ -134,7 +139,12 @@ extension EvaCloudTransport {
                 attested: false
             )
         } catch let error where error.evaRequiresReauthentication {
+            EvaCloudRecoveryStore.saveApple(credentials: credentials)
             try? await sessionStore.clear()
+            // Keep the account identity available to the next coordinator
+            // hydration pass. Clearing credentials is intentional, but a
+            // server rejection must not look like a brand-new installation.
+            await sessionStore.markServerRevoked(credentials)
             throw EvaProviderError.authenticationRequired
         }
         let refreshed = try JSONDecoder.evaCloud.decode(EvaCloudRefreshResponse.self, from: data)
@@ -152,6 +162,7 @@ extension EvaCloudTransport {
             trustTier: credentials.trustTier
         )
         try await sessionStore.save(replacement)
+        await ProductTelemetry.shared.record(.evaSessionRefreshed, outcome: "rotated")
         return replacement
     }
 
