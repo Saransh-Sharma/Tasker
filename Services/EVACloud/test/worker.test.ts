@@ -160,7 +160,7 @@ describe('EVA Cloud Worker', () => {
     })
   })
 
-  it('bootstraps a pseudonymous guest with confirmed consent and the full rolling quota', async () => {
+  it('recovers the same guest with retained consent and replaces only its device family', async () => {
     const configuration = failClosedRuntimeConfig(bindings)
     configuration.version = Number(bindings.MIN_RUNTIME_CONFIG_VERSION)
     configuration.cloudState = 'enabled'
@@ -197,6 +197,7 @@ describe('EVA Cloud Worker', () => {
       expect(response.status, rawBody).toBe(200)
       const body = JSON.parse(rawBody) as {
         accountId: string
+        familyId: string
         accessToken: string
         identityKind: string
         trustTier: string
@@ -211,9 +212,24 @@ describe('EVA Cloud Worker', () => {
         quota: { limit: 20, used: 0, remaining: 20 },
         consent: { revision: 1, grants: ['health', 'journal'] },
       })
+      const recovery = await SELF.fetch('https://eva.test/v1/auth/guest/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bootstrapId, installationId, platform: 'ios',
+          grants: ['health', 'journal', 'lifeMoments', 'personalMemory'] }),
+      })
+      expect(recovery.status).toBe(200)
+      const recovered = await recovery.json<typeof body>()
+      expect(recovered.accountId).toBe(body.accountId)
+      expect(recovered.familyId).not.toBe(body.familyId)
+      expect(recovered.consent).toMatchObject({ revision: 1, grants: ['health', 'journal'] })
+      const retired = await SELF.fetch('https://eva.test/v1/eva/quota', {
+        headers: { Authorization: `Bearer ${body.accessToken}` },
+      })
+      expect(retired.status).toBe(401)
       const deletion = await SELF.fetch('https://eva.test/v1/account', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${body.accessToken}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${recovered.accessToken}` },
         body: JSON.stringify({ confirmation: 'deleteCloudEvaData' }),
       })
       expect(deletion.status).toBe(204)
@@ -644,7 +660,7 @@ describe('EVA Cloud Worker', () => {
     await expect(duplicate.json()).resolves.toMatchObject({ committed: true, alreadyCommitted: true, actualMicroUsd: 40 })
   })
 
-  it('expires adult eligibility after the server-defined 24-hour lease', async () => {
+  it('keeps access working after a legacy age lease expires', async () => {
     const { familyId, installationId, stub } = await bootstrappedAccount()
     const age = await stub.fetch('https://durable.internal/device/age', {
       method: 'POST',
@@ -671,7 +687,7 @@ describe('EVA Cloud Worker', () => {
       method: 'POST',
       body: JSON.stringify({ familyId, installationId, platform: 'ios', requireAdult: true, requireAttestation: false }),
     })
-    await expect(expired.json()).resolves.toMatchObject({ authorized: false, reason: 'age' })
+    await expect(expired.json()).resolves.toMatchObject({ authorized: true })
   })
 
   it('revokes a refresh family when an already-rotated token is reused', async () => {
@@ -765,7 +781,7 @@ describe('EVA Cloud Worker', () => {
     })
   })
 
-  it('blocks known under-13 devices and fails closed when a regional age decision is mandatory', async () => {
+  it('ignores legacy age metadata when authorizing distributed app installations', async () => {
     const knownMinor = await bootstrappedAccount()
     await knownMinor.stub.fetch('https://durable.internal/device/age', {
       method: 'POST',
@@ -787,7 +803,7 @@ describe('EVA Cloud Worker', () => {
         requireAdult: false,
         requireAttestation: false,
       }),
-    })).json()).resolves.toMatchObject({ authorized: false, reason: 'age' })
+    })).json()).resolves.toMatchObject({ authorized: true })
 
     const mandatoryUnknown = await bootstrappedAccount()
     await mandatoryUnknown.stub.fetch('https://durable.internal/device/age', {
@@ -809,7 +825,7 @@ describe('EVA Cloud Worker', () => {
         requireAdult: true,
         requireAttestation: false,
       }),
-    })).json()).resolves.toMatchObject({ authorized: false, reason: 'age' })
+    })).json()).resolves.toMatchObject({ authorized: true })
   })
 
   it('rejects stale assertion challenges and regressing counters', async () => {
