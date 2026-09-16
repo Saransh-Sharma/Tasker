@@ -59,6 +59,10 @@ extension MessageView {
             evaApplyMessage = message
             pendingEvaApplyConfirmationIDs = nil
             if let appliedRunID {
+                // The apply has landed by the time this runs, so the commit
+                // haptic belongs here. Applying Eva's changes was silent while
+                // far smaller actions in the app buzzed.
+                Haptic.commit.play()
                 appliedEvaRunIDs.insert(appliedRunID)
                 if let payloadRunID {
                     appliedEvaRunIDByPayloadRunID[payloadRunID] = appliedRunID
@@ -81,6 +85,7 @@ extension MessageView {
                 isUndoingEvaRun = false
                 switch result {
                 case .success:
+                    Haptic.decline.play()
                     appliedEvaRunIDs.remove(runID)
                     if let payloadRunID {
                         appliedEvaRunIDByPayloadRunID[payloadRunID] = nil
@@ -260,6 +265,8 @@ extension MessageView {
             return "Apply failed and rollback could not be fully verified."
         case .undone:
             return "Changes reverted."
+        case .pending, .confirmed:
+            return "Suggested. Nothing has changed yet."
         default:
             return "Updated."
         }
