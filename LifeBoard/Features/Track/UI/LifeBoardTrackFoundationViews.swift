@@ -1097,7 +1097,21 @@ private struct TrackHealthSummarySection: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            // Provenance travels with the value. These three numbers carried no
+            // source at all, and "—" carried no explanation of *why* it is
+            // absent.
+            if let aggregate {
+                Text(aggregate.sourceLabel)
+                    .font(.caption2)
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
+                    .lineLimit(1)
+            }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            aggregate.map { "\(title), \(Self.text($0.value, metric: metric)), from \($0.sourceLabel)" }
+                ?? "\(title), no record"
+        )
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
