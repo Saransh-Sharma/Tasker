@@ -132,6 +132,95 @@ public struct CommandIntentAdapter: LifeThreadIntentAdapter {
     }
 }
 
+/// Decides when composer text is a task, and when a task is certain enough to
+/// save without opening the editor.
+///
+/// A task used to need a leading verb ("buy", "call"…), so "Dentist fri 3pm"
+/// fell through to Eva. Now any text carrying a recognized token — a date,
+/// time, duration, `+project`, `#tag`, `@place`, repeat, or priority — is a
+/// task, unless it reads as a question or as journal/note language.
+public enum QuickCaptureSavePolicy {
+    private static let questionOpeners: Set<String> = [
+        "what", "what's", "whats", "how", "how's", "why", "when", "when's", "where", "who",
+        "which", "should", "can", "could", "would", "is", "are", "am", "do", "does", "did",
+        "will", "help", "show", "tell", "explain", "summarize", "summarise", "find", "list"
+    ]
+
+    /// Openers that belong to reflection or notes, not to a to-do.
+    private static let proseOpeners: [String] = [
+        "i ", "i'm ", "im ", "i've ", "ive ", "i was ", "my ", "today was ", "yesterday ",
+        "i want to journal", "write about", "thinking about", "note about", "note to self",
+        "add note", "make a note", "note for", "journal"
+    ]
+
+    public static func hasStructure(_ parsed: ParsedCapture?) -> Bool {
+        guard let parsed else { return false }
+        return parsed.dueDate != nil
+            || parsed.duration != nil
+            || parsed.projectName != nil
+            || parsed.tags.isEmpty == false
+            || parsed.context != nil
+            || parsed.repeatPattern != nil
+            || parsed.priority != nil
+    }
+
+    public static func looksLikeQuestion(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if trimmed.hasSuffix("?") { return true }
+        let firstWord = trimmed.split(whereSeparator: { $0.isWhitespace || $0 == "," }).first.map(String.init) ?? ""
+        return questionOpeners.contains(firstWord)
+    }
+
+    public static func looksLikeProse(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return proseOpeners.contains(where: { trimmed.hasPrefix($0) })
+    }
+
+    /// Structure without a verb is enough to call it a task.
+    public static func isTaskShapedWithoutMarker(_ text: String, parsed: ParsedCapture) -> Bool {
+        hasStructure(parsed)
+            && parsed.cleanTitle.isEmpty == false
+            && looksLikeQuestion(text) == false
+            && looksLikeProse(text) == false
+    }
+
+    /// Saves on Send with a receipt and Undo instead of opening the editor.
+    /// Dictation always reviews in the editor: a misheard date is easy to miss.
+    public static func canSaveInPlace(_ seed: CaptureSeed?) -> Bool {
+        guard let seed, seed.inputSource == .typed, let parsed = seed.parsedCapture else { return false }
+        let title = parsed.cleanTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard title.isEmpty == false, title.count <= 200 else { return false }
+        guard looksLikeQuestion(seed.rawText) == false, looksLikeProse(seed.rawText) == false else { return false }
+        return hasStructure(parsed) || TaskCaptureIntentAdapter.hasExplicitMarker(seed.rawText)
+    }
+
+    /// Receipt copy: says what was added and where it landed, in the person's terms.
+    public static func receiptMessage(
+        title: String,
+        scheduledStartAt: Date?,
+        dueDate: Date?,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> String {
+        let name = "“\(title)”"
+        if let start = scheduledStartAt {
+            let time = start.formatted(date: .omitted, time: .shortened)
+            return "Added \(name) · \(dayPhrase(for: start, now: now, calendar: calendar)) \(time)"
+        }
+        if let day = dueDate {
+            return "Added \(name) · \(dayPhrase(for: day, now: now, calendar: calendar))"
+        }
+        return "Added \(name) to Inbox"
+    }
+
+    private static func dayPhrase(for date: Date, now: Date, calendar: Calendar) -> String {
+        if calendar.isDate(date, inSameDayAs: now) { return "Today" }
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
+           calendar.isDate(date, inSameDayAs: tomorrow) { return "Tomorrow" }
+        return date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+    }
+}
+
 /// Adapter for resolving task capture intents using TaskCaptureParser.
 public struct TaskCaptureIntentAdapter: LifeThreadIntentAdapter {
 
@@ -152,7 +241,7 @@ public struct TaskCaptureIntentAdapter: LifeThreadIntentAdapter {
     /// non-trigger word — bare "send" or "schedule" with no content does
     /// not classify as a task and falls through so the next adapter meets
     /// the full phrase.
-    private static func hasExplicitMarker(_ text: String) -> Bool {
+    static func hasExplicitMarker(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let markers = [
             "remind me", "add task", "todo", "remember to", "don't forget",
@@ -185,8 +274,9 @@ public struct TaskCaptureIntentAdapter: LifeThreadIntentAdapter {
             return nil
         }
 
-        guard Self.hasExplicitMarker(lowercasedText) else { return nil }
         let parsed = TaskCaptureParser.parse(input.text)
+        guard Self.hasExplicitMarker(lowercasedText)
+            || QuickCaptureSavePolicy.isTaskShapedWithoutMarker(input.text, parsed: parsed) else { return nil }
         let seed = CaptureSeed(rawText: input.text, parsedCapture: parsed, inputSource: input.inputSource)
         return .captureDraft(LifeThreadCaptureDraft(
             id: UUID(), kind: .task, text: input.text,
