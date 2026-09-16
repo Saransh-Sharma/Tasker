@@ -79,15 +79,10 @@ The following `eva_*` assets apply only to Eva's static PNG fallback mapping. Sp
 
 ### Onboarding
 
-- Welcome intro: `eva_sitting` as a warm first contact.
-- Goal and pain selection: `eva_point_right` as forward guidance.
-- Eva value and Eva style: `eva_clipboard` to establish review and organization.
-- Life areas, habit setup, and first task: `eva_pencil` for capture and setup.
-- Processing/build step: `eva_thinking`.
-- Calendar permission: `eva_calendar`.
-- Notification permission: `eva_peek`.
-- Focus room start: `eva_running`.
-- Success: `eva_excited`, reserving `eva_celebration` for completed work.
+The four-screen first run uses the mascot twice, and nowhere else:
+
+- First thing, while the sentence is being read: `eva_thinking` (`.onboardingProcessing`, chip size).
+- You're all set, after the local write succeeds: `eva_excited` (`.onboardingSuccess`, inline size), reserving `eva_celebration` for completed work.
 
 ### Chat And Eva Console
 
