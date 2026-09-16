@@ -25,6 +25,11 @@ struct PlanRepairDeck: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dragOffset: CGSize = .zero
     @State private var snapAction: PlanRepairAction?
+    /// `triageSettle` is the effect `DESIGN.md` names for "Inbox, Rescue, and
+    /// repair decks". Inbox and Rescue had it; this deck, which is the third
+    /// one named, did not.
+    @State private var triageSettleTrigger = 0
+    @State private var triageSettleDirection = 1.0
 
     init(
         proposals: [PlanRepairProposal],
@@ -54,8 +59,7 @@ struct PlanRepairDeck: View {
         let candidates = dragCandidates
         VStack(alignment: .leading, spacing: 12) {
             if let header {
-                Label(header, systemImage: "wand.and.stars")
-                    .font(.headline)
+                SectionHeader(header, symbol: "wand.and.stars")
             }
             Text(proposal?.explanation ?? fallbackExplanation)
                 .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -79,6 +83,15 @@ struct PlanRepairDeck: View {
         // Inlining keeps this identical without minting a third copy.
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                .fill(Color.clear)
+                .lifeboardTriageSettle(
+                    trigger: triageSettleTrigger,
+                    direction: triageSettleDirection
+                )
+                .allowsHitTesting(false)
+        }
         .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
         // Resolving one proposal used to appear to conjure another; the deck
         // depth says up front how many are queued.
@@ -170,7 +183,9 @@ struct PlanRepairDeck: View {
                     }
                     return
                 }
-                HapticFeedback.medium()
+                Haptic.settle.play()
+                triageSettleDirection = direction == .left ? -1 : 1
+                triageSettleTrigger &+= 1
                 guard animationsOff == false else {
                     dragOffset = .zero
                     onAction(action, proposal)
