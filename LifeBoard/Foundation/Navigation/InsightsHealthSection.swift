@@ -71,6 +71,15 @@ struct InsightsHealthSection: View {
                 Text(label)
                     .lifeboardFont(.caption1)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                // "A number without a source is not evidence." These facts are
+                // the evidence under the interpretation, so they say where they
+                // came from and when they were last seen.
+                if let aggregate = healthStore.aggregates[metric] {
+                    Text("\(aggregate.sourceLabel) · \(HealthHubFormat.freshness(aggregate.lastSampleAt))")
+                        .lifeboardFont(.caption2)
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
+                        .lineLimit(1)
+                }
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
