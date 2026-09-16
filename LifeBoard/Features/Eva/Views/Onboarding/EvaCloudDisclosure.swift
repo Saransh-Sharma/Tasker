@@ -31,3 +31,25 @@ struct EvaCloudDisclosure: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 }
+
+/// Human names for the grants, shared by the activation disclosure, the chat
+/// scaffold, and the onboarding grant sheet.
+extension EvaConsentPolicy.Grant {
+    var onboardingTitle: String {
+        switch self {
+        case .journal: "Journal entries"
+        case .health: "Health summaries"
+        case .lifeMoments: "Life moments"
+        case .personalMemory: "What you've told EVA about you"
+        }
+    }
+
+    var onboardingBlurb: String {
+        switch self {
+        case .journal: "So EVA can answer from what you wrote."
+        case .health: "Bounded summaries only — never raw samples."
+        case .lifeMoments: "The things you are counting down to."
+        case .personalMemory: "Your working style, blockers, and goals."
+        }
+    }
+}
