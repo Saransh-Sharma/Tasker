@@ -96,16 +96,9 @@ export const EvaRuntimeConfigSchema = Type.Object({
 
 export type EvaRuntimeConfig = Static<typeof EvaRuntimeConfigSchema>
 
-/** The server owns this decision. Clients may present regional age UI, but a
- * modified or stale client cannot relax an enabled fail-closed policy. */
-export function requiresAgeDecision(config: EvaRuntimeConfig): boolean {
-  // A disabled cloud configuration must stay disabled without turning account
-  // recovery/deletion screens into an age-verification dead end. Inference
-  // routes reject the disabled state before authorization.
-  return config.cloudState !== 'disabled' && (
-    config.agePolicy?.requiredRegionFailClosed === true
-    || config.agePolicy?.unknownAgeAllowed === false
-  )
+/** Compatibility shim for older callers. Distribution owns age eligibility. */
+export function requiresAgeDecision(_config: EvaRuntimeConfig): boolean {
+  return false
 }
 
 const route = (
@@ -152,7 +145,7 @@ export function failClosedRuntimeConfig(env: Env): EvaRuntimeConfig {
       rolloutPercent: 0,
     },
     usagePolicy: { billableLimit: 20, helperLimit: 100, rollingWindowSeconds: 86_400 },
-    agePolicy: { minimumAge: 13, unknownAgeAllowed: true, requiredRegionFailClosed: true },
+    agePolicy: { minimumAge: 13, unknownAgeAllowed: true, requiredRegionFailClosed: false },
     creditPolicy: { initial: 100, capacity: 100, refillAmount: 20, refillPeriodSeconds: 86_400 },
     // Values mirror the official model pages fetched on 2026-08-16, but stay
     // unapproved until checked against the actual OpenAI project billing page.
