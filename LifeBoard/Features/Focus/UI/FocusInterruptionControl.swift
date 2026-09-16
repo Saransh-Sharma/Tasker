@@ -85,7 +85,8 @@ struct FocusInterruptionControl: View {
     /// `DESIGN.md`: success feedback begins after persistence, never on a timer.
     private func record(_ reason: String) {
         Task {
-            await store.recordInterruption(reason: reason)
+            guard await store.recordInterruption(reason: reason) else { return }
+            Haptic.commit.play()
             lastRecorded = reason
             isExpanded = false
         }
