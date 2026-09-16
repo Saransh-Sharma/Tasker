@@ -1,0 +1,618 @@
+[
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/bodyMetric-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.90136623382568359,
+    "visibleBounds" : [
+      626,
+      322,
+      948,
+      736
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/care-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.85163688659667969,
+    "visibleBounds" : [
+      583,
+      293,
+      952,
+      778
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/compactTimeline-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.90305423736572266,
+    "visibleBounds" : [
+      576,
+      361,
+      953,
+      676
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/evaConversation-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.84846115112304688,
+    "visibleBounds" : [
+      559,
+      279,
+      949,
+      772
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/fasting-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.89227771759033203,
+    "visibleBounds" : [
+      582,
+      282,
+      943,
+      744
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/focusNow-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.88003063201904297,
+    "visibleBounds" : [
+      566,
+      282,
+      954,
+      725
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/goals-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.85721683502197266,
+    "visibleBounds" : [
+      566,
+      303,
+      951,
+      774
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/journal-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.85335445404052734,
+    "visibleBounds" : [
+      568,
+      278,
+      950,
+      738
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/lifeMoment-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.88552379608154297,
+    "visibleBounds" : [
+      587,
+      290,
+      955,
+      728
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/lifeSnapshot-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.881927490234375,
+    "visibleBounds" : [
+      599,
+      321,
+      953,
+      735
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/logMeal-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.87571907043457031,
+    "visibleBounds" : [
+      595,
+      305,
+      954,
+      750
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/movement-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86246490478515625,
+    "visibleBounds" : [
+      608,
+      288,
+      958,
+      740
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/nutritionSummary-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.88806056976318359,
+    "visibleBounds" : [
+      620,
+      307,
+      956,
+      719
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/progressReflection-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86172962188720703,
+    "visibleBounds" : [
+      575,
+      281,
+      955,
+      765
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/quickCapture-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86913776397705078,
+    "visibleBounds" : [
+      574,
+      278,
+      950,
+      733
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/recentMeal-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.89549446105957031,
+    "visibleBounds" : [
+      585,
+      336,
+      946,
+      711
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/routines-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86693286895751953,
+    "visibleBounds" : [
+      593,
+      295,
+      951,
+      753
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/scheduleCapacity-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86713123321533203,
+    "visibleBounds" : [
+      565,
+      292,
+      955,
+      766
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/setupChecklist-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.85507774353027344,
+    "visibleBounds" : [
+      566,
+      284,
+      956,
+      748
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/sleep-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.88852787017822266,
+    "visibleBounds" : [
+      613,
+      303,
+      955,
+      708
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/tasks-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.87771129608154297,
+    "visibleBounds" : [
+      567,
+      297,
+      957,
+      741
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/workout-scene-light.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.87100315093994141,
+    "visibleBounds" : [
+      593,
+      314,
+      948,
+      737
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/bodyMetric-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.8821868896484375,
+    "visibleBounds" : [
+      592,
+      330,
+      954,
+      738
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/care-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86440086364746094,
+    "visibleBounds" : [
+      612,
+      278,
+      955,
+      770
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/compactTimeline-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.89717864990234375,
+    "visibleBounds" : [
+      564,
+      338,
+      956,
+      713
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/evaConversation-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86033821105957031,
+    "visibleBounds" : [
+      589,
+      280,
+      957,
+      753
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/fasting-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.87575912475585938,
+    "visibleBounds" : [
+      575,
+      280,
+      955,
+      740
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/focusNow-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.83694648742675781,
+    "visibleBounds" : [
+      536,
+      269,
+      953,
+      768
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/goals-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86495113372802734,
+    "visibleBounds" : [
+      618,
+      292,
+      953,
+      775
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/journal-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.850677490234375,
+    "visibleBounds" : [
+      580,
+      276,
+      954,
+      763
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/lifeMoment-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.87429237365722656,
+    "visibleBounds" : [
+      590,
+      319,
+      954,
+      760
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/lifeSnapshot-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.88376903533935547,
+    "visibleBounds" : [
+      596,
+      356,
+      955,
+      740
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/logMeal-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.87789821624755859,
+    "visibleBounds" : [
+      601,
+      308,
+      956,
+      761
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/movement-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86576461791992188,
+    "visibleBounds" : [
+      627,
+      276,
+      955,
+      767
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/nutritionSummary-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.89594173431396484,
+    "visibleBounds" : [
+      629,
+      309,
+      957,
+      740
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/progressReflection-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.88605117797851562,
+    "visibleBounds" : [
+      610,
+      316,
+      955,
+      730
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/quickCapture-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.88770294189453125,
+    "visibleBounds" : [
+      549,
+      318,
+      956,
+      721
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/recentMeal-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.88573169708251953,
+    "visibleBounds" : [
+      601,
+      322,
+      954,
+      749
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/routines-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86092376708984375,
+    "visibleBounds" : [
+      545,
+      262,
+      958,
+      771
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/scheduleCapacity-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.85843467712402344,
+    "visibleBounds" : [
+      594,
+      288,
+      957,
+      766
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/setupChecklist-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.86638736724853516,
+    "visibleBounds" : [
+      617,
+      290,
+      956,
+      767
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/sleep-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.88765525817871094,
+    "visibleBounds" : [
+      603,
+      309,
+      956,
+      739
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/tasks-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.85484695434570312,
+    "visibleBounds" : [
+      569,
+      281,
+      955,
+      750
+    ]
+  },
+  {
+    "path" : "DesignAssets\/Sources\/HomeCards\/workout-scene-dark.png",
+    "pixels" : [
+      1024,
+      1024
+    ],
+    "transparentPixelFraction" : 0.88177967071533203,
+    "visibleBounds" : [
+      602,
+      321,
+      957,
+      747
+    ]
+  }
+]
