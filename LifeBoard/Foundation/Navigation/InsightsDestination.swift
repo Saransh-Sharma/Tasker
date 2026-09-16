@@ -26,6 +26,11 @@ struct InsightsRenderSnapshot: Equatable {
         calendar: Calendar = .current
     ) -> InsightsRenderSnapshot {
         let startToday = calendar.startOfDay(for: now)
+        // The pattern engine needs several days to say anything, so Overview's
+        // interpretation reads a rolling two weeks even though its evidence list
+        // stays on today. Reading today alone guaranteed the hero could never
+        // state a pattern — it always fell back to "a few more days".
+        let patternWindowStart = calendar.date(byAdding: .day, value: -13, to: startToday) ?? startToday
         let filtered: [NormalizedLifeEvent]
         switch lens {
         case .overview:
@@ -49,7 +54,11 @@ struct InsightsRenderSnapshot: Equatable {
         return InsightsRenderSnapshot(
             events: filtered,
             authorizedEvidence: authorizedEvents,
-            interpretation: InsightsInterpretationService().interpret(events: filtered, now: now, calendar: calendar),
+            interpretation: InsightsInterpretationService().interpret(
+                events: lens == .overview ? authorizedEvents.filter { $0.occurredAt >= patternWindowStart } : filtered,
+                now: now,
+                calendar: calendar
+            ),
             unifiedInsight: InsightsInterpretationService().unifiedInsight(events: filtered, now: startToday, calendar: calendar),
             completenessDescription: confidence.map {
                 "\($0.formatted(.percent.precision(.fractionLength(0)))) of these records are complete and current."
