@@ -117,14 +117,13 @@ struct DayCloseRoute: View {
     /// Deliberately unlike the empty state: a day we could not read must never
     /// look like a day that was clear.
     private func failure(_ message: String) -> some View {
-        ContentUnavailableView {
-            Label("The day's shape couldn't be loaded", systemImage: "exclamationmark.triangle")
-        } description: {
-            Text(message)
-        } actions: {
-            Button("Try again") { Task { await store.load() } }
-                .buttonStyle(.lifeBoardPrimary)
-        }
+        StatusSurface(
+            state: .recoverableError,
+            title: "The day's shape couldn't be loaded",
+            message: message,
+            actionTitle: "Try again",
+            action: { Task { await store.load() } }
+        )
         .accessibilityIdentifier("dayClose.load.failed")
     }
 
@@ -165,6 +164,12 @@ struct DayCloseRoute: View {
                     DayCloseRibbonStrip(ribbon: ribbon)
                 }
             }
+            // Home's panoramic scene. It used to sit behind the Home root
+            // header, competing with the live atmosphere; the day's ribbon is
+            // the one place in the loop with a quiet canvas behind it. Applied
+            // before the card material so the paint lands on the clay rather
+            // than behind it.
+            .featureHeaderArtwork(.home, cornerRadius: Radius.card)
             .dayCloseCard()
             .accessibilityIdentifier("dayClose.ribbon")
         }
@@ -235,7 +240,9 @@ struct DayCloseRoute: View {
                 staleNotice
             }
         }
-        .dayCloseCard()
+        // No outer card. `DESIGN.md`: don't nest cards — the deck's own cards
+        // are the raised objects here, and wrapping them in a second clay
+        // surface made a card-on-card stack.
         .lifeBoardMotion(.cardReflow, value: store.decidedCount)
     }
 
@@ -720,9 +727,9 @@ struct DayCloseRoute: View {
     // MARK: - Shared
 
     private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(Typography.sectionTitle())
-            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+        // The shared header, so the loop's acts carry the same heading trait and
+        // accessibility-size stacking as every other section in the product.
+        SectionHeader(title)
     }
 }
 
@@ -919,22 +926,47 @@ private struct DayCloseDirectionPad: View {
     let armed: DayCloseDirection?
     let onSelect: (DayCloseDirection) -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(spacing: 8) {
-            ForEach(DayCloseDirection.allCases, id: \.self) { direction in
-                Button { onSelect(direction) } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: direction.symbolName)
-                        Text(direction.title)
-                            .font(Typography.metadata())
+        // Four labelled chips in one row cannot hold their labels at
+        // accessibility sizes, and these buttons *are* the accessible path to
+        // the deck's gesture — so they fold into a 2×2 grid rather than
+        // truncating. `DESIGN.md`: collapse grids before truncating.
+        if dynamicTypeSize.isAccessibilitySize {
+            let pairs = stride(from: 0, to: DayCloseDirection.allCases.count, by: 2).map {
+                Array(DayCloseDirection.allCases[$0..<min($0 + 2, DayCloseDirection.allCases.count)])
+            }
+            VStack(spacing: 8) {
+                ForEach(Array(pairs.enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: 8) {
+                        ForEach(row, id: \.self) { direction in
+                            directionButton(direction)
+                        }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.lifeBoardChip)
-                .accessibilityIdentifier("dayClose.direction.\(direction.rawValue)")
+            }
+        } else {
+            HStack(spacing: 8) {
+                ForEach(DayCloseDirection.allCases, id: \.self) { direction in
+                    directionButton(direction)
+                }
             }
         }
+    }
+
+    private func directionButton(_ direction: DayCloseDirection) -> some View {
+        Button { onSelect(direction) } label: {
+            VStack(spacing: 4) {
+                Image(systemName: direction.symbolName)
+                Text(direction.title)
+                    .font(Typography.metadata())
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.lifeBoardChip)
+        .accessibilityIdentifier("dayClose.direction.\(direction.rawValue)")
     }
 }
 
