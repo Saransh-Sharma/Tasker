@@ -18,6 +18,7 @@ public struct HomeCardBody: View {
     private let queueLimit: Int
     private let onAction: (HomeCardActionDescriptor) -> Void
     private let onOpen: () -> Void
+    private let presentationStyle: HomeCardPresentationStyle?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -29,6 +30,7 @@ public struct HomeCardBody: View {
         title: String,
         symbol: String,
         queueLimit: Int = 4,
+        presentationStyle: HomeCardPresentationStyle? = nil,
         onAction: @escaping (HomeCardActionDescriptor) -> Void = { _ in },
         onOpen: @escaping () -> Void = {}
     ) {
@@ -39,11 +41,22 @@ public struct HomeCardBody: View {
         self.title = title
         self.symbol = symbol
         self.queueLimit = queueLimit
+        self.presentationStyle = presentationStyle
         self.onAction = onAction
         self.onOpen = onOpen
     }
 
     public var body: some View {
+        if let presentationStyle {
+            nativeBody.modifier(HomeCardIllustratedSurface(
+                style: presentationStyle, palette: palette, showsScene: showsDecorativeScene
+            ))
+        } else {
+            nativeBody
+        }
+    }
+
+    private var nativeBody: some View {
         VStack(alignment: .leading, spacing: preset == .compact ? 6 : 10) {
             Button(action: onOpen) {
                 VStack(alignment: .leading, spacing: preset == .compact ? 6 : 10) {
@@ -56,11 +69,18 @@ public struct HomeCardBody: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint("Opens details")
+            .homeCardEvidence("body.open", role: "control")
             actionRow
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(preset == .compact ? 12 : 16)
         .accessibilityElement(children: .contain)
+    }
+
+    private var showsDecorativeScene: Bool {
+        let hasMedia: Bool
+        if case .moment(let moment) = snapshot?.payload { hasMedia = moment.imagePath != nil } else { hasMedia = false }
+        return HomeCardPresentationStyle.showsScene(availability: snapshot?.availability, hasUserMedia: hasMedia)
     }
 
     // MARK: Header
@@ -73,8 +93,9 @@ public struct HomeCardBody: View {
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
             Text(snapshot?.title ?? title)
                 .lifeboardFont(.caption1)
+                .homeCardEvidence("body.title", role: "text", copy: snapshot?.title ?? title, typography: .init(role: "caption1", points: 13, weight: "regular"))
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
-                .lineLimit(1)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
             Spacer(minLength: 0)
         }
     }
@@ -129,6 +150,7 @@ public struct HomeCardBody: View {
                         unit: metric.unit,
                         emphasis: usesLargeNumeral ? .hero : .standard
                     )
+                    .modifier(HomeNumericRollEvidenceAdapter())
                     .foregroundStyle(palette.color(for: .foreground))
                     TrendBadge(trend: metric.trend, description: metric.deltaDescription)
                 }
@@ -136,6 +158,7 @@ public struct HomeCardBody: View {
                 if let detail = snapshot.detail, preset != .compact {
                     Text(detail)
                         .lifeboardFont(.caption1)
+                        .homeCardEvidence("body.detail", role: "text", copy: detail, typography: .init(role: "caption1", points: 13, weight: "regular"))
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                         .lineLimit(2)
                 }
@@ -166,36 +189,50 @@ public struct HomeCardBody: View {
     @ViewBuilder
     private func ringBody(_ snapshot: HomeCardSnapshot) -> some View {
         if case .progress(let fraction, let label) = snapshot.payload {
-            HStack(spacing: 12) {
-                ProgressRing(
-                    fraction: fraction,
-                    tint: accentTint,
-                    trackTint: palette.color(for: .canvasSecondary),
-                    lineWidth: preset == .compact ? 5 : 7,
-                    label: preset == .compact ? nil : label
-                )
-                .frame(width: ringDiameter, height: ringDiameter)
-
-                if preset != .compact {
-                    VStack(alignment: .leading, spacing: 3) {
-                        if let value = snapshot.value {
-                            Text(value)
-                                .lifeboardFont(.bodyStrong)
-                                .foregroundStyle(palette.color(for: .foreground))
-                                .lineLimit(2)
-                        }
-                        if let detail = snapshot.detail {
-                            Text(detail)
-                                .lifeboardFont(.caption1)
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                                .lineLimit(2)
-                        }
-                    }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    progressRing(fraction: fraction, label: label)
+                    progressCopy(snapshot).frame(minWidth: 130, alignment: .leading)
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
+                VStack(alignment: .leading, spacing: 12) {
+                    progressRing(fraction: fraction, label: label)
+                    progressCopy(snapshot)
+                }
             }
         } else {
             fallbackSummary(snapshot)
+        }
+    }
+
+    private func progressRing(fraction: Double, label: String?) -> some View {
+        ProgressRing(fraction: fraction, tint: accentTint,
+                     trackTint: palette.color(for: .canvasSecondary),
+                     lineWidth: preset == .compact ? 5 : 7,
+                     label: preset == .compact ? nil : label)
+            .frame(width: ringDiameter, height: ringDiameter)
+            .homeCardEvidence("body.progress", role: "progress", fraction: fraction)
+    }
+
+    @ViewBuilder
+    private func progressCopy(_ snapshot: HomeCardSnapshot) -> some View {
+        if preset != .compact {
+            VStack(alignment: .leading, spacing: 3) {
+                if let value = snapshot.value {
+                    Text(value).lifeboardFont(.bodyStrong)
+                        .foregroundStyle(palette.color(for: .foreground))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .homeCardEvidence("body.value", role: "text", copy: value,
+                            typography: .init(role: "bodyStrong", points: 17, weight: "semibold"))
+                }
+                if let detail = snapshot.detail {
+                    Text(detail).lifeboardFont(.caption1)
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .homeCardEvidence("body.detail", role: "text", copy: detail,
+                            typography: .init(role: "caption1", points: 13, weight: "regular"))
+                }
+            }
         }
     }
 
@@ -240,6 +277,8 @@ public struct HomeCardBody: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+        } else if case .metric = snapshot.payload {
+            metricBody(snapshot)
         } else {
             fallbackSummary(snapshot)
         }
@@ -277,12 +316,14 @@ public struct HomeCardBody: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.title)
                     .lifeboardFont(.body)
+                    .homeCardEvidence("body.row.\(item.id).title", role: "text", copy: item.title, typography: .init(role: "body", points: 17, weight: "regular"))
                     .foregroundStyle(palette.color(for: .foreground))
                     .strikethrough(item.state == .done)
                     .lineLimit(1)
                 if let supporting = item.supporting, preset != .standard {
                     Text(supporting)
                         .lifeboardFont(.caption1)
+                    .homeCardEvidence("body.row.\(item.id).supporting", role: "text", copy: supporting, typography: .init(role: "caption1", points: 13, weight: "regular"))
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                         .lineLimit(1)
                 }
@@ -314,6 +355,7 @@ public struct HomeCardBody: View {
                 if let detail = snapshot.detail {
                     Text(detail)
                         .lifeboardFont(.caption1)
+                        .homeCardEvidence("body.detail", role: "text", copy: detail, typography: .init(role: "caption1", points: 13, weight: "regular"))
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                         .lineLimit(2)
                 }
@@ -329,6 +371,7 @@ public struct HomeCardBody: View {
             if let value = snapshot.value {
                 Text(value)
                     .lifeboardFont(preset == .compact ? .bodyStrong : .title3)
+                    .homeCardEvidence("body.value", role: "text", copy: value, typography: .init(role: "title3", points: 17, weight: "semibold"))
                     .foregroundStyle(palette.color(for: .foreground))
                     .lineLimit(preset == .compact ? 2 : 3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -338,6 +381,7 @@ public struct HomeCardBody: View {
                 // it to a single line.
                 Text(detail)
                     .lifeboardFont(.caption1)
+                    .homeCardEvidence("body.detail", role: "text", copy: detail, typography: .init(role: "caption1", points: 13, weight: "regular"))
                     .foregroundStyle(palette.color(for: .foregroundSecondary))
                     .lineLimit(preset == .compact ? 2 : 4)
                     .fixedSize(horizontal: false, vertical: true)
@@ -367,11 +411,13 @@ public struct HomeCardBody: View {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(item.title)
                                 .lifeboardFont(index == 0 ? .bodyStrong : .body)
+                    .homeCardEvidence("body.row.\(item.id).title", role: "text", copy: item.title, typography: .init(role: "body", points: 17, weight: index == 0 ? "semibold" : "regular"))
                                 .foregroundStyle(palette.color(for: .foreground))
                                 .lineLimit(1)
                             if let supporting = item.supporting {
                                 Text(supporting)
                                     .lifeboardFont(.caption1)
+                    .homeCardEvidence("body.row.\(item.id).supporting", role: "text", copy: supporting, typography: .init(role: "caption1", points: 13, weight: "regular"))
                                     .foregroundStyle(palette.color(for: .foregroundSecondary))
                                     .lineLimit(1)
                             }
@@ -402,6 +448,7 @@ public struct HomeCardBody: View {
                 if let excerpt = moment.excerpt, excerpt.isEmpty == false {
                     Text(excerpt)
                         .lifeboardFont(.body)
+                        .homeCardEvidence("body.excerpt", role: "text", copy: excerpt, typography: .init(role: "body", points: 17, weight: "regular"))
                         .foregroundStyle(palette.color(for: .foreground))
                         .lineLimit(excerptLineLimit)
                         .fixedSize(horizontal: false, vertical: true)
@@ -458,12 +505,14 @@ public struct HomeCardBody: View {
             if let value = snapshot.value {
                 Text(value)
                     .lifeboardFont(.bodyStrong)
+                    .homeCardEvidence("body.value", role: "text", copy: value, typography: .init(role: "bodyStrong", points: 17, weight: "semibold"))
                     .foregroundStyle(palette.color(for: .foreground))
                     .lineLimit(2)
             }
             if let detail = snapshot.detail, preset != .compact {
                 Text(detail)
                     .lifeboardFont(.caption1)
+                    .homeCardEvidence("body.detail", role: "text", copy: detail, typography: .init(role: "caption1", points: 13, weight: "regular"))
                     .foregroundStyle(palette.color(for: .foregroundSecondary))
                     .lineLimit(2)
             }
@@ -482,6 +531,7 @@ public struct HomeCardBody: View {
             if let detail = snapshot.detail {
                 Text(detail)
                     .lifeboardFont(.caption1)
+                    .homeCardEvidence("body.detail", role: "text", copy: detail, typography: .init(role: "caption1", points: 13, weight: "regular"))
                     .foregroundStyle(palette.color(for: .foregroundSecondary))
                     .lineLimit(2)
             }
@@ -502,6 +552,7 @@ public struct HomeCardBody: View {
                 if let detail = snapshot.detail {
                     Text(detail)
                         .lifeboardFont(.caption1)
+                        .homeCardEvidence("body.detail", role: "text", copy: detail, typography: .init(role: "caption1", points: 13, weight: "regular"))
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                         .lineLimit(2)
                 }
@@ -518,6 +569,7 @@ public struct HomeCardBody: View {
             if let value = snapshot.value {
                 Text(value)
                     .lifeboardFont(.bodyStrong)
+                    .homeCardEvidence("body.value", role: "text", copy: value, typography: .init(role: "bodyStrong", points: 17, weight: "semibold"))
                     .foregroundStyle(palette.color(for: .foreground))
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -525,6 +577,7 @@ public struct HomeCardBody: View {
             if let detail = snapshot.detail, preset != .compact {
                 Text(detail)
                     .lifeboardFont(.caption1)
+                    .homeCardEvidence("body.detail", role: "text", copy: detail, typography: .init(role: "caption1", points: 13, weight: "regular"))
                     .foregroundStyle(palette.color(for: .foregroundSecondary))
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -545,12 +598,15 @@ public struct HomeCardBody: View {
                     } label: {
                         Label(action.title, systemImage: action.systemImage)
                             .lifeboardFont(.caption1)
-                            .lineLimit(1)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 11)
-                            .frame(minHeight: 34)
+                            .frame(minHeight: 44)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .homeCardEvidence("body.action.\(action.id)", role: "control", copy: action.title,
+                        typography: .init(role: "caption1", points: 13, weight: "regular", alignment: "center"))
                     .foregroundStyle(
                         action.role == .destructive
                             ? overdueTint
