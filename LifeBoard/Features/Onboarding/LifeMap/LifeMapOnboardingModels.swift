@@ -397,3 +397,26 @@ final class LifeMapProfileStore: @unchecked Sendable {
         defaults.removeObject(forKey: key)
     }
 }
+
+/// Capacity as a single derivation.
+///
+/// The Life Management map scales its arc from this. Onboarding used to
+/// compute it a second way from the draft and disagreed about weekends; one
+/// function, one answer.
+enum LifeMapCapacity {
+    /// A notional full week of available hours. Not a target and never shown as
+    /// one; it exists only to scale the arc.
+    static let referenceWeeklyMinutes = 60 * 60
+
+    static func fraction(for dayShape: OnboardingDayShapeDraft) -> Double {
+        let weekdayMinutes = max(0, dayShape.weekdayEndMinute - dayShape.weekdayStartMinute) * 5
+        let weekendMinutes = dayShape.worksWeekends
+            ? max(0, dayShape.weekendEndMinute - dayShape.weekendStartMinute) * 2
+            : 0
+        return fraction(forTotalMinutes: weekdayMinutes + weekendMinutes)
+    }
+
+    static func fraction(forTotalMinutes minutes: Int) -> Double {
+        min(1, max(0, Double(minutes) / Double(referenceWeeklyMinutes)))
+    }
+}
