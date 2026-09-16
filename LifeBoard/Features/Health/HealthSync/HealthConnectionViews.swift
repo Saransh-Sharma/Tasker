@@ -3,13 +3,13 @@ import SwiftUI
 struct HealthReadDisclosure: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Bring your health into LifeBoard")
+            Text(String(localized: "Bring in Apple Health"))
                 .lifeboardFont(.screenTitle)
-            Text("See activity, sleep, workouts, and the wellness data you already record beside your day. Choose what LifeBoard may read in Apple Health.")
+            Text(String(localized: "See sleep, activity, and workouts next to your day."))
                 .lifeboardFont(.body)
-            Text("This connection only reads data. Saving LifeBoard logs to Apple Health is a separate choice.")
-                .lifeboardFont(.support)
-            Text("Health imports are processed on this device. Available Health context may accompany EVA requests; manage EVA context in Settings.")
+            // One trust line. It used to be two, and the connector screen then
+            // repeated the second one underneath as a footer.
+            Text(String(localized: "Read-only, processed on this iPhone. EVA can use it — change that in Settings."))
                 .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
         }
@@ -58,12 +58,27 @@ struct HealthConnectionSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if isOnboarding {
-                        Text("Bring your health into LifeBoard").lifeboardFont(.screenTitle)
-                        Text("See activity, sleep, and workouts beside your day. Choose what LifeBoard may read in Apple Health.")
-                        Text("This only requests read access. Available Health context may accompany EVA requests; manage EVA context in Settings.")
+                        // Same shape as every other connection sheet: what it
+                        // gives, one trust line, one action.
+                        Image(systemName: "heart.fill")
+                            .lifeboardFont(.title2)
+                            .foregroundStyle(Color.lifeboard(.accentPrimary))
+                            .frame(width: 56, height: 56)
+                            .lifeBoardClaySurface(.well, cornerRadius: 20)
+                            .accessibilityHidden(true)
+                        Text(String(localized: "Bring in Apple Health")).lifeboardFont(.screenTitle)
+                        Text(String(localized: "See sleep, activity, and workouts next to your day."))
+                            .lifeboardFont(.body)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
+                        Label(String(localized: "Read-only, processed on this iPhone."), systemImage: "lock.fill")
                             .lifeboardFont(.caption1)
-                        if store.presentation == .authorizationFailed { Text(store.presentation.summary) }
-                        if store.isRequestingAuthorization { ProgressView("Waiting for Apple Health") }
+                            .foregroundStyle(Color.lifeboard(.textTertiary))
+                        if store.presentation == .authorizationFailed {
+                            Text(String(localized: "That didn't finish. Try again."))
+                                .lifeboardFont(.support)
+                                .foregroundStyle(Color.lifeboard(.statusWarning))
+                        }
+                        if store.isRequestingAuthorization { ProgressView(String(localized: "Waiting for Apple Health…")) }
                     } else if store.presentation == .notRequested {
                         HealthReadDisclosure()
                     } else {
@@ -89,10 +104,12 @@ struct HealthConnectionSheet: View {
                 .padding(24)
             }
             .safeAreaInset(edge: .bottom) {
-                Button(isOnboarding ? "Not now" : "Continue using LifeBoard") { dismiss() }
+                Button(isOnboarding ? String(localized: "Not now") : String(localized: "Continue using LifeBoard")) { dismiss() }
+                    .lifeboardFont(.bodyStrong)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .padding()
-                    .background(Color.lifeboard(.bgCanvas))
+                    .background(Color.lifeboard(isOnboarding ? .bgElevated : .bgCanvas))
                     .accessibilityIdentifier("health.connection.continue")
             }
             .navigationTitle("Apple Health")
@@ -129,16 +146,18 @@ struct HealthConnectionSheet: View {
                 if phase == .active { Task { await store.syncIfNeededOnForeground() } }
             }
         }
+        .presentationDetents(isOnboarding ? [.medium, .large] : [.large])
+        .presentationDragIndicator(.visible)
         .accessibilityIdentifier("connection.\(context.origin.rawValue).health")
     }
 
     private var actionTitle: String? {
         if isOnboarding {
             switch store.presentation {
-            case .notRequested: return "Connect Apple Health"
-            case .authorizationFailed: return "Retry Health access"
+            case .notRequested: return String(localized: "Connect Health")
+            case .authorizationFailed: return String(localized: "Try again")
             case .requesting: return nil
-            default: return "Continue"
+            default: return String(localized: "Done")
             }
         }
         return switch store.presentation {
