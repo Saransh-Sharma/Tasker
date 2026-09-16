@@ -136,6 +136,10 @@ extension LifeThreadComposerHost {
                 )
             }
         case .captureDraft(let draft):
+            if draft.kind == .task, QuickCaptureSavePolicy.canSaveInPlace(draft.seed), let seed = draft.seed {
+                saveTaskInPlace(seed, router: router)
+                return
+            }
             composer.focus()
             runtime.captureRouter.request(
                 kind: draft.kind,
@@ -220,6 +224,75 @@ extension LifeThreadComposerHost {
     func presentCalendarSchedule(router: AppRouter) {
         router.select(.plan)
         router.push(.planDay, in: .plan)
+    }
+
+    /// Type-and-go: a confidently parsed task saves on Send and leaves a receipt
+    /// with Undo, instead of opening the editor. It goes through the same view
+    /// model the editor uses, so tags, project, and schedule resolve identically.
+    /// Anything uncertain — an unknown `+project`, a failed save — falls back to
+    /// the editor with the draft intact.
+    func saveTaskInPlace(_ seed: CaptureSeed, router: AppRouter) {
+        guard composer.state != .working, let parsed = seed.parsedCapture else { return }
+        composer.beginWorking("Adding task")
+        let openEditor = {
+            composer.focus()
+            runtime.captureRouter.request(
+                kind: .task,
+                source: .shell,
+                prefilledText: seed.rawText,
+                captureSeed: seed
+            )
+        }
+        Task { @MainActor in
+            let viewModel = CompositionRoot.shared.makeNewAddTaskViewModel()
+            viewModel.applyCaptureSeed(parsed, rawText: seed.rawText)
+            guard await viewModel.awaitCaptureSelectionsResolved() else {
+                openEditor()
+                return
+            }
+            let created: Result<UUID, Error> = await withCheckedContinuation { continuation in
+                viewModel.createTask { continuation.resume(returning: $0) }
+            }
+            guard case .success(let taskID) = created else {
+                openEditor()
+                return
+            }
+            let title = viewModel.taskName
+            let message = QuickCaptureSavePolicy.receiptMessage(
+                title: title,
+                scheduledStartAt: viewModel.scheduledStartAt,
+                dueDate: viewModel.plannedDate
+            )
+            let preview = TransactionPreview(
+                destination: .plan,
+                summary: "Add task",
+                changes: [message],
+                origin: .conversation
+            )
+            let deleteTask = CompositionRoot.shared.useCaseCoordinator.deleteTaskDefinition
+            await lifeBoardMutationCoordinator.prepare(MutationCommand(
+                preview: preview,
+                apply: { message },
+                undo: {
+                    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                        deleteTask.execute(taskID: taskID) { continuation.resume(with: $0) }
+                    }
+                }
+            ))
+            IntentDonations.taskAdded(title: title)
+            do {
+                lifeBoardActionReceipt = try await lifeBoardMutationCoordinator.apply(previewID: preview.id)
+            } catch {
+                // The task exists; only the receipt failed. Say so plainly.
+                lifeBoardActionReceipt = ActionReceipt(transactionID: preview.id, message: message, canUndo: false)
+            }
+            lifeBoardActionReceipt?.taskID = taskID
+            composer.dismissDraft()
+            composer.settle()
+            Haptic.commit.play()
+            try? await Task.sleep(for: .milliseconds(220))
+            composer.finishSettling()
+        }
     }
 
     func applyLifeThreadPreview(
