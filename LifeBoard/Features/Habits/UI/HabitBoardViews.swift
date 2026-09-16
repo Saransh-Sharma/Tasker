@@ -1019,10 +1019,13 @@ private struct HabitBoardHeaderDayCell: View {
 
     private var weekdayLabel: String {
         let symbol = day.date.formatted(.dateTime.weekday(layoutMetrics.showsFullWeekday ? .abbreviated : .wide))
+        // The formatter already returns the locale's own casing. Forcing upper
+        // case was hierarchy-by-shouting, and in several locales it is simply
+        // wrong.
         if layoutMetrics.usesCompressedWeekday {
-            return String(symbol.prefix(1)).uppercased()
+            return String(symbol.prefix(1))
         }
-        return layoutMetrics.showsFullWeekday ? symbol.uppercased() : String(symbol.prefix(3)).uppercased()
+        return layoutMetrics.showsFullWeekday ? symbol : String(symbol.prefix(3))
     }
 
     var body: some View {
@@ -1075,7 +1078,7 @@ private struct HabitBoardHeaderDayCell: View {
     @ViewBuilder
     private var monthMarker: some View {
         if showsMonthMarker {
-            Text(day.date.formatted(.dateTime.month(.abbreviated)).uppercased())
+            Text(day.date.formatted(.dateTime.month(.abbreviated)))
                 .font(.lifeboard(.caption1).weight(.semibold))
                 .foregroundStyle(Color.lifeboard.textSecondary)
                 .lineLimit(1)
@@ -1903,25 +1906,11 @@ private struct HabitBoardSectionHeader: View {
 
     var body: some View {
         if section.symbolName != nil || section.title != "All habits" {
-            HStack(spacing: 8) {
-                if let symbol = section.symbolName {
-                    Image(systemName: symbol)
-                        .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                }
-                Text(section.title)
-                    .font(.lifeboard(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
-                Text("\(section.rows.count)")
-                    .font(.lifeboard(.caption2).weight(.semibold))
-                    .foregroundStyle(Color.lifeboard.textTertiary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(Color.lifeboard.surfaceSecondary.opacity(0.4)))
-                Spacer(minLength: 0)
-            }
-            .padding(.top, 2)
-            .accessibilityElement(children: .combine)
+            // The shared header, rather than a caption-sized restyle with its
+            // own count capsule. `DESIGN.md`: one type size and one spacing for
+            // section headers across the product.
+            SectionHeader(section.title, symbol: section.symbolName, count: section.rows.count)
+                .padding(.top, 2)
         }
     }
 }
@@ -2084,8 +2073,18 @@ private struct HabitGraphCard: View {
                         .lineLimit(1)
                     Spacer(minLength: spacing.s8)
                     HStack(spacing: 12) {
-                        HabitGraphStat(caption: "30d", value: "\(row.metrics.monthCount)", family: row.colorFamily)
-                        HabitGraphStat(caption: "Best", value: "\(row.bestStreak)", family: row.colorFamily)
+                        // A habit with no history has no record — not a zero.
+                        // `DESIGN.md`: never render an absent value as zero.
+                        HabitGraphStat(
+                            caption: "30d",
+                            value: row.cells.isEmpty ? "—" : "\(row.metrics.monthCount)",
+                            family: row.colorFamily
+                        )
+                        HabitGraphStat(
+                            caption: "Best",
+                            value: row.cells.isEmpty ? "—" : "\(row.bestStreak)",
+                            family: row.colorFamily
+                        )
                     }
                 }
 
@@ -2097,7 +2096,11 @@ private struct HabitGraphCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(row.title). \(row.metrics.monthCount) completions in the last 30 days. Best streak \(row.bestStreak) days.")
+        .accessibilityLabel(
+            row.cells.isEmpty
+                ? "\(row.title). Nothing recorded yet."
+                : "\(row.title). \(row.metrics.monthCount) completions in the last 30 days. Best streak \(row.bestStreak) days."
+        )
         .accessibilityHint("Opens habit detail")
     }
 }
@@ -2158,8 +2161,20 @@ private struct HabitGraphGrid: View {
         }
         .defaultScrollAnchor(.trailing)
         .lifeboardChartRevealSweep(progress: revealProgress)
-        .onAppear { reveal() }
-        .onChange(of: cells.count) { _, _ in reveal() }
+        // The sweep used to replay on every appear, so scrolling the board
+        // through a lazy stack re-revealed graphs that had been on screen
+        // moments earlier — and it swept an empty grid too. `DESIGN.md`: a
+        // chart draws its reveal once, when valid data first appears or its
+        // range changes, and empty states never sweep.
+        .onAppear { revealProgress = cells.isEmpty ? 0 : 1 }
+        .onChange(of: cells.count) { previous, updated in
+            guard updated > 0 else {
+                revealProgress = 0
+                return
+            }
+            guard previous == 0 else { return }
+            reveal()
+        }
         .accessibilityHidden(true)
     }
 
