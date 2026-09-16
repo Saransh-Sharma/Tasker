@@ -671,7 +671,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
             isGenerated: object.value(forKey: "isGenerated") as? Bool ?? true,
             generationWindow: object.value(forKey: "generationWindow") as? String,
             createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
-            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date(),
+            recordedValue: (object.value(forKey: "recordedValue") as? NSNumber)?.doubleValue,
+            recordedValueUpdatedAt: object.value(forKey: "recordedValueUpdatedAt") as? Date
         )
     }
 
