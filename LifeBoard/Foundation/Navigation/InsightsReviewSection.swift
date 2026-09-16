@@ -10,8 +10,7 @@ struct InsightsReviewSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Reflection, not a report card", systemImage: "calendar.badge.clock")
-                .lifeboardFont(.sectionTitle)
+            SectionHeader("Reflection, not a report card", symbol: "calendar.badge.clock")
             Text(reviewSummary)
                 .lifeboardFont(.body)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
@@ -20,15 +19,19 @@ struct InsightsReviewSection: View {
                     columns: [GridItem(.adaptive(minimum: 132), spacing: 12)],
                     spacing: 12
                 ) {
-                    InsightMetric(value: "\(report.eligibleDays)", label: "Eligible days")
-                    InsightMetric(value: "\(report.closes)", label: "Days closed")
-                    InsightMetric(value: "\(report.opensBeforeEleven)", label: "Opened before 11")
-                    InsightMetric(value: "\(report.daysWithBoth)", label: "Opened and closed")
-                    InsightMetric(value: "\(report.reversals)", label: "Taken back")
-                    InsightMetric(value: "\(report.knownProposalSignals)", label: "Known proposals")
+                    InsightMetric(count: report.eligibleDays, label: "Eligible days")
+                    InsightMetric(count: report.closes, label: "Days closed")
+                    InsightMetric(count: report.opensBeforeEleven, label: "Opened before 11")
+                    InsightMetric(count: report.daysWithBoth, label: "Opened and closed")
+                    InsightMetric(count: report.reversals, label: "Taken back")
+                    InsightMetric(count: report.knownProposalSignals, label: "Known proposals")
                     InsightMetric(
-                        value: report.uneditedShare?.formatted(.percent.precision(.fractionLength(0))) ?? "Unknown",
-                        label: "Unedited proposal share"
+                        label: "Unedited proposal share",
+                        // No sidecar means no record — not the word "Unknown"
+                        // rendered where a number goes.
+                        reading: report.uneditedShare.map {
+                            .recorded(value: $0.formatted(.percent.precision(.fractionLength(0))), unit: nil)
+                        } ?? .noRecord
                     )
                 }
                 Text("Proposal evidence is local and non-authoritative. Missing sidecars stay unknown; undone receipts stop counting.")
@@ -38,7 +41,8 @@ struct InsightsReviewSection: View {
             Button("Open weekly review") {
                 router.push(.weeklyReview, in: .insights)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.lifeBoardChip)
+            .frame(minHeight: 44)
         }
         .padding(18)
         .lifeBoardClaySurface(.raised)
