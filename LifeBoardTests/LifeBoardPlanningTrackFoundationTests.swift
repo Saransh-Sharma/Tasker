@@ -1961,6 +1961,41 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertEqual(event?.affectedIDs.count, 0)
     }
 
+    /// A quick water log is one tap, so undoing it must be one tap too.
+    ///
+    /// `DESIGN.md`: a receipt "names what changed and exposes Undo where
+    /// reversal is supported". The quick-log buttons wrote and offered nothing
+    /// back, and the store had no way for the surface to know what to remove.
+    func testTrackQuickHydrationOffersReceiptAndUndoRemovesTheLog() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let track = CoreDataTrackFoundationRepository(container: container)
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let store = await MainActor.run {
+            TrackFoundationStore(repository: track, phaseIIRepository: phaseII)
+        }
+
+        let log = await store.quickAddHydration(250)
+        XCTAssertNotNil(log, "A committed hydration log is what makes Undo possible")
+        let afterAdd = await MainActor.run {
+            (store.hydrationReceipt?.message, store.snapshot.hydrationAmountMilliliters)
+        }
+        XCTAssertEqual(afterAdd.0, "Added 250 mL of water")
+        XCTAssertEqual(afterAdd.1, 250)
+
+        await store.undoLastHydration()
+        let afterUndo = await MainActor.run {
+            (store.hydrationReceipt, store.snapshot.hydrationAmountMilliliters, store.hydrationLogs.count)
+        }
+        XCTAssertNil(afterUndo.0, "The receipt goes with the record it described")
+        XCTAssertNotEqual(afterUndo.1, 250, "Undo has to remove the amount it added")
+        XCTAssertEqual(afterUndo.2, 0)
+
+        // A second Undo is a no-op rather than a delete of the next log down.
+        await store.undoLastHydration()
+        let logs = await MainActor.run { store.hydrationLogs.count }
+        XCTAssertEqual(logs, 0)
+    }
+
     func testHomeObservesSharedMoodSaveWithoutFullRefresh() async throws {
         let container = try await makeTrackFoundationContainer()
         let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
