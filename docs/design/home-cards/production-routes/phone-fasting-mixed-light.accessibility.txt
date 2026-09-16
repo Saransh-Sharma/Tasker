@@ -1,0 +1,88 @@
+Attributes: Application, 0x114548140, pid: 79603, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x114548140, pid: 79603, label: 'LifeBoard'
+    Window (Main), 0x114548280, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x1145483c0, {{0.0, 0.0}, {393.0, 852.0}}
+        Other, 0x114548500, {{0.0, 0.0}, {393.0, 852.0}}
+          Other, 0x114548640, {{0.0, 0.0}, {393.0, 852.0}}
+            Other, 0x114548780, {{0.0, 0.0}, {393.0, 852.0}}
+              Other, 0x1145488c0, {{0.0, 0.0}, {393.0, 852.0}}
+                Other, 0x114548a00, {{0.0, 0.0}, {393.0, 852.0}}
+                  Other, 0x114548b40, {{0.0, 0.0}, {393.0, 852.0}}
+                    Button, 0x114548c80, {{196.5, 438.5}, {0.0, 0.0}}
+                    Other, 0x114548dc0, {{0.0, 0.0}, {393.0, 852.0}}
+                    Other, 0x114548f00, {{0.0, 0.0}, {393.0, 852.0}}
+                      Other, 0x114549040, {{0.0, 0.0}, {393.0, 852.0}}
+                        Other, 0x114549180, {{0.0, 0.0}, {393.0, 852.0}}
+                          Other, 0x1145492c0, {{0.0, 0.0}, {393.0, 852.0}}
+                            Other, 0x114549400, {{0.0, 0.0}, {393.0, 852.0}}
+                              Other, 0x114549540, {{0.0, 0.0}, {393.0, 852.0}}
+                                Other, 0x114549680, {{0.0, 59.0}, {393.0, 613.0}}
+                                Other, 0x1145497c0, {{0.0, 0.0}, {393.0, 852.0}}
+                                  NavigationBar, 0x114549900, {{0.0, 59.0}, {393.0, 54.0}}, identifier: 'Fasting'
+                                    Button, 0x114549a40, {{16.0, 59.0}, {44.0, 44.0}}, identifier: 'BackButton', label: 'Track'
+                                    StaticText, 0x114549b80, {{167.3, 70.7}, {58.3, 20.7}}, label: 'Fasting'
+                                  Other, 0x114549cc0, {{0.0, 0.0}, {393.0, 852.0}}
+                                    Other, 0x114549e00, {{0.0, 0.0}, {393.0, 852.0}}
+                                      Other, 0x114549f40, {{0.0, 0.0}, {393.0, 852.0}}
+                                        Other, 0x11454a080, {{0.0, 0.0}, {393.0, 852.0}}
+                                          Image, 0x11454a1c0, {{-43.3, 0.0}, {479.7, 852.0}}
+                                          Image, 0x11454a300, {{202.9, 15.6}, {168.8, 168.8}}
+                                          Other, 0x11454a440, {{196.5, 113.0}, {0.0, 0.0}}
+                                          Other, 0x11454a580, {{0.0, 0.0}, {393.0, 852.0}}
+                                          ScrollView, 0x11454a6c0, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'fasting.workspace'
+                                            Other, 0x11454a800, {{0.0, 0.0}, {393.0, 852.0}}
+                                              Other, 0x11454a940, {{0.0, 0.0}, {393.0, 167.8}}
+                                            Other, 0x11454aa80, {{0.0, 0.0}, {393.0, 852.0}}
+                                            Other, 0x11454abc0, {{0.0, 113.0}, {393.0, 354.0}}
+                                              Other, 0x11454ad00, {{-343.7, 133.0}, {716.7, 313.7}}
+                                                Image, 0x11454ae40, {{-343.7, 133.0}, {716.7, 239.3}}
+                                                StaticText, 0x11454af80, {{40.0, 153.0}, {144.7, 24.0}}, label: 'Current session'
+                                                  StaticText, 0x11454b0c0, {{40.0, 153.0}, {144.7, 24.0}}, label: 'Current session'
+                                                Other, 0x11454b200, {{40.0, 193.0}, {313.0, 95.3}}, identifier: 'lifeboard.status.noRecord'
+                                                  Image, 0x11454b340, {{60.7, 214.0}, {18.3, 18.3}}, identifier: 'minus.circle', label: 'Remove'
+                                                  StaticText, 0x11454b480, {{96.0, 209.0}, {139.3, 20.3}}, label: 'No fast is running'
+                                                  StaticText, 0x11454b5c0, {{96.0, 234.3}, {193.7, 38.0}}, label: 'Start a neutral timer with an optional target you choose.'
+                                                Button, 0x11454b700, {{40.0, 304.3}, {313.0, 48.0}}, identifier: 'fasting.start', label: 'Start a fast'
+                                                StaticText, 0x11454b840, {{20.0, 390.3}, {72.7, 26.3}}, label: 'History'
+                                                StaticText, 0x11454b980, {{20.0, 428.7}, {336.3, 18.0}}, label: 'Finished and cancelled sessions will appear here.'
+                                            Other, 0x11454bac0, {{360.0, 113.0}, {30.0, 684.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                              Other, 0x11454bc00, {{387.0, 467.0}, {3.0, 327.0}}
+                                            Other, 0x11454bd40, {{360.0, 113.0}, {30.0, 684.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                              Other, 0x11454be80, {{387.0, 467.0}, {3.0, 327.0}}
+                                  Other, 0x114543480, {{0.0, 0.0}, {393.0, 852.0}}
+                                    Other, 0x1145435c0, {{0.0, 0.0}, {393.0, 852.0}}
+                      Other, 0x114543700, {{0.0, 769.0}, {393.0, 83.0}}
+                        Other, 0x114543840, {{0.0, 0.0}, {393.0, 852.0}}
+                        Other, 0x114543980, {{0.0, 769.0}, {393.0, 83.0}}
+                    Other, 0x114543ac0, {{0.0, 650.0}, {393.0, 162.5}}, identifier: 'LifeBoardCompactChrome'
+                      Button, 0x114543c00, {{20.0, 680.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.toolsToggle', label: 'Open capture tools'
+                      TextField, 0x114543d40, {{72.0, 691.0}, {249.0, 22.0}}, identifier: 'home.lifeThread.composer', placeholderValue: 'Log something or reflect on how you feel'
+                        Other, 0x114543e80, {{72.0, 699.0}, {249.0, 11.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                          Other, 0x11451f700, {{75.0, 707.0}, {243.0, 3.0}}
+                      Button, 0x114554000, {{329.0, 680.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.send', label: 'Start dictation'
+                      Button, 0x114554140, {{20.0, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.home', label: 'Home', value: Root
+                        Image, 0x114554280, {{45.3, 761.0}, {20.0, 17.7}}, identifier: 'house', label: 'Home'
+                        StaticText, 0x1145543c0, {{39.8, 782.7}, {31.0, 13.3}}, label: 'Home'
+                      Button, 0x114554500, {{90.7, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.plan', label: 'Plan', value: Root
+                        Image, 0x114554640, {{117.7, 762.3}, {16.7, 15.3}}, identifier: 'calendar', label: 'Calendar'
+                        StaticText, 0x114554780, {{114.6, 781.5}, {22.7, 13.3}}, label: 'Plan'
+                      Button, 0x1145548c0, {{161.3, 752.0}, {70.3, 52.0}}, identifier: 'foundation.destination.track', label: 'Track', value: Detail depth 1, Selected
+                        Image, 0x114554a00, {{185.7, 762.0}, {22.0, 16.0}}, identifier: 'chart.bar.fill', label: 'Chart Column'
+                        StaticText, 0x114554b40, {{181.2, 782.2}, {30.7, 13.3}}, label: 'Track'
+                      Button, 0x114554c80, {{231.7, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.insights', label: 'Insights', value: Root
+                        Image, 0x114554dc0, {{259.3, 760.3}, {15.7, 19.0}}, identifier: 'sparkles', label: 'Sparkle'
+                        StaticText, 0x114554f00, {{246.4, 783.3}, {41.3, 13.3}}, label: 'Insights'
+                      Button, 0x114555040, {{302.3, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.eva', label: 'Eva', value: Root
+                        Image, 0x114555180, {{325.7, 760.3}, {24.0, 19.0}}, identifier: 'bubble.left.and.bubble.right', label: 'Conversation'
+                        StaticText, 0x1145552c0, {{328.4, 783.3}, {18.7, 13.3}}, label: 'Eva'
+                    Other, 0x114555400, {{0.0, 59.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.morning', label: 'Celestial atmosphere: morning'
+                    Button, 0x114555540, {{0.0, 59.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                    Other, 0x114555680, {{0.0, 59.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x114548140, pid: 79603, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x1145557c0, pid: 79603, label: 'LifeBoard'
+  }
