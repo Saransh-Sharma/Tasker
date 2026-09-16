@@ -1,0 +1,94 @@
+Attributes: Application, 0x1145e4500, pid: 79925, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x1145e4500, pid: 79925, label: 'LifeBoard'
+    Window (Main), 0x1145e4640, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x1145e4780, {{0.0, 0.0}, {393.0, 852.0}}
+        Other, 0x1145e48c0, {{0.0, 0.0}, {393.0, 852.0}}
+          Other, 0x1145e4a00, {{0.0, 0.0}, {393.0, 852.0}}
+            Other, 0x1145e4b40, {{0.0, 0.0}, {393.0, 852.0}}
+              Other, 0x1145e4c80, {{0.0, 0.0}, {393.0, 852.0}}
+                Other, 0x1145e4dc0, {{0.0, 0.0}, {393.0, 852.0}}
+                  Other, 0x1145e4f00, {{0.0, 0.0}, {393.0, 852.0}}
+                    Button, 0x1145e5040, {{196.5, 438.5}, {0.0, 0.0}}
+                    Other, 0x1145e5180, {{0.0, 0.0}, {393.0, 852.0}}
+                    Other, 0x1145e52c0, {{0.0, 0.0}, {393.0, 852.0}}
+                      Other, 0x1145e5400, {{0.0, 0.0}, {393.0, 852.0}}
+                        Other, 0x1145e5540, {{0.0, 0.0}, {393.0, 852.0}}
+                          Other, 0x1145e5680, {{0.0, 0.0}, {393.0, 852.0}}
+                            Other, 0x1145e57c0, {{0.0, 0.0}, {393.0, 852.0}}
+                              Other, 0x1145e5900, {{0.0, 0.0}, {393.0, 852.0}}
+                                Other, 0x1145e5a40, {{0.0, 59.0}, {393.0, 613.0}}
+                                Other, 0x1145e5b80, {{0.0, 0.0}, {393.0, 852.0}}
+                                  NavigationBar, 0x1145e5cc0, {{0.0, 59.0}, {393.0, 106.0}}, identifier: 'Workouts'
+                                    Button, 0x1145e5e00, {{16.0, 59.0}, {44.0, 44.0}}, identifier: 'BackButton', label: 'Track'
+                                    Button, 0x1145e5f40, {{337.0, 63.0}, {36.0, 36.0}}, label: 'Add workout'
+                                  Other, 0x1145e6080, {{0.0, 0.0}, {393.0, 852.0}}
+                                    Other, 0x1145e61c0, {{0.0, 0.0}, {393.0, 852.0}}
+                                      Other, 0x1145e6300, {{0.0, 0.0}, {393.0, 852.0}}
+                                        Other, 0x1145e6440, {{0.0, 0.0}, {393.0, 852.0}}
+                                          Image, 0x1145e6580, {{-43.3, 0.0}, {479.7, 852.0}}
+                                          Image, 0x1145e66c0, {{215.3, 23.6}, {158.8, 158.8}}
+                                          Other, 0x1145e6800, {{196.5, 165.0}, {0.0, 0.0}}
+                                          Other, 0x1145e6940, {{0.0, 0.0}, {393.0, 852.0}}
+                                          ScrollView, 0x1145e6a80, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'wellness.workspace'
+                                            Other, 0x1145e6bc0, {{0.0, 0.0}, {393.0, 852.0}}
+                                              Other, 0x1145e6d00, {{0.0, 0.0}, {393.0, 167.8}}
+                                            Other, 0x1145e6e40, {{0.0, 0.0}, {393.0, 852.0}}
+                                            Other, 0x1145e6f80, {{0.0, 165.0}, {393.0, 483.0}}
+                                              Other, 0x1145e70c0, {{19.5, 184.5}, {354.0, 53.0}}, identifier: 'wellness.section', label: 'Wellness area'
+                                                Button, 0x1145e7200, {{24.0, 189.0}, {83.3, 44.0}}, identifier: 'wellness.section.body', label: 'Body'
+                                                Button, 0x1145e7340, {{111.3, 189.0}, {83.3, 44.0}}, identifier: 'wellness.section.workouts', label: 'Workouts', Selected
+                                                Button, 0x1145e7480, {{198.7, 189.0}, {83.0, 44.0}}, identifier: 'wellness.section.sleep', label: 'Sleep'
+                                                Button, 0x1145e75c0, {{285.7, 189.0}, {83.3, 44.0}}, identifier: 'wellness.section.movement', label: 'Movement'
+                                              Other, 0x1145e7700, {{20.0, 255.0}, {353.0, 139.3}}
+                                                Image, 0x1145e7840, {{36.0, 270.3}, {13.0, 18.3}}, identifier: 'heart.text.clipboard', label: 'heart.text.clipboard'
+                                                StaticText, 0x1145e7980, {{36.0, 270.3}, {238.0, 18.6}}, label: 'Apple Health is not connected'
+                                                StaticText, 0x1145e7ac0, {{34.0, 298.0}, {316.7, 30.3}}, label: 'Manual records stay available. Connect only if you want to import available workouts data.'
+                                                Button, 0x1145e7c00, {{34.0, 349.3}, {111.3, 18.0}}, label: 'Connect Health'
+                                              Other, 0x1145e7d40, {{20.0, 410.3}, {353.0, 115.3}}, identifier: 'lifeboard.status.noRecord'
+                                                Image, 0x1145e7e80, {{40.7, 431.3}, {18.3, 18.3}}, identifier: 'minus.circle', label: 'Remove'
+                                                StaticText, 0x1145df840, {{76.0, 426.3}, {176.3, 20.3}}, label: 'No workouts recorded'
+                                                StaticText, 0x1145df980, {{76.0, 451.7}, {225.0, 58.0}}, label: 'Add a private manual record, or connect Apple Health to bring in available data.'
+                                              Button, 0x1145dfac0, {{20.0, 537.7}, {212.3, 48.0}}, label: 'Add workout'
+                                              Button, 0x1145dfc00, {{244.3, 539.7}, {128.7, 44.0}}, label: 'Connect Health'
+                                              StaticText, 0x1145dfd40, {{20.0, 601.7}, {72.7, 26.3}}, label: 'History'
+                                            Other, 0x1145dfe80, {{360.0, 113.0}, {30.0, 684.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                              Other, 0x1144bdf40, {{387.0, 441.3}, {3.0, 352.7}}
+                                            Other, 0x1144be080, {{360.0, 113.0}, {30.0, 684.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                              Other, 0x114548000, {{387.0, 441.3}, {3.0, 352.7}}
+                                  Other, 0x11459c000, {{0.0, 0.0}, {393.0, 852.0}}
+                                    Other, 0x1145e8000, {{0.0, 0.0}, {393.0, 852.0}}
+                      Other, 0x1145e8140, {{0.0, 769.0}, {393.0, 83.0}}
+                        Other, 0x1145e8280, {{0.0, 0.0}, {393.0, 852.0}}
+                        Other, 0x1145e83c0, {{0.0, 769.0}, {393.0, 83.0}}
+                    Other, 0x1145e8500, {{0.0, 650.0}, {393.0, 162.5}}, identifier: 'LifeBoardCompactChrome'
+                      Button, 0x1145e8640, {{20.0, 680.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.toolsToggle', label: 'Open capture tools'
+                      TextField, 0x1145e8780, {{72.0, 691.0}, {249.0, 22.0}}, identifier: 'home.lifeThread.composer', placeholderValue: 'Log something or reflect on how you feel'
+                        Other, 0x1145e88c0, {{72.0, 699.0}, {249.0, 11.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                          Other, 0x1145e8a00, {{75.0, 707.0}, {243.0, 3.0}}
+                      Button, 0x1145e8b40, {{329.0, 680.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.send', label: 'Start dictation'
+                      Button, 0x1145e8c80, {{20.0, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.home', label: 'Home', value: Root
+                        Image, 0x1145e8dc0, {{45.3, 761.0}, {20.0, 17.7}}, identifier: 'house', label: 'Home'
+                        StaticText, 0x1145e8f00, {{39.8, 782.7}, {31.0, 13.3}}, label: 'Home'
+                      Button, 0x1145e9040, {{90.7, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.plan', label: 'Plan', value: Root
+                        Image, 0x1145e9180, {{117.7, 762.3}, {16.7, 15.3}}, identifier: 'calendar', label: 'Calendar'
+                        StaticText, 0x1145e92c0, {{114.6, 781.5}, {22.7, 13.3}}, label: 'Plan'
+                      Button, 0x1145e9400, {{161.3, 752.0}, {70.3, 52.0}}, identifier: 'foundation.destination.track', label: 'Track', value: Detail depth 1, Selected
+                        Image, 0x1145e9540, {{185.7, 762.0}, {22.0, 16.0}}, identifier: 'chart.bar.fill', label: 'Chart Column'
+                        StaticText, 0x1145e9680, {{181.2, 782.2}, {30.7, 13.3}}, label: 'Track'
+                      Button, 0x1145e97c0, {{231.7, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.insights', label: 'Insights', value: Root
+                        Image, 0x1145e9900, {{259.3, 760.3}, {15.7, 19.0}}, identifier: 'sparkles', label: 'Sparkle'
+                        StaticText, 0x1145e9a40, {{246.4, 783.3}, {41.3, 13.3}}, label: 'Insights'
+                      Button, 0x1145e9b80, {{302.3, 752.0}, {70.7, 52.0}}, identifier: 'foundation.destination.eva', label: 'Eva', value: Root
+                        Image, 0x1145e9cc0, {{325.7, 760.3}, {24.0, 19.0}}, identifier: 'bubble.left.and.bubble.right', label: 'Conversation'
+                        StaticText, 0x1145e9e00, {{328.4, 783.3}, {18.7, 13.3}}, label: 'Eva'
+                    Other, 0x1145e9f40, {{0.0, 59.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.morning', label: 'Celestial atmosphere: morning'
+                    Button, 0x1145ea080, {{0.0, 59.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                    Other, 0x1145ea1c0, {{0.0, 59.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x1145e4500, pid: 79925, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x1145ea300, pid: 79925, label: 'LifeBoard'
+  }
