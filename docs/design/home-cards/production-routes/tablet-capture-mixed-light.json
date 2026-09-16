@@ -1,0 +1,92 @@
+{
+  "appearance" : "light",
+  "arrangement" : "mixed",
+  "clockScope" : "all evidence-owned clocks fixed to the seeded morning fixture",
+  "contentBounds" : [
+    0,
+    32,
+    834,
+    822
+  ],
+  "evidenceLevel" : "actual-production-route-seeded-repositories",
+  "fixtureDate" : "2026-09-15T09:00:00Z",
+  "placementDescriptors" : [
+    {
+      "id" : "E7100000-0000-4000-8000-000000000001",
+      "ownership" : "pinned",
+      "semanticSize" : "standard",
+      "widgetKind" : "care"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000002",
+      "ownership" : "pinned",
+      "semanticSize" : "standard",
+      "widgetKind" : "routines"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000003",
+      "ownership" : "pinned",
+      "semanticSize" : "wide",
+      "widgetKind" : "tasks"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000004",
+      "ownership" : "pinned",
+      "semanticSize" : "tall",
+      "widgetKind" : "journal"
+    }
+  ],
+  "placements" : {
+    "E7100000-0000-4000-8000-000000000001" : [
+      20.013281290531154,
+      673.02415466308594,
+      390.97343741893769,
+      177.98790757179268
+    ],
+    "E7100000-0000-4000-8000-000000000002" : [
+      423.01328129053115,
+      673.02415466308594,
+      390.97343741893769,
+      177.98790757179268
+    ],
+    "E7100000-0000-4000-8000-000000000003" : [
+      37.865000000000009,
+      879,
+      758.26999999999998,
+      317.53749999999991
+    ],
+    "E7100000-0000-4000-8000-000000000004" : [
+      37.865000000000009,
+      1223.5,
+      758.26999999999998,
+      248.29999999999995
+    ]
+  },
+  "rendererRevision" : "30afaec8bc31f2278623414cad619f36b3236426+working-tree:904a677f3ea0f462309d9596093c58dd9f440781c2e9987cbd3a84aae1a0784e",
+  "route" : "capture",
+  "safeArea" : [
+    32,
+    0,
+    340,
+    0
+  ],
+  "shellFrame" : [
+    0,
+    32,
+    834,
+    822
+  ],
+  "sourceIdentityScope" : "stable seeded repository identifiers",
+  "sourceTaskIDs" : [
+    "E7200000-0000-4000-8000-000000000001",
+    "E7200000-0000-4000-8000-000000000002",
+    "E7200000-0000-4000-8000-000000000003",
+    "E7200000-0000-4000-8000-000000000004",
+    "E7200000-0000-4000-8000-000000000005",
+    "E7200000-0000-4000-8000-000000000006"
+  ],
+  "viewport" : [
+    834,
+    1194
+  ]
+}
