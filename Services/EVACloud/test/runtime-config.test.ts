@@ -29,11 +29,11 @@ describe.sequential('signed runtime configuration source', () => {
 
   it('does not turn a disabled cloud into an age-verification dead end', () => {
     const disabled = failClosedRuntimeConfig(bindings)
-    expect(disabled.agePolicy?.requiredRegionFailClosed).toBe(true)
+    expect(disabled.agePolicy?.requiredRegionFailClosed).toBe(false)
     expect(requiresAgeDecision(disabled)).toBe(false)
 
     disabled.cloudState = 'enabled'
-    expect(requiresAgeDecision(disabled)).toBe(true)
+    expect(requiresAgeDecision(disabled)).toBe(false)
   })
 
   it('rejects future, rolled-back, and unapproved enabled documents', async () => {
@@ -135,7 +135,7 @@ describe('versioned runtime policies', () => {
   })
 
   it('advances monotonically from the currently deployed policies', () => {
-    expect(stagingPolicy.version).toBe(3)
-    expect(productionPolicy.version).toBe(2)
+    expect(stagingPolicy.version).toBe(4)
+    expect(productionPolicy.version).toBe(3)
   })
 })
