@@ -79,11 +79,17 @@ public struct OccurrenceDefinition: Codable, Equatable, Hashable, Sendable {
     public var generationWindow: String?
     public var createdAt: Date
     public var updatedAt: Date
+    /// Progress toward an amount target ("3" of 8 glasses, "600" of 1,200
+    /// seconds). Nil when nothing has been logged. Written only through
+    /// `OccurrenceRepositoryProtocol.setRecordedValue`, never by
+    /// `saveOccurrences`, so regenerating a schedule cannot erase it.
+    public var recordedValue: Double?
+    public var recordedValueUpdatedAt: Date?
 
     // Memberwise init written out: a public struct's implicit one is
     // internal, and this type is constructed from outside the package.
     // Optional `var`s keep the `= nil` default the implicit init gives them.
-    public init(id: UUID, occurrenceKey: String, scheduleTemplateID: UUID, sourceType: ScheduleSourceType, sourceID: UUID, scheduledAt: Date, dueAt: Date? = nil, state: OccurrenceState, isGenerated: Bool, generationWindow: String? = nil, createdAt: Date, updatedAt: Date) {
+    public init(id: UUID, occurrenceKey: String, scheduleTemplateID: UUID, sourceType: ScheduleSourceType, sourceID: UUID, scheduledAt: Date, dueAt: Date? = nil, state: OccurrenceState, isGenerated: Bool, generationWindow: String? = nil, createdAt: Date, updatedAt: Date, recordedValue: Double? = nil, recordedValueUpdatedAt: Date? = nil) {
         self.id = id
         self.occurrenceKey = occurrenceKey
         self.scheduleTemplateID = scheduleTemplateID
@@ -96,6 +102,8 @@ public struct OccurrenceDefinition: Codable, Equatable, Hashable, Sendable {
         self.generationWindow = generationWindow
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.recordedValue = recordedValue
+        self.recordedValueUpdatedAt = recordedValueUpdatedAt
     }
 }
 
