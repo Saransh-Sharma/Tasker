@@ -15,7 +15,12 @@ struct PlanRootView: View {
     private let projectRepository: any ProjectRepositoryProtocol
     private let sectionRepository: (any SectionRepositoryProtocol)?
     private let tagRepository: any TagRepositoryProtocol
-    private let rescueRefreshGeneration: Int
+    @Environment(\.planRescueRefreshGeneration) private var rescueRefreshGeneration
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    private var usesTimeline: Bool {
+        lens == .day && dayPresentation == .canvas && !dynamicTypeSize.isAccessibilitySize && !voiceOverEnabled
+    }
     @State private var store: PlanStore
     @State private var inboxStore: InboxStore
     @State private var taskExecutionStore: TaskExecutionStore
@@ -51,7 +56,6 @@ struct PlanRootView: View {
     init(
         dependencies: PlanFeatureDependencies,
         initialLens: PlanLens? = nil,
-        rescueRefreshGeneration: Int = 0,
         onOpenFocus: @escaping (UUID) -> Void = { _ in },
         onAskEva: @escaping () -> Void = {},
         onOpenWeeklyPlanner: @escaping () -> Void = {},
@@ -87,7 +91,6 @@ struct PlanRootView: View {
             )
         )
         _lens = State(initialValue: initialLens ?? PlanLensRestoration.load())
-        self.rescueRefreshGeneration = rescueRefreshGeneration
         self.onOpenFocus = onOpenFocus
         self.onAskEva = onAskEva
         self.onOpenWeeklyPlanner = onOpenWeeklyPlanner
@@ -135,8 +138,8 @@ struct PlanRootView: View {
                 .ignoresSafeArea(edges: .top)
             }
 
-            ScrollView {
-                LazyVStack(spacing: 16) {
+            PlanRootScrollContainer(fillsHeight: usesTimeline) {
+                VStack(spacing: 16) {
                     LensPicker(
                         "Plan lens",
                         selection: $lens,
@@ -146,7 +149,16 @@ struct PlanRootView: View {
                         identifier: \.rawValue
                     )
 
-                    PlanOrientationBar(store: store, lens: lens)
+                    PlanOrientationBar(
+                        store: store,
+                        lens: lens,
+                        onEditWorkingHours: { showsWorkingHours = true },
+                        presentation: .init(
+                            showsAgenda: dayPresentation == .agenda || dynamicTypeSize.isAccessibilitySize || voiceOverEnabled,
+                            isForced: dynamicTypeSize.isAccessibilitySize || voiceOverEnabled,
+                            toggle: { dayPresentation = dayPresentation == .canvas ? .agenda : .canvas }
+                        )
+                    )
 
                     switch lens {
                     case .inbox: inboxContent
@@ -199,10 +211,14 @@ struct PlanRootView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 36)
+                .padding(.bottom, usesTimeline ? 8 : 40)
             }
             .refreshable { await store.load() }
             .lifeBoardReportsComposerScroll()
+            // A containing element: without it this identifier is stamped onto
+            // every child and hides theirs (the orientation bar's "plan.header"
+            // on pushed Plan routes, which have no shared root header).
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("foundation.plan.scroll")
         }
     }
@@ -238,6 +254,13 @@ struct PlanRootView: View {
             .task(id: PlanActivityTaskID(activity: rootActivity, rescueGeneration: rescueRefreshGeneration)) {
                 guard rootActivity.performsContinuousWork else { return }
                 await store.load()
+                if let (day, scenario) = HomePlanningHandoff.pending {
+                    HomePlanningHandoff.pending = nil
+                    store.selectedDay = day
+                    await store.load()
+                    store.adoptScenario(scenario)
+                    lens = .day
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .foundationDomainMaintenanceCommitted)) { _ in
                 guard rootActivity.performsContinuousWork else { return }
@@ -430,3 +453,28 @@ private struct PlanActivityTaskID: Hashable {
 // The fix is that each `LazyVStack` child is a `struct: View`, which gets its own
 // `body` call and therefore its own frame. This mirrors the same repair already
 // made in `LifeBoardTrackFoundationViews.swift`.
+
+private struct PlanRootScrollContainer<Content: View>: View {
+    let fillsHeight: Bool
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        if fillsHeight {
+            // Scrolling roots let content pass under the floating composer and
+            // dock; a fixed-height day cannot scroll out from under them, so it
+            // stops above that chrome instead (and the drawer stays reachable).
+            VStack(spacing: 0) {
+                content().frame(maxHeight: .infinity, alignment: .top)
+                Color.clear.frame(height: PlanRootLayout.floatingChromeClearance)
+            }
+        } else {
+            ScrollView { content() }
+        }
+    }
+}
+
+enum PlanRootLayout {
+    /// Composer capsule + gap + dock, measured on iPhone 17 (about 180 pt from
+    /// the bottom edge to the composer's top). The day canvas and its drawer
+    /// end here; content beyond it would sit under the chrome.
+    static let floatingChromeClearance: CGFloat = 176
+}
