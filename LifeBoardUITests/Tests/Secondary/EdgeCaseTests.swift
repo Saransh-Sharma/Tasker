@@ -10,6 +10,12 @@ import XCTest
 
 class EdgeCaseTests: BaseUITest {
 
+    /// New tasks are due today, so they appear in Home's Tasks card, which is
+    /// where this suite completes, undoes and deletes them.
+    override var additionalLaunchArguments: [String] {
+        [XCUIApplication.LaunchArgumentKey.testNewTasksDueToday.rawValue]
+    }
+
     var homePage: HomePage!
 
     override func setUp() async throws {
@@ -17,54 +23,10 @@ class EdgeCaseTests: BaseUITest {
         homePage = HomePage(app: app)
     }
 
-    // MARK: - Test 64: Overdue Task Indicator
-
-    func testOverdueTaskIndicator() throws {
-        // GIVEN: A task with past due date exists
-        let addTaskPage = homePage.tapAddTask()
-
-        let pastDate = TestDataFactory.daysAgo(3) // 3 days ago
-
-        addTaskPage.enterTitle("Overdue Task")
-        addTaskPage.selectPriority(.high)
-        addTaskPage.setDueDate(pastDate)
-
-        // Dismiss keyboard
-        if app.keyboards.firstMatch.exists {
-            addTaskPage.dismissKeyboard()
-        }
-
-        addTaskPage.tapSave()
-
-        // Wait for task to appear
-        XCTAssertTrue(homePage.waitForTask(withTitle: "Overdue Task", timeout: 5), "Overdue task should be created")
-
-        waitForAnimations(duration: 1.0)
-
-        // WHEN: User views the task list
-        // THEN: Overdue indicator should be visible
-
-        // Find the overdue task cell
-        let taskIndex = findTaskIndex(withTitle: "Overdue Task")
-        let taskCell = homePage.taskCell(at: taskIndex)
-
-        // Visual indicator (color, icon, or label) should indicate overdue
-        // This is primarily a visual test
-        XCTAssertTrue(taskCell.exists, "Overdue task cell should exist")
-
-        // Check if task has overdue visual elements
-        // (Exact implementation varies - might be red text, warning icon, etc.)
-        let hasOverdueVisual = taskCell.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'overdue'")).count > 0
-            || taskCell.images.matching(NSPredicate(format: "label CONTAINS[c] 'warning' OR label CONTAINS[c] 'alert'")).count > 0
-
-        if hasOverdueVisual {
-            print("✅ Overdue visual indicator detected")
-        } else {
-            print("⚠️ Overdue indicator not detected via text/image - may be color-based")
-        }
-
-        takeScreenshot(named: "overdue_task_indicator")
-    }
+    // Test 64 (overdue indicator) was removed: it set a past deadline in Add
+    // Task, which the live sheet cannot do (it schedules; deadlines are set on
+    // the task screen), and its overdue check only printed. Overdue tasks are
+    // covered by the seeded Overdue Rescue suites.
 
     // MARK: - Test 65: Empty State Display
 
@@ -214,28 +176,5 @@ class EdgeCaseTests: BaseUITest {
         XCTAssertGreaterThanOrEqual(taskCount, 3, "All duplicate title tasks should exist")
 
         takeScreenshot(named: "duplicate_task_titles")
-    }
-
-    // MARK: - Helper
-
-    private func findTaskIndex(withTitle title: String) -> Int {
-        let taskRows = app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
-        )
-        for index in 0..<taskRows.count {
-            let row = taskRows.element(boundBy: index)
-            if row.label.localizedCaseInsensitiveContains(title) {
-                return index
-            }
-        }
-
-        let cells = app.tables.cells
-        for index in 0..<cells.count {
-            let cell = cells.element(boundBy: index)
-            if cell.staticTexts[title].exists {
-                return index
-            }
-        }
-        return 0
     }
 }

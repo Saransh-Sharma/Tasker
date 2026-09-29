@@ -14,9 +14,11 @@ struct LifeManagementComposerFieldLabel: View {
                 .font(.lifeboard(.caption1).weight(.semibold))
                 .foregroundStyle(Color.lifeboard.textPrimary)
 
-            Text(detail)
-                .font(.lifeboard(.caption1))
-                .foregroundStyle(Color.lifeboard.textSecondary)
+            if detail.isEmpty == false {
+                Text(detail)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+            }
         }
     }
 }

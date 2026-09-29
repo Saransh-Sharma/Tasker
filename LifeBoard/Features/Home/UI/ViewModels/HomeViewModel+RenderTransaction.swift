@@ -17,12 +17,14 @@ import WidgetKit
 extension HomeViewModel {
     func makeMomentumGuidanceText() -> String {
         if completedTasks.isEmpty == false {
-            return "One clean finish is already part of today. Keep the next decision small."
+            let done = completedTasks.count
+            return done == 1 ? String(localized: "1 done today") : String(localized: "\(done) done today")
         }
         if todayOpenTaskCount > 0 {
-            return "Choose one visible task and finish it before switching surfaces."
+            let open = todayOpenTaskCount
+            return open == 1 ? String(localized: "1 left today") : String(localized: "\(open) left today")
         }
-        return "Your surface is clear. Add one intentional task for today."
+        return String(localized: "Nothing planned today")
     }
 
     var currentDataRevision: HomeDataRevision {

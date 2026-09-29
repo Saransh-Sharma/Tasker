@@ -34,6 +34,7 @@ struct TaskExecutionLibraryView: View {
                 }
                 .pickerStyle(.menu)
                 .accessibilityIdentifier("plan.taskLibrary.scope")
+                .listRowBackground(Color(SemanticColorTokens.foundationSurfaceSolid))
             }
 
             switch store.state {
@@ -41,7 +42,7 @@ struct TaskExecutionLibraryView: View {
                 Section {
                     HStack {
                         Spacer()
-                        ProgressView("Loading tasks…")
+                        ProgressView("Loading…")
                         Spacer()
                     }
                     .frame(minHeight: 88)
@@ -58,11 +59,11 @@ struct TaskExecutionLibraryView: View {
             case .failed(let message):
                 Section {
                     ContentUnavailableView {
-                        Label("Tasks couldn’t be loaded", systemImage: "exclamationmark.triangle")
+                        Label("Couldn’t load tasks", systemImage: "exclamationmark.triangle")
                     } description: {
-                        Text(message)
+                        Text(message).foregroundColor(Color(SemanticColorTokens.inkSecondary))
                     } actions: {
-                        Button("Try Again") { Task { await store.load() } }
+                        Button("Try again") { Task { await store.load() } }
                     }
                     .frame(maxWidth: .infinity, minHeight: 180)
                 }
@@ -70,8 +71,8 @@ struct TaskExecutionLibraryView: View {
                 Section {
                     StatusSurface(
                         state: .unavailable,
-                        title: "Task access unavailable",
-                        message: "LifeBoard can’t read this task view right now."
+                        title: String(localized: "Couldn’t load tasks"),
+                        message: String(localized: "Try again later.")
                     )
                     .frame(maxWidth: .infinity, minHeight: 180)
                 }
@@ -79,7 +80,7 @@ struct TaskExecutionLibraryView: View {
                 taskRows
                 Section {
                     Label(
-                        "Showing tasks from \(lastUpdatedAt.formatted(date: .omitted, time: .shortened))",
+                        "Updated \(lastUpdatedAt.formatted(date: .omitted, time: .shortened))",
                         systemImage: "clock.arrow.circlepath"
                     )
                     .font(.footnote)
@@ -90,6 +91,10 @@ struct TaskExecutionLibraryView: View {
             }
         }
         .listStyle(.insetGrouped)
+        // The warm canvas and surface, not the system grouped greys: the list
+        // was pure white on a paper app in light and pure black in dark.
+        .scrollContentBackground(.hidden)
+        .background { GrainedCanvas() }
         .navigationTitle("Tasks")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -128,7 +133,7 @@ struct TaskExecutionLibraryView: View {
         }
         .refreshable { await store.load() }
         .alert(
-            "Batch action couldn’t finish",
+            "Couldn’t update tasks",
             isPresented: Binding(
                 get: { batchError != nil },
                 set: { if $0 == false { batchError = nil } }
@@ -154,7 +159,7 @@ struct TaskExecutionLibraryView: View {
             }
             Button("Cancel", role: .cancel) { destructiveMutation = nil }
         } message: {
-            Text("This applies once to every selected task and can be undone as one action.")
+            Text("You can undo this.")
         }
         .accessibilityIdentifier("plan.taskLibrary")
     }
@@ -170,7 +175,7 @@ struct TaskExecutionLibraryView: View {
                         Image(systemName: store.query.scope == .completed ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(
                                 store.query.scope == .completed
-                                    ? Color(SemanticColorTokens.foundationSageAccent)
+                                    ? Color(SemanticColorTokens.foundationSageInk)
                                     : Color(SemanticColorTokens.inkSecondary)
                             )
                         VStack(alignment: .leading, spacing: 4) {
@@ -193,11 +198,11 @@ struct TaskExecutionLibraryView: View {
                 }
                 .buttonStyle(.plain)
                 .tag(task.id)
-                .accessibilityHint("Opens the canonical task editor")
+                .accessibilityHint("Opens the task")
                 .accessibilityAction(
                     named: selectedTaskIDs.contains(task.id)
-                        ? "Remove from batch selection"
-                        : "Add to batch selection"
+                        ? "Deselect"
+                        : "Select"
                 ) {
                     if selectedTaskIDs.contains(task.id) {
                         selectedTaskIDs.remove(task.id)
@@ -206,6 +211,7 @@ struct TaskExecutionLibraryView: View {
                     }
                 }
                 .accessibilityIdentifier("plan.taskLibrary.task.\(task.id.uuidString)")
+                .listRowBackground(Color(SemanticColorTokens.foundationSurfaceSolid))
             }
         }
     }
@@ -213,7 +219,7 @@ struct TaskExecutionLibraryView: View {
     private func batchUndoBar(_ receipt: TaskBatchReceipt) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationSageInk))
             Text(receiptSummary(receipt))
                 .font(.subheadline)
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
@@ -232,17 +238,17 @@ struct TaskExecutionLibraryView: View {
 
     private var destructiveTitle: String {
         switch destructiveMutation {
-        case .archive: "Archive selected tasks?"
-        case .delete: "Delete selected tasks?"
-        default: "Apply to selected tasks?"
+        case .archive: String(localized: "Archive selected tasks?")
+        case .delete: String(localized: "Delete selected tasks?")
+        default: String(localized: "Apply to selected tasks?")
         }
     }
 
     private var destructiveActionTitle: String {
         switch destructiveMutation {
-        case .archive: "Archive Tasks"
-        case .delete: "Delete Tasks"
-        default: "Apply"
+        case .archive: String(localized: "Archive")
+        case .delete: String(localized: "Delete")
+        default: String(localized: "Apply")
         }
     }
 
@@ -286,7 +292,7 @@ struct TaskExecutionLibraryView: View {
 
     private func receiptSummary(_ receipt: TaskBatchReceipt) -> String {
         let count = receipt.before.count
-        return "\(count) task\(count == 1 ? "" : "s") updated"
+        return count == 1 ? String(localized: "Updated 1 task") : String(localized: "Updated \(count) tasks")
     }
 
     private func loadBatchChoices() async {
@@ -337,10 +343,10 @@ struct TaskExecutionLibraryView: View {
         }
         if let estimate = task.estimatedDuration {
             let minutes = max(1, Int((estimate / 60).rounded()))
-            values.append(minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h \(minutes % 60)m")
+            values.append(LifeBoardDuration.text(minutes: minutes))
         }
-        if task.dependenciesReady == false { values.append("Waiting on dependency") }
-        return values.isEmpty ? "No date or estimate" : values.joined(separator: " · ")
+        if task.dependenciesReady == false { values.append(String(localized: "Waiting on another task")) }
+        return values.isEmpty ? String(localized: "No date or estimate") : values.joined(separator: " · ")
     }
 }
 
@@ -364,25 +370,20 @@ private extension TaskExecutionQuery.Scope {
 
     var emptyTitle: String {
         switch self {
-        case .inbox: "Inbox clear"
-        case .today: "A spacious day"
-        case .upcoming: "Nothing queued ahead"
-        case .waiting: "Nothing waiting"
-        case .someday: "Someday is open"
-        case .completed: "No completed tasks yet"
-        case .all: "No tasks yet"
+        case .inbox: String(localized: "Inbox clear")
+        case .today: String(localized: "Nothing planned today")
+        case .upcoming: String(localized: "Nothing upcoming")
+        case .waiting: String(localized: "Nothing waiting")
+        case .someday: String(localized: "Nothing in Someday")
+        case .completed: String(localized: "No completed tasks")
+        case .all: String(localized: "No tasks yet")
         }
     }
 
     var emptyDetail: String {
         switch self {
-        case .inbox: "Every filed task has somewhere to be."
-        case .today: "Choose something intentionally when you’re ready."
-        case .upcoming: "Future planned work will appear here."
-        case .waiting: "Blocked and delegated work will appear here."
-        case .someday: "Ideas you deliberately set aside will appear here."
-        case .completed: "Finished work remains available without crowding Today."
-        case .all: "Captured and planned work will appear here."
+        // The title says it; a body line would only restate it.
+        case .inbox, .today, .upcoming, .waiting, .someday, .completed, .all: ""
         }
     }
 

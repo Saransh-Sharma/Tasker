@@ -51,7 +51,7 @@ private struct HomeHabitRowInteractiveButton<Label: View>: View {
         func play() {
             switch self {
             case .selection:
-                HapticFeedback.selection()
+                Haptic.pick.play()
             }
         }
     }
@@ -100,6 +100,7 @@ private struct HomeHabitRowInteractiveSurface: View {
     let onRowAction: (() -> Void)?
     let onLastCellAction: (() -> Void)?
     @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
+    @Environment(\.lifeBoardMotionContext) private var motionContext
 
     var body: some View {
         GeometryReader { proxy in
@@ -130,7 +131,11 @@ private struct HomeHabitRowInteractiveSurface: View {
                                 )
                                 .frame(width: metrics.visualLastCellWidth, height: metrics.visualLastCellWidth)
                                 .accessibilityHidden(true)
-                            if scrollOptimizedRendering {
+                            // A repeating symbol effect is idle motion: withdrawn
+                            // under Calm, Reduce Motion and energy pressure.
+                            if scrollOptimizedRendering
+                                || motionContext.allowsSpatialMotion == false
+                                || motionContext.comfortProfile == .calm {
                                 icon
                             } else {
                                 icon.symbolEffect(.breathe.pulse.byLayer, options: .repeat(.periodic(delay: 2.5)))
@@ -419,7 +424,7 @@ struct HomeHabitRowView: View {
     private var primaryActionTitle: String? {
         guard !isResolved else { return nil }
         if row.trackingMode == .lapseOnly {
-            return "Log lapse"
+            return String(localized: "Log slip")
         }
         switch (row.kind, row.trackingMode) {
         case (.positive, _):
@@ -437,7 +442,7 @@ struct HomeHabitRowView: View {
         case (.positive, _):
             return "Skip"
         case (.negative, .dailyCheckIn):
-            return "Lapsed"
+            return String(localized: "Slipped")
         case (.negative, .lapseOnly):
             return nil
         }
@@ -470,16 +475,9 @@ struct HomeHabitRowView: View {
 
     private var accessibilityHint: String {
         if onRowAction != nil {
-            if onOpenDetail != nil {
-                return "Double-tap to cycle today. Tap the icon to open details. Long-press for quick actions."
-            }
-            return "Double-tap to cycle today. Long-press for quick actions."
+            return String(localized: "Changes today’s status")
         }
-
-        if primaryActionTitle != nil || secondaryActionTitle != nil {
-            return "Opens habit details. Long-press for quick actions."
-        }
-        return "Opens habit details."
+        return String(localized: "Opens the habit")
     }
 
     private var boardCells: [HabitBoardCell] {

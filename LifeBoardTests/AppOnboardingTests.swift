@@ -275,11 +275,11 @@ final class AppOnboardingTests: XCTestCase {
 
         XCTAssertEqual(
             StarterWorkspaceCatalog.taskSuggestions(for: selections(for: .starting), frictionProfile: .starting).first?.title,
-            "Open the draft and write 3 lines"
+            "Write 3 lines of the draft"
         )
         XCTAssertEqual(
             StarterWorkspaceCatalog.taskSuggestions(for: selections(for: .choosing), frictionProfile: .choosing).first?.title,
-            "Open one bill and check the due date"
+            "Check one bill’s due date"
         )
         XCTAssertEqual(
             StarterWorkspaceCatalog.taskSuggestions(for: selections(for: .remembering), frictionProfile: .remembering).first?.title,
@@ -308,11 +308,11 @@ final class AppOnboardingTests: XCTestCase {
         )
         XCTAssertEqual(
             StarterWorkspaceCatalog.habitSuggestions(for: selections(for: .finishing), frictionProfile: .finishing).first?.title,
-            "End the day by naming one \"must move\" item"
+            "Name one must-move task"
         )
         XCTAssertEqual(
             StarterWorkspaceCatalog.habitSuggestions(for: selections(for: .overwhelmed), frictionProfile: .overwhelmed).first?.title,
-            "Do a 2-minute reset after work"
+            "2-minute reset after work"
         )
     }
 
@@ -909,8 +909,6 @@ private final class TestNotificationService: NotificationServiceProtocol {
     func schedule(request: LocalNotificationRequest) {}
     func cancel(ids: [String]) {}
     func pendingRequests(completion: @escaping @Sendable ([PendingNotificationRequest]) -> Void) { completion([]) }
-    func registerCategories(_ categories: Set<UNNotificationCategory>) {}
-    func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {}
     func fetchAuthorizationStatus(completion: @escaping @Sendable (NotificationAuthorizationStatus) -> Void) {
         completion(status)
     }
@@ -1232,7 +1230,12 @@ final class FeatureFlagPromotionTests: XCTestCase {
                 .appendingPathComponent("Services")
                 .appendingPathComponent("V2FeatureFlags.swift")
             if FileManager.default.fileExists(atPath: candidate.path) {
-                return try String(contentsOf: candidate, encoding: .utf8)
+                // The flag table was split across two files for the file-size
+                // guardrail; scan both so these checks still cover every flag.
+                let sibling = candidate.deletingLastPathComponent()
+                    .appendingPathComponent("V2FeatureFlags+EvaAndIPad.swift")
+                return try String(contentsOf: candidate, encoding: .utf8) + "\n"
+                    + String(contentsOf: sibling, encoding: .utf8)
             }
         }
         throw XCTSkip("V2FeatureFlags.swift not reachable from the test bundle")

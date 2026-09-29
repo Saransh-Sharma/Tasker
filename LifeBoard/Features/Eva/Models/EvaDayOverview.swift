@@ -1,109 +1,5 @@
 import Foundation
 
-enum EvaDayOverviewSectionKind: String, Codable, Equatable, Hashable, Sendable {
-    case overdueTasks
-    case todayTasks
-    case focusCandidates
-    case dueHabits
-    case recoveryHabits
-    case quietTracking
-    case emptyState
-}
-
-enum EvaDayTaskAction: String, Codable, Equatable, Hashable, Sendable {
-    case done
-    case reopen
-    case tomorrow
-    case open
-}
-
-enum EvaDayHabitAction: String, Codable, Equatable, Hashable, Sendable {
-    case done
-    case skip
-    case stayedClean
-    case lapsed
-    case logLapse
-    case open
-}
-
-struct EvaDayStatusChip: Codable, Equatable, Hashable, Sendable {
-    let text: String
-    let tone: String
-}
-
-struct EvaDayTaskCard: Codable, Equatable, Hashable, Identifiable, Sendable {
-    let taskID: UUID
-    let taskSnapshot: TaskDefinition
-    let title: String
-    let projectName: String
-    let dueLabel: String?
-    let priorityLabel: String?
-    let durationLabel: String?
-    let scheduledStartAt: Date?
-    let scheduledEndAt: Date?
-    let dueDate: Date?
-    let isOverdue: Bool
-    let statusChips: [EvaDayStatusChip]
-    let actions: [EvaDayTaskAction]
-
-    var id: UUID { taskID }
-}
-
-struct EvaDayHabitCard: Codable, Equatable, Hashable, Identifiable, Sendable {
-    let habitID: UUID
-    let title: String
-    let kind: HabitKind
-    let trackingMode: HabitTrackingMode
-    let lifeAreaName: String?
-    let projectName: String?
-    let iconSymbolName: String?
-    let accentHex: String?
-    let cadence: HabitCadenceDraft?
-    let cadenceLabel: String
-    let dueAt: Date?
-    let dueLabel: String?
-    let currentStreak: Int
-    let bestStreak: Int
-    let riskState: HabitRiskState
-    let last14Days: [HabitDayMark]
-    let statusChips: [EvaDayStatusChip]
-    let actions: [EvaDayHabitAction]
-
-    var id: UUID { habitID }
-}
-
-struct EvaDayOverviewSection: Codable, Equatable, Hashable, Identifiable, Sendable {
-    let kind: EvaDayOverviewSectionKind
-    let title: String
-    let subtitle: String?
-    let taskCards: [EvaDayTaskCard]
-    let habitCards: [EvaDayHabitCard]
-    let message: String?
-
-    var id: String { kind.rawValue }
-}
-
-struct EvaDayOverviewPayload: Codable, Equatable, Sendable {
-    let prompt: String
-    let summaryMarkdown: String
-    let contextReceipt: EvaContextReceipt
-    let isPartialContext: Bool
-    let sections: [EvaDayOverviewSection]
-    let generatedAt: Date
-}
-
-typealias EvaDayTaskActionHandler = (
-    _ action: EvaDayTaskAction,
-    _ card: EvaDayTaskCard,
-    _ completion: @escaping @Sendable (Result<Void, Error>) -> Void
-) -> Void
-
-typealias EvaDayHabitActionHandler = (
-    _ action: EvaDayHabitAction,
-    _ card: EvaDayHabitCard,
-    _ completion: @escaping @Sendable (Result<Void, Error>) -> Void
-) -> Void
-
 enum EvaDayOverviewBuilder {
     struct Output: Equatable {
         let payload: EvaDayOverviewPayload
@@ -166,8 +62,8 @@ enum EvaDayOverviewBuilder {
             sections.append(
                 EvaDayOverviewSection(
                     kind: .overdueTasks,
-                    title: "Overdue tasks",
-                    subtitle: "\(overdueTasks.count) need attention first",
+                    title: String(localized: "From earlier"),
+                    subtitle: overdueTasks.count == 1 ? String(localized: "1 task") : String(localized: "\(overdueTasks.count) tasks"),
                     taskCards: overdueTasks,
                     habitCards: [],
                     message: nil
@@ -178,8 +74,8 @@ enum EvaDayOverviewBuilder {
             sections.append(
                 EvaDayOverviewSection(
                     kind: .todayTasks,
-                    title: "Today’s tasks",
-                    subtitle: "\(todayTasks.count) open for today",
+                    title: String(localized: "Today"),
+                    subtitle: String(localized: "\(todayTasks.count) left"),
                     taskCards: todayTasks,
                     habitCards: [],
                     message: nil
@@ -190,8 +86,8 @@ enum EvaDayOverviewBuilder {
             sections.append(
                 EvaDayOverviewSection(
                     kind: .focusCandidates,
-                    title: "Best focus next",
-                    subtitle: "Highest-leverage work from the current context",
+                    title: String(localized: "Up next"),
+                    subtitle: nil,
                     taskCards: focusCards,
                     habitCards: [],
                     message: nil
@@ -202,8 +98,8 @@ enum EvaDayOverviewBuilder {
             sections.append(
                 EvaDayOverviewSection(
                     kind: .dueHabits,
-                    title: "Habit streaks",
-                    subtitle: "\(dueHabits.count) active habit\(dueHabits.count == 1 ? "" : "s")",
+                    title: String(localized: "Habits"),
+                    subtitle: dueHabits.count == 1 ? String(localized: "1 habit") : String(localized: "\(dueHabits.count) habits"),
                     taskCards: [],
                     habitCards: dueHabits,
                     message: nil
@@ -214,8 +110,8 @@ enum EvaDayOverviewBuilder {
             sections.append(
                 EvaDayOverviewSection(
                     kind: .recoveryHabits,
-                    title: "Recovery habits",
-                    subtitle: "\(recoveryHabits.count) need a reset or rescue",
+                    title: String(localized: "Pick back up"),
+                    subtitle: recoveryHabits.count == 1 ? String(localized: "1 habit") : String(localized: "\(recoveryHabits.count) habits"),
                     taskCards: [],
                     habitCards: recoveryHabits,
                     message: nil
@@ -226,8 +122,8 @@ enum EvaDayOverviewBuilder {
             sections.append(
                 EvaDayOverviewSection(
                     kind: .quietTracking,
-                    title: "Quiet tracking",
-                    subtitle: "\(quietTracking.count) stable habits staying out of the main queue",
+                    title: String(localized: "Quit habits"),
+                    subtitle: quietTracking.count == 1 ? String(localized: "1 habit") : String(localized: "\(quietTracking.count) habits"),
                     taskCards: [],
                     habitCards: quietTracking,
                     message: nil
@@ -239,7 +135,7 @@ enum EvaDayOverviewBuilder {
             sections = [
                 EvaDayOverviewSection(
                     kind: .emptyState,
-                    title: "Day overview",
+                    title: String(localized: "Your day"),
                     subtitle: nil,
                     taskCards: [],
                     habitCards: [],
@@ -280,30 +176,38 @@ enum EvaDayOverviewBuilder {
         recoveryHabits: [EvaDayHabitCard],
         isPartialContext: Bool
     ) -> String {
-        var lines: [String] = ["### Today’s brief"]
+        var lines: [String] = [String(localized: "### Today")]
         if overdueTasks.isEmpty && todayTasks.isEmpty && dueHabits.isEmpty && recoveryHabits.isEmpty {
-            lines.append("- Your day is clear right now.")
+            lines.append(String(localized: "- Nothing left today."))
         } else {
             if overdueTasks.isEmpty == false {
-                lines.append("- \(overdueTasks.count) overdue task\(overdueTasks.count == 1 ? "" : "s") need attention.")
+                lines.append(overdueTasks.count == 1
+                    ? String(localized: "- 1 task from earlier.")
+                    : String(localized: "- \(overdueTasks.count) tasks from earlier."))
             }
             if todayTasks.isEmpty == false {
-                lines.append("- \(todayTasks.count) open task\(todayTasks.count == 1 ? "" : "s") are queued for today.")
+                lines.append(todayTasks.count == 1
+                    ? String(localized: "- 1 task left today.")
+                    : String(localized: "- \(todayTasks.count) tasks left today."))
             }
             if let firstFocus = (focusCards.first ?? overdueTasks.first ?? todayTasks.first) {
-                lines.append("- Next focus: **\(firstFocus.title)**.")
+                lines.append(String(localized: "- Up next: **\(firstFocus.title)**."))
             }
             if recoveryHabits.isEmpty == false {
-                lines.append("- \(recoveryHabits.count) habit\(recoveryHabits.count == 1 ? "" : "s") need recovery attention.")
+                lines.append(recoveryHabits.count == 1
+                    ? String(localized: "- 1 habit to pick back up.")
+                    : String(localized: "- \(recoveryHabits.count) habits to pick back up."))
             } else if dueHabits.isEmpty == false {
-                lines.append("- \(dueHabits.count) active habit streak\(dueHabits.count == 1 ? "" : "s") are visible.")
+                lines.append(dueHabits.count == 1
+                    ? String(localized: "- 1 habit today.")
+                    : String(localized: "- \(dueHabits.count) habits today."))
             }
         }
         if isPartialContext {
-            lines.append("- Context is partial, so this brief is conservative.")
+            lines.append(String(localized: "- Some data didn’t load."))
         }
         if promptIntent.isFocusPrompt && focusCards.isEmpty && (overdueTasks.isEmpty == false || todayTasks.isEmpty == false) {
-            lines.append("- I used the visible due work as the best current focus set.")
+            lines.append(String(localized: "- Picked from what’s due."))
         }
         return lines.joined(separator: "\n")
     }
@@ -314,17 +218,17 @@ enum EvaDayOverviewBuilder {
     ) -> String {
         if envelope.isPartialContext {
             if envelope.hasAnyTaskContext == false && envelope.hasAnyHabitContext {
-                return "Task context is unavailable right now, but habit context is still loaded."
+                return String(localized: "Couldn’t load tasks. Showing habits.")
             }
             if envelope.hasAnyHabitContext == false && envelope.hasAnyTaskContext {
-                return "Habit context is unavailable right now, but task context is still loaded."
+                return String(localized: "Couldn’t load habits. Showing tasks.")
             }
-            return "I couldn’t load a complete day view right now, so I’m avoiding guesswork."
+            return String(localized: "Couldn’t load your day.")
         }
         if promptIntent.mentionsHabits {
-            return "Your day is clear right now. I didn’t find open tasks or due habits in the available context."
+            return String(localized: "No tasks or habits due today.")
         }
-        return "Your day is clear right now. I didn’t find open work in today’s context."
+        return String(localized: "Nothing due today.")
     }
 
     private static func prioritizeFocusCards(
@@ -345,7 +249,7 @@ enum EvaDayOverviewBuilder {
         tasks.map { task in
             var chips: [EvaDayStatusChip] = []
             if task.isOverdue(referenceDate: generatedAt) {
-                chips.append(EvaDayStatusChip(text: "Overdue", tone: "danger"))
+                chips.append(EvaDayStatusChip(text: String(localized: "From earlier"), tone: "danger"))
             } else if task.isDueToday(referenceDate: generatedAt) {
                 chips.append(EvaDayStatusChip(text: "Today", tone: "accent"))
             }
@@ -575,7 +479,7 @@ private extension EvaDayOverviewBuilder {
         func dueLabel(referenceDate: Date) -> String? {
             guard let dueDate else { return nil }
             if isOverdue(referenceDate: referenceDate) {
-                return OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: referenceDate) ?? "Overdue"
+                return OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: referenceDate) ?? String(localized: "From earlier")
             }
             if Calendar.current.isDate(dueDate, inSameDayAs: referenceDate) {
                 return dueDate.formatted(date: .omitted, time: .shortened)
@@ -624,7 +528,9 @@ private extension EvaDayOverviewBuilder {
             }
         }
     }
+}
 
+private extension EvaDayOverviewBuilder {
     struct ParsedHabit {
         let habitID: UUID
         let title: String
@@ -745,7 +651,7 @@ private extension EvaDayOverviewBuilder {
 
         func dueLabel(referenceDate: Date) -> String? {
             guard let dueAt else { return nil }
-            if isOverdue { return "Overdue" }
+            if isOverdue { return String(localized: "From earlier") }
             if Calendar.current.isDate(dueAt, inSameDayAs: referenceDate) {
                 return dueAt.formatted(date: .omitted, time: .shortened)
             }
@@ -767,12 +673,12 @@ private extension EvaDayOverviewBuilder {
         var statusChips: [EvaDayStatusChip] {
             var chips: [EvaDayStatusChip] = []
             if isOverdue {
-                chips.append(EvaDayStatusChip(text: "Overdue", tone: "danger"))
+                chips.append(EvaDayStatusChip(text: String(localized: "From earlier"), tone: "danger"))
             } else if isDueToday {
                 chips.append(EvaDayStatusChip(text: "Due today", tone: "accent"))
             }
             if riskState != .stable {
-                chips.append(EvaDayStatusChip(text: riskState == .broken ? "Broken" : "At risk", tone: "warning"))
+                chips.append(EvaDayStatusChip(text: riskState == .broken ? String(localized: "Streak ended") : String(localized: "At risk"), tone: "warning"))
             }
             return chips
         }

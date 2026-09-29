@@ -36,37 +36,45 @@ public struct PermissionPrimingSheet: View {
     }
 
     private var compactSheet: some View {
-        VStack(spacing: 20) {
-            Image(systemName: prompt.kind.symbolName)
-                .font(.largeTitle)
-                .foregroundStyle(Color.lifeboard(.accentPrimary))
-                .frame(width: 64, height: 64)
-                .lifeBoardClaySurface(.well, cornerRadius: 20)
-                .accessibilityHidden(true)
+        // Content-sized, not a fixed height: at large text sizes a 330pt sheet
+        // clipped the title and pushed the buttons off the bottom. The body
+        // scrolls when it outgrows the medium detent.
+        ScrollView {
+            VStack(spacing: 20) {
+                Image(systemName: prompt.kind.symbolName)
+                    .lifeboardFont(.title1)
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
+                    .frame(width: 64, height: 64)
+                    .lifeBoardClaySurface(.well, cornerRadius: 20)
+                    .accessibilityHidden(true)
 
-            VStack(spacing: 8) {
-                Text(prompt.kind.title)
-                    .font(.title3.bold())
-                    .foregroundStyle(Color.lifeboard(.textPrimary))
-                Text(prompt.kind.blurb)
-                    .font(.subheadline)
-                    .foregroundStyle(Color.lifeboard(.textSecondary))
-                    .multilineTextAlignment(.center)
-            }
+                VStack(spacing: 8) {
+                    Text(prompt.kind.title)
+                        .lifeboardFont(.title3)
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                        .multilineTextAlignment(.center)
+                    Text(prompt.kind.blurb)
+                        .lifeboardFont(.callout)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
-            VStack(spacing: 8) {
-                Button(prompt.kind.allowTitle) { onGrant([]) }
-                    .buttonStyle(.lifeBoardPrimary)
-                Button("Not now") { onDecline() }
-                    .font(.subheadline)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                VStack(spacing: 8) {
+                    Button(prompt.kind.allowTitle) { onGrant([]) }
+                        .buttonStyle(.lifeBoardPrimary)
+                    Button("Not now") { onDecline() }
+                        .lifeboardFont(.callout)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                }
             }
+            .padding(24)
+            .frame(maxWidth: .infinity)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity)
+        .scrollBounceBehavior(.basedOnSize)
         .background(Color.lifeboard(.bgCanvas).ignoresSafeArea())
-        .presentationDetents([.height(330)])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .accessibilityIdentifier("permission.priming.\(prompt.kind.rawValue)")
     }
@@ -90,11 +98,11 @@ public struct PermissionRecoveryCard: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(kind.title, systemImage: kind.symbolName)
-                .font(.subheadline.weight(.semibold))
+                .lifeboardFont(.bodyStrong)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
 
             Text(detail ?? kind.blurb)
-                .font(.footnote)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
 

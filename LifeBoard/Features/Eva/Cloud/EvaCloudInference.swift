@@ -137,7 +137,7 @@ private final class EvaSpeechDataStream: NSObject, URLSessionDataDelegate, @unch
             if let envelope = try? JSONDecoder.evaCloud.decode(EvaErrorEnvelope.self, from: errorData) {
                 continuation?.finish(throwing: envelope)
             } else {
-                continuation?.finish(throwing: EvaProviderError.unavailable("Spoken output returned HTTP \(statusCode)."))
+                continuation?.finish(throwing: EvaProviderError.unavailable(String(localized: "Couldn’t play the reply. Error \(statusCode).")))
             }
         } else { continuation?.finish() }
         continuation = nil

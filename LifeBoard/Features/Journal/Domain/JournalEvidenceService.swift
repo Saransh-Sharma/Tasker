@@ -58,7 +58,7 @@ struct JournalEvidenceService {
                 evidence: [],
                 confidence: 0,
                 followUpPrompt: nil,
-                limitations: "Journal evidence is turned off for Eva in Journal privacy settings."
+                limitations: "Eva can’t read your journal. Turn it on in Journal privacy."
             )
         }
 

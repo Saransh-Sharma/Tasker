@@ -79,11 +79,55 @@ public final class HabitBoardViewModel: ObservableObject {
         switch result {
         case .success:
             refresh()
+            Self.postDailyCommitment(habitID: habitID)
             return true
         case .failure(let error):
             errorMessage = error.localizedDescription
             return false
         }
+    }
+
+    /// A completion that persisted is a commitment; `FirstLightGate` decides
+    /// whether it is the day's first. Resets and partial amounts never post.
+    static func postDailyCommitment(habitID: UUID) {
+        NotificationCenter.default.post(
+            name: .lifeboardDailyCommitment,
+            object: nil,
+            userInfo: ["habitID": habitID.uuidString, FirstLightCommitment.sourceKey: FirstLightCommitment.Source.habit.rawValue]
+        )
+    }
+
+    /// A slip on a quit habit, recorded for today. Lapse-only habits are clean
+    /// by default and never asked for a daily tap; this is the one thing a
+    /// person records. Undo is `resetToday`. Never posts a daily commitment.
+    @discardableResult
+    public func logLapse(habitID: UUID) async -> Bool {
+        guard let resolveHabitOccurrenceUseCase, loggingHabitIDs.contains(habitID) == false else { return false }
+        loggingHabitIDs.insert(habitID)
+        defer { loggingHabitIDs.remove(habitID) }
+        let result: Result<Void, Error> = await withCheckedContinuation { continuation in
+            resolveHabitOccurrenceUseCase.execute(habitID: habitID, action: .lapsed, on: Date()) {
+                continuation.resume(returning: $0)
+            }
+        }
+        switch result {
+        case .success:
+            refresh()
+            return true
+        case .failure(let error):
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// How Home presents and logs a habit; the board rows carry neither kind
+    /// nor tracking mode, so this reads the library row behind them.
+    public func homeKind(for habitID: UUID) -> HomeHabitKind {
+        HomeHabitKind.resolve(
+            kind: libraryRow(for: habitID)?.kind ?? .positive,
+            trackingMode: libraryRow(for: habitID)?.trackingMode ?? .dailyCheckIn,
+            hasAmountTarget: amountTarget(for: habitID) != nil
+        )
     }
 
     /// Undo for a check-in: today goes back to not done.
@@ -119,6 +163,7 @@ public final class HabitBoardViewModel: ObservableObject {
             let receipt = try await logHabitAmountUseCase.execute(habitID: habitID, change: change)
             todayAmounts[habitID] = receipt.after
             if receipt.resolvedNow || receipt.unresolvedNow { refresh() }
+            if receipt.resolvedNow { Self.postDailyCommitment(habitID: habitID) }
             return true
         } catch {
             errorMessage = error.localizedDescription
@@ -145,6 +190,10 @@ public final class HabitBoardViewModel: ObservableObject {
         guard hasLoadedOnce == false else { return }
         hasLoadedOnce = true
         refresh()
+    }
+
+    public func clearError() {
+        errorMessage = nil
     }
 
     public func refresh() {

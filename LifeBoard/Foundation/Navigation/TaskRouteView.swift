@@ -12,7 +12,11 @@ struct TaskRouteView: View {
     @State private var confirmsDelete = false
     @State private var expandedFields: Set<String> = []
     @State private var dismissedReceiptID: UUID?
-    @FocusState private var textFocused: Bool
+    /// Title and notes each get their own focus value — they shared one `Bool`,
+    /// which gave "focus the notes" no defined target — so Return on the title
+    /// can hand the keyboard to the notes.
+    private enum EditorField: Hashable { case title, notes }
+    @FocusState private var textFocus: EditorField?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(id: UUID, dependencies: PlanFeatureDependencies, router: AppRouter) {
@@ -26,21 +30,21 @@ struct TaskRouteView: View {
         Group {
             switch store.loadState {
             case .loading:
-                ProgressView("Opening task…")
+                ProgressView("Loading…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .missing:
                 StatusSurface(
                     state: .unavailable,
                     title: "Task not found",
-                    message: "It may have been removed on another device."
+                    message: String(localized: "It may have been deleted.")
                 )
             case .failed(let message):
                 ContentUnavailableView {
-                    Label("Task could not be opened", systemImage: "exclamationmark.triangle")
+                    Label("Couldn’t open task", systemImage: "exclamationmark.triangle")
                 } description: {
-                    Text(message)
+                    Text(message).foregroundColor(Color(SemanticColorTokens.inkSecondary))
                 } actions: {
-                    Button("Try Again") { Task { await store.load() } }
+                    Button("Try again") { Task { await store.load() } }
                 }
             case .ready:
                 editor
@@ -51,20 +55,42 @@ struct TaskRouteView: View {
         .toolbar {
             ToolbarItem(placement: .secondaryAction) {
                 Menu {
-                    Button("Open in Plan", systemImage: "calendar") { router.select(.plan) }
+                    // Reschedule to tomorrow in two taps from anywhere a task
+                    // opens, keeping a time of day when the task has one.
+                    Button(DecisionDestination.tomorrow.title, systemImage: DecisionDestination.tomorrow.systemImage) {
+                        Task { await moveToTomorrow() }
+                    }
+                    .accessibilityIdentifier("task.editor.tomorrow")
+                    // "Open in Plan" only switched tabs and left Plan on
+                    // whatever day it was showing. It now lands on this task's
+                    // day, and is offered only when the task has one.
+                    if let day = plannedDay {
+                        Button("Show in Plan", systemImage: "calendar") {
+                            showInPlan(day)
+                        }
+                        .accessibilityIdentifier("task.editor.showInPlan")
+                    }
                     Button("Archive", systemImage: "archivebox") {
                         Task {
+                            let title = store.draft.task.title
                             await store.archive()
-                            if case .saved = store.mutationState { router.pop() }
+                            guard case .saved = store.mutationState else { return }
+                            handOffReceipt(String(localized: "Archived \u{201C}\(title)\u{201D}"))
+                            router.pop()
                         }
                     }
                     Button("Delete", systemImage: "trash", role: .destructive) {
                         confirmsDelete = true
                     }
+                    .accessibilityIdentifier("task.editor.delete")
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    // A titled label, not a bare image: the toolbar still draws
+                    // only the icon, but on iPhone this item folds into the
+                    // navigation bar's overflow menu, where an untitled menu
+                    // was listed as a second, meaningless "More".
+                    Label("Task actions", systemImage: "ellipsis.circle")
                 }
-                .accessibilityLabel("Task actions")
+                .accessibilityIdentifier("task.editor.actions")
             }
         }
         .task(id: id) { await load() }
@@ -74,8 +100,8 @@ struct TaskRouteView: View {
             previous.details = new.details
             store.scheduleAutosave(textOnly: previous == new)
         }
-        .onChange(of: textFocused) { _, focused in
-            if !focused { Task { await store.flushAutosave() } }
+        .onChange(of: textFocus) { _, focus in
+            if focus == nil { Task { await store.flushAutosave() } }
         }
         .onDisappear { Task { await store.flushAutosave() } }
         .safeAreaInset(edge: .bottom) {
@@ -89,7 +115,7 @@ struct TaskRouteView: View {
                             Text(message)
                                 .lifeboardFont(.support)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                            Button("Retry") { Task { await store.flushAutosave() } }
+                            Button("Try again") { Task { await store.flushAutosave() } }
                                 .lifeboardFont(.buttonSmall)
                                 .frame(minHeight: 44)
                         }
@@ -120,13 +146,75 @@ struct TaskRouteView: View {
         ) {
             Button("Delete task", role: .destructive) {
                 Task {
+                    let title = store.draft.task.title
                     await store.delete()
-                    if case .saved = store.mutationState { router.pop() }
+                    guard case .saved = store.mutationState else { return }
+                    handOffReceipt(String(localized: "Deleted \u{201C}\(title)\u{201D}"))
+                    router.pop()
                 }
             }
+            .accessibilityIdentifier("task.editor.delete.confirm")
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("The task is removed from every task view. The receipt can restore it without rebuilding a second task.")
+            Text("You can undo this.")
+        }
+    }
+}
+
+extension TaskRouteView {
+    /// This screen pops after archiving or deleting, so its own receipt would
+    /// vanish; the shell keeps the Undo reachable. The store stays alive inside
+    /// the closure because its receipt is what reverses the change.
+    private func handOffReceipt(_ message: String) {
+        let store = store
+        router.shellReceipt = ShellReceipt(message: message) {
+            await store.undo()
+            if case .failed = store.mutationState { return false }
+            return true
+        }
+    }
+
+    /// The day this task is planned for, timed or not.
+    private var plannedDay: PlanningDay? {
+        if let start = store.draft.scheduledStartAt { return PlanningDay(date: start) }
+        return store.planning.planningDay
+    }
+
+    private func showInPlan(_ day: PlanningDay) {
+        Haptic.pick.play()
+        Task {
+            await store.flushAutosave()
+            PlanDayHandoff.request(day)
+            router.popToRoot(in: .plan)
+            router.select(.plan)
+        }
+    }
+
+    private func moveToTomorrow() async {
+        let calendar = Calendar.current
+        let draft = store.draft
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date())) ?? Date()
+        let selection: TaskWhenSelection
+        if let start = draft.scheduledStartAt {
+            // Same time of day, tomorrow — whichever day it was on before.
+            let time = calendar.dateComponents([.hour, .minute], from: start)
+            let moved = calendar.date(
+                bySettingHour: time.hour ?? 9,
+                minute: time.minute ?? 0,
+                second: 0,
+                of: tomorrow
+            ) ?? tomorrow
+            selection = .timed(moved)
+        } else {
+            selection = .day(tomorrow)
+        }
+        store.draft = selection.applying(to: draft)
+        await store.flushAutosave()
+        if case .failed = store.mutationState {
+            Haptic.fail.play()
+        } else {
+            Haptic.commit.play()
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Moved to Tomorrow"))
         }
     }
 
@@ -135,21 +223,27 @@ struct TaskRouteView: View {
         return ScrollView {
             VStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 16) {
-                    TextField("What needs doing?", text: $editor.draft.title, axis: .vertical)
+                    TextField("Task name", text: $editor.draft.title, prompt: Text("Task name").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                         .font(.title2.weight(.semibold))
                         .textInputAutocapitalization(.sentences)
-                        .focused($textFocused)
+                        .focused($textFocus, equals: .title)
+                        // A title never holds a newline: Return moves on to notes.
+                        .returnKey(.next, text: $editor.draft.title) { textFocus = .notes }
                         .accessibilityIdentifier("task.editor.title")
                     TextField(
-                        "Notes, links, or the useful context future-you will need",
+                        "Notes",
                         text: Binding(
                             get: { editor.draft.details ?? "" },
                             set: { editor.draft.details = $0.isEmpty ? nil : $0 }
                         ),
+                        // The default placeholder measured 1.7:1 on paper.
+                        prompt: Text("Notes")
+                            .foregroundColor(Color(SemanticColorTokens.inkSecondary)),
                         axis: .vertical
                     )
                     .lineLimit(3...10)
-                    .focused($textFocused)
+                    .focused($textFocus, equals: .notes)
+                    .keyboardBar(focus: $textFocus, equals: .notes)
                     .accessibilityIdentifier("task.editor.notes")
                 }
                 .taskEditorSurface()
@@ -226,7 +320,7 @@ struct TaskRouteView: View {
                 }
                 DisclosureGroup("More") {
                 VStack(alignment: .leading, spacing: 16) {
-                    TaskEditorControls.header("Shape the work", symbol: "slider.horizontal.3")
+                    TaskEditorControls.header("Details", symbol: "slider.horizontal.3")
                     Picker(
                         "Section",
                         selection: Binding(
@@ -263,7 +357,7 @@ struct TaskRouteView: View {
                     LabeledContent("Energy") {
                         Picker("Energy", selection: $editor.draft.energy) {
                             ForEach(TaskEnergy.allCases, id: \.self) {
-                                Text($0.rawValue.capitalized).tag($0)
+                                Text($0.displayName).tag($0)
                             }
                         }
                         .labelsHidden()
@@ -271,7 +365,7 @@ struct TaskRouteView: View {
                     LabeledContent("Context") {
                         Picker("Context", selection: $editor.draft.context) {
                             ForEach(TaskContext.allCases, id: \.self) {
-                                Text($0.rawValue.capitalized).tag($0)
+                                Text($0.displayName).tag($0)
                             }
                         }
                         .labelsHidden()
@@ -283,12 +377,14 @@ struct TaskRouteView: View {
                 TaskEditorRelationsSection(editor: editor, showsTags: false)
                 }
 
+                // Commit-first: the switch moves at once, the write follows, and a
+                // failed write puts it back with `Haptic.fail`. The success
+                // haptic plays only once the completion is persisted. Kept a
+                // switch (not `CompletionControl`) because the UI suite reads
+                // "task.editor.completion" as a switch with a 0/1 value.
                 Toggle(isOn: Binding(
                     get: { editor.draft.isComplete },
-                    set: {
-                        editor.draft.isComplete = $0
-                        editor.draft.dateCompleted = $0 ? Date() : nil
-                    }
+                    set: { commitCompletion($0) }
                 )) {
                     Label(
                         editor.draft.isComplete ? "Completed" : "Mark complete",
@@ -296,7 +392,7 @@ struct TaskRouteView: View {
                     )
                     .font(.headline)
                 }
-                .tint(Color(SemanticColorTokens.foundationSageAccent))
+                .tint(Color(SemanticColorTokens.foundationSageInk))
                 .accessibilityIdentifier("task.editor.completion")
                 .taskEditorSurface()
 
@@ -315,30 +411,56 @@ struct TaskRouteView: View {
         .background(Color(SemanticColorTokens.foundationSurfaceSolid).ignoresSafeArea())
     }
 
+    private func commitCompletion(_ isComplete: Bool) {
+        let previous = store.draft
+        store.draft.isComplete = isComplete
+        store.draft.dateCompleted = isComplete ? Date() : nil
+        Task {
+            await store.flushAutosave()
+            if case .failed = store.mutationState {
+                store.draft.isComplete = previous.isComplete
+                store.draft.dateCompleted = previous.dateCompleted
+                Haptic.fail.play()
+            } else if isComplete {
+                Haptic.commit.play()
+            } else {
+                Haptic.pick.play()
+            }
+        }
+    }
+
+    /// Preset lengths, not a 5-minute stepper: getting to two hours took
+    /// twenty-four taps.
+    private static let estimatePresets = [15, 30, 45, 60, 120]
+
     private func estimateControl(editor: Bindable<TaskEditorStore>) -> some View {
-        let minutes = Int((editor.wrappedValue.draft.estimatedDuration ?? 0) / 60)
-        return HStack {
-            Text("Estimate")
-            Spacer()
-            Button {
-                editor.wrappedValue.draft.estimatedDuration = max(0, minutes - 5) == 0
-                    ? nil
-                    : TimeInterval(max(0, minutes - 5) * 60)
-            } label: {
-                Image(systemName: "minus")
-                    .frame(width: 44, height: 44)
+        let minutes = Int(((editor.wrappedValue.draft.estimatedDuration ?? 0) / 60).rounded())
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Estimate")
+                Spacer()
+                Text(minutes == 0 ? "Not set" : LifeBoardDuration.text(minutes: minutes))
+                    .monospacedDigit()
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
-            .accessibilityLabel("Reduce estimate")
-            Text(minutes == 0 ? "Not set" : "\(minutes) min")
-                .font(.body.monospacedDigit())
-                .frame(minWidth: 72)
-            Button {
-                editor.wrappedValue.draft.estimatedDuration = TimeInterval(max(5, minutes + 5) * 60)
-            } label: {
-                Image(systemName: "plus")
-                    .frame(width: 44, height: 44)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Self.estimatePresets, id: \.self) { preset in
+                        let isSelected = minutes == preset
+                        Button {
+                            Haptic.pick.play()
+                            editor.wrappedValue.draft.estimatedDuration = isSelected ? nil : TimeInterval(preset * 60)
+                        } label: {
+                            Text(LifeBoardDuration.text(minutes: preset))
+                                .foregroundStyle(Color(isSelected ? SemanticColorTokens.inkPrimary : SemanticColorTokens.inkSecondary))
+                        }
+                        .buttonStyle(.lifeBoardChip)
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
+                        .accessibilityHint(isSelected ? "Clears the estimate" : "")
+                        .accessibilityIdentifier("task.editor.estimate.\(preset)")
+                    }
+                }
             }
-            .accessibilityLabel("Increase estimate")
         }
     }
 
@@ -400,8 +522,7 @@ enum TaskEditorChipCopy {
             return draft.dueDate.map { "Due \(dayLabel($0, calendar: calendar, now: now))" }
         case "Duration":
             guard let seconds = draft.estimatedDuration, seconds > 0 else { return nil }
-            let minutes = Int((seconds / 60).rounded())
-            return minutes < 60 ? "\(minutes)m" : (minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(minutes % 60)m")
+            return LifeBoardDuration.text(seconds: seconds)
         case "Project":
             guard draft.projectID != ProjectConstants.inboxProjectID else { return nil }
             return projectName

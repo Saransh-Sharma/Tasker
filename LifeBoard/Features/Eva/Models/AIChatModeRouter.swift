@@ -82,7 +82,7 @@ struct AIChatModeRouter {
                 idealModelSizeGB: idealSize,
                 selectedModelSizeGB: selectedSize,
                 shouldPromptDownload: installed.isEmpty,
-                bannerMessage: usedFallback ? "Using \(displayName(for: selectedModelName)) across all AI features." : nil
+                bannerMessage: usedFallback ? String(localized: "Using \(displayName(for: selectedModelName)).") : nil
             )
         }
 
@@ -116,7 +116,7 @@ struct AIChatModeRouter {
                 idealModelSizeGB: idealSize,
                 selectedModelSizeGB: ModelConfiguration.getModelByName(fallback)?.modelSize,
                 shouldPromptDownload: installed.isEmpty,
-                bannerMessage: "Using \(displayName(for: fallback)) because the default model is unavailable."
+                bannerMessage: String(localized: "Using \(displayName(for: fallback)). Default model unavailable.")
             )
         }
 
@@ -129,8 +129,8 @@ struct AIChatModeRouter {
             selectedModelSizeGB: nil,
             shouldPromptDownload: installed.isEmpty,
             bannerMessage: installed.isEmpty
-                ? "Install a local model to use AI features."
-                : "Installed models are unavailable on this device."
+                ? String(localized: "Download a model to use Eva offline.")
+                : String(localized: "Downloaded models don’t run on this device.")
         )
     }
 

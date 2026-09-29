@@ -54,12 +54,6 @@ extension XCTestCase {
         return context.navigationBars[title]
     }
 
-    /// Find tab bar button by label
-    func tabBarButton(_ label: String, in element: XCUIElement? = nil) -> XCUIElement {
-        let context = element ?? XCUIApplication()
-        return context.tabBars.buttons[label]
-    }
-
     // MARK: - Table View Helpers
 
     /// Get table cell at index
@@ -225,16 +219,6 @@ extension XCTestCase {
     }
 
     // MARK: - Wait Helpers
-
-    /// Wait for network request to complete (useful for CloudKit sync)
-    func waitForNetworkIdle(timeout: TimeInterval = 5) {
-        let indicator = XCUIApplication().descendants(matching: .any)["network.activity"]
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate { _, _ in indicator.exists == false },
-            object: NSObject()
-        )
-        _ = XCTWaiter.wait(for: [expectation], timeout: timeout)
-    }
 
     /// Wait for animation to complete
     func waitForAnimations(duration: TimeInterval = 0.5) {

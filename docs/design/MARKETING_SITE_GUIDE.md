@@ -36,7 +36,7 @@ The homepage opens with:
 
 The story then moves through fragmentation, the canonical eight-stage loop,
 the five roots, a realistic day, seven life domains, feature proof, trust,
-Apple ecosystem continuity, and a final download invitation. EVA and XP support
+Apple ecosystem continuity, and a final download invitation. Eva and XP support
 the story; neither replaces the broader Life OS position.
 
 ## Voice and terminology
@@ -51,7 +51,7 @@ Use these names consistently:
 
 - **LifeBoard** for the product;
 - **Life OS** for the category in public prose;
-- **EVA** for the assistant;
+- **Eva** for the assistant (never "EVA"; see DESIGN.md "Voice and copy");
 - `orient → capture → organize → plan → focus or track → recover → reflect → adapt` for the operating loop.
 
 Do not use perfection pressure, fear, inflated urgency, fabricated social proof,
@@ -65,7 +65,7 @@ expressive display language; Geist carries body and interface copy. Composition
 should feel authored through asymmetric product arrangements, generous space,
 quiet rules, editorial numbering, and varied rhythm.
 
-Real product UI is the primary proof. Celestial forms and EVA artwork may
+Real product UI is the primary proof. Celestial forms and Eva artwork may
 reinforce orientation or assistance, but must never obscure the interface.
 Avoid generic dark-indigo AI styling, excessive glass, repetitive equal-card
 grids, decorative autoplay media, and ornamental hover movement.

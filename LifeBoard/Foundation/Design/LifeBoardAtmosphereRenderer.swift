@@ -222,6 +222,23 @@ public struct AtmosphereDescriptor: Equatable, Sendable {
         descriptor(for: phase).usesInverseHeaderInk
     }
 
+    /// How far down the screen, in points from the top of the window, the
+    /// night sky stays dark enough that only the inverse ink reads.
+    ///
+    /// Measured 2026-09-18 down the leading margin of every root in light
+    /// appearance: the sky holds at 0.03–0.09 relative luminance to ~280pt,
+    /// then climbs through 0.22–0.39 as the hills fade to paper. In that band
+    /// cocoa and the inverse ink both clear the 3:1 large-text floor, so only
+    /// copy *above* this line is forced inverse. Dark appearance veils the
+    /// whole scene, where the inverse ink reads everywhere.
+    public static let nightSkyInkBoundary: CGFloat = 290
+
+    /// Whether copy drawn straight on the scene at `globalMinY` needs the
+    /// fixed inverse ink rather than the appearance's own ink.
+    public static func needsInverseInk(for phase: CelestialPhase, atGlobalMinY globalMinY: CGFloat) -> Bool {
+        usesInverseHeaderInk(for: phase) && globalMinY < nightSkyInkBoundary
+    }
+
     /// Celestial anchors deliberately sit in the trailing-top corner across
     /// every phase. Morning previously anchored at x 0.52 with the largest
     /// scale in the set, which put a full-strength sun directly behind the
@@ -341,6 +358,41 @@ extension EnvironmentValues {
     }
 }
 
+/// Ink for copy drawn straight on the daypart scene (section headings, not
+/// card content): `base` normally, the fixed inverse ink wherever the view
+/// actually sits on the dark night sky. Decided by position, not by which
+/// heading happens to come first, so the answer survives Home's stage and
+/// arrangement changes. See `AtmosphereDescriptor.nightSkyInkBoundary`.
+struct NightSkyAwareForeground: ViewModifier {
+    let base: Color
+    let inverse: Color
+    @Environment(\.lifeBoardAtmosphereSnapshot) private var atmosphereSnapshot
+    @State private var globalMinY: CGFloat = .infinity
+
+    func body(content: Content) -> some View {
+        let onNightSky = AtmosphereDescriptor.needsInverseInk(
+            for: atmosphereSnapshot.phase,
+            atGlobalMinY: globalMinY
+        )
+        content
+            .foregroundStyle(onNightSky ? inverse : base)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.frame(in: .global).minY
+            } action: { minY in
+                globalMinY = minY
+            }
+    }
+}
+
+extension View {
+    func nightSkyAwareForeground(
+        _ base: Color,
+        inverse: Color = Color(SemanticColorTokens.foundationOnScenicDark)
+    ) -> some View {
+        modifier(NightSkyAwareForeground(base: base, inverse: inverse))
+    }
+}
+
 public struct AtmosphereHost<Content: View>: View {
     private let preferences: PresentationPreferences
     private let placement: AtmospherePlacement
@@ -431,6 +483,7 @@ public struct AdaptiveAtmosphere: View {
     @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     @Environment(\.colorSchemeContrast) private var accessibilityContrast
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) var scenePhase
     @Environment(\.lifeBoardComposerScrollObserver) var scrollObserver
     @Environment(\.lifeBoardRootActivity) private var rootActivity
@@ -483,9 +536,10 @@ public struct AdaptiveAtmosphere: View {
                 // The raw scroll offset is observation-ignored and sampled by
                 // this clock, so scrolling no longer invalidates this parent or
                 // the shell's static backdrop hierarchy on every point.
+                // The nocturnal veil is drawn inside the motion layers, under the
+                // celestial body: laid over everything, its navy wash turned the
+                // sun a muddy olive in dark appearance.
                 motionLayers(descriptor: descriptor, layout: layout, size: proxy.size)
-
-                nocturnalVeil()
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
@@ -500,9 +554,7 @@ public struct AdaptiveAtmosphere: View {
         // system Reduce Motion on kept the 0.18s cut here while every other
         // layer around it crossfaded.
         .animation(
-            MotionOverride.resolve(reduceMotion)
-                ? .linear(duration: 0.18)
-                : .easeInOut(duration: 0.65),
+            InteractionMotion.dayShift(reduceMotion: reduceMotion),
             value: snapshot.transitionIdentity
         )
         .accessibilityHidden(true)
@@ -511,6 +563,9 @@ public struct AdaptiveAtmosphere: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in powerRevision &+= 1 }
         .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in powerRevision &+= 1 }
     }
+}
+
+extension AdaptiveAtmosphere {
     /// Wide-layout underlay: the same daypart art, blown out and blurred until
     /// it reads as ambient colour rather than a second picture.
     private func scenicBed(descriptor: AtmosphereDescriptor) -> some View {
@@ -592,6 +647,9 @@ public struct AdaptiveAtmosphere: View {
             || placement.allowsIdleDrift == false
             || scenePhase != .active
             || rootActivity.performsContinuousWork == false
+            // Settles after 20 s without a touch, and while onboarding
+            // covers the shell. See `AmbientActivityClock`.
+            || AmbientActivityClock.shared.allowsAmbientMotion == false
         TimelineView(.animation(minimumInterval: 1 / 30, paused: paused)) { context in
             let time = visualPhase.time(at: context.date)
             let parallax = sampledParallaxOffset
@@ -612,6 +670,8 @@ public struct AdaptiveAtmosphere: View {
                 }
 
                 phaseWash(descriptor: descriptor)
+
+                nocturnalVeil()
 
                 if showsCelestial {
                     celestial(
@@ -636,6 +696,15 @@ public struct AdaptiveAtmosphere: View {
         }
     }
 
+    /// The celestial is decoration. At accessibility text sizes the header
+    /// copy runs the full width and crossed the disc — light title ink on the
+    /// gold sun — so it steps back to a faint disc there.
+    private var celestialOpacity: Double {
+        if dynamicTypeSize.isAccessibilitySize { return 0.28 }
+        if reduceTransparency { return 0.94 }
+        return colorScheme == .dark ? 0.84 : 1
+    }
+
     private func celestial(
         descriptor: AtmosphereDescriptor,
         layout: ScenicLayout,
@@ -654,7 +723,9 @@ public struct AdaptiveAtmosphere: View {
             .resizable()
             .scaledToFit()
             .frame(width: diameter, height: diameter)
-            .opacity(reduceTransparency ? 0.94 : 1)
+            // Above the veil now, so dark appearance softens the body by
+            // opacity — hue intact — instead of tinting it toward the canvas.
+            .opacity(celestialOpacity)
             .rotationEffect(.degrees(rotation))
             .scaleEffect(breath)
             .position(
@@ -665,32 +736,6 @@ public struct AdaptiveAtmosphere: View {
             )
             .id(descriptor.celestialAsset)
             .transition(.opacity.combined(with: .scale(scale: 0.992)))
-    }
-
-    private func starField(
-        descriptor: AtmosphereDescriptor,
-        layout: ScenicLayout,
-        size: CGSize,
-        time: TimeInterval,
-        paused: Bool
-    ) -> some View {
-        let count = size.width >= 700 ? descriptor.regularStarCount : descriptor.compactStarCount
-        let visibleCount = reduceTransparency ? max(4, count / 2) : count
-        return Canvas(rendersAsynchronously: true) { graphics, canvasSize in
-            for index in 0..<visibleCount {
-                let x = layout.minX + pseudoRandom(index * 41 + 7) * layout.width
-                let y = 18 + pseudoRandom(index * 67 + 19) * canvasSize.height * 0.40
-                let base = 0.8 + pseudoRandom(index * 23 + 3) * 1.4
-                let cycle = 2.2 + pseudoRandom(index * 13 + 2) * 3.4
-                let wave = paused ? 0.72 : 0.52 + 0.46 * sin((time / cycle + Double(index)) * .pi * 2)
-                let opacity = reduceTransparency ? max(0.58, wave) : wave
-                let rect = CGRect(x: x, y: y, width: base, height: base)
-                let color = index.isMultiple(of: 3)
-                    ? Color(lifeboardHex: SceneHex.starCool)
-                    : Color(lifeboardHex: SceneHex.starWarm)
-                graphics.fill(Path(ellipseIn: rect), with: .color(color.opacity(opacity)))
-            }
-        }
     }
 }
 
@@ -897,7 +942,7 @@ public struct TactileTileButtonStyle: ButtonStyle {
             )
             .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.97 : 1)
             .brightness(configuration.isPressed ? -0.025 : 0)
-            .animation(reduceMotion ? nil : LifeBoardAnimation.rolePress, value: configuration.isPressed)
+            .animation(MotionProfile.press.animation(reduceMotion: reduceMotion), value: configuration.isPressed)
     }
 }
 
@@ -1019,15 +1064,15 @@ public struct VisualFixtureSurface: View {
     private var copy: (title: String, message: String, action: String?) {
         let rootName = fixture.root.rawValue.capitalized
         return switch fixture.state {
-        case .populated: ("\(rootName) is ready", "Deterministic populated content is available.", nil)
-        case .empty: ("A little room to begin", "Your \(fixture.root.rawValue) space will grow as you use LifeBoard.", "Add something")
-        case .loading: ("Gathering \(fixture.root.rawValue)", "This will disappear as soon as authoritative data arrives.", nil)
-        case .stale: ("Last known view", "Some information is out of date. Your saved work is still here.", "Refresh")
-        case .offline: ("You’re offline", "You can keep working locally. Connected details will return later.", "Try again")
-        case .denied: ("Permission stays with you", "LifeBoard can continue without this access, or you can enable it in Settings.", "Open Settings")
-        case .recoverableError: ("That didn’t quite land", "Nothing was lost. Try the operation again when you’re ready.", "Try again")
-        case .locked: ("This space is protected", "Unlock to reveal private content.", "Unlock")
-        case .destructiveConfirmation: ("Confirm this change", "This action affects saved information and needs your approval.", "Review")
+        case .populated: (rootName, "Sample content.", nil)
+        case .empty: ("Nothing here yet", "", "Add")
+        case .loading: ("Loading…", "", nil)
+        case .stale: ("Not up to date", "Showing the last saved view.", "Refresh")
+        case .offline: ("Offline", "Changes sync when you’re back online.", "Try again")
+        case .denied: ("Access is off", "Turn it on in Settings.", "Open Settings")
+        case .recoverableError: ("Couldn’t load \(rootName)", "Nothing was lost.", "Try again")
+        case .locked: ("Locked", "", "Unlock")
+        case .destructiveConfirmation: ("Delete this?", "This can’t be undone.", "Delete")
         }
     }
 }
@@ -1112,13 +1157,15 @@ public struct StatusSurface: View {
             VStack(alignment: .leading, spacing: density == .compact ? 2 : 5) {
                 Text(title)
                     .font(density == .compact ? .subheadline.weight(.medium) : .headline)
-                Text(message)
-                    .font(density == .compact ? .caption : .subheadline)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    .fixedSize(horizontal: false, vertical: true)
+                if message.isEmpty == false {
+                    Text(message)
+                        .font(density == .compact ? .caption : .subheadline)
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 if let actionTitle, let action {
-                    // Was `.buttonStyle(.bordered)` — the canonical state
+                    // Was `.buttonStyle(.lifeBoardChip)` — the canonical state
                     // surface, which every empty and error state in the product
                     // is supposed to route through, rendering its one action as
                     // a stock grey iOS capsule.
@@ -1261,202 +1308,5 @@ public extension View {
             cornerRadius: cornerRadius,
             fill: palette.clayFill(for: .well)
         )
-    }
-}
-
-public extension DaypartPalette {
-    /// The fill a clay surface takes on this palette. Nocturnal compositions
-    /// lift off their own layer colours so cards stay part of the scene
-    /// instead of punching bright holes in it.
-    func clayFill(for depth: ClayDepth) -> Color {
-        switch depth {
-        case .well:
-            return isNocturnal
-                ? color(for: .layerTwo)
-                : color(for: .canvasSecondary).opacity(0.72)
-        case .resting, .raised:
-            return isNocturnal
-                ? color(for: .layerOne)
-                : Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.94)
-        case .floating:
-            return isNocturnal
-                ? color(for: .layerOne)
-                : Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.97)
-        }
-    }
-}
-
-// MARK: - Metric ring
-
-/// The shared circular signal used by Home, Track, and Insights. Values
-/// animate only when they change; empty and setup states stay visually and
-/// semantically distinct from an honest zero.
-public struct MetricRing: View {
-    public enum RingState: Equatable, Sendable {
-        case loading
-        /// Authorized, but nothing recorded yet. Tapping can add a value.
-        case setupRequired
-        /// Never authorized, so there is nothing to show and nothing to add.
-        /// Distinct from `setupRequired`: the way forward is a permission, not
-        /// an entry.
-        case permissionRequired
-        case unavailable
-        case stale(progress: Double, centerText: String)
-        case zero(centerText: String)
-        case value(progress: Double, centerText: String)
-        case complete(centerText: String)
-    }
-
-    private let label: String
-    private let state: RingState
-    private let diameter: CGFloat
-    private let palette: DaypartPalette
-    /// When set, the interior renders a rising liquid surface (hydration,
-    /// fasting) instead of staying empty — the ported wave fill.
-    private let liquidTint: Color?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    public init(
-        label: String,
-        state: RingState,
-        diameter: CGFloat = 60,
-        palette: DaypartPalette,
-        liquidTint: Color? = nil
-    ) {
-        self.label = label
-        self.state = state
-        self.diameter = diameter
-        self.palette = palette
-        self.liquidTint = liquidTint
-    }
-
-    private var progress: Double {
-        switch state {
-        case .loading, .setupRequired, .permissionRequired, .unavailable, .zero: 0
-        case .stale(let progress, _), .value(let progress, _): min(1, max(0, progress))
-        case .complete: 1
-        }
-    }
-
-    private var centerText: String? {
-        switch state {
-        case .loading, .setupRequired, .permissionRequired, .unavailable: nil
-        case .stale(_, let text), .zero(let text), .value(_, let text), .complete(let text): text
-        }
-    }
-
-    public var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .stroke(
-                        Color(trackIsTheSignal
-                            ? SemanticColorTokens.metricRingTrackProminent
-                            : SemanticColorTokens.metricRingTrack),
-                        style: StrokeStyle(
-                            lineWidth: trackIsTheSignal ? 3 : 5,
-                            dash: usesDashedTrack ? [3, 5] : []
-                        )
-                    )
-                if let liquidTint, permitsProgressLayer {
-                    LiquidFill(level: progress, tint: liquidTint)
-                        .clipShape(Circle().inset(by: 4))
-                        .allowsHitTesting(false)
-                }
-                if case .loading = state {
-                    ProgressView().controlSize(.small)
-                } else if permitsProgressLayer {
-                    Circle()
-                        .trim(from: 0, to: progress)
-                        .stroke(
-                            ringColor,
-                            style: StrokeStyle(lineWidth: 5, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90))
-                        .animation(
-                            reduceMotion ? nil : LifeBoardAnimation.numericUpdate,
-                            value: progress
-                        )
-                }
-                if let centerText {
-                    Text(centerText)
-                        .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                        .monospacedDigit()
-                        .minimumScaleFactor(0.6)
-                        .lineLimit(1)
-                        .padding(.horizontal, 7)
-                } else if let statusSymbol {
-                    Image(systemName: statusSymbol)
-                        .lifeboardFont(.meta)
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                }
-            }
-            .frame(width: diameter, height: diameter)
-            Text(label)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                .lineLimit(1)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
-        .accessibilityValue(accessibilityValueText)
-    }
-
-    private var ringColor: Color {
-        if case .complete = state {
-            return Color(SemanticColorTokens.foundationSageAccent)
-        }
-        if case .stale = state {
-            return Color(SemanticColorTokens.foundationApricotAccent)
-        }
-        return Color(SemanticColorTokens.metricRingFill)
-    }
-
-    private var usesDashedTrack: Bool {
-        switch state {
-        case .setupRequired, .permissionRequired, .unavailable, .stale: true
-        default: false
-        }
-    }
-
-    /// True when there is no progress arc, so the track is the only thing
-    /// communicating state and has to carry full non-text contrast.
-    private var trackIsTheSignal: Bool {
-        switch state {
-        case .setupRequired, .permissionRequired, .unavailable: true
-        default: false
-        }
-    }
-
-    private var permitsProgressLayer: Bool {
-        switch state {
-        case .stale, .value, .complete: true
-        case .loading, .setupRequired, .permissionRequired, .unavailable, .zero: false
-        }
-    }
-
-    private var statusSymbol: String? {
-        switch state {
-        case .setupRequired: "plus"
-        // Not "plus": a "+" promises that tapping adds a value, which is
-        // exactly what a declined permission cannot do.
-        case .permissionRequired: "hand.raised"
-        case .unavailable: "slash"
-        default: nil
-        }
-    }
-
-    private var accessibilityValueText: String {
-        switch state {
-        case .loading: "Loading"
-        case .setupRequired: "Set up"
-        case .permissionRequired: "Not shared"
-        case .unavailable: "Unavailable"
-        case .stale(let progress, let text): "\(text), out of date, \(Int((min(1, max(0, progress)) * 100).rounded())) percent"
-        case .zero(let text): "\(text), no progress recorded"
-        case .value(let progress, let text): "\(text), \(Int((min(1, max(0, progress)) * 100).rounded())) percent"
-        case .complete(let text): "\(text), complete"
-        }
     }
 }

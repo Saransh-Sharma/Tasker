@@ -19,18 +19,19 @@ enum ChatPendingResponseStatusText {
     ) -> String? {
         guard phase.isActive else { return nil }
 
+        let name = AssistantIdentityText.currentSnapshot().displayName
         if isActivationPresentation {
             switch phase {
             case .idle:
                 return nil
             case .buildingContext:
-                return "Gathering the tasks and goals you permitted..."
+                return String(localized: "Reading your tasks…")
             case .assemblingPrompt:
-                return "Preparing your first planning request..."
+                return String(localized: "Thinking…")
             case .preparingModel:
-                return "Getting \(AssistantIdentityText.currentSnapshot().displayName) ready..."
+                return String(localized: "Starting \(name)…")
             case .generating:
-                return "Drafting your recommendation..."
+                return String(localized: "Drafting a plan…")
             }
         }
 
@@ -38,13 +39,13 @@ enum ChatPendingResponseStatusText {
         case .idle:
             return nil
         case .buildingContext:
-            return "Gathering the context you permitted..."
+            return String(localized: "Reading your tasks…")
         case .assemblingPrompt:
-            return "Preparing your request..."
+            return String(localized: "Thinking…")
         case .preparingModel:
-            return "Getting Eva ready..."
+            return String(localized: "Starting \(name)…")
         case .generating:
-            return "Drafting a response..."
+            return String(localized: "Writing…")
         }
     }
 }
@@ -196,7 +197,7 @@ struct ChatTranscriptSnapshot: Equatable, Sendable {
 
     static let empty = ChatTranscriptSnapshot(
         threadID: nil,
-        title: "chat",
+        title: String(localized: "New chat"),
         recentUserMessageFragments: [],
         messages: [],
         containsUndoCard: false,
@@ -226,7 +227,7 @@ struct ChatTranscriptSnapshot: Equatable, Sendable {
         }
 
         self.threadID = thread.id
-        self.title = firstTitle?.isEmpty == false ? firstTitle! : "chat"
+        self.title = firstTitle?.isEmpty == false ? firstTitle! : String(localized: "New chat")
         self.recentUserMessageFragments = recentUserMessageFragments
         self.messages = renderMessages
         self.containsUndoCard = renderMessages.contains { $0.cardPayload?.cardType == .undo }

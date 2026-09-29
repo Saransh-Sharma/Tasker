@@ -31,12 +31,14 @@ public enum ResolvedDaypart: String, Codable, CaseIterable, Hashable, Sendable {
         }
     }
 
+    /// The Home and Track root title. Night says "Tonight": "Good night" is
+    /// a goodbye, and this greets the person as they open the app.
     public var greeting: String {
         switch self {
-        case .morning: return "Good morning!"
-        case .afternoon: return "Good afternoon!"
-        case .evening: return "Good evening!"
-        case .night: return "Good night!"
+        case .morning: return String(localized: "Good morning")
+        case .afternoon: return String(localized: "Good afternoon")
+        case .evening: return String(localized: "Good evening")
+        case .night: return String(localized: "Tonight")
         }
     }
 }

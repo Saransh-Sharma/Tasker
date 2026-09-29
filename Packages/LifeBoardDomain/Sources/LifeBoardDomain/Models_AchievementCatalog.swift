@@ -30,57 +30,57 @@ public enum AchievementCatalog {
     public static let all: [AchievementDefinition] = [
         AchievementDefinition(
             key: "first_step",
-            name: "First Step",
-            description: "Complete your first task",
+            name: String(localized: "First step"),
+            description: String(localized: "Complete your first task"),
             sfSymbol: "shoe.fill",
             category: .completion
         ),
         AchievementDefinition(
             key: "xp_100",
-            name: "Century",
-            description: "Reach 100 XP",
+            name: String(localized: "Century"),
+            description: String(localized: "Reach 100 XP"),
             sfSymbol: "star.fill",
             category: .xp
         ),
         AchievementDefinition(
             key: "week_warrior",
-            name: "Week Warrior",
-            description: "Maintain a 7-day streak",
+            name: String(localized: "Week warrior"),
+            description: String(localized: "Keep a 7-day streak"),
             sfSymbol: "calendar.badge.checkmark",
             category: .streak
         ),
         AchievementDefinition(
             key: "seven_day_return",
-            name: "Comeback Kid",
-            description: "Maintain a 7-day return streak",
+            name: String(localized: "Comeback kid"),
+            description: String(localized: "Come back 7 days in a row"),
             sfSymbol: "arrow.counterclockwise",
             category: .streak
         ),
         AchievementDefinition(
             key: "on_time_10_week",
-            name: "Punctual Pro",
-            description: "Complete 10 tasks on time in a week",
+            name: String(localized: "Punctual pro"),
+            description: String(localized: "Complete 10 tasks on time in a week"),
             sfSymbol: "clock.badge.checkmark",
             category: .completion
         ),
         AchievementDefinition(
             key: "decomposer_20",
-            name: "Decomposer",
-            description: "Break down 20 tasks into subtasks",
+            name: String(localized: "Decomposer"),
+            description: String(localized: "Break down 20 tasks into subtasks"),
             sfSymbol: "square.split.2x2",
             category: .mastery
         ),
         AchievementDefinition(
             key: "reflection_7",
-            name: "Mindful",
-            description: "Complete 7 daily reflections",
+            name: String(localized: "Mindful"),
+            description: String(localized: "Reflect on 7 days"),
             sfSymbol: "brain.head.profile",
             category: .mastery
         ),
         AchievementDefinition(
             key: "comeback_after_7_idle",
-            name: "Phoenix",
-            description: "Return after 7+ idle days",
+            name: String(localized: "Phoenix"),
+            description: String(localized: "Come back after 7 days away"),
             sfSymbol: "sunrise.fill",
             category: .streak
         ),

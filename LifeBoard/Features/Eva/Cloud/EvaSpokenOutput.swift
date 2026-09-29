@@ -96,7 +96,7 @@ final class EvaSpokenOutputController {
     func play(text: String, allowPaidRegeneration: Bool = false) {
         stop()
         guard EvaCloudAccountState.shared.configuration?.ttsEnabled == true else {
-            state = .failed(String(localized: "Spoken output is not available right now."))
+            state = .failed(String(localized: "Voice isn’t available."))
             return
         }
         activeText = text
@@ -113,7 +113,7 @@ final class EvaSpokenOutputController {
                     return
                 }
                 guard let ticket = await EvaSpeechTicketRegistry.shared.ticket(for: text) else {
-                    throw EvaProviderError.unavailable(String(localized: "Spoken output is no longer cached. Generate it again from the answer menu."))
+                    throw EvaProviderError.unavailable(String(localized: "Couldn’t play this reply. Generate it again from the menu."))
                 }
                 let stream = try await EvaCloudTransport.shared.speech(
                     requestId: ticket.requestId,

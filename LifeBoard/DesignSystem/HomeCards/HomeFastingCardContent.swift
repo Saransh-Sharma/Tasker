@@ -14,9 +14,9 @@ struct HomeFastingCardContent: View {
         VStack(alignment: .leading, spacing: 14) {
             Button(action: onOpen) {
                 VStack(alignment: .leading, spacing: 14) {
-                    HomeWidgetTitle("Active fast", symbol: "timer", palette: palette)
+                    HomeWidgetTitle(String(localized: "Fasting"), symbol: "timer", palette: palette)
                         .accessibilityIdentifier("home.widget.fasting")
-                .homeCardEvidence("fasting.title", role: "title", copy: "Active fast", typography: .init(role: "headline", points: 17, weight: "semibold", alignment: "leading"))
+                .homeCardEvidence("fasting.title", role: "title", copy: "Fasting", typography: .init(role: "headline", points: 17, weight: "semibold", alignment: "leading"))
                     if let elapsed {
                         VStack(alignment: .leading, spacing: 12) {
                             Text(elapsed).lifeboardFont(.metric).monospacedDigit()
@@ -31,8 +31,8 @@ struct HomeFastingCardContent: View {
                         .accessibilityLabel("Active fast")
                         .accessibilityValue("\(elapsed) elapsed. \(finish)")
                     } else {
-                        HomeEmptyStateRow("No fast is active", symbol: "checkmark.circle", palette: palette)
-                            .homeCardEvidence("fasting.empty", role: "text", copy: "No fast is active", typography: .init(role: "subheadline", points: 15, weight: "regular", alignment: "leading"))
+                        HomeEmptyStateRow(String(localized: "Not fasting"), symbol: "checkmark.circle", palette: palette)
+                            .homeCardEvidence("fasting.empty", role: "text", copy: "Not fasting", typography: .init(role: "subheadline", points: 15, weight: "regular", alignment: "leading"))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -61,7 +61,7 @@ struct HomeFastingCardContent: View {
 
     private var detailsButton: some View {
         Button("View details", action: onOpen)
-            .buttonStyle(.bordered)
+            .buttonStyle(.lifeBoardChip)
             .frame(maxWidth: .infinity, minHeight: 44)
     }
 }

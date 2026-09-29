@@ -89,6 +89,9 @@
   {"utterance":"let us plan today","route":"dayPlanning"},
   {"utterance":"I want to plan tomorrow","route":"dayPlanning"},
   {"utterance":"time to plan my day","route":"dayPlanning"},
+  {"utterance":"help me plan my day. what are my tasks?","route":"readOnlyReview"},
+  {"utterance":"plan today? what's left on my plate","route":"readOnlyReview"},
+  {"utterance":"can you plan my day?","route":"dayPlanning"},
 
   {"utterance":"move my report to tomorrow","route":"taskMutation"},
   {"utterance":"reschedule design review","route":"taskMutation"},

@@ -168,19 +168,19 @@ struct EvaContextReceiptSheet: View {
         NavigationStack {
             List {
                 Section("Request") {
-                    LabeledContent("Provider", value: "Cloud EVA")
+                    LabeledContent("Runs on", value: String(localized: "Cloud"))
                     LabeledContent("Route", value: receipt.route.rawValue)
                     LabeledContent("Sent", value: receipt.timestamp.formatted(date: .abbreviated, time: .shortened))
-                    LabeledContent("Consent revision", value: String(receipt.consentRevision))
+                    LabeledContent("Consent version", value: String(receipt.consentRevision))
                 }
                 ForEach(receipt.categories) { category in
                     Section(category.category.capitalized) {
                         LabeledContent("Availability", value: category.availability.capitalized)
                         if let included = category.includedCount {
-                            LabeledContent("Records included", value: String(included))
+                            LabeledContent("Included", value: String(included))
                         }
                         if category.sourceIDs.isEmpty {
-                            Text("No record identifiers were included in this section.")
+                            Text("Nothing listed.")
                                 .foregroundStyle(Color.lifeboard(.textSecondary))
                         } else {
                             ForEach(category.sourceIDs, id: \.self) { sourceID in
@@ -188,16 +188,16 @@ struct EvaContextReceiptSheet: View {
                             }
                         }
                         if let grant = EvaConsentPolicy.Grant(rawValue: category.category) {
-                            Button("Turn off \(category.category.capitalized) for future turns") {
+                            Button("Stop using \(category.category.capitalized)") {
                                 updateGrant(grant, enabled: false)
                             }
                         }
                     }
                 }
                 Section {
-                    Text("These controls affect future EVA requests only. Excluding a record never deletes it from LifeBoard.")
+                    Text("Applies to future requests. Nothing is deleted.")
                         .foregroundStyle(Color.lifeboard(.textSecondary))
-                    NavigationLink("EVA privacy and consent settings") {
+                    NavigationLink("Privacy settings") {
                         EvaCloudSettingsView()
                     }
                 }
@@ -205,7 +205,7 @@ struct EvaContextReceiptSheet: View {
             .navigationTitle("Context used")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .alert("EVA privacy", isPresented: Binding(
+            .alert("Couldn’t update privacy", isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
             )) { Button("OK", role: .cancel) {} } message: { Text(errorMessage ?? "") }

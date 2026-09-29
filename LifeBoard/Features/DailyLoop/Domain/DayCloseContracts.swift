@@ -27,10 +27,10 @@ public enum DayCloseDirection: String, Codable, CaseIterable, Hashable, Sendable
 
     public var title: String {
         switch self {
-        case .tomorrow: "Tomorrow"
-        case .someday: "Someday"
-        case .doneAnyway: "Already done"
-        case .release: "Let it go"
+        case .tomorrow: String(localized: "Tomorrow")
+        case .someday: String(localized: "Someday")
+        case .doneAnyway: String(localized: "Already done")
+        case .release: String(localized: "Let it go")
         }
     }
 
@@ -38,10 +38,10 @@ public enum DayCloseDirection: String, Codable, CaseIterable, Hashable, Sendable
     /// summary can read "3 moved to tomorrow" rather than scoring the day.
     public var summaryVerb: String {
         switch self {
-        case .tomorrow: "moved to tomorrow"
-        case .someday: "moved to someday"
-        case .doneAnyway: "marked done"
-        case .release: "let go"
+        case .tomorrow: String(localized: "moved to Tomorrow")
+        case .someday: String(localized: "moved to Someday")
+        case .doneAnyway: String(localized: "marked done")
+        case .release: String(localized: "let go")
         }
     }
 
@@ -58,10 +58,10 @@ public enum DayCloseDirection: String, Codable, CaseIterable, Hashable, Sendable
     /// an accelerator; this is the equal path.
     public func accessibilityLabel(for taskTitle: String) -> String {
         switch self {
-        case .tomorrow: "Move \(taskTitle) to tomorrow"
-        case .someday: "Move \(taskTitle) to someday"
-        case .doneAnyway: "Mark \(taskTitle) already done"
-        case .release: "Let \(taskTitle) go"
+        case .tomorrow: String(localized: "Move \(taskTitle) to Tomorrow")
+        case .someday: String(localized: "Move \(taskTitle) to Someday")
+        case .doneAnyway: String(localized: "Mark \(taskTitle) already done")
+        case .release: String(localized: "Let \(taskTitle) go")
         }
     }
 }
@@ -248,11 +248,11 @@ public enum DayCloseAct: String, Codable, CaseIterable, Hashable, Sendable {
 
     public var title: String {
         switch self {
-        case .ribbon: "Your day"
-        case .reconcile: "What carries"
-        case .reflect: "One line"
-        case .anchor: "Tomorrow's first thing"
-        case .close: "Close"
+        case .ribbon: String(localized: "Today")
+        case .reconcile: String(localized: "What’s left")
+        case .reflect: String(localized: "Note")
+        case .anchor: String(localized: "First thing tomorrow")
+        case .close: String(localized: "Close the day")
         }
     }
 }

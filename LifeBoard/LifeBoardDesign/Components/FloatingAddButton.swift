@@ -20,6 +20,6 @@ struct FloatingAddButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.addTaskButton")
-        .accessibilityLabel("Add Task")
+        .accessibilityLabel("Add task")
     }
 }

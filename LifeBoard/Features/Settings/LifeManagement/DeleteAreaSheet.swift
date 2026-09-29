@@ -25,25 +25,30 @@ struct DeleteAreaSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Delete Area") {
-                    Text("\(draft.areaName) has \(draft.projectCount) projects and \(draft.habitCount) habits. Move them to another area before you delete it.")
+                Section("Delete area") {
+                    Text("‘\(draft.areaName)’ has ^[\(draft.projectCount) project](inflect: true) and ^[\(draft.habitCount) habit](inflect: true). Move them first.")
                 }
 
-                Section("Move items to") {
-                    Picker("Destination", selection: $draft.destinationLifeAreaID) {
+                Section("Move them to") {
+                    Picker("Area", selection: $draft.destinationLifeAreaID) {
                         ForEach(targets) { target in
                             Text(target.lifeArea.name).tag(Optional(target.id))
                         }
                     }
                 }
             }
-            .navigationTitle("Delete Area")
+            // The warm canvas behind the grouped list, not the system's pure white
+            // (light) or pure black (dark) grouped background.
+            .scrollContentBackground(.hidden)
+            .background { GrainedCanvas() }
+            .navigationTitle("Delete area")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         onCancel()
                     }
+                    .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Delete", role: .destructive) {

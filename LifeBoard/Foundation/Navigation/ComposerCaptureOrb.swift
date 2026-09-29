@@ -46,7 +46,7 @@ struct ComposerCaptureOrb: View {
             // The label names the destination, not the shape. "Collapsed
             // composer" would describe our layout problem rather than what
             // happens when the control is activated.
-            .accessibilityLabel("Ask Eva or capture")
+            .accessibilityLabel("Add a task or ask Eva")
             .accessibilityIdentifier("lifeThread.composer.orb")
         }
         // Trailing, because the send control the capsule ends with is trailing.

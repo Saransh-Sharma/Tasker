@@ -27,15 +27,15 @@ struct LifeManagementAreaDetailView: View {
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 AreaSummaryRow(row: row)
                                 LifeManagementAppearanceLine(
-                                    title: "Appearance",
+                                    title: "Color",
                                     accentHex: lifeManagementAreaAccentHex(row.lifeArea),
-                                    value: "Palette color"
+                                    value: ""
                                 )
                                 if row.lifeArea.isArchived == false {
-                                    Button("Edit Area") {
+                                    Button("Edit area") {
                                         onEditArea(row.id)
                                     }
-                                    .buttonStyle(.bordered)
+                                    .buttonStyle(.lifeBoardChip)
                                 }
                             }
                         }
@@ -46,26 +46,26 @@ struct LifeManagementAreaDetailView: View {
                                     HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                                         sectionTitle("Projects")
                                         Spacer()
-                                        Button("Add Project") {
+                                        Button("Add project") {
                                             onBeginCreateProject(row.id)
                                         }
-                                        .buttonStyle(.bordered)
+                                        .buttonStyle(.lifeBoardChip)
                                         .disabled(row.lifeArea.isArchived)
                                     }
 
                                     VStack(alignment: .leading, spacing: spacing.s8) {
                                         sectionTitle("Projects")
-                                        Button("Add Project") {
+                                        Button("Add project") {
                                             onBeginCreateProject(row.id)
                                         }
-                                        .buttonStyle(.bordered)
+                                        .buttonStyle(.lifeBoardChip)
                                         .disabled(row.lifeArea.isArchived)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
 
                                 if snapshot.projectRows.isEmpty {
-                                    Text("No projects in this area yet.")
+                                    Text("No projects yet")
                                         .font(.lifeboard(.callout))
                                         .foregroundStyle(Color.lifeboard(.textSecondary))
                                 } else {
@@ -87,7 +87,7 @@ struct LifeManagementAreaDetailView: View {
                                     HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                                         sectionTitle("Habits")
                                         Spacer()
-                                        Button("Add Habit") {
+                                        Button("Add habit") {
                                             onCreateHabit(
                                                 AddHabitPrefillTemplate(
                                                     title: "",
@@ -95,13 +95,13 @@ struct LifeManagementAreaDetailView: View {
                                                 )
                                             )
                                         }
-                                        .buttonStyle(.bordered)
+                                        .buttonStyle(.lifeBoardChip)
                                         .disabled(row.lifeArea.isArchived)
                                     }
 
                                     VStack(alignment: .leading, spacing: spacing.s8) {
                                         sectionTitle("Habits")
-                                        Button("Add Habit") {
+                                        Button("Add habit") {
                                             onCreateHabit(
                                                 AddHabitPrefillTemplate(
                                                     title: "",
@@ -109,14 +109,14 @@ struct LifeManagementAreaDetailView: View {
                                                 )
                                             )
                                         }
-                                        .buttonStyle(.bordered)
+                                        .buttonStyle(.lifeBoardChip)
                                         .disabled(row.lifeArea.isArchived)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
 
                                 if snapshot.habitRows.isEmpty {
-                                    Text("No habits in this area yet.")
+                                    Text("No habits yet")
                                         .font(.lifeboard(.callout))
                                         .foregroundStyle(Color.lifeboard(.textSecondary))
                                 } else {
@@ -158,7 +158,7 @@ struct LifeManagementAreaDetailView: View {
             } else {
                 Color.lifeboard(.bgCanvas)
                     .overlay {
-                        Text("This area is no longer available.")
+                        Text("This area isn’t available.")
                             .font(.lifeboard(.body))
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
@@ -180,14 +180,14 @@ struct LifeManagementAreaDetailView: View {
             }
             .buttonStyle(.lifeBoardPrimaryCompact)
         } else if row.isGeneral == false {
-            Button("Archive Area") {
+            Button("Archive area") {
                 onArchiveArea(row.id)
             }
             .buttonStyle(.bordered)
         }
 
         if row.isGeneral == false {
-            Button("Delete Area", role: .destructive) {
+            Button("Delete area", role: .destructive) {
                 onDeleteArea(row.id)
             }
             .buttonStyle(.bordered)

@@ -2,50 +2,6 @@ import SwiftUI
 #if os(iOS)
 import UIKit
 #endif
-public enum SettingsDetailRoute: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
-    case setupCenter
-    case planAndOrganize
-    case calendarAndHealth
-    case eva
-    case reminders
-    case lookAndFeel
-    case dataAndHelp
-    case lifeManagement
-    case llm
-    case chats
-    case models
-    case recovery
-    case notices
-    public var id: String { rawValue }
-    public static let categories: [SettingsDetailRoute] = [
-        .setupCenter,
-        .planAndOrganize,
-        .calendarAndHealth,
-        .eva,
-        .reminders,
-        .lookAndFeel,
-        .dataAndHelp,
-    ]
-    public var isCategory: Bool { Self.categories.contains(self) }
-    public var title: String {
-        switch self {
-        case .setupCenter: return "Connections"
-        case .planAndOrganize: return "Plan & Organize"
-        case .calendarAndHealth: return "Calendar & Health"
-        case .eva: return "Eva"
-        case .reminders: return "Reminders"
-        case .lookAndFeel: return "Look & Feel"
-        case .dataAndHelp: return "Data & Help"
-        case .lifeManagement: return "Life Management"
-        case .llm: return "Eva’s Intelligence"
-        case .chats: return "Chat Behavior"
-        case .models: return "Models"
-        case .recovery: return "Recovery"
-        case .notices: return "Acknowledgements"
-        }
-    }
-    public var transitionID: String { "route.settings.\(rawValue)" }
-}
 struct SettingsRootView: View {
     private enum NotificationExpansion: Hashable {
         case dueSoon
@@ -58,21 +14,23 @@ struct SettingsRootView: View {
     let presentationPreferences: PresentationPreferences?
     let onNavigate: ((SettingsDetailRoute) -> Void)?
     @Environment(\.lifeboardTokens) private var tokens
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardLayoutClass) private var layoutClass
+    @Environment(\.openURL) var openURL
     @State private var expandedNotificationRow: NotificationExpansion?
     @State private var selectedPadCategory: SettingsDetailRoute?
     @State private var timelineAnchorDraft = TimelineAnchorDraft(preferences: WorkspacePreferences())
     @State private var healthStore = HealthCoordinator.shared.connectionStore
     @AppStorage("healthPrivacyLocalOnlyNoticeAcknowledged") private var didAcknowledgeHealthPrivacyNotice = false; @AppStorage(ProductTelemetry.enabledKey) private var productTelemetryEnabled = true
     @State private var showsHealthPrivacyNotice = false
+    /// E5: Eva is the companion; the sprite personas are an opt-in under a closed disclosure.
+    @State private var showsPersonaPicker = false
     /// Resolved on appear rather than recomputed per render: opening a SQLite
     /// index is not something a view body should do on every layout pass.
     @State private var recoveryStatus = RecoveryStatusService.live().status()
     @State private var showsCalendarChooser = false
     @State private var calendarChooserRequiresSelection = false
-    @State private var copiedVersion = false
+    @State var copiedVersion = false
     init(
         viewModel: SettingsViewModel,
         destination: SettingsDetailRoute? = nil,
@@ -85,23 +43,26 @@ struct SettingsRootView: View {
         self.onNavigate = onNavigate
     }
     private let dueSoonLeadOptions: [(value: Int, label: String)] = [
-        (15, "15m"),
-        (30, "30m"),
-        (45, "45m"),
-        (60, "1h"),
-        (90, "1.5h"),
-        (120, "2h"),
+        (15, String(localized: "15 min")),
+        (30, String(localized: "30 min")),
+        (45, String(localized: "45 min")),
+        (60, String(localized: "1 hr")),
+        (90, String(localized: "90 min")),
+        (120, String(localized: "2 hr")),
     ]
     private let weekStartOptions: [(value: Weekday, label: String)] = Weekday.allCases.map {
         ($0, $0.displayTitle)
     }
-    private var spacing: SemanticSpacingTokens {
+    var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
+    /// The two-pane layout needs room for both panes. The layout class now
+    /// follows the window's width, so a ½ Split View or a narrow window gets
+    /// the single-column hub instead of a 390-point sidebar beside a sliver.
     private var isPadLayout: Bool {
-        horizontalSizeClass == .regular || layoutClass == .padRegular || layoutClass == .padExpanded
+        layoutClass == .padRegular || layoutClass == .padExpanded
     }
-    private var sectionTopPadding: CGFloat {
+    var sectionTopPadding: CGFloat {
         SettingsMetrics.sectionSpacing
     }
     /// A deliberate tail below the last setting.
@@ -137,7 +98,7 @@ struct SettingsRootView: View {
             ),
             .init(
                 id: "model",
-                title: "Chief of staff",
+                title: "Eva",
                 value: viewModel.chiefOfStaffSummary,
                 systemImage: "brain.head.profile",
                 tone: .accent
@@ -164,19 +125,23 @@ struct SettingsRootView: View {
             .onAppear {
                 viewModel.reload()
                 timelineAnchorDraft = TimelineAnchorDraft(preferences: viewModel.workspacePreferences)
-                showsHealthPrivacyNotice = V2FeatureFlags.healthIntegrationsV1Enabled && didAcknowledgeHealthPrivacyNotice == false
+                // "Now stays on this device" is news only to someone whose
+                // data moved; a new install never had it anywhere else.
+                showsHealthPrivacyNotice = V2FeatureFlags.healthIntegrationsV1Enabled
+                    && UserDefaults.standard.bool(forKey: "healthPrivacyMigrationAffectedUser")
+                    && didAcknowledgeHealthPrivacyNotice == false
                 Task { await healthStore.refreshAuthorization() }
             }
             .onDisappear {
                 viewModel.commitTimelineAnchorDraft(timelineAnchorDraft)
             }
             .accessibilityIdentifier("settings.root")
-            .alert("Health data now stays on this device", isPresented: $showsHealthPrivacyNotice) {
+            .alert("Health data stays on this device", isPresented: $showsHealthPrivacyNotice) {
                 Button("Got it") {
                     didAcknowledgeHealthPrivacyNotice = true
                 }
             } message: {
-                Text("LifeBoard wellness records are stored locally. They are not uploaded to LifeBoard’s CloudKit store, analytics, or logs.")
+                Text("Health, mood and water logs aren’t synced to iCloud or analytics.")
             }
             .sheet(isPresented: $showsCalendarChooser, onDismiss: {
                 calendarChooserRequiresSelection = false
@@ -261,7 +226,7 @@ struct SettingsRootView: View {
                     .padding(spacing.s20)
                 }
                 .scrollIndicators(.hidden)
-                .frame(width: 390)
+                .frame(width: layoutClass == .padExpanded ? 390 : 320)
 
                 Divider()
                     .overlay(Color.lifeboard(.borderSubtle))
@@ -305,7 +270,7 @@ struct SettingsRootView: View {
                 status: recoveryStatus,
                 onRecover: { recovery in
                     _ = recovery
-                    return "Open Journal to rebuild its search index."
+                    return String(localized: "Open Journal to rebuild search.")
                 },
                 onExportDiagnostics: viewModel.copyRecoveryDiagnostics
             )
@@ -314,8 +279,8 @@ struct SettingsRootView: View {
         case .lifeManagement:
             StatusSurface(
                 state: .unavailable,
-                title: "Life Management",
-                message: "Return to Settings and open Life Management again."
+                title: "Life management",
+                message: "Go back and open it again."
             )
         default:
             premiumCategoryScroll(route)
@@ -394,7 +359,7 @@ struct SettingsRootView: View {
         }
     }
 
-    private func navigate(_ route: SettingsDetailRoute) {
+    func navigate(_ route: SettingsDetailRoute) {
         if let onNavigate {
             onNavigate(route)
             return
@@ -417,9 +382,9 @@ struct SettingsRootView: View {
 private extension SettingsRootView {
     private var overviewSection: some View {
         SettingsHeroCard(
-            eyebrow: "LifeBoard Settings",
-            title: "Tune your workspace",
-            subtitle: "Manage reminders, AI, and workspace preferences in one place.",
+            eyebrow: "LifeBoard",
+            title: "Settings",
+            subtitle: "",
             statusItems: overviewStatusItems,
             accessibilityIdentifier: "settings.hero.card"
         )
@@ -473,7 +438,7 @@ private extension SettingsRootView {
     private func healthSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
             title: "Apple Health",
-            subtitle: "Reads stay private. Write controls apply to future changes.",
+            subtitle: "Saves new logs to Apple Health.",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -508,7 +473,7 @@ private extension SettingsRootView {
                         SettingsNavigationRow(
                             descriptor: SettingsDestinationDescriptor(
                                 iconName: "arrow.triangle.2.circlepath",
-                                title: healthStore.isRefreshing ? "Syncing…" : "Sync Now",
+                                title: healthStore.isRefreshing ? "Syncing…" : "Sync now",
                                 subtitle: healthSyncSubtitle,
                                 trailingStatus: healthStore.lastSuccessfulSync?.formatted(date: .abbreviated, time: .shortened),
                                 tone: .accent,
@@ -522,8 +487,8 @@ private extension SettingsRootView {
                         SettingsNavigationRow(
                             descriptor: SettingsDestinationDescriptor(
                                 iconName: "gear",
-                                title: "Authorization recovery",
-                                subtitle: "Health access is changed in Settings.",
+                                title: "Health access",
+                                subtitle: "Opens the Settings app.",
                                 tone: .neutral,
                                 accessibilityIdentifier: "settings.health.recovery"
                             ),
@@ -553,9 +518,9 @@ private extension SettingsRootView {
 
     private var healthSyncSubtitle: String {
         if healthStore.nonSensitiveErrorCode != nil {
-            return "The last sync could not finish. Your local records are still saved."
+            return String(localized: "Couldn’t finish the last sync. Nothing was lost.")
         }
-        return "Refresh anchored imports and process pending writes. Apple Health works without a network connection."
+        return String(localized: "Works offline.")
     }
 
     private func openAppSettings() {
@@ -577,7 +542,7 @@ private extension SettingsRootView {
     private func workspaceSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
             title: "Workspace",
-            subtitle: "Manage life areas, projects, habits, and structure.",
+            subtitle: "",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -586,8 +551,8 @@ private extension SettingsRootView {
                     SettingsNavigationRow(
                         descriptor: SettingsDestinationDescriptor(
                             iconName: "square.grid.2x2.fill",
-                            title: "Life Management",
-                            subtitle: "Review life areas, projects, and daily structure.",
+                            title: "Life management",
+                            subtitle: "Areas, projects and habits",
                             accessibilityIdentifier: "settings.workspace.lifeManagement.row"
                         ),
                         action: { navigate(.lifeManagement) }
@@ -599,14 +564,14 @@ private extension SettingsRootView {
                     VStack(alignment: .leading, spacing: SettingsMetrics.cardInnerPadding) {
                         SettingsInfoRow(
                             iconName: "calendar",
-                            title: "Start of week",
-                            subtitle: "This sets when weekly planning rolls over and when upcoming-week planning appears.",
-                            value: viewModel.weekStartsOnSummary,
+                            title: "Week starts on",
+                            subtitle: "",
                             accessibilityIdentifier: "settings.workspace.weekStart.row"
                         )
 
+                        // The row above names the choice; the chips are it.
                         SettingsChipSelector(
-                            title: "Week starts on",
+                            title: "",
                             options: weekStartOptions,
                             selectedValue: viewModel.workspacePreferences.weekStartsOn,
                             onSelect: viewModel.updateWeekStartsOn,
@@ -621,8 +586,8 @@ private extension SettingsRootView {
 
     private func calendarSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
-            title: String(localized: "Calendar & Schedule"),
-            subtitle: String(localized: "Read-only calendar context for Home, Today/Week agenda, and task-fit hints."),
+            title: String(localized: "Calendar"),
+            subtitle: String(localized: "Read-only. Events show next to your tasks."),
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -646,10 +611,10 @@ private extension SettingsRootView {
                     SettingsNavigationRow(
                         descriptor: SettingsDestinationDescriptor(
                             iconName: "slider.horizontal.3",
-                            title: String(localized: "Calendar selection"),
+                            title: String(localized: "Calendars"),
                             subtitle: viewModel.calendarAuthorizationStatus.isAuthorizedForRead
-                                ? String(localized: "Choose calendars for Home and the schedule view.")
-                                : String(localized: "Connect calendar access before selecting calendars."),
+                                ? ""
+                                : String(localized: "Turn on calendar access first."),
                             trailingStatus: viewModel.calendarStatusSummary,
                             tone: viewModel.calendarAuthorizationStatus.isAuthorizedForRead ? .accent : .warning,
                             accessibilityIdentifier: "settings.calendar.selection.row"
@@ -663,8 +628,8 @@ private extension SettingsRootView {
                     VStack(spacing: SettingsMetrics.cardInnerPadding) {
                         SettingsToggleRow(
                             iconName: "person.crop.circle.badge.xmark",
-                            title: String(localized: "Include declined events"),
-                            subtitle: String(localized: "Show declined meetings in agenda and Home context."),
+                            title: String(localized: "Show declined events"),
+                            subtitle: nil,
                             isOn: Binding(
                                 get: { viewModel.includeDeclinedCalendarEvents },
                                 set: { viewModel.setIncludeDeclinedCalendarEvents($0) }
@@ -677,8 +642,8 @@ private extension SettingsRootView {
 
                         SettingsToggleRow(
                             iconName: "calendar.badge.exclamationmark",
-                            title: String(localized: "Include canceled events"),
-                            subtitle: String(localized: "Show canceled events in Home, schedule, and task-fit context."),
+                            title: String(localized: "Show canceled events"),
+                            subtitle: nil,
                             isOn: Binding(
                                 get: { viewModel.includeCanceledCalendarEvents },
                                 set: { viewModel.setIncludeCanceledCalendarEvents($0) }
@@ -691,8 +656,8 @@ private extension SettingsRootView {
 
                         SettingsToggleRow(
                             iconName: "sun.max",
-                            title: String(localized: "Include all-day events in agenda"),
-                            subtitle: String(localized: "Show all-day events in Today/Week lists."),
+                            title: String(localized: "All-day events in lists"),
+                            subtitle: nil,
                             isOn: Binding(
                                 get: { viewModel.includeAllDayInAgenda },
                                 set: { viewModel.setIncludeAllDayInAgenda($0) }
@@ -705,8 +670,8 @@ private extension SettingsRootView {
 
                         SettingsToggleRow(
                             iconName: "chart.bar.xaxis",
-                            title: String(localized: "Include all-day events in busy strip"),
-                            subtitle: String(localized: "Use all-day events when calculating compact busy blocks."),
+                            title: String(localized: "All-day events as busy"),
+                            subtitle: nil,
                             isOn: Binding(
                                 get: { viewModel.includeAllDayInBusyStrip },
                                 set: { viewModel.setIncludeAllDayInBusyStrip($0) }
@@ -723,8 +688,8 @@ private extension SettingsRootView {
 
     private func aiAssistantSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
-            title: "AI Assistant",
-            subtitle: "Configure models, memory, and privacy.",
+            title: viewModel.chiefOfStaffSummary,
+            subtitle: "",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -735,11 +700,20 @@ private extension SettingsRootView {
                 .enhancedStaggeredAppearance(index: baseIndex)
 
                 SettingsCard(active: true) {
-                    MascotPersonaSelector(
-                        selectedID: viewModel.selectedMascotID,
-                        cardAccessibilityPrefix: "settings.chiefOfStaff.persona",
-                        onSelect: viewModel.selectChiefOfStaffMascot
-                    )
+                    DisclosureGroup(isExpanded: $showsPersonaPicker) {
+                        MascotPersonaSelector(
+                            selectedID: viewModel.selectedMascotID,
+                            cardAccessibilityPrefix: "settings.chiefOfStaff.persona",
+                            onSelect: viewModel.selectChiefOfStaffMascot
+                        )
+                        .padding(.top, 8)
+                    } label: {
+                        Text("Change companion")
+                            .font(.lifeboard(.bodyEmphasis))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
+                    }
+                    .tint(Color.lifeboard(.accentPrimary))
+                    .accessibilityIdentifier("settings.chiefOfStaff.persona.disclosure")
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
 
@@ -747,10 +721,10 @@ private extension SettingsRootView {
                     SettingsNavigationRow(
                         descriptor: SettingsDestinationDescriptor(
                             iconName: "sparkles.rectangle.stack.fill",
-                            title: "Eva’s Intelligence",
-                            subtitle: "Choose how Eva thinks, remembers, and protects your privacy.",
+                            title: String(localized: "\(viewModel.chiefOfStaffSummary) settings"),
+                            subtitle: "",
                             trailingStatus: viewModel.aiAssistantSummary,
-                            inlineBadge: viewModel.memoryItemCount == 0 ? SettingsInlineBadge(title: "Memory empty") : nil,
+                            inlineBadge: viewModel.memoryItemCount == 0 ? SettingsInlineBadge(title: String(localized: "No memories")) : nil,
                             tone: .accent,
                             accessibilityIdentifier: "settings.aiAssistant.row"
                         ),
@@ -763,8 +737,8 @@ private extension SettingsRootView {
                     SettingsNavigationRow(
                         descriptor: SettingsDestinationDescriptor(
                             iconName: "bubble.left.and.bubble.right.fill",
-                            title: "Chat Behavior",
-                            subtitle: "Shape how conversations begin, continue, and stay focused.",
+                            title: "Chat behavior",
+                            subtitle: "",
                             tone: .accent,
                             accessibilityIdentifier: "settings.aiAssistant.chats.row"
                         ),
@@ -784,7 +758,7 @@ private extension SettingsRootView {
                     .font(.lifeboard(.headline))
                     .foregroundStyle(Color.lifeboard(.textPrimary))
                     .accessibilityIdentifier("settings.chiefOfStaff.name")
-                Text("Your chief of staff for tasks, habits, calendar, and planning.")
+                Text("Your assistant")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
@@ -793,13 +767,13 @@ private extension SettingsRootView {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("settings.chiefOfStaff.card")
-        .accessibilityLabel("\(viewModel.selectedMascotPersona.displayName). Your chief of staff for tasks, habits, calendar, and planning.")
+        .accessibilityLabel("\(viewModel.selectedMascotPersona.displayName), your assistant")
     }
 
     private func timelineSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
             title: String(localized: "Timeline"),
-            subtitle: String(localized: "Control timeline calendar overlays and daily start/end anchors."),
+            subtitle: "",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -807,8 +781,8 @@ private extension SettingsRootView {
                 SettingsCard {
                     SettingsToggleRow(
                         iconName: "calendar.badge.clock",
-                        title: String(localized: "Show calendar events in timeline"),
-                        subtitle: String(localized: "Affects Home timeline rows and weekly timeline markers. The calendar card stays unchanged."),
+                        title: String(localized: "Show events in timeline"),
+                        subtitle: String(localized: "On Home and in the week view."),
                         isOn: Binding(
                             get: { viewModel.showCalendarEventsInTimeline },
                             set: { viewModel.setShowCalendarEventsInTimeline($0) }
@@ -820,14 +794,14 @@ private extension SettingsRootView {
                 .enhancedStaggeredAppearance(index: baseIndex)
 
                 SettingsFieldCard(
-                    title: String(localized: "Timeline Anchors"),
-                    subtitle: String(localized: "Set the start and wind-down times shown in your Home timeline."),
-                    footer: String(localized: "If Wind Down is earlier than Rise & Shine, the timeline carries into the next day."),
+                    title: String(localized: "Day start and end"),
+                    subtitle: "",
+                    footer: String(localized: "Wind down can fall after midnight."),
                     accessibilityIdentifier: "settings.timeline.anchors.card"
                 ) {
                     VStack(spacing: spacing.s12) {
                         HStack(spacing: spacing.s12) {
-                            Text(String(localized: "Rise & Shine"))
+                            Text(String(localized: "Rise and shine"))
                                 .font(.lifeboard(.caption1))
                                 .foregroundStyle(Color.lifeboard(.textSecondary))
 
@@ -849,7 +823,7 @@ private extension SettingsRootView {
                         }
 
                         HStack(spacing: spacing.s12) {
-                            Text(String(localized: "Wind Down"))
+                            Text(String(localized: "Wind down"))
                                 .font(.lifeboard(.caption1))
                                 .foregroundStyle(Color.lifeboard(.textSecondary))
 
@@ -878,17 +852,27 @@ private extension SettingsRootView {
 
     private func notificationsSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
-            title: "Notifications & Focus",
-            subtitle: "Control reminders, summaries, and quiet hours.",
+            title: "Notifications",
+            subtitle: "",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
             VStack(spacing: spacing.cardStackVertical) {
+                // iOS has recorded a refusal: nothing below can reach the
+                // person until it is turned on in Settings, so say so first.
+                if viewModel.isPermissionDenied {
+                    PermissionRecoveryCard(
+                        kind: .notifications,
+                        detail: "Notifications are off. Turn them on in Settings."
+                    )
+                    .enhancedStaggeredAppearance(index: baseIndex)
+                }
+
                 SettingsCard {
                     SettingsToggleRow(
                         iconName: "bell.badge.fill",
-                        title: "Task Reminders",
-                        subtitle: "Get alerts for scheduled tasks.",
+                        title: "Task reminders",
+                        subtitle: nil,
                         isOn: Binding(
                             get: { viewModel.preferences.taskRemindersEnabled },
                             set: { viewModel.togglePreference(\.taskRemindersEnabled, value: $0) }
@@ -902,8 +886,8 @@ private extension SettingsRootView {
                     SettingsToggleSummaryRow(
                         descriptor: SettingsDestinationDescriptor(
                             iconName: "clock.badge.exclamationmark",
-                            title: "Due Soon Nudges",
-                            subtitle: "Remind me before a task is due.",
+                            title: "Due soon reminders",
+                            subtitle: "",
                             rowType: .toggleSummary,
                             summaryText: viewModel.dueSoonLeadTimeSummary,
                             accessibilityIdentifier: "settings.notifications.dueSoon.row"
@@ -935,8 +919,8 @@ private extension SettingsRootView {
                 SettingsCard {
                     SettingsToggleRow(
                         iconName: "exclamationmark.triangle.fill",
-                        title: "Rescue Nudges",
-                        subtitle: "Get reminders when tasks need a calmer follow-up decision.",
+                        title: "Tasks from earlier",
+                        subtitle: nil,
                         isOn: Binding(
                             get: { viewModel.preferences.overdueNudgesEnabled },
                             set: { viewModel.togglePreference(\.overdueNudgesEnabled, value: $0) }
@@ -951,8 +935,8 @@ private extension SettingsRootView {
                     SettingsToggleSummaryRow(
                         descriptor: SettingsDestinationDescriptor(
                             iconName: "sunrise.fill",
-                            title: "Morning Agenda",
-                            subtitle: "Daily planning summary.",
+                            title: "Morning agenda",
+                            subtitle: "",
                             rowType: .toggleSummary,
                             summaryText: viewModel.morningAgendaSummary,
                             tone: .warning,
@@ -979,8 +963,8 @@ private extension SettingsRootView {
                     SettingsToggleSummaryRow(
                         descriptor: SettingsDestinationDescriptor(
                             iconName: "moon.stars.fill",
-                            title: "Nightly Retrospective",
-                            subtitle: "End-of-day reflection summary.",
+                            title: "Close the day",
+                            subtitle: "",
                             rowType: .toggleSummary,
                             summaryText: viewModel.nightlyRetrospectiveSummary,
                             tone: .accent,
@@ -1007,8 +991,8 @@ private extension SettingsRootView {
                     SettingsToggleSummaryRow(
                         descriptor: SettingsDestinationDescriptor(
                             iconName: "moon.zzz.fill",
-                            title: "Quiet Hours",
-                            subtitle: "Pause notifications during selected hours.",
+                            title: "Quiet hours",
+                            subtitle: "",
                             rowType: .toggleSummary,
                             summaryText: viewModel.quietHoursSummary,
                             tone: .neutral,
@@ -1031,7 +1015,7 @@ private extension SettingsRootView {
     private func appearanceSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
             title: "Appearance",
-            subtitle: "Personalize visual polish and feedback.",
+            subtitle: "",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -1039,8 +1023,8 @@ private extension SettingsRootView {
                 SettingsCard {
                     SettingsToggleRow(
                         iconName: "sparkles",
-                        title: "Decorative Button Effects",
-                        subtitle: "Add visual accents to primary buttons.",
+                        title: "Button shimmer",
+                        subtitle: nil,
                         isOn: Binding(
                             get: { viewModel.decorativeButtonEffectsEnabled },
                             set: { viewModel.setDecorativeButtonEffectsEnabled($0) }
@@ -1062,7 +1046,7 @@ private extension SettingsRootView {
     private func dataSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
             title: "Data",
-            subtitle: "Check that everything is safe and recoverable.",
+            subtitle: "",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -1072,7 +1056,7 @@ private extension SettingsRootView {
                         descriptor: SettingsDestinationDescriptor(
                             iconName: "lifepreserver.fill",
                             title: "Recovery",
-                            subtitle: "Sync status, search rebuilds and diagnostics.",
+                            subtitle: "Sync, search and diagnostics",
                             trailingStatus: recoveryStatus.worstHealth == .healthy ? "Ready" : "Review",
                             tone: recoveryStatus.worstHealth == .healthy ? .success : .warning,
                             accessibilityIdentifier: "settings.recoveryCenterRow"
@@ -1083,85 +1067,6 @@ private extension SettingsRootView {
                 ProductTelemetrySettingsCard(isEnabled: $productTelemetryEnabled)
             }
             .enhancedStaggeredAppearance(index: baseIndex)
-        }
-    }
-
-    private func helpSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
-        SettingsSectionView(
-            title: "Help & About",
-            subtitle: "Replay setup and view app details.",
-            topPadding: sectionTopPadding,
-            includeHorizontalPadding: includeHorizontalPadding
-        ) {
-            VStack(spacing: spacing.cardStackVertical) {
-                SettingsCard {
-                    SettingsNavigationRow(
-                        descriptor: SettingsDestinationDescriptor(
-                            iconName: "arrow.clockwise.circle.fill",
-                            title: "Guided Setup",
-                            subtitle: "Replay onboarding any time.",
-                            accessibilityIdentifier: "settings.onboarding.restartButton"
-                        ),
-                        action: viewModel.restartOnboarding
-                    )
-                }
-                .enhancedStaggeredAppearance(index: baseIndex)
-
-                SettingsCard {
-                    SettingsNavigationRow(
-                        descriptor: SettingsDestinationDescriptor(
-                            iconName: "doc.text.fill",
-                            title: "Acknowledgements",
-                            subtitle: "Open-source software and animation credits.",
-                            tone: .neutral,
-                            accessibilityIdentifier: "settings.acknowledgements.row"
-                        ),
-                        action: { navigate(.notices) }
-                    )
-                }
-                .enhancedStaggeredAppearance(index: baseIndex + 1)
-
-                SettingsCard {
-                    SettingsNavigationRow(
-                        descriptor: SettingsDestinationDescriptor(
-                            iconName: "info.circle.fill",
-                            title: "App Version",
-                            subtitle: "View version and build details.",
-                            trailingStatus: copiedVersion ? "Copied" : "v\(viewModel.appVersion) (\(viewModel.buildNumber))",
-                            tone: .neutral,
-                            accessibilityIdentifier: "settings.appVersionRow"
-                        ),
-                        action: {
-                            #if os(iOS)
-                            UIPasteboard.general.string = "v\(viewModel.appVersion) (\(viewModel.buildNumber))"
-                            Haptic.pick.play()
-                            withAnimation(LifeBoardAnimation.roleLocalState) { copiedVersion = true }
-                            Task { @MainActor in
-                                try? await Task.sleep(for: .seconds(1.4))
-                                withAnimation(LifeBoardAnimation.roleLocalState) { copiedVersion = false }
-                            }
-                            #endif
-                        }
-                    )
-                }
-                .enhancedStaggeredAppearance(index: baseIndex + 2)
-
-                #if DEBUG
-                SettingsCard {
-                    SettingsNavigationRow(
-                        descriptor: SettingsDestinationDescriptor(
-                            iconName: "doc.on.clipboard.fill",
-                            title: "Copy Calendar Diagnostics",
-                            subtitle: "Copy the latest privacy-safe calendar access logs.",
-                            tone: .neutral,
-                            accessibilityIdentifier: "settings.calendarDiagnostics.copyButton"
-                        ),
-                        action: viewModel.copyCalendarDiagnostics
-                    )
-                }
-                .enhancedStaggeredAppearance(index: baseIndex + 2)
-                #endif
-            }
         }
     }
 
@@ -1250,7 +1155,7 @@ private extension SettingsRootView {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: spacing.s8) {
                         Chip(
-                            title: "Task Alerts",
+                            title: "Task alerts",
                             isSelected: viewModel.preferences.quietHoursAppliesToTaskAlerts,
                             selectedStyle: .tinted,
                             action: {
@@ -1262,7 +1167,7 @@ private extension SettingsRootView {
                         )
 
                         Chip(
-                            title: "Daily Summaries",
+                            title: "Daily summaries",
                             isSelected: viewModel.preferences.quietHoursAppliesToDailySummaries,
                             selectedStyle: .tinted,
                             action: {
@@ -1278,7 +1183,7 @@ private extension SettingsRootView {
 
                 if viewModel.preferences.quietHoursAppliesToTaskAlerts == false &&
                     viewModel.preferences.quietHoursAppliesToDailySummaries == false {
-                    Text("Quiet hours are enabled, but they do not currently apply to any notification type.")
+                    Text("Quiet hours don’t apply to any notifications yet.")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)

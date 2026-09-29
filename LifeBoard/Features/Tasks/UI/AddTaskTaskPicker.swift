@@ -39,7 +39,7 @@ struct AddTaskTaskPicker: View {
                     .lifeboardFont(.caption2)
                     .foregroundColor(Color.lifeboard.textTertiary)
 
-                TextField("Search tasks...", text: $searchText)
+                TextField("Search tasks\u{2026}", text: $searchText, prompt: Text("Search tasks\u{2026}").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                     .font(.lifeboard(.callout))
                     .foregroundColor(Color.lifeboard.textPrimary)
             }
@@ -62,7 +62,7 @@ struct AddTaskTaskPicker: View {
                         .lineLimit(1)
                     Spacer()
                     Button {
-                        HapticFeedback.light()
+                        Haptic.pick.play()
                         withAnimation(LifeBoardAnimation.feedbackFast) {
                             self.selectedTaskID = nil
                         }
@@ -85,7 +85,7 @@ struct AddTaskTaskPicker: View {
                 VStack(spacing: 0) {
                     ForEach(filteredTasks.prefix(5), id: \.id) { task in
                         Button {
-                            HapticFeedback.selection()
+                            Haptic.pick.play()
                             withAnimation(LifeBoardAnimation.stateChange) {
                                 selectedTaskID = task.id
                                 searchText = ""

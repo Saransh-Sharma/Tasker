@@ -9,13 +9,13 @@ extension MessageView {
     func undoAssistantRun(_ runID: UUID, payload: AssistantCardPayload) {
         if payload.captureReferences.isEmpty == false, let lane = EvaCaptureLaneFactory.lane {
             isUndoingEvaRun = true
-            evaApplyMessage = "Undoing capture..."
+            evaApplyMessage = String(localized: "Undoing…")
             Task {
                 do {
                     _ = try await lane.undo(runID: runID)
                     await MainActor.run {
                         isUndoingEvaRun = false
-                        evaApplyMessage = "Capture reverted."
+                        evaApplyMessage = String(localized: "Undone")
                     }
                 } catch {
                     await MainActor.run {
@@ -53,6 +53,27 @@ extension MessageView {
         EvaAppliedRunHistoryStore.shared.record(entry)
     }
 
+    /// "Not now" on the whole review: remembered as a dismissed run, so the
+    /// applied-changes history can show what was set aside as well as what
+    /// was done. Never counted as a failure.
+    func recordEvaDismissedRunHistory(runID: UUID, payload: AssistantCardPayload, proposal: EvaProposalReviewPayload) {
+        guard V2FeatureFlags.evaAppliedRunHistory else { return }
+        let now = Date()
+        EvaAppliedRunHistoryStore.shared.record(EvaAppliedRunHistoryEntry(
+            runID: runID,
+            threadID: payload.threadID,
+            prompt: proposal.prompt,
+            summary: summaryText(proposal.summary),
+            appliedCards: [],
+            discardedCardCount: proposal.cards.count,
+            contextReceipt: proposal.contextReceipt,
+            appliedAt: now,
+            undoExpiresAt: now,
+            status: "dismissed",
+            undoStatus: "unavailable"
+        ))
+    }
+
     func finishEvaApply(message: String, appliedRunID: UUID? = nil, payloadRunID: UUID? = nil) {
         Task { @MainActor in
             isApplyingEvaProposal = false
@@ -69,17 +90,31 @@ extension MessageView {
                     appliedEvaUndoExpiresAtByPayloadRunID[payloadRunID] = Date().addingTimeInterval(30 * 60)
                 }
                 selectedEvaCardIDs.removeAll()
+                // The receipt names the change where the person will look
+                // next, above the composer; the card keeps its own Undo for
+                // the thirty-minute window.
+                EvaChatReceiptCenter.shared.show(.init(
+                    message: message,
+                    undo: {
+                        await withCheckedContinuation { continuation in
+                            undoEvaRun(appliedRunID, payloadRunID: payloadRunID) { succeeded in
+                                continuation.resume(returning: succeeded)
+                            }
+                        }
+                    }
+                ))
             }
         }
     }
 
-    func undoEvaRun(_ runID: UUID, payloadRunID: UUID?) {
+    func undoEvaRun(_ runID: UUID, payloadRunID: UUID?, completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
         guard let pipeline = LLMAssistantPipelineFactory.pipeline else {
-            evaApplyMessage = "\(AssistantIdentityText.currentSnapshot().displayName) cannot undo this plan right now."
+            evaApplyMessage = String(localized: "Couldn’t undo changes.")
+            completion?(false)
             return
         }
         isUndoingEvaRun = true
-        evaApplyMessage = "Undoing \(AssistantIdentityText.currentSnapshot().displayName) changes..."
+        evaApplyMessage = String(localized: "Undoing…")
         pipeline.undoAppliedRun(id: runID) { result in
             Task { @MainActor in
                 isUndoingEvaRun = false
@@ -91,12 +126,21 @@ extension MessageView {
                         appliedEvaRunIDByPayloadRunID[payloadRunID] = nil
                         appliedEvaUndoExpiresAtByPayloadRunID[payloadRunID] = nil
                     }
-                    evaApplyMessage = "\(AssistantIdentityText.currentSnapshot().displayName) reverted those changes."
+                    evaApplyMessage = String(localized: "Changes undone")
+                    completion?(true)
                 case .failure(let error):
                     evaApplyMessage = error.localizedDescription
+                    completion?(false)
                 }
             }
         }
+    }
+
+    /// Undo for "Not now": the review returns with its suggested selection.
+    func bringBackEvaProposal(runID: UUID, proposal: EvaProposalReviewPayload) {
+        dismissedEvaRunIDs.remove(runID)
+        selectedEvaCardIDs = Set(proposal.cards.filter(\.isSelectedByDefault).map(\.id))
+        evaApplyMessage = nil
     }
 
     func applyButtonTitle(cards: [EvaProposalCard]) -> String {
@@ -105,7 +149,7 @@ extension MessageView {
 
     func summaryText(_ summary: String) -> String {
         summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? "Here's how your day is planned:"
+            ? String(localized: "Today’s plan")
             : summary
     }
 
@@ -162,6 +206,8 @@ extension MessageView {
             return "xmark"
         case .show:
             return "eye"
+        case .notNow:
+            return "moon.zzz"
         }
     }
 
@@ -183,7 +229,7 @@ extension MessageView {
                 .foregroundStyle(Color.lifeboard(.textSecondary))
 
             if result.sections.isEmpty {
-                Text("No tasks to show.")
+                Text("No tasks")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textTertiary))
             } else {
@@ -235,7 +281,6 @@ extension MessageView {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel("Open task \(item.title)")
-                                .accessibilityHint("Opens task details")
                                 .accessibilityIdentifier("chat.command_card.task_row.\(item.taskID.uuidString)")
                             }
                         }
@@ -246,7 +291,8 @@ extension MessageView {
     }
 
     func dueLabelColor(_ dueLabel: String) -> Color {
-        dueLabel.localizedCaseInsensitiveContains("late")
+        // `OverdueAgeFormatter.lateLabel` words an earlier day's task as "3 days old".
+        dueLabel.localizedCaseInsensitiveContains(String(localized: "old"))
             ? Color.lifeboard(.statusDanger)
             : Color.lifeboard(.textTertiary)
     }
@@ -254,21 +300,21 @@ extension MessageView {
     func proposalStatusText(_ status: AssistantCardStatus) -> String {
         switch status {
         case .applied:
-            return "Applied successfully."
+            return String(localized: "Applied")
         case .rejected:
-            return "Rejected."
+            return String(localized: "Dismissed")
         case .failed:
-            return "Failed."
+            return String(localized: "Couldn’t apply changes. Nothing changed.")
         case .rollbackComplete:
-            return "Apply failed, but all changes were rolled back."
+            return String(localized: "Couldn’t apply changes. Nothing changed.")
         case .rollbackFailed:
-            return "Apply failed and rollback could not be fully verified."
+            return String(localized: "Couldn’t apply all changes. Check your plan.")
         case .undone:
-            return "Changes reverted."
+            return String(localized: "Undone")
         case .pending, .confirmed:
-            return "Suggested. Nothing has changed yet."
+            return String(localized: "Not applied yet")
         default:
-            return "Updated."
+            return String(localized: "Updated")
         }
     }
 
@@ -284,12 +330,12 @@ extension MessageView {
 
     func undoLabel(payload: AssistantCardPayload) -> String {
         guard let expiresAt = payload.expiresAt else {
-            return "Undo unavailable"
+            return String(localized: "Undo unavailable")
         }
         let remaining = Int(expiresAt.timeIntervalSince(now) / 60)
         if remaining <= 0 {
-            return "Undo window expired"
+            return String(localized: "Undo expired")
         }
-        return "Undo available for \(remaining) min"
+        return String(localized: "Undo for \(remaining) min")
     }
 }

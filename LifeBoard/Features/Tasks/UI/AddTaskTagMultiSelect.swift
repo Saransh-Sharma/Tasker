@@ -32,7 +32,7 @@ struct AddTaskTagMultiSelect: View {
                 HStack(spacing: spacing.chipSpacing) {
                     // Add tag button
                     Button {
-                        HapticFeedback.selection()
+                        Haptic.pick.play()
                         withAnimation(LifeBoardAnimation.stateChange) {
                             showInlineCreate.toggle()
                         }
@@ -68,7 +68,7 @@ struct AddTaskTagMultiSelect: View {
             // Inline tag create
             if showInlineCreate {
                 HStack(spacing: spacing.s8) {
-                    TextField("Tag name", text: $newTagName)
+                    TextField("Tag name", text: $newTagName, prompt: Text("Tag name").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                         .font(.lifeboard(.callout))
                         .foregroundColor(Color.lifeboard.textPrimary)
                         .padding(.horizontal, spacing.s12)
@@ -111,7 +111,7 @@ struct AddTaskTagMultiSelect: View {
         let isSelected = selectedTagIDs.contains(tag.id)
 
         return Button {
-            HapticFeedback.selection()
+            Haptic.pick.play()
             withAnimation(LifeBoardAnimation.celebration) {
                 if isSelected {
                     selectedTagIDs.remove(tag.id)

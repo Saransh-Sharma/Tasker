@@ -16,8 +16,10 @@
 # announced as a continuation of a mandatory one.
 
 # 2026-09-09, Home's collapsed Health signal + the streamlined onboarding and
-# health-connection copy: 1111 -> 1138. Xcode extracted these on build; the
-# catalog was not hand-edited.
+# health-connection copy: 1111 -> 1137. Xcode extracted these on build; the
+# catalog was not hand-edited. The previously committed 1138 snapshot was a
+# snapshot-only counting error: the catalog at that revision and this catalog
+# both contain the same 1137 keys.
 #
 # Only one addition belongs to the Home change: "Connect\nHealth", the label on
 # the tile that replaces a row of dashed permission rings when two or more
@@ -31,6 +33,6 @@
 # disclosures. Those shipped in the commits already on master; their catalog
 # regeneration had not been folded in, so it lands here.
 
-count=1138
-sha256=5a0e24bd4d3235fe33ebd6df580135f96d7e629531694472acf86185151007d3
-content_sha256=5f04a87e0a1f6f9b79b29814ea88e088660dd8ef3f2eec06b431dd6c1fd0d353
+count=1137
+sha256=17b9f99b10be939a629fe5222e263ac1b98c0b81d3daf7c3ed2852084ab5e5c8
+content_sha256=d5209ea272c160498620133c58eb0af7043bdaae40e2780be99d2937c30a9dc0

@@ -345,7 +345,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                 }
             } else {
                 let error = NSError(domain: "ProjectRepository", code: 404,
-                                  userInfo: [NSLocalizedDescriptionKey: "Project not found"])
+                                  userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t find project.")])
                 logError(" Project not found: \(project.id)")
                 callback.deliver(.failure(error))
             }
@@ -360,7 +360,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
             case .success(let project):
                 guard let project = project else {
                     let error = NSError(domain: "ProjectRepository", code: 404,
-                                      userInfo: [NSLocalizedDescriptionKey: "Project not found"])
+                                      userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t find project.")])
                     callback.deliver(.failure(error))
                     return
                 }
@@ -390,7 +390,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                             let notFound = NSError(
                                 domain: "ProjectRepository",
                                 code: 404,
-                                userInfo: [NSLocalizedDescriptionKey: "Project not found"]
+                                userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t find project.")]
                             )
                             callback.deliver(.failure(notFound))
                             return
@@ -432,7 +432,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                 // Don't allow deleting the Inbox project
                 if project.isDefault {
                     let error = NSError(domain: "ProjectRepository", code: 403,
-                                      userInfo: [NSLocalizedDescriptionKey: "Cannot delete the default Inbox project"])
+                                      userInfo: [NSLocalizedDescriptionKey: String(localized: "Inbox can’t be deleted.")])
                     callback.deliver(.failure(error))
                     return
                 }
@@ -524,7 +524,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
             case .success(let sourceProject):
                 guard sourceProject != nil else {
                     let error = NSError(domain: "ProjectRepository", code: 404,
-                                      userInfo: [NSLocalizedDescriptionKey: "Source project not found"])
+                                      userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t find project.")])
                     callback.deliver(.failure(error))
                     return
                 }
@@ -535,7 +535,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                     case .success(let targetProject):
                         guard targetProject != nil else {
                             let error = NSError(domain: "ProjectRepository", code: 404,
-                                              userInfo: [NSLocalizedDescriptionKey: "Target project not found"])
+                                              userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t find project.")])
                             callback.deliver(.failure(error))
                             return
                         }
@@ -586,7 +586,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                     let error = NSError(
                         domain: "ProjectRepository",
                         code: 404,
-                        userInfo: [NSLocalizedDescriptionKey: "Target life area not found"]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t find area.")]
                     )
                     callback.deliver(.failure(error))
                     return
@@ -597,7 +597,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                     let error = NSError(
                         domain: "ProjectRepository",
                         code: 409,
-                        userInfo: [NSLocalizedDescriptionKey: "Cannot move project into an archived life area"]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "Can’t move a project into an archived area.")]
                     )
                     callback.deliver(.failure(error))
                     return
@@ -610,7 +610,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                     let error = NSError(
                         domain: "ProjectRepository",
                         code: 404,
-                        userInfo: [NSLocalizedDescriptionKey: "Project not found"]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t find project.")]
                     )
                     callback.deliver(.failure(error))
                     return
@@ -620,7 +620,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol, @unchec
                     let error = NSError(
                         domain: "ProjectRepository",
                         code: 403,
-                        userInfo: [NSLocalizedDescriptionKey: "Cannot move the default Inbox project"]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "Inbox can’t be moved.")]
                     )
                     callback.deliver(.failure(error))
                     return

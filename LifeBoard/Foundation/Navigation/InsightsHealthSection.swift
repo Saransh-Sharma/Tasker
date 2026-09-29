@@ -10,7 +10,7 @@ struct InsightsHealthSection: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Body rhythm")
+                    Text("Health")
                         .lifeboardFont(.title1)
                     Text(interpretation)
                         .lifeboardFont(.support)
@@ -19,13 +19,13 @@ struct InsightsHealthSection: View {
                 Spacer()
                 Image(systemName: "heart.text.clipboard")
                     .font(.title2)
-                    .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSageInk))
             }
 
             if healthStore.aggregates.isEmpty {
                 Text(HealthAuthorizationPromptState.hasRequested
-                    ? "No current Health records are available yet."
-                    : "Connect Apple Health in Track to bring movement and body context here.")
+                    ? "No Health data yet"
+                    : "Connect Apple Health in Track.")
                     .lifeboardFont(.body)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
@@ -48,7 +48,7 @@ struct InsightsHealthSection: View {
 
                 HStack(spacing: 12) {
                     fact(.energy, metric: .activeEnergy, label: "Active")
-                    fact(.hydration, metric: .water, label: "Hydration")
+                    fact(.hydration, metric: .water, label: "Water")
                     fact(.body, metric: .restingHeartRate, label: "Resting HR")
                 }
             }
@@ -90,12 +90,12 @@ struct InsightsHealthSection: View {
 
     private var interpretation: String {
         guard let steps = healthStore.aggregates[.steps] else {
-            return "Health context stays factual until there is enough evidence."
+            return String(localized: "Not enough data yet")
         }
         if steps.value == 0 && steps.lastSampleAt == nil {
-            return "No movement record has arrived for today."
+            return String(localized: "No steps recorded today")
         }
-        return "Today’s movement is available with its Apple Health source."
+        return String(localized: "From Apple Health")
     }
 
     private func metricText(_ metric: HealthMetric) -> String {

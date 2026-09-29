@@ -48,19 +48,19 @@ enum SlashCommandID: String, Codable, CaseIterable, Sendable {
         case .tomorrow:
             return "Tomorrow"
         case .week:
-            return "This Week"
+            return String(localized: "This week")
         case .month:
-            return "This Month"
+            return String(localized: "This month")
         case .project:
             return "Project"
         case .area:
-            return "Life Area"
+            return String(localized: "Life area")
         case .recent:
             return "Recent"
         case .overdue:
-            return "Overdue"
+            return String(localized: "From earlier")
         case .clear:
-            return "Clear Chat"
+            return String(localized: "Clear chat")
         }
     }
 
@@ -94,9 +94,9 @@ enum SlashCommandID: String, Codable, CaseIterable, Sendable {
     var argumentPlaceholder: String? {
         switch self {
         case .project:
-            return "Pick project"
+            return String(localized: "Project")
         case .area:
-            return "Pick life area"
+            return String(localized: "Life area")
         default:
             return nil
         }
@@ -192,9 +192,9 @@ struct SlashCommandInvocation: Codable, Equatable, Sendable {
             return "Project"
         case .area:
             if let resolvedArgument, resolvedArgument.isEmpty == false {
-                return "Life Area: \(resolvedArgument)"
+                return String(localized: "Life area: \(resolvedArgument)")
             }
-            return "Life Area"
+            return String(localized: "Life area")
         default:
             return id.displayName
         }
@@ -212,7 +212,7 @@ enum SlashCommandCatalog {
     static let descriptors: [SlashCommandDescriptor] = [
         SlashCommandDescriptor(
             id: .today,
-            shortDescription: "Overdue and due today",
+            shortDescription: String(localized: "Due today and earlier"),
             example: "/today",
             aliases: ["/todo"]
         ),
@@ -248,19 +248,19 @@ enum SlashCommandCatalog {
         ),
         SlashCommandDescriptor(
             id: .recent,
-            shortDescription: "Recent operating summary",
+            shortDescription: String(localized: "Last 2 weeks"),
             example: "/recent",
             aliases: []
         ),
         SlashCommandDescriptor(
             id: .overdue,
-            shortDescription: "Only overdue tasks",
+            shortDescription: String(localized: "Tasks from earlier"),
             example: "/overdue",
             aliases: []
         ),
         SlashCommandDescriptor(
             id: .clear,
-            shortDescription: "Clear current chat thread",
+            shortDescription: String(localized: "Clear this chat"),
             example: "/clear",
             aliases: []
         )

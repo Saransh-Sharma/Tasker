@@ -22,16 +22,16 @@ public enum TaskContext: String, CaseIterable, Codable, Sendable {
     
     public var displayName: String {
         switch self {
-        case .anywhere: return "Anywhere"
-        case .home: return "At Home"
-        case .office: return "At Office"
-        case .computer: return "At Computer"
-        case .phone: return "Phone Calls"
-        case .errands: return "Running Errands"
-        case .outdoor: return "Outdoors"
-        case .gym: return "At Gym"
-        case .commute: return "While Commuting"
-        case .meeting: return "In Meeting"
+        case .anywhere: return String(localized: "Anywhere")
+        case .home: return String(localized: "At home")
+        case .office: return String(localized: "At the office")
+        case .computer: return String(localized: "At a computer")
+        case .phone: return String(localized: "Calls")
+        case .errands: return String(localized: "Errands")
+        case .outdoor: return String(localized: "Outdoors")
+        case .gym: return String(localized: "At the gym")
+        case .commute: return String(localized: "Commuting")
+        case .meeting: return String(localized: "In a meeting")
         }
     }
     
@@ -52,16 +52,16 @@ public enum TaskContext: String, CaseIterable, Codable, Sendable {
     
     public var description: String {
         switch self {
-        case .anywhere: return "Can be done from any location"
-        case .home: return "Requires being at home"
-        case .office: return "Requires being at the office"
-        case .computer: return "Requires access to a computer"
-        case .phone: return "Phone call or communication task"
-        case .errands: return "Tasks to do while out and about"
-        case .outdoor: return "Outdoor activity or task"
-        case .gym: return "Fitness or gym-related task"
-        case .commute: return "Tasks that can be done while traveling"
-        case .meeting: return "Discussion or collaboration task"
+        case .anywhere: return String(localized: "No location needed")
+        case .home: return String(localized: "Needs you at home")
+        case .office: return String(localized: "Needs you at the office")
+        case .computer: return String(localized: "Needs a computer")
+        case .phone: return String(localized: "Calls and messages")
+        case .errands: return String(localized: "While you’re out")
+        case .outdoor: return String(localized: "Outside")
+        case .gym: return String(localized: "Workouts and training")
+        case .commute: return String(localized: "While traveling")
+        case .meeting: return String(localized: "With other people")
         }
     }
 }

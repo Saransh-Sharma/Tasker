@@ -653,9 +653,10 @@ export class EvaAccountDO extends DurableObject<Env> {
         familyId: string
         installationId: string
         platform: 'ios' | 'catalyst'
-        requireAdult: boolean
-        requireAttestation: boolean
-        allowAgeManagement?: boolean
+        trustPolicy: {
+          attestationMode: 'optionalRiskSignal' | 'required'
+          ageEligibilitySource: 'distribution' | 'serviceManaged'
+        }
       }>(request)
       const family = state.refreshFamilies[body.familyId]
       const device = state.devices[body.installationId]
@@ -671,6 +672,21 @@ export class EvaAccountDO extends DurableObject<Env> {
         result = { authorized: false, reason: 'session' }
       } else if (!device || device.platform !== body.platform) {
         result = { authorized: false, reason: 'attestation' }
+      } else if (
+        body.trustPolicy.attestationMode === 'required'
+        && !device.attestationKeyId
+        && !device.catalystRisk
+      ) {
+        result = { authorized: false, reason: 'attestation' }
+      } else if (
+        body.trustPolicy.ageEligibilitySource === 'serviceManaged'
+        && (
+          device.adultEligibleAt === undefined
+          || device.adultEligibleExpiresAt === undefined
+          || device.adultEligibleExpiresAt <= now
+        )
+      ) {
+        result = { authorized: false, reason: 'age' }
       } else {
         result = {
           authorized: true,

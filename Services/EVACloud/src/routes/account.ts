@@ -8,7 +8,7 @@ import {
 } from '@lifeboard/eva-contracts'
 import type { AppVariables, Env } from '../environment.js'
 import { requireSession } from '../auth/middleware.js'
-import { verifyRequestAttestation } from '../attestation/app-attest.js'
+import { enforceRequestTrust } from '../attestation/app-attest.js'
 import {
   accountStub,
   authorizeAccount,
@@ -20,7 +20,7 @@ import {
 import { durableJson } from '../durable-objects/helpers.js'
 import { readJson } from '../http/body.js'
 import { EvaHttpError } from '../http/errors.js'
-import { requiresAgeDecision, runtimeConfig } from '../config/runtime-config.js'
+import { runtimeConfig } from '../config/runtime-config.js'
 
 const ConsentUpdateSchema = Type.Object({
   expectedRevision: Type.Integer({ minimum: 0 }),
@@ -37,20 +37,17 @@ accountRoutes.use('*', requireSession)
 
 accountRoutes.post('/age/eligibility', async (context) => {
   const principal = context.get('principal')
-  const session = await authorizeAccount(context.env, principal, {
-    requireAdult: false,
-    requireAttestation: false,
-    allowAgeManagement: true,
-  })
+  const config = await runtimeConfig(context.env)
+  await enforceRequestTrust(context.env, principal, context.req.raw, config.trustPolicy)
+  const session = await authorizeAccount(context.env, principal, config.trustPolicy)
   if (!session.authorized) throw authorizationError(session.reason)
-  if (principal.platform === 'ios' && context.req.header('X-EVA-Attest-Assertion')) {
-    await verifyRequestAttestation(context.env, principal, context.req.raw, { allowAgeManagement: true })
-  }
   const body = await readJson<EvaAdultEligibilityRequestV1>(
     context.req.raw,
     EvaAdultEligibilityRequestV1Schema,
   )
-  const policyRequired = requiresAgeDecision(await runtimeConfig(context.env))
+  // Retained as a compatibility response for older clients. Distribution owns
+  // eligibility, so this declaration is never an authorization gate.
+  const policyRequired = false
   const eligibleAdult = body.lowerBound === null
     ? !policyRequired
     : body.lowerBound >= 13
@@ -68,10 +65,8 @@ accountRoutes.post('/age/eligibility', async (context) => {
 accountRoutes.get('/eva/credits', async (context) => {
   const principal = context.get('principal')
   const config = await runtimeConfig(context.env)
-  const authorization = await authorizeAccount(context.env, principal, {
-    requireAdult: requiresAgeDecision(config),
-    requireAttestation: false,
-  })
+  await enforceRequestTrust(context.env, principal, context.req.raw, config.trustPolicy)
+  const authorization = await authorizeAccount(context.env, principal, config.trustPolicy)
   if (!authorization.authorized) throw authorizationError(authorization.reason)
   return context.json(await getCredits(context.env, principal.accountId))
 })
@@ -79,10 +74,8 @@ accountRoutes.get('/eva/credits', async (context) => {
 accountRoutes.get('/eva/quota', async (context) => {
   const principal = context.get('principal')
   const config = await runtimeConfig(context.env)
-  const authorization = await authorizeAccount(context.env, principal, {
-    requireAdult: requiresAgeDecision(config),
-    requireAttestation: false,
-  })
+  await enforceRequestTrust(context.env, principal, context.req.raw, config.trustPolicy)
+  const authorization = await authorizeAccount(context.env, principal, config.trustPolicy)
   if (!authorization.authorized) throw authorizationError(authorization.reason)
   return context.json(await getQuota(context.env, principal.accountId))
 })
@@ -90,10 +83,8 @@ accountRoutes.get('/eva/quota', async (context) => {
 accountRoutes.get('/eva/consent', async (context) => {
   const principal = context.get('principal')
   const config = await runtimeConfig(context.env)
-  const authorization = await authorizeAccount(context.env, principal, {
-    requireAdult: requiresAgeDecision(config),
-    requireAttestation: false,
-  })
+  await enforceRequestTrust(context.env, principal, context.req.raw, config.trustPolicy)
+  const authorization = await authorizeAccount(context.env, principal, config.trustPolicy)
   if (!authorization.authorized) throw authorizationError(authorization.reason)
   return context.json(await getConsent(context.env, principal.accountId))
 })
@@ -101,14 +92,9 @@ accountRoutes.get('/eva/consent', async (context) => {
 accountRoutes.put('/eva/consent', async (context) => {
   const principal = context.get('principal')
   const config = await runtimeConfig(context.env)
-  const authorization = await authorizeAccount(context.env, principal, {
-    requireAdult: requiresAgeDecision(config),
-    requireAttestation: false,
-  })
+  await enforceRequestTrust(context.env, principal, context.req.raw, config.trustPolicy)
+  const authorization = await authorizeAccount(context.env, principal, config.trustPolicy)
   if (!authorization.authorized) throw authorizationError(authorization.reason)
-  if (principal.platform === 'ios' && context.req.header('X-EVA-Attest-Assertion')) {
-    await verifyRequestAttestation(context.env, principal, context.req.raw)
-  }
   const body = await readJson<{
     expectedRevision: number
     grants: EvaConsentPolicy['grants']
@@ -129,19 +115,14 @@ accountRoutes.put('/eva/consent', async (context) => {
 
 accountRoutes.delete('/account', async (context) => {
   const principal = context.get('principal')
-  const authorization = await authorizeAccount(context.env, principal, {
-    requireAdult: false,
-    requireAttestation: false,
-    allowAgeManagement: true,
-  })
+  const config = await runtimeConfig(context.env)
+  await enforceRequestTrust(context.env, principal, context.req.raw, config.trustPolicy)
+  const authorization = await authorizeAccount(context.env, principal, config.trustPolicy)
   if (!authorization.authorized) throw authorizationError(authorization.reason)
   if (principal.identityKind === 'apple' && Date.now() - principal.authenticatedAt > 5 * 60 * 1_000) {
     throw new EvaHttpError(401, 'unauthenticated', 'Sign in with Apple again before deleting this account.', {
       recoveryAction: 'signIn',
     })
-  }
-  if (principal.platform === 'ios' && context.req.header('X-EVA-Attest-Assertion')) {
-    await verifyRequestAttestation(context.env, principal, context.req.raw, { allowAgeManagement: true })
   }
   await readJson(context.req.raw, EvaDeleteAccountRequestV1Schema)
   const deletionMaterial = await durableJson<{

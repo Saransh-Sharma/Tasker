@@ -34,6 +34,7 @@ final class HomeUITestWorkspaceSeeder {
     private static var hasSeededUITestHabitBoardWorkspace = false
     private static var hasSeededUITestQuietTrackingWorkspace = false
     private static var hasSeededUITestFullTimelineWorkspace = false
+    private static var hasSeededUITestDriftedPlan = false
     private static var hasSeededAppStoreScreenshotWorkspace = false
     private static var hasSeededUITestInboxCaptures = false
 
@@ -1286,6 +1287,148 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 
+    /// Two planned blocks that ended more than fifteen minutes ago, each still
+    /// attached to an open task. That is exactly what `PlanDriftPolicy.default`
+    /// needs before Home's loop spine moves to the Repair stage, and nothing a
+    /// seeded journey could otherwise arrange without waiting out the clock.
+    func seedUITestDriftedPlanIfNeeded(presentationDependencyContainer: CompositionRoot?, completion: @escaping () -> Void) {
+        let arguments = ProcessInfo.processInfo.arguments
+        // The same two tasks also serve the over-capacity canvas: with
+        // `-LIFEBOARD_TEST_SEED_OVERLOADED_DAY` their estimates total far more
+        // than a working day, so Plan draws the overload band past its end.
+        let overloaded = arguments.contains("-LIFEBOARD_TEST_SEED_OVERLOADED_DAY")
+        guard arguments.contains("-LIFEBOARD_TEST_SEED_DRIFTED_PLAN") || overloaded else {
+            completion()
+            return
+        }
+        guard Self.hasSeededUITestDriftedPlan == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededUITestDriftedPlan = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
+
+                let lifeArea = try await manageLifeAreas.createAsync(
+                    name: "Drifted Day",
+                    color: "#5A3121",
+                    icon: "clock.arrow.circlepath"
+                )
+                let project = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Repair Seed",
+                        description: "UI test drifted plan seed",
+                        lifeAreaID: lifeArea.id
+                    )
+                )
+
+                let now = HomeReferenceClock.now
+                let calendar = Calendar.current
+                let startOfDay = calendar.startOfDay(for: now)
+                let firstTaskID = UUID(uuidString: "D1000000-0000-0000-0000-000000000001") ?? UUID()
+                let secondTaskID = UUID(uuidString: "D1000000-0000-0000-0000-000000000002") ?? UUID()
+                let requests = [
+                    CreateTaskDefinitionRequest(
+                        id: firstTaskID,
+                        title: "Draft the launch brief",
+                        details: "UI test drifted plan seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: nil,
+                        priority: .high,
+                        estimatedDuration: overloaded ? 6 * 3_600 : 1_800,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: secondTaskID,
+                        title: "Review pricing options",
+                        details: "UI test drifted plan seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: nil,
+                        priority: .low,
+                        estimatedDuration: overloaded ? 5 * 3_600 : 1_200,
+                        createdAt: now
+                    )
+                ]
+                for request in requests {
+                    _ = try await createTaskDefinition.executeAsync(request: request)
+                }
+
+                guard let appDelegate = UIApplication.shared.delegate as? AppDelegate,
+                      let container = appDelegate.persistentContainer else {
+                    completion()
+                    return
+                }
+                let repository = CoreDataPlanningRepository(container: container)
+                let planningDay = PlanningDay(date: startOfDay, timeZone: calendar.timeZone, calendar: calendar)
+                let metadata = [firstTaskID, secondTaskID].enumerated().map { index, taskID in
+                    PlanningTaskMetadata(
+                        taskID: taskID,
+                        planningDay: planningDay,
+                        commitmentLevel: index == 0 ? .mustDo : .standard,
+                        availability: .actionable,
+                        planningContext: .work,
+                        unscheduledDisposition: .inbox,
+                        pinOrder: index,
+                        updatedAt: now
+                    )
+                }
+                try await repository.saveTaskMetadata(metadata)
+
+                // Both blocks end well past the 15-minute drift floor. Start
+                // times are clamped to today so the blocks stay on today's canvas
+                // even for a launch shortly after midnight.
+                let blocks = [
+                    InternalTimeBlock(
+                        id: UUID(uuidString: "D1100000-0000-0000-0000-000000000001") ?? UUID(),
+                        title: "Draft the launch brief",
+                        startAt: max(startOfDay, now.addingTimeInterval(-100 * 60)),
+                        endAt: max(startOfDay.addingTimeInterval(60), now.addingTimeInterval(-70 * 60)),
+                        taskID: firstTaskID,
+                        planningContext: .work,
+                        isFixed: false,
+                        createdAt: now,
+                        updatedAt: now
+                    ),
+                    InternalTimeBlock(
+                        id: UUID(uuidString: "D1100000-0000-0000-0000-000000000002") ?? UUID(),
+                        title: "Review pricing options",
+                        startAt: max(startOfDay.addingTimeInterval(120), now.addingTimeInterval(-60 * 60)),
+                        endAt: max(startOfDay.addingTimeInterval(180), now.addingTimeInterval(-40 * 60)),
+                        taskID: secondTaskID,
+                        planningContext: .work,
+                        isFixed: false,
+                        createdAt: now,
+                        updatedAt: now
+                    )
+                ]
+                for block in blocks {
+                    try await repository.saveTimeBlock(block)
+                }
+            } catch {
+                logError(
+                    event: "ui_test_drifted_plan_seed_failed",
+                    message: "Failed to seed drifted plan for Home repair UI tests",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
     func seedUITestHabitBoardWorkspaceIfNeeded(presentationDependencyContainer: CompositionRoot?, completion: @escaping () -> Void) {
         guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE") else {
             completion()
@@ -1371,8 +1514,27 @@ final class HomeUITestWorkspaceSeeder {
                         cadence: .daily()
                     )
                 ] : []
+                // A lapse-only quit habit and a long-named build habit, opt-in so
+                // the three-row board tests keep their workspace; together with
+                // the amounts seed the Home row overflows and must scroll.
+                let quitRequests = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_HABIT_QUIT") ? [
+                    CreateHabitRequest(
+                        title: "No doomscrolling after dinner", lifeAreaID: lifeArea.id, projectID: project.id,
+                        kind: .negative, trackingMode: .lapseOnly,
+                        icon: HabitIconMetadata(symbolName: "iphone.slash", categoryKey: "recovery"),
+                        colorHex: HabitColorFamily.purple.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1), cadence: .daily()
+                    ),
+                    CreateHabitRequest(
+                        title: "Stretch after every long meeting", lifeAreaID: lifeArea.id, projectID: project.id,
+                        kind: .positive, trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "figure.cooldown", categoryKey: "health"),
+                        colorHex: HabitColorFamily.teal.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1), cadence: .daily()
+                    )
+                ] : []
 
-                for request in requests + amountRequests {
+                for request in requests + amountRequests + quitRequests {
                     _ = try await createHabit.executeAsync(request: request)
                 }
             } catch {

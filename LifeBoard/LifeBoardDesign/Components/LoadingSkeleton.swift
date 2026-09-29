@@ -22,6 +22,6 @@ struct LoadingSkeleton: View {
                     .redacted(reason: .placeholder)
             }
         }
-        .accessibilityLabel("Loading Home")
+        .accessibilityLabel("Loading…")
     }
 }

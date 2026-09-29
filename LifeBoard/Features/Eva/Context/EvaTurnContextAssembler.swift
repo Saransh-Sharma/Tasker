@@ -286,7 +286,9 @@ enum EvaTurnContextAssembler {
         let start = normalized.index(normalized.startIndex, offsetBy: min(startOffset, normalized.count))
         return String(normalized[start...].prefix(1_200))
     }
+}
 
+extension EvaTurnContextAssembler {
     private struct EvaCalendarProjection: Sendable {
         let records: [EvaCalendarRecord]
         let events: [TaskerCalendarEventSnapshot]

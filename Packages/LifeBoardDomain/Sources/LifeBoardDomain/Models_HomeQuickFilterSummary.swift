@@ -56,13 +56,13 @@ public extension HomeQuickFilterSummary {
         // Check for project filters
         let projectCount = filterState.selectedProjectIDs.count
         if projectCount > 0 {
-            secondaryParts.append("+ \(projectCount) project\(projectCount > 1 ? "s" : "")")
+            secondaryParts.append(projectCount == 1 ? String(localized: "+ 1 project") : String(localized: "+ \(projectCount) projects"))
             hasActiveFilters = true
         }
 
         // Check for advanced filters
         if filterState.advancedFilter != nil {
-            secondaryParts.append("+ Advanced")
+            secondaryParts.append(String(localized: "+ Advanced"))
             hasActiveFilters = true
         }
 
@@ -84,19 +84,19 @@ public extension HomeQuickFilterSummary {
     private static func primaryTextForScope(_ scope: HomeListScope, customDate: Date) -> String {
         switch scope {
         case .today:
-            return "Today"
+            return String(localized: "Today")
         case .customDate(let date):
             return dateFormatter.string(from: date)
         case .upcoming:
-            return "Upcoming"
+            return String(localized: "Upcoming")
         case .overdue:
-            return "Overdue"
+            return String(localized: "From earlier")
         case .done:
-            return "Done"
+            return String(localized: "Done")
         case .morning:
-            return "Morning"
+            return String(localized: "Morning")
         case .evening:
-            return "Evening"
+            return String(localized: "Evening")
         }
     }
 

@@ -9,7 +9,7 @@ ENTITY_NAMES = %w[
 root = File.expand_path('..', __dir__)
 model_root = File.join(root, 'LifeBoard', 'Persistence', 'Resources', 'TaskModelV3.xcdatamodeld')
 model_files = Dir.glob(File.join(model_root, '*.xcdatamodel', 'contents')).sort
-abort("error: expected 23 TaskModelV3 versions, found #{model_files.length}") unless model_files.length == 23
+abort("error: expected 25 TaskModelV3 versions, found #{model_files.length}") unless model_files.length == 25
 
 remaining = []
 model_files.each do |path|

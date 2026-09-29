@@ -179,12 +179,12 @@ extension HomeViewModel {
     public func saveCurrentFilterAsView(name: String) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
-            errorMessage = "Saved view name cannot be empty"
+            errorMessage = String(localized: "Add a name first.")
             return
         }
 
         if savedHomeViews.count >= 20 {
-            errorMessage = "You can save up to 20 Home views"
+            errorMessage = String(localized: "You can save up to 20 views.")
             return
         }
 

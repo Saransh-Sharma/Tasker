@@ -23,12 +23,12 @@ struct DeviceNotSupportedView: View {
             }
 
             VStack(spacing: Theme.Spacing.sm) {
-                Text("\(assistantIdentity.snapshot.displayName) isn't available on this device")
+                Text("This device can’t run \(assistantIdentity.snapshot.displayName) offline")
                     .font(.lifeboard(.title1))
                     .foregroundStyle(Color.lifeboard(.textPrimary))
                     .multilineTextAlignment(.center)
 
-                Text("\(assistantIdentity.snapshot.displayName)'s local model needs a newer Apple GPU feature set to run on-device.")
+                Text("\(assistantIdentity.snapshot.displayName) in the cloud still works.")
                     .font(.lifeboard(.callout))
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .multilineTextAlignment(.center)
@@ -38,7 +38,7 @@ struct DeviceNotSupportedView: View {
                 Text(String(localized: "eva.device_not_supported.why", defaultValue: "Why this happens"))
                     .font(.lifeboard(.headline))
                     .foregroundStyle(Color.lifeboard(.textPrimary))
-                Text("This device does not support the local runtime \(assistantIdentity.snapshot.displayName) needs for private on-device responses.")
+                Text("Offline models need a newer Apple chip.")
                     .font(.lifeboard(.callout))
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             }
@@ -65,10 +65,6 @@ struct DeviceNotSupportedView: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, Theme.Spacing.xl)
             }
-
-            Text("You can continue using LifeBoard as usual while \(assistantIdentity.snapshot.displayName) stays unavailable on this device.")
-                .font(.lifeboard(.caption1))
-                .foregroundStyle(Color.lifeboard(.textQuaternary))
 
             Spacer()
         }

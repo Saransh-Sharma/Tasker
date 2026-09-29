@@ -40,9 +40,9 @@ public struct AsyncActionControl<Receipt: Equatable & Sendable>: View {
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.horizontal, 12)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.lifeBoardChip)
         .animation(
-            MotionOverride.resolve(reduceMotion) ? nil : .spring(response: 0.32, dampingFraction: 0.84),
+            MotionProfile.controlMorph.animation(reduceMotion: reduceMotion),
             value: label
         )
         .accessibilityValue(accessibilityValue)
@@ -152,6 +152,7 @@ private struct ConfirmationRippleModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.lifeBoardMotionContext) private var motionContext
     @State private var startDate: Date?
 
     private let duration: TimeInterval = 0.38
@@ -170,7 +171,8 @@ private struct ConfirmationRippleModifier: ViewModifier {
                 let policy = MotionPolicy.resolve(
                     reduceMotion: MotionOverride.resolve(reduceMotion),
                     reduceTransparency: reduceTransparency,
-                    sceneIsActive: scenePhase == .active
+                    sceneIsActive: scenePhase == .active,
+                    comfortProfile: motionContext.comfortProfile
                 )
                 startDate = policy.allowsSpatialMotion && policy.usesOpaqueSurfaces == false ? Date() : nil
             }
@@ -1635,7 +1637,9 @@ private struct DaypartCrossDissolveModifier: ViewModifier {
     @Environment(\.lifeBoardShaderReadiness) private var shaderReadiness
     @State private var startDate: Date?
 
-    private static let duration: TimeInterval = 0.9
+    /// Inside `DESIGN.md`'s ~800 ms ceiling for signature moments; it ran
+    /// 0.9 s, the one effect in the vocabulary that overstayed.
+    private static let duration: TimeInterval = 0.76
 
     func body(content: Content) -> some View {
         content
@@ -1870,6 +1874,14 @@ struct FirstLightModifier: ViewModifier {
     @State private var startDate: Date?
 
     func body(content: Content) -> some View {
+        // `content` must keep one structural identity: an `if running {
+        // content.visualEffect } else { content }` re-identifies it on every
+        // flip and resets all `@State` beneath. A `visualEffect` that is
+        // always mounted is not an option either — even disabled it zeroes
+        // the accessibility frames of everything under it. So the branch
+        // stays, and callers mount this on leaf views (a tile row, a card),
+        // never above stateful containers. `FirstLightShellModifier` only
+        // claims the gate and tells the leaves to light.
         Group {
             if usesFallback || startDate == nil {
                 content

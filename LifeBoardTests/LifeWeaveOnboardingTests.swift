@@ -298,13 +298,14 @@ final class LifeWeaveOnboardingTests: XCTestCase {
         XCTAssertTrue(receipt.contains("Work & Career first, plus 2 more"))
     }
 
-    /// Pick order is the ranking, so the receipt names the first pick.
+    /// Pick order is the ranking, so the receipt names the first pick. Hours
+    /// are never asked, so the receipt must not claim them.
     func testReceiptNamesTheFirstPickAndTheHours() {
         var draft = LifeWeaveDraft()
         draft.orderedLifeAreaTemplateIDs = ["health-self"]
         let receipt = LifeWeaveRevealCopy.receipt(for: draft)
         XCTAssertTrue(receipt.contains("Health & Self first"))
-        XCTAssertTrue(receipt.contains { $0.hasPrefix("Weekdays ") }, "hours are a default shown with an Edit link, never asked")
+        XCTAssertFalse(receipt.contains { $0.hasPrefix("Weekdays ") }, "hours are never asked, so Ready must not list them")
     }
 
     // MARK: - Copy hygiene

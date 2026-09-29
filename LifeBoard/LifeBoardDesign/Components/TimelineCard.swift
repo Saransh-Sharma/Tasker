@@ -14,7 +14,7 @@ struct PressableCardStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.985 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(MotionProfile.press.animation(reduceMotion: reduceMotion), value: configuration.isPressed)
     }
 }
 
@@ -95,7 +95,7 @@ struct TimelineCard: View, Equatable {
                 }
             }
             .buttonStyle(PressableCardStyle())
-            .animation(.easeOut(duration: 0.22), value: model.isCompleted)
+            .lifeBoardMotion(.localState, value: model.isCompleted)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(accessibilityLabel)
             .accessibilityValue(accessibilityValue)

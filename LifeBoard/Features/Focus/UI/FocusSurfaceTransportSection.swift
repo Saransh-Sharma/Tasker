@@ -20,7 +20,7 @@ struct FocusSurfaceTransportSection: View {
     @Binding var pendingOutcome: FocusCompletionOutcome?
 
     @State private var showsEndOptions = false
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isPaused: Bool { session.state == .paused }
 
@@ -36,6 +36,10 @@ struct FocusSurfaceTransportSection: View {
             endRow
             FocusInterruptionControl(store: store)
         }
+        // A container identifier stamps every child unless the container is
+        // declared as one; without this, "End session…" and the interruption
+        // control both answered to `focus.surface.transport` in XCUITest.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("focus.surface.transport")
     }
 
@@ -74,6 +78,9 @@ struct FocusPauseResumeButton: View {
         }
         .buttonStyle(.lifeBoardPrimary)
         .lifeBoardPressResponse(.hero, haptic: nil)
+        // Space, like every media transport. The session screen has no text
+        // field while the timer runs, so the bare key is free.
+        .keyboardShortcut(.space, modifiers: [])
         .accessibilityIdentifier("focus.surface.pauseResume")
     }
 }
@@ -85,25 +92,36 @@ private extension FocusSurfaceTransportSection {
         }
         .font(.subheadline.weight(.medium))
         .frame(maxWidth: .infinity, minHeight: 44)
-        .buttonStyle(.bordered)
+        .buttonStyle(.lifeBoardChip)
         .accessibilityIdentifier("focus.surface.nextPhase")
     }
 
+    /// Two taps to end: "End session…", then the ending. Each ending says
+    /// what it does beside it, so there is no third confirmation step, and
+    /// "Keep going" folds the choices away again.
     @ViewBuilder
     var endRow: some View {
-        if showsEndOptions {
-            let layout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(spacing: 12))
-                : AnyLayout(HStackLayout(spacing: 12))
-            layout {
+        if showsEndOptions && pendingOutcome == nil {
+            VStack(spacing: 12) {
                 endButton("Finish", systemImage: "checkmark.circle", outcome: .completed)
                 endButton("Continue later", systemImage: "clock.arrow.circlepath", outcome: .continueLater)
                 endButton("Stop", systemImage: "xmark.circle", outcome: .abandoned)
+                Button("Keep going", systemImage: "arrow.uturn.backward") {
+                    withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
+                        showsEndOptions = false
+                    }
+                }
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("focus.surface.keepGoing")
             }
             .transition(.opacity.combined(with: .move(edge: .top)))
-        } else {
+        } else if pendingOutcome == nil {
             Button("End session…") {
-                showsEndOptions = true
+                withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
+                    showsEndOptions = true
+                }
             }
             .font(.subheadline.weight(.medium))
             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -118,12 +136,31 @@ private extension FocusSurfaceTransportSection {
         systemImage: String,
         outcome: FocusCompletionOutcome
     ) -> some View {
-        Button(title, systemImage: systemImage) {
+        Button {
+            // Choosing the ending is the commit; the close section runs it
+            // and stays mounted only to show progress or a retry.
+            showsEndOptions = false
             pendingOutcome = outcome
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.body.weight(.semibold))
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(FocusSurfaceCloseSection.consequence(for: outcome))
+                        .font(.caption)
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .font(.subheadline.weight(.medium))
-        .frame(maxWidth: .infinity, minHeight: 44)
-        .buttonStyle(.bordered)
+        .buttonStyle(.lifeBoardChip)
         .accessibilityIdentifier("focus.surface.end.\(outcome.rawValue)")
     }
 }

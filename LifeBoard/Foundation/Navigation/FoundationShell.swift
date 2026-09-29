@@ -9,12 +9,55 @@ struct FoundationCompactChromeVisibilityPolicy {
     static func isVisible(
         destination: Destination,
         screenMode: ScreenMode,
-        isPhoneInterface: Bool,
+        usesDockChrome: Bool,
         isEvaComposerFocused: Bool,
         showsGlobalChrome: Bool
     ) -> Bool {
         guard showsGlobalChrome, screenMode != .utility else { return false }
-        return destination != .eva || isPhoneInterface == false || isEvaComposerFocused == false
+        return destination != .eva || usesDockChrome == false || isEvaComposerFocused == false
+    }
+}
+
+/// The bottom space the shell's floating chrome occupies over a root.
+///
+/// A tab's `safeAreaInset` does not reach inside its navigation stack, so a
+/// fixed-height root (Plan's day canvas) that cannot scroll out from under the
+/// composer and dock reads the measured height here instead of a constant
+/// measured once on one iPhone — which was wrong on iPad, where there is no
+/// dock, and in any short window.
+private struct ShellBottomClearanceKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+extension EnvironmentValues {
+    var lifeBoardShellBottomClearance: CGFloat {
+        get { self[ShellBottomClearanceKey.self] }
+        set { self[ShellBottomClearanceKey.self] = newValue }
+    }
+}
+
+/// How the shell offers the five roots: the floating bottom dock, or the top
+/// switcher `DESIGN.md` asks for at iPad and Mac widths.
+enum FoundationShellChromeStyle: Equatable {
+    case dock
+    case topSwitcher
+}
+
+/// Chooses the chrome from the window's layout class, not the device.
+///
+/// A ⅓ Split View pane or Slide Over is phone-shaped and gets the dock; a
+/// full-width iPad or a Mac window gets the switcher. Accessibility text needs
+/// the full content width, so it keeps the dock at any width — the dock is
+/// keyboard and VoiceOver complete, so nothing becomes unreachable.
+enum FoundationShellChromePolicy {
+    static func style(layoutClass: LayoutClass, isAccessibilitySize: Bool) -> FoundationShellChromeStyle {
+        guard isAccessibilitySize == false else { return .dock }
+        switch layoutClass {
+        case .phone, .padCompact:
+            return .dock
+        case .padRegular, .padExpanded:
+            return .topSwitcher
+        }
     }
 }
 
@@ -40,7 +83,7 @@ public struct FoundationShell: View {
     private let visualFixture: VisualFixture?
     private let visualAppearanceFixture: VisualAppearanceFixture?
 
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.lifeboardLayoutClass) var layoutClass
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
     @Environment(\.scenePhase) var scenePhase
@@ -171,13 +214,11 @@ public struct FoundationShell: View {
                 placement: .root(router.selectedDestination)
             ) {
                 AtmosphereSnapshotReader { atmosphereSnapshot in
-                    Group {
-                        if usesExpandedShell {
-                            expandedShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
-                        } else {
-                            compactShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
-                        }
-                    }
+                    // One tree for every width. Two shells behind an `if` meant a
+                    // Split View or Mac window resize across the breakpoint
+                    // rebuilt every root below it — Eva's unsent draft and open
+                    // thread were thrown away. Only the chrome's values change.
+                    shellBody(router: router, atmosphereSnapshot: atmosphereSnapshot)
                     // Light every clay surface in the shell from the current
                     // daypart. `SpecularRimModifier` has always taken a
                     // `lightAngle` and nothing ever passed one, so the lit edge
@@ -185,6 +226,9 @@ public struct FoundationShell: View {
                     // and at dusk. One injection, at the one place that knows
                     // the time of day.
                     .lifeBoardClayLight(atmosphereSnapshot.semanticDaypart)
+                    // The day's first habit completion lights the shell once;
+                    // inside the reader so the sweep tints with the daypart.
+                    .lifeBoardFirstLightOnFirstCommitment()
                     // Every toggle in the app, in one line. `ToggleStyle`
                     // propagates through the environment, and `ClayToggleStyle`
                     // had been sitting complete and unused while 81 stock green
@@ -221,7 +265,6 @@ public struct FoundationShell: View {
                     }) {
                         PresentationScaffold(mode: .utility, readableWidth: 520) {
                             DisplayPanel(
-                                mode: dashboardModeBinding,
                                 density: dashboardDensityBinding,
                                 daypart: daypartSelectionBinding,
                                 resolvedDaypart: atmosphereSnapshot.semanticDaypart,
@@ -247,18 +290,10 @@ public struct FoundationShell: View {
         }
         // Default-tinted controls (menu labels, plain buttons) resolve to cocoa
         // ink instead of system blue, keeping the warm palette everywhere
-        // without tinting each control individually.
-        .tint(Color(SemanticColorTokens.inkPrimary))
-        .background {
-            // Hardware-keyboard capture shortcut for iPad / Mac Catalyst (⌘N).
-            Button {
-                runtime.captureRouter.request(kind: .task, source: .shell)
-            } label: { EmptyView() }
-            .keyboardShortcut("n", modifiers: .command)
-            .accessibilityHidden(true)
-            .frame(width: 0, height: 0)
-            .opacity(0)
-        }
+        // without tinting each control individually. `foundationSystemTint`,
+        // not `inkPrimary`: that is near-white in dark, and system controls
+        // draw white on their tint.
+        .tint(Color(SemanticColorTokens.foundationSystemTint))
         .modifier(
             ShellSheets(
                 runtime: runtime,
@@ -279,7 +314,7 @@ public struct FoundationShell: View {
                 composerAudioStore: $composerAudioStore,
                 showsDocumentScanner: $showsDocumentScanner,
                 scannedDraft: $scannedDraft,
-                composerIsFocused: $lifeThreadComposerIsFocused
+                makeEvaSheet: { _ in evaSheetRoot(router: router) }
             )
         )
         .modifier(
@@ -310,6 +345,12 @@ public struct FoundationShell: View {
         .onChange(of: router.selectedDestination, initial: true) { _, destination in
             MotionDiagnosticsState.shared.record("root:\(destination.rawValue)")
             lifeThreadComposer.move(to: destination)
+            // The composer and its focus are shared by every root, so a
+            // keyboard raised on Home used to follow the user onto Plan,
+            // Track and Insights. A tab switch always puts it away — and an
+            // open tools tray with it; the draft stays on the coordinator.
+            lifeThreadComposerIsFocused = false
+            lifeThreadComposer.closeTools()
             if destination != .eva {
                 updateEvaComposerFocus(false)
             }
@@ -317,6 +358,27 @@ public struct FoundationShell: View {
             // root's offset across would land the composer already compressed
             // over a screen sitting at its top.
             composerScrollObserver.reset()
+        }
+        // A rescue notification asks for the deck; the shell owns it.
+        .onChange(of: router.overdueRescueRequest, initial: true) { _, request in
+            guard let request else { return }
+            router.overdueRescueRequest = nil
+            presentPlanOverdueRescue(.home(referenceDate: max(request, Date())))
+        }
+        // Navigation ends typing (`DESIGN.md`, keyboard contract). The composer
+        // stays mounted on detail routes, so a push used to leave its keyboard
+        // over a screen that has nothing to type into.
+        .onChange(of: router.path(for: router.selectedDestination).count) { _, _ in
+            lifeThreadComposerIsFocused = false
+            lifeThreadComposer.closeTools()
+        }
+        // Sending ends editing, so the keyboard goes away and nothing moves
+        // VoiceOver to the receipt; say what happened once, when it is made.
+        .onChange(of: lifeBoardActionReceipt?.id) { _, id in
+            guard id != nil, let receipt = lifeBoardActionReceipt else { return }
+            AccessibilityNotification.Announcement(
+                ActionReceiptPresentation.announcement(message: receipt.message, canUndo: receipt.canUndo)
+            ).post()
         }
         // The comfort gate for Metal effects.
         //
@@ -364,11 +426,10 @@ public struct FoundationShell: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             bridgedScenePhase = .background
         }
-        // "Full motion". `\.accessibilityReduceMotion` is a get-only key path,
-        // so this cannot be injected into the environment; `MotionOverride`
-        // applies the rule inside the motion policy instead and every token
-        // entry point defers to it. `initial: true` matters for the same reason
-        // as the comfort gate: without it the launch window uses the default.
+        // `\.accessibilityReduceMotion` is a get-only key path, so the app
+        // preference is combined with it inside `MotionOverride`. The system
+        // accessibility setting always wins. `initial: true` avoids a launch
+        // window where the stored in-app preference has not been published.
         .onChange(of: fullMotionIsEnabled, initial: true) { _, isEnabled in
             MotionOverride.fullMotionEnabled = isEnabled
         }
@@ -413,20 +474,15 @@ public struct FoundationShell: View {
         return runtime.preferences.fullMotionEnabled
     }
 
-    /// Accessibility text needs the full content width even on regular-width
-    /// iPad and Catalyst windows. The same compact shell remains keyboard and
-    /// VoiceOver complete, so collapsing here never removes a destination.
-    private var usesExpandedShell: Bool {
-        horizontalSizeClass == .regular && dynamicTypeSize.isAccessibilitySize == false
+    var chromeStyle: FoundationShellChromeStyle {
+        FoundationShellChromePolicy.style(
+            layoutClass: layoutClass,
+            isAccessibilitySize: dynamicTypeSize.isAccessibilitySize
+        )
     }
 
-    func dockSelectionCenter(for destination: Destination) -> UnitPoint {
-        let all = Destination.allCases
-        guard let index = all.firstIndex(of: destination), all.isEmpty == false else {
-            return .center
-        }
-        let slot = 1.0 / Double(all.count)
-        return UnitPoint(x: (Double(index) + 0.5) * slot, y: 0.5)
+    var usesExpandedShell: Bool {
+        chromeStyle == .topSwitcher
     }
 
     // These three bindings deliberately carry no haptic. The controls they now
@@ -439,17 +495,6 @@ public struct FoundationShell: View {
             get: { runtime.preferences.daypartSelection },
             set: { selection in
                 runtime.preferences.daypartSelection = selection
-            }
-        )
-    }
-
-    private var dashboardModeBinding: Binding<DashboardMode> {
-        Binding(
-            get: { runtime.router.dashboardMode },
-            set: { mode in
-                withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
-                    runtime.router.dashboardMode = mode
-                }
             }
         )
     }
@@ -501,14 +546,10 @@ public struct FoundationShell: View {
         FoundationCompactChromeVisibilityPolicy.isVisible(
             destination: destination,
             screenMode: activeScreenMode,
-            isPhoneInterface: usesPhoneChromeBehavior,
+            usesDockChrome: chromeStyle == .dock,
             isEvaComposerFocused: isEvaComposerFocused,
             showsGlobalChrome: showsGlobalChrome(for: destination)
         )
-    }
-
-    private var usesPhoneChromeBehavior: Bool {
-        UIDevice.current.userInterfaceIdiom == .phone
     }
 
     func reservedChromeHeight(for destination: Destination) -> CGFloat {
@@ -521,7 +562,7 @@ public struct FoundationShell: View {
     /// destination that replaces the global composer rather than stacking under
     /// it, so the stack height would over-reserve by exactly the composer it hid.
     func evaComposerBottomClearance(for destination: Destination) -> CGFloat {
-        guard destination == .eva, showsCompactChrome(for: destination) else { return 0 }
+        guard destination == .eva, chromeStyle == .dock, showsCompactChrome(for: destination) else { return 0 }
         return measuredDockClearance + Self.evaComposerDockGap
     }
 
@@ -609,6 +650,21 @@ public struct FoundationShell: View {
             get: { runtime.router.path(for: destination) },
             set: { runtime.router.setPath($0, for: destination) }
         )
+    }
+
+    /// What Home's Quick Capture card does: raise the floating composer where
+    /// it is on screen, otherwise open the header's capture tray — Home hides
+    /// the composer at accessibility text sizes.
+    var homeFocusCaptureAction: HomeFocusCaptureAction {
+        HomeFocusCaptureAction {
+            if showsFloatingComposer(for: .home), showsGlobalChrome(for: .home) {
+                lifeThreadComposer.requestFocus()
+            } else {
+                withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
+                    compactCaptureState.isExpanded = true
+                }
+            }
+        }
     }
 
     func presentPlanOverdueRescue(_ context: OverdueRescueLaunchContext) {

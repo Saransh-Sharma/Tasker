@@ -29,7 +29,7 @@ struct ProjectMoveSheet: View {
                     Text(draft.projectName)
                 }
 
-                Section("Move to Area") {
+                Section("Move to area") {
                     Picker("Area", selection: $draft.targetLifeAreaID) {
                         ForEach(targets) { target in
                             Text(target.lifeArea.name).tag(Optional(target.id))
@@ -37,13 +37,18 @@ struct ProjectMoveSheet: View {
                     }
                 }
             }
-            .navigationTitle("Move Project")
+            // The warm canvas behind the grouped list, not the system's pure white
+            // (light) or pure black (dark) grouped background.
+            .scrollContentBackground(.hidden)
+            .background { GrainedCanvas() }
+            .navigationTitle("Move project")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         onCancel()
                     }
+                    .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Move") {

@@ -34,18 +34,17 @@ enum SlashCommandExecutionError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .repositoriesUnavailable:
-            return "Task context is unavailable right now."
+            return String(localized: "Couldn’t load your tasks.")
         case .missingArgument(let commandID):
-            return "\(commandID.displayName) command needs a name."
+            return String(localized: "\(commandID.displayName) needs a name.")
         case .entityNotFound(let commandID, let query):
-            return "Could not find a \(commandID.displayName.lowercased()) matching \"\(query)\"."
+            return String(localized: "Nothing matches “\(query)”.")
         case .ambiguousArgument(let commandID, let query, let matches):
             let preview = matches.prefix(3).joined(separator: ", ")
-            let label = commandID.displayName.lowercased()
             if matches.count > 3 {
-                return "More than one \(label) matches \"\(query)\" (\(preview), ...). Please be more specific."
+                return String(localized: "“\(query)” matches \(preview), and more. Be more specific.")
             }
-            return "More than one \(label) matches \"\(query)\" (\(preview)). Please be more specific."
+            return String(localized: "“\(query)” matches \(preview). Be more specific.")
         }
     }
 }
@@ -145,14 +144,14 @@ struct SlashCommandExecutionService {
             }
 
             let sections = [
-                makeSection(id: "overdue", title: "Overdue", tasks: overdue, now: now),
-                makeSection(id: "today", title: "Due Today", tasks: dueToday, now: now)
+                makeSection(id: "overdue", title: String(localized: "From earlier"), tasks: overdue, now: now),
+                makeSection(id: "today", title: String(localized: "Due today"), tasks: dueToday, now: now)
             ].filter { $0.totalCount > 0 }
 
             let total = sections.reduce(0) { $0 + $1.totalCount }
             let summary = total == 0
-                ? "No overdue or due-today tasks."
-                : "\(total) task\(total == 1 ? "" : "s") need attention."
+                ? String(localized: "Nothing due today.")
+                : (total == 1 ? String(localized: "1 task due.") : String(localized: "\(total) tasks due."))
 
             return SlashCommandExecutionResult(
                 commandID: .today,
@@ -170,11 +169,11 @@ struct SlashCommandExecutionService {
             }
             return buildSingleSectionResult(
                 commandID: .tomorrow,
-                sectionTitle: "Due Tomorrow",
+                sectionTitle: String(localized: "Due tomorrow"),
                 sectionID: "tomorrow",
                 tasks: tasks,
                 now: now,
-                emptySummary: "No tasks due tomorrow."
+                emptySummary: String(localized: "No tasks due tomorrow.")
             )
 
         case .week:
@@ -184,11 +183,11 @@ struct SlashCommandExecutionService {
             }
             return buildSingleSectionResult(
                 commandID: .week,
-                sectionTitle: "Due This Week",
+                sectionTitle: String(localized: "Due this week"),
                 sectionID: "week",
                 tasks: tasks,
                 now: now,
-                emptySummary: "No tasks due this week."
+                emptySummary: String(localized: "No tasks due this week.")
             )
 
         case .month:
@@ -198,11 +197,11 @@ struct SlashCommandExecutionService {
             }
             return buildSingleSectionResult(
                 commandID: .month,
-                sectionTitle: "Due This Month",
+                sectionTitle: String(localized: "Due this month"),
                 sectionID: "month",
                 tasks: tasks,
                 now: now,
-                emptySummary: "No tasks due this month."
+                emptySummary: String(localized: "No tasks due this month.")
             )
 
         case .overdue:
@@ -212,11 +211,11 @@ struct SlashCommandExecutionService {
             }
             return buildSingleSectionResult(
                 commandID: .overdue,
-                sectionTitle: "Overdue",
+                sectionTitle: String(localized: "From earlier"),
                 sectionID: "overdue",
                 tasks: tasks,
                 now: now,
-                emptySummary: "No overdue tasks."
+                emptySummary: String(localized: "Nothing from earlier.")
             )
 
         case .project:
@@ -249,13 +248,13 @@ struct SlashCommandExecutionService {
 
             let section = makeSection(id: "project", title: resolvedProjectName, tasks: tasks, now: now)
             let summary = section.totalCount == 0
-                ? "No open tasks found in \(resolvedProjectName)."
-                : "\(section.totalCount) open task\(section.totalCount == 1 ? "" : "s") in \(resolvedProjectName)."
+                ? String(localized: "No open tasks in \(resolvedProjectName).")
+                : (section.totalCount == 1 ? String(localized: "1 open task in \(resolvedProjectName).") : String(localized: "\(section.totalCount) open tasks in \(resolvedProjectName)."))
             let sections = section.totalCount == 0 ? [] : [section]
 
             return SlashCommandExecutionResult(
                 commandID: .project,
-                commandLabel: "Project: \(resolvedProjectName)",
+                commandLabel: String(localized: "Project: \(resolvedProjectName)"),
                 summary: summary,
                 sections: sections,
                 totalTaskCount: section.totalCount,
@@ -296,13 +295,13 @@ struct SlashCommandExecutionService {
 
             let section = makeSection(id: "area", title: resolvedAreaName, tasks: tasks, now: now)
             let summary = section.totalCount == 0
-                ? "No open tasks found in \(resolvedAreaName)."
-                : "\(section.totalCount) open task\(section.totalCount == 1 ? "" : "s") in \(resolvedAreaName)."
+                ? String(localized: "No open tasks in \(resolvedAreaName).")
+                : (section.totalCount == 1 ? String(localized: "1 open task in \(resolvedAreaName).") : String(localized: "\(section.totalCount) open tasks in \(resolvedAreaName)."))
             let sections = section.totalCount == 0 ? [] : [section]
 
             return SlashCommandExecutionResult(
                 commandID: .area,
-                commandLabel: "Life Area: \(resolvedAreaName)",
+                commandLabel: String(localized: "Life area: \(resolvedAreaName)"),
                 summary: summary,
                 sections: sections,
                 totalTaskCount: section.totalCount,
@@ -327,8 +326,8 @@ struct SlashCommandExecutionService {
             let completed = recentTasks.filter { $0.isComplete }
             let active = recentTasks.filter { !$0.isComplete }
             let sections = [
-                makeSection(id: "recent_completed", title: "Recently Completed", tasks: completed, now: now, maxTasks: 4),
-                makeSection(id: "recent_active", title: "Recently Active", tasks: active, now: now, maxTasks: 4)
+                makeSection(id: "recent_completed", title: String(localized: "Recently completed"), tasks: completed, now: now, maxTasks: 4),
+                makeSection(id: "recent_active", title: String(localized: "Recently active"), tasks: active, now: now, maxTasks: 4)
             ].filter { $0.totalCount > 0 }
 
             return SlashCommandExecutionResult(
@@ -344,7 +343,7 @@ struct SlashCommandExecutionService {
             return SlashCommandExecutionResult(
                 commandID: .clear,
                 commandLabel: SlashCommandID.clear.displayName,
-                summary: "Chat cleared.",
+                summary: String(localized: "Chat cleared."),
                 sections: [],
                 totalTaskCount: 0,
                 generatedAtISO: now.ISO8601Format()
@@ -364,7 +363,7 @@ struct SlashCommandExecutionService {
         let sections = section.totalCount == 0 ? [] : [section]
         let summary = section.totalCount == 0
             ? emptySummary
-            : "\(section.totalCount) task\(section.totalCount == 1 ? "" : "s") found."
+            : (section.totalCount == 1 ? String(localized: "1 task.") : String(localized: "\(section.totalCount) tasks."))
 
         return SlashCommandExecutionResult(
             commandID: commandID,

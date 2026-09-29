@@ -38,6 +38,19 @@ extension FoundationShell {
                 activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
                 ScreenScaffold(mode: .ambient, placement: .root(destination)) {
                     VStack(spacing: 0) {
+                        // The regular-width root switcher is the first row of the
+                        // root's own column. As a `safeAreaInset` on the TabView
+                        // (and then on each tab) it never reached inside the
+                        // navigation stack, and floated over every root header:
+                        // "Go…", "Pla", Eva's title hidden entirely.
+                        //
+                        // Keeps the five roots directly reachable to touch,
+                        // pointer, keyboard, VoiceOver, and Switch Control at
+                        // every regular width. Detail and ritual routes keep
+                        // their own navigation bar and need no second switcher.
+                        if usesExpandedShell, router.path(for: destination).isEmpty {
+                            expandedRootSwitcher(router: router)
+                        }
                         if V2FeatureFlags.lifeBoardPremiumIAV5Enabled,
                            router.path(for: destination).isEmpty {
                             sharedRootHeader(destination, atmosphereSnapshot: atmosphereSnapshot)
@@ -53,7 +66,6 @@ extension FoundationShell {
                             isSelected: router.selectedDestination == destination && router.path(for: destination).isEmpty,
                             sceneIsActive: bridgedScenePhase == .active
                         ))
-                        .environment(\.planRescueRefreshGeneration, planRescueRefreshGeneration)
                     }
                 }
                 .toolbar(
@@ -71,12 +83,21 @@ extension FoundationShell {
                                     origin: .center,
                                     trigger: routeTransitionTrigger
                                 )
-                            ScreenScaffold(mode: route.screenMode, placement: .root(destination)) {
+                            ScreenScaffold(
+                                mode: route.screenMode,
+                                placement: .root(destination),
+                                readableWidth: route.readableWidthOverride
+                            ) {
                                 routeView(route)
                             }
                         }
                         .lifeBoardZoomDestination(sourceID: transitionID)
                         .toolbar(.visible, for: .navigationBar)
+                        // Inline for every pushed route. The atmosphere is full
+                        // bleed, so a large title had nothing pushing content
+                        // below it and overprinted the first card ("Focus" over
+                        // "Focus session not found", "Nutrition" over its hero).
+                        .navigationBarTitleDisplayMode(.inline)
                         .onAppear {
                             routeTransitionTrigger &+= 1
                             router.acknowledgeRouteAppearance(route, in: destination)
@@ -84,11 +105,16 @@ extension FoundationShell {
                     } else {
                         ZStack {
                             activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
-                            ScreenScaffold(mode: route.screenMode, placement: .root(destination)) {
+                            ScreenScaffold(
+                                mode: route.screenMode,
+                                placement: .root(destination),
+                                readableWidth: route.readableWidthOverride
+                            ) {
                                 routeView(route)
                             }
                         }
                         .toolbar(.visible, for: .navigationBar)
+                        .navigationBarTitleDisplayMode(.inline)
                         .onAppear {
                             router.acknowledgeRouteAppearance(route, in: destination)
                         }
@@ -99,6 +125,11 @@ extension FoundationShell {
             isSelected: router.selectedDestination == destination,
             sceneIsActive: bridgedScenePhase == .active
         ))
+        // On the stack, not the root: `.planDay`, `.planWeek` and `.backlog`
+        // push a second `PlanRootView` as a sibling of the root, and one set
+        // only on the root never reached it, so a rescue launched from a
+        // pushed Plan closed without that Plan reloading.
+        .environment(\.planRescueRefreshGeneration, planRescueRefreshGeneration)
         .toolbarBackground(.hidden, for: .navigationBar)
         .background(Color.clear)
         .onAppear {
@@ -142,27 +173,6 @@ extension FoundationShell {
         }
     }
 
-    func homeCardKinds(for destination: Destination) -> [DashboardWidgetKind]? {
-        switch destination {
-        case .home: return nil
-        case .plan: return [.focusNow, .tasks, .scheduleCapacity, .compactTimeline]
-        case .track:
-            var kinds: [DashboardWidgetKind] = [.care, .routines, .goals, .fasting, .journal, .lifeSnapshot]
-            if V2FeatureFlags.wellnessCoreV1Enabled {
-                kinds += [.bodyMetric, .workout, .sleep, .movement]
-            }
-            if V2FeatureFlags.nutritionV1Enabled {
-                kinds += [.nutritionSummary, .recentMeal, .logMeal]
-            }
-            if V2FeatureFlags.lifeMomentsV1Enabled {
-                kinds.append(.lifeMoment)
-            }
-            return kinds
-        case .insights: return [.progressReflection, .lifeSnapshot]
-        case .eva: return [.progressReflection, .journal, .evaConversation]
-        }
-    }
-
     @MainActor
     func addCardToHome(
         _ kind: DashboardWidgetKind,
@@ -194,17 +204,17 @@ extension FoundationShell {
             let after = try draft.committedLayout()
             try await dashboardLayoutRepository.saveHome(after)
             let transaction = HomeLayoutTransaction(before: before, after: after)
-            withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.86)) {
+            withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
                 homeCardReceipt = .init(
-                    title: "\(descriptor.title) added to Home",
+                    title: String(localized: "Added \(descriptor.title) to Home"),
                     transaction: transaction
                 )
             }
             Haptic.pick.play()
         } catch {
             runtime.router.activeAlert = .init(
-                title: "Couldn’t update Home",
-                message: "Your current Home layout is unchanged. Please try again."
+                title: String(localized: "Couldn’t update Home"),
+                message: String(localized: "Try again.")
             )
         }
     }
@@ -215,6 +225,7 @@ extension FoundationShell {
     @MainActor
     func startFocusFromHome(
         taskID: UUID,
+        hint: HomeStartFocusAction.Hint? = nil,
         dependencies: PlanFeatureDependencies,
         router: AppRouter
     ) async -> Bool {
@@ -229,14 +240,37 @@ extension FoundationShell {
             taskDefinitionRepository: dependencies.taskDefinitionRepository,
             focusCommands: dependencies.focusCommands
         )
-        await store.load()
-        let block = store.daySnapshot?.blocks.first { $0.taskID == taskID }
-        let duration = block?.duration ?? store.task(for: taskID)?.estimatedDuration ?? 25 * 60
-        guard await store.startFocus(taskID: taskID, timeBlockID: block?.id, targetDuration: duration),
+        let timeBlockID: UUID?
+        let duration: TimeInterval
+        if let hint {
+            // Home already read today's plan; loading the whole day again
+            // only to find the same block made every Start wait.
+            timeBlockID = hint.timeBlockID
+            duration = hint.duration
+        } else {
+            await store.load()
+            let block = store.daySnapshot?.blocks.first { $0.taskID == taskID }
+            timeBlockID = block?.id
+            duration = block?.duration ?? store.task(for: taskID)?.estimatedDuration ?? 25 * 60
+        }
+        guard await store.startFocus(taskID: taskID, timeBlockID: timeBlockID, targetDuration: duration),
               let session = store.activeFocusSession else { return false }
-        router.select(.plan)
-        router.push(.focusSession(session.id), in: .plan)
+        // One step, race-safe: the root switch settles before the push.
+        router.navigate(.focusSession(session.id), in: .plan)
         return true
+    }
+
+    /// The same Eva root the tab renders, for the context sheet.
+    func evaSheetRoot(router: AppRouter) -> AnyView {
+        AnyView(EvaDestination(
+            repository: trackFoundationRepository,
+            phaseIIRepository: phaseIIRepository,
+            planningRepository: planningRepository,
+            habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
+            goalSampleProvider: goalSampleProvider,
+            router: router
+        )
+        .environment(\.evaRitualPresenter, EvaRitualRouteFactory.presenter(router: router, planDependencies: planDependencies)))
     }
 
     func destinationRoot(
@@ -247,22 +281,6 @@ extension FoundationShell {
            showsReferenceHome == false {
             return AnyView(
                 VStack(spacing: 0) {
-                    SetupCenterHomeCard(
-                        calendarIntegrationService: homeViewModel.calendarIntegrationService,
-                        healthStore: HealthCoordinator.shared.connectionStore
-                    ) {
-                        router.push(.settingsDetail(.setupCenter), in: .home)
-                    }
-                    OnboardingFirstActionCard(
-                        onOpenTask: { router.push(.taskDetail($0), in: .home) },
-                        onCreateTask: { runtime.captureRouter.request(CaptureRequest(kind: .task, source: .shell)) }
-                    )
-                    // The banner, its model and its copy were all finished, but
-                    // it had zero call sites: `HomeOverlaySnapshot.guidanceState`
-                    // was hardcoded `nil`, and that snapshot feeds the legacy
-                    // Home pipeline anyway — `AdaptiveHome` never reads it. It
-                    // renders here instead, beside the other onboarding cards.
-                    HomeOnboardingGuidanceHost(viewModel: homeViewModel)
                     AdaptiveHome(
                         projectionAdapter: homeProjectionAdapter,
                         preferences: runtime.preferences,
@@ -276,16 +294,34 @@ extension FoundationShell {
                         wellnessRepository: wellnessRepository,
                         nutritionRepository: nutritionRepository,
                         lifeMomentRepository: lifeMomentRepository,
-                        showsEmbeddedComposer: false,
+                        // Getting-started cards scroll with Home as its first
+                        // item. Pinned above the scroll view they never moved
+                        // and pushed the whole day down; stacked, three of
+                        // them could greet a new person at once.
+                        gettingStarted: HomeGettingStartedCard(
+                            viewModel: homeViewModel,
+                            router: router,
+                            captureRouter: runtime.captureRouter
+                        ),
                         onCustomizationChanged: { isCustomizing in
                             homeIsCustomizing = isCustomizing
                         }
                     )
+                    .environment(\.homeOpenOverdueRescue, HomeOpenOverdueRescueAction {
+                        presentPlanOverdueRescue(.home(referenceDate: Date()))
+                    })
                     .environment(\.homeStartFocus, planDependencies.map { dependencies in
-                        HomeStartFocusAction { taskID in
-                            await startFocusFromHome(taskID: taskID, dependencies: dependencies, router: router)
+                        HomeStartFocusAction { taskID, hint in
+                            await startFocusFromHome(taskID: taskID, hint: hint, dependencies: dependencies, router: router)
                         }
                     })
+                    // Home lives under Features/, which the architecture test
+                    // keeps free of the composition root; the shell hands it
+                    // the habit board as a capability instead.
+                    .environment(\.homeHabitsToday, HomeHabitsTodayCapability(
+                        isAvailable: { CompositionRoot.shared.isConfiguredForRuntime },
+                        makeViewModel: { CompositionRoot.shared.makeHabitBoardViewModel() }
+                    ))
                 }
             )
         } else if destination == .plan,
@@ -294,7 +330,7 @@ extension FoundationShell {
             return AnyView(PlanRootView(
                 dependencies: planDependencies,
                 onOpenFocus: { router.push(.focusSession($0), in: .plan) },
-                onAskEva: { router.select(.eva) },
+                onAskEva: { router.presentEva(context: EvaLaunchContext(kind: .day, date: Date()), prompt: nil) },
                 onOpenWeeklyPlanner: { router.push(.weeklyPlanningWorkspace(.week), in: .plan) },
                 onOpenWeeklyReview: { router.push(.weeklyReview, in: .plan) },
                 onOpenOverdueRescue: presentPlanOverdueRescue,
@@ -331,6 +367,7 @@ extension FoundationShell {
                 nutritionRepository: nutritionRepository,
                 lifeMomentRepository: lifeMomentRepository,
                 wellnessRepository: wellnessRepository,
+                onOpenRoute: { router.push($0, in: .track) },
                 onOpenHabitBoard: { router.push(.habitBoard, in: .track) },
                 onOpenHealth: { router.push(.health, in: .track) }
             ))
@@ -366,7 +403,8 @@ extension FoundationShell {
                 goalSampleProvider: goalSampleProvider,
                 router: router,
                 onComposerFocusChange: updateEvaComposerFocus
-            ))
+            )
+            .environment(\.evaRitualPresenter, EvaRitualRouteFactory.presenter(router: router, planDependencies: planDependencies)))
         }
         return AnyView(EmptyView())
     }
@@ -426,26 +464,54 @@ private struct RootInteractivityProbe: UIViewRepresentable {
     }
 }
 
-
-/// Bridges `HomeOnboardingGuidanceModel` — owned by `AppOnboardingCoordinator`
-/// and handed to `HomeViewModel` — to the banner.
+/// At most one "getting started" card on Home, in priority order: the first
+/// action the person chose during onboarding, then the onboarding guidance
+/// banner, then the Setup Center invitation.
 ///
 /// A `struct: View` rather than a computed property in the shell body: Debug
 /// builds run at `-Onone`, where a computed `some View` is inlined into its
 /// caller's frame, and the shell root is already close to the main thread's
 /// stack budget.
-private struct HomeOnboardingGuidanceHost: View {
+struct HomeGettingStartedCard: View {
     @ObservedObject var viewModel: HomeViewModel
+    let router: AppRouter
+    let captureRouter: CaptureRouter
+    /// Presence only — the card decodes its own contents.
+    @AppStorage(OnboardingFirstAction.key) private var firstActionReceipt = Data()
 
     var body: some View {
-        if let model = viewModel.onboardingGuidanceModel {
-            HomeOnboardingGuidanceBannerHost(model: model)
+        Group {
+            if firstActionReceipt.isEmpty == false {
+                OnboardingFirstActionCard(
+                    onOpenTask: { router.push(.taskDetail($0), in: .home) },
+                    onCreateTask: { captureRouter.request(CaptureRequest(kind: .task, source: .shell)) }
+                )
+            } else if let model = viewModel.onboardingGuidanceModel {
+                // The banner, its model and its copy were all finished, but it
+                // had zero call sites: `HomeOverlaySnapshot.guidanceState` was
+                // hardcoded `nil`, and that snapshot feeds the legacy Home
+                // pipeline anyway — `AdaptiveHome` never reads it.
+                HomeOnboardingGuidanceBannerHost(model: model) { setupCenter }
+            } else {
+                setupCenter
+            }
+        }
+    }
+
+    private var setupCenter: SetupCenterHomeCard {
+        SetupCenterHomeCard(
+            calendarIntegrationService: viewModel.calendarIntegrationService,
+            healthStore: HealthCoordinator.shared.connectionStore
+        ) {
+            router.push(.settingsDetail(.setupCenter), in: .home)
         }
     }
 }
 
-private struct HomeOnboardingGuidanceBannerHost: View {
+private struct HomeOnboardingGuidanceBannerHost<Fallback: View>: View {
     @ObservedObject var model: HomeOnboardingGuidanceModel
+    /// Shown when there is no guidance to give, so only one card is up.
+    @ViewBuilder let fallback: () -> Fallback
 
     var body: some View {
         if let state = model.state {
@@ -455,8 +521,9 @@ private struct HomeOnboardingGuidanceBannerHost: View {
                 onDismiss: { model.clear() }
             )
             .padding(.horizontal, 20)
-            .padding(.bottom, 12)
             .transition(.opacity.combined(with: .move(edge: .top)))
+        } else {
+            fallback()
         }
     }
 }

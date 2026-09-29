@@ -18,6 +18,8 @@ struct StarterHabitTemplate: Identifiable, Equatable, Sendable {
     let icon: HabitIconMetadata
     let notes: String?
     let recommendedProfiles: Set<OnboardingFrictionProfile>
+    /// Optional real target; `nil` keeps the one-a-day check-in.
+    var target: HabitTarget? = nil
 
     var isPositive: Bool {
         kind == .positive
@@ -32,7 +34,8 @@ struct StarterHabitTemplate: Identifiable, Equatable, Sendable {
             kind: kind == .positive ? .positive : .negative,
             trackingMode: trackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
             cadence: cadence,
-            iconSymbolName: icon.symbolName
+            iconSymbolName: icon.symbolName,
+            target: target
         )
     }
 
@@ -44,7 +47,7 @@ struct StarterHabitTemplate: Identifiable, Equatable, Sendable {
             kind: kind,
             trackingMode: trackingMode,
             icon: icon,
-            targetConfig: HabitTargetConfig(notes: notes, targetCountPerDay: 1),
+            targetConfig: HabitTargetConfig(notes: notes, targetCountPerDay: 1, target: target),
             metricConfig: HabitMetricConfig(unitLabel: nil, showNotesOnCompletion: notes != nil),
             cadence: cadence
         )

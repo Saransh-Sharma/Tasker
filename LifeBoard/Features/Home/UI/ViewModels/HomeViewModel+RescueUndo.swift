@@ -46,7 +46,7 @@ extension HomeViewModel {
             completion(.failure(NSError(
                 domain: "HomeViewModel",
                 code: 404,
-                userInfo: [NSLocalizedDescriptionKey: "Parent task no longer exists."]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t find the task.")]
             )))
             return
         }
@@ -58,7 +58,7 @@ extension HomeViewModel {
             completion(.failure(NSError(
                 domain: "HomeViewModel",
                 code: 422,
-                userInfo: [NSLocalizedDescriptionKey: "Add at least two subtasks to split."]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "Add at least 2 subtasks.")]
             )))
             return
         }

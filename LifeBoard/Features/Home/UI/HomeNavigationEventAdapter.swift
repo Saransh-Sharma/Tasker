@@ -158,6 +158,13 @@ final class HomeNavigationEventAdapter {
             }
             .store(in: &cancellables)
 
+        notificationCenter.publisher(for: .lifeboardPendingShortcutHandoff)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.emit(.pendingShortcutHandoff)
+            }
+            .store(in: &cancellables)
+
     }
 
     func stop() {
@@ -177,14 +184,23 @@ final class NavigationEventCoordinator: HomeNavigationEventAdapterDelegate {
     private let router: AppRouter
     private let homeViewModel: HomeViewModel
     private let eventAdapter: HomeNavigationEventAdapter
+    /// Whether this window should act on an app-wide navigation event.
+    ///
+    /// Deep links, widget commands and notification routes are posted once for
+    /// the whole app. With several windows open, each window's coordinator
+    /// heard them, so every window navigated. Only the window the person is in
+    /// (the key window's scene) acts; with one window this is always true.
+    private let isEventTarget: () -> Bool
 
     init(
         router: AppRouter,
         homeViewModel: HomeViewModel,
-        notificationCenter: NotificationCenter = .default
+        notificationCenter: NotificationCenter = .default,
+        isEventTarget: @escaping () -> Bool = { true }
     ) {
         self.router = router
         self.homeViewModel = homeViewModel
+        self.isEventTarget = isEventTarget
         eventAdapter = HomeNavigationEventAdapter(notificationCenter: notificationCenter)
         eventAdapter.delegate = self
     }
@@ -206,6 +222,7 @@ final class NavigationEventCoordinator: HomeNavigationEventAdapterDelegate {
         _ adapter: HomeNavigationEventAdapter,
         didReceive intent: HomeNavigationIntent
     ) {
+        guard isEventTarget() else { return }
         switch intent {
         case .notificationRoute(let route):
             router.handle(notificationRoute: route)
@@ -277,7 +294,20 @@ final class NavigationEventCoordinator: HomeNavigationEventAdapterDelegate {
                 try? EvaChatLaunchRequestStore.shared.submit(.init(prompt: action.prompt))
                 router.select(.eva)
             case .startFocus:
-                router.push(.focusSession(nil), in: .plan)
+                // Used to push `.focusSession(nil)`, which landed on "not
+                // found" because no session existed. Start the preset, then
+                // open the session it made.
+                let preset = FocusPreset.resolve(id: action.presetID, in: WorkspacePreferencesStore.shared.load())
+                Task { @MainActor [router, homeViewModel] in
+                    do {
+                        let sessionID = try await homeViewModel.startFocusSession(mode: preset.focusMode)
+                        router.select(.plan)
+                        router.push(.focusSession(sessionID), in: .plan)
+                    } catch {
+                        router.select(.plan)
+                        router.push(.focusSession(nil), in: .plan)
+                    }
+                }
             }
         }
         if ShortcutMutationSignalStore.shared.consumePendingSignal() != nil {
@@ -295,6 +325,57 @@ final class NavigationEventCoordinator: HomeNavigationEventAdapterDelegate {
             }
         }
         processPendingBehaviorOccurrenceActionCommand()
+        processPendingHabitAmountActionCommand()
+    }
+
+    /// A widget's "+1" or "done" lands here. Steps go through the amount use
+    /// case so crossing the target completes the habit exactly once; check-ins
+    /// resolve today's occurrence. The last applied command id guards replay.
+    private static let lastHabitAmountCommandKey = "lifeboard.widget.habitAmount.lastCommandID"
+
+    private func processPendingHabitAmountActionCommand() {
+        guard let command = HabitAmountActionCommand.loadPending() else { return }
+        guard command.isExpired == false else {
+            HabitAmountActionCommand.clearPending()
+            return
+        }
+        guard UserDefaults.standard.string(forKey: Self.lastHabitAmountCommandKey) != command.commandID.uuidString else {
+            HabitAmountActionCommand.clearPending()
+            return
+        }
+        let coordinator = homeViewModel.useCaseCoordinator
+        let commandID = command.commandID.uuidString
+        let finish: @Sendable () -> Void = {
+            Task { @MainActor in
+                UserDefaults.standard.set(commandID, forKey: Self.lastHabitAmountCommandKey)
+                HabitAmountActionCommand.clearPending()
+                TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "habit_widget_amount")
+                NotificationCenter.default.post(name: .homeHabitMutation, object: nil)
+            }
+        }
+        switch command.kind {
+        case .step:
+            Task {
+                do {
+                    _ = try await coordinator.logHabitAmount.execute(habitID: command.habitID, change: .add(command.delta))
+                    finish()
+                } catch {
+                    HabitAmountActionCommand.clearPending()
+                }
+            }
+        case .complete, .abstain:
+            coordinator.resolveHabitOccurrence.execute(
+                habitID: command.habitID,
+                action: command.kind == .abstain ? .abstained : .complete,
+                on: Date()
+            ) { result in
+                guard case .success = result else {
+                    HabitAmountActionCommand.clearPending()
+                    return
+                }
+                finish()
+            }
+        }
     }
 
     private func processPendingBehaviorOccurrenceActionCommand() {

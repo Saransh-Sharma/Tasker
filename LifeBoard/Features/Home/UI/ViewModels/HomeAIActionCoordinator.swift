@@ -254,7 +254,7 @@ final class HomeAIActionCoordinator {
             if change.task.planningBucket != change.targetPlanningBucket {
                 let leavingThisWeek = change.task.planningBucket == .thisWeek && change.targetPlanningBucket != .thisWeek
                 lines.append(AssistantDiffLine(
-                    text: "Move '\(taskTitle)' to \(bucketDisplayName(change.targetPlanningBucket))",
+                    text: String(localized: "Move ‘\(taskTitle)’ to \(bucketDisplayName(change.targetPlanningBucket))"),
                     isDestructive: leavingThisWeek
                 ))
             }
@@ -262,14 +262,14 @@ final class HomeAIActionCoordinator {
             if change.task.weeklyOutcomeID != change.targetWeeklyOutcomeID {
                 if let outcomeID = change.targetWeeklyOutcomeID {
                     let outcomeTitle = weeklyOutcomeTitlesByID[outcomeID]?.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let displayName = (outcomeTitle?.isEmpty == false) ? outcomeTitle! : "selected weekly outcome"
+                    let displayName = (outcomeTitle?.isEmpty == false) ? outcomeTitle! : String(localized: "the selected outcome")
                     lines.append(AssistantDiffLine(
-                        text: "Link '\(taskTitle)' to outcome '\(displayName)'",
+                        text: String(localized: "Link ‘\(taskTitle)’ to ‘\(displayName)’"),
                         isDestructive: false
                     ))
                 } else if change.task.weeklyOutcomeID != nil {
                     lines.append(AssistantDiffLine(
-                        text: "Remove weekly outcome from '\(taskTitle)'",
+                        text: String(localized: "Unlink outcome from ‘\(taskTitle)’"),
                         isDestructive: true
                     ))
                 }
@@ -277,7 +277,7 @@ final class HomeAIActionCoordinator {
 
             if change.task.deferredCount != change.deferredCount && change.deferredCount > change.task.deferredCount {
                 lines.append(AssistantDiffLine(
-                    text: "Record carry-forward for '\(taskTitle)'",
+                    text: String(localized: "Mark ‘\(taskTitle)’ as moved"),
                     isDestructive: false
                 ))
             }
@@ -286,7 +286,7 @@ final class HomeAIActionCoordinator {
         if lines.isEmpty {
             return taskChanges.map {
                 AssistantDiffLine(
-                    text: "Refresh weekly state for '\(displayTaskTitle(for: $0.task))'",
+                    text: String(localized: "Update ‘\(displayTaskTitle(for: $0.task))’"),
                     isDestructive: false
                 )
             }
@@ -329,15 +329,15 @@ final class HomeAIActionCoordinator {
     private func bucketDisplayName(_ bucket: TaskPlanningBucket) -> String {
         switch bucket {
         case .today:
-            return "Today"
+            return String(localized: "Today")
         case .thisWeek:
-            return "This Week"
+            return String(localized: "This week")
         case .nextWeek:
-            return "Next Week"
+            return String(localized: "Next week")
         case .later:
-            return "Later"
+            return String(localized: "Later")
         case .someday:
-            return "Someday"
+            return String(localized: "Someday")
         }
     }
 

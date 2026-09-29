@@ -23,10 +23,24 @@ extension ChatComposerView {
         EvaStarterPrompt.dayOverviewPrompt
     }
 
+    var structuredComposerLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.xs))
+            : AnyLayout(HStackLayout(alignment: .bottom, spacing: Theme.Spacing.xs))
+    }
+
     var structuredComposer: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             if activeAttachments.isEmpty == false {
                 activeAttachmentRow
+            }
+
+            // Picking /project or /area creates a draft whose argument field
+            // and cancel live in this row. The structured composer — Eva's
+            // default — never drew it: the draft was invisible, Send stayed
+            // disabled, and `/` could not be typed again.
+            if let slashDraft {
+                commandDraftRow(slashDraft)
             }
 
             if let commandFeedback, !commandFeedback.isEmpty {
@@ -38,9 +52,17 @@ extension ChatComposerView {
                     .transition(.opacity)
             }
 
-            HStack(alignment: .bottom, spacing: Theme.Spacing.xs) {
+            // At accessibility sizes the field and its controls no longer fit
+            // side by side; stacking keeps every control 44 pt and above the dock.
+            structuredComposerLayout {
                 structuredPromptField
-                structuredComposerActions
+                if dynamicTypeSize.isAccessibilitySize {
+                    HStack(spacing: Theme.Spacing.xs) {
+                        structuredComposerActions
+                    }
+                } else {
+                    structuredComposerActions
+                }
             }
 
             if let structuredDeferredFeedback {
@@ -60,7 +82,7 @@ extension ChatComposerView {
                     lineWidth: isPromptFocused ? 1.5 : 1
                 )
         }
-        .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isPromptFocused)
+        .lifeBoardMotion(.controlMorph, value: isPromptFocused)
         .contentShape(Rectangle())
         .onTapGesture {
             isPromptFocused = true
@@ -78,11 +100,11 @@ extension ChatComposerView {
         .onChange(of: dictationController.phase) { _, phase in
             switch phase {
             case .preparing:
-                structuredDeferredFeedback = "Preparing on-device dictation…"
+                structuredDeferredFeedback = String(localized: "Starting dictation…")
             case .recording:
-                structuredDeferredFeedback = "Listening… Tap stop when you’re done."
+                structuredDeferredFeedback = String(localized: "Listening…")
             case .finalizing:
-                structuredDeferredFeedback = "Finalizing transcript…"
+                structuredDeferredFeedback = String(localized: "Transcribing…")
             case .idle:
                 if dictationController.recovery == nil {
                     structuredDeferredFeedback = nil
@@ -98,7 +120,7 @@ extension ChatComposerView {
     }
 
     private var structuredPromptField: some View {
-        TextField("Tell me your plans...", text: $prompt, axis: .vertical)
+        TextField(composerPlaceholder, text: $prompt, prompt: Text(composerPlaceholder).foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
             .focused($isPromptFocused)
             .accessibilityIdentifier("eva.structured.composer")
             .textFieldStyle(.plain)
@@ -111,7 +133,9 @@ extension ChatComposerView {
             .lineLimit(1...4)
             .disabled(isStructuredDictationActive)
             .onSubmit(onSubmitPrompt)
-            .submitLabel(.send)
+            // Eva is prose: Return breaks the line on the software keyboard,
+            // so the key must not say "send". Send, or ⌘Return, sends.
+            .submitLabel(.return)
             .evaComposerKeyboardDismissal(isFocused: $isPromptFocused)
     }
 
@@ -134,13 +158,20 @@ extension ChatComposerView {
                 label: "Start dictation",
                 action: startStructuredDictation
             )
-        } else if V2FeatureFlags.evaVoiceDeferred {
+        }
+        #if DEBUG
+        // Placeholders for features that aren't built yet. Debug builds only,
+        // behind flags that default off: a shipped control that says "coming
+        // later" is a dead end.
+        if V2FeatureFlags.evaVoiceDeferred && isStructuredDictationActive == false
+            && V2FeatureFlags.universalInputDictationEnabled == false {
             structuredDeferredIcon(systemName: "mic.fill", label: "Voice planning")
         }
 
         if V2FeatureFlags.evaScanDeferred && isStructuredDictationActive == false {
             structuredDeferredIcon(systemName: "viewfinder", label: "Scan planning")
         }
+        #endif
 
         if isStructuredDictationActive == false {
             if isGenerationInFlight {
@@ -160,7 +191,7 @@ extension ChatComposerView {
     }
 
     func startStructuredDictation() {
-        structuredDeferredFeedback = "Preparing on-device dictation…"
+        structuredDeferredFeedback = String(localized: "Starting dictation…")
         dictationController.start(existingDraft: prompt)
         isPromptFocused = false
     }
@@ -199,6 +230,7 @@ extension ChatComposerView {
         .accessibilityIdentifier("eva.structured.dictation.\(systemName)")
     }
 
+    #if DEBUG
     func structuredDeferredIcon(systemName: String, label: String) -> some View {
         Button {
             structuredDeferredFeedback = "\(label) is coming later."
@@ -206,22 +238,23 @@ extension ChatComposerView {
             Image(systemName: systemName)
                 .lifeboardFont(.title1)
                 .foregroundStyle(Color.lifeboard(.link, on: .dockChrome))
-                .frame(width: 36, height: 44)
-                .padding(.bottom, 4)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(label) coming later")
         .accessibilityHint("No permission will be requested.")
         .accessibilityIdentifier("eva.structured.deferred.\(systemName)")
     }
+    #endif
 
     var composerPlaceholder: String {
-        isActivationPresentation ? "\(identity.askAction) what to focus on..." : "\(identity.askAction) anything"
+        identity.askAction
     }
 
     var activeAttachmentRow: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text("Using context")
+            Text("Pinned")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .padding(.horizontal, Theme.Spacing.sm)
@@ -243,7 +276,6 @@ extension ChatComposerView {
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(Text("Remove \(attachment.commandLabel)"))
-                            .accessibilityHint(Text("Removes this pinned context from the current chat."))
                         }
                         .foregroundStyle(Color.lifeboard(.accentPrimary))
                         .padding(.horizontal, Theme.Spacing.sm)
@@ -278,7 +310,6 @@ extension ChatComposerView {
         .padding(.leading, Theme.Spacing.sm)
         .padding(.bottom, Theme.Spacing.xs)
         .accessibilityLabel("Commands")
-        .accessibilityHint("Open slash commands")
         .accessibilityIdentifier("chat.slash_button")
         .lifeboardPressFeedback()
     }
@@ -323,6 +354,10 @@ extension ChatComposerView {
                         .textFieldStyle(.plain)
                         .autocorrectionDisabled()
                         .focused($isProjectFieldFocused)
+                        // Picking the command asks for this field before it
+                        // exists, and SwiftUI drops that write; ask again once
+                        // it is on screen.
+                        .onAppear { DispatchQueue.main.async { isProjectFieldFocused = true } }
                         .accessibilityIdentifier("chat.command_argument_field")
 
                     if let resolvedArgument = invocation.resolvedArgument, !resolvedArgument.isEmpty {
@@ -347,79 +382,5 @@ extension ChatComposerView {
             }
         }
         .transition(.opacity)
-    }
-
-    var generateButton: some View {
-        Button {
-            HapticFeedback.light()
-            onGenerate()
-        } label: {
-            Image(systemName: "arrow.up")
-                .font(.lifeboard(.buttonSmall))
-                .fontWeight(.semibold)
-                .foregroundStyle(canSubmit ? Color.lifeboard(.accentOnPrimary) : Color.lifeboard(.textQuaternary))
-            #if os(iOS) || os(visionOS)
-                .frame(width: 32, height: 32)
-            #else
-                .frame(width: 24, height: 24)
-            #endif
-                .background(
-                    Circle()
-                        .fill(canSubmit ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.glassFill.opacity(0.68))
-                )
-                // The drawn circle stays 32pt; the target around it is 44.
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .disabled(!canSubmit)
-        // VoiceOver read the SF Symbol's name, "Up Arrow", because the button
-        // had no label of its own.
-        .accessibilityLabel("Send")
-        .accessibilityIdentifier("chat.send_button")
-        #if os(iOS) || os(visionOS)
-            .padding(.trailing, Theme.Spacing.md)
-            .padding(.bottom, Theme.Spacing.xs)
-        #else
-            .padding(.trailing, Theme.Spacing.sm)
-            .padding(.bottom, Theme.Spacing.sm)
-        #endif
-        .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.feedbackFast, value: canSubmit)
-        #if os(macOS) || os(visionOS)
-        .buttonStyle(.plain)
-        #endif
-        .lifeboardPressFeedback()
-    }
-
-    var stopButton: some View {
-        Button(action: onStop) {
-            Image(systemName: "stop.fill")
-                .font(.caption)
-                .foregroundStyle(Color.lifeboard(.accentOnPrimary))
-            #if os(iOS) || os(visionOS)
-                .frame(width: 32, height: 32)
-            #else
-                .frame(width: 24, height: 24)
-            #endif
-                .background(
-                    Circle()
-                        .fill(Color.lifeboard(.statusDanger))
-                )
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .disabled(llmCancelled)
-        .accessibilityLabel("Stop response")
-        .accessibilityIdentifier("chat.stop_button")
-        #if os(iOS) || os(visionOS)
-            .padding(.trailing, Theme.Spacing.md)
-            .padding(.bottom, Theme.Spacing.xs)
-        #else
-            .padding(.trailing, Theme.Spacing.sm)
-            .padding(.bottom, Theme.Spacing.sm)
-        #endif
-        #if os(macOS) || os(visionOS)
-        .buttonStyle(.plain)
-        #endif
-        .lifeboardPressFeedback()
     }
 }

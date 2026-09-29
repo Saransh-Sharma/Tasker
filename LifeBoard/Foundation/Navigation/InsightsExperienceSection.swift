@@ -1,8 +1,9 @@
 import SwiftUI
 import UIKit
 
-/// The optional experience lens: a read of the local XP ledger, deliberately
-/// framed as a record rather than a score.
+/// The optional Activity lens (`InsightsLens.experience`): what got done each
+/// day, framed as a record rather than a score. The XP totals behind it are
+/// not shown — a number of points is a score whatever it is called.
 struct InsightsExperienceSection: View {
     let isAvailable: Bool
     let loadFinished: Bool
@@ -16,18 +17,18 @@ struct InsightsExperienceSection: View {
         if isAvailable == false {
             StatusSurface(
                 state: .unavailable,
-                title: "Experience lens unavailable",
-                message: "Your planning and reflection evidence is still available in the other lenses."
+                title: "Activity unavailable",
+                message: ""
             )
             .frame(minHeight: 220)
         } else if loadFinished == false {
-            ProgressView("Reading your local experience ledger…")
+            ProgressView("Loading…")
                 .frame(maxWidth: .infinity, minHeight: 180)
-        } else if let errorMessage {
+        } else if errorMessage != nil {
             StatusSurface(
                 state: .recoverableError,
-                title: "Experience history is temporarily unavailable",
-                message: errorMessage,
+                title: "Couldn’t load activity.",
+                message: "",
                 actionTitle: "Try again",
                 action: reload
             )
@@ -35,26 +36,26 @@ struct InsightsExperienceSection: View {
             VStack(spacing: 12) {
                 StatusSurface(
                     state: .noRecord,
-                    title: "No experience history yet",
-                    message: "This optional lens appears as actions earn entries in your local ledger."
+                    title: "No activity yet",
+                    message: "Finished tasks and habits show up here."
                 )
-                Button("Return to Review") {
+                Button("Open Review") {
                     lens = .review
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("insights.experience.empty.openReview")
             }
             .frame(maxWidth: .infinity, minHeight: 220)
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Experience, if it helps")
+                Text("Last 7 days")
                     .lifeboardFont(.eyebrow)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                Text("\(aggregates.reduce(0) { $0 + $1.totalXP }) XP")
+                Text("\(totalEntries) done")
                     .font(Typography.screenTitle().weight(.bold))
                     .monospacedDigit()
-                Text("An optional view of the existing local ledger—not a score for your day.")
+                Text("Tasks, habits, focus and check-ins you completed.")
                     .lifeboardFont(.body)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             }
@@ -65,13 +66,13 @@ struct InsightsExperienceSection: View {
             .accessibilityIdentifier("insights.experience.summary")
 
             VStack(alignment: .leading, spacing: 0) {
-                SectionHeader("Last seven days")
+                SectionHeader("By day")
                     .padding(.bottom, 8)
                 ForEach(aggregates.sorted { $0.dateKey > $1.dateKey }, id: \.id) { aggregate in
                     HStack {
                         Text(dayLabel(aggregate.dateKey))
                         Spacer()
-                        Text("\(aggregate.totalXP) XP · \(aggregate.eventCount) \(aggregate.eventCount == 1 ? "entry" : "entries")")
+                        Text("\(aggregate.eventCount) done")
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                             .monospacedDigit()
                     }
@@ -88,6 +89,10 @@ struct InsightsExperienceSection: View {
             .accessibilityIdentifier("insights.experience.history")
         }
     }
+    private var totalEntries: Int {
+        aggregates.reduce(0) { $0 + $1.eventCount }
+    }
+
     private func dayLabel(_ dateKey: String) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)

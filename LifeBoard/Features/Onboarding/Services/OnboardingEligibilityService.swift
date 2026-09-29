@@ -64,6 +64,20 @@ final class OnboardingEligibilityService: @unchecked Sendable {
         launchArguments.contains("-SKIP_ONBOARDING")
     }
 
+    private func workspaceSnapshot() async throws -> OnboardingWorkspaceSnapshot {
+        async let lifeAreasTask = fetchLifeAreas()
+        async let projectsTask = fetchProjects()
+        async let tasksTask = fetchTasks()
+        let lifeAreas = try await lifeAreasTask
+        let projects = try await projectsTask
+        let tasks = try await tasksTask
+        return OnboardingWorkspaceSnapshot(
+            customLifeAreaCount: lifeAreas.filter(StarterWorkspaceCatalog.isCustomLifeArea).count,
+            customProjectCount: projects.filter(StarterWorkspaceCatalog.isCustomProject).count,
+            taskCount: tasks.count
+        )
+    }
+
     func evaluate(version: Int = AppOnboardingState.currentVersion) async -> OnboardingEligibility {
         if isSuppressedByLaunchArgument {
             return .suppressed
@@ -72,19 +86,18 @@ final class OnboardingEligibilityService: @unchecked Sendable {
         let state = stateStore.load()
         let hasCompletedCore = state.completedVersion != nil && state.outcome != nil
 
-        let snapshot: OnboardingWorkspaceSnapshot
+        var snapshot: OnboardingWorkspaceSnapshot
         do {
-            async let lifeAreasTask = fetchLifeAreas()
-            async let projectsTask = fetchProjects()
-            async let tasksTask = fetchTasks()
-            let lifeAreas = try await lifeAreasTask
-            let projects = try await projectsTask
-            let tasks = try await tasksTask
-            snapshot = OnboardingWorkspaceSnapshot(
-                customLifeAreaCount: lifeAreas.filter(StarterWorkspaceCatalog.isCustomLifeArea).count,
-                customProjectCount: projects.filter(StarterWorkspaceCatalog.isCustomProject).count,
-                taskCount: tasks.count
-            )
+            snapshot = try await workspaceSnapshot()
+            // A second device starts empty and fills from iCloud moments
+            // later. Deciding "empty" before that first import would run the
+            // whole setup again over someone's existing life. Wait briefly
+            // (bounded, and skipped offline or without iCloud), then look again.
+            if snapshot.isEffectivelyEmpty, hasCompletedCore == false,
+               CloudSyncStatusStore.shared.mightStillReceiveFirstImport,
+               await CloudSyncStatusStore.shared.waitForFirstImport() {
+                snapshot = try await workspaceSnapshot()
+            }
         } catch {
             logOnboardingError(
                 event: "onboarding_eligibility_failed",

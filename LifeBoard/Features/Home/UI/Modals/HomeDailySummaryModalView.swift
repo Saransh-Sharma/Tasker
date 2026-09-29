@@ -77,10 +77,10 @@ struct DailySummaryModalView: View {
         let subtitle: String
         switch summary {
         case .morning(let value):
-            title = "Morning Plan"
+            title = String(localized: "Morning plan")
             subtitle = headerDateText(value.date)
         case .nightly(let value):
-            title = "Day Retrospective"
+            title = String(localized: "Day review")
             subtitle = headerDateText(value.date)
         }
 
@@ -108,7 +108,7 @@ struct DailySummaryModalView: View {
                 Button("Close") {
                     onDismiss()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
             }
             summaryHeroMetrics
         }
@@ -153,7 +153,7 @@ struct DailySummaryModalView: View {
                         title: "Done",
                         value: "\(value.completedCount)/\(value.totalCount)",
                         id: "home.dailySummary.hero.completed",
-                        detail: value.totalCount > 0 ? "\(Int((value.completionRate * 100).rounded()))% completion" : "No schedule recorded"
+                        detail: value.totalCount > 0 ? String(localized: "\(Int((value.completionRate * 100).rounded()))% done") : String(localized: "Nothing scheduled")
                     )
                     metricChip(
                         title: "Rate",
@@ -178,7 +178,7 @@ struct DailySummaryModalView: View {
         VStack(alignment: .leading, spacing: 14) {
             sectionCard(title: "Focus Now") {
                 if summary.focusTasks.isEmpty {
-                    Text("No tasks queued. Capture one meaningful win.")
+                    Text("No tasks yet")
                         .font(.lifeboard(.body))
                         .foregroundColor(Color.lifeboard.textSecondary)
                 } else {
@@ -188,15 +188,15 @@ struct DailySummaryModalView: View {
                 }
             }
 
-            sectionCard(title: "Risk & Friction") {
+            sectionCard(title: "Blockers") {
                 VStack(alignment: .leading, spacing: 8) {
-                    riskLine(title: "Rescue tasks", value: summary.overdueCount)
-                    riskLine(title: "Blocked tasks", value: summary.blockedCount)
-                    riskLine(title: "Long tasks (60m+)", value: summary.longTaskCount)
+                    riskLine(title: "From earlier", value: summary.overdueCount)
+                    riskLine(title: "Blocked", value: summary.blockedCount)
+                    riskLine(title: "Over 1 hr", value: summary.longTaskCount)
                 }
             }
 
-            sectionCard(title: "Agenda Split") {
+            sectionCard(title: "Morning & evening") {
                 HStack(spacing: 12) {
                     agendaPill(title: "Morning", value: summary.morningPlannedCount)
                     agendaPill(title: "Evening", value: summary.eveningPlannedCount)
@@ -207,9 +207,9 @@ struct DailySummaryModalView: View {
 
     private func nightlyContent(_ summary: NightlyRetrospectiveSummary) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionCard(title: "Biggest Wins") {
+            sectionCard(title: "Done today") {
                 if summary.biggestWins.isEmpty {
-                    Text("No completions today. Pick one tiny restart for tomorrow.")
+                    Text("Nothing done today")
                         .font(.lifeboard(.body))
                         .foregroundColor(Color.lifeboard.textSecondary)
                 } else {
@@ -219,16 +219,16 @@ struct DailySummaryModalView: View {
                 }
             }
 
-            sectionCard(title: "Carry-forward") {
+            sectionCard(title: "Still open") {
                 VStack(alignment: .leading, spacing: 8) {
-                    riskLine(title: "Open due today", value: summary.carryOverDueTodayCount)
-                    riskLine(title: "Needs rescue", value: summary.carryOverOverdueCount)
+                    riskLine(title: "Due today", value: summary.carryOverDueTodayCount)
+                    riskLine(title: "From earlier", value: summary.carryOverOverdueCount)
                 }
             }
 
-            sectionCard(title: "Tomorrow Preview") {
+            sectionCard(title: "Tomorrow") {
                 if summary.tomorrowPreview.isEmpty {
-                    Text("No tasks due tomorrow yet.")
+                    Text("Nothing due tomorrow")
                         .font(.lifeboard(.body))
                         .foregroundColor(Color.lifeboard.textSecondary)
                 } else {
@@ -238,10 +238,10 @@ struct DailySummaryModalView: View {
                 }
             }
 
-            sectionCard(title: "Reflection Insight") {
+            sectionCard(title: "By time of day") {
                 HStack(spacing: 12) {
-                    agendaPill(title: "Morning Done", value: summary.morningCompletedCount)
-                    agendaPill(title: "Evening Done", value: summary.eveningCompletedCount)
+                    agendaPill(title: "Morning done", value: summary.morningCompletedCount)
+                    agendaPill(title: "Evening done", value: summary.eveningCompletedCount)
                 }
             }
         }
@@ -325,7 +325,7 @@ struct DailySummaryModalView: View {
         HeroMetricTile(
             title: title,
             value: "\(value)",
-            detail: value == 0 ? "Quiet" : "Visible progress",
+            detail: nil,
             tone: value == 0 ? .neutral : .accent
         )
     }
@@ -353,57 +353,57 @@ struct DailySummaryModalView: View {
         return VStack(alignment: .leading, spacing: 12) {
             switch summary {
             case .morning(let value):
-                Button("Start Today") { onStartToday() }
+                Button("Start the day") { onStartToday() }
                     .buttonStyle(.lifeBoardPrimaryCompact)
                     .lifeboardSuccessPulse(isActive: primaryCTAIdentifier == "home.dailySummary.cta.startToday")
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.startToday")
 
                 HStack(spacing: 12) {
-                    Button("Complete Morning Routine") { onCompleteMorningRoutine() }
-                        .buttonStyle(.bordered)
+                    Button("Finish morning routine") { onCompleteMorningRoutine() }
+                        .buttonStyle(.lifeBoardChip)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("home.dailySummary.cta.completeMorning")
-                    Button("Start Triage") { onStartTriage() }
-                        .buttonStyle(.bordered)
+                    Button("Start triage") { onStartTriage() }
+                        .buttonStyle(.lifeBoardChip)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("home.dailySummary.cta.startTriage")
                 }
 
                 if value.overdueCount > 0 {
                     Button("Open Rescue") { onRescueOverdue() }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("home.dailySummary.cta.rescueOverdue")
                 }
 
-                Button("Add Task") { onAddTask() }
-                    .buttonStyle(.bordered)
+                Button("Add task") { onAddTask() }
+                    .buttonStyle(.lifeBoardChip)
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.addTask")
 
             case .nightly(let value):
-                Button("Plan Tomorrow") { onPlanTomorrow() }
+                Button("Plan tomorrow") { onPlanTomorrow() }
                     .buttonStyle(.lifeBoardPrimaryCompact)
                     .lifeboardSuccessPulse(isActive: primaryCTAIdentifier == "home.dailySummary.cta.planTomorrow")
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.planTomorrow")
 
-                Button("Review Done") { onReviewDone() }
-                    .buttonStyle(.bordered)
+                Button("Review done") { onReviewDone() }
+                    .buttonStyle(.lifeBoardChip)
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.reviewDone")
 
                 if value.carryOverOverdueCount > 0 {
-                    Button("Reschedule Rescue Work") { onRescheduleOverdue() }
-                        .buttonStyle(.bordered)
+                    Button("Reschedule all") { onRescheduleOverdue() }
+                        .buttonStyle(.lifeBoardChip)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("home.dailySummary.cta.rescheduleOverdue")
                 }
 
                 if value.carryOverOverdueCount > 0 {
                     Button("Open Rescue") { onOpenRescue() }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("home.dailySummary.cta.openRescue")
                 }
@@ -441,13 +441,12 @@ struct DailySummaryModalView: View {
     private var summaryNarrative: String {
         switch summary {
         case .morning(let value):
-            return value.openTodayCount == 0
-                ? "You can start with one meaningful win."
-                : "Shape the day before the backlog sets the agenda."
+            let open = value.openTodayCount
+            if open == 0 { return String(localized: "Nothing due today.") }
+            return open == 1 ? String(localized: "1 task due today.") : String(localized: "\(open) tasks due today.")
         case .nightly(let value):
-            return value.completedCount == 0
-                ? "Close the loop with a realistic reset for tomorrow."
-                : "Notice what moved today before deciding what rolls forward."
+            let done = value.completedCount, total = value.totalCount
+            return done == 0 ? String(localized: "Nothing done today.") : String(localized: "\(done) of \(total) done.")
         }
     }
 
@@ -466,14 +465,7 @@ struct DailySummaryModalView: View {
     }
 
     private func durationLabel(seconds: TimeInterval) -> String {
-        let minutes = Int(round(seconds / 60))
-        if minutes >= 60 {
-            if minutes % 60 == 0 {
-                return "\(minutes / 60)h"
-            }
-            return String(format: "%.1fh", Double(minutes) / 60.0)
-        }
-        return "\(minutes)m"
+        LifeBoardDuration.text(seconds: seconds)
     }
 
     private func priorityColor(_ priority: TaskPriority) -> Color {

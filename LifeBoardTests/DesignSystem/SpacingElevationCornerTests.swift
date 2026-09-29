@@ -75,6 +75,33 @@ final class SpacingElevationCornerTests: XCTestCase {
         XCTAssertEqual(LayoutResolver.classify(metrics: expandedMac), .padExpanded)
     }
 
+    /// The class follows the window's width, not the device: a ⅓ Split View
+    /// pane, Slide Over and a narrow Mac window are phone-shaped.
+    func testLayoutResolverClassifiesByWindowWidthNotDevice() {
+        XCTAssertEqual(
+            LayoutResolver.classify(width: 375, horizontalSizeClass: .compact, platform: .pad),
+            .phone,
+            "Slide Over / ⅓ Split View"
+        )
+        XCTAssertEqual(
+            LayoutResolver.classify(width: 678, horizontalSizeClass: .compact, platform: .pad),
+            .phone,
+            "A compact-size-class iPad pane is phone-shaped at any width"
+        )
+        XCTAssertEqual(LayoutResolver.classify(width: 507, horizontalSizeClass: .regular, platform: .pad), .phone)
+        XCTAssertEqual(LayoutResolver.classify(width: 699, horizontalSizeClass: .regular, platform: .pad), .padCompact)
+        XCTAssertEqual(LayoutResolver.classify(width: 820, horizontalSizeClass: .regular, platform: .pad), .padRegular)
+        XCTAssertEqual(LayoutResolver.classify(width: 480, horizontalSizeClass: .regular, platform: .macCatalyst), .phone)
+        XCTAssertEqual(LayoutResolver.classify(width: 1366, horizontalSizeClass: .regular, platform: .macCatalyst), .padExpanded)
+        XCTAssertEqual(LayoutResolver.classify(width: 430, horizontalSizeClass: .compact, platform: .phone), .phone)
+        XCTAssertEqual(LayoutResolver.classify(width: 1024, horizontalSizeClass: .regular, platform: .phone), .phone)
+        XCTAssertEqual(
+            LayoutResolver.classify(width: 0, horizontalSizeClass: nil, platform: .pad),
+            .padRegular,
+            "Before first layout a pad falls back to its usual class instead of flashing the phone layout"
+        )
+    }
+
     @MainActor
     func testLayoutResolverFallsBackToWindowMetricsWhenViewWidthIsZero() throws {
         let windowScene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)

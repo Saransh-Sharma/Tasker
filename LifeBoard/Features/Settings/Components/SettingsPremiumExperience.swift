@@ -27,15 +27,15 @@ struct SettingsSetupStatus: Equatable {
 
     var title: String {
         let attentionCount = items.filter { $0.state == .attention }.count
-        if attentionCount > 0 { return attentionCount == 1 ? "One thing needs a look" : "A couple things need a look" }
-        if items.contains(where: { $0.state == .neutral }) { return "Finish setting up, when you’re ready" }
-        return "Everything’s ready"
+        if attentionCount > 0 {
+            return attentionCount == 1 ? String(localized: "Check 1 setting") : String(localized: "Check \(attentionCount) settings")
+        }
+        if items.contains(where: { $0.state == .neutral }) { return String(localized: "Finish setup") }
+        return String(localized: "All set")
     }
 
     var subtitle: String {
-        items.allSatisfy { $0.state == .healthy }
-            ? "LifeBoard is connected and your work is safe."
-            : "Nothing is urgent. These are the most useful next steps."
+        ""
     }
 }
 
@@ -52,8 +52,8 @@ enum SettingsSetupStatusResolver {
         if notificationPermissionDenied {
             reminders = .init(
                 id: "reminders",
-                title: "Reminders are off",
-                detail: "Open Reminders to review access and timing.",
+                title: String(localized: "Notifications are off"),
+                detail: String(localized: "Turn them on in Settings."),
                 systemImage: "bell.slash.fill",
                 state: .attention,
                 route: .reminders
@@ -61,8 +61,8 @@ enum SettingsSetupStatusResolver {
         } else if notificationPermissionGranted {
             reminders = .init(
                 id: "reminders",
-                title: "Reminders",
-                detail: enabledNotificationCount == 1 ? "1 reminder is on." : "\(enabledNotificationCount) reminders are on.",
+                title: String(localized: "Reminders"),
+                detail: enabledNotificationCount == 1 ? String(localized: "1 on") : String(localized: "\(enabledNotificationCount) on"),
                 systemImage: "bell.badge.fill",
                 state: .healthy,
                 route: .reminders
@@ -70,8 +70,8 @@ enum SettingsSetupStatusResolver {
         } else {
             reminders = .init(
                 id: "reminders",
-                title: "Reminders are ready",
-                detail: "Choose when you’d like a gentle nudge.",
+                title: String(localized: "Reminders"),
+                detail: String(localized: "Reminder times"),
                 systemImage: "bell.fill",
                 state: .neutral,
                 route: .reminders
@@ -81,10 +81,10 @@ enum SettingsSetupStatusResolver {
         let connectionCount = [calendarConnected, healthConnected].filter { $0 }.count
         let connections = SettingsSetupStatus.Item(
             id: "connections",
-            title: connectionCount == 2 ? "Connections are ready" : "Connect your day",
+            title: String(localized: "Calendar & Health"),
             detail: connectionCount == 2
-                ? "Calendar and Health are connected."
-                : connectionCount == 1 ? "1 of 2 optional connections is ready." : "Calendar and Health are optional.",
+                ? String(localized: "Connected")
+                : connectionCount == 1 ? String(localized: "1 of 2 connected") : String(localized: "Optional"),
             systemImage: connectionCount == 2 ? "link.badge.plus" : "link",
             state: connectionCount == 2 ? .healthy : .neutral,
             route: .calendarAndHealth
@@ -95,8 +95,8 @@ enum SettingsSetupStatusResolver {
         case .healthy:
             recovery = .init(
                 id: "recovery",
-                title: "Your work is safe",
-                detail: "Everything is up to date.",
+                title: String(localized: "Data"),
+                detail: String(localized: "Up to date"),
                 systemImage: "checkmark.shield.fill",
                 state: .healthy,
                 route: .dataAndHelp
@@ -104,8 +104,8 @@ enum SettingsSetupStatusResolver {
         case .working:
             recovery = .init(
                 id: "recovery",
-                title: "Still catching up",
-                detail: "Your work is safe while LifeBoard finishes.",
+                title: String(localized: "Data"),
+                detail: String(localized: "Syncing…"),
                 systemImage: "arrow.triangle.2.circlepath",
                 state: .neutral,
                 route: .dataAndHelp
@@ -113,8 +113,8 @@ enum SettingsSetupStatusResolver {
         case .attention, .unavailable:
             recovery = .init(
                 id: "recovery",
-                title: "Review data health",
-                detail: "Your work is safe; one service needs attention.",
+                title: String(localized: "Check Recovery"),
+                detail: String(localized: "Nothing was lost."),
                 systemImage: "exclamationmark.shield.fill",
                 state: .attention,
                 route: .dataAndHelp
@@ -128,13 +128,13 @@ enum SettingsSetupStatusResolver {
 extension SettingsDetailRoute {
     var summary: String {
         switch self {
-        case .setupCenter: return "Optional connections and EVA"
-        case .planAndOrganize: return "Week, timeline, and anchors"
-        case .calendarAndHealth: return "Connections and sync"
-        case .eva: return "Personality, intelligence, and memory"
-        case .reminders: return "Timing, quiet hours, and focus"
-        case .lookAndFeel: return "Atmosphere, motion, and detail"
-        case .dataAndHelp: return "Recovery, privacy, and support"
+        case .setupCenter: return String(localized: "Calendar, Health and Eva")
+        case .planAndOrganize: return String(localized: "Week and timeline")
+        case .calendarAndHealth: return String(localized: "Calendars and sync")
+        case .eva: return String(localized: "Companion, memory and chat")
+        case .reminders: return String(localized: "Reminders and summaries")
+        case .lookAndFeel: return String(localized: "Atmosphere and motion")
+        case .dataAndHelp: return String(localized: "Recovery and support")
         default: return title
         }
     }
@@ -177,9 +177,6 @@ struct SettingsHubHeading: View {
             Text("Settings")
                 .lifeboardFont(.screenTitle)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
-            Text("Make LifeBoard feel like yours.")
-                .lifeboardFont(.callout)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("settings.hub.heading")
@@ -203,16 +200,18 @@ struct SettingsSetupStatusCard: View {
                     Text(status.title)
                         .lifeboardFont(.headline)
                         .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text(status.subtitle)
-                        .lifeboardFont(.caption1)
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
-                        .fixedSize(horizontal: false, vertical: true)
+                    if status.subtitle.isEmpty == false {
+                        Text(status.subtitle)
+                            .lifeboardFont(.caption1)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
 
             ForEach(status.visibleItems) { item in
                 Button {
-                    HapticFeedback.light()
+                    Haptic.pick.play()
                     onNavigate(item.route)
                 } label: {
                     HStack(spacing: SwiftUITokens.spacing.s12) {
@@ -305,7 +304,7 @@ private struct SettingsCategoryButton: View {
 
     var body: some View {
         Button {
-            HapticFeedback.light()
+            Haptic.pick.play()
             bloomTrigger &+= 1
             if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) {
                 onNavigate(route)
@@ -350,7 +349,6 @@ private struct SettingsCategoryButton: View {
         .buttonStyle(SettingsCategoryPressStyle())
         .lifeBoardTransitionSource(route.transitionID)
         .accessibilityIdentifier("settings.category.\(route.rawValue)")
-        .accessibilityHint("Opens \(route.title) settings")
     }
 }
 
@@ -403,7 +401,7 @@ struct SettingsPadWelcome: View {
             Text(status.title)
                 .lifeboardFont(.sectionTitle)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
-            Text("Choose a category to make LifeBoard feel more like you.")
+            Text("Choose a category.")
                 .lifeboardFont(.callout)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .multilineTextAlignment(.center)
@@ -447,7 +445,9 @@ struct SettingsLookAndFeelView: View {
                         Text(resolvedDaypart.greeting.replacingOccurrences(of: "!", with: ""))
                     }
                     .font(.lifeboard(.caption1))
-                    .foregroundStyle(Color.white.opacity(0.94))
+                    // The regular glass follows appearance, so its ink must too:
+                    // fixed white sat on light glass over the morning preview.
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: false)
@@ -461,13 +461,13 @@ struct SettingsLookAndFeelView: View {
                 }
                 .contentShape(Rectangle())
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Atmosphere preview, \(resolvedDaypart.rawValue)")
+                .accessibilityLabel("Atmosphere preview, \(daypartName)")
                 .accessibilityIdentifier("settings.appearance.atmosphere.preview")
 
                 Text("Atmosphere")
                     .lifeboardFont(.headline)
                     .foregroundStyle(Color.lifeboard(.textPrimary))
-                Text("Drag through the day, or leave it on Auto.")
+                Text("Choose a time of day, or Auto.")
                     .lifeboardFont(.caption1)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
 
@@ -487,17 +487,13 @@ struct SettingsLookAndFeelView: View {
                 }
             }
             .padding(SwiftUITokens.spacing.s16)
-            .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.lifeboard(.borderSubtle), lineWidth: 1)
-            }
+            .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
 
             SettingsCard {
                 SettingsToggleRow(
                     iconName: "figure.walk.motion",
-                    title: "Full motion",
-                    subtitle: "Keep LifeBoard's motion on even when iOS Reduce Motion is turned on.",
+                    title: "App motion",
+                    subtitle: "iOS Reduce Motion always applies.",
                     isOn: $preferences.fullMotionEnabled,
                     accessibilityIdentifier: "settings.appearance.fullMotion.toggle"
                 )
@@ -519,7 +515,7 @@ struct SettingsLookAndFeelView: View {
                     identifierPrefix: "settings.lookAndFeel.comfort",
                     title: { profile in
                         switch profile {
-                        case .calm: "Calm"
+                        case .calm: "Subtle"
                         case .balanced: "Balanced"
                         case .playful: "Playful"
                         }
@@ -558,8 +554,8 @@ struct SettingsLookAndFeelView: View {
             SettingsCard {
                 SettingsToggleRow(
                     iconName: "sparkles",
-                    title: "Button flourishes",
-                    subtitle: "Add a brief warm shimmer to important actions.",
+                    title: "Button shimmer",
+                    subtitle: nil,
                     isOn: $decorativeEffectsEnabled,
                     accessibilityIdentifier: "settings.appearance.decorativeButtonEffects.toggle"
                 )
@@ -578,19 +574,29 @@ struct SettingsLookAndFeelView: View {
         return atmosphereSnapshot.replacingPhase(phase)
     }
 
+    /// The daypart as a person says it, for VoiceOver.
+    private var daypartName: String {
+        switch resolvedDaypart {
+        case .morning: String(localized: "Morning")
+        case .afternoon: String(localized: "Afternoon")
+        case .evening: String(localized: "Evening")
+        case .night: String(localized: "Night")
+        }
+    }
+
     private var comfortSubtitle: String {
         switch preferences.comfortProfile {
-        case .calm: "Almost still"
-        case .balanced: "Fluid and restrained"
-        case .playful: "More spring and shimmer"
+        case .calm: String(localized: "Almost still")
+        case .balanced: String(localized: "Smooth")
+        case .playful: String(localized: "More bounce and shimmer")
         }
     }
 
     private var renderingSubtitle: String {
         switch preferences.renderingTier {
-        case .static: "The calmest option, with the lowest energy use."
-        case .ambient2D: "Soft light and depth without extra complexity."
-        case .enhanced3D: "The richest atmosphere on supported devices."
+        case .static: String(localized: "Lowest energy use")
+        case .ambient2D: ""
+        case .enhanced3D: String(localized: "On supported devices")
         }
     }
 
@@ -610,9 +616,11 @@ struct SettingsLookAndFeelView: View {
                     Text(title)
                         .lifeboardFont(.bodyStrong)
                         .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text(subtitle)
-                        .lifeboardFont(.caption2)
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                    if subtitle.isEmpty == false {
+                        Text(subtitle)
+                            .lifeboardFont(.caption2)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
+                    }
                 }
             }
             content()

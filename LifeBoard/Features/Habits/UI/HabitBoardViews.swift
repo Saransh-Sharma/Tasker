@@ -115,7 +115,11 @@ struct HabitBoardLayoutMetrics: Equatable {
                 railTrailingPadding: railTrailingPadding,
                 boardPadding: boardPadding,
                 minimum: expandedType ? 40 : 38,
-                maximum: expandedType ? 56 : 52
+                // Seven days is the board's grammar at every width, but at
+                // 900+ points the cells may grow: capped at 52, a 1366-point
+                // board stopped at ~560 points and left the rest of the row
+                // empty.
+                maximum: fullRegularWidth ? 110 : (expandedType ? 56 : 52)
             ),
             cellHeight: expandedType ? 62 : 58,
             rowHeight: expandedType ? 62 : 58,
@@ -145,7 +149,7 @@ struct HabitBoardLayoutMetrics: Equatable {
     }
 }
 
-private enum HabitBoardAccessibilityID {
+enum HabitBoardAccessibilityID {
     static let view = "habitBoard.view"
     static let rangeTitle = "habitBoard.rangeTitle"
     static let rangeSubtitle = "habitBoard.rangeSubtitle"
@@ -338,16 +342,16 @@ struct HabitHomeSectionCard: View {
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .frame(width: 44, height: 44)
                         .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            RoundedRectangle(cornerRadius: Radius.compact, style: .continuous)
                                 .fill(ClayColorTokens.whiteStroke.opacity(0.7))
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            RoundedRectangle(cornerRadius: Radius.compact, style: .continuous)
                                 .stroke(Color.lifeboard.strokeHairline.opacity(0.55), lineWidth: 1)
                         )
                         .buttonStyle(.plain)
                         .accessibilityIdentifier(HabitBoardAccessibilityID.homeOpenBoard)
-                        .accessibilityLabel("Open Habit Board")
+                        .accessibilityLabel("Open habits")
                 }
             }
             .padding(.horizontal, spacing.s16)
@@ -386,7 +390,7 @@ struct HabitHomeSectionCard: View {
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(Color.lifeboard.accentPrimary)
 
-                            Text("Add Habit")
+                            Text("Add habit")
                                 .font(.lifeboard(.bodyStrong))
                                 .foregroundStyle(Color.lifeboard.textPrimary)
 
@@ -408,8 +412,7 @@ struct HabitHomeSectionCard: View {
                             .stroke(Color.lifeboard.strokeHairline.opacity(0.28), lineWidth: 1)
                     )
                     .accessibilityIdentifier(HabitBoardAccessibilityID.homeAddHabit)
-                    .accessibilityLabel("Add Habit")
-                    .accessibilityHint("Opens the habit composer")
+                    .accessibilityLabel("Add habit")
                 }
             }
         }
@@ -462,6 +465,7 @@ struct HabitBoardScreen: View {
     let presentationStyle: PresentationStyle
     let onManageHabits: () -> Void
     @State private var selectedHabitRow: HabitLibraryRow?
+    @State private var amountEntry: HabitAmountEntryContext?
     @State private var measuredBoardWidth: CGFloat = 0
     @State private var mode: HabitBoardMode = .week
     @State private var grouping: HabitBoardGrouping = .timeOfDay
@@ -472,7 +476,7 @@ struct HabitBoardScreen: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: SemanticSpacingTokens { tokens.spacing }
+    var spacing: SemanticSpacingTokens { tokens.spacing }
     private var layoutMetrics: HabitBoardLayoutMetrics {
         HabitBoardLayoutMetrics.forContainerWidth(resolvedBoardWidth, dynamicTypeSize: dynamicTypeSize)
     }
@@ -510,6 +514,15 @@ struct HabitBoardScreen: View {
                         .enhancedStaggeredAppearance(index: 1)
                 }
 
+                // A failed log on a board that has rows used to say nothing:
+                // the error state only replaced an empty board.
+                if viewModel.errorMessage != nil, viewModel.boardRows.isEmpty == false {
+                    HabitBoardInlineError(
+                        onRetry: { viewModel.clearError(); viewModel.refresh() },
+                        onDismiss: { viewModel.clearError() }
+                    )
+                }
+
                 modeContent
                     .enhancedStaggeredAppearance(index: 2)
             }
@@ -519,7 +532,7 @@ struct HabitBoardScreen: View {
         }
         .background(Color.lifeboard.bgCanvas)
         .accessibilityIdentifier(HabitBoardAccessibilityID.view)
-        .navigationTitle("Habit Board")
+        .navigationTitle("Habits")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: layoutMetrics) {
             viewModel.configureViewport(columnCount: layoutMetrics.visibleColumns, historySpan: layoutMetrics.historySpan)
@@ -533,6 +546,11 @@ struct HabitBoardScreen: View {
                 viewModel: habitViewModelFactory.makeHabitDetailViewModel(row: row),
                 onMutation: { viewModel.refresh() }
             )
+        }
+        .sheet(item: $amountEntry) { context in
+            HabitAmountEntrySheet(context: context) { value in
+                await viewModel.logAmount(habitID: context.habitID, change: .set(value))
+            }
         }
     }
 
@@ -563,9 +581,18 @@ struct HabitBoardScreen: View {
                 logAction: { habitID in
                     guard viewModel.canLogFromBoard else { return nil }
                     return HabitBoardLogAction(
-                        title: viewModel.todayAction(for: habitID) == .abstained ? "Stayed clean" : "Done",
+                        title: viewModel.todayAction(for: habitID) == .abstained ? String(localized: "Stayed clean") : String(localized: "Done"),
                         isLogging: viewModel.loggingHabitIDs.contains(habitID),
-                        perform: { Task { await viewModel.logToday(habitID: habitID) } },
+                        perform: {
+                            Task {
+                                // Feedback follows the save, never the tap.
+                                if await viewModel.logToday(habitID: habitID) {
+                                    Haptic.commit.play()
+                                } else {
+                                    Haptic.fail.play()
+                                }
+                            }
+                        },
                         amount: viewModel.amountTarget(for: habitID).flatMap { target in
                             HabitAmountRule.target(for: target).map { goal in
                                 HabitBoardAmount(
@@ -580,7 +607,18 @@ struct HabitBoardScreen: View {
                                     onChange: { change in await viewModel.logAmount(habitID: habitID, change: change) }
                                 )
                             }
-                        }
+                        },
+                        enterAmount: viewModel.amountTarget(for: habitID).map { target in
+                            {
+                                amountEntry = HabitAmountEntryContext(
+                                    habitID: habitID,
+                                    title: viewModel.libraryRow(for: habitID)?.title ?? String(localized: "Habit"),
+                                    target: target,
+                                    current: viewModel.todayAmounts[habitID] ?? 0
+                                )
+                            }
+                        },
+                        reset: { Task { await viewModel.resetToday(habitID: habitID) } }
                     )
                 }
             )
@@ -614,6 +652,7 @@ struct HabitBoardScreen: View {
     private var closeToolbar: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
             Button("Close") { dismiss() }
+                .keyboardShortcut(.cancelAction)
         }
     }
 
@@ -651,92 +690,6 @@ struct HabitBoardScreen: View {
         }
     }
 
-    private var boardLoadingState: some View {
-        VStack(spacing: spacing.s12) {
-            ProgressView()
-            Text("Loading habit board")
-                .font(.lifeboard(.headline))
-                .foregroundStyle(Color.lifeboard.textPrimary)
-            Text("Pulling your latest rhythm history.")
-                .font(.lifeboard(.body))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s24)
-        .accessibilityIdentifier(HabitBoardAccessibilityID.loadingState)
-    }
-
-    private func boardErrorState(message: String) -> some View {
-        VStack(spacing: spacing.s12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.lifeboard(.title3))
-                .foregroundStyle(Color.lifeboard.statusWarning)
-
-            Text("Couldn't load the habit board")
-                .font(.lifeboard(.headline))
-                .foregroundStyle(Color.lifeboard.textPrimary)
-
-            Text(message)
-                .font(.lifeboard(.body))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .multilineTextAlignment(.center)
-
-            HStack(spacing: spacing.s8) {
-                Button("Retry") {
-                    viewModel.refresh()
-                }
-                .buttonStyle(.lifeBoardPrimaryCompact)
-                .accessibilityIdentifier(HabitBoardAccessibilityID.retryButton)
-
-                Button("Manage Habits") {
-                    openManageHabitsFromBoard()
-                }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier(HabitBoardAccessibilityID.createButton)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s24)
-        .accessibilityIdentifier(HabitBoardAccessibilityID.errorState)
-    }
-
-    private var boardEmptyState: some View {
-        VStack(spacing: spacing.s12) {
-            Image(systemName: "sun.max.fill")
-                .lifeboardFont(.display)
-                .foregroundStyle(ClayColorTokens.role(.routine).deep)
-                .frame(width: 64, height: 64)
-                .background(ClayColorTokens.role(.routine).softSurface, in: Circle())
-                .overlay(Circle().stroke(ClayColorTokens.role(.routine).border, lineWidth: 1))
-
-            Text("No habits yet")
-                .font(.lifeboard(.headline))
-                .foregroundStyle(Color.lifeboard.textPrimary)
-
-            Text("Create your first habit when you are ready to add a small daily cue.")
-                .font(.lifeboard(.body))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Manage Habits") {
-                openManageHabitsFromBoard()
-            }
-            .buttonStyle(.lifeBoardPrimaryCompact)
-            .accessibilityIdentifier(HabitBoardAccessibilityID.createButton)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s24)
-        .accessibilityIdentifier(HabitBoardAccessibilityID.emptyState)
-    }
-
-    private func openManageHabitsFromBoard() {
-        onManageHabits()
-    }
-
     private func boardPagerButton(
         systemName: String,
         accessibilityIdentifier: String,
@@ -744,7 +697,7 @@ struct HabitBoardScreen: View {
         action: @escaping () -> Void
     ) -> some View {
         Button {
-            withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.stateChange) {
+            withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
                 action()
             }
         } label: {
@@ -766,7 +719,7 @@ struct HabitBoardScreen: View {
             boardPagerButton(
                 systemName: "chevron.left",
                 accessibilityIdentifier: HabitBoardAccessibilityID.previousWindow,
-                accessibilityLabel: "Show previous \(viewModel.viewportColumnCount) days"
+                accessibilityLabel: String(localized: "Previous \(viewModel.viewportColumnCount) days")
             ) {
                 viewModel.moveWindow(byDays: -viewModel.viewportColumnCount)
             }
@@ -779,7 +732,7 @@ struct HabitBoardScreen: View {
                     .minimumScaleFactor(0.88)
                     .accessibilityIdentifier(HabitBoardAccessibilityID.rangeTitle)
 
-                Text("\(viewModel.viewportColumnCount)-day window")
+                Text("\(viewModel.viewportColumnCount) days")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(1)
@@ -790,7 +743,7 @@ struct HabitBoardScreen: View {
             boardPagerButton(
                 systemName: "chevron.right",
                 accessibilityIdentifier: HabitBoardAccessibilityID.nextWindow,
-                accessibilityLabel: "Show next \(viewModel.viewportColumnCount) days"
+                accessibilityLabel: String(localized: "Next \(viewModel.viewportColumnCount) days")
             ) {
                 viewModel.moveWindow(byDays: viewModel.viewportColumnCount)
             }
@@ -798,7 +751,9 @@ struct HabitBoardScreen: View {
         .padding(.horizontal, spacing.s16)
         .padding(.vertical, spacing.s12)
     }
+}
 
+extension HabitBoardScreen {
     private var boardMatrix: some View {
         HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
@@ -861,9 +816,9 @@ struct HabitBoardScreen: View {
     private var rangeTitle: String {
         guard let start = viewModel.aggregateDays.first?.date,
               let end = viewModel.aggregateDays.last?.date else {
-            return "Last \(viewModel.viewportColumnCount) days"
+            return String(localized: "Last \(viewModel.viewportColumnCount) days")
         }
-        return "\(start.formatted(date: .abbreviated, time: .omitted)) - \(end.formatted(date: .abbreviated, time: .omitted))"
+        return "\(start.formatted(date: .abbreviated, time: .omitted)) – \(end.formatted(date: .abbreviated, time: .omitted))"
     }
 }
 
@@ -907,7 +862,7 @@ private struct HabitBoardPinnedRowView: View {
             }
             .accessibilityIdentifier(HabitBoardAccessibilityID.row(row.habitID))
             .accessibilityLabel(row.title)
-            .accessibilityHint("Opens habit details")
+            .accessibilityHint("Opens habit")
         }
     }
 }
@@ -981,16 +936,15 @@ private struct HabitBoardMatrixRowView: View {
     private func cellAccessibilityValue(for cell: HabitBoardCell) -> String {
         switch cell.state {
         case .done(let depth):
-            return depth > 1 ? "Completed, streak strength \(min(depth, 8)) of 8" : "Completed"
+            return depth > 1 ? String(localized: "Done, streak level \(min(depth, 8)) of 8") : String(localized: "Done")
         case .missed:
-            return "Missed"
+            return String(localized: "Not done")
         case .todayPending:
-            return "Due today"
+            return String(localized: "Due today")
         case .future:
-            return "Future day"
-        case .bridge(let kind, let source):
-            let sourceLabel = source == .skipped ? "Skipped" : "Not scheduled"
-            return "\(sourceLabel), transition \(kind.accessibilityLabel)"
+            return String(localized: "Future day")
+        case .bridge(_, let source):
+            return source == .skipped ? String(localized: "Skipped") : String(localized: "Not scheduled")
         }
     }
 }
@@ -1081,10 +1035,10 @@ private struct HabitBoardHeaderDayCell: View {
     @ViewBuilder
     private var todayBackground: some View {
         if day.isToday {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.compact, style: .continuous)
                 .fill(HabitEverydayPalette.todayHalo(colorScheme: colorScheme))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.compact, style: .continuous)
                         .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.4)
                 )
                 .padding(.horizontal, 1)
@@ -1153,7 +1107,7 @@ private struct HabitBoardLegend: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             HStack(spacing: spacing.s8) {
-                Text("Streak strength")
+                Text("Streak")
                     .font(.lifeboard(.caption1).weight(.semibold))
                     .foregroundStyle(Color.lifeboard.textSecondary)
 
@@ -1167,9 +1121,9 @@ private struct HabitBoardLegend: View {
                     }
                 }
 
-                Text("Building → Strong")
+                Text("Short → long")
                     .font(.lifeboard(.caption2))
-                    .foregroundStyle(Color.lifeboard.textTertiary)
+                    .foregroundStyle(Color.lifeboard.textSecondary) // tertiary measured 4.4:1 in dark at caption size
                     .lineLimit(1)
             }
 
@@ -1177,22 +1131,22 @@ private struct HabitBoardLegend: View {
                 HStack(spacing: spacing.s12) {
                     legendSwatch(fill: HabitEverydayPalette.paperFill(colorScheme: colorScheme),
                                  ring: HabitEverydayPalette.todayStroke(colorScheme: colorScheme),
-                                 label: "Today")
+                                 label: String(localized: "Today"))
                     legendSwatch(fill: HabitEverydayPalette.missedFill(colorScheme: colorScheme),
                                  ring: nil,
-                                 label: "Missed")
+                                 label: String(localized: "Not done"))
                     legendSwatch(fill: HabitEverydayPalette.bridgeTint(for: .gray, depth: nil, colorScheme: colorScheme),
                                  ring: nil,
-                                 label: "Skipped")
+                                 label: String(localized: "Skipped"))
                     legendSwatch(fill: HabitEverydayPalette.futureFill(colorScheme: colorScheme),
                                  ring: nil,
-                                 label: "Future")
+                                 label: String(localized: "Future"))
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Legend. Cell color deepens as a streak strengthens. A violet outline marks today. Neutral cells are missed or skipped days, and faint cells are future days.")
+        .accessibilityLabel("Legend. Darker means a longer streak.")
     }
 
     private func legendSwatch(fill: Color, ring: Color?, label: String) -> some View {
@@ -1217,7 +1171,7 @@ private struct HabitBoardLegend: View {
     }
 }
 
-private struct HabitBoardFlatSurfaceBackground: View {
+struct HabitBoardFlatSurfaceBackground: View {
     let cornerRadius: CGFloat
 
     var body: some View {
@@ -1260,7 +1214,7 @@ private struct HabitBoardWidthPreferenceKey: PreferenceKey {
     }
 }
 
-private struct HabitBoardCellView: View {
+struct HabitBoardCellView: View {
     let cell: HabitBoardCell
     let family: HabitColorFamily
     let mode: HabitBoardStripMode
@@ -1324,7 +1278,7 @@ private struct HabitBoardCellView: View {
             todayOverlay
         }
         // Check-ins settle in: the family color deepens rather than snapping.
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: cell.state)
+        .lifeBoardMotion(.localState, value: cell.state)
     }
 
     @ViewBuilder
@@ -1516,30 +1470,27 @@ enum HabitEverydayPalette {
             : ClayColorTokens.elevationShadow.opacity(0.4)
     }
 
-    static func paperFill(colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark
-            ? Color(uiColor: UIColor(lifeboardHex: "#14181E"))
-            : Color(uiColor: UIColor(lifeboardHex: "#F8FAFC"))
+    // The neutral cells were cool slate hexes from an older palette and sat
+    // grey-blue on the warm paper. They resolve from the surface roles now, so
+    // they follow the appearance and the daypart like every other surface.
+    // `colorScheme` stays in the signatures for the callers that pass it.
+
+    static func paperFill(colorScheme _: ColorScheme) -> Color {
+        Color.lifeboard(.surfacePrimary)
     }
 
-    static func missedFill(colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark
-            ? Color(uiColor: UIColor(lifeboardHex: "#1B2027"))
-            : Color(uiColor: UIColor(lifeboardHex: "#EEF2F6"))
+    static func missedFill(colorScheme _: ColorScheme) -> Color {
+        Color.lifeboard(.surfaceSecondary)
     }
 
-    static func futureFill(colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark
-            ? Color(uiColor: UIColor(lifeboardHex: "#101419"))
-            : Color(uiColor: UIColor(lifeboardHex: "#F3F6F9"))
+    static func futureFill(colorScheme _: ColorScheme) -> Color {
+        Color.lifeboard(.bgCanvasSecondary)
     }
 
-    /// Today is marked in the selection violet per the design language —
-    /// violet means "selected/today", green stays reserved for completion.
-    static func todayStroke(colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark
-            ? Color(uiColor: UIColor(lifeboardHex: "#8F7BFF"))
-            : Color(uiColor: UIColor(lifeboardHex: "#6842FF"))
+    /// Today is marked with the focus ring — the app's "this one" color —
+    /// rather than Eva's violet; green stays reserved for completion.
+    static func todayStroke(colorScheme _: ColorScheme) -> Color {
+        Color(SemanticColorTokens.foundationFocusRing)
     }
 
     static func todayHalo(colorScheme: ColorScheme) -> Color {
@@ -1608,151 +1559,6 @@ private enum HabitBoardDateFormatter {
     }()
 }
 
-// MARK: - Habit board lenses (Day / Week / Graph) + grouping
-
-/// The three viewing lenses on the habit board, mirroring the best-in-class
-/// habit trackers: Day for action, Week for the pinned matrix, Graph for the
-/// long-run heatmap. `week` is the app's existing flagship matrix.
-enum HabitBoardMode: String, CaseIterable, Identifiable {
-    case day
-    case week
-    case graph
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .day: return "Day"
-        case .week: return "Week"
-        case .graph: return "Graph"
-        }
-    }
-
-    var symbolName: String {
-        switch self {
-        case .day: return "sun.max"
-        case .week: return "square.grid.3x3"
-        case .graph: return "chart.dots.scatter"
-        }
-    }
-}
-
-/// How Day/Graph lenses partition habits into sections. Grounded in real habit
-/// metadata — no invented dimensions.
-enum HabitBoardGrouping: String, CaseIterable, Identifiable {
-    case timeOfDay
-    case list
-    case none
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .timeOfDay: return "Time of day"
-        case .list: return "List"
-        case .none: return "None"
-        }
-    }
-}
-
-/// A daypart bucket derived from a habit's reminder window start ("HH:mm").
-enum HabitDaypartBucket: Int, CaseIterable, Identifiable {
-    case anytime
-    case morning
-    case afternoon
-    case evening
-
-    var id: Int { rawValue }
-
-    var title: String {
-        switch self {
-        case .anytime: return "Any time"
-        case .morning: return "Morning"
-        case .afternoon: return "Afternoon"
-        case .evening: return "Evening"
-        }
-    }
-
-    var symbolName: String {
-        switch self {
-        case .anytime: return "clock"
-        case .morning: return "sunrise"
-        case .afternoon: return "sun.max"
-        case .evening: return "moon.stars"
-        }
-    }
-
-    /// Parses a reminder-window start string; `nil`/unparseable → Any time.
-    static func bucket(forReminderStart start: String?) -> HabitDaypartBucket {
-        guard let start, let hour = hour(from: start) else { return .anytime }
-        switch hour {
-        case 0..<12: return .morning
-        case 12..<17: return .afternoon
-        default: return .evening
-        }
-    }
-
-    private static func hour(from value: String) -> Int? {
-        let parts = value.split(separator: ":")
-        guard let first = parts.first, let hour = Int(first), (0...23).contains(hour) else { return nil }
-        return hour
-    }
-}
-
-/// A resolved section of habits under the active grouping.
-struct HabitBoardGroupedSection: Identifiable {
-    let id: String
-    let title: String
-    let symbolName: String?
-    let rows: [HabitBoardRowPresentation]
-
-    static func build(
-        rows: [HabitBoardRowPresentation],
-        grouping: HabitBoardGrouping,
-        libraryRow: (UUID) -> HabitLibraryRow?
-    ) -> [HabitBoardGroupedSection] {
-        guard rows.isEmpty == false else { return [] }
-
-        switch grouping {
-        case .none:
-            return [HabitBoardGroupedSection(id: "all", title: "All habits", symbolName: nil, rows: rows)]
-
-        case .timeOfDay:
-            var buckets: [HabitDaypartBucket: [HabitBoardRowPresentation]] = [:]
-            for row in rows {
-                let bucket = HabitDaypartBucket.bucket(forReminderStart: libraryRow(row.habitID)?.reminderWindowStart)
-                buckets[bucket, default: []].append(row)
-            }
-            return HabitDaypartBucket.allCases.compactMap { bucket in
-                guard let bucketRows = buckets[bucket], bucketRows.isEmpty == false else { return nil }
-                return HabitBoardGroupedSection(
-                    id: "daypart-\(bucket.rawValue)",
-                    title: bucket.title,
-                    symbolName: bucket.symbolName,
-                    rows: bucketRows
-                )
-            }
-
-        case .list:
-            var order: [String] = []
-            var buckets: [String: [HabitBoardRowPresentation]] = [:]
-            for row in rows {
-                let name = libraryRow(row.habitID)?.lifeAreaName ?? "Unsorted"
-                if buckets[name] == nil { order.append(name) }
-                buckets[name, default: []].append(row)
-            }
-            return order.map { name in
-                HabitBoardGroupedSection(
-                    id: "list-\(name)",
-                    title: name,
-                    symbolName: "folder",
-                    rows: buckets[name] ?? []
-                )
-            }
-        }
-    }
-}
-
 // MARK: - Lens bar controls
 
 /// Segmented Day / Week / Graph selector with a matched-geometry selection pill.
@@ -1802,7 +1608,7 @@ private struct HabitBoardModeSelector: View {
                 .fill(Color.lifeboard.surfaceSecondary.opacity(0.35))
         )
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Habit board lens")
+        .accessibilityLabel("View")
     }
 }
 
@@ -1880,7 +1686,7 @@ private struct HabitBoardScoreHeader: View {
                 Text("This week")
                     .font(.lifeboard(.bodyStrong))
                     .foregroundStyle(Color.lifeboard.textPrimary)
-                Text(hasSignal ? "\(completed) of \(scheduled) scheduled done" : "No scheduled days recorded yet")
+                Text(hasSignal ? "\(completed) of \(scheduled) done" : "Nothing scheduled yet")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(2)
@@ -1893,9 +1699,38 @@ private struct HabitBoardScoreHeader: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             hasSignal
-                ? "This week, \(completed) of \(scheduled) scheduled habits done, \(Int((fraction * 100).rounded())) percent."
-                : "This week. No scheduled days recorded yet."
+                ? String(localized: "This week, \(completed) of \(scheduled) done, \(Int((fraction * 100).rounded())) percent.")
+                : String(localized: "This week. Nothing scheduled yet.")
         )
+    }
+}
+
+/// Says a log did not save, on a board that still has rows to show.
+private struct HabitBoardInlineError: View {
+    let onRetry: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: "exclamationmark.circle")
+                .foregroundStyle(Color.lifeboard.statusDanger)
+                .accessibilityHidden(true)
+            Text("Couldn’t save. Try again.")
+                .font(.lifeboard(.support))
+                .foregroundStyle(Color.lifeboard.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Try again", action: onRetry)
+                .font(.lifeboard(.buttonSmall))
+                .minimumHitTarget()
+            Button("Dismiss", systemImage: "xmark", action: onDismiss)
+                .labelStyle(.iconOnly)
+                .minimumHitTarget()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("habitBoard.inlineError")
     }
 }
 
@@ -1910,6 +1745,10 @@ private struct HabitBoardLogAction {
     /// Present for habits with an amount target: they log on a ring instead of
     /// a single check.
     var amount: HabitBoardAmount?
+    /// Opens "Enter amount" for amount habits.
+    var enterAmount: (() -> Void)? = nil
+    /// Takes today back to not done.
+    var reset: (() -> Void)? = nil
 }
 
 private struct HabitBoardAmount {
@@ -1922,6 +1761,7 @@ private struct HabitBoardAmount {
 }
 
 private struct HabitBoardDayLens: View {
+    @State private var firstLightTrigger = 0
     let sections: [HabitBoardGroupedSection]
     let onSelect: (UUID) -> Void
     var logAction: (UUID) -> HabitBoardLogAction? = { _ in nil }
@@ -1935,20 +1775,54 @@ private struct HabitBoardDayLens: View {
             ForEach(sections) { section in
                 VStack(alignment: .leading, spacing: spacing.s8) {
                     HabitBoardSectionHeader(section: section)
-                    ForEach(section.rows) { row in
-                        HabitBoardDayCard(
-                            row: row,
-                            onSelect: { onSelect(row.habitID) },
-                            logAction: logAction(row.habitID)
-                        )
+                    HabitBoardLensRows(isGrid: layoutClass.isPad, rowSpacing: spacing.s8) {
+                        ForEach(section.rows) { row in
+                            HabitBoardDayCard(
+                                row: row,
+                                onSelect: { onSelect(row.habitID) },
+                                logAction: logAction(row.habitID)
+                            )
+                        }
                     }
                 }
+            }
+        }
+        .lifeboardFirstLight(trigger: firstLightTrigger, tint: Color(SemanticColorTokens.foundationSunAccent))
+        .onReceive(NotificationCenter.default.publisher(for: .lifeboardFirstLightFired)) { notification in
+            guard FirstLightCommitment.source(of: notification) == .habit else { return }
+            firstLightTrigger &+= 1
+        }
+    }
+}
+
+/// Lays a lens's cards out as one column on phone and as an adaptive grid on
+/// iPad/Mac. A single full-width column on a 1000pt canvas strands the status
+/// pill a screen-width away from the habit name; ~340pt tiles keep each card's
+/// name and status within one glance. Plain containers only — no gestures here,
+/// so scrolling behaves exactly as it does in the single column.
+struct HabitBoardLensRows<Content: View>: View {
+    let isGrid: Bool
+    let rowSpacing: CGFloat
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        if isGrid {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 340), spacing: 16, alignment: .top)],
+                alignment: .leading,
+                spacing: 16
+            ) {
+                content
+            }
+        } else {
+            VStack(alignment: .leading, spacing: rowSpacing) {
+                content
             }
         }
     }
 }
 
-private struct HabitBoardSectionHeader: View {
+struct HabitBoardSectionHeader: View {
     let section: HabitBoardGroupedSection
 
     var body: some View {
@@ -2009,7 +1883,6 @@ private struct HabitBoardDayCard: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(logAction.isLogging)
-                .sensoryFeedback(.success, trigger: logAction.isLogging) { wasLogging, isLogging in wasLogging && !isLogging }
                 .accessibilityLabel("\(logAction.title): \(row.title)")
                 .accessibilityIdentifier("habitBoard.day.log.\(row.habitID.uuidString)")
             }
@@ -2023,7 +1896,7 @@ private struct HabitBoardDayCard: View {
                     .font(.lifeboard(.body).weight(.semibold))
                     .foregroundStyle(accent)
                     .frame(width: 38, height: 38)
-                    .background(accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .background(accent.opacity(0.14), in: RoundedRectangle(cornerRadius: Radius.compact, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(row.title)
@@ -2031,7 +1904,7 @@ private struct HabitBoardDayCard: View {
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(1)
                     if row.currentStreak > 0 {
-                        Label("\(row.currentStreak) day streak", systemImage: "flame.fill")
+                        Label("\(row.currentStreak)-day streak", systemImage: "flame.fill")
                             .font(.lifeboard(.caption2))
                             .foregroundStyle(Color.lifeboard.textSecondary)
                             .labelStyle(.titleAndIcon)
@@ -2052,10 +1925,22 @@ private struct HabitBoardDayCard: View {
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
+        // Secondary actions live on the label, never on the ring: the ring's
+        // hold is the commitment gesture and a menu would fight it.
+        .contextMenu {
+            Button("Open habit", systemImage: "arrow.up.right.square", action: onSelect)
+            if let enterAmount = logAction?.enterAmount {
+                Button("Enter amount…", systemImage: "number", action: enterAmount)
+            }
+            if status == .done, let reset = logAction?.reset {
+                Button("Mark not done", systemImage: "arrow.uturn.backward", action: reset)
+            }
+        }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(row.title). \(status.title)." + (row.currentStreak > 0 ? " \(row.currentStreak) day streak." : ""))
-        .accessibilityHint("Opens habit detail")
+        .accessibilityLabel("\(row.title). \(status.title)." + (row.currentStreak > 0 ? String(localized: " \(row.currentStreak)-day streak.") : ""))
+        .accessibilityHint("Opens habit")
         .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("habitBoard.day.card.\(row.habitID.uuidString)")
     }
 }
 
@@ -2065,12 +1950,12 @@ private enum HabitTodayStatus {
 
     var title: String {
         switch self {
-        case .done: return "Done"
-        case .pending: return "Pending"
-        case .missed: return "Missed"
-        case .skipped: return "Skipped"
-        case .notDue: return "Not due"
-        case .upcoming: return "Upcoming"
+        case .done: return String(localized: "Done")
+        case .pending: return String(localized: "To do")
+        case .missed: return String(localized: "Not done")
+        case .skipped: return String(localized: "Skipped")
+        case .notDue: return String(localized: "Not due")
+        case .upcoming: return String(localized: "Upcoming")
         }
     }
 
@@ -2105,253 +1990,13 @@ private enum HabitTodayStatus {
     }
 }
 
-// MARK: - Graph lens
-
-/// Grouped per-habit long-run heatmaps (GitHub-style weekday × week grid).
-private struct HabitBoardGraphLens: View {
-    let sections: [HabitBoardGroupedSection]
-    let isLoading: Bool
-    let onSelect: (UUID) -> Void
-    @Environment(\.lifeboardLayoutClass) private var layoutClass
-    @Environment(\.lifeboardTokens) private var tokens
-
-    private var spacing: SemanticSpacingTokens { tokens.spacing }
-
-    var body: some View {
-        if isLoading {
-            VStack(spacing: spacing.s12) {
-                ProgressView()
-                Text("Building the long view")
-                    .font(.lifeboard(.body))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, spacing.s24)
-        } else {
-            VStack(alignment: .leading, spacing: spacing.s16) {
-                ForEach(sections) { section in
-                    VStack(alignment: .leading, spacing: spacing.s8) {
-                        HabitBoardSectionHeader(section: section)
-                        ForEach(section.rows) { row in
-                            HabitGraphCard(row: row, onSelect: { onSelect(row.habitID) })
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct HabitGraphCard: View {
-    let row: HabitBoardRowPresentation
-    let onSelect: () -> Void
-    @Environment(\.lifeboardLayoutClass) private var layoutClass
-    @Environment(\.lifeboardTokens) private var tokens
-
-    private var spacing: SemanticSpacingTokens { tokens.spacing }
-    private var accent: Color { HabitEverydayPalette.familyPreview(row.colorFamily) }
-
-    var body: some View {
-        Button(action: onSelect) {
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                HStack(spacing: 8) {
-                    Image(systemName: row.iconSymbolName)
-                        .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(accent)
-                    Text(row.title)
-                        .font(.lifeboard(.body).weight(.semibold))
-                        .foregroundStyle(Color.lifeboard.textPrimary)
-                        .lineLimit(1)
-                    Spacer(minLength: spacing.s8)
-                    HStack(spacing: 12) {
-                        // A habit with no history has no record — not a zero.
-                        // `DESIGN.md`: never render an absent value as zero.
-                        HabitGraphStat(
-                            caption: "30d",
-                            value: row.cells.isEmpty ? "—" : "\(row.metrics.monthCount)",
-                            family: row.colorFamily
-                        )
-                        HabitGraphStat(
-                            caption: "Best",
-                            value: row.cells.isEmpty ? "—" : "\(row.bestStreak)",
-                            family: row.colorFamily
-                        )
-                    }
-                }
-
-                HabitGraphGrid(cells: row.cells, family: row.colorFamily)
-            }
-            .padding(spacing.s12)
-            .background(HabitBoardFlatSurfaceBackground(cornerRadius: 16))
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            row.cells.isEmpty
-                ? "\(row.title). Nothing recorded yet."
-                : "\(row.title). \(row.metrics.monthCount) completions in the last 30 days. Best streak \(row.bestStreak) days."
-        )
-        .accessibilityHint("Opens habit detail")
-    }
-}
-
-private struct HabitGraphStat: View {
-    let caption: String
-    let value: String
-    let family: HabitColorFamily
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Text(value)
-                .font(.lifeboard(.caption1).weight(.bold))
-                .foregroundStyle(HabitEverydayPalette.familyPreview(family))
-            Text(caption)
-                .font(.lifeboard(.caption2))
-                .foregroundStyle(Color.lifeboard.textTertiary)
-        }
-    }
-}
-
-/// GitHub-style contribution grid: 7 weekday rows × N week columns, with aligned
-/// month labels along the top. Scrolls horizontally, anchored to the most recent.
-private struct HabitGraphGrid: View {
-    let cells: [HabitBoardCell]
-    let family: HabitColorFamily
-
-    private let cellSize: CGFloat = 11
-    private let cellSpacing: CGFloat = 2.5
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var revealProgress = 0.0
-
-    private var columns: [[HabitBoardCell?]] { Self.buildColumns(from: cells) }
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 3) {
-                monthLabels
-                HStack(alignment: .top, spacing: cellSpacing) {
-                    ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
-                        VStack(spacing: cellSpacing) {
-                            ForEach(0..<7, id: \.self) { rowIndex in
-                                if let cell = column[safe: rowIndex] ?? nil {
-                                    HabitBoardCellView(
-                                        cell: cell,
-                                        family: family,
-                                        mode: .compact,
-                                        cellSizeOverride: cellSize
-                                    )
-                                } else {
-                                    Color.clear.frame(width: cellSize, height: cellSize)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .defaultScrollAnchor(.trailing)
-        .lifeboardChartRevealSweep(progress: revealProgress)
-        // The sweep used to replay on every appear, so scrolling the board
-        // through a lazy stack re-revealed graphs that had been on screen
-        // moments earlier — and it swept an empty grid too. `DESIGN.md`: a
-        // chart draws its reveal once, when valid data first appears or its
-        // range changes, and empty states never sweep.
-        .onAppear { revealProgress = cells.isEmpty ? 0 : 1 }
-        .onChange(of: cells.count) { previous, updated in
-            guard updated > 0 else {
-                revealProgress = 0
-                return
-            }
-            guard previous == 0 else { return }
-            reveal()
-        }
-        .accessibilityHidden(true)
-    }
-
-    private func reveal() {
-        guard reduceMotion == false else {
-            revealProgress = 1
-            return
-        }
-        revealProgress = 0
-        withAnimation(.easeOut(duration: 0.58)) {
-            revealProgress = 1
-        }
-    }
-
-    private var monthLabels: some View {
-        let columnWidth = cellSize + cellSpacing
-        let labels = Self.monthLabels(for: columns)
-        return HStack(spacing: 0) {
-            ForEach(Array(labels.enumerated()), id: \.offset) { _, label in
-                Text(label)
-                    .font(.lifeboard(.caption2))
-                    .foregroundStyle(Color.lifeboard.textTertiary)
-                    .frame(width: columnWidth, alignment: .leading)
-                    .fixedSize()
-            }
-        }
-    }
-
-    /// One label per column: the month abbreviation on the first column of each
-    /// month, empty otherwise. Precomputed so ForEach stays pure.
-    static func monthLabels(for columns: [[HabitBoardCell?]]) -> [String] {
-        let calendar = Calendar.current
-        let symbols = calendar.shortMonthSymbols
-        var lastMonth: Int? = nil
-        return columns.map { column in
-            guard let date = column.compactMap({ $0 }).first?.date else { return "" }
-            let month = calendar.component(.month, from: date)
-            guard month != lastMonth else { return "" }
-            lastMonth = month
-            return (1...symbols.count).contains(month) ? symbols[month - 1] : ""
-        }
-    }
-
-    /// Chunks chronological cells into weekday-aligned week columns.
-    static func buildColumns(from cells: [HabitBoardCell]) -> [[HabitBoardCell?]] {
-        guard cells.isEmpty == false else { return [] }
-        let calendar = Calendar.current
-        let firstWeekday = calendar.firstWeekday
-        func weekdayIndex(_ date: Date) -> Int {
-            (calendar.component(.weekday, from: date) - firstWeekday + 7) % 7
-        }
-
-        var columns: [[HabitBoardCell?]] = []
-        var current: [HabitBoardCell?] = []
-        for cell in cells {
-            let index = weekdayIndex(cell.date)
-            if current.isEmpty {
-                current = Array(repeating: nil, count: index)
-            } else if index == 0 {
-                while current.count < 7 { current.append(nil) }
-                columns.append(current)
-                current = []
-            }
-            current.append(cell)
-        }
-        if current.isEmpty == false {
-            while current.count < 7 { current.append(nil) }
-            columns.append(current)
-        }
-        return columns
-    }
-}
-
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
-
 // MARK: - Haptics
 
 private enum HabitBoardHaptics {
     @MainActor
     static func selection() {
         #if os(iOS)
-        UISelectionFeedbackGenerator().selectionChanged()
+        Haptic.pick.play()
         #endif
     }
 }

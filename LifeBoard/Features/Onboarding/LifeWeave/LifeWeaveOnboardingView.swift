@@ -198,6 +198,8 @@ struct LifeWeaveOnboardingView: View {
 
     private var secondaryTitle: String? {
         switch displayedStep {
+        case .arrival, .intent:
+            model.isCommitting ? nil : LifeWeaveCopy.Dock.setUpLater
         case .firstCapture:
             model.draft.isCaptureResolved ? nil : LifeWeaveCopy.Dock.skip
         default:
@@ -240,6 +242,11 @@ struct LifeWeaveOnboardingView: View {
     }
 
     private func performSecondary() {
+        if displayedStep == .arrival || displayedStep == .intent {
+            isMovingForward = true
+            Task { @MainActor in await model.setUpLater() }
+            return
+        }
         guard displayedStep == .firstCapture else { return }
         isMovingForward = true
         model.skipCapture()
@@ -301,6 +308,7 @@ struct LifeWeaveOnboardingView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) {
                     Button(LifeWeaveCopy.Dock.close) { model.deferCurrentPowerUp() }
+                        .keyboardShortcut(.cancelAction)
                 } }
                 .sheet(isPresented: $model.showsOfflineSetup) {
                     NavigationStack {

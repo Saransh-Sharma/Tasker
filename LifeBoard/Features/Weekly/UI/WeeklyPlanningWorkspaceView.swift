@@ -49,15 +49,14 @@ struct WeeklyPlanningWorkspaceView: View {
     @State private var dayChangeTrigger = 0
     @State private var pulsedDay: PlanningDay?
     @State private var pulseDismissal: Task<Void, Never>?
-    @State private var pendingBankruptcy = false
-    @State private var meetingOverrides: [String: WeeklyMeetingIntent] = [:]
+    @State var meetingOverrides: [String: WeeklyMeetingIntent] = [:]
     @State private var shelfDetent: WeeklyWorkspaceShelfDetent = .medium
     @State private var shelfDragOffset: CGFloat = 0
     @State private var traySearch = ""
     @State private var showsCompletion = false
     @State private var calendarHandoff: CalendarEventHandoff?
-    @State private var sessionSummary = WeeklyWorkspaceSessionSummary()
-    @State private var motionEvent: WeeklyWorkspaceMotionEvent = .workspaceEntered
+    @State var sessionSummary = WeeklyWorkspaceSessionSummary()
+    @State var motionEvent: WeeklyWorkspaceMotionEvent = .workspaceEntered
     @State private var landingTrigger = 0
     @State private var triageTrigger = 0
     @State private var completionTrigger = 0
@@ -78,7 +77,7 @@ struct WeeklyPlanningWorkspaceView: View {
     /// was this model, not its four steps — so the steps go and the model stays.
     @StateObject private var intention: WeeklyPlannerViewModel
 
-    private let decisions = WeeklyMeetingDecisionStore()
+    let decisions = WeeklyMeetingDecisionStore()
 
     init(store: PlanStore, entry: WeeklyPlanningEntry, onClose: (() -> Void)? = nil) {
         self.store = store
@@ -132,6 +131,9 @@ struct WeeklyPlanningWorkspaceView: View {
             }
         }
         .overlay(alignment: .bottom) { receiptToast }
+        // Arrivals, replacements, and the timed fold all move through the
+        // same gated role; the toast used to pop in and out.
+        .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: receipt?.id)
         // Moving between days is the workspace's main navigation act and it had
         // no transition of its own; the board simply swapped contents.
         .lifeboardDaypartCrossDissolve(
@@ -149,16 +151,6 @@ struct WeeklyPlanningWorkspaceView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
             .presentationBackground(Color(SemanticColorTokens.foundationCanvas))
-        }
-        .confirmationDialog(
-            WeeklyWorkspaceCopy.bankruptcyConfirmation(count: briefing.count),
-            isPresented: $pendingBankruptcy,
-            titleVisibility: .visible
-        ) {
-            Button(WeeklyWorkspaceCopy.bankruptcyAction, role: .destructive) {
-                Task { await releaseOverdue() }
-            }
-            Button("Keep them", role: .cancel) {}
         }
         .task {
             meetingOverrides = decisions.intents(weekStart: weekStart)
@@ -201,6 +193,18 @@ struct WeeklyPlanningWorkspaceView: View {
             WeeklyWorkspaceVerticalHairline()
             VStack(spacing: 0) {
                 header
+                // The day lane — and with it the only composer — is not part of
+                // the wide board, so each column's "Add" used to focus a field
+                // that was not on screen. The composer rides above the board and
+                // writes to the selected day, the day "Add" just selected.
+                WeeklyWorkspaceComposer(
+                    store: store,
+                    composerText: $composerText,
+                    composerFocused: $composerFocused,
+                    onCommit: { Task { await commitComposer() } }
+                )
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
                 wideWeekBoard
             }
         }
@@ -263,8 +267,11 @@ struct WeeklyPlanningWorkspaceView: View {
             targetedDay: $targetedDay,
             calendarHandoff: $calendarHandoff,
             composerFocused: $composerFocused,
+            placeableDays: placeableDays,
             onSelect: { select($0) },
             onPlace: { ids, day in Task { await place(ids, on: day) } },
+            onUnplace: { task in Task { await unplace(task) } },
+            onReleaseToSomeday: { ids in Task { await releaseToSomeday(ids) } },
             onDropHover: { day, targeted in updateDropHover(day: day, isTargeted: targeted) },
             onChooseMeetingIntent: { intent, meeting in chooseMeetingIntent(intent, for: meeting) }
         )
@@ -296,42 +303,6 @@ struct WeeklyPlanningWorkspaceView: View {
         )
     }
 
-    // MARK: Meetings
-
-    private func meetings(on day: PlanningDay) -> [WeeklyWorkspaceDayMeeting] {
-        WeeklyWorkspaceSectionCopy.meetings(store: store, overrides: meetingOverrides, on: day)
-    }
-
-    private func chooseMeetingIntent(_ next: WeeklyMeetingIntent, for meeting: WeeklyWorkspaceDayMeeting) {
-        let participation = meeting.commitment.participation ?? .unknown
-        let derived = WeeklyMeetingPolicy.defaultIntent(
-            participation: participation,
-            state: meeting.commitment.eventState ?? .unspecified,
-            isBusy: meeting.commitment.isBusy
-        )
-        let storedIntent: WeeklyMeetingIntent? = next == derived ? nil : next
-        let decisionReceipt = decisions.setIntent(
-            storedIntent,
-            weekStart: weekStart,
-            occurrenceKey: meeting.occurrenceKey,
-            titleSnapshot: meeting.commitment.title
-        )
-        if let storedIntent {
-            meetingOverrides[meeting.occurrenceKey] = storedIntent
-        } else {
-            meetingOverrides.removeValue(forKey: meeting.occurrenceKey)
-        }
-        sessionSummary.recordMeetingDecision()
-        motionEvent = .meetingDecided(meeting.occurrenceKey)
-        show(
-            next == .skipping
-                ? "\(meeting.commitment.title) is out of this week"
-                : "\(meeting.commitment.title) is in your week",
-            undoToken: .meeting(decisionReceipt)
-        )
-        Haptic.settle.play()
-    }
-
     // MARK: Tray
 
     private var tray: some View {
@@ -361,7 +332,7 @@ struct WeeklyPlanningWorkspaceView: View {
         WeeklyWorkspaceBriefingSheet(
             briefing: briefing,
             showsBriefing: $showsBriefing,
-            pendingBankruptcy: $pendingBankruptcy,
+            onReleaseAll: { Task { await releaseOverdue() } },
             lane: $lane,
             onSpread: { Task { await spreadOverdue() } }
         )
@@ -379,7 +350,11 @@ struct WeeklyPlanningWorkspaceView: View {
     private var receiptToast: some View {
         WeeklyWorkspaceReceiptToast(
             receipt: receipt,
-            onUndo: { token in Task { await undo(token) } }
+            onUndo: { token in Task { await undo(token) } },
+            onDismiss: {
+                receiptDismissal?.cancel()
+                receipt = nil
+            }
         )
     }
 
@@ -404,12 +379,15 @@ struct WeeklyPlanningWorkspaceView: View {
     /// meant the first timer tore down the second toast almost as soon as it
     /// appeared, taking Undo with it. Identity and a cancellable handle, not
     /// value equality.
-    private func show(
+    func show(
         _ message: String,
         undoToken: WeeklyWorkspaceUndoToken? = .planMutation
     ) {
         receiptDismissal?.cancel()
         receipt = WorkspaceReceipt(message: message, undoToken: undoToken)
+        // A receipt with Undo stays until it is dismissed or replaced:
+        // `DESIGN.md`'s Undo never times out. Only a message folds on its own.
+        guard undoToken == nil else { return }
         let id = receipt?.id
         receiptDismissal = Task {
             try? await Task.sleep(nanoseconds: 5_000_000_000)
@@ -533,7 +511,7 @@ struct WeeklyPlanningWorkspaceView: View {
 
     // MARK: Formatting
 
-    private var weekStart: Date { WeeklyWorkspaceSectionCopy.weekStart(store: store) }
+    var weekStart: Date { WeeklyWorkspaceSectionCopy.weekStart(store: store) }
 
     private func shortDayName(_ day: PlanningDay) -> String {
         WeeklyWorkspaceSectionCopy.shortDayName(store: store, day)
@@ -591,7 +569,7 @@ private extension WeeklyPlanningWorkspaceView {
         }
         guard placed else {
             motionEvent = .taskPlacementFailed(resolved[0].id)
-            show(store.errorMessage ?? "That could not be placed. It is still in the tray.", undoToken: nil)
+            show(store.errorMessage ?? String(localized: "Couldn’t place task."), undoToken: nil)
             Haptic.fail.play()
             return
         }
@@ -609,7 +587,7 @@ private extension WeeklyPlanningWorkspaceView {
                 undoToken: .planMutation
             )
         } else {
-            show("\(ids.count) moved to \(shortDayName(day))", undoToken: .planMutation)
+            show(String(localized: "\(ids.count) moved to \(shortDayName(day))"), undoToken: .planMutation)
         }
         selection = []
         isSelecting = false
@@ -650,7 +628,7 @@ private extension WeeklyPlanningWorkspaceView {
             on: store.selectedDay,
             skippingCommitmentIDs: skippedCommitmentIDs(on: store.selectedDay)
         ) else {
-            show("No gap on \(shortDayName(store.selectedDay)) long enough for that.", undoToken: nil)
+            show(String(localized: "No free time on \(shortDayName(store.selectedDay))"), undoToken: nil)
             return
         }
         let formatter = DateFormatter()
@@ -666,14 +644,18 @@ private extension WeeklyPlanningWorkspaceView {
     /// back was previously Someday, which says something much stronger.
     private func unplace(_ task: PlanningTaskSummary) async {
         guard await store.unplace(task) else { return }
-        show("\(task.title) is back in the tray")
+        show(String(localized: "Removed from day"))
     }
 
     private func releaseToSomeday(_ ids: Set<UUID>) async {
-        guard await store.releaseToSomeday(ids) else { return }
+        guard await store.releaseToSomeday(ids) else {
+            Haptic.fail.play()
+            return
+        }
+        Haptic.commit.play()
         sessionSummary.recordReleased(ids.count)
         show(
-            ids.count == 1 ? "Moved to Someday" : "\(ids.count) moved to Someday",
+            ids.count == 1 ? String(localized: "Moved to Someday") : String(localized: "\(ids.count) moved to Someday"),
             undoToken: .planMutation
         )
         selection = []
@@ -690,7 +672,7 @@ private extension WeeklyPlanningWorkspaceView {
         let plan = WeeklyBacklogSpread.plan(candidates: candidates, days: spreadDays)
         showsBriefing = false
         guard await store.applySpread(plan) else {
-            show("The week has no room left.", undoToken: nil)
+            show(String(localized: "The week is full"), undoToken: nil)
             return
         }
         sessionSummary.recordPlaced(plan.placements.count)
@@ -764,14 +746,14 @@ private extension WeeklyPlanningWorkspaceView {
         composerText = failed.joined(separator: "\n")
         guard created > 0 else {
             show(
-                store.errorMessage ?? "That could not be saved. Your text is still here.",
+                store.errorMessage ?? String(localized: "Couldn’t add task. Try again."),
                 undoToken: nil
             )
             Haptic.fail.play()
             return
         }
         if failed.isEmpty == false {
-            show("\(created) added · \(failed.count) still in the box", undoToken: nil)
+            show(String(localized: "\(created) added · \(failed.count) not added"), undoToken: nil)
             pulse(lastDay)
             return
         }
@@ -779,11 +761,13 @@ private extension WeeklyPlanningWorkspaceView {
         // own day, so a task that leaves the visible lane is never a surprise.
         if created == 1 {
             show(
-                redirected ? "Added to \(shortDayName(lastDay))" : "Added to \(shortDayName(store.selectedDay))",
+                redirected
+                    ? String(localized: "Added to \(shortDayName(lastDay))")
+                    : String(localized: "Added to \(shortDayName(store.selectedDay))"),
                 undoToken: nil
             )
         } else {
-            show("\(created) added", undoToken: nil)
+            show(String(localized: "\(created) added"), undoToken: nil)
         }
         sessionSummary.recordPlaced(created)
         landingTrigger &+= 1
@@ -808,12 +792,15 @@ private struct WeeklyIntentionSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("This week is about")
+                Text("Focus this week")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                TextField("One line is enough", text: $viewModel.focusStatement, axis: .vertical)
+                // These sit in a header that doesn't scroll on iPhone, so no drag
+                // could put their keyboard away; Return does.
+                TextField("One line", text: $viewModel.focusStatement, prompt: Text("One line").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                     .font(.subheadline)
                     .lineLimit(1...3)
+                    .returnKeyEndsEditing(text: $viewModel.focusStatement)
                     .padding(.vertical, 9)
                     .padding(.horizontal, 12)
                     .lifeBoardClaySurface(.well)
@@ -822,7 +809,7 @@ private struct WeeklyIntentionSection: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Outcomes")
+                    Text("Goals")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Spacer()
@@ -835,15 +822,16 @@ private struct WeeklyIntentionSection: View {
                     }
                 }
                 if viewModel.outcomeDrafts.isEmpty {
-                    Text("Three at most. A week with nine outcomes has none.")
+                    Text("Pick up to 3 goals")
                         .font(.caption)
                         .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
                 ForEach($viewModel.outcomeDrafts) { $draft in
                     HStack(spacing: 12) {
-                        TextField("What would make the week good?", text: $draft.title, axis: .vertical)
+                        TextField("Goal", text: $draft.title, prompt: Text("Goal").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                             .font(.subheadline)
                             .lineLimit(1...2)
+                            .returnKeyEndsEditing(text: $draft.title)
                         Button {
                             viewModel.removeOutcomeDraft(id: draft.id)
                         } label: {
@@ -851,7 +839,7 @@ private struct WeeklyIntentionSection: View {
                                 .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Remove outcome")
+                        .accessibilityLabel("Remove goal")
                     }
                     .padding(.vertical, 9)
                     .padding(.horizontal, 12)
@@ -861,9 +849,9 @@ private struct WeeklyIntentionSection: View {
 
             Toggle(isOn: $viewModel.minimumViableWeekEnabled) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Minimum viable week")
+                    Text("Light week")
                         .font(.subheadline)
-                    Text("Name the smallest version that still counts.")
+                    Text("Smallest version")
                         .font(.caption2)
                         .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
@@ -879,10 +867,10 @@ private struct WeeklyIntentionSection: View {
                     if viewModel.isSaving {
                         ProgressView().controlSize(.small)
                     } else {
-                        Text("Save intention")
+                        Text("Save focus")
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
                 .font(.subheadline.weight(.semibold))
                 .disabled(viewModel.isSaving)
                 .accessibilityIdentifier("plan.week.workspace.saveIntention")
@@ -890,7 +878,7 @@ private struct WeeklyIntentionSection: View {
                 if let message = viewModel.saveMessage, savedAt != nil {
                     Text(message)
                         .font(.caption)
-                        .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationSageInk))
                         .transition(.opacity)
                 }
                 Spacer(minLength: 0)
@@ -1057,7 +1045,7 @@ private struct WeeklyWorkspaceHeader: View {
                             .font(.caption.weight(.semibold))
                             .labelStyle(.titleAndIcon)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                     .accessibilityLabel(briefing.headline)
                     .accessibilityIdentifier("plan.week.workspace.overdueBadge")
                 }
@@ -1081,7 +1069,7 @@ private struct WeeklyWorkspaceHeader: View {
                 .padding(.top, 8)
         } label: {
             HStack(spacing: 8) {
-                Text("What matters this week")
+                Text("Focus and goals")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 if showsIntention == false, let summary = intentionSummary {
@@ -1102,7 +1090,7 @@ private struct WeeklyWorkspaceHeader: View {
         if focus.isEmpty == false { return "· \(focus)" }
         let outcomes = intention.activeOutcomeDraftCount
         guard outcomes > 0 else { return nil }
-        return outcomes == 1 ? "· 1 outcome" : "· \(outcomes) outcomes"
+        return outcomes == 1 ? String(localized: "· 1 goal") : String(localized: "· \(outcomes) goals")
     }
 }
 
@@ -1165,7 +1153,7 @@ private struct WeeklyWorkspaceRibbon: View {
                     }
                 } label: {
                     Label(
-                        showsSoftDays ? "Show fewer days" : "Later this week (\(softDays.count))",
+                        showsSoftDays ? String(localized: "Show fewer days") : String(localized: "Later this week (\(softDays.count))"),
                         systemImage: showsSoftDays ? "chevron.up" : "chevron.down"
                     )
                     .font(.caption2.weight(.medium))
@@ -1253,7 +1241,7 @@ private struct WeeklyWorkspaceRibbonChip: View {
             .overlay {
                 if metrics.isToday {
                     RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
-                        .stroke(Color(SemanticColorTokens.foundationApricotAccent), lineWidth: 1.5)
+                        .stroke(Color(SemanticColorTokens.foundationApricotInk), lineWidth: 1.5)
                 }
             }
             .foregroundStyle(
@@ -1277,7 +1265,7 @@ private struct WeeklyWorkspaceRibbonChip: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(WeeklyWorkspaceSectionCopy.dayAccessibilityLabel(store: store, day, metrics: metrics))
-        .accessibilityHint(canReceive ? "Selects this day" : "This day has already passed")
+        .accessibilityHint(canReceive ? "" : "Day has passed")
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
         .accessibilityIdentifier("plan.week.workspace.day.\(day.year)-\(day.month)-\(day.day)")
     }
@@ -1293,8 +1281,11 @@ private struct WeeklyWorkspaceWideBoard: View {
     @Binding var targetedDay: PlanningDay?
     @Binding var calendarHandoff: CalendarEventHandoff?
     @FocusState.Binding var composerFocused: Bool
+    let placeableDays: [PlanningDay]
     let onSelect: (PlanningDay) -> Void
     let onPlace: (Set<UUID>, PlanningDay) -> Void
+    let onUnplace: (PlanningTaskSummary) -> Void
+    let onReleaseToSomeday: (Set<UUID>) -> Void
     let onDropHover: (PlanningDay, Bool) -> Void
     let onChooseMeetingIntent: (WeeklyMeetingIntent, WeeklyWorkspaceDayMeeting) -> Void
 
@@ -1313,8 +1304,11 @@ private struct WeeklyWorkspaceWideBoard: View {
                             targetedDay: $targetedDay,
                             calendarHandoff: $calendarHandoff,
                             composerFocused: $composerFocused,
+                            placeableDays: placeableDays,
                             onSelect: onSelect,
                             onPlace: onPlace,
+                            onUnplace: onUnplace,
+                            onReleaseToSomeday: onReleaseToSomeday,
                             onDropHover: onDropHover,
                             onChooseMeetingIntent: onChooseMeetingIntent
                         )
@@ -1338,8 +1332,11 @@ private struct WeeklyWorkspaceWideDayColumn: View {
     @Binding var targetedDay: PlanningDay?
     @Binding var calendarHandoff: CalendarEventHandoff?
     @FocusState.Binding var composerFocused: Bool
+    let placeableDays: [PlanningDay]
     let onSelect: (PlanningDay) -> Void
     let onPlace: (Set<UUID>, PlanningDay) -> Void
+    let onUnplace: (PlanningTaskSummary) -> Void
+    let onReleaseToSomeday: (Set<UUID>) -> Void
     let onDropHover: (PlanningDay, Bool) -> Void
     let onChooseMeetingIntent: (WeeklyMeetingIntent, WeeklyWorkspaceDayMeeting) -> Void
 
@@ -1402,7 +1399,7 @@ private struct WeeklyWorkspaceWideDayColumn: View {
             }
 
             if tasks.isEmpty && dayMeetings.isEmpty {
-                Text("Room to breathe")
+                Text("Nothing planned")
                     .font(.caption)
                     .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                     .padding(.horizontal, 12)
@@ -1410,7 +1407,15 @@ private struct WeeklyWorkspaceWideDayColumn: View {
             } else {
                 ForEach(tasks) { task in
                     WeeklyWorkspaceHairline().padding(.leading, 12)
-                    WeeklyWorkspaceWideTaskRow(task: task, namespace: namespace)
+                    WeeklyWorkspaceWideTaskRow(
+                        store: store,
+                        task: task,
+                        namespace: namespace,
+                        placeableDays: placeableDays,
+                        onPlace: onPlace,
+                        onUnplace: onUnplace,
+                        onReleaseToSomeday: onReleaseToSomeday
+                    )
                 }
             }
 
@@ -1468,9 +1473,17 @@ private struct WeeklyWorkspaceWideDayColumn: View {
     }
 }
 
+/// A board row is dragged between columns, but a drag is not the only way
+/// to move it: pointer users get the day lane's context menu, VoiceOver the
+/// same actions, both from `weeklyWorkspaceMoveActions`.
 private struct WeeklyWorkspaceWideTaskRow: View {
+    let store: PlanStore
     let task: PlanningTaskSummary
     let namespace: Namespace.ID
+    let placeableDays: [PlanningDay]
+    let onPlace: (Set<UUID>, PlanningDay) -> Void
+    let onUnplace: (PlanningTaskSummary) -> Void
+    let onReleaseToSomeday: (Set<UUID>) -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -1487,9 +1500,33 @@ private struct WeeklyWorkspaceWideTaskRow: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
+        .hoverEffect(.highlight)
         .matchedGeometryEffect(id: task.id, in: namespace, isSource: false)
         .draggable(task.id.uuidString)
+        .contextMenu {
+            Button("Remove from day", systemImage: "tray.and.arrow.up") {
+                onUnplace(task)
+            }
+            Divider()
+            weeklyWorkspaceMoveActions(
+                store: store,
+                days: placeableDays,
+                ids: [task.id],
+                onPlace: onPlace,
+                onRelease: onReleaseToSomeday
+            )
+        }
         .accessibilityLabel(task.title)
+        .accessibilityActions {
+            weeklyWorkspaceMoveActions(
+                store: store,
+                days: placeableDays,
+                ids: [task.id],
+                onPlace: onPlace,
+                onRelease: onReleaseToSomeday
+            )
+            Button("Remove from day") { onUnplace(task) }
+        }
     }
 }
 
@@ -1533,6 +1570,7 @@ private struct WeeklyWorkspaceWideMeetingRow: View {
                 Image(systemName: meeting.intent == .skipping ? "minus.circle" : "checkmark.circle")
                     .font(.caption)
                     .frame(width: 24, height: 24)
+                    .minimumHitTarget()
             }
             .buttonStyle(.plain)
         }
@@ -1585,7 +1623,7 @@ private struct WeeklyWorkspaceDayLane: View {
                 if let hint = metrics.overloadHint {
                     Label(hint, systemImage: "exclamationmark.circle")
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                         .accessibilityIdentifier("plan.week.workspace.overloadHint")
                         .padding(.top, 8)
                 }
@@ -1613,7 +1651,7 @@ private struct WeeklyWorkspaceDayLane: View {
                     on: store.selectedDay
                 )
                 if placed.isEmpty && meetings.isEmpty {
-                    Text("\(WeeklyWorkspaceSectionCopy.shortDayName(store: store, store.selectedDay)) still has room.")
+                    Text("Nothing planned")
                         .font(.subheadline)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .padding(.vertical, 18)
@@ -1706,6 +1744,7 @@ private struct WeeklyWorkspacePlacedRow: View {
                 Image(systemName: "circle")
                     .font(.title3)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    .minimumHitTarget()
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Complete \(task.title)")
@@ -1747,11 +1786,11 @@ private struct WeeklyWorkspacePlacedRow: View {
         }
         .contextMenu {
             if hasFreeWindows {
-                Button("Time-box it", systemImage: "calendar.badge.clock") {
+                Button("Add time block", systemImage: "calendar.badge.clock") {
                     onTimeBox(task)
                 }
             }
-            Button("Back to the tray", systemImage: "tray.and.arrow.up") {
+            Button("Remove from day", systemImage: "tray.and.arrow.up") {
                 onUnplace(task)
             }
             Divider()
@@ -1774,7 +1813,7 @@ private struct WeeklyWorkspacePlacedRow: View {
             Button("Move up") { onNudge(task, -1) }
             Button("Move down") { onNudge(task, 1) }
             if hasFreeWindows {
-                Button("Time-box it") { onTimeBox(task) }
+                Button("Add time block") { onTimeBox(task) }
             }
         }
         .accessibilityIdentifier("plan.week.workspace.placed.\(task.id.uuidString)")
@@ -1804,8 +1843,10 @@ private struct WeeklyWorkspaceComposer: View {
             )
             .font(.subheadline)
             .focused($composerFocused)
-            .submitLabel(.done)
-            .onSubmit { onCommit() }
+            // `onSubmit` never fires on a vertical-axis field, so Return used to
+            // insert a newline. A pasted block still keeps its lines (commit
+            // splits them into tasks); a typed Return commits.
+            .returnKey(.next, text: $composerText) { onCommit() }
             .accessibilityIdentifier("plan.week.workspace.composer")
             if composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
                 Button("Add") { onCommit() }
@@ -1885,7 +1926,7 @@ private struct WeeklyWorkspaceMeetingRow: View {
                 .labelStyle(.titleAndIcon)
                 .frame(minHeight: 36)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.lifeBoardChip)
             .accessibilityIdentifier("plan.week.workspace.meetingIntent.\(meeting.occurrenceKey)")
         }
         .padding(.vertical, 9)
@@ -1930,11 +1971,13 @@ private struct WeeklyWorkspaceTray: View {
                 lane: $lane
             )
 
-            if shelfDetent == .expanded && usesSideBySideLayout == false {
+            // Side by side, the tray is a full-height pane with no shelf to
+            // expand, so search has to be there from the start.
+            if shelfDetent == .expanded || usesSideBySideLayout {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
-                    TextField("Find something to place", text: $traySearch)
+                    TextField("Search tasks", text: $traySearch, prompt: Text("Search tasks").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                         .font(.subheadline)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(false)
@@ -2027,7 +2070,7 @@ private struct WeeklyWorkspaceShelfHandle: View {
                     .frame(width: 36, height: 4)
             }
             HStack {
-                Text("Choose what deserves a place")
+                Text("Tasks to place")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Spacer()
@@ -2148,9 +2191,10 @@ private struct WeeklyWorkspaceTrayRow: View {
                     } else {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
-                            .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                            .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                     }
                 }
+                .minimumHitTarget()
                 .buttonStyle(.plain)
                 .disabled(pendingMutationIDs.contains(task.id))
                 .accessibilityLabel(
@@ -2175,6 +2219,22 @@ private struct WeeklyWorkspaceTrayRow: View {
         .matchedGeometryEffect(id: task.id, in: namespace, isSource: true)
         .opacity(pendingMutationIDs.contains(task.id) ? 0.55 : 1)
         .draggable(task.id.uuidString)
+        .contextMenu {
+            if isSelecting == false {
+                Button("Select", systemImage: "checkmark.circle") {
+                    isSelecting = true
+                    selection = [task.id]
+                }
+                Divider()
+            }
+            weeklyWorkspaceMoveActions(
+                store: store,
+                days: placeableDays,
+                ids: [task.id],
+                onPlace: onPlace,
+                onRelease: onReleaseToSomeday
+            )
+        }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Someday") {
                 onReleaseToSomeday([task.id])
@@ -2185,7 +2245,7 @@ private struct WeeklyWorkspaceTrayRow: View {
             Button("Today") {
                 onPlace([task.id], store.todayPlanningDay())
             }
-            .tint(Color(SemanticColorTokens.foundationApricotAccent))
+            .tint(Color(SemanticColorTokens.foundationApricotInk))
         }
         .accessibilityActions {
             weeklyWorkspaceMoveActions(
@@ -2208,7 +2268,7 @@ private struct WeeklyWorkspaceSelectionBar: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(selection.count == 1 ? "1 selected" : "\(selection.count) selected")
+            Text(selection.count == 1 ? String(localized: "1 selected") : String(localized: "\(selection.count) selected"))
                 .font(.caption.weight(.semibold))
             Spacer()
             Button("Place on \(WeeklyWorkspaceSectionCopy.shortDayName(store: store, store.selectedDay))") {
@@ -2231,65 +2291,6 @@ private struct WeeklyWorkspaceSelectionBar: View {
 
 // MARK: - Sheets and receipts
 
-private struct WeeklyWorkspaceBriefingSheet: View {
-    let briefing: WeeklyOverdueBriefing
-    @Binding var showsBriefing: Bool
-    @Binding var pendingBankruptcy: Bool
-    @Binding var lane: WeeklyWorkspaceLane
-    let onSpread: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(briefing.headline)
-                .lifeboardFont(.title2)
-            if let detail = briefing.detail() {
-                Text(detail)
-                    .font(.subheadline)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            }
-            Text("Bringing everything forward only works if the week can hold it, so spreading stops when the days are full and tells you what is left.")
-                .font(.footnote)
-                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-
-            VStack(spacing: 12) {
-                Button {
-                    onSpread()
-                } label: {
-                    Text(WeeklyWorkspaceCopy.spreadAction)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.lifeBoardPrimaryCompact)
-                .accessibilityIdentifier("plan.week.workspace.spread")
-
-                Button {
-                    showsBriefing = false
-                    pendingBankruptcy = true
-                } label: {
-                    Text(WeeklyWorkspaceCopy.bankruptcyAction)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("plan.week.workspace.bankruptcy")
-
-                Button {
-                    showsBriefing = false
-                    lane = .overdue
-                } label: {
-                    Text(WeeklyWorkspaceCopy.manualAction)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.plain)
-                .font(.subheadline)
-            }
-            Spacer()
-        }
-        .padding(24)
-        .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
-        .presentationDetents([.medium])
-        .accessibilityIdentifier("plan.week.workspace.briefing")
-    }
-}
-
 private struct WeeklyWorkspaceCompletionSheet: View {
     let summary: String
     let completionTrigger: Int
@@ -2301,7 +2302,7 @@ private struct WeeklyWorkspaceCompletionSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Your week has shape.")
+                Text("Week planned")
                     .lifeboardFont(.title2)
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Text(summary)
@@ -2346,7 +2347,7 @@ private struct WeeklyWorkspaceCompletionSheet: View {
                 in: RoundedRectangle(cornerRadius: 16, style: .continuous),
                 interactive: true
             )
-            .tint(Color(SemanticColorTokens.foundationApricotAccent))
+            .tint(Color(SemanticColorTokens.foundationApricotInk))
             .accessibilityIdentifier("plan.week.workspace.finish")
 
             Button("Keep planning") { showsCompletion = false }
@@ -2357,31 +2358,22 @@ private struct WeeklyWorkspaceCompletionSheet: View {
     }
 }
 
+/// The shared receipt bar rather than a hand-rolled toast: one silhouette
+/// with the rest of the app, a dismiss control, and copy that stacks at
+/// accessibility sizes.
 private struct WeeklyWorkspaceReceiptToast: View {
     let receipt: WorkspaceReceipt?
     let onUndo: (WeeklyWorkspaceUndoToken) -> Void
+    let onDismiss: () -> Void
 
     var body: some View {
         if let receipt {
-            HStack(spacing: 12) {
-                Text(receipt.message)
-                    .font(.footnote)
-                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                Spacer(minLength: 8)
-                if let undoToken = receipt.undoToken {
-                    Button("Undo") {
-                        onUndo(undoToken)
-                    }
-                    .font(.footnote.weight(.semibold))
-                    .frame(minHeight: 44)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
-            }
+            ReceiptBar(
+                ActionReceiptPresentation(id: receipt.id, message: receipt.message),
+                undo: receipt.undoToken.map { token in { onUndo(token) } },
+                destination: nil,
+                onDismiss: onDismiss
+            )
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
             .transition(.move(edge: .bottom).combined(with: .opacity))

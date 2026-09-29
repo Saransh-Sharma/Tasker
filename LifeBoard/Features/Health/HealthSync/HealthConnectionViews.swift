@@ -3,13 +3,13 @@ import SwiftUI
 struct HealthReadDisclosure: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "Bring in Apple Health"))
+            Text(String(localized: "Apple Health"))
                 .lifeboardFont(.screenTitle)
             Text(String(localized: "See sleep, activity, and workouts next to your day."))
                 .lifeboardFont(.body)
             // One trust line. It used to be two, and the connector screen then
             // repeated the second one underneath as a footer.
-            Text(String(localized: "Read-only, processed on this iPhone. EVA can use it — change that in Settings."))
+            Text("Stays on \(DeviceNoun.this) unless you let \(AssistantIdentitySnapshot.current.displayName) use it.")
                 .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
         }
@@ -24,10 +24,10 @@ struct HealthAccessInstructions: View {
         NavigationStack {
             ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text("Review access in Apple Health")
+                Text("Change access")
                     .lifeboardFont(.screenTitle)
-                Text("Open the Health app, tap your profile, then Apps under Privacy. Choose LifeBoard and review the categories you want to share.")
-                Text("Return to LifeBoard when you’re done. We’ll refresh the data available to this device.")
+                Text("In Health, tap your profile, then Apps under Privacy, then LifeBoard.")
+                Text("LifeBoard refreshes when you come back.")
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                 Spacer()
             }
@@ -66,15 +66,15 @@ struct HealthConnectionSheet: View {
                             .frame(width: 56, height: 56)
                             .lifeBoardClaySurface(.well, cornerRadius: 20)
                             .accessibilityHidden(true)
-                        Text(String(localized: "Bring in Apple Health")).lifeboardFont(.screenTitle)
+                        Text(String(localized: "Apple Health")).lifeboardFont(.screenTitle)
                         Text(String(localized: "See sleep, activity, and workouts next to your day."))
                             .lifeboardFont(.body)
                             .foregroundStyle(Color.lifeboard(.textSecondary))
-                        Label(String(localized: "Read-only, processed on this iPhone."), systemImage: "lock.fill")
+                        Label(String(localized: "Read-only. Stays on \(DeviceNoun.this)."), systemImage: "lock.fill")
                             .lifeboardFont(.caption1)
                             .foregroundStyle(Color.lifeboard(.textTertiary))
                         if store.presentation == .authorizationFailed {
-                            Text(String(localized: "That didn't finish. Try again."))
+                            Text(String(localized: "Couldn’t connect to Apple Health."))
                                 .lifeboardFont(.support)
                                 .foregroundStyle(Color.lifeboard(.statusWarning))
                         }
@@ -96,7 +96,7 @@ struct HealthConnectionSheet: View {
                     if !isOnboarding && store.presentation != .notRequested && store.presentation != .unavailable {
                         Button("Manage Health access") { showsAccess = true }
                             .buttonStyle(.lifeBoardChip)
-                        Button("Save LifeBoard logs to Apple Health") { showsWriteBack = true }
+                        Button("Save to Health") { showsWriteBack = true }
                             .buttonStyle(.lifeBoardChip)
                             .disabled(store.isRequestingAuthorization)
                     }
@@ -104,7 +104,7 @@ struct HealthConnectionSheet: View {
                 .padding(24)
             }
             .safeAreaInset(edge: .bottom) {
-                Button(isOnboarding ? String(localized: "Not now") : String(localized: "Continue using LifeBoard")) { dismiss() }
+                Button(isOnboarding ? String(localized: "Not now") : String(localized: "Done")) { dismiss() }
                     .lifeboardFont(.bodyStrong)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .frame(maxWidth: .infinity, minHeight: 44)
@@ -114,7 +114,7 @@ struct HealthConnectionSheet: View {
             }
             .navigationTitle("Apple Health")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() }.keyboardShortcut(.cancelAction) } }
             .sheet(isPresented: $showsAccess) { HealthAccessInstructions() }
             .sheet(isPresented: $showsWriteBack) {
                 HealthConnectPromptSheet(
@@ -138,7 +138,7 @@ struct HealthConnectionSheet: View {
             .task { await store.bootstrap() }
             .onChange(of: store.presentation) { previous, current in
                 if !isOnboarding, case .ready = current, previous == .syncing || previous == .requesting {
-                    AccessibilityNotification.Announcement("Health data is available in LifeBoard.").post()
+                    AccessibilityNotification.Announcement(String(localized: "Health data available")).post()
                     dismiss()
                 }
             }
@@ -161,10 +161,10 @@ struct HealthConnectionSheet: View {
             }
         }
         return switch store.presentation {
-        case .notRequested: "Connect Apple Health"
-        case .authorizationFailed: "Retry Health access"
-        case .partial: "Retry sync"
-        case .ready, .reviewedNoDataYet: "Sync now"
+        case .notRequested: String(localized: "Connect Apple Health")
+        case .authorizationFailed: String(localized: "Try again")
+        case .partial: String(localized: "Sync again")
+        case .ready, .reviewedNoDataYet: String(localized: "Sync now")
         case .unavailable, .requesting, .syncing, .protectedDataLocked: nil
         }
     }

@@ -178,18 +178,18 @@ struct TimelineOverlapItemCard: View {
         .contextMenu {
             Button("Open", action: onTap)
             if item.source == .task {
-                Button(item.isComplete ? "Mark Incomplete" : "Mark Complete", action: onToggleComplete)
+                Button(item.isComplete ? "Mark incomplete" : "Mark complete", action: onToggleComplete)
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(timelineAccessibilityLabel(for: row, item: item))
         .accessibilityValue(item.isComplete ? "Completed" : (row.temporalState == .currentTask ? "In progress" : item.source == .calendarEvent ? "Calendar event" : "Scheduled"))
-        .accessibilityHint("Opens the item details.")
+        .accessibilityHint("Opens details")
         .accessibilityIdentifier(timelineAccessibilityIdentifier(for: item))
         .accessibilityAction(named: Text("Open")) {
             onTap()
         }
-        .accessibilityAction(named: Text(item.isComplete ? "Mark Incomplete" : "Mark Complete")) {
+        .accessibilityAction(named: Text(item.isComplete ? "Mark incomplete" : "Mark complete")) {
             guard item.source == .task else { return }
             onToggleComplete()
         }
@@ -358,14 +358,14 @@ struct TimelineFlockRowView: View {
             if let item {
                 Button("Open", action: onTap)
                 if item.source == .task {
-                    Button(item.isComplete ? "Mark Incomplete" : "Mark Complete", action: onToggleComplete)
+                    Button(item.isComplete ? "Mark incomplete" : "Mark complete", action: onToggleComplete)
                 }
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
-        .accessibilityHint(row.isSummary ? "Opens the full list." : "Opens the item details.")
+        .accessibilityHint(row.isSummary ? "Opens the full list" : "Opens details")
     }
 
     var rowContent: some View {
@@ -514,8 +514,8 @@ struct TimelineShelfItemCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(item.title)
-        .accessibilityValue("All-day item")
-        .accessibilityHint("Opens the item details.")
+        .accessibilityValue("All day")
+        .accessibilityHint("Opens details")
         .accessibilityIdentifier(timelineAccessibilityIdentifier(for: item))
     }
 }
@@ -526,7 +526,7 @@ extension TimelineUtilityItem {
     var accessibilityLabel: String {
         switch self {
         case .checklist(let summary):
-            return "\(summary.completedCount) of \(summary.totalCount) checklist items complete"
+            return String(localized: "\(summary.completedCount) of \(summary.totalCount) subtasks done")
         case .note:
             return "Has notes"
         case .recurring:
@@ -619,13 +619,9 @@ struct TimelineInboxPlanningCard: View {
                         Text(inboxItems.count == 1 ? "1 inbox task ready" : "\(inboxItems.count) inbox tasks ready")
                             .font(ClayTypography.meta)
                             .foregroundStyle(ClayColorTokens.navyMuted)
-                        Text("Inbox waiting for placement")
+                        Text("Inbox to place")
                             .font(ClayTypography.cardTitle)
                             .foregroundStyle(ClayColorTokens.navy)
-                        Text("Day Compass will offer a placement pass when enough unscheduled work needs a home.")
-                            .font(ClayTypography.body)
-                            .foregroundStyle(ClayColorTokens.navyMuted)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
                 }
@@ -663,7 +659,7 @@ struct TimelineInboxPlanningCard: View {
                     .padding(.trailing, 4)
                 }
                 .accessibilityLabel("Inbox task previews")
-                .accessibilityHint(inboxItems.count > 4 ? "Scroll horizontally to inspect more inbox tasks." : "Swipe through inbox tasks to inspect them.")
+                .accessibilityHint(inboxItems.count > 4 ? "Scroll for more" : "")
             }
             .padding(ClayLayoutMetrics.md)
         }

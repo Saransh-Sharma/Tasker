@@ -124,7 +124,7 @@ public final class ScheduleReminderUseCase: @unchecked Sendable {
                 if V2FeatureFlags.remindersSyncEnabled, let notificationService = self.notificationService {
                     notificationService.scheduleTaskReminder(
                         taskId: reminderID,
-                        taskName: "Task Reminder",
+                        taskName: String(localized: "Task"),
                         at: until
                     )
                 }
@@ -226,7 +226,7 @@ public final class ScheduleReminderUseCase: @unchecked Sendable {
                     if let fireDate, V2FeatureFlags.remindersSyncEnabled, let notificationService = self.notificationService {
                         notificationService.scheduleTaskReminder(
                             taskId: reminder.sourceID,
-                            taskName: "Task Reminder",
+                            taskName: String(localized: "Task"),
                             at: fireDate
                         )
                     }

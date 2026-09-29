@@ -2,7 +2,7 @@
 //  NavigationTests.swift
 //  LifeBoardUITests
 //
-//  Secondary Tests: Navigation (5 tests)
+//  Secondary Tests: Navigation
 //  Tests app navigation flows and screen transitions
 //
 
@@ -17,116 +17,82 @@ class NavigationTests: BaseUITest {
         homePage = HomePage(app: app)
     }
 
-    // MARK: - Test 41: Tab Navigation - Home
+    // MARK: - Root Navigation
+    //
+    // The Foundation shell has five roots (Home, Plan, Track, Insights, Eva),
+    // reached from the dock on iPhone and the root switcher on iPad and Mac.
+    // Inbox and Week are Plan lenses, not tabs.
 
     func testTabNavigation_Home() throws {
-        // GIVEN: App is launched
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
-        // WHEN: User taps Home tab
-        let homeTabButton = tabBarButton(AccessibilityIdentifiers.TabBar.home)
-
-        if homeTabButton.exists {
-            homeTabButton.tap()
-            waitForAnimations(duration: 0.5)
-
-            // THEN: Home screen should be active
-            XCTAssertTrue(homeTabButton.isSelected, "Home tab should be selected")
-        }
+        XCTAssertTrue(homePage.openRoot("plan"), "Plan should open from the root chrome")
+        XCTAssertTrue(homePage.openRoot("home"), "Home should open from the root chrome")
+        XCTAssertTrue(homePage.waitForRootSelection(homePage.homeButton), "Home should read as the selected root")
 
         takeScreenshot(named: "tab_navigation_home")
     }
 
-    // MARK: - Test 42: Tab Navigation - Inbox
-
     func testTabNavigation_Inbox() throws {
-        // GIVEN: App is on home screen
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
-        // WHEN: User taps Inbox tab
-        let inboxTabButton = tabBarButton(AccessibilityIdentifiers.TabBar.inbox)
-
-        if inboxTabButton.exists {
-            inboxTabButton.tap()
-            waitForAnimations(duration: 1.0)
-
-            // THEN: Inbox screen should be displayed
-            XCTAssertTrue(inboxTabButton.isSelected, "Inbox tab should be selected")
-
-            // Verify inbox elements
-            let inboxIndicator = app.otherElements[AccessibilityIdentifiers.Inbox.view]
-            if !inboxIndicator.exists {
-                // Fallback: check for navigation bar or list
-                let navBar = app.navigationBars.firstMatch
-                XCTAssertTrue(navBar.exists, "Inbox screen should have navigation elements")
-            }
-        }
+        XCTAssertTrue(homePage.openRoot("plan"), "Plan should open from the root chrome")
+        let inboxLens = app.buttons[AccessibilityIdentifiers.Plan.lens("Inbox")]
+        XCTAssertTrue(inboxLens.waitForExistence(timeout: 8), "Plan should offer its Inbox lens")
+        inboxLens.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.Plan.inbox].waitForExistence(timeout: 10),
+            "The Inbox lens should show the inbox"
+        )
 
         takeScreenshot(named: "tab_navigation_inbox")
     }
 
-    // MARK: - Test 43: Tab Navigation - Weekly
-
     func testTabNavigation_Weekly() throws {
-        // GIVEN: App is on home screen
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
-        // WHEN: User taps Weekly tab
-        let weeklyTabButton = tabBarButton(AccessibilityIdentifiers.TabBar.weekly)
+        XCTAssertTrue(homePage.openRoot("plan"), "Plan should open from the root chrome")
+        let weekLens = app.buttons[AccessibilityIdentifiers.Plan.lens("Week")]
+        XCTAssertTrue(weekLens.waitForExistence(timeout: 8), "Plan should offer its Week lens")
+        weekLens.tap()
 
-        if weeklyTabButton.exists {
-            weeklyTabButton.tap()
-            waitForAnimations(duration: 1.0)
-
-            // THEN: Weekly view should be displayed
-            XCTAssertTrue(weeklyTabButton.isSelected, "Weekly tab should be selected")
-
-            // Verify weekly view elements
-            let weeklyIndicator = app.otherElements[AccessibilityIdentifiers.Weekly.view]
-            if !weeklyIndicator.exists {
-                // Fallback: check for table view or navigation elements
-                let tableView = app.tables.firstMatch
-                XCTAssertTrue(tableView.exists, "Weekly view should have table")
-            }
-        }
+        let compactWeek = app.descendants(matching: .any)[AccessibilityIdentifiers.Plan.weekCompactList]
+        let boardWeek = app.descendants(matching: .any)[AccessibilityIdentifiers.Plan.weekSevenDayBoard]
+        let weekShown = NSPredicate { _, _ in compactWeek.exists || boardWeek.exists }
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: weekShown, object: nil)], timeout: 10),
+            .completed,
+            "The Week lens should show the week list or the seven-day board"
+        )
 
         takeScreenshot(named: "tab_navigation_weekly")
     }
 
-    // MARK: - Test 44: Modal Presentation - Add Task
+    // MARK: - Modal Presentation - Add Task
 
     func testModalPresentation_AddTask() throws {
-        // GIVEN: User is on home screen
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
-        // WHEN: User taps add task button
         let addTaskPage = homePage.tapAddTask()
 
-        // THEN: Add task modal should be presented
         XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add task screen should be presented")
-
-        // Verify modal elements
         XCTAssertTrue(addTaskPage.titleField.exists, "Title field should exist")
         XCTAssertTrue(addTaskPage.createButton.exists, "Create button should exist")
         XCTAssertTrue(addTaskPage.cancelButton.exists, "Cancel button should exist")
 
         takeScreenshot(named: "modal_presentation_add_task")
 
-        // Clean up
         addTaskPage.tapCancel()
     }
 
-    // MARK: - Test 45: Modal Dismissal - Add Task
+    // MARK: - Modal Dismissal - Add Task
 
     func testModalDismissal_AddTask() throws {
-        // GIVEN: Add task modal is presented
         let addTaskPage = homePage.tapAddTask()
         XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add task screen should be presented")
 
-        // WHEN: User cancels
         addTaskPage.tapCancel()
 
-        // THEN: Modal should be dismissed and user returns to home
         XCTAssertTrue(addTaskPage.waitForDismissal(timeout: 3), "Add task modal should be dismissed")
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Should return to home screen")
 
@@ -135,82 +101,18 @@ class NavigationTests: BaseUITest {
 
     func testHomeBottomBarInsightsAction() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
-        XCTAssertTrue(homePage.verifyBottomBarExists(), "Home bottom bar should exist")
+        XCTAssertTrue(homePage.verifyBottomBarExists(), "Root chrome should exist")
 
-        XCTAssertTrue(homePage.openInsights(), "Insights should open from the bottom dock")
-        XCTAssertTrue(homePage.insightsContainer.waitForExistence(timeout: 3), "Insights screen should be displayed")
-    }
-
-    func testHomeSearchActionOpensSearch() throws {
-        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
-        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open from the Home search affordance")
-        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should be displayed")
-        XCTAssertTrue(homePage.searchField.waitForExistence(timeout: 3), "Search field should appear")
+        XCTAssertTrue(homePage.openInsights(), "Insights should open from the root chrome")
+        XCTAssertTrue(homePage.insightsRoot.exists, "Insights root should be displayed")
     }
 
     func testHomeAddTaskActionPresentsModal() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
         let addTaskPage = homePage.tapAddTask()
-        XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add task should be displayed from bottom bar")
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add task should be displayed from Home's tasks card")
         addTaskPage.tapCancel()
-    }
-
-    func testSunriseDestinationsCrashSmoke() throws {
-        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
-        XCTAssertTrue(homePage.openSearchFromHome(), "Search should open")
-        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should be displayed")
-        homePage.tapSearchBackChip()
-        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Search should close back to Home")
-
-        XCTAssertTrue(homePage.openInsights(), "Insights should open")
-        XCTAssertTrue(homePage.insightsTodayTab.waitForExistence(timeout: 3), "Today tab should exist")
-        homePage.insightsWeekTab.tap()
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Home.insightsContentWeek].waitForExistence(timeout: 3), "Week content should exist")
-        homePage.insightsSystemsTab.tap()
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Home.insightsContentSystems].waitForExistence(timeout: 3), "Systems content should exist")
-        if homePage.insightsScrollView.exists {
-            homePage.insightsScrollView.swipeUp()
-        }
-        XCTAssertEqual(app.state, .runningForeground, "App should remain running after destination switching")
-    }
-
-    func testHomeBottomBarStaysStableOnScroll() throws {
-        if app.descendants(matching: .any)["LifeBoardCompactChrome"].exists {
-            throw XCTSkip("Legacy dock is not mounted by the Foundation shell; compact chrome coverage lives in LifeBoardUITests.")
-        }
-        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
-        XCTAssertTrue(homePage.verifyBottomBarExists(), "Home bottom bar should exist")
-        XCTAssertTrue(homePage.addTaskButton.waitForExistence(timeout: 3), "Add Task button should exist")
-        let initialFrame = homePage.bottomBar.frame
-        let initialScrollMinY = homePage.taskListScrollView.frame.minY
-
-        homePage.taskListScrollView.swipeUp()
-        homePage.taskListScrollView.swipeUp()
-        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should remain expanded after downward scroll")
-        XCTAssertEqual(homePage.bottomBar.frame.height, initialFrame.height, accuracy: 1.0, "Bottom bar height should not change after downward scroll")
-        XCTAssertTrue(homePage.addTaskButton.isHittable, "Add Task button should remain hittable after downward scroll")
-        XCTAssertGreaterThan(
-            homePage.taskListScrollView.frame.maxY,
-            homePage.bottomBar.frame.minY,
-            "Home content should continue behind the stable bottom bar"
-        )
-        XCTAssertEqual(
-            homePage.taskListScrollView.frame.minY,
-            initialScrollMinY,
-            accuracy: 1.0,
-            "Scrolling should not resize or jump the Home scroll container"
-        )
-
-        waitForAnimations(duration: 0.55)
-        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should remain expanded after scroll idle")
-        XCTAssertEqual(homePage.bottomBar.frame.height, initialFrame.height, accuracy: 1.0, "Bottom bar height should not change while idle")
-        XCTAssertTrue(homePage.addTaskButton.isHittable, "Add Task button should remain hittable after scroll idle")
-
-        homePage.taskListScrollView.swipeDown()
-        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should remain expanded after upward scroll")
-        XCTAssertEqual(homePage.bottomBar.frame.height, initialFrame.height, accuracy: 1.0, "Bottom bar height should not change after upward scroll")
-        XCTAssertTrue(homePage.addTaskButton.isHittable, "Add Task button should remain hittable after upward scroll")
     }
 
     // MARK: - Bonus: Navigation Stack - Settings → Life Management → Back
@@ -228,7 +130,7 @@ class NavigationTests: BaseUITest {
 
         // Navigate back
         settingsPage = projectPage.tapBack()
-        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Should return to settings")
+        XCTAssertTrue(settingsPage.returnToHub(), "Should return to settings")
 
         homePage = settingsPage.tapDone()
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Should return to home")
@@ -237,49 +139,41 @@ class NavigationTests: BaseUITest {
         takeScreenshot(named: "navigation_stack_complete")
     }
 
-    // MARK: - Bonus: Rapid Tab Switching
+    // MARK: - Rapid Root Switching
 
     func testRapidTabSwitching() throws {
-        // GIVEN: App is launched
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
-        // WHEN: User rapidly switches between tabs
-        let tabs = [
-            AccessibilityIdentifiers.TabBar.home,
-            AccessibilityIdentifiers.TabBar.inbox,
-            AccessibilityIdentifiers.TabBar.weekly,
-            AccessibilityIdentifiers.TabBar.home
-        ]
-
-        for tabName in tabs {
-            let tabButton = tabBarButton(tabName)
-            if tabButton.exists {
-                tabButton.tap()
-                waitForAnimations(duration: 0.3)
-            }
+        for root in ["plan", "track", "insights", "eva", "home"] {
+            let button = homePage.rootButton(root)
+            XCTAssertTrue(button.waitForExistence(timeout: 3), "Expected a root button for \(root)")
+            button.tap()
+            waitForAnimations(duration: 0.3)
         }
 
-        // THEN: App should handle rapid switching without crashes.
-        // If this runtime uses the new home bottom bar (no UITabBar), home visibility is the contract.
-        let homeTabButton = tabBarButton(AccessibilityIdentifiers.TabBar.home)
-        if homeTabButton.exists {
-            XCTAssertTrue(homeTabButton.isSelected, "Should be on home tab")
-        } else {
-            XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should remain visible without tab bar")
-        }
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Rapid switching should land back on Home")
+        XCTAssertTrue(homePage.waitForRootSelection(homePage.homeButton), "Home should read as selected")
 
         takeScreenshot(named: "rapid_tab_switching")
     }
 
     // MARK: - iPad/iPhone Orientation Policy
+    //
+    // These waited on `home.ipad.destination.*`, identifiers only the never-used
+    // `SunriseiPadSplitShellView` emitted, so on iPad the iPad tests always
+    // skipped and the iPhone-only tests ran against an iPad. The live
+    // regular-width chrome is the top root switcher.
+
+    private var rootSwitcher: XCUIElement {
+        app.descendants(matching: .any)["foundation.expanded.rootSwitcher"]
+    }
 
     func testIPhoneLandscapeRotationIsBlocked() throws {
-        let iPadTasksDestination = app.buttons["home.ipad.destination.tasks"]
-        if iPadTasksDestination.waitForExistence(timeout: 1) {
+        if rootSwitcher.waitForExistence(timeout: 1) {
             throw XCTSkip("This check is for iPhone-only orientation policy")
         }
 
-        let homeRoot = app.otherElements[AccessibilityIdentifiers.Home.view]
+        let homeRoot = homePage.view
         XCTAssertTrue(homeRoot.waitForExistence(timeout: 5), "Home should be visible")
 
         XCUIDevice.shared.orientation = .landscapeLeft
@@ -297,12 +191,11 @@ class NavigationTests: BaseUITest {
     }
 
     func testIPhoneUpsideDownPortraitIsSupported() throws {
-        let iPadTasksDestination = app.buttons["home.ipad.destination.tasks"]
-        if iPadTasksDestination.waitForExistence(timeout: 1) {
+        if rootSwitcher.waitForExistence(timeout: 1) {
             throw XCTSkip("This check is for iPhone-only orientation policy")
         }
 
-        let homeRoot = app.otherElements[AccessibilityIdentifiers.Home.view]
+        let homeRoot = homePage.view
         XCTAssertTrue(homeRoot.waitForExistence(timeout: 5), "Home should be visible")
 
         XCUIDevice.shared.orientation = .portraitUpsideDown
@@ -323,14 +216,11 @@ class NavigationTests: BaseUITest {
         guard app.windows.firstMatch.frame.width >= 700 else {
             throw XCTSkip("Requires iPad window class")
         }
-        let iPadTasksDestination = app.buttons["home.ipad.destination.tasks"]
-        guard iPadTasksDestination.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Requires iPad native shell destination controls")
-        }
+        XCTAssertTrue(rootSwitcher.waitForExistence(timeout: 5), "iPad should show the root switcher")
 
         XCUIDevice.shared.orientation = .landscapeLeft
         waitForAnimations(duration: 0.8)
-        XCTAssertTrue(iPadTasksDestination.exists, "iPad shell should remain visible in landscape")
+        XCTAssertTrue(rootSwitcher.exists, "Root switcher should remain visible in landscape")
         XCTAssertGreaterThan(
             app.windows.firstMatch.frame.width,
             app.windows.firstMatch.frame.height,
@@ -339,7 +229,7 @@ class NavigationTests: BaseUITest {
 
         XCUIDevice.shared.orientation = .portrait
         waitForAnimations(duration: 0.8)
-        XCTAssertTrue(iPadTasksDestination.exists, "iPad shell should remain visible in portrait")
+        XCTAssertTrue(rootSwitcher.exists, "Root switcher should remain visible in portrait")
         XCTAssertGreaterThan(
             app.windows.firstMatch.frame.height,
             app.windows.firstMatch.frame.width,
@@ -348,74 +238,26 @@ class NavigationTests: BaseUITest {
 
         XCUIDevice.shared.orientation = .portraitUpsideDown
         waitForAnimations(duration: 0.8)
-        XCTAssertTrue(iPadTasksDestination.exists, "iPad shell should remain visible upside-down")
+        XCTAssertTrue(rootSwitcher.exists, "Root switcher should remain visible upside-down")
+        XCUIDevice.shared.orientation = .portrait
     }
 
-    func testIPadSidebarCanSwitchAcrossCoreDestinations() throws {
+    func testIPadRootSwitcherReachesEveryRoot() throws {
         guard app.windows.firstMatch.frame.width >= 700 else {
             throw XCTSkip("Requires iPad window class")
         }
-        let iPadTasksDestination = app.buttons["home.ipad.destination.tasks"]
-        guard iPadTasksDestination.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Requires iPad native shell destination controls")
-        }
+        XCTAssertTrue(rootSwitcher.waitForExistence(timeout: 5), "iPad should show the root switcher")
 
-        let destinationToDetail: [(destination: String, detail: String)] = [
-            ("tasks", "home.ipad.detail.tasks"),
-            ("search", "home.ipad.detail.search"),
-            ("analytics", "home.ipad.detail.analytics"),
-            ("addTask", "home.ipad.detail.addTask"),
-            ("settings", "home.ipad.detail.settings"),
-            ("projects", "projectManagement.view")
-        ]
-
-        for (destination, detailID) in destinationToDetail {
-            let destinationButton = app.buttons["home.ipad.destination.\(destination)"]
-            XCTAssertTrue(
-                destinationButton.waitForExistence(timeout: 2),
-                "Expected iPad destination button \(destination)"
-            )
-            destinationButton.tap()
+        for root in ["plan", "track", "insights", "eva", "home"] {
+            let button = app.buttons["foundation.expanded.destination.\(root)"]
+            XCTAssertTrue(button.waitForExistence(timeout: 3), "Expected switcher button for \(root)")
+            button.tap()
             waitForAnimations(duration: 0.5)
-            if destination == "addTask" {
-                let embeddedDetail = app.otherElements["home.ipad.detail.addTask"].waitForExistence(timeout: 1.5)
-                let sheetTitleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField].waitForExistence(timeout: 1.5)
-                let fallbackTasksDetail = app.otherElements["home.ipad.detail.tasks"].exists
-                XCTAssertTrue(
-                    embeddedDetail || sheetTitleField || fallbackTasksDetail,
-                    "Expected add-task route to resolve to inspector, sheet, or tasks fallback"
-                )
-
-                if sheetTitleField {
-                    let cancelButton = app.buttons["Cancel"]
-                    if cancelButton.waitForExistence(timeout: 1) {
-                        cancelButton.tap()
-                        waitForAnimations(duration: 0.4)
-                    }
-                }
-            } else {
-                let routedByPrimaryDetailID = app.otherElements[detailID].waitForExistence(timeout: 1.5)
-                if destination == "settings" {
-                    let settingsMarker = app.staticTexts["Your Workspace"].exists
-                        || app.staticTexts["Notifications & Focus"].exists
-                    XCTAssertTrue(
-                        routedByPrimaryDetailID || settingsMarker,
-                        "Expected settings destination content after tapping settings"
-                    )
-                } else if destination == "projects" {
-                    let projectsMarker = app.staticTexts["Select a Project"].exists
-                        || app.staticTexts["Inbox is your capture project and cannot be deleted."].exists
-                    XCTAssertTrue(
-                        routedByPrimaryDetailID || projectsMarker,
-                        "Expected projects destination content after tapping projects"
-                    )
-                } else {
-                    XCTAssertTrue(
-                        routedByPrimaryDetailID,
-                        "Expected iPad detail surface \(detailID) after tapping \(destination)"
-                    )
-                }
-            }
+            XCTAssertTrue(
+                app.descendants(matching: .any)["\(root).header"].waitForExistence(timeout: 5),
+                "Expected the \(root) root after choosing it in the switcher"
+            )
+            XCTAssertTrue(button.isSelected, "The chosen root should read as selected")
         }
     }
 }

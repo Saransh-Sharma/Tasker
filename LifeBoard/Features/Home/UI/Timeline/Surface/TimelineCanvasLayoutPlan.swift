@@ -370,22 +370,23 @@ struct TimelineCanvasLayoutPlan: Equatable {
         let isLightPrompt = id == "empty:light"
         let title: String
         let subtitle: String
+        // No subtitle: the two buttons under the title already say what to do.
         if calendarHidden {
-            title = "Calendar is hidden"
-            subtitle = "Add tasks here or turn calendar plotting back on."
+            title = String(localized: "Calendar is hidden")
+            subtitle = ""
         } else if isLightPrompt {
-            title = "Plenty of open time"
-            subtitle = "Add a task or let \(AssistantIdentityText.currentSnapshot().displayName) help shape the rest of the day."
+            title = String(localized: "Plenty of open time")
+            subtitle = ""
         } else {
-            title = "No meetings today"
-            subtitle = "Add a task or let \(AssistantIdentityText.currentSnapshot().displayName) help you shape the day."
+            title = String(localized: "No meetings today")
+            subtitle = ""
         }
         return .emptyState(.init(
             id: id,
             title: title,
             subtitle: subtitle,
-            primaryTitle: "Add task",
-            secondaryTitle: calendarHidden ? "Show calendar" : "Place inbox",
+            primaryTitle: String(localized: "Add task"),
+            secondaryTitle: calendarHidden ? String(localized: "Show calendar") : String(localized: "Place Inbox"),
             showsCalendarAction: calendarHidden,
             suggestedDate: projection.wakeAnchor.time.addingTimeInterval(60 * 60),
             temporalStart: temporalStart,

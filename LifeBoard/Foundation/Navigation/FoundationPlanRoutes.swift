@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -16,7 +15,7 @@ struct PlanRollbackRouteView: View {
         VStack(spacing: 18) {
             Image(systemName: "checklist")
                 .font(Typography.screenTitle())
-                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                 .frame(width: 62, height: 62)
                 .background(
                     Color(SemanticColorTokens.foundationSurfaceSelected),
@@ -26,7 +25,7 @@ struct PlanRollbackRouteView: View {
                 Text("Your tasks are on Home")
                     .font(Typography.sectionTitle())
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                Text("The daily planning workspace is currently turned off. Nothing has been removed or rewritten.")
+                Text("Plan is turned off.")
                     .font(Typography.body())
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .multilineTextAlignment(.center)
@@ -68,6 +67,7 @@ struct DayCloseRouteView: View {
     let mode: DayCloseMode
     let dependencies: PlanFeatureDependencies
     let router: AppRouter
+    var journal: (any PhaseIIRepository)? = nil
 
     private var day: PlanningDay { PlanningDay(date: date) }
 
@@ -96,9 +96,25 @@ struct DayCloseRouteView: View {
             ),
             mode: mode,
             reflections: dependencies.reflectionNoteRepository,
-            onFinished: { router.popToRoot(in: router.selectedDestination) }
+            journal: journal,
+            onFinished: finish
         )
         .id(dayKey)
+    }
+
+    /// The evening close ends where it started. The morning's only action is
+    /// "Open plan", which used to pop to the root of whichever tab hosted it —
+    /// Home, usually — instead of opening the plan it named.
+    private func finish() {
+        let origin = router.selectedDestination
+        guard mode == .open else {
+            router.popToRoot(in: origin)
+            return
+        }
+        PlanDayHandoff.request(PlanningDay(date: Date()))
+        router.popToRoot(in: origin)
+        if origin != .plan { router.popToRoot(in: .plan) }
+        router.select(.plan)
     }
 
     private var dayKey: String {
@@ -110,7 +126,6 @@ struct FocusSessionRouteView: View {
     let sessionID: UUID?
     let dependencies: PlanFeatureDependencies
     let router: AppRouter
-    let rescueRefreshGeneration: Int
     let onOpenOverdueRescue: (OverdueRescueLaunchContext) -> Void
     @State private var state: RouteLoadState<FocusSessionV2> = .loading
     /// The surface's own store, built exactly as `PlanRootView` builds its own
@@ -123,13 +138,11 @@ struct FocusSessionRouteView: View {
         sessionID: UUID?,
         dependencies: PlanFeatureDependencies,
         router: AppRouter,
-        rescueRefreshGeneration: Int,
         onOpenOverdueRescue: @escaping (OverdueRescueLaunchContext) -> Void
     ) {
         self.sessionID = sessionID
         self.dependencies = dependencies
         self.router = router
-        self.rescueRefreshGeneration = rescueRefreshGeneration
         self.onOpenOverdueRescue = onOpenOverdueRescue
         let repository = dependencies.planningRepository
         _focusStore = State(initialValue: PlanStore(
@@ -154,8 +167,8 @@ struct FocusSessionRouteView: View {
             case .loading:
                 focusUnavailable(
                     state: .loading,
-                    title: "Opening focus session…",
-                    detail: "Fetching the session and its companion."
+                    title: String(localized: "Loading…"),
+                    detail: ""
                 )
             case let .loaded(session) where session.state == .running || session.state == .paused:
                 // Was `PlanRootView(initialLens: .day)` — the entire Plan Day
@@ -168,7 +181,8 @@ struct FocusSessionRouteView: View {
                 FocusSurface(
                     store: focusStore,
                     session: session,
-                    onClose: { router.popToRoot(in: .plan) }
+                    onClose: { router.popToRoot(in: .plan) },
+                    onOpenHistory: { router.push(.focusHistory, in: .plan) }
                 )
                 .task { await focusStore.load() }
                 .accessibilityIdentifier("focus.session.\(session.id.uuidString)")
@@ -176,23 +190,25 @@ struct FocusSessionRouteView: View {
                 focusUnavailable(
                     // A session that ran its course is a record, not a failure.
                     state: .noRecord,
-                    title: "Focus session ended",
-                    detail: "This session ended \(session.endedAt?.formatted(date: .abbreviated, time: .shortened) ?? "earlier"). Its history remains available in Plan."
+                    title: String(localized: "Focus session ended"),
+                    detail: session.endedAt.map { String(localized: "Ended \($0.formatted(date: .abbreviated, time: .shortened))") } ?? "",
+                    actionTitle: String(localized: "Focus history"),
+                    action: { router.push(.focusHistory, in: .plan) }
                 )
             case .missing:
                 focusUnavailable(
                     state: .noRecord,
-                    title: "Focus session not found",
-                    detail: "It may have been removed on another device or the link may be out of date. No replacement session was opened."
+                    title: String(localized: "Focus session not found"),
+                    detail: String(localized: "It may have been deleted.")
                 )
             case let .failed(message):
                 // Distinct from the two above: this one is retryable, and the
                 // surface says so instead of looking like an empty state.
                 focusUnavailable(
                     state: .recoverableError,
-                    title: "Focus could not be opened",
+                    title: String(localized: "Couldn’t open focus session"),
                     detail: message,
-                    actionTitle: "Try again",
+                    actionTitle: String(localized: "Try again"),
                     action: { Task { await load() } }
                 )
             }
@@ -316,13 +332,17 @@ struct WeeklyReviewRoute: View {
                     actionPipeline: CompositionRoot.shared.useCaseCoordinator.assistantActionPipeline,
                     onClose: onClose,
                     onOpenWeeklyPlanner: onOpenWeeklyPlanner,
-                    onOpenTask: onOpenTask
+                    onOpenTask: onOpenTask,
+                    // Pushed onto the root's stack: a nested NavigationStack
+                    // rendered only SwiftUI's warning-triangle placeholder.
+                    embedsInNavigationStack: false
                 )
             } else {
                 WeeklyReviewView(
                     viewModel: viewModel,
                     onClose: onClose,
-                    onCompleted: { _ in onClose() }
+                    onCompleted: { _ in onClose() },
+                    embedsInNavigationStack: false
                 )
             }
         }

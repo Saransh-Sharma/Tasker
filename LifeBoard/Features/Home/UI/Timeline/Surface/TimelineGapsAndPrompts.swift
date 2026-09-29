@@ -115,11 +115,11 @@ struct TimelineGapPrompt: View {
             }
             .contentShape(Capsule())
             .accessibilityLabel("Add task at \(suggestedDate.formatted(date: .omitted, time: .shortened))")
-            .accessibilityHint("Opens Add Task with this timeline time.")
+            .accessibilityHint("Opens Add task at this time")
             .accessibilityIdentifier("home.timeline.gap.createTask")
 
             Menu {
-                Button("Place inbox with Compass", action: onPlanBlock)
+                Button("Place Inbox tasks", action: onPlanBlock)
                 Button(TimelineGapAction.dismiss.title, role: .destructive) {
                     dismissalStore.dismiss(gapStart: gap.startDate)
                     Haptic.decline.play()
@@ -196,13 +196,13 @@ struct TimelinePlacementDock: View {
             DragGesture(minimumDistance: 3)
                 .onChanged { _ in
                     guard isDragging == false else { return }
-                    withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast) {
+                    withAnimation(MotionProfile.press.animation(reduceMotion: reduceMotion)) {
                         isDragging = true
                     }
-                    HapticFeedback.light()
+                    Haptic.pick.play()
                 }
                 .onEnded { _ in
-                    withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast) {
+                    withAnimation(MotionProfile.press.animation(reduceMotion: reduceMotion)) {
                         isDragging = false
                     }
                 }
@@ -242,10 +242,10 @@ struct TimelinePlacementPrompt: View {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Place this in your day")
+                    Text("Place on your day")
                         .font(.lifeboard(.headline).weight(.semibold))
                         .foregroundStyle(Color.lifeboard.textPrimary)
-                    Text("Drop on a time or move it to All Day.")
+                    Text("Drop on a time or All day.")
                         .font(.lifeboard(.support))
                         .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -259,7 +259,7 @@ struct TimelinePlacementPrompt: View {
             }
 
             if candidate.isApplying {
-                ProgressView("Scheduling...")
+                ProgressView("Scheduling…")
                     .font(.lifeboard(.support).weight(.semibold))
                     .foregroundStyle(Color.lifeboard.textSecondary)
             }
@@ -296,7 +296,7 @@ struct TimelinePlacementPrompt: View {
         .accessibilityAction(named: Text("Place at suggested time")) {
             onPlaceAtSuggestedTime()
         }
-        .accessibilityAction(named: Text("Move to All Day")) {
+        .accessibilityAction(named: Text("Move to All day")) {
             onPlaceAllDay()
         }
     }
@@ -306,13 +306,13 @@ struct TimelinePlacementPrompt: View {
         if dynamicTypeSize.isAccessibilitySize {
             VStack(spacing: 12) {
                 placementButton("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", systemImage: "clock.badge.checkmark", emphasized: true, action: onPlaceAtSuggestedTime)
-                placementButton("Move to All Day", systemImage: "calendar.badge.plus", emphasized: false, action: onPlaceAllDay)
+                placementButton("Move to All day", systemImage: "calendar.badge.plus", emphasized: false, action: onPlaceAllDay)
                 placementButton("Skip", systemImage: "forward.end.fill", emphasized: false, action: onSkip)
             }
         } else {
             HStack(spacing: 12) {
                 placementButton("Place at \(suggestedTime.formatted(date: .omitted, time: .shortened))", systemImage: "clock.badge.checkmark", emphasized: true, action: onPlaceAtSuggestedTime)
-                placementButton("Move to All Day", systemImage: "calendar.badge.plus", emphasized: false, action: onPlaceAllDay)
+                placementButton("Move to All day", systemImage: "calendar.badge.plus", emphasized: false, action: onPlaceAllDay)
                 placementButton("Skip", systemImage: "forward.end.fill", emphasized: false, action: onSkip)
             }
         }
@@ -320,7 +320,7 @@ struct TimelinePlacementPrompt: View {
 
     func placementButton(_ title: String, systemImage: String, emphasized: Bool, action: @escaping () -> Void) -> some View {
         Button(action: {
-            HapticFeedback.selection()
+            Haptic.pick.play()
             action()
         }) {
             Label(title, systemImage: systemImage)
@@ -361,7 +361,7 @@ struct TimelinePlanningShelf: View {
         VStack(alignment: .leading, spacing: 14) {
             if let placementCandidate {
                 Button {
-                    HapticFeedback.selection()
+                    Haptic.pick.play()
                     onPlaceReplanAllDay(placementCandidate, selectedDate)
                 } label: {
                     HStack(spacing: 12) {
@@ -372,7 +372,7 @@ struct TimelinePlanningShelf: View {
                             .background(Color.lifeboard.accentWash, in: Circle())
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(isAllDayTargeted ? "Drop for All Day" : "Make All Day")
+                            Text(isAllDayTargeted ? "Drop for All day" : "Make all-day")
                                 .font(.lifeboard(.support).weight(.semibold))
                                 .foregroundStyle(Color.lifeboard.textPrimary)
                             Text(placementCandidate.title)
@@ -396,7 +396,7 @@ struct TimelinePlanningShelf: View {
                 .scaleEffect(isAllDayTargeted && reduceMotion == false ? 1.012 : 1)
                 .dropDestination(for: String.self, action: { items, _ in
                     guard items.contains(placementCandidate.taskID.uuidString) else { return false }
-                    HapticFeedback.success()
+                    Haptic.commit.play()
                     onPlaceReplanAllDay(placementCandidate, selectedDate)
                     return true
                 }, isTargeted: { newValue in
@@ -404,15 +404,15 @@ struct TimelinePlanningShelf: View {
                 })
                 .onChange(of: isAllDayTargeted) { _, newValue in
                     guard newValue else { return }
-                    HapticFeedback.selection()
+                    Haptic.pick.play()
                 }
-                .accessibilityHint("Places the replanned task in the all-day row for this date.")
+                .accessibilityHint("Makes it all-day")
                 .accessibilityIdentifier("home.needsReplan.hotZone.allDay")
             }
 
             if allDayItems.isEmpty == false {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("All-day commitments")
+                    Text("All day")
                         .font(.lifeboard(.meta))
                         .foregroundStyle(Color.lifeboard.textSecondary)
 
@@ -426,8 +426,8 @@ struct TimelinePlanningShelf: View {
                         }
                         .padding(.trailing, 4)
                     }
-                    .accessibilityLabel("All-day commitments")
-                    .accessibilityHint(allDayItems.count > 2 ? "Scroll horizontally to browse all all-day items." : "Double-tap an item to inspect it.")
+                    .accessibilityLabel("All day")
+                    .accessibilityHint(allDayItems.count > 2 ? "Scroll for more" : "")
                     .accessibilityIdentifier("home.timeline.allDayStrip")
                 }
             }
@@ -520,11 +520,13 @@ struct TimelineEmptyStateCard: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.86)
 
-                Text(model.subtitle)
-                    .font(.lifeboard(.support))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                if model.subtitle.isEmpty == false {
+                    Text(model.subtitle)
+                        .font(.lifeboard(.support))
+                        .foregroundStyle(Color.lifeboard.textSecondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

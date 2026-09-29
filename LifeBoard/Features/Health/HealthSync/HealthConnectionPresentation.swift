@@ -114,17 +114,19 @@ enum LifeWeaveHealthFirstSync {
     static func settledAnnouncement(for outcome: HealthFirstSyncOutcome) -> String? {
         switch outcome {
         case .ready(let metricCount, _):
-            "Health sync complete. \(metricCount) metric\(metricCount == 1 ? "" : "s") available."
+            metricCount == 1
+                ? String(localized: "Synced 1 data type from Apple Health.")
+                : String(localized: "Synced \(metricCount) data types from Apple Health.")
         case .reviewedNoDataYet:
-            "Health access was reviewed. No readable Health data yet."
+            String(localized: "No Health data yet.")
         case .partial:
-            "Health access was reviewed. Some Health data could not be read."
+            String(localized: "Couldn’t read some Health data.")
         case .protectedDataLocked:
-            "Health sync paused because this iPhone is locked."
+            String(localized: "Paused until you unlock this device.")
         case .authorizationFailed:
-            "The Health access request did not finish. You can try again."
+            String(localized: "Couldn’t connect to Apple Health.")
         case .unavailable:
-            "Apple Health isn't available on this device."
+            String(localized: "Apple Health isn’t available on this device.")
         case .notRequested, .requesting, .syncing:
             nil
         }
@@ -150,15 +152,18 @@ extension HealthConnectionStore {
 extension HealthFirstSyncOutcome {
     var summary: String {
         switch self {
-        case .unavailable: "Apple Health isn't available on this device."
-        case .notRequested: "Connect Apple Health to bring your activity into LifeBoard."
-        case .requesting: "Review access in Apple Health."
-        case .syncing: "Importing Health data. You can keep using LifeBoard."
-        case .ready(let count, _): "Health data available · \(count) data types"
-        case .reviewedNoDataYet: "No Health data is available to LifeBoard yet. You can keep logging here or review access in Apple Health."
-        case .partial: "Some Health data couldn't be imported. You can try syncing again."
-        case .protectedDataLocked: "Health import is paused. It will resume when you return with this device unlocked."
-        case .authorizationFailed: "The Health access request didn't finish. Please try again."
+        case .unavailable: String(localized: "Apple Health isn’t available on this device.")
+        case .notRequested: String(localized: "See activity, sleep, and workouts next to your day.")
+        case .requesting: String(localized: "Waiting for Apple Health…")
+        case .syncing: String(localized: "Importing Health data…")
+        case .ready(let count, _):
+            count == 1
+                ? String(localized: "1 data type available")
+                : String(localized: "\(count) data types available")
+        case .reviewedNoDataYet: String(localized: "No Health data yet")
+        case .partial: String(localized: "Couldn’t import some Health data.")
+        case .protectedDataLocked: String(localized: "Paused until you unlock this device.")
+        case .authorizationFailed: String(localized: "Couldn’t connect to Apple Health.")
         }
     }
 }

@@ -34,7 +34,7 @@ final class WeeklyPlanningWorkspaceTests: XCTestCase {
         let drawn = WeeklyWorkspaceLoad.drawnFraction(plannedMinutes: 4_000, usableMinutes: 400)
         XCTAssertEqual(drawn, WeeklyWorkspaceLoad.maximumDrawnFraction, accuracy: 0.0001)
         let summary = WeeklyWorkspaceLoad.summary(plannedMinutes: 4_000, usableMinutes: 400, placedCount: 30)
-        XCTAssertTrue(summary.contains("more than the day holds"), summary)
+        XCTAssertTrue(summary.hasSuffix(" over"), summary)
     }
 
     /// Colour is not information. Every state the bar can be in must also exist
@@ -47,18 +47,18 @@ final class WeeklyPlanningWorkspaceTests: XCTestCase {
         for value in [empty, partial, over, noHours] {
             XCTAssertFalse(value.isEmpty)
         }
-        XCTAssertTrue(partial.contains("still free"), partial)
-        XCTAssertTrue(over.contains("more than the day holds"), over)
+        XCTAssertTrue(partial.hasSuffix(" free"), partial)
+        XCTAssertTrue(over.hasSuffix(" over"), over)
         XCTAssertEqual(noHours, "No working hours")
         XCTAssertNil(WeeklyWorkspaceLoad.overloadHint(plannedMinutes: 120, usableMinutes: 480))
         XCTAssertNotNil(WeeklyWorkspaceLoad.overloadHint(plannedMinutes: 600, usableMinutes: 480))
     }
 
     func testDurationPhraseReadsLikeSpeechRatherThanAClock() {
-        XCTAssertEqual(WeeklyWorkspaceLoad.durationPhrase(0), "no time")
-        XCTAssertEqual(WeeklyWorkspaceLoad.durationPhrase(45), "45m")
-        XCTAssertEqual(WeeklyWorkspaceLoad.durationPhrase(120), "2h")
-        XCTAssertEqual(WeeklyWorkspaceLoad.durationPhrase(155), "2h 35m")
+        XCTAssertEqual(WeeklyWorkspaceLoad.durationPhrase(0), "0 min")
+        XCTAssertEqual(WeeklyWorkspaceLoad.durationPhrase(45), "45 min")
+        XCTAssertEqual(WeeklyWorkspaceLoad.durationPhrase(120), "2 hr")
+        XCTAssertEqual(WeeklyWorkspaceLoad.durationPhrase(155), "2 hr 35 min")
     }
 
     // MARK: Horizon
@@ -123,7 +123,7 @@ final class WeeklyPlanningWorkspaceTests: XCTestCase {
         let plan = WeeklyBacklogSpread.plan(candidates: candidates(10, minutes: 30), days: days)
         XCTAssertEqual(plan.placements.count, 3, "90 minutes holds exactly three 30-minute tasks")
         XCTAssertEqual(plan.unplacedTaskIDs.count, 7)
-        XCTAssertTrue(plan.summary.contains("the week filled up"), plan.summary)
+        XCTAssertTrue(plan.summary.contains("7 didn’t fit"), plan.summary)
     }
 
     func testUnestimatedTasksAreCostedRatherThanTreatedAsFree() {
@@ -389,7 +389,7 @@ final class WeeklyPlanningWorkspaceTests: XCTestCase {
                 meetingsReleased: 2,
                 freeMinutes: 360
             ),
-            "8 tasks placed · 2 meetings released · 3 tasks moved to Someday · about 6h still open"
+            "8 tasks placed · 2 meetings skipped · 3 to Someday · 6 hr free"
         )
     }
 
@@ -434,7 +434,7 @@ final class WeeklyPlanningWorkspaceTests: XCTestCase {
 
     func testTheBriefingNamesTheCountWithoutScolding() {
         let briefing = WeeklyOverdueBriefing(count: 9, oldestDate: nil)
-        XCTAssertEqual(briefing.headline, "9 tasks have been waiting")
+        XCTAssertEqual(briefing.headline, "9 tasks from earlier")
         for word in ["missed", "failed", "behind", "should"] {
             XCTAssertFalse(briefing.headline.lowercased().contains(word), "Copy must not judge: \(word)")
         }
@@ -717,6 +717,6 @@ final class WeeklyPlanningWorkspaceTests: XCTestCase {
             priority: 310,
             route: .weeklyPlanningWorkspace(.overdue)
         )
-        XCTAssertEqual(candidate.actionTitle, "Plan the overdue work")
+        XCTAssertEqual(candidate.actionTitle, "Plan earlier tasks")
     }
 }

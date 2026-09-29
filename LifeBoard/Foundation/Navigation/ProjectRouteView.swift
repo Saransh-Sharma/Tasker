@@ -74,15 +74,20 @@ struct ProjectRouteView: View {
         .sheet(isPresented: $showsMilestoneComposer) {
             NavigationStack {
                 Form {
-                    TextField("Milestone", text: $milestoneTitle)
-                    Text("A milestone marks progress; it never appears as a task in Today.")
+                    TextField("Milestone", text: $milestoneTitle, prompt: Text("Milestone").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
+                    Text("Milestones don’t appear in Today.")
                         .font(.caption)
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
-                .navigationTitle("New Milestone")
+                // The warm canvas behind the grouped list, not the system's pure white
+                // (light) or pure black (dark) grouped background.
+                .scrollContentBackground(.hidden)
+                .background { GrainedCanvas() }
+                .navigationTitle("New milestone")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { showsMilestoneComposer = false }
+                            .keyboardShortcut(.cancelAction)
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Save") {
@@ -151,7 +156,7 @@ struct ProjectRouteView: View {
             }
             if let fraction = snapshot.completionFraction {
                 ProgressView(value: fraction)
-                    .tint(Color(SemanticColorTokens.foundationSageAccent))
+                    .tint(Color(SemanticColorTokens.foundationSageInk))
             }
             if let next = snapshot.nextAction {
                 Button {
@@ -362,16 +367,16 @@ struct ProjectRouteView: View {
     }
 
     private var projectReceiptMessage: String {
-        if archivedProjectSnapshot != nil { return "Project archived" }
-        if taskBatchReceipt != nil { return "Task moved" }
-        return "Project reordered"
+        if archivedProjectSnapshot != nil { return String(localized: "Project archived") }
+        if taskBatchReceipt != nil { return String(localized: "Task moved") }
+        return String(localized: "Project reordered")
     }
 
     private func projectStatus(_ snapshot: ProjectExecutionSnapshot) -> String {
-        if snapshot.isArchived { return "Archived" }
-        if snapshot.isBlocked { return "Blocked — no task is ready yet" }
-        if let milestone = snapshot.nextMilestone { return "Next milestone: \(milestone.title)" }
-        return snapshot.tasks.isEmpty ? "A quiet project" : "\(snapshot.completedTaskCount) completed"
+        if snapshot.isArchived { return String(localized: "Archived") }
+        if snapshot.isBlocked { return String(localized: "Blocked · no task ready") }
+        if let milestone = snapshot.nextMilestone { return String(localized: "Next milestone: \(milestone.title)") }
+        return snapshot.tasks.isEmpty ? String(localized: "No tasks") : String(localized: "\(snapshot.completedTaskCount) done")
     }
 
 }

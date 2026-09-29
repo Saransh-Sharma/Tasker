@@ -118,7 +118,7 @@ struct EvaOverdueRescueSheetV2: View {
             Color.clear
                 .frame(width: 1, height: 1)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Overdue Rescue")
+                .accessibilityLabel("Rescue")
                 .accessibilityIdentifier("home.rescue.sheet")
                 .allowsHitTesting(false)
 
@@ -141,7 +141,7 @@ struct EvaOverdueRescueSheetV2: View {
                     startedEmpty: viewModel.startedEmpty
                 )
             case .error:
-                OverdueRescueErrorView(message: viewModel.errorMessage ?? "Something went wrong while updating the rescue deck.") {
+                OverdueRescueErrorView(message: viewModel.errorMessage ?? String(localized: "Try again.")) {
                     viewModel.startManualReview()
                 } close: {
                     onExit()
@@ -217,10 +217,35 @@ struct OverdueRescuePresentationHost: View {
     let onTrack: (String, [String: Any]) -> Void
     var onDismiss: () -> Void = {}
 
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    /// Latched when the deck opens: a window resize mid-rescue must not move the
+    /// deck between the overlay and the sheet, which would rebuild it and lose
+    /// the session's place.
+    @State private var presentsDeckAsSheet: Bool?
+
+    /// At iPad and Mac widths the deck is a page sheet. As a full-window
+    /// overlay it drew a 480-point deck in the middle of the whole display.
+    private var deckUsesSheet: Bool { presentsDeckAsSheet ?? layoutClass.isPad }
+
     var body: some View {
         ZStack {
             launcherOverlay
-            deckOverlay
+            if deckUsesSheet == false {
+                deckOverlay
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { deckUsesSheet && coordinator.isPresented && coordinator.presentation != nil },
+            set: { if $0 == false { onDismiss() } }
+        )) {
+            if let launchContext = coordinator.presentation {
+                deck(launchContext: launchContext)
+                    .presentationSizing(.page)
+                    .interactiveDismissDisabled()
+            }
+        }
+        .onChange(of: coordinator.isPresented, initial: true) { _, presented in
+            presentsDeckAsSheet = presented ? layoutClass.isPad : nil
         }
     }
 
@@ -229,8 +254,8 @@ struct OverdueRescuePresentationHost: View {
         switch coordinator.launcherState {
         case .loading:
             OverdueRescueLauncherOverlayView(
-                title: "Preparing rescue",
-                message: "Finding tasks that still need a decision.",
+                title: String(localized: "Loading…"),
+                message: "",
                 showsProgress: true,
                 primaryTitle: nil,
                 secondaryTitle: nil,
@@ -242,11 +267,11 @@ struct OverdueRescuePresentationHost: View {
             .accessibilityIdentifier("home.rescue.launcher.loading")
         case .failed(let message):
             OverdueRescueLauncherOverlayView(
-                title: "Rescue could not start",
+                title: String(localized: "Couldn’t start Rescue"),
                 message: message,
                 showsProgress: false,
-                primaryTitle: "Try again",
-                secondaryTitle: "Dismiss",
+                primaryTitle: String(localized: "Try again"),
+                secondaryTitle: String(localized: "Dismiss"),
                 onPrimary: onRetry,
                 onSecondary: onDismiss
             )
@@ -261,27 +286,31 @@ struct OverdueRescuePresentationHost: View {
     @ViewBuilder
     private var deckOverlay: some View {
         if coordinator.isPresented, let launchContext = coordinator.presentation {
-            EvaOverdueRescueSheetV2(
-                plan: coordinator.plan,
-                tasksByID: coordinator.presentedTasksByID,
-                projectsByID: projectsByID,
-                referenceDate: coordinator.referenceDate ?? launchContext.referenceDate,
-                lastBatchRunID: coordinator.lastBatchRunID,
-                bottomInset: bottomInset,
-                launchContext: launchContext,
-                onClose: onDismiss,
-                onExit: onDismiss,
-                onUpdate: onUpdate,
-                onDelete: onDelete,
-                onRestore: onRestore,
-                onApply: onApply,
-                onUndo: onUndo,
-                onSavePlanningMetadata: onSavePlanningMetadata,
-                onTrack: onTrack
-            )
-            .transition(.opacity.combined(with: .scale(scale: 0.985)))
-            .zIndex(46)
+            deck(launchContext: launchContext)
+                .transition(.opacity.combined(with: .scale(scale: 0.985)))
+                .zIndex(46)
         }
+    }
+
+    private func deck(launchContext: OverdueRescueLaunchContext) -> some View {
+        EvaOverdueRescueSheetV2(
+            plan: coordinator.plan,
+            tasksByID: coordinator.presentedTasksByID,
+            projectsByID: projectsByID,
+            referenceDate: coordinator.referenceDate ?? launchContext.referenceDate,
+            lastBatchRunID: coordinator.lastBatchRunID,
+            bottomInset: bottomInset,
+            launchContext: launchContext,
+            onClose: onDismiss,
+            onExit: onDismiss,
+            onUpdate: onUpdate,
+            onDelete: onDelete,
+            onRestore: onRestore,
+            onApply: onApply,
+            onUndo: onUndo,
+            onSavePlanningMetadata: onSavePlanningMetadata,
+            onTrack: onTrack
+        )
     }
 }
 
@@ -317,17 +346,19 @@ private struct OverdueRescueLauncherOverlayView: View {
                         .font(.lifeboard(.title3).weight(.bold))
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .multilineTextAlignment(.center)
-                    Text(message)
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if message.isEmpty == false {
+                        Text(message)
+                            .font(.lifeboard(.callout))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 if showsProgress {
                     ProgressView()
                         .tint(Color.lifeboard.accentPrimary)
-                        .accessibilityLabel("Preparing rescue")
+                        .accessibilityLabel("Loading…")
                 } else if primaryTitle != nil || secondaryTitle != nil {
                     HStack(spacing: 12) {
                         if let secondaryTitle, let onSecondary {
@@ -442,13 +473,6 @@ struct OverdueRescueCompletionView: View {
                         .background(Circle().fill(OverdueRescuePalette.glassFill))
                         .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                     Spacer()
-                    Button("More", systemImage: "ellipsis") {}
-                        .labelStyle(.iconOnly)
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(OverdueRescuePalette.ink)
-                        .frame(width: 58, height: 58)
-                        .background(Circle().fill(OverdueRescuePalette.glassFill))
-                        .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
                 }
                 .padding(.horizontal, 28)
                 .padding(.top, 32)
@@ -456,26 +480,21 @@ struct OverdueRescueCompletionView: View {
                 OverdueRescueSunriseHero()
                     .frame(width: 294, height: 256)
                     .padding(.top, 8)
-                Text(isDayRescueEmpty ? "Nothing needs rescuing today" : "Board cleaned up")
+                Text(isDayRescueEmpty ? "Nothing from earlier" : "All sorted")
                     .font(.lifeboard(.title1))
                     .fontWeight(.bold)
                     .foregroundStyle(OverdueRescuePalette.ink)
-                Text(isDayRescueEmpty ? "Your day is already in good shape." : "You sorted what still matters.")
-                    .font(.lifeboard(.title3))
-                    .foregroundStyle(OverdueRescuePalette.secondaryInk)
 
                 if isDayRescueEmpty == false {
                     HStack(spacing: 14) {
                         statCard(icon: "checkmark.circle", value: summary.kept, label: "kept", color: Color.lifeboard.statusSuccess)
-                        statCard(icon: "clock", value: summary.moved, label: "moved later", color: Color.lifeboard.statusWarning)
-                        statCard(icon: "trash", value: summary.deleted, label: "deleted", color: Color.lifeboard.statusDanger)
+                        statCard(icon: "clock", value: summary.moved, label: "moved", color: Color.lifeboard.statusWarning)
+                        // Neutral, not alarm red: letting work go was a decision
+                        // the person made, not an error.
+                        statCard(icon: "trash", value: summary.deleted, label: "deleted", color: Color.lifeboard(.textSecondary))
                     }
                     .padding(.horizontal, 28)
                 }
-
-                Text(isDayRescueEmpty ? "You're all caught up for the day." : "Your board should feel lighter now.")
-                    .font(.lifeboard(.body))
-                    .foregroundStyle(OverdueRescuePalette.secondaryInk)
 
                 Button("View today", action: viewToday)
                     .font(.lifeboard(.button))
@@ -552,7 +571,7 @@ struct OverdueRescueErrorView: View {
             Image(systemName: "exclamationmark.triangle")
                 .lifeboardFont(.heroDisplay)
                 .foregroundStyle(Color.lifeboard.statusWarning)
-            Text("Rescue paused")
+            Text("Couldn’t update Rescue")
                 .font(.lifeboard(.title2))
                 .fontWeight(.bold)
                 .foregroundStyle(Color.lifeboard.textPrimary)
@@ -603,7 +622,7 @@ struct ProgressBar: View {
                         )
                     )
                     .scaleEffect(x: clampedProgress, y: 1, anchor: .leading)
-                    .animation(animate ? LifeBoardAnimation.stateChange : .linear(duration: 0.01), value: clampedProgress)
+                    .animation(animate ? LifeBoardAnimation.stateChange : nil, value: clampedProgress)
             }
             .frame(height: height)
             .accessibilityElement(children: .ignore)

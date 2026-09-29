@@ -183,7 +183,7 @@ extension AppOnboardingCoordinator {
         let rootView = flowView
         .environmentObject(evaAppManager)
         .environment(LLMRuntimeCoordinator.shared.evaluator)
-        .lifeBoardTokenEnvironment(for: hostAdapter.currentOnboardingLayoutClass)
+        .lifeboardLiveLayoutEnvironment(initial: hostAdapter.currentOnboardingLayoutClass)
         // Mandatory, not decorative. This hosting controller is presented from
         // UIKit and inherits none of `FoundationShell`'s environment, so
         // without its own resolution the flow would read the default motion

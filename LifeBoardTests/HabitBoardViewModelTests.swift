@@ -327,3 +327,198 @@ private final class HabitBoardReadRepositoryStub: HabitRuntimeReadRepositoryProt
         response()
     }
 }
+
+/// One first light per calendar day, persisted, shared by both boundaries.
+final class FirstLightGateTests: XCTestCase {
+    private func makeDefaults() throws -> UserDefaults {
+        let name = "FirstLightGateTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defaults.removePersistentDomain(forName: name)
+        // Re-open the suite in the teardown rather than capturing the instance;
+        // UserDefaults is not Sendable under strict concurrency.
+        addTeardownBlock { UserDefaults(suiteName: name)?.removePersistentDomain(forName: name) }
+        return defaults
+    }
+
+    private func date(_ year: Int, _ month: Int, _ day: Int, hour: Int = 9) -> Date {
+        var components = DateComponents()
+        components.year = year; components.month = month; components.day = day; components.hour = hour
+        return Calendar(identifier: .gregorian).date(from: components)!
+    }
+
+    func testFirstClaimWinsAndTheSameDayNeverClaimsAgain() throws {
+        let gate = FirstLightGate(defaults: try makeDefaults(), calendar: Calendar(identifier: .gregorian))
+        let morning = date(2026, 9, 17, hour: 8)
+        XCTAssertTrue(gate.isAvailable(now: morning))
+        XCTAssertTrue(gate.claim(now: morning))
+        XCTAssertFalse(gate.claim(now: morning))
+        XCTAssertFalse(gate.claim(now: date(2026, 9, 17, hour: 23)))
+        XCTAssertFalse(gate.isAvailable(now: date(2026, 9, 17, hour: 23)))
+    }
+
+    func testTheNextDayReArmsAndTheClaimSurvivesANewGateOverTheSameStore() throws {
+        let defaults = try makeDefaults()
+        let calendar = Calendar(identifier: .gregorian)
+        XCTAssertTrue(FirstLightGate(defaults: defaults, calendar: calendar).claim(now: date(2026, 9, 17)))
+        // A relaunch builds a new gate over the same defaults: still claimed.
+        XCTAssertFalse(FirstLightGate(defaults: defaults, calendar: calendar).claim(now: date(2026, 9, 17, hour: 20)))
+        XCTAssertTrue(FirstLightGate(defaults: defaults, calendar: calendar).claim(now: date(2026, 9, 18, hour: 0)))
+        XCTAssertEqual(FirstLightGate.dayKey(for: date(2026, 9, 18), calendar: calendar), "2026-9-18")
+    }
+
+    /// Only the surface that recorded the commitment sweeps: the source and
+    /// token survive the shell's forwarding.
+    func testCommitmentSourceAndTokenReadBackFromTheNotification() {
+        let composer = Notification(name: .lifeboardFirstLightFired, object: nil, userInfo: [
+            FirstLightCommitment.sourceKey: FirstLightCommitment.Source.composer.rawValue,
+            FirstLightCommitment.tokenKey: "abc"
+        ])
+        XCTAssertEqual(FirstLightCommitment.source(of: composer), .composer)
+        XCTAssertEqual(FirstLightCommitment.token(of: composer), "abc")
+
+        let habit = Notification(name: .lifeboardFirstLightFired, object: nil, userInfo: ["source": "habit"])
+        XCTAssertEqual(FirstLightCommitment.source(of: habit), .habit)
+        XCTAssertNil(FirstLightCommitment.source(of: Notification(name: .lifeboardFirstLightFired)))
+    }
+}
+
+/// The pure half of "Enter amount": drum ranges, unit conversion, and the
+/// single `.set` the sheet commits.
+final class HabitAmountEntryTests: XCTestCase {
+    func testTimedTargetsEditInMinutesAndStoreSeconds() throws {
+        let target = HabitTarget.timed(seconds: 20 * 60)
+        let drum = try XCTUnwrap(HabitAmountEntry.drum(for: target, current: 5 * 60))
+        XCTAssertEqual(drum.unit, "min")
+        XCTAssertEqual(drum.range, 0...40)
+        XCTAssertEqual(HabitAmountEntry.displayValue(5 * 60, target: target), 5)
+        XCTAssertEqual(HabitAmountEntry.change(from: 5 * 60, toDisplay: 12, target: target), .set(12 * 60))
+        XCTAssertNil(HabitAmountEntry.change(from: 5 * 60, toDisplay: 5, target: target), "No movement, no write")
+        XCTAssertEqual(HabitAmountEntry.receipt(title: "Read", value: 12 * 60, target: target), "Read set to 12 of 20 minutes")
+    }
+
+    func testQuantitativeTargetsKeepTheirUnitAndClampAtZero() throws {
+        let target = HabitTarget.quantitative(value: 8, unit: "glasses")
+        let drum = try XCTUnwrap(HabitAmountEntry.drum(for: target, current: 10))
+        XCTAssertEqual(drum.unit, "glasses")
+        XCTAssertEqual(drum.range.upperBound, 16)
+        XCTAssertEqual(HabitAmountEntry.change(from: 0, toDisplay: 5, target: target), .set(5))
+        XCTAssertEqual(HabitAmountEntry.change(from: 3, toDisplay: -2, target: target), .set(0))
+        XCTAssertEqual(HabitAmountEntry.receipt(title: "Water", value: 5, target: target), "Water set to 5 of 8 glasses")
+    }
+
+    func testCheckInTargetsHaveNoDrum() {
+        XCTAssertNil(HabitAmountEntry.drum(for: .binary, current: 0))
+        XCTAssertNil(HabitAmountEntry.drum(for: .avoidance, current: 0))
+        XCTAssertNil(HabitAmountEntry.drum(for: .quota(count: 3, period: .week), current: 0), "Weekly quotas are not daily amounts")
+    }
+}
+
+/// Per-weekday rates from day marks, with the copy rules that keep it kind.
+final class HabitWeekdayStatisticsTests: XCTestCase {
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.firstWeekday = 2 // Monday first, so the order is testable
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        calendar.locale = Locale(identifier: "en_US")
+        return calendar
+    }
+
+    private func day(_ year: Int, _ month: Int, _ day: Int) -> Date {
+        var c = DateComponents(); c.year = year; c.month = month; c.day = day; c.hour = 12
+        return calendar.date(from: c)!
+    }
+
+    func testRatesCountOnlyScheduledDaysAndOrderFollowsTheCalendar() {
+        // 2026-09-17 is a Thursday. Four Tuesdays: 3 done, 1 missed. Four
+        // Fridays: 1 done, 3 missed. Skips and unscheduled days are ignored.
+        var marks: [HabitDayMark] = []
+        for week in 0..<4 {
+            let tuesday = calendar.date(byAdding: .day, value: -(2 + week * 7), to: day(2026, 9, 17))!
+            let friday = calendar.date(byAdding: .day, value: -(6 + week * 7), to: day(2026, 9, 17))!
+            marks.append(HabitDayMark(date: tuesday, state: week == 0 ? .failure : .success))
+            marks.append(HabitDayMark(date: friday, state: week == 0 ? .success : .failure))
+        }
+        marks.append(HabitDayMark(date: day(2026, 9, 16), state: .skipped))
+        marks.append(HabitDayMark(date: day(2026, 9, 14), state: .none))
+        let stats = HabitWeekdayStatistics.make(marks: marks, now: day(2026, 9, 17), calendar: calendar)
+
+        XCTAssertEqual(stats.weekdays.map(\.weekday), [2, 3, 4, 5, 6, 7, 1])
+        let tuesday = stats.weekdays.first { $0.weekday == 3 }!
+        XCTAssertEqual(tuesday.successes, 3); XCTAssertEqual(tuesday.scheduled, 4)
+        let wednesday = stats.weekdays.first { $0.weekday == 4 }!
+        XCTAssertEqual(wednesday.scheduled, 0, "A skip is not a scheduled day")
+        XCTAssertEqual(stats.strongest?.weekday, 3)
+        XCTAssertEqual(stats.weakest?.weekday, 6)
+        XCTAssertEqual(stats.summary(calendar: calendar), "Most often Tuesdays · least often Fridays")
+        XCTAssertEqual(HabitWeekdayStatistics.barText(tuesday), "3 of 4")
+        // Four Tuesdays and four Fridays straddle five Monday-first weeks.
+        XCTAssertEqual(stats.weeks.count, 5)
+    }
+
+    func testTooFewDaysMeansNoOpinion() {
+        let marks = [
+            HabitDayMark(date: day(2026, 9, 15), state: .success),
+            HabitDayMark(date: day(2026, 9, 8), state: .success),
+            HabitDayMark(date: day(2026, 9, 1), state: .failure),
+        ]
+        let stats = HabitWeekdayStatistics.make(marks: marks, now: day(2026, 9, 17), calendar: calendar)
+        XCTAssertNil(stats.strongest)
+        XCTAssertNil(stats.summary(calendar: calendar))
+    }
+
+    func testDaysOutsideTheWindowAndInTheFutureAreIgnored() {
+        let marks = [
+            HabitDayMark(date: day(2026, 1, 1), state: .success),
+            HabitDayMark(date: day(2026, 9, 20), state: .success),
+        ]
+        let stats = HabitWeekdayStatistics.make(marks: marks, now: day(2026, 9, 17), calendar: calendar)
+        XCTAssertTrue(stats.weekdays.allSatisfy { $0.scheduled == 0 })
+        XCTAssertTrue(stats.weeks.isEmpty)
+    }
+}
+
+/// The widget's queued habit command and the snapshot fields that feed its rings.
+final class HabitWidgetCommandTests: XCTestCase {
+    func testCommandRoundTripsAndExpires() throws {
+        let command = HabitAmountActionCommand(
+            habitID: UUID(), kind: .step, delta: 250,
+            createdAt: Date(timeIntervalSince1970: 100), expiresAt: Date(timeIntervalSince1970: 200)
+        )
+        let decoded = try JSONDecoder().decode(HabitAmountActionCommand.self, from: JSONEncoder().encode(command))
+        XCTAssertEqual(decoded, command)
+        XCTAssertTrue(decoded.isExpired, "A 1970 expiry is long gone")
+        XCTAssertFalse(HabitAmountActionCommand(habitID: UUID(), kind: .complete).isExpired)
+    }
+
+    func testOlderSnapshotsWithoutAmountsStillDecode() throws {
+        let legacy = """
+        {"habitID":"\(UUID().uuidString)","title":"Water","iconSymbolName":"drop","currentStreak":2,"bestStreak":5,"todayState":"empty","week":[]}
+        """
+        let primary = try JSONDecoder().decode(TaskListWidgetHabitPrimary.self, from: Data(legacy.utf8))
+        XCTAssertNil(primary.currentAmount)
+        XCTAssertNil(primary.targetValue)
+        XCTAssertNil(primary.isQuitHabit)
+        let legacyHabit = """
+        {"date":0,"updatedAt":0,"dueCount":0,"completedTodayCount":0,"atRiskCount":0}
+        """
+        let snapshot = try JSONDecoder().decode(TaskListWidgetHabitSnapshot.self, from: Data(legacyHabit.utf8))
+        XCTAssertNil(snapshot.today)
+    }
+
+    func testWidgetHabitIntentsNeverOpenTheApp() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("LifeBoardWidgets/LifeBoardWidgetBundle.swift")
+        let source = try String(contentsOf: url, encoding: .utf8)
+        for intent in ["LogHabitStepFromWidgetIntent", "CompleteHabitFromWidgetIntent"] {
+            let start = try XCTUnwrap(source.range(of: "public struct \(intent): AppIntent {"))
+            let body = source[start.lowerBound...]
+            let end = body.range(of: "\npublic struct ")?.lowerBound ?? body.endIndex
+            let text = String(body[..<end])
+            XCTAssertTrue(text.contains("openAppWhenRun = false"), "\(intent) must run in the background")
+            XCTAssertFalse(text.contains("OpenURLIntent"), "\(intent) must not open the app through a URL")
+            XCTAssertTrue(text.contains("HabitAmountActionCommand("), "\(intent) queues the shared command")
+        }
+    }
+}
+

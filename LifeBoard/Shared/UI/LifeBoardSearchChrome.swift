@@ -39,7 +39,7 @@ struct SearchHeaderView: View {
     @Environment(\.lifeboardTokens) private var tokens
     @Binding var query: String
     @FocusState.Binding var isFocused: Bool
-    var placeholder: String = "Search tasks, notes, habits, projects..."
+    var placeholder: String = String(localized: "Search")
     var isCommandMode: Bool = false
     let onQueryChanged: (String) -> Void
     let onSubmit: () -> Void

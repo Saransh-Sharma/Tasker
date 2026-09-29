@@ -60,7 +60,7 @@ public struct SystemSurfaceSnapshot: Codable, Hashable, Identifiable, Sendable {
             return .init(
                 id: id,
                 title: "LifeBoard",
-                primaryValue: "Open LifeBoard to view",
+                primaryValue: String(localized: "Hidden"),
                 systemImage: systemImage,
                 sensitivity: sensitivity,
                 isExplicitlyAuthorized: false,
@@ -115,11 +115,11 @@ public enum SystemSnapshotStoreError: LocalizedError, Equatable, Sendable {
     public var errorDescription: String? {
         switch self {
         case .incompatibleSchema:
-            "This LifeBoard snapshot was created by an incompatible app version."
+            String(localized: "Couldn’t read widget data. Update LifeBoard.")
         case .domainMismatch:
-            "The system snapshot did not match the requested LifeBoard area."
+            String(localized: "Couldn’t read widget data.")
         case .unreadablePrimaryAndBackup:
-            "LifeBoard could not recover the system snapshot."
+            String(localized: "Couldn’t recover widget data.")
         }
     }
 }

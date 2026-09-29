@@ -263,7 +263,7 @@ public final class EventKitCalendarEventsRepository: CalendarEventsRepositoryPro
     static func sanitizedTitle(_ title: String?) -> String {
         guard let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines),
               trimmedTitle.isEmpty == false else {
-            return "Untitled Event"
+            return String(localized: "Untitled event")
         }
         return trimmedTitle
     }

@@ -15,17 +15,17 @@ public enum TaskEnergy: String, CaseIterable, Codable, Sendable {
     
     public var displayName: String {
         switch self {
-        case .low: return "Low Energy"
-        case .medium: return "Medium Energy"
-        case .high: return "High Energy"
+        case .low: return String(localized: "Low energy")
+        case .medium: return String(localized: "Medium energy")
+        case .high: return String(localized: "High energy")
         }
     }
     
     public var description: String {
         switch self {
-        case .low: return "Simple tasks that can be done when tired"
-        case .medium: return "Tasks requiring normal focus and energy"
-        case .high: return "Complex tasks requiring full focus and energy"
+        case .low: return String(localized: "For when you’re tired")
+        case .medium: return String(localized: "Normal focus")
+        case .high: return String(localized: "Full focus")
         }
     }
     

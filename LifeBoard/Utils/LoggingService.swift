@@ -38,6 +38,9 @@ public enum LogLevel: Int {
 
 /// Logging service for consistent application-wide logging
 final class LoggingService: @unchecked Sendable {
+    static let logRetentionInterval: TimeInterval = 7 * 24 * 60 * 60
+    static let maximumLogFileSize = 2 * 1_024 * 1_024
+
     // MARK: - Properties
 
     /// Singleton instance for global access
@@ -149,23 +152,26 @@ final class LoggingService: @unchecked Sendable {
         let cmp = component ?? Self.componentName(from: file)
         let ts = Self.makeTimestampFormatter().string(from: Date())
 
-        var chunks: [String] = [
+        let publicEnvelope = [
             "ts=\(ts)",
             "lvl=\(level.label)",
             "cmp=\(Self.formatFieldValue(cmp))",
-            "evt=\(Self.formatFieldValue(Self.sanitizeEvent(event)))",
-            "msg=\(Self.formatMessage(message))"
-        ]
-
-        for key in fields.keys.sorted() {
-            guard !key.isEmpty else { continue }
-            chunks.append("\(Self.sanitizeFieldKey(key))=\(Self.formatFieldValue(fields[key] ?? ""))")
-        }
-
-        let formattedMessage = chunks.joined(separator: " ")
+            "evt=\(Self.formatFieldValue(Self.sanitizeEvent(event)))"
+        ].joined(separator: " ")
+        let safePayload = Self.privacySafePayload(message: message, fields: fields)
+        let formattedMessage = safePayload.isEmpty ? publicEnvelope : "\(publicEnvelope) \(safePayload)"
 
         if logToConsole {
-            os_log("%{public}@", log: osLog, type: level.osLogType, formattedMessage)
+            // Only the catalog-shaped envelope is public. The payload has already
+            // discarded arbitrary messages and content-like fields, and remains
+            // private in unified logging as a second line of defense.
+            os_log(
+                "%{public}@ %{private,mask.hash}@",
+                log: osLog,
+                type: level.osLogType,
+                publicEnvelope,
+                safePayload
+            )
         }
 
         if logToFile, let fileURL = logFileURL {
@@ -174,80 +180,6 @@ final class LoggingService: @unchecked Sendable {
 
         _ = function
         _ = line
-    }
-
-    // MARK: - Legacy Compatibility Methods
-
-    /// Executes debug.
-    func debug(
-        _ message: String,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line
-    ) {
-        log(level: .debug, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
-    }
-
-    /// Executes info.
-    func info(
-        _ message: String,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line
-    ) {
-        log(level: .info, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
-    }
-
-    /// Executes warning.
-    func warning(
-        _ message: String,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line
-    ) {
-        log(level: .warning, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
-    }
-
-    /// Executes error.
-    func error(
-        _ message: String,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line
-    ) {
-        log(level: .error, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
-    }
-
-    /// Executes fatal.
-    func fatal(
-        _ message: String,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line
-    ) {
-        log(level: .fatal, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
-    }
-
-    /// Log an error object, extracting structured metadata.
-    func log(
-        error: Error,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line
-    ) {
-        let nsError = error as NSError
-        log(
-            level: .error,
-            event: "legacy_error",
-            message: Self.singleLine(nsError.localizedDescription),
-            fields: [
-                "domain": nsError.domain,
-                "code": String(nsError.code)
-            ],
-            file: file,
-            function: function,
-            line: line
-        )
     }
 
     // MARK: - Helpers
@@ -287,7 +219,7 @@ final class LoggingService: @unchecked Sendable {
     }
 
     /// Executes singleLine.
-    private static func singleLine(_ value: String) -> String {
+    static func singleLine(_ value: String) -> String {
         value
             .replacingOccurrences(of: "\n", with: " ")
             .replacingOccurrences(of: "\r", with: " ")
@@ -316,23 +248,76 @@ final class LoggingService: @unchecked Sendable {
         return "\"\(escaped)\""
     }
 
+    /// Produces the only payload accepted by unified and file logging. The free-
+    /// form message is intentionally discarded because this compatibility API
+    /// cannot prove that a caller did not include a title, note, transcript, or
+    /// other user-authored value. Only allowlisted diagnostic dimensions survive.
+    static func privacySafePayload(message: String, fields: [String: String]) -> String {
+        _ = message
+        return fields.keys.sorted().compactMap { key -> String? in
+            let sanitizedKey = sanitizeFieldKey(key)
+            guard isAllowedDiagnosticField(sanitizedKey) else { return nil }
+            guard let value = fields[key], isSafeDiagnosticValue(value) else { return nil }
+            return "\(sanitizedKey)=\(formatFieldValue(value))"
+        }.joined(separator: " ")
+    }
+
+    private static func isAllowedDiagnosticField(_ key: String) -> Bool {
+        let prohibitedFragments = [
+            "content", "message", "note", "path", "preview", "prompt", "query",
+            "raw", "text", "title", "transcript", "user", "identifier", "_id", "id_"
+        ]
+        guard !prohibitedFragments.contains(where: key.contains) else { return false }
+
+        let exactAllowlist: Set<String> = [
+            "attempt", "category", "code", "component", "domain", "engine",
+            "failure_count", "kind", "locale", "mode", "operation", "provider",
+            "reason_code", "result", "route", "skipped", "source", "state",
+            "status", "trigger", "version"
+        ]
+        if exactAllowlist.contains(key) { return true }
+
+        return key.hasSuffix("_count")
+            || key.hasSuffix("_bytes")
+            || key.hasSuffix("_duration_ms")
+            || key.hasSuffix("_milliseconds")
+            || key.hasSuffix("_size")
+    }
+
+    private static func isSafeDiagnosticValue(_ value: String) -> Bool {
+        let normalized = singleLine(value)
+        guard !normalized.isEmpty, normalized.count <= 80 else { return false }
+        return normalized.range(of: "^[A-Za-z0-9._:/+-]+$", options: .regularExpression) != nil
+    }
+
     /// Set up the log file
     private func setupLogFile() {
         guard logFileURL == nil else { return }
 
         let fileManager = FileManager.default
-        let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let logsDirectory = documentsDirectory.appendingPathComponent("Logs")
+        guard let supportDirectory = fileManager.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else { return }
+        let logsDirectory = supportDirectory
+            .appendingPathComponent("LifeBoard", isDirectory: true)
+            .appendingPathComponent("DiagnosticLogs", isDirectory: true)
 
         // Create logs directory if it doesn't exist
         if !fileManager.fileExists(atPath: logsDirectory.path) {
             do {
-                try fileManager.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+                try fileManager.createDirectory(
+                    at: logsDirectory,
+                    withIntermediateDirectories: true,
+                    attributes: [.protectionKey: FileProtectionType.complete]
+                )
             } catch {
-                os_log("Failed to create logs directory: %{public}@", log: osLog, type: .error, error.localizedDescription)
+                os_log("Diagnostic log directory unavailable", log: osLog, type: .error)
                 return
             }
         }
+
+        Self.pruneExpiredLogs(in: logsDirectory, now: Date())
 
         // Create log file name with date
         let dateFormatter = DateFormatter()
@@ -350,7 +335,15 @@ final class LoggingService: @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        // Append to log file or create it if it doesn't exist
+        if let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+           let size = attributes[.size] as? NSNumber,
+           size.intValue + data.count > Self.maximumLogFileSize {
+            let rotatedURL = fileURL.deletingPathExtension().appendingPathExtension("previous.log")
+            try? FileManager.default.removeItem(at: rotatedURL)
+            try? FileManager.default.moveItem(at: fileURL, to: rotatedURL)
+        }
+
+        // Append to log file or create it if it doesn't exist.
         if FileManager.default.fileExists(atPath: fileURL.path) {
             do {
                 let fileHandle = try FileHandle(forWritingTo: fileURL)
@@ -364,6 +357,10 @@ final class LoggingService: @unchecked Sendable {
         } else {
             try? data.write(to: fileURL, options: .atomic)
         }
+        try? FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.complete],
+            ofItemAtPath: fileURL.path
+        )
     }
 }
 
@@ -442,98 +439,6 @@ public enum PerformanceTrace {
         if pointsOfInterestEnabled {
             os_signpost(.event, log: pointsOfInterestLog, name: name, "%{public}ld", value)
         }
-    }
-}
-
-@MainActor
-enum RootNavigationPerformanceTrace {
-    private static var timeout: Task<Void, Never>?
-    private(set) static var failedCount = 0
-    private(set) static var supersededCount = 0
-    private static var interval: PerformanceInterval?
-    private static var destination: Destination?
-    private static var generation: UInt64 = 0
-    private static var startedAt: TimeInterval = 0
-    private(set) static var completedCount = 0
-    private(set) static var lastDurationMilliseconds = 0
-
-    static func begin(destination: Destination, coldMount: Bool, generation: UInt64 = 0) {
-        cancel()
-        self.destination = destination
-        self.generation = generation
-        startedAt = ProcessInfo.processInfo.systemUptime
-        interval = PerformanceTrace.begin("RootSwitchAttempt")
-        timeout = Task { @MainActor in
-            do { try await Task.sleep(for: .seconds(10)) } catch { return }
-            markFailed(destination: destination, generation: generation)
-        }
-        PerformanceTrace.event("RootSwitchRequested", value:
-            (Destination.allCases.firstIndex(of: destination) ?? 0) * 10 + (coldMount ? 1 : 0))
-    }
-
-    static func markInteractive(destination: Destination, generation: UInt64 = 0) {
-        guard self.destination == destination, self.generation == generation,
-              let interval else { return }
-        timeout?.cancel()
-        timeout = nil
-        PerformanceTrace.end(interval)
-        lastDurationMilliseconds = Int((ProcessInfo.processInfo.systemUptime - startedAt) * 1_000)
-        completedCount += 1
-        PerformanceTrace.event("RootSwitchCompletedMilliseconds", value: lastDurationMilliseconds)
-        self.interval = nil
-        self.destination = nil
-    }
-
-    static func markFailed(destination: Destination, generation: UInt64) {
-        guard self.destination == destination, self.generation == generation, let interval else { return }
-        timeout?.cancel()
-        timeout = nil
-        failedCount += 1
-        PerformanceTrace.event("RootSwitchFailed")
-        PerformanceTrace.end(interval)
-        self.interval = nil
-        self.destination = nil
-    }
-
-    static func cancel() {
-        guard let interval else { return }
-        timeout?.cancel()
-        timeout = nil
-        supersededCount += 1
-        PerformanceTrace.event("RootSwitchSuperseded")
-        PerformanceTrace.end(interval)
-        self.interval = nil
-        destination = nil
-    }
-}
-
-/// Measures the complete user-visible Eva navigation, beginning before the
-/// selected root changes and ending only when Eva has usable content.
-///
-/// This sits above `ChatOpenToFirstTranscriptRender`: the chat-local interval
-/// begins after SwiftUI has already constructed the activation hierarchy and
-/// therefore cannot detect metadata stalls during the tab switch itself.
-@MainActor
-enum EvaNavigationPerformanceTrace {
-    private static var openInterval: PerformanceInterval?
-
-    static func begin() {
-        cancel(reason: "superseded")
-        openInterval = PerformanceTrace.begin("EvaTabOpenToInteractive")
-    }
-
-    static func markInteractive() {
-        guard let openInterval else { return }
-        PerformanceTrace.end(openInterval)
-        self.openInterval = nil
-        PerformanceTrace.event("EvaTabInteractive")
-    }
-
-    static func cancel(reason: StaticString = "navigation_cancelled") {
-        guard let openInterval else { return }
-        PerformanceTrace.end(openInterval)
-        self.openInterval = nil
-        PerformanceTrace.event(reason)
     }
 }
 

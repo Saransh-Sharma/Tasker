@@ -99,7 +99,7 @@ struct SetupCenterStatus: Equatable, Sendable {
     var summary: String {
         let ready = snapshots.filter(\.state.isReady).count
         let waiting = snapshots.filter(\.state.isWaiting).count
-        return "3 integrations · \(ready) ready · \(waiting) waiting · \(3 - ready - waiting) to set up"
+        return String(localized: "\(ready) ready · \(waiting) waiting · \(3 - ready - waiting) to set up")
     }
     var recommendedNextAction: SetupCenterIntegration? {
         snapshots.first(where: { $0.state == .attention })?.integration
@@ -143,21 +143,21 @@ struct SetupCenterStatus: Equatable, Sendable {
     }
 
     private static func resolveCalendar(authorization: CalendarAuthorizationStatus, selectedCalendarCount: Int, isLoading: Bool, error: String?) -> SetupCenterIntegrationSnapshot {
-        if isLoading { return .init(integration: .calendar, state: .checking, status: "Checking", explanation: "LifeBoard is refreshing the calendars available on this device.", recoveryAction: "") }
-        if error?.isEmpty == false { return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "LifeBoard could not refresh your available calendars.", recoveryAction: "Retry", recoveryActionKind: .refreshCalendars) }
+        if isLoading { return .init(integration: .calendar, state: .checking, status: String(localized: "Checking"), explanation: String(localized: "Loading calendars…"), recoveryAction: "") }
+        if error?.isEmpty == false { return .init(integration: .calendar, state: .attention, status: String(localized: "Couldn’t load"), explanation: String(localized: "Couldn’t load your calendars."), recoveryAction: String(localized: "Try again"), recoveryActionKind: .refreshCalendars) }
         switch authorization {
         case .authorized where selectedCalendarCount > 0:
-            return .init(integration: .calendar, state: .ready, status: "Ready", explanation: "LifeBoard can plan around events from \(selectedCalendarCount) selected calendar\(selectedCalendarCount == 1 ? "" : "s").", recoveryAction: "Change calendars", recoveryActionKind: .chooseCalendars)
+            return .init(integration: .calendar, state: .ready, status: String(localized: "Ready"), explanation: selectedCalendarCount == 1 ? String(localized: "1 calendar selected.") : String(localized: "\(selectedCalendarCount) calendars selected."), recoveryAction: String(localized: "Change calendars"), recoveryActionKind: .chooseCalendars)
         case .authorized:
-            return .init(integration: .calendar, state: .actionRequired, status: "Choose calendars", explanation: "Access is allowed. Choose at least one calendar so planning has real context.", recoveryAction: "Choose calendars", recoveryActionKind: .chooseCalendars)
+            return .init(integration: .calendar, state: .actionRequired, status: String(localized: "Choose calendars"), explanation: String(localized: "Choose at least one calendar."), recoveryAction: String(localized: "Choose calendars"), recoveryActionKind: .chooseCalendars)
         case .notDetermined:
-            return .init(integration: .calendar, state: .notStarted, status: "Not set up", explanation: "Allow read access, then choose exactly which calendars LifeBoard may use.", recoveryAction: "Allow calendar access", recoveryActionKind: .requestCalendarAccess)
+            return .init(integration: .calendar, state: .notStarted, status: String(localized: "Not set up"), explanation: String(localized: "Allow access, then choose which calendars to show."), recoveryAction: String(localized: "Allow calendar access"), recoveryActionKind: .requestCalendarAccess)
         case .denied:
-            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "Calendar access is off in Settings.", recoveryAction: "Open Settings", recoveryActionKind: .openSystemSettings)
+            return .init(integration: .calendar, state: .attention, status: String(localized: "Off"), explanation: String(localized: "Calendar access is off in Settings."), recoveryAction: String(localized: "Open Settings"), recoveryActionKind: .openSystemSettings)
         case .restricted:
-            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "Calendar access is restricted on this device.", recoveryAction: "Open Settings", recoveryActionKind: .openSystemSettings)
+            return .init(integration: .calendar, state: .attention, status: String(localized: "Restricted"), explanation: String(localized: "Blocked by a device restriction."), recoveryAction: String(localized: "Open Settings"), recoveryActionKind: .openSystemSettings)
         case .writeOnly:
-            return .init(integration: .calendar, state: .attention, status: "Needs attention", explanation: "LifeBoard can add events but cannot read your day.", recoveryAction: "Request full access", recoveryActionKind: .requestCalendarAccess)
+            return .init(integration: .calendar, state: .attention, status: String(localized: "Limited"), explanation: String(localized: "Can add events but can’t read them."), recoveryAction: String(localized: "Allow full access"), recoveryActionKind: .requestCalendarAccess)
         }
     }
 
@@ -169,53 +169,53 @@ struct SetupCenterStatus: Equatable, Sendable {
             lastSuccessfulSync: nil, nonSensitiveErrorCode: errorCode, isAvailable: true
         )
         if statuses.values.contains(where: { $0.writeEnabled && ($0.signal == .writeDenied || $0.writeAuthorizations.values.contains(.denied)) }) {
-            return .init(integration: .health, state: .attention, status: "Write access needs attention", explanation: "A write-back option you enabled is off in Apple Health. Reading and local logging remain separate.", recoveryAction: "Manage Health access", recoveryActionKind: .manageHealthAccess)
+            return .init(integration: .health, state: .attention, status: String(localized: "Saving is off"), explanation: String(localized: "Saving to Apple Health is off in Health settings."), recoveryAction: String(localized: "Manage Health access"), recoveryActionKind: .manageHealthAccess)
         }
         switch state {
         case .unavailable:
-            return .init(integration: .health, state: .waiting, status: "Unavailable here", explanation: state.summary, recoveryAction: "")
+            return .init(integration: .health, state: .waiting, status: String(localized: "Not available"), explanation: state.summary, recoveryAction: "")
         case .authorizationFailed:
-            return .init(integration: .health, state: .attention, status: "Access request incomplete", explanation: state.summary, recoveryAction: "Retry Health access", recoveryActionKind: .requestHealthAccess)
+            return .init(integration: .health, state: .attention, status: String(localized: "Not connected"), explanation: state.summary, recoveryAction: String(localized: "Try again"), recoveryActionKind: .requestHealthAccess)
         case .requesting, .syncing:
-            return .init(integration: .health, state: .checking, status: state == .requesting ? "Requesting" : "Importing", explanation: state.summary, recoveryAction: "")
+            return .init(integration: .health, state: .checking, status: state == .requesting ? String(localized: "Connecting") : String(localized: "Syncing"), explanation: state.summary, recoveryAction: "")
         case .protectedDataLocked:
-            return .init(integration: .health, state: .waiting, status: "Paused", explanation: state.summary, recoveryAction: "")
+            return .init(integration: .health, state: .waiting, status: String(localized: "Paused"), explanation: state.summary, recoveryAction: "")
         case .partial:
-            return .init(integration: .health, state: .attention, status: "Import needs attention", explanation: state.summary, recoveryAction: "Retry sync", recoveryActionKind: .syncHealth)
+            return .init(integration: .health, state: .attention, status: String(localized: "Partly synced"), explanation: state.summary, recoveryAction: String(localized: "Sync again"), recoveryActionKind: .syncHealth)
         case .ready:
-            return .init(integration: .health, state: .ready, status: "Data available", explanation: state.summary, recoveryAction: "Sync now", recoveryActionKind: .syncHealth)
+            return .init(integration: .health, state: .ready, status: String(localized: "Connected"), explanation: state.summary, recoveryAction: String(localized: "Sync now"), recoveryActionKind: .syncHealth)
         case .notRequested, .reviewedNoDataYet:
             if hasObservableData {
-                return .init(integration: .health, state: .ready, status: "Data available", explanation: "Health data is available on this device.", recoveryAction: "Sync now", recoveryActionKind: .syncHealth)
+                return .init(integration: .health, state: .ready, status: String(localized: "Connected"), explanation: String(localized: "Reading your Health data."), recoveryAction: String(localized: "Sync now"), recoveryActionKind: .syncHealth)
             }
             if state == .notRequested {
-                return .init(integration: .health, state: .notStarted, status: "Not connected", explanation: state.summary, recoveryAction: "Connect Apple Health", recoveryActionKind: .requestHealthAccess)
+                return .init(integration: .health, state: .notStarted, status: String(localized: "Not connected"), explanation: state.summary, recoveryAction: String(localized: "Connect Apple Health"), recoveryActionKind: .requestHealthAccess)
             }
-            return .init(integration: .health, state: .waiting, status: "No readable data yet", explanation: state.summary, recoveryAction: "Manage Health access", recoveryActionKind: .manageHealthAccess)
+            return .init(integration: .health, state: .waiting, status: String(localized: "Waiting"), explanation: state.summary, recoveryAction: String(localized: "Manage Health access"), recoveryActionKind: .manageHealthAccess)
         }
     }
 
     private static func resolveEva(accessState: EvaCloudAccessState, usesOfflineProvider: Bool, offlineModelReady: Bool) -> SetupCenterIntegrationSnapshot {
         if usesOfflineProvider {
             return offlineModelReady
-                ? .init(integration: .eva, state: .ready, status: "Offline ready", explanation: "EVA uses the selected model on this device.", recoveryAction: "Manage model")
-                : .init(integration: .eva, state: .attention, status: "Needs attention", explanation: "Offline EVA is selected, but no usable local model is selected and installed.", recoveryAction: "Choose a model")
+                ? .init(integration: .eva, state: .ready, status: String(localized: "On this device"), explanation: String(localized: "Eva runs on this device."), recoveryAction: String(localized: "Manage model"))
+                : .init(integration: .eva, state: .attention, status: String(localized: "No model"), explanation: String(localized: "Download a model to run Eva on this device."), recoveryAction: String(localized: "Choose a model"))
         }
         switch accessState {
-        case .hydrating, .activating: return .init(integration: .eva, state: .checking, status: "Connecting", explanation: "LifeBoard is checking Cloud EVA readiness.", recoveryAction: "")
-        case .ready: return .init(integration: .eva, state: .ready, status: "Cloud ready", explanation: "Cloud EVA can use only the context categories you approved.", recoveryAction: "Manage EVA")
-        case .needsActivation: return .init(integration: .eva, state: .notStarted, status: "Not set up", explanation: "Cloud EVA connects automatically. Context choices are available in EVA settings.", recoveryAction: "Set up EVA")
-        case .quotaExhausted: return .init(integration: .eva, state: .limited, status: "Limited", explanation: "Cloud EVA is set up, but its current allowance is exhausted.", recoveryAction: "Use Offline EVA")
+        case .hydrating, .activating: return .init(integration: .eva, state: .checking, status: String(localized: "Connecting"), explanation: String(localized: "Connecting to Eva in the cloud…"), recoveryAction: "")
+        case .ready: return .init(integration: .eva, state: .ready, status: String(localized: "Cloud"), explanation: String(localized: "Eva uses only the data you allowed."), recoveryAction: String(localized: "Eva settings"))
+        case .needsActivation: return .init(integration: .eva, state: .notStarted, status: String(localized: "Not set up"), explanation: String(localized: "Eva runs in the cloud or on this device."), recoveryAction: String(localized: "Set up Eva"))
+        case .quotaExhausted: return .init(integration: .eva, state: .limited, status: String(localized: "Limit reached"), explanation: String(localized: "Cloud limit reached. Eva can run on this device."), recoveryAction: String(localized: "Use this device"))
         case .temporarilyUnavailable(let message):
             let explanation = message.trimmingCharacters(in: .whitespacesAndNewlines)
             return .init(
                 integration: .eva,
                 state: .attention,
-                status: "Needs attention",
-                explanation: explanation.isEmpty ? "Cloud EVA is temporarily unavailable." : explanation,
-                recoveryAction: "Retry"
+                status: String(localized: "Unavailable"),
+                explanation: explanation.isEmpty ? String(localized: "Couldn’t reach Eva in the cloud.") : explanation,
+                recoveryAction: String(localized: "Try again")
             )
-        case .appleReauthenticationRequired: return .init(integration: .eva, state: .attention, status: "Needs attention", explanation: "Reconnect with Apple to restore the linked Cloud EVA account.", recoveryAction: "Reconnect with Apple")
+        case .appleReauthenticationRequired: return .init(integration: .eva, state: .attention, status: String(localized: "Signed out"), explanation: String(localized: "Reconnect with Apple to use Eva in the cloud."), recoveryAction: String(localized: "Reconnect with Apple"))
         }
     }
 }

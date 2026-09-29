@@ -27,6 +27,21 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
+      <TestPlans>
+         <TestPlanReference
+            reference = "container:LifeBoardTests/TestPlans/Unit.xctestplan"
+            default = "YES">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:LifeBoardTests/TestPlans/Integration.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:LifeBoardTests/TestPlans/AccessibilityUI.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:LifeBoardTests/TestPlans/ReleaseQualification.xctestplan">
+         </TestPlanReference>
+      </TestPlans>
       <Testables>
          <TestableReference
             skipped = "NO">

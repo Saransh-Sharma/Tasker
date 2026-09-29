@@ -62,15 +62,15 @@ public struct RecoveryStatus: Equatable, Sendable {
 
         public var actionTitle: String {
             switch self {
-            case .rebuildJournalIndex: return "Rebuild journal search"
-            case .rebuildNotesIndex: return "Rebuild notes search"
-            case .rebuildHomeProjections: return "Refresh home"
+            case .rebuildJournalIndex: return String(localized: "Rebuild journal search")
+            case .rebuildNotesIndex: return String(localized: "Rebuild notes search")
+            case .rebuildHomeProjections: return String(localized: "Refresh Home")
             }
         }
 
         /// Shown before the action runs, so the user knows what is not at risk.
         public var reassurance: String {
-            "Your entries stay exactly as they are. Only the search shortcut is rebuilt."
+            String(localized: "Your entries stay exactly as they are.")
         }
     }
 
@@ -86,15 +86,19 @@ public struct RecoveryStatus: Equatable, Sendable {
     /// question someone opening this screen is actually asking.
     public var headline: String {
         if areas.contains(where: { $0.health == .unavailable }) {
-            return "Your data is safe. Some editing is paused."
+            return String(localized: "Your data is safe. Editing is paused.")
         }
         if areas.contains(where: { $0.health == .working }) {
-            return "Your data is safe. Some things are still catching up."
+            return String(localized: "Still updating.")
         }
-        if areas.contains(where: { $0.health == .attention }) {
-            return "Your data is safe. One thing could use attention."
+        let attention = areas.filter { $0.health == .attention }
+        if attention.count == 1, let area = attention.first {
+            return String(localized: "Your data is safe. \(area.detail)")
         }
-        return "Everything is up to date."
+        if attention.count > 1 {
+            return String(localized: "Your data is safe. Check the rows below.")
+        }
+        return String(localized: "Everything is up to date.")
     }
 
     public var worstHealth: Health {
@@ -118,6 +122,30 @@ public struct RecoveryStatusService: Sendable {
         case readOnly(reason: String)
     }
 
+    /// What iCloud sync is actually doing, derived from real signals
+    /// (`CloudSyncStatusStore`). `nil` from the provider means "cannot tell",
+    /// and the row then claims only what is certain: saved on this device.
+    public enum CloudSyncState: Equatable, Sendable {
+        /// This build does not mirror to iCloud.
+        case off
+        /// Mirroring is on but no iCloud account is signed in.
+        case noAccount
+        /// An import or export is running.
+        case syncing
+        /// The last successful import or export.
+        case synced(at: Date)
+        /// Mirroring is on and nothing has completed yet this session.
+        case waiting
+        case paused(PauseReason)
+
+        public enum PauseReason: Equatable, Sendable {
+            case storageFull
+            case offline
+            case accountUnavailable
+            case other
+        }
+    }
+
     public enum DerivedIndexState: Equatable, Sendable {
         case ready
         case rebuilding
@@ -133,6 +161,7 @@ public struct RecoveryStatusService: Sendable {
     private let journalIndex: @Sendable () -> DerivedIndexState?
     private let notesIndex: @Sendable () -> DerivedIndexState?
     private let pendingJobCount: @Sendable () -> Int
+    private let cloudSync: @Sendable () -> CloudSyncState?
     private let now: @Sendable () -> Date
 
     public init(
@@ -140,12 +169,14 @@ public struct RecoveryStatusService: Sendable {
         journalIndex: @escaping @Sendable () -> DerivedIndexState?,
         notesIndex: @escaping @Sendable () -> DerivedIndexState?,
         pendingJobCount: @escaping @Sendable () -> Int,
+        cloudSync: @escaping @Sendable () -> CloudSyncState? = { nil },
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.storeMode = storeMode
         self.journalIndex = journalIndex
         self.notesIndex = notesIndex
         self.pendingJobCount = pendingJobCount
+        self.cloudSync = cloudSync
         self.now = now
     }
 
@@ -154,12 +185,17 @@ public struct RecoveryStatusService: Sendable {
 
         switch storeMode() {
         case .fullSync:
+            // This line used to promise iCloud sync on every full-sync
+            // launch without checking — signed out, no entitlement, or
+            // quota full all read "syncing". It now says only what the
+            // sync signals support.
+            let sync = cloudSyncPresentation(cloudSync())
             areas.append(
                 .init(
                     id: "store",
-                    title: "Your work",
-                    detail: "Saved on this device and syncing to your private iCloud.",
-                    health: .healthy
+                    title: String(localized: "Your work"),
+                    detail: sync.detail,
+                    health: sync.health
                 )
             )
         case .readOnly:
@@ -169,8 +205,8 @@ public struct RecoveryStatusService: Sendable {
             areas.append(
                 .init(
                     id: "store",
-                    title: "Your work",
-                    detail: "Everything you have written is safe, but editing is paused while the app checks its private copy.",
+                    title: String(localized: "Your work"),
+                    detail: String(localized: "Read-only while LifeBoard checks your data."),
                     health: .unavailable
                 )
             )
@@ -180,7 +216,7 @@ public struct RecoveryStatusService: Sendable {
             areas.append(
                 indexArea(
                     id: "journal-index",
-                    title: "Journal search",
+                    title: String(localized: "Journal search"),
                     state: journal,
                     recovery: .rebuildJournalIndex
                 )
@@ -190,7 +226,7 @@ public struct RecoveryStatusService: Sendable {
             areas.append(
                 indexArea(
                     id: "notes-index",
-                    title: "Notes search",
+                    title: String(localized: "Notes search"),
                     state: notes,
                     recovery: .rebuildNotesIndex
                 )
@@ -202,16 +238,58 @@ public struct RecoveryStatusService: Sendable {
             areas.append(
                 .init(
                     id: "jobs",
-                    title: "Finishing up",
+                    title: String(localized: "Attachments"),
                     detail: jobs == 1
-                        ? "One attachment is still being processed."
-                        : "\(jobs) attachments are still being processed.",
+                        ? String(localized: "Processing 1 attachment.")
+                        : String(localized: "Processing \(jobs) attachments."),
                     health: .working
                 )
             )
         }
 
         return RecoveryStatus(areas: areas, generatedAt: now())
+    }
+
+    private func cloudSyncPresentation(
+        _ state: CloudSyncState?
+    ) -> (detail: String, health: RecoveryStatus.Health) {
+        switch state {
+        case nil:
+            return (String(localized: "Saved on this device."), .healthy)
+        case .off?:
+            return (String(localized: "Saved on this device. iCloud sync is off."), .healthy)
+        case .noAccount?:
+            return (String(localized: "Saved on this device. Sign in to iCloud to sync."), .healthy)
+        case .syncing?:
+            return (String(localized: "Saved on this device. Syncing with iCloud…"), .healthy)
+        case .waiting?:
+            return (String(localized: "Saved on this device. Waiting to sync with iCloud."), .healthy)
+        case .synced(let date)?:
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .full
+            let elapsed = now().timeIntervalSince(date)
+            let when = elapsed < 60
+                ? String(localized: "just now")
+                : formatter.localizedString(for: date, relativeTo: now())
+            return (String(localized: "Saved on this device. Synced with iCloud \(when)."), .healthy)
+        case .paused(let reason)?:
+            switch reason {
+            case .storageFull:
+                return (
+                    String(localized: "Saved on this device. iCloud storage is full."),
+                    .attention
+                )
+            case .offline:
+                return (String(localized: "Saved on this device. Syncs when you’re back online."), .healthy)
+            case .accountUnavailable:
+                return (
+                    String(localized: "Saved on this device. iCloud is unavailable."),
+                    .attention
+                )
+            case .other:
+                return (String(localized: "Saved on this device. Sync will try again soon."), .attention)
+            }
+        }
     }
 
     private func indexArea(
@@ -222,24 +300,24 @@ public struct RecoveryStatusService: Sendable {
     ) -> RecoveryStatus.Area {
         switch state {
         case .ready:
-            return .init(id: id, title: title, detail: "Ready.", health: .healthy)
+            return .init(id: id, title: title, detail: String(localized: "Ready."), health: .healthy)
         case .rebuilding:
             return .init(
                 id: id,
                 title: title,
-                detail: "Rebuilding. Searching may miss recent items until it finishes.",
+                detail: String(localized: "Rebuilding. Recent entries may not appear yet."),
                 health: .working
             )
         case .needsRebuild:
             return .init(
                 id: id,
                 title: title,
-                detail: "Some items may not appear in search yet.",
+                detail: String(localized: "Some results may be missing."),
                 health: .attention,
                 recovery: recovery
             )
         case .notApplicable:
-            return .init(id: id, title: title, detail: "Not set up yet.", health: .healthy)
+            return .init(id: id, title: title, detail: String(localized: "Nothing to search yet."), health: .healthy)
         }
     }
 }
@@ -268,8 +346,35 @@ extension RecoveryStatusService {
             },
             journalIndex: journalIndexState,
             notesIndex: notesIndexState,
-            pendingJobCount: pendingJobs
+            pendingJobCount: pendingJobs,
+            cloudSync: { cloudSyncState(from: CloudSyncStatusStore.shared.snapshot) }
         )
+    }
+
+    /// Maps the recorded sync signals onto the Recovery Center's states.
+    /// `nil` when the launch has not yet said whether mirroring is on.
+    static func cloudSyncState(from snapshot: CloudSyncStatusStore.Snapshot) -> CloudSyncState? {
+        guard let mirroringEnabled = snapshot.mirroringEnabled else { return nil }
+        guard mirroringEnabled else { return .off }
+        switch snapshot.accountStatus {
+        case .noAccount, .restricted:
+            return .noAccount
+        case .temporarilyUnavailable:
+            return .paused(.accountUnavailable)
+        case .available, .unknown:
+            break
+        }
+        if let pause = snapshot.pause {
+            switch pause {
+            case .storageFull: return .paused(.storageFull)
+            case .offline: return .paused(.offline)
+            case .accountUnavailable: return .paused(.accountUnavailable)
+            case .other: return .paused(.other)
+            }
+        }
+        if snapshot.inFlightEventCount > 0 { return .syncing }
+        if let last = snapshot.lastSyncAt { return .synced(at: last) }
+        return .waiting
     }
 
     /// Classifies a derived index from what it actually contains.

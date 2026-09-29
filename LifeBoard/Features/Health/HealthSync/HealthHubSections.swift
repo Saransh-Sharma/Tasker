@@ -1,3 +1,4 @@
+import Accessibility
 import Charts
 import SwiftUI
 
@@ -31,25 +32,39 @@ enum HealthHubFormat {
     /// Freshness read from the sample rather than asserted. "Today" was
     /// hard-coded onto every row, including week-old records.
     static func freshness(_ lastSampleAt: Date?) -> String {
-        guard let lastSampleAt else { return "no sample time recorded" }
-        if Calendar.current.isDateInToday(lastSampleAt) { return "Today" }
-        if Calendar.current.isDateInYesterday(lastSampleAt) { return "Yesterday" }
+        guard let lastSampleAt else { return String(localized: "No time recorded") }
+        if Calendar.current.isDateInToday(lastSampleAt) { return String(localized: "Today") }
+        if Calendar.current.isDateInYesterday(lastSampleAt) { return String(localized: "Yesterday") }
         return lastSampleAt.formatted(date: .abbreviated, time: .omitted)
     }
 
+    /// A display name per metric. The raw value is a camel-cased identifier,
+    /// and capitalizing it put "Restingheartrate" on screen.
     static func title(_ metric: HealthMetric) -> String {
-        metric.rawValue
-            .replacingOccurrences(of: "walkingRunning", with: "walking running ")
-            .replacingOccurrences(of: "dietary", with: "")
-            .replacingOccurrences(of: "body", with: "body ")
-            .capitalized
+        switch metric {
+        case .steps: String(localized: "Steps")
+        case .walkingRunningDistance: String(localized: "Walking distance")
+        case .activeEnergy: String(localized: "Active energy")
+        case .restingEnergy: String(localized: "Resting energy")
+        case .water: String(localized: "Water")
+        case .dietaryEnergy: String(localized: "Dietary energy")
+        case .dietaryProtein: String(localized: "Protein")
+        case .dietaryCarbohydrates: String(localized: "Carbohydrates")
+        case .dietaryFat: String(localized: "Fat")
+        case .bodyMass: String(localized: "Weight")
+        case .bodyFatPercentage: String(localized: "Body fat")
+        case .waistCircumference: String(localized: "Waist")
+        case .restingHeartRate: String(localized: "Resting heart rate")
+        case .workout: String(localized: "Workouts")
+        case .sleep: String(localized: "Sleep")
+        }
     }
 
     static func domainStatus(_ status: HealthDomainStatus) -> String {
-        if status.hasPartialWriteAuthorization { return "Partially allowed" }
-        if status.writeAuthorizations.values.contains(.denied) { return "Writing denied · local logging still works" }
-        if status.readRequestState == .neverRequested { return "Not requested" }
-        return status.writeEnabled ? "Future LifeBoard entries sync" : "Read only"
+        if status.hasPartialWriteAuthorization { return String(localized: "Partly allowed") }
+        if status.writeAuthorizations.values.contains(.denied) { return String(localized: "Saving turned off in Health") }
+        if status.readRequestState == .neverRequested { return String(localized: "Not connected") }
+        return status.writeEnabled ? String(localized: "Saves new logs to Health") : String(localized: "Read only")
     }
 }
 
@@ -77,18 +92,11 @@ struct HealthHubHeroSection: View {
                 .lifeboardFont(.meta)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
 
-            Text(isConnected ? "Apple Health" : "Connect Apple Health")
+            Text(isConnected ? String(localized: "Apple Health") : String(localized: "Connect Apple Health"))
                 .lifeboardFont(.sectionTitle)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
 
-            Text(isConnected
-                 ? "See the Health data available to LifeBoard. Saving LifeBoard logs to Apple Health is a separate choice."
-                 : "Bring your activity, sleep, and wellness data into LifeBoard. Choose what to read in Apple Health.")
-                .lifeboardFont(.support)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
-
-            Button(isConnected ? "Log water" : "Connect", action: isConnected ? onLogWater : onConnect)
+            Button(isConnected ? String(localized: "Log water") : String(localized: "Connect"), action: isConnected ? onLogWater : onConnect)
                 .buttonStyle(.lifeBoardPrimary)
                 .accessibilityIdentifier(isConnected ? "health.hero.logWater" : "health.hero.connect")
         }
@@ -109,7 +117,7 @@ struct HealthHubMovementSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Today from Apple Health", symbol: "clock")
+            SectionHeader("Activity", symbol: "clock")
             HStack(spacing: 12) {
                 HealthHubMetricRing(store: store, metric: .steps, target: 10_000, label: "Steps")
                 HealthHubMetricRing(store: store, metric: .activeEnergy, target: 500, label: "Active kcal")
@@ -157,7 +165,7 @@ private struct HealthHubMetricRing: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
-        .accessibilityValue(value.map { HealthHubFormat.value($0, metric: metric) } ?? "Unavailable")
+        .accessibilityValue(value.map { HealthHubFormat.value($0, metric: metric) } ?? String(localized: "No data"))
     }
 }
 
@@ -165,13 +173,16 @@ private struct HealthHubMetricRing: View {
 
 struct HealthHubHydrationSection: View {
     let store: HealthConnectionStore
+    /// The person's own daily target from Track. No target, no progress well:
+    /// the fill used to measure against a hard-coded 2,000 mL.
+    var targetMilliliters: Double? = nil
     /// Bumped when the day's hydration goal is first met.
     var warpTrigger: Int = 0
     let onLogWater: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionHeader("Hydration", symbol: "drop.fill") {
+            SectionHeader("Water", symbol: "drop.fill") {
                 Button("Log water", action: onLogWater)
                     .buttonStyle(.lifeBoardChip)
             }
@@ -181,9 +192,9 @@ struct HealthHubHydrationSection: View {
             // canvas reads as a void, and either way states an amount the app has
             // not been told. `DESIGN.md`: unknown data is not zero, and no-record
             // is a distinct state from an explicit zero.
-            if let value {
+            if let value, let target = targetMilliliters, target > 0 {
                 GeometryReader { proxy in
-                    let progress = min(max(value / 2_000, 0), 1)
+                    let progress = min(max(value / target, 0), 1)
                     ZStack(alignment: .bottom) {
                         Color.clear
                         RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
@@ -201,9 +212,15 @@ struct HealthHubHydrationSection: View {
             // Provenance travels with the value, and it names the sources the
             // record actually has rather than asserting both every time.
             Text(
-                value.map {
-                    "\(Int($0)) mL today · \(store.aggregates[.water]?.sourceLabel ?? "Apple Health")"
-                } ?? "No hydration data available"
+                value.map { amount in
+                    let measured = Measurement(value: amount, unit: UnitVolume.milliliters)
+                        .formatted(.measurement(width: .abbreviated, usage: .asProvided))
+                    let goal = targetMilliliters.map {
+                        " of " + Measurement(value: $0, unit: UnitVolume.milliliters)
+                            .formatted(.measurement(width: .abbreviated, usage: .asProvided))
+                    } ?? ""
+                    return "\(measured)\(goal) today · \(store.aggregates[.water]?.sourceLabel ?? "Apple Health")"
+                } ?? String(localized: "No water recorded today")
             )
                 .lifeboardFont(.support)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
@@ -221,44 +238,75 @@ struct HealthHubNutritionSection: View {
     let store: HealthConnectionStore
 
     @State private var revealProgress: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Nutrition aggregate", symbol: "fork.knife")
-            Text("Apple Health entries stay aggregated. LifeBoard never reconstructs them into meals.")
+            SectionHeader("Nutrition", symbol: "fork.knife")
+            Text("Shown as daily totals.")
                 .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
 
-            if values.isEmpty {
+            if hasData == false {
                 // Four bars at zero said "you ate nothing today" when what
                 // happened was that nothing was recorded. `DESIGN.md`: unknown
                 // data is not zero, and no-record is its own state.
                 StatusSurface(
                     state: .noRecord,
-                    title: "No nutrition recorded today",
-                    message: "Nothing has come from Apple Health yet.",
+                    title: String(localized: "Nothing recorded today"),
+                    message: "",
                     density: .compact
                 )
             } else {
-                Chart(values) { item in
-                    BarMark(
-                        x: .value("Nutrient", item.label),
-                        y: .value("Value", item.value)
-                    )
-                    .foregroundStyle(Color.lifeboard(.accentSecondary))
+                // Energy is a number of its own, not a bar. Plotted beside the
+                // macros on one axis, ~2,000 kcal set the scale and ~60 g of
+                // protein, carbs and fat shrank to slivers — the chart could
+                // only ever say "calories are big".
+                if let calories {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(calories.formatted(.number.precision(.fractionLength(0))))
+                            .lifeboardFont(.metric)
+                            .monospacedDigit()
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
+                        Text("kcal")
+                            .lifeboardFont(.caption1)
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Dietary energy today")
+                    .accessibilityValue("\(calories.formatted(.number.precision(.fractionLength(0)))) kilocalories")
                 }
-                .frame(height: 150)
-                // A chart hidden from VoiceOver leaves its evidence unreadable.
-                // `DESIGN.md` asks charts for a prose equivalent.
-                .accessibilityElement()
-                .accessibilityLabel("Nutrition recorded today, from Apple Health")
-                .accessibilityValue(chartSummary)
-                .lifeboardChartRevealSweep(progress: revealProgress)
+
+                if macroValues.isEmpty == false {
+                    Chart(macroValues) { item in
+                        BarMark(
+                            x: .value("Nutrient", item.label),
+                            y: .value("Grams", item.value)
+                        )
+                        .foregroundStyle(Color.lifeboard(.accentSecondary))
+                    }
+                    .chartYAxisLabel("g")
+                    .frame(height: 150)
+                    // A chart hidden from VoiceOver leaves its evidence unreadable.
+                    // `DESIGN.md` asks charts for a prose equivalent.
+                    .accessibilityElement()
+                    .accessibilityLabel("Macros today, from Apple Health")
+                    .accessibilityValue(chartSummary)
+                    // Audio Graphs: the chart as data, not only as prose.
+                    .accessibilityChartDescriptor(CategoryBarChartDescriptor(
+                        title: String(localized: "Macros today"),
+                        categoryTitle: "Nutrient",
+                        valueTitle: "Grams",
+                        unit: "g",
+                        points: macroValues.map { .init(label: $0.label, value: $0.value) }
+                    ))
+                    .lifeboardChartRevealSweep(progress: revealProgress)
+                }
             }
 
             if let last = store.aggregates[.dietaryEnergy]?.lastSampleAt {
-                Text("Last dietary energy: \(last.formatted(date: .abbreviated, time: .shortened))")
+                Text("Last entry \(last.formatted(date: .abbreviated, time: .shortened))")
                     .lifeboardFont(.caption1)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             }
@@ -271,20 +319,25 @@ struct HealthHubNutritionSection: View {
         // animation implies data arrived."
         .onChange(of: hasData) { _, nowHasData in
             guard nowHasData, revealProgress == 0 else { return }
-            withAnimation(.easeOut(duration: 0.6)) { revealProgress = 1 }
+            withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) { revealProgress = 1 }
         }
         .onAppear {
             revealProgress = hasData ? 1 : 0
         }
     }
 
-    private var hasData: Bool { values.isEmpty == false }
+    private var hasData: Bool { calories != nil || macroValues.isEmpty == false }
 
-    /// Only nutrients that actually have a record. A missing aggregate used to
-    /// be plotted as `0`, which is a different claim entirely.
-    private var values: [HealthNutritionChartValue] {
+    /// `nil` when nothing was recorded — never `0`.
+    private var calories: Double? {
+        store.aggregates[.dietaryEnergy]?.value
+    }
+
+    /// Only gram macros that actually have a record, so they share an axis in
+    /// a single unit. A missing aggregate used to be plotted as `0`, which is
+    /// a different claim entirely.
+    private var macroValues: [HealthNutritionChartValue] {
         let nutrients: [(String, HealthMetric)] = [
-            ("kcal", .dietaryEnergy),
             ("Protein", .dietaryProtein),
             ("Carbs", .dietaryCarbohydrates),
             ("Fat", .dietaryFat)
@@ -296,16 +349,10 @@ struct HealthHubNutritionSection: View {
     }
 
     private var chartSummary: String {
-        values
-            .map { "\($0.label) \($0.value.formatted(.number.precision(.fractionLength(0))))" }
+        macroValues
+            .map { "\($0.label) \($0.value.formatted(.number.precision(.fractionLength(0)))) g" }
             .joined(separator: ", ")
     }
-}
-
-struct HealthNutritionChartValue: Identifiable {
-    let label: String
-    let value: Double
-    var id: String { label }
 }
 
 // MARK: - Fasting
@@ -316,11 +363,7 @@ struct HealthHubFastingSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Fasting context", symbol: "hourglass")
-            Text("Suggestion only · LifeBoard never auto-starts a fast or writes fasting to Apple Health.")
-                .lifeboardFont(.caption1)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
+            SectionHeader("Fasting", symbol: "hourglass")
 
             if let suggestion {
                 Text("Suggested start: \(suggestion.formatted(date: .abbreviated, time: .shortened))")
@@ -330,7 +373,7 @@ struct HealthHubFastingSection: View {
                     .lifeboardFont(.caption1)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             } else {
-                Text("Log a meal or connect dietary energy to receive a start suggestion.")
+                Text("Log a meal to see a suggested start.")
                     .lifeboardFont(.support)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
@@ -349,7 +392,7 @@ struct HealthHubValuesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Accessible values", symbol: "tablecells")
+            SectionHeader("Latest values", symbol: "tablecells")
             ForEach(store.aggregates.values.sorted { $0.metric.rawValue < $1.metric.rawValue }) { item in
                 HStack {
                     Text(HealthHubFormat.title(item.metric))
@@ -433,7 +476,7 @@ private struct HealthHubConnectionRow: View {
                 // Was `Toggle("")`, so VoiceOver announced a switch with no
                 // name. The label stays visually hidden; it is the control's
                 // accessible name.
-                Toggle("Save \(domain.title) to Apple Health", isOn: Binding(
+                Toggle("Save \(domain.title) to Health", isOn: Binding(
                     get: { status.writeEnabled },
                     set: { enabled in
                         if enabled && status.readRequestState == .neverRequested {

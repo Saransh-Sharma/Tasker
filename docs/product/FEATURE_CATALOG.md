@@ -394,6 +394,7 @@ The current `promotedDefaults` keys are exhaustively accounted for here:
 | `feature.life_os.day_close_v1` | Day Close reconciliation and carry-forward |
 | `feature.life_os.day_open_commit_v1` | Morning commitment/Day Open |
 | `feature.life_os.home_loop_spine_v1` | Home daily-loop spine |
+| `feature.life_os.eva_context_sheet_v1` | EVA context-sheet presentation and disclosure boundary |
 | `feature.eva.make_it_fit_today_v1` | EVA Make It Fit Today; independent local/runtime rollback |
 | `feature.eva.friction_detective_v1` | EVA Friction Detective; independent local/runtime rollback |
 | `feature.eva.weekly_reset_v1` | EVA Weekly Reset; independent local/runtime rollback |

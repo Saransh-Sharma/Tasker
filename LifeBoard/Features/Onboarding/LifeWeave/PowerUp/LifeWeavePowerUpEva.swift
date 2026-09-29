@@ -33,7 +33,10 @@ extension LifeWeaveOnboardingModel {
     var evaPrimaryTitle: String {
         if evaPrefersOffline { return LifeWeaveCopy.Dock.done }
         switch evaAccess.state {
-        case .hydrating, .needsActivation: return LifeWeaveCopy.Dock.continue
+        case .hydrating, .needsActivation:
+            return evaAccess.hasConfirmedCloudConsent
+                ? LifeWeaveCopy.Dock.continue
+                : String(localized: "Turn on Eva")
         case .activating: return LifeWeaveCopy.Dock.done
         case .ready: return LifeWeaveCopy.Dock.done
         case .temporarilyUnavailable: return String(localized: "Try again")
@@ -54,6 +57,12 @@ extension LifeWeaveOnboardingModel {
         }
         switch evaAccess.state {
         case .needsActivation, .hydrating:
+            // Nothing reaches the cloud before the person confirms what EVA
+            // may use; the consent sheet records that choice and connects.
+            guard evaAccess.hasConfirmedCloudConsent else {
+                showsEvaConsent = true
+                return
+            }
             finishConnector()
             Task { _ = await evaAccess.ensureActivated(source: .onboarding) }
         case .temporarilyUnavailable:
@@ -83,6 +92,11 @@ extension LifeWeaveOnboardingModel {
         // Publishes through `draft`, which is what re-renders the dock.
         recordEvaActivation(ready: false, pending: false)
         feedback.light()
+    }
+
+    /// Called by the consent sheet once the person has confirmed.
+    func evaConsentFinished(ready: Bool) {
+        recordEvaOutcome(succeeded: ready)
     }
 
     func chooseCloudEva() {

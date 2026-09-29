@@ -34,12 +34,12 @@ struct TaskDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.lifeboardTokens) private var tokens
     @Environment(\.lifeboardLayoutClass) private var layoutClass
-    @StateObject private var viewModel: TaskDetailViewModel
+    @StateObject var viewModel: TaskDetailViewModel
     @State private var liveTodayXPSoFar: Int?
     @State private var expandedSections: Set<TaskDetailSection>
     @State private var showDeleteScopeDialog = false
-    @State private var showBreakdownSheet = false
-    @State private var selectedBreakdownSteps: Set<String> = []
+    @State var showBreakdownSheet = false
+    @State var selectedBreakdownSteps: Set<String> = []
     @State private var showingReflectionComposer = false
     @State private var showingFrictionDetective = false
     @State private var newStepTitle = ""
@@ -53,9 +53,10 @@ struct TaskDetailScreen: View {
 
     private let isGamificationV2Enabled: Bool
     private let containerMode: TaskDetailContainerMode
-    private let onSaveReflectionNote: SaveReflectionNoteHandler
+    let onSaveReflectionNote: SaveReflectionNoteHandler
+    private let frictionDependencies: TaskDetailFrictionDependencies
 
-    private var spacing: SemanticSpacingTokens { tokens.spacing }
+    var spacing: SemanticSpacingTokens { tokens.spacing }
     private var readableContentWidth: CGFloat { containerMode == .inspector && layoutClass == .padExpanded ? 900 : 760 }
 
     init(
@@ -64,6 +65,7 @@ struct TaskDetailScreen: View {
         todayXPSoFar: Int? = nil,
         isGamificationV2Enabled: Bool = V2FeatureFlags.gamificationV2Enabled,
         containerMode: TaskDetailContainerMode = .sheet,
+        frictionDependencies: TaskDetailFrictionDependencies,
         onUpdate: @escaping UpdateHandler,
         onSetCompletion: @escaping CompletionHandler,
         onDelete: @escaping DeleteHandler,
@@ -78,7 +80,7 @@ struct TaskDetailScreen: View {
             completion(.failure(NSError(
                 domain: "SunriseTaskDetailScreen",
                 code: 501,
-                userInfo: [NSLocalizedDescriptionKey: "Reflection notes are unavailable in this context."]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t save note here.")]
             )))
         },
         onLoadTaskFitHint: @escaping TaskFitHintHandler = { _, completion in completion(.unknown) }
@@ -88,6 +90,7 @@ struct TaskDetailScreen: View {
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.containerMode = containerMode
         self.onSaveReflectionNote = onSaveReflectionNote
+        self.frictionDependencies = frictionDependencies
         _viewModel = StateObject(wrappedValue: TaskDetailViewModel(
             task: task,
             projects: projects,
@@ -135,11 +138,9 @@ struct TaskDetailScreen: View {
     private var sheetBoundScreen: some View {
         baseScreen
         .confirmationDialog("Delete recurring task?", isPresented: $showDeleteScopeDialog, titleVisibility: .visible) {
-            Button("Delete This Task", role: .destructive) { deleteTask(scope: .single) }
-            Button("Delete Entire Series", role: .destructive) { deleteTask(scope: .series) }
+            Button("Delete this task", role: .destructive) { deleteTask(scope: .single) }
+            Button("Delete series", role: .destructive) { deleteTask(scope: .series) }
             Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Choose whether to remove only this task or every task in the series.")
         }
         .sheet(isPresented: $showBreakdownSheet) {
             breakdownSheet
@@ -147,10 +148,10 @@ struct TaskDetailScreen: View {
         .sheet(isPresented: $showingReflectionComposer) {
             reflectionComposerSheet
         }
-        .fullScreenCover(isPresented: $showingFrictionDetective) {
+        .lifeboardCover(isPresented: $showingFrictionDetective, kind: .page) {
             FrictionDetectiveView(
                 task: viewModel.persistedTask,
-                repository: CompositionRoot.shared.frictionFindingRepository,
+                repository: frictionDependencies.frictionFindingRepository,
                 onSaveReflectionNote: onSaveReflectionNote,
                 onApply: { intervention, experimentText, completion in
                     viewModel.applyFrictionIntervention(
@@ -171,69 +172,11 @@ struct TaskDetailScreen: View {
         _ receipt: FrictionInterventionReceipt,
         completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
     ) {
-        guard let taskRepository = CompositionRoot.shared.taskDefinitionRepository else {
-            completion(.failure(NSError(
-                domain: "FrictionDetective",
-                code: 503,
-                userInfo: [NSLocalizedDescriptionKey: "Task storage is unavailable."]
-            )))
-            return
-        }
-
-        let finishTaskRestore: @MainActor @Sendable (Result<Void, Error>) -> Void = { result in
-            switch result {
-            case .failure:
-                completion(result)
-            case .success:
-                deleteFrictionReceiptRecords(receipt, completion: completion)
-            }
-        }
-
-        if let childID = receipt.createdChildTaskID {
-            taskRepository.delete(id: childID) { result in
-                Task { @MainActor in
-                    if case .success = result { viewModel.acceptFrictionUndo(receipt) }
-                    finishTaskRestore(result)
-                }
-            }
-        } else {
-            taskRepository.update(receipt.originalTask) { result in
-                Task { @MainActor in
-                    if case .success = result { viewModel.acceptFrictionUndo(receipt) }
-                    finishTaskRestore(result.map { _ in () })
-                }
-            }
-        }
-    }
-
-    private func deleteFrictionReceiptRecords(
-        _ receipt: FrictionInterventionReceipt,
-        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
-    ) {
-        let deleteNote: @MainActor @Sendable () -> Void = {
-            guard let noteID = receipt.reflectionNoteID,
-                  let notes = CompositionRoot.shared.reflectionNoteRepository else {
-                completion(.success(()))
-                return
-            }
-            notes.deleteNote(id: noteID) { result in
-                Task { @MainActor in completion(result) }
-            }
-        }
-
-        guard let findingID = receipt.findingID,
-              let findings = CompositionRoot.shared.frictionFindingRepository else {
-            deleteNote()
-            return
-        }
-        findings.deleteFinding(id: findingID) { result in
-            Task { @MainActor in
-                switch result {
-                case .success: deleteNote()
-                case .failure: completion(result)
-                }
-            }
-        }
+        frictionDependencies.undo(
+            receipt,
+            onTaskRestored: { viewModel.acceptFrictionUndo(receipt) },
+            completion: completion
+        )
     }
 
     private var lifecycleObservedScreen: some View {
@@ -322,7 +265,7 @@ struct TaskDetailScreen: View {
                 .frame(width: 44, height: 44)
                 .lifeboardChromeSurface(cornerRadius: Theme.CornerRadius.pill, accentColor: Color.lifeboard.accentSecondary)
                 .accessibilityIdentifier("taskDetail.closeButton")
-                .accessibilityLabel("Close task details")
+                .accessibilityLabel("Close")
             }
 
             Spacer()
@@ -343,12 +286,13 @@ struct TaskDetailScreen: View {
                 .padding(.top, 4)
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
-                    TextField("Task title", text: $viewModel.taskName, axis: .vertical)
+                    TextField("Task title", text: $viewModel.taskName, prompt: Text("Task title").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                         .font(.lifeboard(.title1))
                         .bold()
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(2...4)
                         .focused($titleFocused)
+                        .returnKey(.next, text: $viewModel.taskName) { notesFocused = true }
                         .textFieldStyle(.plain)
                         .accessibilityIdentifier("taskDetail.titleField")
 
@@ -377,13 +321,16 @@ struct TaskDetailScreen: View {
             accentColor: taskAccentColor,
             level: .e2
         )
-        .completionCelebration(isComplete: viewModel.isComplete, tint: taskAccentColor)
-        .lbCelebrationBurst(trigger: completionBurstTrigger, tint: taskAccentColor)
+        // One signature moment, after persistence: `DESIGN.md` names
+        // `completionBurst` for a persisted completion and caps signature
+        // moments near 800 ms. This used to stack the CPU particle
+        // celebration (which buzzed on the optimistic flip) on a two-second
+        // Lottie confetti, and neither respected Calm.
+        .lifeboardCompletionBurst(trigger: completionBurstTrigger)
         .onChange(of: viewModel.persistedCompletionCount) { _, _ in
-            // First *persisted* completion this session earns the particle
-            // burst; the optimistic flip of `isComplete` no longer does.
             if sawCompletionThisSession == false {
                 sawCompletionThisSession = true
+                // `CompletionControl` already plays the commit haptic.
                 completionBurstTrigger += 1
             }
         }
@@ -446,7 +393,7 @@ struct TaskDetailScreen: View {
             isExpanded: $showRefine,
             accessibilityID: "taskDetail.disclosure.details",
             onToggle: {
-                HapticFeedback.light()
+                Haptic.pick.play()
                 withAnimation(LifeBoardAnimation.stateChange) { showRefine.toggle() }
             }
         ) {
@@ -488,7 +435,7 @@ struct TaskDetailScreen: View {
 
                 HStack(spacing: spacing.s8) {
                     if V2FeatureFlags.assistantBreakdownEnabled && viewModel.childSteps.isEmpty {
-                        Button(viewModel.isGeneratingAIBreakdown ? "Thinking..." : "Break down", systemImage: "sparkles") {
+                        Button(viewModel.isGeneratingAIBreakdown ? "Thinking…" : "Break down", systemImage: "sparkles") {
                             viewModel.generateAIBreakdown {
                                 selectedBreakdownSteps = Set(viewModel.aiBreakdownSteps)
                                 showBreakdownSheet = true
@@ -528,7 +475,7 @@ struct TaskDetailScreen: View {
                 }
 
                 HStack(spacing: spacing.s8) {
-                    TextField("Add a step...", text: $newStepTitle)
+                    TextField("Add a step\u{2026}", text: $newStepTitle, prompt: Text("Add a step\u{2026}").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                         .font(.lifeboard(.callout))
                         .focused($stepFocused)
                         .textFieldStyle(.plain)
@@ -557,7 +504,7 @@ struct TaskDetailScreen: View {
 
                 if !viewModel.lifeAreas.isEmpty {
                     AddTaskEntityPicker(
-                        label: "Life Area",
+                        label: "Life area",
                         items: viewModel.lifeAreas.map { AddTaskEntityPickerItem(id: $0.id, name: $0.name, icon: $0.icon, accentHex: LifeAreaColorPalette.normalizeOrMap(hex: $0.color, for: $0.id)) },
                         selectedID: $viewModel.selectedLifeAreaID
                     )
@@ -610,7 +557,7 @@ struct TaskDetailScreen: View {
     private var linksFields: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             if !viewModel.availableParentTasks.isEmpty {
-                AddTaskTaskPicker(label: "Parent Task", tasks: viewModel.availableParentTasks, selectedTaskID: $viewModel.selectedParentTaskID)
+                AddTaskTaskPicker(label: "Parent task", tasks: viewModel.availableParentTasks, selectedTaskID: $viewModel.selectedParentTaskID)
                     .accessibilityIdentifier("taskDetail.parentTaskPicker")
             }
             if !viewModel.availableDependencyTasks.isEmpty {
@@ -622,7 +569,7 @@ struct TaskDetailScreen: View {
                 .accessibilityIdentifier("taskDetail.dependenciesPicker")
             }
             if viewModel.availableParentTasks.isEmpty && viewModel.availableDependencyTasks.isEmpty {
-                Text("Related tasks will appear here when this project has other tasks to link.")
+                Text("No other tasks in this project")
                     .font(.lifeboard(.callout))
                     .foregroundStyle(Color.lifeboard.textSecondary)
             }
@@ -660,7 +607,7 @@ struct TaskDetailScreen: View {
         if V2FeatureFlags.evaFrictionDetectiveV1Enabled {
             let analysis = FrictionEvidenceIndex.analyze(task: viewModel.persistedTask)
             Button {
-                HapticFeedback.light()
+                Haptic.pick.play()
                 showingFrictionDetective = true
             } label: {
                 HStack(spacing: spacing.s12) {
@@ -668,17 +615,15 @@ struct TaskDetailScreen: View {
                         .font(.title3)
                         .foregroundStyle(Color.lifeboard.accentPrimary)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Friction Detective")
+                        Text("Task history")
                             .font(.lifeboard(.callout).weight(.semibold))
                             .foregroundStyle(Color.lifeboard.textPrimary)
-                        Text(
-                            analysis.isProactivelyEligible
-                                ? "This task has repeated planning friction. Inspect the evidence without blame."
-                                : "Explore what is making this task harder to start or finish."
-                        )
-                        .font(.lifeboard(.meta))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                        .multilineTextAlignment(.leading)
+                        if analysis.isProactivelyEligible {
+                            Text("Moved \(analysis.distinctEventCount) times")
+                                .font(.lifeboard(.meta))
+                                .foregroundStyle(Color.lifeboard.textSecondary)
+                                .multilineTextAlignment(.leading)
+                        }
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -688,17 +633,17 @@ struct TaskDetailScreen: View {
             }
             .buttonStyle(.plain)
             .foundationClayCard()
-            .accessibilityHint("Opens an evidence-led task experiment")
+            .accessibilityHint("Opens this task\u{2019}s history")
             .accessibilityIdentifier("taskDetail.frictionDetective")
         }
     }
 
     private var deleteDisclosure: some View {
-        disclosureCard(.delete, title: "Delete", systemImage: "trash", summary: "Destructive actions stay separate.", accessibilityIdentifier: nil) {
+        disclosureCard(.delete, title: "Delete", systemImage: "trash", summary: String(localized: "Removes this task"), accessibilityIdentifier: nil) {
             Button(role: .destructive) {
                 promptDeleteTask()
             } label: {
-                Text("Delete Task")
+                Text("Delete task")
                     .font(.lifeboard(.callout).weight(.semibold))
                     .foregroundStyle(Color.lifeboard.statusDanger)
                     .frame(maxWidth: .infinity, minHeight: 44)
@@ -723,7 +668,7 @@ struct TaskDetailScreen: View {
             isExpanded: expandedSections.contains(section),
             accessibilityIdentifier: accessibilityIdentifier
         ) {
-            HapticFeedback.light()
+            Haptic.pick.play()
             withAnimation(LifeBoardAnimation.stateChange) {
                 toggle(section)
             }
@@ -761,97 +706,6 @@ struct TaskDetailScreen: View {
         .padding(spacing.s12)
         .lifeboardDenseSurface(cornerRadius: Theme.CornerRadius.md, fillColor: style.fill, strokeColor: style.stroke)
         .accessibilityIdentifier("taskDetail.taskFitHint")
-    }
-
-    private var breakdownSheet: some View {
-        NavigationStack {
-            List {
-                if viewModel.aiBreakdownRouteBanner != nil || viewModel.aiBreakdownSteps.isEmpty {
-                    Text(viewModel.aiBreakdownRouteBanner ?? "Thinking through smaller steps...")
-                }
-                ForEach(viewModel.aiBreakdownSteps, id: \.self) { step in
-                    Button {
-                        if selectedBreakdownSteps.contains(step) {
-                            selectedBreakdownSteps.remove(step)
-                        } else {
-                            selectedBreakdownSteps.insert(step)
-                        }
-                    } label: {
-                        Label(step, systemImage: selectedBreakdownSteps.contains(step) ? "checkmark.circle.fill" : "circle")
-                    }
-                }
-            }
-            .navigationTitle("Breakdown")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showBreakdownSheet = false }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add to task") {
-                        viewModel.addBreakdownSteps(Array(selectedBreakdownSteps)) {
-                            showBreakdownSheet = false
-                        }
-                    }
-                    .disabled(selectedBreakdownSteps.isEmpty)
-                }
-            }
-        }
-    }
-
-
-    private var reflectionComposerSheet: some View {
-        ReflectionNoteComposerView(
-            viewModel: ReflectionNoteComposerViewModel(
-                title: "Task Reflection",
-                kind: viewModel.isComplete ? .taskCompletion : .freeform,
-                linkedTaskID: viewModel.persistedTask.id,
-                linkedProjectID: viewModel.selectedProjectID,
-                prompt: viewModel.isComplete ? "What helped this task finish cleanly?" : "What is changing about this task right now?",
-                saveNoteHandler: onSaveReflectionNote
-            )
-        ) { _ in
-            viewModel.refreshRelationshipMetadata()
-        }
-    }
-
-    private var metadataFooter: some View {
-        VStack(alignment: .leading, spacing: spacing.s4) {
-            Text("Added \(DateUtils.formatDateTime(viewModel.persistedTask.dateAdded))")
-            if viewModel.isComplete, let completedAt = viewModel.persistedTask.dateCompleted {
-                Text("Completed \(DateUtils.formatDateTime(completedAt))")
-            }
-        }
-        .font(.lifeboard(.caption1))
-        .foregroundStyle(Color.lifeboard.textTertiary)
-    }
-
-    private func projectMotivationCard(_ motivation: ProjectWeeklyMotivation) -> some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            Text("Project motivation")
-                .font(.lifeboard(.callout).weight(.semibold))
-            if let why = motivation.why, why.isEmpty == false {
-                motivationRow("Why now", why)
-            }
-            if let success = motivation.successLooksLike, success.isEmpty == false {
-                motivationRow("Success looks like", success)
-            }
-            if let cost = motivation.costOfNeglect, cost.isEmpty == false {
-                motivationRow("If ignored", cost)
-            }
-        }
-        .padding(spacing.s12)
-        .lifeboardDenseSurface(cornerRadius: Theme.CornerRadius.md, fillColor: Color.lifeboard.accentWash.opacity(0.72))
-    }
-
-    private func motivationRow(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.lifeboard(.meta))
-                .foregroundStyle(Color.lifeboard.textTertiary)
-            Text(value)
-                .font(.lifeboard(.callout))
-                .foregroundStyle(Color.lifeboard.textPrimary)
-        }
     }
 
     private var sunriseBackground: some View {
@@ -903,9 +757,9 @@ struct TaskDetailScreen: View {
     }
 
     private var statusText: String {
-        if viewModel.isComplete { return "Completed" }
-        if let dueDate = viewModel.dueDate { return "Due \(DateUtils.formatDate(dueDate))" }
-        return "Open"
+        if viewModel.isComplete { return String(localized: "Completed") }
+        if let dueDate = viewModel.dueDate { return String(localized: "Due \(DateUtils.formatDate(dueDate))") }
+        return String(localized: "Open")
     }
 
     private var headerSummaryText: String {
@@ -914,7 +768,7 @@ struct TaskDetailScreen: View {
 
     private var scheduleSummary: String {
         guard let start = viewModel.scheduledStartAt else {
-            return viewModel.dueDate.map { "Due \(DateUtils.formatDate($0))" } ?? "Unscheduled"
+            return viewModel.dueDate.map { String(localized: "Due \(DateUtils.formatDate($0))") } ?? String(localized: "Unscheduled")
         }
         if let end = Calendar.current.date(byAdding: .minute, value: viewModel.durationMinutes, to: start), viewModel.durationMinutes > 0 {
             return TaskDetailViewModel.scheduleRangeLabel(start: start, end: end)
@@ -923,22 +777,22 @@ struct TaskDetailScreen: View {
     }
 
     private var scheduleDetail: String {
-        viewModel.scheduleExtrasSummary.isEmpty ? "Adjust when useful" : viewModel.scheduleExtrasSummary
+        viewModel.scheduleExtrasSummary
     }
 
     private var planSummary: String {
-        [scheduleSummary, viewModel.reminderTime == nil ? nil : "Reminder"].compactMap { $0 }.joined(separator: " · ")
+        [scheduleSummary, viewModel.reminderTime == nil ? nil : String(localized: "Reminder")].compactMap { $0 }.joined(separator: " · ")
     }
 
     private var notesSummary: String {
         let trimmed = viewModel.taskDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Add context only when it helps." : "Notes added"
+        return trimmed.isEmpty ? String(localized: "No notes") : String(localized: "Notes added")
     }
 
     private var contextSummary: String {
         var parts: [String] = []
         if viewModel.contextSummary != "Extra context is hidden" { parts.append(viewModel.contextSummary) }
-        return parts.isEmpty ? "Reflections and project context." : parts.joined(separator: " · ")
+        return parts.isEmpty ? String(localized: "None yet") : parts.joined(separator: " · ")
     }
 
     private var showsLinksDisclosure: Bool {
@@ -956,7 +810,7 @@ struct TaskDetailScreen: View {
 
     private var taskFitWindowSummary: String? {
         guard let start = viewModel.taskFitHint.freeWindowStart, let end = viewModel.taskFitHint.freeWindowEnd else { return nil }
-        return "Largest window: \(start.formatted(date: .omitted, time: .shortened)) - \(end.formatted(date: .omitted, time: .shortened))"
+        return String(localized: "Longest free time: \(start.formatted(date: .omitted, time: .shortened))–\(end.formatted(date: .omitted, time: .shortened))")
     }
 
     private func taskFitStyle(for classification: TaskFitClassification) -> (symbol: String, tint: Color, fill: Color, stroke: Color) {
@@ -1000,7 +854,7 @@ struct TaskDetailScreen: View {
     }
 
     private func promptDeleteTask() {
-        HapticFeedback.warning()
+        Haptic.decline.play()
         if viewModel.persistedTask.recurrenceSeriesID != nil {
             showDeleteScopeDialog = true
         } else {
@@ -1013,7 +867,7 @@ struct TaskDetailScreen: View {
             Task { @MainActor in
                 switch result {
                 case .success:
-                    HapticFeedback.success()
+                    Haptic.commit.play()
                     dismiss()
                 case .failure(let error):
                     viewModel.autosaveState = .failed(error.localizedDescription)
@@ -1084,11 +938,13 @@ private struct TaskDetailHeroMetricRow: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .monospacedDigit()
                 .contentTransition(.numericText())
-            Text(detail)
-                .font(.lifeboard(.caption1))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
+            if detail.isEmpty == false {
+                Text(detail)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
         .padding(.horizontal, spacing.s8)

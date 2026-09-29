@@ -256,7 +256,7 @@ struct MoonAnimationView: View {
             }
         }
         .frame(width: 88, height: 88)
-        .animation(LifeBoardAnimation.celebration, value: isDone)
+        .lifeBoardMotion(.celebration, value: isDone)
     }
 }
 

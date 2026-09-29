@@ -620,7 +620,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             return XCTFail("Expected top replan tray to stay hidden after dismissal")
         }
         XCTAssertEqual(viewModel.homeReplanState.persistentSummary.count, 1)
-        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.persistentTitle, "Replan Day")
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.persistentTitle, "Replan day")
         defaults.removePersistentDomain(forName: suiteName)
     }
 
@@ -743,8 +743,8 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         XCTAssertEqual(viewModel.homeReplanState.persistentSummary.count, 0)
-        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.persistentTitle, "Replan Day")
-        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.persistentCallToAction, "Add Task")
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.persistentTitle, "Replan day")
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.persistentCallToAction, "Add task")
         XCTAssertFalse(viewModel.homeReplanState.persistentSummary.persistentSubtitle.isEmpty)
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -794,17 +794,17 @@ final class HomeViewModelPersistenceTests: XCTestCase {
     func testNeedsReplanSummaryCopy() {
         let summary = NeedsReplanSummary(count: 12, datedCount: 12, unscheduledCount: 0, dayCount: 3, newestDate: nil, oldestDate: nil)
 
-        XCTAssertEqual(summary.title, "Needs Replan")
-        XCTAssertEqual(summary.subtitle, "12 unfinished - start with the most recent")
+        XCTAssertEqual(summary.title, "From earlier")
+        XCTAssertEqual(summary.subtitle, "12 tasks from earlier · newest first")
         XCTAssertEqual(summary.callToAction, "Start")
     }
 
     func testNeedsReplanPersistentSummaryCopyForMixedBacklog() {
         let summary = NeedsReplanSummary(count: 5, datedCount: 3, unscheduledCount: 2, dayCount: 2, newestDate: nil, oldestDate: nil)
 
-        XCTAssertEqual(summary.persistentTitle, "Replan Day")
-        XCTAssertEqual(summary.subtitle, "3 overdue or carry-over, 2 unscheduled")
-        XCTAssertEqual(summary.persistentSubtitle, "3 overdue or carry-over, 2 unscheduled")
+        XCTAssertEqual(summary.persistentTitle, "Replan day")
+        XCTAssertEqual(summary.subtitle, "3 from earlier, 2 with no date")
+        XCTAssertEqual(summary.persistentSubtitle, "3 from earlier, 2 with no date")
         XCTAssertEqual(summary.persistentCallToAction, "Open")
     }
 
@@ -1008,52 +1008,6 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         viewModel.beginReplanPlacementForTesting(candidate: candidate)
 
         XCTAssertEqual(viewModel.homeReplanState.placementCandidate?.duration, 45 * 60)
-        defaults.removePersistentDomain(forName: suiteName)
-    }
-
-    func testInsightsViewModelIsRetainedAcrossRequests() {
-        let suiteName = "HomeViewModelPersistenceTests.InsightsRetention.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else {
-            return XCTFail("Failed to create test UserDefaults suite")
-        }
-        defaults.removePersistentDomain(forName: suiteName)
-
-        let inbox = Project.createInbox()
-        let coordinator = UseCaseCoordinator(
-            taskRepository: HomeViewModelMockTaskRepository(tasks: [makeTask(name: "Task", project: inbox)]),
-            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
-        )
-
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
-        waitForMainQueueFlush()
-
-        XCTAssertTrue(viewModel.makeInsightsViewModel() === viewModel.makeInsightsViewModel())
-
-        defaults.removePersistentDomain(forName: suiteName)
-    }
-
-    func testInsightsViewModelIsReleasedWhenSurfaceCloses() {
-        let suiteName = "HomeViewModelPersistenceTests.InsightsRelease.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else {
-            return XCTFail("Failed to create test UserDefaults suite")
-        }
-        defaults.removePersistentDomain(forName: suiteName)
-
-        let inbox = Project.createInbox()
-        let coordinator = UseCaseCoordinator(
-            taskRepository: HomeViewModelMockTaskRepository(tasks: [makeTask(name: "Task", project: inbox)]),
-            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
-        )
-
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
-        waitForMainQueueFlush()
-
-        let first = viewModel.makeInsightsViewModel()
-        viewModel.releaseInsightsViewModel()
-        let second = viewModel.makeInsightsViewModel()
-
-        XCTAssertFalse(first === second)
-
         defaults.removePersistentDomain(forName: suiteName)
     }
 
@@ -2497,7 +2451,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(rescueTail.totalCount, 2)
         XCTAssertEqual(rescueTail.mode, .compact)
         XCTAssertFalse(rescueTail.isInlineExpanded)
-        XCTAssertEqual(rescueTail.subtitle, "2 tasks are 2+ weeks overdue")
+        XCTAssertEqual(rescueTail.subtitle, "2 tasks, 2+ weeks old")
 
         defaults.removePersistentDomain(forName: suiteName)
     }

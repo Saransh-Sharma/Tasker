@@ -11,7 +11,7 @@ struct HomeMiniMomentumProgressBar: View {
             .tint(Color.lifeboard.accentPrimary)
             .scaleEffect(x: 1, y: 0.8, anchor: .center)
             .animation(
-                animate ? .easeOut(duration: 0.22) : .linear(duration: 0.01),
+                animate ? MotionProfile.threadAdvance.animation(reduceMotion: false) : nil,
                 value: progress
             )
     }

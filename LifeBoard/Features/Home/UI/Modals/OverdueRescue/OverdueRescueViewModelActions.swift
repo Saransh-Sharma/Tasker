@@ -41,9 +41,9 @@ extension OverdueRescueViewModel {
 
     var keepActionAccessibilityHint: String {
         if launchContext.synchronizesKeptTasksWithPlan {
-            return "Places this task in Planned Work for the selected day and moves to the next card."
+            return String(localized: "Plans the task for that day")
         }
-        return "Keeps this task on today’s board and moves to the next card."
+        return String(localized: "Keeps the task on today")
     }
 
     var keepTargetDate: Date {
@@ -95,7 +95,7 @@ extension OverdueRescueViewModel {
     func requestEdit() {
         guard state == .active, currentCard != nil else { return }
         transition(to: .editing)
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     func cancelEdit() {
@@ -278,8 +278,8 @@ extension OverdueRescueViewModel {
                             switch undoResult {
                             case .success:
                                 self.errorMessage = planningError.localizedDescription
-                            case .failure(let undoError):
-                                self.errorMessage = "\(planningError.localizedDescription) The safe-fix rollback also failed: \(undoError.localizedDescription)"
+                            case .failure:
+                                self.errorMessage = String(localized: "Couldn’t undo the fixes.")
                             }
                             _ = self.transition(to: .error)
                         }
@@ -313,12 +313,17 @@ extension OverdueRescueViewModel {
         sprintResolvedCount = min(sprintTotal, sprintResolvedCount + fixes.count)
         cards.removeAll { fixedIDs.contains($0.id) }
         currentIndex = min(currentIndex, max(0, cards.count - 1))
-        snackbar = SnackbarData(message: "Applied \(fixes.count) safe fixes", actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
+        snackbar = SnackbarData(
+            message: fixes.count == 1 ? "Applied 1 suggested fix" : "Applied \(fixes.count) suggested fixes",
+            actions: [SnackbarAction(title: "Undo") { self.undoLast() }]
+        )
         showSafeFixesConfirmation = false
         _ = transition(to: cards.isEmpty ? .completed : .active)
-        HapticFeedback.success()
+        Haptic.commit.play()
     }
+}
 
+extension OverdueRescueViewModel {
     func undoLast() {
         guard let record = undoRecords.last else { return }
         if record.source == .bulk, let runID = record.runID {
@@ -335,7 +340,7 @@ extension OverdueRescueViewModel {
                                 switch result {
                                 case .success:
                                     self?.undoRecords.removeAll { $0.runID == runID }
-                                    self?.snackbar = SnackbarData(message: "Safe fixes undone")
+                                    self?.snackbar = SnackbarData(message: String(localized: "Fixes undone"))
                                     self?.restoreUndoRecords(relatedRecords)
                                     _ = self?.transition(to: .active)
                                 case .failure(let error):
@@ -358,7 +363,7 @@ extension OverdueRescueViewModel {
                         self?.undoRecords.removeAll { $0.id == record.id }
                         self?.restoreUndoRecords([record])
                         _ = self?.transition(to: .active)
-                        self?.snackbar = SnackbarData(message: "Delete undone")
+                        self?.snackbar = SnackbarData(message: String(localized: "Task restored"))
                     case .failure(let error):
                         self?.errorMessage = error.localizedDescription
                     }
@@ -475,7 +480,7 @@ extension OverdueRescueViewModel {
         }
         snackbar = SnackbarData(message: message, actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
         advance()
-        HapticFeedback.success()
+        Haptic.commit.play()
     }
 
     func rollbackTaskUpdate(_ task: TaskDefinition, afterPlanningFailure planningError: Error) {
@@ -486,8 +491,8 @@ extension OverdueRescueViewModel {
                 switch rollbackResult {
                 case .success:
                     self.errorMessage = planningError.localizedDescription
-                case .failure(let rollbackError):
-                    self.errorMessage = "\(planningError.localizedDescription) The task rollback also failed: \(rollbackError.localizedDescription)"
+                case .failure:
+                    self.errorMessage = String(localized: "Couldn’t undo the change.")
                 }
                 _ = self.transition(to: .error)
             }
@@ -553,7 +558,7 @@ extension OverdueRescueViewModel {
                     self.summary.deleted += 1
                     self.snackbar = SnackbarData(message: "Deleted", actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
                     self.advance()
-                    HapticFeedback.success()
+                    Haptic.commit.play()
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                     _ = self.transition(to: .error)

@@ -2,11 +2,11 @@ import SwiftUI
 
 struct KeyboardShortcutsCard: View {
     private let shortcuts: [(key: String, action: String)] = [
-        ("⌘N", "New Task"),
-        ("⌘F", "Search"),
-        ("⌘1", "Tasks"),
-        ("⌘2", "Analytics"),
-        ("⌘,", "Settings"),
+        ("⌘N", String(localized: "New task")),
+        ("⌘F", String(localized: "Search")),
+        ("⌘1", String(localized: "Tasks")),
+        ("⌘2", String(localized: "Insights")),
+        ("⌘,", String(localized: "Settings")),
     ]
 
     var body: some View {

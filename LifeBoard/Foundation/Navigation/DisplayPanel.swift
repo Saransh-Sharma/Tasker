@@ -17,7 +17,6 @@ import VisionKit
 /// backed by `@AppStorage` on the shell and both it and `mode` write inside a
 /// `cardReflow` animation, which is what makes Home reflow rather than snap.
 struct DisplayPanel: View {
-    @Binding var mode: DashboardMode
     @Binding var density: DashboardDensity
     @Binding var daypart: DaypartSelection
     /// Passed in, never read from preferences: `resolvedDaypart(at:)` lapses
@@ -33,11 +32,7 @@ struct DisplayPanel: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
-
-    private let columns = [
-        GridItem(.flexible(), spacing: 8),
-        GridItem(.flexible(), spacing: 8)
-    ]
+    @Environment(\.lifeBoardMotionContext) private var motionContext
 
     var body: some View {
         VStack(alignment: .leading, spacing: SwiftUITokens.spacing.sectionGap) {
@@ -45,7 +40,6 @@ struct DisplayPanel: View {
                 .font(Typography.sectionTitle())
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
 
-            modeSection
             densitySection
             atmosphereSection
 
@@ -82,71 +76,15 @@ struct DisplayPanel: View {
             // the drag indicator and the home indicator inset, nothing more.
             onMeasure(height + 24)
         }
+        // Without `.contain` the panel's identifier stamps every child, and
+        // the atmosphere slider loses `foundation.atmosphere.slider`.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("foundation.display.panel")
     }
 
-    // MARK: Mode
-
-    /// A grid, not a `LensPicker`: four segments in one row truncate
-    /// "Low Energy" to an ellipsis, and each mode's `summary` is worth showing
-    /// — these are intents, not lenses, and the names alone do not say what
-    /// Smart or Low Energy will actually do to the screen.
-    private var modeSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("Mode")
-            LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(DashboardMode.allCases, id: \.self) { candidate in
-                    modeTile(candidate)
-                }
-            }
-            Text(mode.summary)
-                .font(.lifeboard(.caption1))
-                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityHidden(true)
-        }
-    }
-
-    private func modeTile(_ candidate: DashboardMode) -> some View {
-        let selected = candidate == mode
-        return Button {
-            guard selected == false else { return }
-            Haptic.pick.play(policy: motionPolicy)
-            mode = candidate
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: candidate.systemImage)
-                    .lifeboardFont(.headline)
-                Text(candidate.title)
-                    // Weight carries selection alongside the fill, so the state
-                    // survives Differentiate Without Colour.
-                    .font(.lifeboard(selected ? .bodyStrong : .body))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(
-                Color(selected ? SemanticColorTokens.inkPrimary : SemanticColorTokens.inkSecondary)
-            )
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: Radius.compact, style: .continuous)
-                    .fill(
-                        Color(
-                            selected
-                                ? SemanticColorTokens.foundationSurfaceSelected
-                                : SemanticColorTokens.foundationSurfaceRecessed
-                        )
-                    )
-            }
-            .contentShape(RoundedRectangle(cornerRadius: Radius.compact, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("home.display.mode.\(candidate.rawValue)")
-        .accessibilityLabel(Text("\(candidate.title). \(candidate.summary)"))
-        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-    }
+    // Mode is not here. It rides Home's date line (`HomeModeMenu`), where the
+    // day is named; a second control for the same choice in this panel meant
+    // two places to look and two places to disagree.
 
     // MARK: Density
 
@@ -188,7 +126,8 @@ struct DisplayPanel: View {
         MotionPolicy.resolve(
             reduceMotion: reduceMotion,
             reduceTransparency: reduceTransparency,
-            sceneIsActive: scenePhase == .active
+            sceneIsActive: scenePhase == .active,
+            comfortProfile: motionContext.comfortProfile
         )
     }
 }

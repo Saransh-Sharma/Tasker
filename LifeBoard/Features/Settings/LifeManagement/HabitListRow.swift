@@ -47,7 +47,7 @@ struct HabitListRow: View {
     }
 
     var habitSubtitle: String {
-        var parts: [String] = [row.row.kind == .positive ? "Build" : "Quit"]
+        var parts: [String] = [row.row.kind == .positive ? String(localized: "Build") : String(localized: "Quit")]
         parts.append(lifeManagementHabitStatusText(row.row))
         return parts.joined(separator: " · ")
     }

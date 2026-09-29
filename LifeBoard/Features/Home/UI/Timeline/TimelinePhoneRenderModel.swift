@@ -85,7 +85,7 @@ struct TimelineFlockModel: Equatable, Identifiable {
                 Row(
                     id: "\(block.id):summary",
                     item: nil,
-                    title: "View all \(sortedItems.count) items",
+                    title: String(localized: "View all \(sortedItems.count)"),
                     timeText: "",
                     isActiveNow: false,
                     isCompleted: false,

@@ -92,10 +92,10 @@ public enum TrackCorrectionReceiptFailure: LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .mismatchedPayload: "The correction does not preserve the source record."
-        case .staleReceipt: "A newer correction exists. Undo the most recent change first."
-        case .unsupportedSchema: "The correction history uses an unsupported format."
-        case .unableToPersist: "The correction could not be saved with protected recovery history."
+        case .mismatchedPayload: String(localized: "Couldn’t save correction.")
+        case .staleReceipt: String(localized: "Undo the newest change first.")
+        case .unsupportedSchema: String(localized: "Couldn’t read correction history.")
+        case .unableToPersist: String(localized: "Couldn’t save correction.")
         }
     }
 }
@@ -964,19 +964,6 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
         return .init(
             id: id, amount: (object.value(forKey: "amount") as? NSNumber)?.doubleValue ?? 0,
             unit: unit, updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
-        )
-    }
-
-    private static func sleepContext(_ object: NSManagedObject) -> SleepContextRecord? {
-        guard let id = object.value(forKey: "id") as? UUID,
-              let bedtime = object.value(forKey: "bedtime") as? Date,
-              let wakeTime = object.value(forKey: "wakeTime") as? Date else { return nil }
-        return .init(
-            id: id, bedtime: bedtime, wakeTime: wakeTime,
-            perceivedRest: (object.value(forKey: "perceivedRest") as? NSNumber)?.intValue,
-            interruptionCount: (object.value(forKey: "interruptionCount") as? NSNumber)?.intValue ?? 0,
-            notes: object.value(forKey: "notes") as? String,
-            createdAt: object.value(forKey: "createdAt") as? Date ?? bedtime
         )
     }
 

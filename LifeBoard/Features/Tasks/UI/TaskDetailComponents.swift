@@ -18,19 +18,19 @@ struct PriorityPillSelector: View {
         HStack(spacing: Theme.Spacing.sm) {
             PriorityPill(label: "None", color: Color.lifeboard.priorityNone, isSelected: selectedPriority == 1) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 1 }
-                HapticFeedback.selection()
+                Haptic.pick.play()
             }
             PriorityPill(label: "Low", color: Color.lifeboard.priorityLow, isSelected: selectedPriority == 2) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 2 }
-                HapticFeedback.selection()
+                Haptic.pick.play()
             }
             PriorityPill(label: "High", color: Color.lifeboard.priorityHigh, isSelected: selectedPriority == 3) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 3 }
-                HapticFeedback.selection()
+                Haptic.pick.play()
             }
             PriorityPill(label: "Max", color: Color.lifeboard.priorityMax, isSelected: selectedPriority == 4) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 4 }
-                HapticFeedback.selection()
+                Haptic.pick.play()
             }
         }
     }
@@ -410,15 +410,15 @@ struct TypeChipSelector: View {
         HStack(spacing: Theme.Spacing.sm) {
             Chip(title: "Morning", isSelected: selectedType == 1, selectedStyle: .tinted) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedType = 1 }
-                HapticFeedback.selection()
+                Haptic.pick.play()
             }
             Chip(title: "Evening", isSelected: selectedType == 2, selectedStyle: .tinted) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedType = 2 }
-                HapticFeedback.selection()
+                Haptic.pick.play()
             }
             Chip(title: "Upcoming", isSelected: selectedType == 3, selectedStyle: .tinted) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedType = 3 }
-                HapticFeedback.selection()
+                Haptic.pick.play()
             }
         }
     }

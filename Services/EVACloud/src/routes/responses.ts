@@ -12,7 +12,7 @@ import type { Responses } from 'openai/resources/responses/responses'
 import type { AppVariables, Env, SessionPrincipal } from '../environment.js'
 import { requireSession } from '../auth/middleware.js'
 import { issueSpeechTicket } from '../auth/speech-ticket.js'
-import { verifyRequestAttestation } from '../attestation/app-attest.js'
+import { enforceRequestTrust } from '../attestation/app-attest.js'
 import { accountStub, authorizeAccount } from '../durable-objects/account-client.js'
 import { durableJson } from '../durable-objects/helpers.js'
 import { readJson } from '../http/body.js'
@@ -29,7 +29,7 @@ import {
 import { openAIClient } from '../openai/client.js'
 import { modelInput, structuredTextFormat } from '../openai/prompts.js'
 import { moderateText, supportiveSafetyResponse } from '../safety/moderation.js'
-import { requiresAgeDecision, runtimeConfig, type EvaRoutePolicy, type EvaRuntimeConfig } from '../config/runtime-config.js'
+import { runtimeConfig, type EvaRoutePolicy, type EvaRuntimeConfig } from '../config/runtime-config.js'
 import { sha256 } from '../security/crypto.js'
 import { recordTelemetry } from '../telemetry/events.js'
 
@@ -41,15 +41,13 @@ responseRoutes.use('*', requireSession)
 responseRoutes.post('/responses', async (context) => {
   const startedAt = Date.now()
   const principal = context.get('principal')
-  if (principal.platform === 'ios' && context.req.header('X-EVA-Attest-Assertion')) {
-    await verifyRequestAttestation(context.env, principal, context.req.raw)
-  }
   const request = await readJson<EvaInferenceRequestV1>(context.req.raw, EvaInferenceRequestSchema)
   validatePrincipal(request, principal)
   const payloadError = contextPayloadError(request.contractVersion, request.context, request.turnContext)
   if (payloadError) throw new EvaHttpError(400, 'schema_invalid', payloadError)
 
   const config = await runtimeConfig(context.env)
+  await enforceRequestTrust(context.env, principal, context.req.raw, config.trustPolicy)
   if (config.cloudState === 'disabled') {
     throw new EvaHttpError(503, 'configuration_unavailable', 'Cloud EVA is temporarily unavailable.', {
       recoveryAction: 'tryOffline',
@@ -77,9 +75,7 @@ responseRoutes.post('/responses', async (context) => {
       method: 'POST', body: JSON.stringify(config.usagePolicy),
     })
   }
-  const authorization = await authorizeAccount(context.env, principal, {
-    requireAdult: requiresAgeDecision(config),
-  })
+  const authorization = await authorizeAccount(context.env, principal, config.trustPolicy)
   if (!authorization.authorized) throw authorizationError(authorization.reason)
   if (!authorization.consent || authorization.consent.revision !== request.consentRevision) {
     throw new EvaHttpError(409, 'consent_revision_conflict', 'Cloud context consent changed. Review it and try again.', {

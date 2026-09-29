@@ -43,12 +43,12 @@ extension MessageView {
 
     var time: String {
         if isThinking, runtimeRunning, let elapsedTime = runtimeElapsedTime {
-            return "(\(elapsedTime.formatted))"
+            return elapsedTime.formatted
         }
         if let generatingTime = renderModel.generatingTime {
             return generatingTime.formatted
         }
-        return "0s"
+        return String(localized: "0 sec")
     }
 
     var messageMaxWidth: CGFloat {
@@ -89,20 +89,16 @@ extension MessageView {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-            .accessibilityLabel(collapsed ? "Show Eva's thinking" : "Hide Eva's thinking")
+            .accessibilityLabel(collapsed ? "Show \(AssistantIdentitySnapshot.current.displayName)’s thinking" : "Hide \(AssistantIdentitySnapshot.current.displayName)’s thinking")
 
-            Text("\(isThinking ? "thinking..." : "thought for") \(time)")
+            Text(isThinking ? "Thinking… \(time)" : "Thought for \(time)")
                 .lifeboardFont(.caption1)
                 .italic()
                 .foregroundStyle(Color.lifeboard(.textTertiary))
         }
         .padding(.horizontal, Theme.Spacing.md)
         .padding(.vertical, Theme.Spacing.xs)
-        .lifeboardChromeSurface(
-            cornerRadius: 16,
-            accentColor: Color.lifeboard(.accentSecondary),
-            level: .e1
-        )
+        .lifeBoardClaySurface(.resting, cornerRadius: Radius.row)
         .buttonStyle(.borderless)
     }
 
@@ -177,7 +173,7 @@ extension MessageView {
                                 showsContextReceipt = true
                                 Task { await ProductTelemetry.shared.record(.contextReceiptOpened) }
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.lifeBoardChip)
                             .accessibilityIdentifier("eva.contextReceipt.open")
                         }
                         inlineMemoryCandidate
@@ -199,6 +195,9 @@ extension MessageView {
                     Button("Copy", systemImage: "doc.on.doc") {
                         UIPasteboard.general.string = answer
                         Haptic.pick.play()
+                    }
+                    ShareLink(item: answer) {
+                        Label("Share", systemImage: "square.and.arrow.up")
                     }
                 }
             }
@@ -229,7 +228,7 @@ extension MessageView {
                         case .failed:
                             Button("Try again", systemImage: "arrow.clockwise") { spokenOutput.play(text: text) }
                             if spokenOutput.requiresPaidRegeneration {
-                                Button("Regenerate · 1 credit") { paidSpeechRegenerationText = text }
+                                Button("Regenerate") { paidSpeechRegenerationText = text }
                             }
                         case .idle:
                             Button("Speak", systemImage: "speaker.wave.2.fill") { spokenOutput.play(text: text) }
@@ -238,7 +237,7 @@ extension MessageView {
                         Button("Speak", systemImage: "speaker.wave.2.fill") { spokenOutput.play(text: text) }
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
                 .controlSize(.small)
 
                 Text(spokenOutput.disclosure)
@@ -274,6 +273,21 @@ extension MessageView {
             .lifeBoardClaySurface(.resting, fill: Color.lifeboard(.surfaceSecondary))
             .frame(maxWidth: messageMaxWidth, alignment: .trailing)
             .padding(.leading, oppositeSideInset)
+            .contextMenu {
+                Button("Copy", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.string = renderModel.originalContent
+                    Haptic.pick.play()
+                }
+                if let onEditResend, isLiveOutput == false {
+                    Button("Edit and resend", systemImage: "pencil.line") {
+                        onEditResend(renderModel.id)
+                    }
+                }
+            }
+            .accessibilityAction(named: Text("Edit and resend")) {
+                onEditResend?(renderModel.id)
+            }
+            .accessibilityIdentifier("eva.message.user.\(renderModel.id.uuidString)")
     }
 
     /// Renders assistant prose.
@@ -312,7 +326,7 @@ extension MessageView {
         let citations = authorizedLifeEvidence.citations(in: text)
         if citations.isEmpty == false {
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                Text("Evidence")
+                Text("Sources")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textTertiary))
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -326,10 +340,10 @@ extension MessageView {
                                     .lineLimit(1)
                                     .frame(minHeight: 32)
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.lifeBoardChip)
                             .controlSize(.small)
-                            .accessibilityLabel("Evidence: \(citation.label)")
-                            .accessibilityHint("Opens the recorded LifeBoard source")
+                            .accessibilityLabel("Source: \(citation.label)")
+                            .accessibilityHint("Opens the source")
                         }
                     }
                 }
@@ -343,7 +357,7 @@ extension MessageView {
             // Chat history can outlive an app version. A newer card therefore
             // degrades to its human-readable message instead of exposing the
             // persisted wire marker and JSON as a chat bubble.
-            Text(payload.message ?? "This card was created by a newer version of LifeBoard.")
+            Text(payload.message ?? String(localized: "Update LifeBoard to view this."))
                 .font(.lifeboard(.body))
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -363,20 +377,20 @@ extension MessageView {
                         size: .chip
                     )
 
-                    Text(payload.cardType == .undo ? "Changes applied" : "\(AssistantIdentityText.currentSnapshot().displayName)'s Plan")
+                    Text(payload.cardType == .undo ? "Changes applied" : "Suggested changes")
                         .font(.lifeboard(.headline))
                         .foregroundStyle(Color.lifeboard(.textPrimary))
 
                     Spacer()
                     if payload.cardType == .proposal {
-                        Text("Affects \(payload.affectedTaskCount) tasks")
+                        Text("^[\(payload.affectedTaskCount) task](inflect: true)")
                             .font(.lifeboard(.caption1))
                             .foregroundStyle(Color.lifeboard(.textTertiary))
                     }
                 }
 
                 if let rationale = payload.rationale, !rationale.isEmpty {
-                    Text("Rationale: \"\(rationale)\"")
+                    Text(rationale)
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
@@ -401,7 +415,7 @@ extension MessageView {
                             Label(reference.title, systemImage: "arrow.up.forward.app")
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                     }
                 }
 
@@ -426,7 +440,7 @@ extension MessageView {
                     // that did nothing. The status line is the honest surface;
                     // structured proposals get the real review card.
                     if payload.runID == nil {
-                        Text("This suggestion can't be applied. Ask Eva again to get a fresh one.")
+                        Text("Couldn’t apply this. Ask \(AssistantIdentityText.currentSnapshot().displayName) again.")
                             .font(.lifeboard(.caption1))
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                     } else {
@@ -446,7 +460,7 @@ extension MessageView {
     @ViewBuilder
     private func navigationCardView(_ navigation: EvaNavigationCardPayload) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Label("Open in LifeBoard", systemImage: "arrow.up.forward.app")
+            Label("Go to", systemImage: "arrow.up.forward.app")
                 .font(.lifeboard(.headline))
                 .foregroundStyle(Color.lifeboard(.textPrimary))
             Text(navigation.message)
@@ -478,7 +492,7 @@ extension MessageView {
                                 .foregroundStyle(Color.lifeboard(.textTertiary))
                         }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                 }
             }
         }

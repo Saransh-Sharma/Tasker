@@ -23,7 +23,7 @@ struct EvaModelChoiceView: View {
     }
 
     private var primaryCTA: String {
-        resolvedSelection == smarterModel.name ? "Install Smarter" : "Install Fast"
+        String(localized: "Download model")
     }
 
     var body: some View {
@@ -31,7 +31,7 @@ struct EvaModelChoiceView: View {
             footer: {
                 EvaFooterButtons(
                     primaryTitle: primaryCTA,
-                    secondaryTitle: "Back",
+                    secondaryTitle: String(localized: "Back"),
                     isPrimaryDisabled: false,
                     onPrimary: {
                         onSelect(resolvedSelection)
@@ -43,8 +43,8 @@ struct EvaModelChoiceView: View {
         ) {
             VStack(alignment: .leading, spacing: spacing.sectionGap) {
                 EvaContentHeader(
-                    title: "Choose how \(assistantIdentity.snapshot.displayName) works",
-                    bodyText: "Pick a default mode for your private assistant. You can change this later in Models."
+                    title: String(localized: "Choose a model"),
+                    bodyText: String(localized: "Runs on \(DeviceNoun.this). Change it anytime in Settings.")
                 )
                 .enhancedStaggeredAppearance(index: 0)
 
@@ -63,7 +63,7 @@ struct EvaModelChoiceView: View {
                 }
                 .enhancedStaggeredAppearance(index: 1)
 
-                Text("Other models stay available later in Settings.")
+                Text("More models are in Settings.")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .enhancedStaggeredAppearance(index: 2)
@@ -79,11 +79,11 @@ struct EvaModelChoiceView: View {
 
     private var fastCard: some View {
         EvaModeCard(
-            badge: "Recommended",
-            title: "Fast",
-            descriptionText: "Quickest startup. Best for daily planning, task triage, and fast help.",
+            badge: String(localized: "Recommended"),
+            title: String(localized: "Fast"),
+            descriptionText: String(localized: "Quick answers for daily planning and triage."),
             meta: "Qwen3 0.6B 4bit",
-            note: "Best default for most people.",
+            note: String(localized: "Best for most people."),
             isSelected: resolvedSelection == fastModel.name,
             accessibilityID: "eva.activation.mode.fast",
             action: { onSelect(fastModel.name) }
@@ -92,11 +92,11 @@ struct EvaModelChoiceView: View {
 
     private var smarterCard: some View {
         EvaModeCard(
-            badge: "Deeper planning",
-            title: "Smarter",
-            descriptionText: "More thoughtful answers for deeper planning, tradeoffs, and complex prioritization.",
+            badge: String(localized: "Deeper planning"),
+            title: String(localized: "Smarter"),
+            descriptionText: String(localized: "Better at tradeoffs and complex planning."),
             meta: "Qwen3.5 0.8B OptiQ 4bit",
-            note: "Uses slightly more memory.",
+            note: String(localized: "Uses more memory."),
             isSelected: resolvedSelection == smarterModel.name,
             accessibilityID: "eva.activation.mode.smarter",
             action: { onSelect(smarterModel.name) }

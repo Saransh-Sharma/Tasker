@@ -43,21 +43,21 @@ public struct UrgencyBadge: View {
         case .overdue:
             badgeContent(
                 icon: "lifepreserver",
-                text: "Rescue",
+                text: String(localized: "From earlier"),
                 backgroundColor: ClayColorTokens.role(.warning).softSurface,
                 foregroundColor: ClayColorTokens.role(.warning).deep
             )
         case .dueSoon:
             badgeContent(
                 icon: "clock.fill",
-                text: "Due soon",
+                text: String(localized: "Due soon"),
                 backgroundColor: Color.lifeboard.statusWarning.opacity(0.15),
                 foregroundColor: Color.lifeboard.statusWarning
             )
         case .today:
             badgeContent(
                 icon: "checkmark.circle.fill",
-                text: "Today",
+                text: String(localized: "Today"),
                 backgroundColor: Color.lifeboard.statusSuccess.opacity(0.12),
                 foregroundColor: Color.lifeboard.statusSuccess
             )

@@ -45,6 +45,17 @@ public enum PlanningContext: String, Codable, CaseIterable, Sendable {
     case personal
 }
 
+public extension PlanningContext {
+    /// What a person reads; the raw value is a storage key.
+    var displayName: String {
+        switch self {
+        case .neutral: String(localized: "Any context")
+        case .work: String(localized: "Work")
+        case .personal: String(localized: "Personal")
+        }
+    }
+}
+
 public enum TaskCommitmentLevel: String, Codable, CaseIterable, Sendable {
     case standard
     case mustDo
@@ -54,6 +65,16 @@ public enum TaskAvailability: String, Codable, CaseIterable, Sendable {
     case actionable
     case waiting
     case paused
+}
+
+public extension TaskAvailability {
+    var displayName: String {
+        switch self {
+        case .actionable: String(localized: "Ready")
+        case .waiting: String(localized: "Waiting")
+        case .paused: String(localized: "Paused")
+        }
+    }
 }
 
 public enum ProjectExecutionMode: String, Codable, CaseIterable, Sendable {
@@ -876,15 +897,15 @@ public enum FocusSessionCommandError: LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .alreadyActive:
-            "A focus session is already active."
+            String(localized: "A focus session is already running.")
         case .sessionNotFound:
-            "That focus session could not be found."
+            String(localized: "Couldn’t find that focus session.")
         case .sessionAlreadyEnded:
-            "That focus session has already ended."
+            String(localized: "That focus session already ended.")
         case .notPomodoro:
-            "This focus session is not using a Pomodoro rhythm."
+            String(localized: "This session isn’t a Pomodoro.")
         case .pomodoroComplete:
-            "Every Pomodoro round is complete."
+            String(localized: "All Pomodoro rounds are done.")
         }
     }
 }
@@ -1030,12 +1051,17 @@ public struct PlanningScenarioDiff: Codable, Hashable, Identifiable, Sendable {
     public var title: String
     public var before: String?
     public var after: String?
+    /// What the receipt says once this change is applied, in the past tense
+    /// ("Moved 'Draft the brief' to later today"). `nil` where a host's generic
+    /// wording is enough. Optional, so stored scenarios without it still decode.
+    public var receipt: String?
 
-    public init(id: UUID = UUID(), title: String, before: String? = nil, after: String? = nil) {
+    public init(id: UUID = UUID(), title: String, before: String? = nil, after: String? = nil, receipt: String? = nil) {
         self.id = id
         self.title = title
         self.before = before
         self.after = after
+        self.receipt = receipt
     }
 }
 
@@ -1207,200 +1233,5 @@ public struct FocusCommandReceipt: Codable, Hashable, Identifiable, Sendable {
         self.resultingState = resultingState
         self.focusedDuration = max(0, focusedDuration)
         self.wasApplied = wasApplied
-    }
-}
-
-// MARK: - Repository and service contracts
-
-public protocol PlanningRepository: Sendable {
-    func fetchTaskMetadata(taskIDs: Set<UUID>?) async throws -> [PlanningTaskMetadata]
-    func saveTaskMetadata(_ value: PlanningTaskMetadata) async throws
-    func saveTaskMetadata(_ values: [PlanningTaskMetadata]) async throws
-}
-
-public struct PlanningHomeContextCandidateSource: HomeContextCandidateSource {
-    public let providerID = "planning"
-    /// Widened to include `PlanningMutationRepository` so the carry can be read
-    /// out of the close receipt. `CoreDataPlanningRepository` — the only
-    /// production conformer — already satisfies all four.
-    private let repository: any PlanningRepository & PlanningProjectionRepository & PlanningCalendarContextRepository & PlanningMutationRepository
-
-    public init(repository: any PlanningRepository & PlanningProjectionRepository & PlanningCalendarContextRepository & PlanningMutationRepository) {
-        self.repository = repository
-    }
-
-    public func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate] {
-        let now = context.date
-        let horizon = now.addingTimeInterval(24 * 60 * 60)
-        async let tasksResult = try? repository.fetchOpenPlanningTasks()
-        async let calendarResult = try? repository.fetchCommitments(from: now, to: horizon)
-        let tasks = await tasksResult ?? []
-        let calendar = await calendarResult
-        var result: [HomeContextCandidate] = []
-
-        if let next = calendar?.commitments
-            .filter({ $0.endAt > now && !$0.isAllDay })
-            .sorted(by: { $0.startAt < $1.startAt }).first {
-            result.append(.init(
-                id: "planning-commitment:\(next.id)",
-                widgetKind: .compactTimeline,
-                title: next.startAt <= now ? next.title : "Next: \(next.title)",
-                reason: .init(
-                    message: next.startAt <= now ? "This commitment is happening now." : "This is your next scheduled commitment.",
-                    signal: "calendar"
-                ),
-                destination: .plan,
-                priority: next.startAt <= now ? 520 : 420,
-                relevantFrom: now,
-                relevantUntil: next.endAt
-            ))
-        }
-
-        // What last night's close chose as today's first thing.
-        //
-        // Ranked above the next commitment because a deliberate choice made with
-        // a clear head outranks whatever merely happens to be next on a calendar.
-        // Resolved from the close receipt rather than from `pinOrder`, which an
-        // ordinary manual reorder in Plan also writes.
-        if let anchor = await carriedAnchor(tasks: tasks, now: now) {
-            result.append(.init(
-                id: "planning-carry:\(anchor.id.uuidString)",
-                widgetKind: .focusNow,
-                title: anchor.title,
-                reason: .init(
-                    message: "You chose this when you closed yesterday.",
-                    signal: "yesterday's close"
-                ),
-                destination: .plan,
-                priority: 560,
-                relevantFrom: now,
-                relevantUntil: Calendar.current.startOfDay(for: horizon)
-            ))
-        }
-
-        // Overdue counts a task whose *planned day* has passed as well as one
-        // past its deadline. A task put on Monday and never touched is exactly
-        // what the weekly workspace exists to rescue, and counting only
-        // `dueDate` made the commonest kind of backlog invisible on Home.
-        let startOfToday = Calendar.current.startOfDay(for: now)
-        let overdue = tasks.filter { task in
-            guard task.metadata.unscheduledDisposition != .deleted,
-                  task.metadata.availability == .actionable,
-                  task.scheduledEndAt == nil else { return false }
-            if let planned = task.metadata.planningDay?.startDate() {
-                return planned < startOfToday
-            }
-            guard let due = task.dueDate else { return false }
-            return due < now
-        }.count
-        if overdue > 0 {
-            result.append(.init(
-                id: "planning-overdue:\(startOfToday.timeIntervalSince1970)",
-                widgetKind: .tasks,
-                title: overdue == 1 ? "One task needs a gentle decision" : "\(overdue) tasks need a quick reset",
-                reason: .init(message: "A short review can keep old tasks from quietly weighing on today.", signal: "unfinished tasks"),
-                destination: .plan,
-                priority: 310,
-                relevantFrom: now,
-                // Lands on the workspace's overdue briefing rather than on
-                // Plan's Day lens: the card is about a backlog, so the first
-                // thing it opens should be the decision about that backlog.
-                route: .weeklyPlanningWorkspace(.overdue)
-            ))
-        }
-        return result
-    }
-
-    /// Yesterday's chosen first thing, if it is still open today.
-    ///
-    /// Returns `nil` the moment the task is finished — a carry that has been
-    /// done is not still the thing to start with, and leaving it on Home would
-    /// be the app failing to notice.
-    private func carriedAnchor(
-        tasks: [PlanningTaskSummary],
-        now: Date
-    ) async -> PlanningTaskSummary? {
-        let calendar = Calendar.current
-        guard let yesterdayDate = calendar.date(byAdding: .day, value: -1, to: now) else { return nil }
-        let today = PlanningDay(date: now)
-        let yesterday = PlanningDay(date: yesterdayDate)
-
-        let since = calendar.startOfDay(for: yesterdayDate)
-        guard let records = try? await repository.fetchMutationReceipts(since: since) else { return nil }
-        guard let anchorID = DayLoopLedger.anchorTaskID(
-            in: records,
-            closedOn: yesterday,
-            targetDay: today
-        ) else { return nil }
-
-        return tasks.first { $0.id == anchorID && $0.metadata.planningDay == today }
-    }
-}
-
-public protocol PlanningProjectionRepository: Sendable {
-    func fetchOpenPlanningTasks() async throws -> [PlanningTaskSummary]
-    func fetchPlanningTasks(includeCompleted: Bool) async throws -> [PlanningTaskSummary]
-    func fetchPlanningProjects() async throws -> [PlanningProjectSummary]
-}
-
-public extension PlanningProjectionRepository {
-    /// Compatibility default for projections that predate completed-task
-    /// queries. Production persistence overrides this so Completed and All are
-    /// backed by the same canonical rows as every other task scope.
-    func fetchPlanningTasks(includeCompleted: Bool) async throws -> [PlanningTaskSummary] {
-        try await fetchOpenPlanningTasks()
-    }
-}
-
-public protocol PlanningCalendarContextRepository: Sendable {
-    func authorization() async -> PlanningCalendarAuthorization
-    func requestAccess() async -> PlanningCalendarAuthorization
-    func fetchCommitments(from: Date, to: Date) async throws -> PlanningCalendarContext
-}
-
-public protocol PlanningMutationRepository: Sendable {
-    func prepare(_ mutation: PlanMutation, source: String, summary: String) async throws -> PlanMutationReceipt
-    func apply(receiptID: UUID) async throws
-    func undo(receiptID: UUID) async throws
-    func hasAppliedReceipt(source: String) async throws -> Bool
-    func appliedReceiptSources(in sources: Set<String>) async throws -> Set<String>
-    func fetchMutationReceipts(since: Date?) async throws -> [PlanningReceiptRecord]
-}
-
-public protocol FocusExecutionCoordinator: Sendable {
-    func activeSession() async throws -> FocusSessionV2?
-    func session(id: UUID) async throws -> FocusSessionV2?
-    func sessions(since: Date?) async throws -> [FocusSessionV2]
-    func commandReceipts(since: Date?) async throws -> [FocusCommandReceipt]
-    func start(taskID: UUID?, timeBlockID: UUID?, targetDuration: TimeInterval, at: Date) async throws -> FocusSessionV2
-    func handle(_ command: FocusSessionCommand) async throws -> FocusSessionV2
-    func updateReflection(sessionID: UUID, energyAfter: Int?, reflection: String?) async throws -> FocusSessionV2
-}
-
-public protocol InternalTimeBlockRepository: Sendable {
-    func fetchTimeBlocks(from: Date, to: Date) async throws -> [InternalTimeBlock]
-    func saveTimeBlock(_ value: InternalTimeBlock) async throws
-    func deleteTimeBlock(id: UUID) async throws
-    func fetchWorkingHoursProfiles() async throws -> [WorkingHoursProfile]
-    func saveWorkingHoursProfile(_ value: WorkingHoursProfile) async throws
-}
-
-public protocol FocusRankingService: Sendable {
-    func rank(_ candidates: [FocusRankCandidate], context: FocusRankContext) -> [FocusRankResult]
-}
-
-public protocol PlanRepairService: Sendable {
-    func proposals(for snapshot: PlanDaySnapshot, now: Date) -> [PlanRepairProposal]
-}
-
-public protocol PlanningScenarioCoordinating: Sendable {
-    func apply(_ scenario: PlanningScenario) async throws -> PlanMutationReceipt
-}
-
-public extension PlanningMutationRepository {
-    func appliedReceiptSources(in sources: Set<String>) async throws -> Set<String> {
-        var result: Set<String> = []
-        for source in sources where try await hasAppliedReceipt(source: source) { result.insert(source) }
-        return result
     }
 }

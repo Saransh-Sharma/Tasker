@@ -32,10 +32,9 @@
     "helperLimit": 100,
     "rollingWindowSeconds": 86400
   },
-  "agePolicy": {
-    "minimumAge": 13,
-    "unknownAgeAllowed": true,
-    "requiredRegionFailClosed": false
+  "trustPolicy": {
+    "attestationMode": "optionalRiskSignal",
+    "ageEligibilitySource": "distribution"
   },
   "creditPolicy": {
     "initial": 100,

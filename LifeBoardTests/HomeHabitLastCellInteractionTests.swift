@@ -7,7 +7,7 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
         let due = makeRow(kind: .positive, state: .due)
         XCTAssertEqual(
             HomeHabitLastCellInteraction.resolve(for: due),
-            HomeHabitLastCellInteraction(action: .complete, currentStateText: "Empty", nextActionText: "Mark done")
+            HomeHabitLastCellInteraction(action: .complete, currentStateText: "Not done", nextActionText: "Mark done")
         )
 
         let completed = makeRow(kind: .positive, state: .completedToday)
@@ -19,7 +19,7 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
         let skipped = makeRow(kind: .positive, state: .skippedToday)
         XCTAssertEqual(
             HomeHabitLastCellInteraction.resolve(for: skipped),
-            HomeHabitLastCellInteraction(action: .clear, currentStateText: "Skipped", nextActionText: "Clear to empty")
+            HomeHabitLastCellInteraction(action: .clear, currentStateText: "Skipped", nextActionText: "Clear")
         )
     }
 
@@ -27,19 +27,19 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
         let due = makeRow(kind: .negative, state: .due)
         XCTAssertEqual(
             HomeHabitLastCellInteraction.resolve(for: due),
-            HomeHabitLastCellInteraction(action: .complete, currentStateText: "Empty", nextActionText: "Mark stayed clean")
+            HomeHabitLastCellInteraction(action: .complete, currentStateText: "Not done", nextActionText: "Mark stayed clean")
         )
 
         let success = makeRow(kind: .negative, state: .completedToday)
         XCTAssertEqual(
             HomeHabitLastCellInteraction.resolve(for: success),
-            HomeHabitLastCellInteraction(action: .lapse, currentStateText: "Stayed clean", nextActionText: "Mark lapsed")
+            HomeHabitLastCellInteraction(action: .lapse, currentStateText: "Stayed clean", nextActionText: "Log slip")
         )
 
         let lapsed = makeRow(kind: .negative, state: .lapsedToday)
         XCTAssertEqual(
             HomeHabitLastCellInteraction.resolve(for: lapsed),
-            HomeHabitLastCellInteraction(action: .clear, currentStateText: "Lapsed", nextActionText: "Clear to empty")
+            HomeHabitLastCellInteraction(action: .clear, currentStateText: "Slipped", nextActionText: "Clear")
         )
     }
 
@@ -58,7 +58,7 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
             HomeHabitLastCellInteraction(
                 action: .lapse,
                 currentStateText: "Tracking",
-                nextActionText: "Mark lapsed"
+                nextActionText: "Log slip"
             )
         )
 
@@ -75,8 +75,8 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
             HomeHabitLastCellInteraction.resolve(for: lapsed),
             HomeHabitLastCellInteraction(
                 action: .clear,
-                currentStateText: "Lapsed",
-                nextActionText: "Clear to tracking"
+                currentStateText: "Slipped",
+                nextActionText: "Clear"
             )
         )
     }
@@ -97,8 +97,8 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
             HomeHabitLastCellInteraction.resolve(for: positiveLapsed),
             HomeHabitLastCellInteraction(
                 action: .clear,
-                currentStateText: "Lapsed",
-                nextActionText: "Clear to empty"
+                currentStateText: "Slipped",
+                nextActionText: "Clear"
             )
         )
 

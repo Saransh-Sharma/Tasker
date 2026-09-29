@@ -30,10 +30,19 @@ PROPOSAL_RUN_GUARD_FILES=(
 
 RUNTIME_FILES=(
   "$LIFEBOARD_APP_DELEGATE"
+  "$LIFEBOARD_ROOT_DIR/LifeBoard/AppDelegate+Commands.swift"
+  "$LIFEBOARD_ROOT_DIR/LifeBoard/AppDelegate+Notifications.swift"
+  "$LIFEBOARD_ROOT_DIR/LifeBoard/AppDelegateBackgroundRefresh.swift"
+  "$LIFEBOARD_ROOT_DIR/LifeBoard/AppDelegateLiveActivityBridges.swift"
   "$LIFEBOARD_SCENE_DELEGATE"
+  "$LIFEBOARD_ROOT_DIR/LifeBoard/SceneDelegate+Launch.swift"
+  "$LIFEBOARD_ROOT_DIR/LifeBoard/SceneDelegateJournalPrivacyShield.swift"
+  "$LIFEBOARD_ROOT_DIR/LifeBoard/SceneDelegateNotificationRouting.swift"
+  "$LIFEBOARD_ROOT_DIR/LifeBoard/LaunchHostController.swift"
   "$LIFEBOARD_COMPOSITION_ROOT"
   "$LIFEBOARD_COMPOSITION_ROOT_VIEW_MODELS"
   "$LIFEBOARD_USE_CASE_COORDINATOR"
+  "$LIFEBOARD_ROOT_DIR/LifeBoard/UseCases/Coordinator/UseCaseCoordinator+Workflows.swift"
 )
 
 require_file "$LIFEBOARD_PROJECT_FILE"

@@ -68,7 +68,7 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol, @unchec
                     throw NSError(
                         domain: "CoreDataSectionRepository",
                         code: 409,
-                        userInfo: [NSLocalizedDescriptionKey: "Section names must be unique within a project"]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "A section with this name already exists.")]
                     )
                 }
                 let object = try V2CoreDataRepositorySupport.upsertByID(

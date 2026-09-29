@@ -28,7 +28,7 @@ struct NextActionModule: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Plan next 15 min")
-                .accessibilityHint("Starts a 15 minute focus timer")
+                .accessibilityHint("Starts a 15 min focus session")
                 .accessibilityIdentifier("home.nextActionModule")
             default:
                 actionRow(icon: "hand.point.up.left", title: "Drag tasks to focus")

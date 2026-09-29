@@ -23,12 +23,16 @@ struct ChatScaffoldView: View {
 
     @Environment(\.lifeboardLayoutClass) var layoutClass
 
+    @Environment(\.dynamicTypeSize) var dynamicTypeSize
+
     @Environment(\.evaComposerBottomClearance) var composerBottomClearance
 
 
     @State var showEvaGuide = false
 
     @State private var showsCloudContextReview = false
+
+    @State private var showsContextSettings = false
 
     @StateObject var assistantIdentity = AssistantIdentityModel()
 
@@ -98,6 +102,8 @@ struct ChatScaffoldView: View {
 
     let onPerformDayHabitAction: EvaDayHabitActionHandler?
 
+    let onEditResend: ((UUID) -> Void)?
+
     let starterPrompts: [EvaStarterPrompt]
 
     let activeAttachments: [ThreadContextAttachmentRecord]
@@ -130,9 +136,26 @@ struct ChatScaffoldView: View {
 
     let onClearCurrentThread: () -> Void
 
+    let generationFailure: ChatGenerationFailure?
+
+    let canUseOfflineForFailure: Bool
+
+    let onRetryFailedGeneration: () -> Void
+
+    let onUseOfflineForFailedGeneration: () -> Void
+
+    let onDiscardFailedGeneration: () -> Void
+
     let onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)?
 
     var body: some View {
+        // A `maxHeight: .infinity` frame still grows with a child that wants
+        // more than the proposal, and at accessibility sizes the empty state
+        // and the composer together do. The scaffold then overflowed the
+        // viewport and its bottom inset (the composer) drifted under the dock.
+        // A GeometryReader is exactly the proposed size no matter what it
+        // holds, so the inset stays anchored to the visible bottom edge.
+        GeometryReader { viewport in
         ZStack {
             EvaChatSunriseBackground(isStreaming: isGenerationInFlight || liveOutput.shouldRender)
 
@@ -147,7 +170,8 @@ struct ChatScaffoldView: View {
                     onOpenRecordFromCard: onOpenRecordFromCard,
                     onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
                     onPerformDayTaskAction: onPerformDayTaskAction,
-                    onPerformDayHabitAction: onPerformDayHabitAction
+                    onPerformDayHabitAction: onPerformDayHabitAction,
+                    onEditResend: onEditResend
                 )
             } else {
                 ChatEmptyStateView(
@@ -158,28 +182,23 @@ struct ChatScaffoldView: View {
                     onSelectStarterPrompt: onSelectStarterPrompt,
                     onSelectSuggestion: onSelectSuggestion,
                     onOpenEvaGuide: {
-                        appManager.playHaptic()
+                        Haptic.pick.play()
                         showEvaGuide = true
+                    },
+                    onReviewContext: {
+                        showsContextSettings = true
                     }
                 )
             }
-
-            // The shell hides the compact dock while this composer is focused,
-            // and Eva is a stack root, so with the keyboard up the canvas is the
-            // largest thing left that can take a dismissing tap. It has to sit
-            // *above* the content: the transcript and the empty state are both
-            // scroll views, and a scroll view consumes touches across its whole
-            // area, so a layer underneath them never saw the tap. Gated on
-            // focus, so it costs nothing when the keyboard is down — and while
-            // the keyboard is up, spending the first tap on dismissing it is
-            // what Messages and Mail do too.
-            if isPromptFocused.wrappedValue {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture { isPromptFocused.wrappedValue = false }
-                    .accessibilityHidden(true)
-            }
         }
+        // The shell hides the compact dock while this composer is focused, and
+        // Eva is a stack root, so with the keyboard up the conversation is the
+        // largest thing left that can take a dismissing tap. A layer over it
+        // took that tap but also every scroll and every card tap, so nobody
+        // could scroll back to reread a message while writing a reply, and the
+        // transcript's own drag-to-dismiss never ran. A simultaneous tap
+        // dismisses and still reaches the content; scrolling keeps working.
+        .dismissesKeyboardOnTap(isPromptFocused)
         // Empty-state content can be taller than the device at accessibility
         // sizes. Keep that intrinsic height from enlarging the scaffold itself;
         // the composer inset must be anchored to the offered viewport.
@@ -193,12 +212,21 @@ struct ChatScaffoldView: View {
         // after it, the padding inflates the scaffold past the height it was
         // offered and the composer inset drifts down with it.
         .padding(.bottom, composerBottomClearance > 0 ? composerBottomClearance + Theme.Spacing.md : 0)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(width: viewport.size.width, height: viewport.size.height)
+        // A frame sizes but does not clip. At accessibility sizes the empty
+        // state is taller than the viewport, overflowed symmetrically, and its
+        // top half ("Hi there!") printed over the root header's subtitle and
+        // controls. Clip to the viewport; the content scrolls within it.
+        .clipped()
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 VStack(spacing: Theme.Spacing.xs) {
+                    // Bounded clay above the composer: `DESIGN.md`'s Eva
+                    // composition gives receipts and Undo clay, never prose.
+                    EvaChatReceiptSlot()
                     if showsCloudAccessCard {
-                        EvaCloudAccessCard(
+                        let cloudCard = EvaCloudAccessCard(
                             state: cloudAccess.state,
                             errorMessage: cloudAccess.errorMessage,
                             hasPendingSend: hasPendingCloudSend,
@@ -210,9 +238,28 @@ struct ChatScaffoldView: View {
                             onReviewContext: { showsCloudContextReview = true },
                             onUseOffline: onUseOffline
                         )
+                        // At accessibility sizes the card alone is half the
+                        // screen; it and the composer share one inset, so the
+                        // composer slid under the dock. The card scrolls
+                        // inside a bounded height instead.
+                        if dynamicTypeSize.isAccessibilitySize {
+                            ScrollView { cloudCard }
+                                .frame(maxHeight: 200)
+                        } else {
+                            cloudCard
+                        }
                     }
                     if let storageDegradedReason {
                         ChatStorageDegradedBanner(reason: storageDegradedReason)
+                    }
+                    if let generationFailure, isGenerationInFlight == false {
+                        ChatGenerationFailureRow(
+                            failure: generationFailure,
+                            canUseOffline: canUseOfflineForFailure,
+                            onRetry: onRetryFailedGeneration,
+                            onUseOffline: onUseOfflineForFailedGeneration,
+                            onDiscard: onDiscardFailedGeneration
+                        )
                     }
                     HStack(alignment: .bottom, spacing: Theme.Spacing.md) {
                         ChatComposerView(
@@ -244,6 +291,10 @@ struct ChatScaffoldView: View {
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.lg)
+                // The transcript is capped at the readable width at iPad and Mac
+                // widths; the composer ran edge to edge beneath it.
+                .frame(maxWidth: layoutClass.isPad ? 760 : .infinity)
+                .frame(maxWidth: .infinity)
                 .padding(.top, isActivationPresentation ? Theme.Spacing.xs : Theme.Spacing.sm)
 
                 // The single separation between composer and dock. Sized to the
@@ -314,12 +365,12 @@ struct ChatScaffoldView: View {
             .presentationBackground(EvaChatSunriseGlass.canvasMid)
             .presentationCornerRadius(Theme.CornerRadius.xl)
             .presentationDragIndicator(.visible)
-            .presentationDetents(layoutClass == .phone ? [.large] : [.large])
+            .presentationDetents([.large])
             #elseif os(macOS)
             .toolbar {
                 ToolbarItem(placement: .destructiveAction) {
                     Button(action: { showSettings.wrappedValue.toggle() }) {
-                        Text("close")
+                        Text("Close")
                     }
                 }
             }
@@ -349,14 +400,27 @@ struct ChatScaffoldView: View {
             #endif
         }
         .sheet(isPresented: $showsCloudContextReview) {
-            EvaCloudContextReviewSheet(
-                grants: $cloudAccess.selectedGrants,
-                isWorking: cloudAccess.isWorking,
-                onConfirm: {
-                    showsCloudContextReview = false
-                    onActivateCloud()
-                }
+            // The consent step itself; a draft waiting on Cloud EVA resumes
+            // when the coordinator reports `.ready`.
+            EvaCloudConsentSheet(
+                access: cloudAccess,
+                source: .chatInlineAction,
+                identifierPrefix: "chat.cloudAccess"
             )
+        }
+        .sheet(isPresented: $showsContextSettings) {
+            NavigationStack {
+                EvaCloudSettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") { showsContextSettings = false }
+                                .keyboardShortcut(.cancelAction)
+                                .accessibilityIdentifier("chat.contextSettings.close")
+                        }
+                    }
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .alert("Clear this chat?", isPresented: showClearConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -364,7 +428,7 @@ struct ChatScaffoldView: View {
                 onClearCurrentThread()
             }
         } message: {
-            Text("This deletes all messages in the current thread.")
+            Text("Deletes all messages in this chat.")
         }
         .toolbar {
             #if os(macOS)
@@ -373,7 +437,7 @@ struct ChatScaffoldView: View {
                     appManager.playHaptic()
                     showSettings.wrappedValue.toggle()
                 }) {
-                    Label("settings", systemImage: "gear")
+                    Label("Settings", systemImage: "gear")
                 }
             }
             #endif
@@ -404,10 +468,12 @@ private struct EvaCloudAccessCard: View {
                     Text(title)
                         .font(.lifeboard(.bodyStrong))
                         .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text(detail)
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
-                        .fixedSize(horizontal: false, vertical: true)
+                    if detail.isEmpty == false {
+                        Text(detail)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 Spacer(minLength: 0)
                 if state == .hydrating || state == .activating {
@@ -435,29 +501,27 @@ private struct EvaCloudAccessCard: View {
     private var actions: some View {
         switch state {
         case .needsActivation:
-            Button("Retry connection", action: onRetry)
+            // Nothing has failed yet: the only step is the person's consent.
+            Button("Turn on cloud", action: onReviewContext)
                 .buttonStyle(.lifeBoardPrimaryCompact)
                 .accessibilityIdentifier("chat.cloudAccess.activate")
-            Button("Review context", action: onReviewContext)
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("chat.cloudAccess.review")
-            Button(offlineModelReady ? "Use Offline EVA" : "Set up Offline EVA", action: onUseOffline)
-                .buttonStyle(.plain)
+            Button(offlineModelReady ? String(localized: "Use offline") : String(localized: "Set up offline"), action: onUseOffline)
+                .buttonStyle(.lifeBoardChip)
         case .temporarilyUnavailable:
             Button("Retry", action: onRetry)
                 .buttonStyle(.lifeBoardPrimaryCompact)
                 .accessibilityIdentifier("chat.cloudAccess.retry")
-            Button(offlineModelReady ? "Use Offline EVA" : "Set up Offline EVA", action: onUseOffline)
-                .buttonStyle(.bordered)
+            Button(offlineModelReady ? String(localized: "Use offline") : String(localized: "Set up offline"), action: onUseOffline)
+                .buttonStyle(.lifeBoardChip)
         case .appleReauthenticationRequired:
             Button("Reconnect with Apple", action: onReconnectApple)
                 .buttonStyle(.lifeBoardPrimaryCompact)
                 .accessibilityIdentifier("chat.cloudAccess.reconnectApple")
-            Button(offlineModelReady ? "Use Offline EVA" : "Set up Offline EVA", action: onUseOffline)
-                .buttonStyle(.bordered)
+            Button(offlineModelReady ? String(localized: "Use offline") : String(localized: "Set up offline"), action: onUseOffline)
+                .buttonStyle(.lifeBoardChip)
         case .quotaExhausted:
-            Button(offlineModelReady ? "Use Offline EVA" : "Set up Offline EVA", action: onUseOffline)
-                .buttonStyle(.bordered)
+            Button(offlineModelReady ? String(localized: "Use offline") : String(localized: "Set up offline"), action: onUseOffline)
+                .buttonStyle(.lifeBoardChip)
         case .hydrating, .ready, .activating:
             EmptyView()
         }
@@ -475,33 +539,33 @@ private struct EvaCloudAccessCard: View {
 
     private var title: String {
         switch state {
-        case .hydrating: "Restoring Cloud EVA…"
-        case .ready: "Cloud EVA is ready"
-        case .needsActivation: "Connecting Cloud EVA"
-        case .activating: "Activating Cloud EVA…"
-        case .temporarilyUnavailable: "Cloud EVA needs attention"
-        case .quotaExhausted: "Cloud EVA limit reached"
-        case .appleReauthenticationRequired: "Reconnect protected EVA"
+        case .hydrating: String(localized: "Connecting…")
+        case .ready: AssistantIdentitySnapshot.current.readyStatus
+        case .needsActivation: String(localized: "Use \(AssistantIdentitySnapshot.current.displayName) in the cloud")
+        case .activating: String(localized: "Connecting…")
+        case .temporarilyUnavailable: String(localized: "Couldn’t reach \(AssistantIdentitySnapshot.current.displayName)")
+        case .quotaExhausted: String(localized: "Limit reached")
+        case .appleReauthenticationRequired: String(localized: "Sign in again")
         }
     }
 
     private var detail: String {
         switch state {
         case .hydrating:
-            "Restoring the protected session on this device."
+            ""
         case .ready:
-            "Luna is ready."
+            ""
         case .needsActivation:
-            "EVA connects automatically. Prompts and available context pass through LifeBoard to OpenAI. Manage context in Settings."
+            String(localized: "\(AssistantIdentitySnapshot.current.displayName) uses OpenAI through LifeBoard’s cloud. Review access first.")
         case .activating:
-            "Your draft is safe. You can keep using LifeBoard while EVA connects."
+            String(localized: "Your draft is saved.")
         case .temporarilyUnavailable(let message):
             errorMessage ?? message
         case .quotaExhausted(let nextAvailableAt):
-            nextAvailableAt.map { "Your rolling allowance begins returning \($0.formatted(date: .omitted, time: .shortened))." }
-                ?? "Your rolling answer allowance is currently used."
+            nextAvailableAt.map { String(localized: "More answers at \($0.formatted(date: .omitted, time: .shortened)).") }
+                ?? String(localized: "More answers become available soon.")
         case .appleReauthenticationRequired:
-            "Apple confirmation restores this linked account. LifeBoard won't replace it with a new guest."
+            String(localized: "Sign in with Apple to reconnect.")
         }
     }
 
@@ -517,44 +581,58 @@ private struct EvaCloudAccessCard: View {
     }
 }
 
-private struct EvaCloudContextReviewSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Binding var grants: Set<EvaConsentPolicy.Grant>
-    let isWorking: Bool
-    let onConfirm: () -> Void
+
+/// A turn that failed, shown above the composer instead of being written into
+/// the thread. Retry sends the same message again; Discard just closes it.
+struct ChatGenerationFailureRow: View {
+    let failure: ChatGenerationFailure
+    let canUseOffline: Bool
+    let onRetry: () -> Void
+    let onUseOffline: () -> Void
+    let onDiscard: () -> Void
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                EvaCloudDisclosure(grants: EvaConsentPolicy.Grant.allCases.map { grant in
-                    (grant, grant.onboardingTitle, binding(for: grant))
-                }, isWorking: isWorking, identifierPrefix: "chat.cloudAccess")
-                .padding(24)
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                Image(systemName: "exclamationmark.bubble")
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text("Couldn’t get a reply")
+                        .font(.lifeboard(.bodyStrong))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                    Text(failure.message)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
             }
-            .navigationTitle("Review Cloud EVA")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Enable Cloud EVA", action: onConfirm)
-                        .disabled(isWorking)
-                }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Theme.Spacing.sm) { actions }
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) { actions }
             }
         }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .accessibilityIdentifier("chat.cloudAccess.reviewSheet")
+        .padding(Theme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("chat.generationFailure")
     }
 
-    private func binding(for grant: EvaConsentPolicy.Grant) -> Binding<Bool> {
-        Binding(
-            get: { grants.contains(grant) },
-            set: { enabled in
-                if enabled { grants.insert(grant) }
-                else { grants.remove(grant) }
-            }
-        )
+    @ViewBuilder
+    private var actions: some View {
+        Button("Retry", action: onRetry)
+            .buttonStyle(.lifeBoardPrimaryCompact)
+            .accessibilityIdentifier("chat.generationFailure.retry")
+        if canUseOffline {
+            Button("Use offline", action: onUseOffline)
+                .buttonStyle(.lifeBoardChip)
+                .accessibilityIdentifier("chat.generationFailure.useOffline")
+        }
+        Button("Discard", action: onDiscard)
+            .buttonStyle(.lifeBoardChip)
+            .accessibilityIdentifier("chat.generationFailure.discard")
     }
 }

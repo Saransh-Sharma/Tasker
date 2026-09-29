@@ -30,14 +30,14 @@ struct LifeManagementView: View {
             }
         }
         .background(Color.lifeboard(.bgCanvas))
-        .navigationTitle("Life Management")
+        .navigationTitle("Life management")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("settings.lifeManagement.view")
-        .searchable(text: $viewModel.searchQuery, prompt: "Search areas, projects, habits")
+        .searchable(text: $viewModel.searchQuery, prompt: "Search")
         .toolbar { toolbarContent }
         .overlay {
             if viewModel.isLoading && hasTreeContent == false {
-                ProgressView("Loading life management...")
+                ProgressView("Loading…")
                     .font(.lifeboard(.body))
                     .padding(.horizontal, spacing.s16)
                     .padding(.vertical, spacing.s12)
@@ -120,14 +120,14 @@ struct LifeManagementView: View {
             ),
             titleVisibility: .visible
         ) {
-            Button("Delete Permanently", role: .destructive) {
+            Button("Delete permanently", role: .destructive) {
                 viewModel.confirmDeleteHabit()
             }
             Button("Cancel", role: .cancel) {
                 viewModel.dismissDeleteHabitDraft()
             }
         } message: {
-            Text("This removes the habit and its scheduling history.")
+            Text("This deletes the habit and its history.")
         }
         .sheet(isPresented: $habitComposerPresented) {
             habitComposerSheet

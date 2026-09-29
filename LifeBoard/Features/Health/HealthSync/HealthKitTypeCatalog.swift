@@ -54,14 +54,14 @@ public enum HealthDomain: String, CaseIterable, Codable, Sendable, Identifiable 
 
     public var title: String {
         switch self {
-        case .activity: "Activity"
-        case .energy: "Energy"
-        case .hydration: "Hydration"
-        case .nutrition: "Nutrition"
-        case .body: "Body"
-        case .workouts: "Workouts"
-        case .sleep: "Sleep"
-        case .fasting: "Fasting"
+        case .activity: String(localized: "Activity")
+        case .energy: String(localized: "Energy")
+        case .hydration: String(localized: "Water")
+        case .nutrition: String(localized: "Nutrition")
+        case .body: String(localized: "Body")
+        case .workouts: String(localized: "Workouts")
+        case .sleep: String(localized: "Sleep")
+        case .fasting: String(localized: "Fasting")
         }
     }
 
@@ -79,18 +79,18 @@ public enum HealthDomain: String, CaseIterable, Codable, Sendable, Identifiable 
         }
     }
 
-    /// One honest sentence describing what LifeBoard does with this domain, shown
+    /// One factual line describing what LifeBoard does with this domain, shown
     /// on the connect/settings surfaces so consent is specific.
     public var shareBlurb: String {
         switch self {
-        case .activity: "Reads your steps and walking distance from Apple Health."
-        case .energy: "Reads the active and resting energy your devices record."
-        case .hydration: "Water you log flows to Apple Health, and water logged elsewhere flows back."
-        case .nutrition: "Meals you log sync their calories and macros with Apple Health."
-        case .body: "Weight and body measurements stay in sync both ways."
-        case .workouts: "Workouts you log appear in Apple Health, and Health workouts appear here."
-        case .sleep: "Reads sleep recorded by your devices to show rest context."
-        case .fasting: "Uses your last meal time to suggest when a fast began. Fasting is never written to Health."
+        case .activity: String(localized: "Steps and walking distance from Apple Health.")
+        case .energy: String(localized: "Active and resting energy from your devices.")
+        case .hydration: String(localized: "Water you log, saved to Apple Health.")
+        case .nutrition: String(localized: "Meal calories and macros, saved to Apple Health.")
+        case .body: String(localized: "Weight and body measurements, saved to Apple Health.")
+        case .workouts: String(localized: "Workouts you log, saved to Apple Health.")
+        case .sleep: String(localized: "Sleep recorded by your devices.")
+        case .fasting: String(localized: "Suggests a start time from your last meal.")
         }
     }
 

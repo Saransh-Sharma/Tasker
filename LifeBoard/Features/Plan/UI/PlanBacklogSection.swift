@@ -24,6 +24,11 @@ struct PlanBacklogSection: View {
     @Binding var showsBacklogDeletionConfirmation: Bool
     @Binding var pendingFocusSetup: FocusSetupContext?
     let onOpenTask: (UUID) -> Void
+    /// What the last bulk action did, with Undo. Bulk moves used to land in
+    /// silence, and Archive took rows away with no way back from this screen.
+    /// Keyed to the mutation it names, so Undo never reverses a later change.
+    @State private var bulkReceipt: (receipt: PlanReceipt, mutationID: UUID)?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         // `LazyVStack`, not `VStack`: these rows were direct children of the
@@ -35,6 +40,8 @@ struct PlanBacklogSection: View {
                 backlogControls
                 if let undoState = store.backlogDeletionUndoState {
                     deletionUndoBanner(undoState)
+                } else if let bulkReceipt, store.lastMutationReceiptID == bulkReceipt.mutationID {
+                    bulkReceiptBar(bulkReceipt.receipt)
                 }
                 if !selectedTaskIDs.isEmpty { bulkActionBar }
                 ForEach(BacklogGroup.allCases, id: \.self) { group in
@@ -59,8 +66,8 @@ struct PlanBacklogSection: View {
                 }
                 if snapshot.groups.values.allSatisfy(\.isEmpty) {
                     PlanEmptyCard(
-                        title: "Backlog clear",
-                        detail: "Everything open has a home.",
+                        title: String(localized: "Backlog clear"),
+                        detail: nil,
                         symbol: "checkmark.seal"
                     )
                 }
@@ -78,7 +85,7 @@ struct PlanBacklogSection: View {
                 showsTaskLibrary = true
             } label: {
                 HStack {
-                    Label("Browse every task view", systemImage: "checklist")
+                    Label("Task lists", systemImage: "checklist")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
@@ -87,11 +94,16 @@ struct PlanBacklogSection: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Opens canonical Inbox, Today, Upcoming, Waiting, Someday, Completed, and All views")
+            .accessibilityHint("Opens all task lists")
             .accessibilityIdentifier("plan.taskLibrary.open")
 
-            TextField("Search backlog", text: $backlogSearch)
-                .textFieldStyle(.roundedBorder)
+            TextField("Search backlog", text: $backlogSearch, prompt: Text("Search backlog").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
+                .textFieldStyle(.plain)
+                // Clay well, not the system rounded border: that drew a pure white
+                // box on warm paper and a pure black one in dark appearance.
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
                 .accessibilityIdentifier("plan.backlog.search")
             ScrollView(.horizontal) {
                 HStack {
@@ -110,9 +122,9 @@ struct PlanBacklogSection: View {
                         ForEach(BacklogEnergyFilter.allCases) { Text($0.rawValue).tag($0) }
                     }
                 }
-                Menu(backlogDurationFilter.rawValue) {
+                Menu(backlogDurationFilter.title) {
                     Picker("Duration", selection: $backlogDurationFilter) {
-                        ForEach(BacklogDurationFilter.allCases) { Text($0.rawValue).tag($0) }
+                        ForEach(BacklogDurationFilter.allCases) { Text($0.title).tag($0) }
                     }
                 }
                 Menu(backlogProjectFilter.rawValue) {
@@ -129,7 +141,7 @@ struct PlanBacklogSection: View {
             .font(.subheadline)
         }
         .padding(12)
-        .background(Color(SemanticColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color(SemanticColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
     }
 
     private var bulkActionBar: some View {
@@ -144,17 +156,17 @@ struct PlanBacklogSection: View {
                         )
                         selectedTaskIDs.removeAll()
                     }
-                    Button("Someday", systemImage: "sparkles") {
-                        Task { await store.bulkUpdate(selectedTaskIDs, disposition: .someday); selectedTaskIDs.removeAll() }
+                    Button(DecisionDestination.someday.title, systemImage: DecisionDestination.someday.systemImage) {
+                        runBulk("moved to Someday") { await store.bulkUpdate($0, disposition: .someday) }
                     }
                     Button("Waiting", systemImage: "hourglass") {
-                        Task { await store.bulkUpdate(selectedTaskIDs, availability: .waiting); selectedTaskIDs.removeAll() }
+                        runBulk("marked waiting") { await store.bulkUpdate($0, availability: .waiting) }
                     }
                     Button("Paused", systemImage: "pause.circle") {
-                        Task { await store.bulkUpdate(selectedTaskIDs, availability: .paused); selectedTaskIDs.removeAll() }
+                        runBulk("paused") { await store.bulkUpdate($0, availability: .paused) }
                     }
                     Button("Archive", systemImage: "archivebox") {
-                        Task { await store.bulkUpdate(selectedTaskIDs, disposition: .archived); selectedTaskIDs.removeAll() }
+                        runBulk("archived") { await store.bulkUpdate($0, disposition: .archived) }
                     }
                     Button("Delete", systemImage: "trash", role: .destructive) {
                         pendingBacklogDeletionTaskIDs = selectedTaskIDs
@@ -162,43 +174,94 @@ struct PlanBacklogSection: View {
                     }
                     Menu("Context", systemImage: "person.2") {
                         ForEach(PlanningContext.allCases, id: \.self) { context in
-                            Button(context.rawValue.capitalized) {
-                                Task { await store.bulkUpdate(selectedTaskIDs, context: context); selectedTaskIDs.removeAll() }
+                            Button(context.displayName) {
+                                runBulk("set to \(context.displayName)") { await store.bulkUpdate($0, context: context) }
                             }
                         }
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
             }
             .scrollIndicators(.hidden)
         }
         .padding(12)
-        .background(Color(SemanticColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color(SemanticColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
         .accessibilityIdentifier("plan.backlog.bulkActions")
     }
 
     private func deletionUndoBanner(_ state: BacklogDeletionUndoState) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "trash.slash.fill")
-                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(state.deletedCount) item\(state.deletedCount == 1 ? "" : "s") removed")
-                    .font(.subheadline.weight(.semibold))
-                Text("Deletion is synced as a reversible tombstone.")
-                    .font(.caption)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+        ReceiptBar(
+            ActionReceiptPresentation(
+                message: state.deletedCount == 1
+                    ? String(localized: "Deleted 1 task")
+                    : String(localized: "Deleted \(state.deletedCount) tasks")
+            ),
+            undo: {
+                Task {
+                    if await store.undoLastMutation() == false { Haptic.fail.play() }
+                }
+            },
+            onDismiss: {
+                withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
+                    store.dismissBacklogDeletionReceipt()
+                }
             }
-            Spacer()
-            Button("Undo") { Task { await store.undoLastMutation() } }
-                .buttonStyle(.bordered)
-                .accessibilityHint("Restores the deleted backlog items exactly as they were")
-        }
-        .foundationClayCard()
+        )
+        .transition(.move(edge: .top).combined(with: .opacity))
         .accessibilityIdentifier("plan.backlog.deletionUndo")
     }
 
+    private func bulkReceiptBar(_ receipt: PlanReceipt) -> some View {
+        ReceiptBar(
+            ActionReceiptPresentation(id: receipt.id, message: receipt.message, detail: receipt.detail),
+            undo: {
+                Task {
+                    if await store.undoLastMutation() == false { Haptic.fail.play() }
+                }
+            },
+            onDismiss: {
+                withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
+                    bulkReceipt = nil
+                }
+            }
+        )
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .accessibilityIdentifier("plan.backlog.bulkReceipt")
+    }
+
+    /// Commits a bulk change, then names it with Undo. The receipt appears only
+    /// once the store has a reversible receipt for it: a failed write already
+    /// raises Plan's error alert.
+    private func runBulk(_ verb: String, _ apply: @escaping (Set<UUID>) async -> Void) {
+        let ids = selectedTaskIDs
+        let before = store.lastMutationReceiptID
+        selectedTaskIDs.removeAll()
+        Task {
+            await apply(ids)
+            guard let after = store.lastMutationReceiptID, after != before else {
+                Haptic.fail.play()
+                return
+            }
+            Haptic.commit.play()
+            let noun = ids.count == 1 ? "1 task" : "\(ids.count) tasks"
+            withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
+                bulkReceipt = (PlanReceipt(message: "\(noun) \(verb)"), after)
+            }
+        }
+    }
+
     private func title(_ group: BacklogGroup) -> String {
-        switch group { case .thisWeek: "This Week"; case .nextWeek: "Next Week"; default: group.rawValue.capitalized }
+        switch group {
+        case .inbox: "Inbox"
+        case .thisWeek: "This week"
+        case .nextWeek: "Next week"
+        case .later: "Later"
+        case .someday: DecisionDestination.someday.title
+        case .reference: "Reference"
+        case .waiting: "Waiting"
+        case .paused: "Paused"
+        case .archived: "Archived"
+        }
     }
 
     private func symbol(_ group: BacklogGroup) -> String {

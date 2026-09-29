@@ -1,0 +1,19 @@
+# Default ownership keeps changes reviewable when a path has no narrower rule.
+* @Saransh-Sharma
+
+# Application composition and navigation boundaries.
+/LifeBoard/App/ @Saransh-Sharma
+/LifeBoard/AppDelegate.swift @Saransh-Sharma
+/LifeBoard/SceneDelegate.swift @Saransh-Sharma
+/LifeBoard/Foundation/Navigation/ @Saransh-Sharma
+
+# Persistent models, migration code, and storage adapters.
+/LifeBoard/Persistence/ @Saransh-Sharma
+/Packages/LifeBoardPersistence/ @Saransh-Sharma
+
+# Privacy, logging, and backend trust policy.
+/LifeBoard/Utils/LoggingService.swift @Saransh-Sharma
+/PrivacyInfo.xcprivacy @Saransh-Sharma
+/Services/EVACloud/src/attestation/ @Saransh-Sharma
+/Services/EVACloud/src/config/ @Saransh-Sharma
+/Services/EVACloud/src/auth/ @Saransh-Sharma

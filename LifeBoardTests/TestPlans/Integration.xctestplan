@@ -1,0 +1,33 @@
+{
+  "configurations" : [
+    {
+      "id" : "BE0786E5-5AA0-4A8D-BE3A-B3F4B4873D2A",
+      "name" : "Isolated integration services",
+      "options" : {
+        "environmentVariableEntries" : [
+          { "key" : "LIFEBOARD_TEST_SERVICES", "value" : "fakes" },
+          { "key" : "LIFEBOARD_TEST_STORAGE", "value" : "temporary" }
+        ]
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:LifeBoard.xcodeproj",
+      "identifier" : "753EFC992445A24500A739E3",
+      "name" : "LifeBoard"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:LifeBoard.xcodeproj",
+        "identifier" : "753EFCAF2445A24700A739E3",
+        "name" : "LifeBoardTests"
+      }
+    }
+  ],
+  "version" : 1
+}

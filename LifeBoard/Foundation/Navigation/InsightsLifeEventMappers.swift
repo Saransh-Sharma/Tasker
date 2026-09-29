@@ -21,7 +21,7 @@ enum InsightsLifeEventMappers {
             // anything about the loop at all.
             kind: planningEventKind(source: record.receipt.source, reversed: reversed),
             occurredAt: occurredAt,
-            provenance: "Persisted LifeBoard planning receipt",
+            provenance: String(localized: "Plan change"),
             evidenceDisplay: record.receipt.summary,
             receipt: .init(receiptID: record.receipt.id, summary: record.receipt.summary),
             reversal: reversed
@@ -53,8 +53,8 @@ enum InsightsLifeEventMappers {
             kind: "started",
             occurredAt: session.startedAt,
             numericValue: session.targetDuration,
-            provenance: "Persisted LifeBoard Focus session",
-            evidenceDisplay: "Focus session"
+            provenance: String(localized: "Focus session"),
+            evidenceDisplay: String(localized: "Focus session")
         )]
         if includesLegacyStateFallback, let endedAt = session.endedAt {
             values.append(projector.event(
@@ -63,8 +63,8 @@ enum InsightsLifeEventMappers {
                 kind: "ended_\(session.outcome?.rawValue ?? "stopped")",
                 occurredAt: endedAt,
                 numericValue: session.focusedDuration(at: endedAt),
-                provenance: "Persisted LifeBoard Focus completion",
-                evidenceDisplay: "Focus completion",
+                provenance: String(localized: "Focus session"),
+                evidenceDisplay: String(localized: "Focus done"),
                 receipt: .init(receiptID: session.id, summary: "Focus \(session.outcome?.rawValue ?? "ended")")
             ))
         } else if includesLegacyStateFallback, session.state == .paused, let pausedAt = session.pausedAt {
@@ -74,8 +74,8 @@ enum InsightsLifeEventMappers {
                 kind: "paused",
                 occurredAt: pausedAt,
                 numericValue: session.focusedDuration(at: pausedAt),
-                provenance: "Persisted LifeBoard Focus state",
-                evidenceDisplay: "Paused Focus session"
+                provenance: String(localized: "Focus session"),
+                evidenceDisplay: String(localized: "Focus paused")
             ))
         }
         return values
@@ -84,9 +84,9 @@ enum InsightsLifeEventMappers {
     static func focusCommandEvent(_ receipt: FocusCommandReceipt) -> NormalizedLifeEvent {
         let commandValues: (kind: String, summary: String) = switch receipt.kind {
         case .pause:
-            ("paused", "Paused Focus session")
+            ("paused", String(localized: "Focus paused"))
         case .resume:
-            ("resumed", "Resumed Focus session")
+            ("resumed", String(localized: "Focus resumed"))
         case .end(let outcome):
             ("ended_\(outcome.rawValue)", "Focus \(outcome.rawValue)")
         }
@@ -96,7 +96,7 @@ enum InsightsLifeEventMappers {
         } else {
             values = (
                 kind: "ignored_\(commandValues.kind)",
-                summary: "Ignored duplicate or stale Focus command"
+                summary: String(localized: "Duplicate focus action ignored")
             )
         }
         return NormalizedLifeEventProjector().event(
@@ -105,7 +105,7 @@ enum InsightsLifeEventMappers {
             kind: values.kind,
             occurredAt: receipt.occurredAt,
             numericValue: receipt.focusedDuration,
-            provenance: "Persisted LifeBoard Focus command receipt",
+            provenance: String(localized: "Focus session"),
             evidenceDisplay: values.summary,
             receipt: .init(receiptID: receipt.id, summary: values.summary)
         )

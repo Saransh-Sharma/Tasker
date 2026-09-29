@@ -105,11 +105,11 @@ public enum HabitTargetValidationError: LocalizedError, Equatable, Sendable {
     public var errorDescription: String? {
         switch self {
         case .invalidTarget:
-            "Choose a target greater than zero and include a unit where needed."
+            String(localized: "Enter a target above 0, with a unit if needed.")
         case .incompatibleMinimum:
-            "The low-energy minimum must use the same kind of target."
+            String(localized: "The minimum must use the same kind of target.")
         case .minimumExceedsTarget:
-            "The low-energy minimum cannot be greater than the full target."
+            String(localized: "The minimum can’t be more than the target.")
         }
     }
 }
@@ -203,13 +203,13 @@ public enum HabitColorFamily: String, Codable, CaseIterable, Hashable, Sendable 
 
     public var title: String {
         switch self {
-        case .green: return "Leaf"
-        case .blue: return "Sky"
-        case .orange: return "Glow"
-        case .coral: return "Spark"
-        case .purple: return "Plum"
-        case .teal: return "Wave"
-        case .gray: return "Stone"
+        case .green: return String(localized: "Leaf")
+        case .blue: return String(localized: "Sky")
+        case .orange: return String(localized: "Glow")
+        case .coral: return String(localized: "Spark")
+        case .purple: return String(localized: "Plum")
+        case .teal: return String(localized: "Wave")
+        case .gray: return String(localized: "Stone")
         }
     }
 

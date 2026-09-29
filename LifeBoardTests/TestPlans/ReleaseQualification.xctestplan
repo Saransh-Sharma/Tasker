@@ -1,0 +1,40 @@
+{
+  "configurations" : [
+    {
+      "id" : "9BD9182D-0512-4684-9782-8404CF780CE7",
+      "name" : "Signed device qualification",
+      "options" : {
+        "environmentVariableEntries" : [
+          { "key" : "LIFEBOARD_RELEASE_QUALIFICATION", "value" : "1" }
+        ]
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:LifeBoard.xcodeproj",
+      "identifier" : "753EFC992445A24500A739E3",
+      "name" : "LifeBoard"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:LifeBoard.xcodeproj",
+        "identifier" : "753EFCAF2445A24700A739E3",
+        "name" : "LifeBoardTests"
+      }
+    },
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:LifeBoard.xcodeproj",
+        "identifier" : "753EFCBA2445A24800A739E3",
+        "name" : "LifeBoardUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -94,7 +94,7 @@ struct OnboardingDownloadingModelProgressView: View {
                             RoundedRectangle(cornerRadius: Theme.CornerRadius.pill)
                                 .fill(Color.lifeboard(.accentPrimary))
                                 .frame(width: geo.size.width * overallProgress, height: 8)
-                                .animation(LifeBoardAnimation.heroReveal, value: overallProgress)
+                                .lifeBoardMotion(.threadAdvance, value: overallProgress)
                         }
                     }
                     .frame(height: 8)
@@ -129,7 +129,7 @@ struct OnboardingDownloadingModelProgressView: View {
 
                     if failedModelNames.isEmpty == false {
                         Button(action: retryFailedModels) {
-                            Text("Retry failed downloads")
+                            Text("Try again")
                                 #if os(iOS) || os(visionOS)
                                 .font(.lifeboard(.button))
                                 .foregroundColor(Color.lifeboard(.accentPrimary))
@@ -140,21 +140,21 @@ struct OnboardingDownloadingModelProgressView: View {
                                 #endif
                         }
                         #if os(macOS)
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         #endif
                         .disabled(isInstallInFlight)
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
             } else {
-                Text("Keep this screen open while the selected models install in sequence.")
+                Text("Keep this screen open until downloads finish.")
                     .font(.lifeboard(.caption1))
                     .foregroundColor(Color.lifeboard(.textQuaternary))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.xl)
                 if installOutcome == .failed {
                     Button(action: retryFailedModels) {
-                        Text("Retry downloads")
+                        Text("Try again")
                             #if os(iOS) || os(visionOS)
                             .font(.lifeboard(.button))
                             .foregroundColor(Color.lifeboard(.accentOnPrimary))
@@ -174,7 +174,7 @@ struct OnboardingDownloadingModelProgressView: View {
         }
         .padding()
         .background(Color.lifeboard(.bgCanvas))
-        .navigationTitle("Wake \(identity.displayName)")
+        .navigationTitle("Download models")
         .toolbar(canContinue ? .hidden : .visible)
         .navigationBarBackButtonHidden()
         .task {
@@ -201,20 +201,20 @@ struct OnboardingDownloadingModelProgressView: View {
     private var titleText: String {
         switch installOutcome {
         case .installing:
-            return "Getting \(identity.displayName) ready"
+            return String(localized: "Getting \(identity.displayName) ready")
         case .success:
-            return "\(identity.displayName) is ready"
+            return String(localized: "\(identity.displayName) is ready")
         case .partialFailure:
-            return "\(identity.displayName) is partly ready"
+            return String(localized: "\(identity.displayName) is partly ready")
         case .failed:
-            return "Couldn't finish setup"
+            return String(localized: "Couldn’t download models")
         }
     }
 
     private var statusSubtitle: String {
         switch installOutcome {
         case .success:
-            return "Your selected local mode is installed and ready to use."
+            return String(localized: "Ready to use offline.")
         case .partialFailure:
             let completed = completedModelNames
                 .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
@@ -222,26 +222,26 @@ struct OnboardingDownloadingModelProgressView: View {
             let failed = failedModelNames
                 .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
                 .joined(separator: " • ")
-            return "Ready to use \(completed). Retry failed downloads for \(failed) when you're ready."
+            return String(localized: "Ready: \(completed). Couldn’t download \(failed).")
         case .failed:
             let failed = failedModelNames
                 .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
                 .joined(separator: " • ")
             return failed.isEmpty
-                ? "\(identity.displayName) couldn't finish installing a local mode."
-                : "\(identity.displayName) couldn't finish installing \(failed)."
+                ? String(localized: "Try again.")
+                : String(localized: "Couldn’t download \(failed).")
         case .installing:
             break
         }
         if let currentModel {
-            return "Installing \(currentModel.displayName) for private on-device responses."
+            return String(localized: "Downloading \(currentModel.displayName)…")
         }
-        return "Preparing \(identity.displayName) for private on-device help."
+        return String(localized: "Loading…")
     }
 
     private var progressLabel: String {
         let percent = Int(overallProgress * 100)
-        return "\(percent)% • \(completedCount)/\(selectedModels.count) models"
+        return String(localized: "\(percent)% • \(completedCount) of \(selectedModels.count) models")
     }
 
     private func installSelectedModelsIfNeeded() async {

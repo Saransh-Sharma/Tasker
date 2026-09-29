@@ -6,8 +6,8 @@ public final class RescheduleTaskDefinitionUseCase: @unchecked Sendable {
 
         var errorDescription: String? {
             switch self {
-            case .taskNotFound(let taskID):
-                return "Task not found for reschedule: \(taskID.uuidString)"
+            case .taskNotFound:
+                return String(localized: "Couldn’t find that task.")
             }
         }
     }

@@ -5,7 +5,7 @@ import Foundation
 /// The rules this file is held to — and that `LifeWeaveOnboardingTests` enforce:
 ///
 /// - One screen, one question. The title *is* the question.
-/// - Titles are six words or fewer, options four, buttons two.
+/// - Titles are six words or fewer, options four, buttons three.
 /// - The user's words, not the system's: never "map", "weave", "route",
 ///   "power up", "context", or "clearest path".
 /// - Defaults over questions. Anything with a good default is editable in one
@@ -25,6 +25,7 @@ enum LifeWeaveCopy {
         static let skip = String(localized: "Skip")
         static let startMyDay = String(localized: "Start my day")
         static let notNow = String(localized: "Not now")
+        static let setUpLater = String(localized: "Set up later")
         static let done = String(localized: "Done")
         static let close = String(localized: "Close")
 
@@ -39,7 +40,7 @@ enum LifeWeaveCopy {
         /// "Good morning" and friends come from the daypart, so the first thing
         /// the app says matches the sky behind it.
         static func greeting(_ daypartGreeting: String) -> String {
-            String(localized: "\(daypartGreeting) — welcome to LifeBoard")
+            String(localized: "\(daypartGreeting). Welcome to LifeBoard.")
         }
         static let title = String(localized: "What do you want help with?")
         static let privacy = String(localized: "Private by default. Nothing connects without you.")
@@ -50,10 +51,10 @@ enum LifeWeaveCopy {
             switch intent {
             case .clarityToday: String(localized: "Knowing what's next")
             case .reduceMentalLoad: String(localized: "Clearing my head")
-            case .resilientPlanning: String(localized: "Plans that actually work")
+            case .resilientPlanning: String(localized: "Plans that hold up")
             case .steadyRoutines: String(localized: "Sticking to routines")
-            case .wholeLifeView: String(localized: "Everything in one place")
-            case .somethingElse: String(localized: "Just exploring")
+            case .wholeLifeView: String(localized: "Seeing the big picture")
+            case .somethingElse: String(localized: "Looking around")
             }
         }
     }
@@ -99,9 +100,9 @@ enum LifeWeaveCopy {
         static let title = String(localized: "You're all set")
         static let emptyCapture = String(localized: "Add your first thing anytime.")
         static let edit = String(localized: "Edit")
-        static let connectHeader = String(localized: "Connect when you're ready")
-        static let evaNotice = String(localized: "EVA is on and uses OpenAI.")
-        static let evaNoticeLink = String(localized: "What EVA can see")
+        static let connectHeader = String(localized: "Connections")
+        static let evaNotice = String(localized: "Eva uses OpenAI once you turn it on.")
+        static let evaNoticeLink = String(localized: "What Eva can see")
 
         static func areas(primary: String, others: Int) -> String {
             switch others {
@@ -145,7 +146,7 @@ enum LifeWeaveCopy {
             switch connector {
             case .calendar: String(localized: "Calendar")
             case .health: String(localized: "Apple Health")
-            case .eva: String(localized: "EVA")
+            case .eva: String(localized: "Eva")
             }
         }
 
@@ -157,25 +158,31 @@ enum LifeWeaveCopy {
             }
         }
 
+        static let reminders = String(localized: "Reminders")
+        static let remindersValue = String(localized: "When a task is due")
+        static let remindersOn = String(localized: "On")
+        static let remindersOff = String(localized: "Off. Turn on in Settings")
+
         static let connected = String(localized: "Connected")
         static let connecting = String(localized: "Connecting…")
         static let needsAttention = String(localized: "Tap to finish")
-        static let offlineReady = String(localized: "Runs on this iPhone")
+        @MainActor static var offlineReady: String { String(localized: "Runs on \(DeviceNoun.this)") }
 
         static func calendars(_ count: Int) -> String {
-            String(localized: "\(count) calendars")
+            count == 1 ? String(localized: "1 calendar") : String(localized: "\(count) calendars")
         }
     }
 
     enum EvaData {
-        static let title = String(localized: "How EVA uses your data")
+        static let title = String(localized: "How Eva uses your data")
         static let bullets: [String] = [
-            String(localized: "EVA turns on automatically."),
+            String(localized: "Eva stays off until you turn it on."),
             String(localized: "It uses your tasks, plans, and life areas."),
-            String(localized: "Journal, Health, life moments, and memory are on by default. Earlier choices are kept."),
+            String(localized: "Journal, Health, life moments, and memory start on."),
+            String(localized: "Turn any of them off before you connect."),
             String(localized: "Requests pass through LifeBoard to OpenAI.")
         ]
-        static let manage = String(localized: "Change this anytime in Settings › EVA.")
+        static let manage = String(localized: "Change this anytime in Settings › Eva.")
     }
 
     enum Failure {

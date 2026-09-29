@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 
 public protocol FastingSessionRepository: Sendable {
     func fetchFastingSessions(limit: Int) async throws -> [FastingSessionValue]
@@ -57,15 +58,15 @@ public enum FastingTimerStoreError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .alreadyActive:
-            "A fasting timer is already active. End or cancel it before starting another."
+            String(localized: "A fast is already running. End it first.")
         case .noActiveSession:
-            "There is no active fasting timer to update."
+            String(localized: "No fast is running.")
         case .invalidTarget:
-            "Choose a target longer than zero."
+            String(localized: "Choose a goal above 0.")
         case .invalidInterval:
-            "A fasting session must end after it starts."
+            String(localized: "End time must be after start time.")
         case .sessionNotFound:
-            "That fasting session is no longer available."
+            String(localized: "Fast not found.")
         }
     }
 }
@@ -166,6 +167,7 @@ public actor FastingTimerStore {
         )
         try await repository.saveFastingSession(session)
         await FastingLiveActivityCoordinator.shared.synchronize(session: session)
+        await FastingReminderScheduler.synchronize(session)
         SystemSurfaceRefresher.requestRefreshSoon()
         return session
     }
@@ -184,6 +186,7 @@ public actor FastingTimerStore {
         session.updatedAt = endDate
         try await repository.saveFastingSession(session)
         await FastingLiveActivityCoordinator.shared.synchronize(session: session)
+        await FastingReminderScheduler.synchronize(session)
         SystemSurfaceRefresher.requestRefreshSoon()
         return session
     }
@@ -202,6 +205,7 @@ public actor FastingTimerStore {
         session.updatedAt = endDate
         try await repository.saveFastingSession(session)
         await FastingLiveActivityCoordinator.shared.synchronize(session: session)
+        await FastingReminderScheduler.synchronize(session)
         SystemSurfaceRefresher.requestRefreshSoon()
         return session
     }
@@ -238,6 +242,7 @@ public actor FastingTimerStore {
         session.updatedAt = now()
         try await repository.saveFastingSession(session)
         await FastingLiveActivityCoordinator.shared.synchronize(session: session)
+        await FastingReminderScheduler.synchronize(session)
         SystemSurfaceRefresher.requestRefreshSoon()
         return session
     }
@@ -265,6 +270,7 @@ public actor FastingTimerStore {
     public func undo(_ receipt: FastingSessionMutationReceipt) async throws {
         try await repository.saveFastingSession(receipt.before)
         await FastingLiveActivityCoordinator.shared.synchronize(session: receipt.before)
+        await FastingReminderScheduler.synchronize(receipt.before)
         SystemSurfaceRefresher.requestRefreshSoon()
     }
 
@@ -289,6 +295,65 @@ public actor FastingTimerStore {
             try await repository.saveFastingSession(values[index])
         }
         return values
+    }
+}
+
+/// Local reminders for a running fast — "Remind one hour before target" was
+/// saved on the session and never scheduled. Every lifecycle write passes
+/// through `synchronize`, so a finished, cancelled or corrected fast never
+/// leaves a stale reminder behind, and Undo finish brings it back.
+enum FastingReminderScheduler {
+    static let identifierPrefix = "fasting.reminder."
+
+    static func identifier(sessionID: UUID, offset: TimeInterval) -> String {
+        "\(identifierPrefix)\(sessionID.uuidString).\(Int(offset))"
+    }
+
+    static func synchronize(_ session: FastingSessionValue, now: Date = Date()) async {
+        // A session with no reminder offsets never scheduled anything.
+        guard session.reminderOffsets.isEmpty == false else { return }
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(
+            withIdentifiers: session.reminderOffsets.map { identifier(sessionID: session.id, offset: $0) }
+        )
+        guard session.endedAt == nil else { return }
+
+        let settings = await center.notificationSettings()
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            break
+        case .notDetermined:
+            // The person just asked for this reminder, so this is the moment
+            // the permission request makes sense.
+            guard (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
+        default:
+            return
+        }
+
+        for offset in session.reminderOffsets {
+            let fireDate = session.startedAt.addingTimeInterval(offset)
+            let interval = fireDate.timeIntervalSince(now)
+            guard interval > 1 else { continue }
+            let content = UNMutableNotificationContent()
+            content.title = "Fasting"
+            content.body = body(for: session, offset: offset)
+            content.sound = .default
+            content.threadIdentifier = "fasting"
+            content.userInfo = ["fastingSessionID": session.id.uuidString]
+            let request = UNNotificationRequest(
+                identifier: identifier(sessionID: session.id, offset: offset),
+                content: content,
+                trigger: UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+            )
+            try? await center.add(request)
+        }
+    }
+
+    private static func body(for session: FastingSessionValue, offset: TimeInterval) -> String {
+        guard let target = session.targetDuration else { return String(localized: "Timer still running") }
+        let minutesLeft = Int(((target - offset) / 60).rounded())
+        guard minutesLeft > 0 else { return String(localized: "Goal reached") }
+        return String(localized: "\(LifeBoardDuration.text(minutes: minutesLeft)) to go")
     }
 }
 
@@ -427,46 +492,5 @@ public struct FastingSessionMutationReceipt: Codable, Hashable, Identifiable, Se
         self.before = before
         self.after = after
         self.createdAt = createdAt
-    }
-}
-
-public struct FastingHomeContextCandidateSource: HomeContextCandidateSource {
-    public let providerID = "fasting"
-    private let repository: any FastingSessionRepository
-
-    public init(repository: any FastingSessionRepository) {
-        self.repository = repository
-    }
-
-    public func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate] {
-        guard let fast = try? await repository.fetchFastingSessions(limit: 20)
-            .first(where: { $0.endedAt == nil }) else { return [] }
-        let elapsed = fast.elapsed(at: context.date)
-        let reason: String
-        if let target = fast.targetDuration {
-            let remaining = max(0, target - elapsed)
-            reason = remaining > 0
-                ? "Your user-selected timer has \(Self.duration(remaining)) remaining."
-                : "You reached the duration you selected. End whenever you choose."
-        } else {
-            reason = "You started this timer and asked LifeBoard to keep it visible."
-        }
-        return [.init(
-            id: "active-fast:\(fast.id.uuidString)",
-            widgetKind: .fasting,
-            title: "Your fast is active · \(Self.duration(elapsed))",
-            reason: .init(message: reason, signal: "active fast"),
-            destination: .track,
-            sensitivity: .privateSensitive,
-            priority: 650,
-            relevantFrom: fast.startedAt,
-            relevantUntil: fast.targetDuration.map { fast.startedAt.addingTimeInterval($0 + 21_600) },
-            isUserStartedActiveState: true
-        )]
-    }
-
-    private static func duration(_ interval: TimeInterval) -> String {
-        let minutes = max(0, Int(interval / 60))
-        return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
     }
 }

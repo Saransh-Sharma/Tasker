@@ -15,7 +15,7 @@ struct HomeCapacityCardContent: View {
                 .accessibilityIdentifier("home.widget.scheduleCapacity")
                 .homeCardEvidence("capacity.title", role: "title", copy: title, typography: .init(role: "headline", points: 17, weight: "semibold", alignment: "leading"))
             if needsSetup {
-                HomeEmptyStateRow("Connect Calendar to see your next usable window", symbol: "calendar.badge.plus", palette: palette)
+                HomeEmptyStateRow(String(localized: "Connect Calendar to see free time"), symbol: "calendar.badge.plus", palette: palette)
             } else {
                 Text(summary)
                     .font(.title3.weight(.semibold))
@@ -27,11 +27,11 @@ struct HomeCapacityCardContent: View {
                     .foregroundStyle(palette.color(for: .foregroundSecondary))
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Button("Open Day", action: onOpen)
+            Button("Open day", action: onOpen)
                 .font(.subheadline.weight(.semibold))
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("home.capacity.openDay")
-                .homeCardEvidence("capacity.open", role: "control", copy: "Open Day", typography: .init(role: "subheadline", points: 15, weight: "semibold", alignment: "leading"))
+                .homeCardEvidence("capacity.open", role: "control", copy: "Open day", typography: .init(role: "subheadline", points: 15, weight: "semibold", alignment: "leading"))
         }
         .padding(16)
     }

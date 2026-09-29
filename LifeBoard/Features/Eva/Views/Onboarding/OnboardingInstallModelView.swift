@@ -10,9 +10,9 @@ enum LLMCatalogSectionKind: CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .availableNow:
-            return "available now"
+            return String(localized: "Available")
         case .additionalTextModels:
-            return "additional text models"
+            return String(localized: "Experimental")
         }
     }
 }
@@ -127,10 +127,10 @@ struct OnboardingInstallModelView: View {
                     }
 
                     VStack(spacing: Theme.Spacing.xs) {
-                        Text("choose your local models")
+                        Text("Choose models")
                             .font(.lifeboard(.title1))
                             .foregroundStyle(Color.lifeboard(.textPrimary))
-                        Text("install one or more local models for chat. qwen3 0.6b stays the default, qwen 3.5 improves quality, and bonsai 1.7b 1-bit is available as an experimental tiny-footprint option.")
+                        Text("Download a model to use Eva offline.")
                             .font(.lifeboard(.callout))
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                             .multilineTextAlignment(.center)
@@ -142,7 +142,7 @@ struct OnboardingInstallModelView: View {
             .listRowBackground(Color.clear)
 
             if catalog.installedEntries.isEmpty == false {
-                Section("installed") {
+                Section("Installed") {
                     ForEach(catalog.installedEntries) { entry in
                         InstalledModelStatusRow(entry: entry)
                     }
@@ -172,7 +172,7 @@ struct OnboardingInstallModelView: View {
                         selectedModels: selectedModels
                     )
                 ) {
-                    Text("install selected models")
+                    Text("Download selected")
                 }
                 .disabled(!canInstall)
             }
@@ -191,7 +191,7 @@ struct OnboardingInstallModelView: View {
                         selectedModels: selectedModels
                     )
                 ) {
-                    Text("install")
+                    Text("Download")
                         .font(.lifeboard(.button))
                         .foregroundStyle(Color.lifeboard(.accentPrimary))
                 }
@@ -237,7 +237,7 @@ private struct InstalledModelStatusRow: View {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(Color.lifeboard(.accentPrimary))
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                Text(entry.model.displayName.lowercased())
+                Text(entry.model.displayName)
                     .font(.lifeboard(.bodyEmphasis))
                     .foregroundStyle(Color.lifeboard(.textPrimary))
                 if let statusReason = entry.compatibility.statusReason,
@@ -248,7 +248,7 @@ private struct InstalledModelStatusRow: View {
                 }
             }
             Spacer()
-            Text(entry.compatibility.statusBadgeTitle ?? "installed")
+            Text(entry.compatibility.statusBadgeTitle ?? String(localized: "Installed"))
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(entry.compatibility.canActivate ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.statusWarning))
         }
@@ -281,7 +281,7 @@ private struct LLMModelOptionCard: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 HStack(spacing: Theme.Spacing.sm) {
                     Image(systemName: isDisabled ? "minus.circle" : (isSelected ? "checkmark.circle.fill" : "circle"))
-                        .font(.title3)
+                        .lifeboardFont(.title3)
                         .foregroundStyle(isDisabled ? Color.lifeboard(.textQuaternary) : (isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textQuaternary)))
 
                     Text(entry.model.displayName)
@@ -322,7 +322,7 @@ private struct LLMModelOptionCard: View {
                         .foregroundStyle(Color.lifeboard(.textTertiary))
                     Spacer()
                     if entry.model.sourceModelID != nil {
-                        Text("converted MLX equivalent")
+                        Text("Converted version")
                             .font(.lifeboard(.caption2))
                             .foregroundStyle(Color.lifeboard(.textQuaternary))
                     }
@@ -342,7 +342,7 @@ private struct LLMModelOptionCard: View {
         }
         .disabled(isDisabled)
         .accessibilityIdentifier(isDefaultModel ? "llm.modelPicker.recommendedRow" : "")
-        .accessibilityValue(isSelected ? "selected" : "unselected")
+        .accessibilityValue(isSelected ? String(localized: "Selected") : String(localized: "Not selected"))
         #if os(macOS)
         .buttonStyle(.plain)
         #endif

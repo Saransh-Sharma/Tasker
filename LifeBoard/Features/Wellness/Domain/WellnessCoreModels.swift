@@ -475,10 +475,10 @@ public enum WellnessRepositoryError: LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidValue: "Check the value and try again."
-        case .invalidInterval: "The end time must be after the start time."
-        case .incompatibleUnit: "That unit is not available for this measurement."
-        case .recordNotFound: "That wellness entry is no longer available."
+        case .invalidValue: String(localized: "Check the value.")
+        case .invalidInterval: String(localized: "End time must be after start time.")
+        case .incompatibleUnit: String(localized: "That unit doesn’t fit this measurement.")
+        case .recordNotFound: String(localized: "Entry not found.")
         }
     }
 }
@@ -499,7 +499,7 @@ public struct WellnessOutlierPolicy: Sendable {
         case .restingHeartRate: 25 ... 240
         }
         guard expected.contains(normalizedValue) else {
-            return .requiresConfirmation(message: "This value is outside the usual entry range. Confirm the number and unit before saving.")
+            return .requiresConfirmation(message: String(localized: "Outside the usual range. Confirm the number and unit."))
         }
         return .accepted
     }
@@ -814,7 +814,7 @@ public struct WellnessHomeCardSource: HomeCardSource {
                     let snapshot = await healthMetrics?.currentSnapshot(now: date)
                     return empty(date, Self.emptyHealthDetail(
                         status: snapshot?.statuses[.body],
-                        fallback: "Log a value when it is useful to you."
+                        fallback: String(localized: "No entries yet")
                     ))
                 }
                 let value = try sample.value(in: sample.displayUnit)
@@ -835,8 +835,8 @@ public struct WellnessHomeCardSource: HomeCardSource {
                             ? "LifeBoard · \(sample.observedAt.formatted(date: .abbreviated, time: .omitted))"
                             : "Apple Health · \(sample.observedAt.formatted(date: .abbreviated, time: .omitted))",
                         story: sample.source.permitsManualCorrection
-                            ? "A LifeBoard measurement you can review or correct in Track."
-                            : "An imported Apple Health measurement. Imported records are read-only in LifeBoard."
+                            ? String(localized: "Logged in LifeBoard, \(sample.observedAt.formatted(date: .abbreviated, time: .omitted))")
+                            : String(localized: "From Apple Health, \(sample.observedAt.formatted(date: .abbreviated, time: .omitted))")
                     ),
                     date: sample.updatedAt,
                     payload: series.count > 1 ? .series(series) : .none
@@ -847,7 +847,7 @@ public struct WellnessHomeCardSource: HomeCardSource {
                     let snapshot = await healthMetrics?.currentSnapshot(now: date)
                     return empty(date, Self.emptyHealthDetail(
                         status: snapshot?.statuses[.workouts],
-                        fallback: "Add a workout manually or connect Apple Health."
+                        fallback: String(localized: "No workouts yet")
                     ))
                 }
                 let minutes = max(0, workout.duration / 60)
@@ -856,7 +856,7 @@ public struct WellnessHomeCardSource: HomeCardSource {
                     detail: densityDetail(
                         size: size,
                         compact: Self.duration(workout.duration),
-                        story: "\(Self.duration(workout.duration)) on \(workout.startedAt.formatted(date: .abbreviated, time: .omitted)) · \(workout.source.permitsManualCorrection ? "LifeBoard" : "Apple Health")."
+                        story: "\(Self.duration(workout.duration)) on \(workout.startedAt.formatted(date: .abbreviated, time: .omitted)) · \(workout.source.permitsManualCorrection ? "LifeBoard" : "Apple Health")"
                     ),
                     date: workout.updatedAt,
                     payload: .metric(
@@ -877,7 +877,7 @@ public struct WellnessHomeCardSource: HomeCardSource {
                     let snapshot = await healthMetrics?.currentSnapshot(now: date)
                     return empty(date, Self.emptyHealthDetail(
                         status: snapshot?.statuses[.sleep],
-                        fallback: "Add a sleep note when reflection would help."
+                        fallback: String(localized: "No sleep logged yet")
                     ))
                 }
                 let series = nights
@@ -891,10 +891,10 @@ public struct WellnessHomeCardSource: HomeCardSource {
                     detail: densityDetail(
                         size: size,
                         compact: quality.map { "Quality \($0)/5" }
-                            ?? (containsHealth ? "Apple Health" : "No rating needed"),
+                            ?? (containsHealth ? String(localized: "Apple Health") : String(localized: "Not rated")),
                         story: containsHealth
-                            ? "Nightly total consolidated from Apple Health intervals. LifeBoard notes remain separate."
-                            : "Your note stays descriptive and is never treated as a diagnosis."
+                            ? String(localized: "Nightly total from Apple Health")
+                            : String(localized: "From your sleep note")
                     ),
                     date: night.samples.map(\.updatedAt).max() ?? night.endedAt,
                     payload: series.count > 1 ? .series(series) : .none
@@ -912,7 +912,7 @@ public struct WellnessHomeCardSource: HomeCardSource {
                         || summary.activeEnergyKilocalories != nil else {
                     return empty(date, Self.emptyHealthDetail(
                         status: healthSnapshot?.statuses[.activity],
-                        fallback: "Movement appears here when available."
+                        fallback: String(localized: "No movement yet")
                     ))
                 }
                 let stepHistory: [HomeSeriesPoint]
@@ -957,12 +957,12 @@ public struct WellnessHomeCardSource: HomeCardSource {
                         ].compactMap { $0 }.joined(separator: " · "),
                         story: [
                             summary.source == .appleHealth
-                                ? "Today’s Apple Health total. Custom LifeBoard records stay separate."
-                                : "Today’s custom LifeBoard movement. Connect Apple Health for device totals.",
+                                ? String(localized: "Today’s total from Apple Health")
+                                : String(localized: "Logged in LifeBoard today"),
                             summary.source == .appleHealth
                                 ? Self.healthStatusSuffix(healthSnapshot?.statuses[.activity])
                                 : nil
-                        ].compactMap { $0 }.joined(separator: " ")
+                        ].compactMap { $0 }.joined(separator: " · ")
                     ),
                     date: summary.updatedAt ?? date,
                     payload: movementPayload
@@ -972,7 +972,7 @@ public struct WellnessHomeCardSource: HomeCardSource {
             return HomeCardSnapshot(
                 availability: .degraded,
                 title: definition.title,
-                detail: "This measurement is unavailable right now. Your Home layout is unchanged.",
+                detail: String(localized: "Couldn’t load data."),
                 updatedAt: date
             )
         }
@@ -1025,13 +1025,13 @@ public struct WellnessHomeCardSource: HomeCardSource {
         guard let status else { return fallback }
         switch status.signal {
         case .setupRequired:
-            return "Connect Apple Health to import available records, or add one in LifeBoard."
+            return String(localized: "Connect Apple Health or log one here.")
         case .loading:
-            return "Apple Health is refreshing automatically. You can still add a LifeBoard record."
+            return String(localized: "Updating from Apple Health…")
         case .stale, .partial, .offline, .protectedDataLocked:
-            return "No cached record is available yet. Apple Health will refresh automatically."
+            return String(localized: "No data yet. Refreshes automatically.")
         case .unavailable:
-            return "Apple Health is unavailable. You can still add a LifeBoard record."
+            return String(localized: "Apple Health unavailable. Log one here.")
         case .writeDenied, .noRecord, .explicitZero, .recorded:
             return fallback
         }
@@ -1040,20 +1040,17 @@ public struct WellnessHomeCardSource: HomeCardSource {
     private static func healthStatusSuffix(_ status: HealthDomainStatus?) -> String? {
         guard let status else { return nil }
         return switch status.signal {
-        case .stale: "May be out of date; refreshes automatically."
-        case .partial, .offline: "Some values are unavailable; refreshes automatically."
-        case .protectedDataLocked: "Unlock the device to refresh."
-        case .unavailable: "Showing the last available Apple Health data."
-        case .writeDenied: "Apple Health write access is off."
+        case .stale: String(localized: "May be out of date")
+        case .partial, .offline: String(localized: "Some values missing")
+        case .protectedDataLocked: String(localized: "Unlock to refresh")
+        case .unavailable: String(localized: "Last synced Health data")
+        case .writeDenied: String(localized: "Saving to Health is off")
         case .loading, .setupRequired, .noRecord, .explicitZero, .recorded: nil
         }
     }
 
     private static func duration(_ interval: TimeInterval) -> String {
-        let minutes = max(0, Int(interval / 60))
-        let hours = minutes / 60
-        let remainder = minutes % 60
-        return hours > 0 ? "\(hours)h \(remainder)m" : "\(remainder)m"
+        LifeBoardDuration.text(minutes: max(0, Int(interval / 60)))
     }
 }
 

@@ -24,6 +24,8 @@ Calendar, Apple Health, and EVA are not core steps or completion requirements. T
 
 ## Content rules
 
+App-wide voice and glossary: [DESIGN.md "Voice and copy"](../../DESIGN.md#voice-and-copy-2026-09-28). First run is stricter:
+
 All first-run strings live in `LifeWeaveCopy` and go through `String(localized:)`. `LifeWeaveOnboardingTests` enforces:
 
 - **One screen, one question.** The title is the question.

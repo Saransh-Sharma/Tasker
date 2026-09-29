@@ -26,7 +26,7 @@ struct SlashCommandPickerView: View {
                 EvaChatSunriseBackground()
 
                 VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                TextField("Search commands", text: $query)
+                TextField("Search commands", text: $query, prompt: Text("Search commands").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                     .focused($isSearchFocused)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -52,13 +52,13 @@ struct SlashCommandPickerView: View {
                                 .padding(.top, Theme.Spacing.md)
                                 .accessibilityIdentifier("chat.command_picker.empty")
                         } else if showFilteredOnly {
-                            commandSection(title: "All Commands", commands: allCommands)
+                            commandSection(title: String(localized: "All commands"), commands: allCommands)
                         } else {
                             if recentCommands.isEmpty == false {
-                                commandSection(title: "Recent", commands: recentCommands)
+                                commandSection(title: String(localized: "Recent"), commands: recentCommands)
                             }
-                            commandSection(title: "Popular", commands: popularCommands)
-                            commandSection(title: "All Commands", commands: allSectionCommands)
+                            commandSection(title: String(localized: "Popular"), commands: popularCommands)
+                            commandSection(title: String(localized: "All commands"), commands: allSectionCommands)
                         }
                     }
                     .padding(.horizontal, Theme.Spacing.lg)

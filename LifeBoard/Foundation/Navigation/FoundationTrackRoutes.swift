@@ -16,7 +16,7 @@ struct RoutineRouteView: View {
     @State private var state: RouteLoadState<Snapshot> = .loading
 
     var body: some View {
-        EntityRouteScaffold(title: "Routine", systemImage: "figure.mind.and.body", state: state) { snapshot in
+        EntityRouteScaffold(title: String(localized: "Routine"), systemImage: "figure.mind.and.body", state: state) { snapshot in
             VStack(alignment: .leading, spacing: 14) {
                 if let routine = snapshot.definition {
                     Text(routine.title).font(.title2.weight(.semibold))
@@ -25,23 +25,23 @@ struct RoutineRouteView: View {
                         Label(step.title, systemImage: "circle")
                     }
                 } else {
-                    Label("Definition removed", systemImage: "archivebox")
+                    Label("Routine deleted", systemImage: "archivebox")
                         .font(.headline)
-                    Text("Historical runs remain readable with their saved routine version.")
+                    Text("Past runs are kept.")
                         .font(.subheadline)
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
 
                 Divider()
-                Text("Run history").font(.headline)
+                Text("History").font(.headline)
                 if snapshot.runs.isEmpty {
-                    Text("No runs recorded yet.")
+                    Text("No runs yet")
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                 } else {
                     ForEach(snapshot.runs.prefix(30)) { run in
                         VStack(alignment: .leading, spacing: 5) {
                             HStack {
-                                Label(run.status.rawValue.capitalized, systemImage: routineStatusSymbol(run.status))
+                                Label(run.status.displayName, systemImage: routineStatusSymbol(run.status))
                                     .font(.subheadline.weight(.semibold))
                                 Spacer()
                                 Text(run.startedAt.formatted(date: .abbreviated, time: .shortened))
@@ -65,7 +65,7 @@ struct RoutineRouteView: View {
     }
 
     private func load() async {
-        guard let repository else { state = .failed("Routine data is unavailable."); return }
+        guard let repository else { state = .failed(String(localized: "Couldn’t load routine.")); return }
         do {
             async let routines = repository.fetchRoutines()
             async let runs = repository.fetchRoutineRuns(routineID: id)
@@ -87,7 +87,7 @@ struct RoutineRouteView: View {
                 - run.effectivePausedDuration
         )
         let minutes = max(1, Int((seconds / 60).rounded()))
-        return minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h \(minutes % 60)m"
+        return LifeBoardDuration.text(minutes: minutes)
     }
 
     private func routineStatusSymbol(_ status: RoutineRunStatus) -> String {
@@ -137,16 +137,16 @@ struct GoalRouteView: View {
     @State private var actionError: String?
 
     var body: some View {
-        EntityRouteScaffold(title: "Goal", systemImage: "target", state: state) { snapshot in
+        EntityRouteScaffold(title: String(localized: "Goal"), systemImage: "target", state: state) { snapshot in
             VStack(alignment: .leading, spacing: 14) {
                 let goal = snapshot.goal
                 Text(goal.title).font(.title2.weight(.semibold))
-                LabeledContent("Type", value: goal.type.rawValue.capitalized)
-                LabeledContent("Target", value: goal.targetValue.map { "\($0.formatted()) \(goal.unitLabel ?? "")" } ?? "Completion")
-                LabeledContent("Target date", value: goal.targetDate?.formatted(date: .abbreviated, time: .omitted) ?? "Flexible")
+                LabeledContent("Type", value: goal.type.displayName)
+                LabeledContent("Target", value: goal.targetValue.map { "\($0.formatted()) \(goal.unitLabel ?? "")" } ?? String(localized: "Completion"))
+                LabeledContent("Target date", value: goal.targetDate?.formatted(date: .abbreviated, time: .omitted) ?? String(localized: "No date"))
 
                 Button(
-                    snapshot.links.isEmpty ? "Link progress source" : "Link another source",
+                    snapshot.links.isEmpty ? "Link a source" : "Link another",
                     systemImage: "link.badge.plus"
                 ) {
                     showsLinker = true
@@ -179,34 +179,31 @@ struct GoalRouteView: View {
                         Text("\(fraction.formatted(.percent.precision(.fractionLength(0)))) · confidence \(progress.confidence.formatted(.percent.precision(.fractionLength(0))))")
                             .font(.caption)
                             .foregroundStyle(Color.lifeboard(.textSecondary))
-                    } else {
-                        Text("Progress is partial because linked evidence is missing.")
-                            .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
                     Text(progress.nextUsefulAction)
                         .font(.subheadline)
                 }
 
                 Divider()
-                Text("Linked sources").font(.headline)
+                Text("Sources").font(.headline)
                 if snapshot.links.isEmpty {
-                    Text("No sources linked yet.").foregroundStyle(Color.lifeboard(.textSecondary))
+                    Text("No sources yet").foregroundStyle(Color.lifeboard(.textSecondary))
                 } else {
                     ForEach(snapshot.links) { resolved in
                         HStack(spacing: 12) {
                             Image(systemName: sourceKind(resolved.link.source).systemImage)
                                 .frame(width: 24)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(resolved.source?.title ?? "Linked source unavailable")
+                                Text(resolved.source?.title ?? String(localized: "Source not found"))
                                     .font(.subheadline.weight(.medium))
-                                Text(resolved.link.source.rawValue.capitalized)
+                                Text(resolved.link.source.displayName)
                                     .font(.caption)
                                     .foregroundStyle(Color.lifeboard(.textSecondary))
                             }
                             Spacer()
                             if resolved.source == nil {
-                                Button("Repair") { repairingLink = resolved.link }
-                                    .buttonStyle(.bordered)
+                                Button("Relink") { repairingLink = resolved.link }
+                                    .buttonStyle(.lifeBoardChip)
                                     .controlSize(.small)
                             }
                         }
@@ -221,7 +218,7 @@ struct GoalRouteView: View {
                         HStack {
                             Text(point.date.formatted(date: .abbreviated, time: .omitted))
                             Spacer()
-                            Text(point.progress.progressFraction?.formatted(.percent.precision(.fractionLength(0))) ?? "Partial")
+                            Text(point.progress.progressFraction?.formatted(.percent.precision(.fractionLength(0))) ?? "—")
                                 .foregroundStyle(Color.lifeboard(.textSecondary))
                         }
                         .font(.subheadline)
@@ -233,7 +230,7 @@ struct GoalRouteView: View {
         .task(id: id) { await load() }
         .sheet(item: $repairingLink) { link in
             TypedSourcePickerView(
-                title: "Repair linked source",
+                title: String(localized: "Relink source"),
                 kinds: [sourceKind(link.source)],
                 repository: sourceRepository
             ) { source in
@@ -262,13 +259,13 @@ struct GoalRouteView: View {
                 }
             }
         }
-        .confirmationDialog("Delete this goal?", isPresented: $confirmsDeletion, titleVisibility: .visible) {
+        .confirmationDialog("Delete goal?", isPresented: $confirmsDeletion, titleVisibility: .visible) {
             Button("Delete goal", role: .destructive) { deleteGoal() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("The goal and its progress links are removed. Linked source records are unchanged.")
+            Text("Linked tasks and habits aren’t affected.")
         }
-        .alert("Goal needs attention", isPresented: Binding(
+        .alert("Couldn’t update goal", isPresented: Binding(
             get: { actionError != nil },
             set: { if !$0 { actionError = nil } }
         )) {
@@ -279,7 +276,7 @@ struct GoalRouteView: View {
     }
 
     private func load() async {
-        guard let repository else { state = .failed("Goal data is unavailable."); return }
+        guard let repository else { state = .failed(String(localized: "Couldn’t load goal.")); return }
         do {
             async let goals = repository.fetchGoals()
             async let links = repository.fetchGoalLinks(goalID: id)

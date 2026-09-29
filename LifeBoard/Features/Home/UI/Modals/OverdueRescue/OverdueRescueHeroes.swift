@@ -215,7 +215,10 @@ enum OverdueRescueVisualSpec {
     static let primaryButtonHeight: CGFloat = 68
     static let secondaryButtonHeight: CGFloat = 62
     static let primaryButtonCorner: CGFloat = 24
-    static let sheetMaxWidth: CGFloat = 390
+    /// Wider than any phone's content column (a 440-point phone less the 28-point
+    /// margins is 384), so it only bites on iPad and Mac, where 390 left the deck
+    /// a narrow strip in the middle of the window.
+    static let sheetMaxWidth: CGFloat = 480
 
     static func primaryButtonBackground(cornerRadius: CGFloat = primaryButtonCorner) -> some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

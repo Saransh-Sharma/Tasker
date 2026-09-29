@@ -470,7 +470,7 @@ public struct CalendarTimelineView: View {
         events: [CalendarEventSnapshot],
         density: CalendarTimelineDensity = .compact,
         showsDateLabel: Bool = true,
-        emptyText: String = "Nothing in this window",
+        emptyText: String = String(localized: "No events"),
         accessibilityIdentifier: String? = nil,
         accessibilityLabelText: String? = nil,
         initialVisibleHour: Int? = nil,
@@ -526,7 +526,7 @@ public struct CalendarTimelineView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(accessibilityIdentifier ?? "calendar.timeline")
-        .accessibilityLabel(accessibilityLabelText ?? "Calendar timeline")
+        .accessibilityLabel(accessibilityLabelText ?? String(localized: "Calendar timeline"))
         .onAppear { refreshLayoutPlan(anchorDate: anchorDate) }
         .onChange(of: events) { refreshLayoutPlan(anchorDate: anchorDate) }
         .onChange(of: date) { refreshLayoutPlan(anchorDate: anchorDate) }

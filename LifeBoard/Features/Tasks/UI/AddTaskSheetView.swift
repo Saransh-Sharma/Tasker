@@ -41,11 +41,11 @@ public struct AddTaskSheetView: View {
     private func triggerPreviewPop() {
         guard !reduceMotion else { return }
         previewPopTask?.cancel()
-        withAnimation(LifeBoardAnimation.stateChange) { previewPop = true }
+        withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) { previewPop = true }
         previewPopTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 220_000_000)
             guard Task.isCancelled == false else { return }
-            withAnimation(LifeBoardAnimation.stateChange) { previewPop = false }
+            withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) { previewPop = false }
         }
     }
 
@@ -61,10 +61,13 @@ public struct AddTaskSheetView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
+            // One primary action: "Add task" at the bottom. The bar's own
+            // "Done" duplicated it; ⌘Return now lives on the bottom button.
             AddTaskNavigationBar(
                 containerMode: .sheet,
-                title: "New Task",
+                title: "New task",
                 canSave: canCreate,
+                showsSave: false,
                 onCancel: handleCancel,
                 onSave: handleCreate
             )
@@ -84,17 +87,23 @@ public struct AddTaskSheetView: View {
                         action: { showTimeEditor = true }
                     )
                     .scaleEffect(previewPop && !reduceMotion ? 1.03 : 1.0)
-                    .animation(LifeBoardAnimation.stateChange, value: previewPop)
+                    .animation(MotionProfile.localState.animation(reduceMotion: reduceMotion), value: previewPop)
                     .cardEntrance(index: 0)
 
                     AddTaskTitleField(
                         text: $viewModel.taskName,
                         isFocused: $titleFieldFocused,
-                        placeholder: "What do you want to do?",
-                        helperText: "Keep it small enough for an ordinary day.",
+                        placeholder: "Task name",
                         onSubmit: handleCreate
                     )
                     .cardEntrance(index: 1)
+
+                    // What the title will become, before it is saved: "Call mom
+                    // tomorrow 3pm #family" files a dated, tagged task.
+                    if let parsed = viewModel.typedTitleParse {
+                        AddTaskUnderstoodLine(parsed: parsed)
+                            .transition(.opacity)
+                    }
 
                     TaskEssentials(
                         viewModel: viewModel,
@@ -137,7 +146,8 @@ public struct AddTaskSheetView: View {
                 isLoading: viewModel.isLoading,
                 successFlash: successFlash,
                 showAddAnother: showAddAnother,
-                buttonTitle: "Add Task",
+                buttonTitle: "Add task",
+                submitsWithCommandReturn: true,
                 onCreateAction: handleCreate,
                 onAddAnotherAction: handleAddAnother
             )
@@ -147,10 +157,20 @@ public struct AddTaskSheetView: View {
         }
         .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 720 : .infinity, alignment: .center)
         .background(AddTaskBackground().ignoresSafeArea())
+        // `.contain` makes the sheet's root a real accessibility container, so
+        // "addTask.view" is reachable (a bare stack never is) and its children
+        // keep their own identifiers instead of inheriting this one.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("addTask.view")
+        // On the root so it is an ancestor of every field: the Mac's
+        // accessibility cancel and VoiceOver's scrub reach Cancel from anywhere.
+        .accessibilityAction(.escape, handleCancel)
+        // Esc with the title field focused: same path as Cancel, so unsaved
+        // changes still ask first.
+        .escapeCancels(perform: handleCancel)
         .presentationDetents([.medium, .large], selection: $selectedDetent)
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(30)
+        .presentationCornerRadius(Radius.modal)
         .interactiveDismissDisabled(viewModel.hasUnsavedChanges)
         .sheet(isPresented: $showTimeEditor) {
             TaskTimeEditorSheet(viewModel: viewModel)
@@ -163,14 +183,14 @@ public struct AddTaskSheetView: View {
             Button("Discard", role: .destructive) {
                 dismiss()
             }
-            Button("Keep Editing", role: .cancel) {}
+            Button("Keep editing", role: .cancel) {}
         } message: {
-            Text("You have unsaved changes that will be lost.")
+            Text("Your changes will be lost.")
         }
         .overlay(
-            ClayColorTokens.leaf
+            Color.lifeboard(.statusSuccess)
                 .opacity(successFlash ? 0.06 : 0)
-                .animation(LifeBoardAnimation.heroReveal, value: successFlash)
+                .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: successFlash)
                 .allowsHitTesting(false)
         )
         .onAppear(perform: handleAppear)
@@ -211,15 +231,15 @@ public struct AddTaskSheetView: View {
             parts.append(viewModel.selectedProject)
         }
         if viewModel.taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-            parts.append("Notes")
+            parts.append(String(localized: "Notes"))
         }
         if viewModel.selectedPriority != .low {
-            parts.append("\(viewModel.selectedPriority.displayName) priority")
+            parts.append(String(localized: "\(viewModel.selectedPriority.displayName) priority"))
         }
         if viewModel.selectedTagIDs.isEmpty == false {
-            parts.append(viewModel.selectedTagIDs.count == 1 ? "1 tag" : "\(viewModel.selectedTagIDs.count) tags")
+            parts.append(viewModel.selectedTagIDs.count == 1 ? String(localized: "1 tag") : String(localized: "\(viewModel.selectedTagIDs.count) tags"))
         }
-        return parts.isEmpty ? "Project, notes, priority, reminders, tags, and links." : parts.joined(separator: ", ")
+        return parts.isEmpty ? String(localized: "Project, notes, tags and more") : parts.joined(separator: ", ")
     }
 
     private func handleAppear() {
@@ -232,17 +252,16 @@ public struct AddTaskSheetView: View {
         }
         guard layoutClass == .phone, didAutoFocusTitleField == false else { return }
         didAutoFocusTitleField = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            titleFieldFocused = true
-        }
+        // Immediately: the keyboard rises with the sheet instead of a beat
+        // after it, so the first keystroke is never lost.
+        titleFieldFocused = true
     }
 
     private func handleCancel() {
+        Haptic.pick.play()
         if viewModel.hasUnsavedChanges {
-            HapticFeedback.medium()
             showDiscardConfirmation = true
         } else {
-            HapticFeedback.light()
             dismiss()
         }
     }
@@ -251,14 +270,36 @@ public struct AddTaskSheetView: View {
         guard canCreate else { return }
         pendingBehavior = .dismiss
         showAddAnother = false
-        viewModel.createTask()
+        submit()
     }
 
     private func handleAddAnother() {
         guard canCreate else { return }
         pendingBehavior = .addAnother
         showAddAnother = false
-        viewModel.createTask()
+        submit()
+    }
+
+    /// Applies what the title says (date, time, tags, project, priority)
+    /// before saving, the way the composer and the Inbox already do.
+    private func submit() {
+        applyUITestDeadlineIfRequested()
+        Task { @MainActor in
+            await viewModel.applyTypedTitleParse()
+            viewModel.createTask()
+        }
+    }
+
+    /// UI tests only. Add Task schedules a task but never gives it a deadline
+    /// ("when is not deadline"), and Home's Tasks card lists due tasks, so the
+    /// suites that complete, undo and delete from that card launch with
+    /// `-LIFEBOARD_TEST_NEW_TASKS_DUE_TODAY` to make a new task due today.
+    private func applyUITestDeadlineIfRequested() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("-UI_TESTING"),
+              arguments.contains("-LIFEBOARD_TEST_NEW_TASKS_DUE_TODAY"),
+              viewModel.dueDate == nil else { return }
+        viewModel.dueDate = Calendar.current.startOfDay(for: Date())
     }
 
     private func handleCreatedTask(_ taskID: UUID, behavior: TaskSubmissionBehavior) {
@@ -268,7 +309,9 @@ public struct AddTaskSheetView: View {
 
         switch behavior {
         case .dismiss:
-            HapticFeedback.success()
+            // After the task exists: `lastCreatedTaskID` only changes on a
+            // successful save.
+            Haptic.commit.play()
             dismiss()
         case .addAnother:
             runSuccessReset {
@@ -282,14 +325,14 @@ public struct AddTaskSheetView: View {
 
     private func runSuccessReset(afterReset: @escaping @MainActor () -> Void) {
         successResetTask?.cancel()
-        HapticFeedback.success()
-        withAnimation(LifeBoardAnimation.stateChange) {
+        Haptic.commit.play()
+        withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
             successFlash = true
         }
         successResetTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 450_000_000)
             guard Task.isCancelled == false else { return }
-            withAnimation(LifeBoardAnimation.stateChange) {
+            withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
                 successFlash = false
                 afterReset()
             }
@@ -297,7 +340,7 @@ public struct AddTaskSheetView: View {
     }
 
     private func toggleDetails() {
-        withAnimation(LifeBoardAnimation.stateChange) {
+        withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
             showDetails.toggle()
         }
         if showDetails {
@@ -306,10 +349,45 @@ public struct AddTaskSheetView: View {
     }
 
     private func expandSheet() {
-        HapticFeedback.light()
-        withAnimation(LifeBoardAnimation.heroReveal) {
+        Haptic.pick.play()
+        withAnimation(MotionProfile.route.animation(reduceMotion: reduceMotion)) {
             selectedDetent = .large
         }
+    }
+}
+
+/// "Understood: Tomorrow, 3:00 PM · #family" under the title field.
+private struct AddTaskUnderstoodLine: View {
+    let parsed: ParsedCapture
+
+    private var parts: [String] {
+        var values: [String] = []
+        if let date = parsed.dueDate {
+            values.append(parsed.isAllDay
+                ? date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+                : date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
+        }
+        if let duration = parsed.duration { values.append(LifeBoardDuration.text(seconds: duration)) }
+        if parsed.repeatPattern != nil { values.append("Repeats") }
+        if let priority = parsed.priority { values.append("\(priority.displayName) priority") }
+        if let project = parsed.projectName { values.append("+\(project)") }
+        values.append(contentsOf: parsed.tags.map { "#\($0)" })
+        if let context = parsed.context { values.append("@\(context)") }
+        return values
+    }
+
+    var body: some View {
+        Label {
+            Text("Found: \(parts.joined(separator: " · "))")
+        } icon: {
+            Image(systemName: "text.badge.checkmark")
+        }
+        .font(.lifeboard(.caption1))
+        .foregroundStyle(Color.lifeboard(.textSecondary))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("addTask.understood")
     }
 }
 
@@ -333,6 +411,7 @@ private struct TaskEssentials: View {
     let onEditTime: () -> Void
 
     @State private var showLifeArea = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var timeText: String {
         guard let scheduledStartAt else { return AddTaskViewModel.anytimeLabel(day: dueDate) }
@@ -340,21 +419,21 @@ private struct TaskEssentials: View {
     }
 
     private var lifeAreaAccent: Color {
-        guard let area = selectedLifeArea else { return ClayColorTokens.violet }
+        guard let area = selectedLifeArea else { return Color.lifeboard(.accentPrimary) }
         return Color(lifeboardHex: LifeAreaColorPalette.normalizeOrMap(hex: area.color, for: area.id))
     }
 
     private var lifeAreaIcon: String { selectedLifeArea?.icon ?? "circle.dashed" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: ClayLayoutMetrics.sm) {
+        VStack(alignment: .leading, spacing: 12) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: ClayLayoutMetrics.xs) {
+                HStack(spacing: 8) {
                     CalmSummaryChip(
                         icon: "clock",
                         label: timeText,
                         state: scheduledStartAt == nil && dueDate == nil ? .empty : .filled,
-                        accentColor: ClayColorTokens.violet,
+                        accentColor: Color.lifeboard(.accentPrimary),
                         action: onEditTime
                     )
                     .accessibilityIdentifier("addTask.schedule.timeRow")
@@ -365,7 +444,7 @@ private struct TaskEssentials: View {
                         state: showLifeArea ? .active : (selectedLifeArea == nil ? .empty : .filled),
                         accentColor: lifeAreaAccent,
                         action: {
-                            withAnimation(LifeBoardAnimation.stateChange) { showLifeArea.toggle() }
+                            withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) { showLifeArea.toggle() }
                         }
                     )
                 }
@@ -385,142 +464,31 @@ private struct TaskEssentials: View {
     }
 }
 
-private struct TaskTimelinePreview: View {
-    let title: String
-    let scheduledStartAt: Date?
-    let scheduledEndAt: Date?
-    var dueDate: Date? = nil
-    let duration: TimeInterval?
-    let lifeArea: LifeArea?
-    var isAwaiting: Bool = false
-    let action: () -> Void
-
-    private var role: RoleStyle { ClayColorTokens.role(.task) }
-    private var displayTitle: String {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "New task" : trimmed
-    }
-    private var lifeAreaText: String {
-        lifeArea?.name ?? "Any life area"
-    }
-    private var durationText: String? {
-        guard let duration else { return nil }
-        let minutes = max(1, Int((duration / 60).rounded()))
-        if minutes < 60 { return "\(minutes)m" }
-        let hours = minutes / 60
-        let remaining = minutes % 60
-        return remaining == 0 ? "\(hours)h" : "\(hours)h \(remaining)m"
-    }
-    private var timeText: String {
-        guard let scheduledStartAt else { return AddTaskViewModel.anytimeLabel(day: dueDate) }
-        return AddTaskViewModel.scheduleRangeLabel(start: scheduledStartAt, end: scheduledEndAt)
-    }
-
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: .top, spacing: ClayLayoutMetrics.sm) {
-                VStack(spacing: 8) {
-                    Text(scheduledStartAt.map(Self.hourText(for:)) ?? "--")
-                        .lifeboardFont(.headline)
-                        .foregroundStyle(ClayColorTokens.navyMuted)
-                        .frame(width: 58, alignment: .trailing)
-                    Circle()
-                        .fill(role.base)
-                        .frame(width: 10, height: 10)
-                        .breathingPulse(min: isAwaiting ? 0.35 : 1.0, max: 1.0, duration: 1.6)
-                    Rectangle()
-                        .fill(role.border)
-                        .frame(width: 2, height: 56)
-                        .opacity(0.7)
-                }
-                .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: ClayLayoutMetrics.xs) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Label(timeText, systemImage: "clock")
-                            .font(.lifeboard(.caption1).weight(.semibold))
-                            .foregroundStyle(role.deep)
-                        Spacer(minLength: ClayLayoutMetrics.xs)
-                        if let durationText {
-                            Text(durationText)
-                                .font(.lifeboard(.caption1).weight(.semibold))
-                                .foregroundStyle(ClayColorTokens.navyMuted)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 5)
-                                .background(Capsule().fill(ClayColorTokens.glassStrong))
-                        }
-                    }
-
-                    Text(displayTitle)
-                        .font(.lifeboard(.headline))
-                        .foregroundStyle(ClayColorTokens.navy)
-                        .lineLimit(2)
-                        .contentTransition(.opacity)
-                        .animation(LifeBoardAnimation.stateChange, value: displayTitle)
-
-                    Label(lifeAreaText, systemImage: role.symbolName)
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(ClayColorTokens.navyMuted)
-                }
-                .padding(ClayLayoutMetrics.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [role.softSurface, ClayColorTokens.glassStrong],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                        .stroke(role.border.opacity(0.82), lineWidth: 1)
-                )
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("addTask.timelinePreview")
-        .accessibilityLabel("Timeline preview. \(displayTitle). \(timeText). \(durationText.map { "\($0). " } ?? "")\(lifeAreaText).")
-    }
-
-    private static func hourText(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h a"
-        return formatter.string(from: date)
-    }
-}
-
 private struct DurationPicker: View {
     @Binding var duration: TimeInterval?
     @State private var showCustomDuration = false
     @State private var customMinutes = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let presets: [(label: String, minutes: Int)] = [
-        ("15m", 15),
-        ("30m", 30),
-        ("45m", 45),
-        ("1h", 60),
-        ("90m", 90)
-    ]
+    private let presets: [(label: String, minutes: Int)] = [15, 30, 45, 60, 90].map {
+        (LifeBoardDuration.text(minutes: $0), $0)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: ClayLayoutMetrics.xs) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Duration")
                 .font(.lifeboard(.callout).weight(.semibold))
-                .foregroundStyle(ClayColorTokens.navy)
+                .foregroundStyle(Color.lifeboard(.textPrimary))
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: ClayLayoutMetrics.xs) {
+                HStack(spacing: 8) {
                     ForEach(presets, id: \.minutes) { preset in
                         AddTaskMetadataChip(
                             icon: "timer",
                             text: preset.label,
                             isActive: matches(minutes: preset.minutes)
                         ) {
-                            withAnimation(LifeBoardAnimation.stateChange) {
+                            withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                                 duration = TimeInterval(preset.minutes * 60)
                                 showCustomDuration = false
                             }
@@ -538,21 +506,19 @@ private struct DurationPicker: View {
             }
 
             if showCustomDuration {
-                HStack(spacing: ClayLayoutMetrics.xs) {
-                    TextField("Minutes", text: $customMinutes)
+                HStack(spacing: 8) {
+                    TextField("Minutes", text: $customMinutes, prompt: Text("Minutes").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                         .font(.lifeboard(.callout))
-                        .keyboardType(.numberPad)
-                        .padding(.horizontal, ClayLayoutMetrics.sm)
+                        .padKeyboard(.numberPad)
+                        .padding(.horizontal, 12)
                         .frame(width: 116, height: 44)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(ClayColorTokens.glassStrong)
-                        )
+                        .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
                         .accessibilityIdentifier("addTask.schedule.customDurationField")
 
                     Button("Set", action: applyCustom)
                         .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundStyle(ClayColorTokens.violet)
+                        .foregroundStyle(Color.lifeboard(.accentPrimary))
+                        .frame(minWidth: 44, minHeight: 44)
                         .buttonStyle(.plain)
 
                     Spacer(minLength: 0)
@@ -560,8 +526,8 @@ private struct DurationPicker: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(ClayLayoutMetrics.md)
-        .sunriseGlassCard(cornerRadius: 22, accentColor: ClayColorTokens.leaf)
+        .padding(16)
+        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
         .accessibilityIdentifier("addTask.scheduleEditor")
     }
 
@@ -583,7 +549,7 @@ private struct DurationPicker: View {
 
     private func toggleCustom() {
         customMinutes = duration.map { "\(max(1, Int(($0 / 60).rounded())))" } ?? ""
-        withAnimation(LifeBoardAnimation.stateChange) {
+        withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
             showCustomDuration.toggle()
         }
     }
@@ -591,27 +557,24 @@ private struct DurationPicker: View {
     private func applyCustom() {
         guard let minutes = Int(customMinutes), minutes > 0 else { return }
         duration = TimeInterval(minutes * 60)
-        withAnimation(LifeBoardAnimation.stateChange) {
+        withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
             showCustomDuration = false
         }
     }
 
     private static func durationLabel(_ duration: TimeInterval) -> String {
-        let minutes = max(1, Int((duration / 60).rounded()))
-        if minutes < 60 { return "\(minutes)m" }
-        let hours = minutes / 60
-        let remaining = minutes % 60
-        return remaining == 0 ? "\(hours)h" : "\(hours)h \(remaining)m"
+        LifeBoardDuration.text(minutes: max(1, Int((duration / 60).rounded())))
     }
 }
 
 private struct LifeAreaPicker: View {
     @ObservedObject var viewModel: AddTaskViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ComposerOptionGrid(
-            title: "Life Area",
-            helperText: "This sets the color and context for the timeline preview.",
+            title: "Life area",
+            helperText: nil,
             options: viewModel.lifeAreas.map {
                 ComposerOption(
                     id: $0.id,
@@ -622,10 +585,10 @@ private struct LifeAreaPicker: View {
             },
             selectedID: viewModel.selectedLifeAreaID,
             noneOptionTitle: "Any area",
-            emptyStateText: viewModel.lifeAreas.isEmpty ? "No life areas yet." : nil,
+            emptyStateText: viewModel.lifeAreas.isEmpty ? String(localized: "No life areas yet") : nil,
             accessibilityIdentifier: "addTask.lifeAreaSelector"
         ) { selectedID in
-            withAnimation(LifeBoardAnimation.stateChange) {
+            withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                 viewModel.selectedLifeAreaID = selectedID
             }
         }
@@ -638,7 +601,7 @@ private struct AddTaskDetails: View {
     let onExpand: () -> Void
 
     var body: some View {
-        VStack(spacing: ClayLayoutMetrics.lg) {
+        VStack(spacing: 20) {
             CalmFieldGroup(title: "Notes") {
                 AddTaskDescriptionField(
                     text: $viewModel.taskDetails,
@@ -705,10 +668,10 @@ private struct AddTaskDetails: View {
                     onExpand()
                 }
             } content: {
-                VStack(spacing: ClayLayoutMetrics.sm) {
+                VStack(spacing: 12) {
                     if viewModel.availableParentTasks.isEmpty == false {
                         AddTaskTaskPicker(
-                            label: "Parent Task",
+                            label: "Parent task",
                             tasks: viewModel.availableParentTasks,
                             selectedTaskID: $viewModel.selectedParentTaskID
                         )
@@ -733,7 +696,7 @@ private struct TaskTimeEditorSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: ClayLayoutMetrics.lg) {
+            VStack(alignment: .leading, spacing: 20) {
                 DatePicker(
                     "Start",
                     selection: $draftDate,
@@ -741,7 +704,7 @@ private struct TaskTimeEditorSheet: View {
                     displayedComponents: [.date, .hourAndMinute]
                 )
                 .datePickerStyle(.graphical)
-                .tint(ClayColorTokens.violet)
+                .tint(Color.lifeboard(.accentPrimary))
                 .accessibilityIdentifier("addTask.schedule.timePicker")
 
                 TaskTimelinePreview(
@@ -754,13 +717,14 @@ private struct TaskTimeEditorSheet: View {
                 )
                 .allowsHitTesting(false)
             }
-            .padding(ClayLayoutMetrics.lg)
+            .padding(20)
             .background(AddTaskBackground().ignoresSafeArea())
             .navigationTitle("Task time")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .bottomBar) {
                     // A task does not need a slot. "Anytime" keeps the chosen day
@@ -806,63 +770,17 @@ private struct AddTaskErrorView: View {
     var body: some View {
         Label(message, systemImage: "exclamationmark.triangle.fill")
             .font(.lifeboard(.callout))
-            .foregroundStyle(ClayColorTokens.role(.warning).deep)
+            .foregroundStyle(Color.lifeboard(.textPrimary))
+            .symbolRenderingMode(.multicolor)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(ClayLayoutMetrics.md)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                    .fill(ClayColorTokens.role(.warning).softSurface)
-            )
+            .padding(16)
+            .lifeBoardClaySurface(.resting, cornerRadius: Radius.card, fill: Color.lifeboard(.statusWarning).opacity(0.14))
     }
 }
 
+/// The sheet's canvas: the semantic page color, not the Sunrise gradient.
 private struct AddTaskBackground: View {
     var body: some View {
-        LinearGradient(
-            colors: [
-                ClayColorTokens.warmCanvas,
-                ClayColorTokens.coolCanvas,
-                ClayColorTokens.canvas
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-}
-
-private extension View {
-    func sunriseGlassCard(cornerRadius: CGFloat, accentColor: Color) -> some View {
-        modifier(GlassCardModifier(cornerRadius: cornerRadius, accentColor: accentColor))
-    }
-}
-
-private struct GlassCardModifier: ViewModifier {
-    let cornerRadius: CGFloat
-    let accentColor: Color
-
-    func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        content
-            .background {
-                // The `#available(iOS 26.0, *)` check and its `.regularMaterial`
-                // fallback are gone: the deployment target *is* 26.0, so the
-                // fallback was unreachable code drawing a system material the
-                // design system does not use.
-                shape
-                    .fill(.clear)
-                    .lifeBoardSystemGlass(.regular, in: shape)
-                    .overlay(shape.fill(ClayColorTokens.glass.opacity(0.50)))
-            }
-            .overlay {
-                shape.stroke(ClayColorTokens.glassBorder, lineWidth: 1)
-            }
-            .overlay(alignment: .topLeading) {
-                Capsule()
-                    .fill(accentColor.opacity(0.16))
-                    .frame(width: 34, height: 8)
-                    .padding(.top, 11)
-                    .padding(.leading, 14)
-            }
-            .shadow(color: ClayColorTokens.elevationShadow, radius: 18, x: 0, y: 10)
+        Color.lifeboard(.bgCanvas)
     }
 }

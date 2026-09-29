@@ -1,0 +1,11 @@
+{
+  "name": "lifeboard-teaser-films",
+  "private": true,
+  "type": "module",
+  "description": "LifeBoard launch films drawn on Canvas 2D with the hand-drawn-canvas-animation skill.",
+  "scripts": {
+    "grid": "node render.mjs",
+    "build": "bash build.sh"
+  },
+  "dependencies": { "puppeteer-core": "24.43.1" }
+}

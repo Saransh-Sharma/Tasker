@@ -51,9 +51,19 @@ public struct UniversalInputSemanticAdapter: LifeThreadIntentAdapter {
         self.classifier = classifier
     }
 
+    /// Readiness plus the 4 s `universalInputClassification` generation budget.
+    static let classificationDeadline: Duration = .seconds(6)
+
     public func resolve(_ input: LifeThreadIntentInput) async -> LifeThreadIntentResolution? {
         guard V2FeatureFlags.universalInputSemanticClassifierEnabled else { return nil }
-        guard let result = await classifier(input) else { return nil }
+        // Bounded, because the composer shows "Understanding what you need"
+        // with its field and Send disabled until this returns, and model
+        // readiness has no deadline of its own. On a deadline the pipeline
+        // falls through to the conversation adapter.
+        let classifier = self.classifier
+        guard let result = await withTimeout(Self.classificationDeadline, operation: { await classifier(input) }) else {
+            return nil
+        }
         return map(result, input: input)
     }
 
@@ -198,12 +208,12 @@ public struct UniversalInputSemanticAdapter: LifeThreadIntentAdapter {
         case .startPlanning:
             return .navigation(LifeThreadNavigationRequest(
                 destination: .plan, sourceReference: nil,
-                route: .planDay, routeLabel: "Day Plan"
+                route: .planDay, routeLabel: String(localized: "Day plan")
             ))
         case .weeklyPlanner:
             return .navigation(LifeThreadNavigationRequest(
                 destination: .plan, sourceReference: nil,
-                route: .weeklyPlanner, routeLabel: "Weekly Planner"
+                route: .weeklyPlanner, routeLabel: String(localized: "Plan week")
             ))
         case .dayRescue:
             return .surfaceAction(.dayRescue)
@@ -218,7 +228,7 @@ public struct UniversalInputSemanticAdapter: LifeThreadIntentAdapter {
                             id: UUID(), label: "Plan today", systemImage: "calendar",
                             resolution: .navigation(LifeThreadNavigationRequest(
                                 destination: .plan, sourceReference: nil,
-                                route: .planDay, routeLabel: "Day Plan"
+                                route: .planDay, routeLabel: String(localized: "Day plan")
                             ))
                         ),
                         ClarificationOption(
@@ -342,11 +352,11 @@ public struct UniversalInputSemanticAdapter: LifeThreadIntentAdapter {
             ))
         case "plan", "plan today", "day plan":
             return .navigation(LifeThreadNavigationRequest(
-                destination: .plan, sourceReference: nil, route: .planDay, routeLabel: "Day Plan"
+                destination: .plan, sourceReference: nil, route: .planDay, routeLabel: String(localized: "Day plan")
             ))
         case "weekly", "weekly planner":
             return .navigation(LifeThreadNavigationRequest(
-                destination: .plan, sourceReference: nil, route: .weeklyPlanner, routeLabel: "Weekly Planner"
+                destination: .plan, sourceReference: nil, route: .weeklyPlanner, routeLabel: String(localized: "Plan week")
             ))
         case "eva", "ask eva", "open eva":
             return .answer(LifeThreadAnswerRequest(prompt: input.text, destination: input.destination))
@@ -358,20 +368,38 @@ public struct UniversalInputSemanticAdapter: LifeThreadIntentAdapter {
 
 /// Helper: race an async operation against a bounded delay. Yields `nil`
 /// when the delay wins so callers can fall through to the next adapter.
+///
+/// Not a task group: a group waits for every child before it returns, so an
+/// operation that ignores cancellation — a model that is still loading — held
+/// the caller for as long as it took, deadline or not. Here the loser is
+/// cancelled and left to finish on its own.
 private func withTimeout<T: Sendable>(
     _ duration: Duration,
-    operation: @escaping @Sendable () async throws -> T
+    operation: @escaping @Sendable () async -> T?
 ) async -> T? {
-    await withTaskGroup(of: T?.self) { group in
-        group.addTask {
-            try? await operation()
+    let race = FirstResult<T>()
+    return await withCheckedContinuation { continuation in
+        let work = Task {
+            race.resume(continuation, with: await operation())
         }
-        group.addTask {
+        Task {
             try? await Task.sleep(for: duration)
-            return nil
+            work.cancel()
+            race.resume(continuation, with: nil)
         }
-        let first = await group.next() ?? nil
-        group.cancelAll()
-        return first
+    }
+}
+
+/// Resumes a continuation exactly once, whichever side of a race arrives first.
+private final class FirstResult<T: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var resumed = false
+
+    func resume(_ continuation: CheckedContinuation<T?, Never>, with value: T?) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard resumed == false else { return }
+        resumed = true
+        continuation.resume(returning: value)
     }
 }

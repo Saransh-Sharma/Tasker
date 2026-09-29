@@ -38,7 +38,7 @@ public enum GetHomeFilteredTasksError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .repositoryError(let error):
-            return "Failed to load home filters: \(error.localizedDescription)"
+            return String(localized: "Couldn’t load tasks. \(error.localizedDescription)")
         }
     }
 }
@@ -1041,19 +1041,19 @@ public enum EvaBatchProposalError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .duplicateTaskID:
-            return "The rescue plan contains the same task more than once."
+            return String(localized: "A task appears twice in the plan.")
         case .missingTask:
-            return "A task in the rescue plan no longer exists."
+            return String(localized: "A task in the plan no longer exists.")
         case .staleTask:
-            return "A task changed while the rescue plan was open. Refresh and try again."
+            return String(localized: "A task changed. Try again.")
         case .completedTask:
-            return "A task in the rescue plan was already completed."
+            return String(localized: "A task in the plan is already done.")
         case .subtask:
-            return "Subtasks cannot be moved onto the Today timeline."
+            return String(localized: "Steps can’t go on the Today timeline.")
         case .invalidMutation:
-            return "The rescue plan contains conflicting task changes."
+            return String(localized: "The plan has conflicting changes.")
         case .commandCountMismatch:
-            return "The rescue plan could not be applied completely."
+            return String(localized: "Couldn’t apply the whole plan.")
         }
     }
 }
@@ -1214,14 +1214,14 @@ public final class ComputeEvaHomeInsightsUseCase: @unchecked Sendable {
                 ),
                 EvaRationaleFactor(
                     factor: "blocked",
-                    label: task.dependencies.isEmpty ? "Unblocked" : "Has dependencies",
+                    label: task.dependencies.isEmpty ? String(localized: "Ready to start") : String(localized: "Waiting on a task"),
                     contribution: unblocked
                 )
             ]
             if overdueDays > 0 {
                 factors.append(EvaRationaleFactor(
                     factor: "overdue_days",
-                    label: "Overdue by \(overdueDays)d",
+                    label: rescueAgeLabel(overdueDays),
                     contribution: Double(overdueDays) * overdueWeightPerDay
                 ))
             } else if dueToday {
@@ -1234,7 +1234,7 @@ public final class ComputeEvaHomeInsightsUseCase: @unchecked Sendable {
             if quickWin > 0 {
                 factors.append(EvaRationaleFactor(
                     factor: "quick_win",
-                    label: "Quick win",
+                    label: String(localized: "Quick task"),
                     contribution: quickWin
                 ))
             }
@@ -1264,15 +1264,15 @@ public final class ComputeEvaHomeInsightsUseCase: @unchecked Sendable {
     /// Executes focusBadge.
     private func focusBadge(for task: TaskDefinition, anchorStart: Date, anchorEnd: Date) -> String? {
         if let dueDate = task.dueDate, dueDate < anchorStart {
-            return "Overdue"
+            return String(localized: "From earlier")
         }
         if let dueDate = task.dueDate, dueDate >= anchorStart, dueDate < anchorEnd {
             return "Today"
         }
         if let estimated = task.estimatedDuration, estimated <= 1_800 {
-            return "Quick win"
+            return String(localized: "Quick task")
         }
-        return task.dependencies.isEmpty ? "Unblocked" : nil
+        return task.dependencies.isEmpty ? String(localized: "Ready") : nil
     }
 
     /// Executes focusSummaryLine.
@@ -1646,7 +1646,7 @@ public final class GetOverdueRescuePlanUseCase: @unchecked Sendable {
                     taskID: task.id,
                     action: .dropCandidate,
                     toDate: nil,
-                    reasons: ["No updates for \(staleDays)d", "Overdue \(overdueDays)d"],
+                    reasons: [String(localized: "No change in \(staleDays) days"), rescueAgeLabel(overdueDays)],
                     confidence: 0.60
                 ))
                 continue
@@ -1657,7 +1657,7 @@ public final class GetOverdueRescuePlanUseCase: @unchecked Sendable {
                     taskID: task.id,
                     action: .split,
                     toDate: nil,
-                    reasons: ["Blocked by dependencies", "Overdue \(overdueDays)d"],
+                    reasons: [String(localized: "Waiting on a task"), rescueAgeLabel(overdueDays)],
                     confidence: 0.66
                 ))
                 continue
@@ -1668,7 +1668,7 @@ public final class GetOverdueRescuePlanUseCase: @unchecked Sendable {
                     taskID: task.id,
                     action: .doToday,
                     toDate: task.dueDate ?? startOfToday,
-                    reasons: ["Quick win", "Overdue \(overdueDays)d"],
+                    reasons: [String(localized: "Quick task"), rescueAgeLabel(overdueDays)],
                     confidence: 0.78
                 ))
             } else if overdueDays >= 3 && isLong {
@@ -1677,7 +1677,7 @@ public final class GetOverdueRescuePlanUseCase: @unchecked Sendable {
                     taskID: task.id,
                     action: .move,
                     toDate: suggestedDate,
-                    reasons: ["Long task", "Overdue \(overdueDays)d"],
+                    reasons: [String(localized: "Long task"), rescueAgeLabel(overdueDays)],
                     confidence: 0.72
                 ))
             } else {
@@ -1686,7 +1686,7 @@ public final class GetOverdueRescuePlanUseCase: @unchecked Sendable {
                     taskID: task.id,
                     action: .move,
                     toDate: suggestedDate,
-                    reasons: ["Recover gradually", "Overdue \(overdueDays)d"],
+                    reasons: [String(localized: "Spread over days"), rescueAgeLabel(overdueDays)],
                     confidence: 0.65
                 ))
             }
@@ -1700,7 +1700,7 @@ public final class GetOverdueRescuePlanUseCase: @unchecked Sendable {
                     taskID: $0.taskID,
                     action: .move,
                     toDate: Calendar.current.date(byAdding: .day, value: 1, to: startOfToday),
-                    reasons: ["Daily load", "Avoid overload"],
+                    reasons: [String(localized: "Today is full")],
                     confidence: 0.62
                 )
             })
@@ -1752,114 +1752,9 @@ public final class GetOverdueRescuePlanUseCase: @unchecked Sendable {
     }
 }
 
-public final class BuildEvaBatchProposalUseCase: @unchecked Sendable {
-    /// Initializes a new instance.
-    public init() {}
-
-    /// Executes execute.
-    public func execute(
-        source: EvaBatchSource,
-        tasksByID: [UUID: TaskDefinition],
-        mutations: [EvaBatchMutationInstruction],
-        now: Date = Date()
-    ) -> (threadID: String, envelope: AssistantCommandEnvelope) {
-        var commands: [AssistantCommand] = []
-        commands.reserveCapacity(mutations.count)
-
-        for mutation in mutations {
-            guard var task = tasksByID[mutation.taskID] else { continue }
-            if let projectID = mutation.projectID {
-                task.projectID = projectID
-                if projectID == ProjectConstants.inboxProjectID {
-                    task.projectName = ProjectConstants.inboxProjectName
-                }
-            }
-            if mutation.clearDueDate {
-                task.dueDate = nil
-                if source == .rescue {
-                    task.scheduledStartAt = nil
-                    task.scheduledEndAt = nil
-                    task.isAllDay = false
-                }
-            } else if let dueDate = mutation.dueDate {
-                if source == .rescue {
-                    var scheduleTask = task
-                    if let estimatedDuration = mutation.estimatedDuration {
-                        scheduleTask.estimatedDuration = estimatedDuration
-                    }
-                    let schedule = TaskRescueScheduleShifter.shift(task: scheduleTask, to: dueDate)
-                    task.dueDate = schedule.dueDate
-                    task.scheduledStartAt = schedule.scheduledStartAt
-                    task.scheduledEndAt = schedule.scheduledEndAt
-                    task.isAllDay = schedule.isAllDay
-                } else {
-                    task.dueDate = dueDate
-                }
-            }
-            if mutation.clearEstimatedDuration {
-                task.estimatedDuration = nil
-            } else if let estimatedDuration = mutation.estimatedDuration {
-                task.estimatedDuration = estimatedDuration
-            }
-            if let isComplete = mutation.isComplete {
-                task.isComplete = isComplete
-                task.dateCompleted = isComplete ? now : nil
-            }
-            task.updatedAt = now
-            commands.append(.restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: task)))
-        }
-
-        let envelope = AssistantCommandEnvelope(
-            schemaVersion: 2,
-            commands: commands,
-            rationaleText: "Eva \(source.rawValue) deterministic batch plan"
-        )
-        let threadID = "eva_\(source.rawValue)_\(Int(now.timeIntervalSince1970))"
-        return (threadID, envelope)
-    }
-
-    public func executeValidated(
-        source: EvaBatchSource,
-        tasksByID: [UUID: TaskDefinition],
-        mutations: [EvaBatchMutationInstruction],
-        now: Date = Date()
-    ) throws -> (threadID: String, envelope: AssistantCommandEnvelope) {
-        var seen = Set<UUID>()
-        for mutation in mutations {
-            guard seen.insert(mutation.taskID).inserted else {
-                throw EvaBatchProposalError.duplicateTaskID(mutation.taskID)
-            }
-            guard let task = tasksByID[mutation.taskID] else {
-                throw EvaBatchProposalError.missingTask(mutation.taskID)
-            }
-            if let expectedUpdatedAt = mutation.expectedUpdatedAt,
-               abs(task.updatedAt.timeIntervalSince(expectedUpdatedAt)) > 0.001 {
-                throw EvaBatchProposalError.staleTask(mutation.taskID)
-            }
-            guard task.isComplete == false else {
-                throw EvaBatchProposalError.completedTask(mutation.taskID)
-            }
-            guard task.parentTaskID == nil else {
-                throw EvaBatchProposalError.subtask(mutation.taskID)
-            }
-            guard mutation.clearDueDate == false || mutation.dueDate == nil,
-                  mutation.clearEstimatedDuration == false || mutation.estimatedDuration == nil else {
-                throw EvaBatchProposalError.invalidMutation(mutation.taskID)
-            }
-        }
-
-        let proposal = execute(
-            source: source,
-            tasksByID: tasksByID,
-            mutations: mutations,
-            now: now
-        )
-        guard proposal.envelope.commands.count == mutations.count else {
-            throw EvaBatchProposalError.commandCountMismatch(
-                expected: mutations.count,
-                actual: proposal.envelope.commands.count
-            )
-        }
-        return proposal
-    }
+/// "3 days old", the glossary's words for work from earlier days (DESIGN.md
+/// "Voice and copy"). Shown on Rescue cards and Eva's focus reasons.
+/// Internal rather than fileprivate so it survives this file being split.
+func rescueAgeLabel(_ days: Int) -> String {
+    days == 1 ? String(localized: "1 day old") : String(localized: "\(days) days old")
 }

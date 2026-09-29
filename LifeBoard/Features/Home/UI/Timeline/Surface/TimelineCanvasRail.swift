@@ -121,7 +121,7 @@ extension DailyTimelineCanvas {
                   items.contains(placementCandidate.taskID.uuidString) else {
                 return false
             }
-            HapticFeedback.success()
+            Haptic.commit.play()
             onPlaceReplanAtTime(placementCandidate, plan.date(atY: location.y))
             return true
         }, isTargeted: { newValue in
@@ -129,7 +129,7 @@ extension DailyTimelineCanvas {
         })
         .onChange(of: isCanvasDropTargeted) { _, newValue in
             guard newValue else { return }
-            HapticFeedback.selection()
+            Haptic.pick.play()
         }
     }
 

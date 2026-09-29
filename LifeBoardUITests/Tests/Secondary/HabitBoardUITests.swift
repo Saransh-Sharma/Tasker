@@ -10,104 +10,9 @@ final class HabitBoardUITests: BaseUITest {
         ]
     }
 
-    func testHomeHabitRowUsesHybridOverlayLayout() throws {
-        let row = try firstHomeHabitRow()
-
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
-        XCTAssertTrue(waitForElementToBeHittable(row, timeout: 3))
-
-        let rowID = row.identifier.replacingOccurrences(of: "home.habitRow.", with: "")
-        let icon = app.otherElements[AccessibilityIdentifiers.Home.habitRowIcon(rowID)]
-        let strip = app.otherElements[AccessibilityIdentifiers.Home.habitRowStrip(rowID)]
-        let title = app.staticTexts[AccessibilityIdentifiers.Home.habitRowTitle(rowID)]
-
-        XCTAssertTrue(icon.waitForExistence(timeout: 3), "Expected the habit row icon tile to exist")
-        XCTAssertTrue(strip.waitForExistence(timeout: 3), "Expected the habit row streak surface to exist")
-        XCTAssertTrue(title.waitForExistence(timeout: 3), "Expected the habit row title overlay to exist")
-
-        XCTAssertGreaterThanOrEqual(icon.frame.height, row.frame.height * 0.8, "Icon tile should fill most of the row height")
-        XCTAssertGreaterThanOrEqual(strip.frame.height, row.frame.height * 0.8, "Streak surface should fill most of the row height")
-        XCTAssertGreaterThan(strip.frame.width, row.frame.width * 0.45, "Streak surface should occupy the majority of the row width")
-        XCTAssertLessThanOrEqual(abs(icon.frame.minX - row.frame.minX), 2, "Icon tile should begin at the row's leading edge")
-        XCTAssertLessThanOrEqual(abs(icon.frame.minY - row.frame.minY), 2, "Icon tile should begin at the row's top edge")
-        XCTAssertLessThanOrEqual(abs(icon.frame.maxY - row.frame.maxY), 2, "Icon tile should extend to the row's bottom edge")
-        XCTAssertLessThanOrEqual(abs(strip.frame.minX - icon.frame.maxX), 2, "Streak surface should begin flush at the icon separator")
-        XCTAssertLessThanOrEqual(abs(strip.frame.minY - row.frame.minY), 2, "Streak surface should begin at the row's top edge")
-        XCTAssertLessThanOrEqual(abs(strip.frame.maxY - row.frame.maxY), 2, "Streak surface should extend to the row's bottom edge")
-        XCTAssertLessThanOrEqual(abs(strip.frame.maxX - row.frame.maxX), 2, "Streak surface should extend to the row's trailing edge")
-        XCTAssertGreaterThan(title.frame.minX, icon.frame.maxX, "Title overlay should start to the right of the icon tile")
-        XCTAssertGreaterThanOrEqual(title.frame.minX, strip.frame.minX, "Title overlay should sit within the streak surface")
-        XCTAssertLessThan(title.frame.maxX, strip.frame.maxX + 1, "Title overlay should remain inside the streak surface")
-        XCTAssertGreaterThanOrEqual(title.frame.minY, strip.frame.minY, "Title overlay should be vertically inside the streak surface")
-    }
-
-    // The Add Habit footer button was removed in the Sunrise Glass polish
-    // pass; habit creation stays reachable from the dock add button and the
-    // Habit Board. The empty-state card reuses the home.habits.addHabit
-    // identifier when no habits exist yet.
-
-    func testSunriseHomeHabitGridRowsCycleWithToast() throws {
-        relaunchForSunriseHabitGridAssertions()
-
-        let positiveRow = try sunriseHomeHabitRow(title: "Drink water after breakfast")
-        let negativeRow = try sunriseHomeHabitRow(title: "No phone in bed")
-
-        let grid = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.habitsGrid]
-        XCTAssertTrue(grid.waitForExistence(timeout: 3), "Sunrise habits grid container should stay mounted")
-
-        let initialGridFrame = grid.frame
-        let initialNegativeRowFrame = negativeRow.frame
-
-        XCTAssertEqual(positiveRow.value as? String, "Empty. Next: Mark done.")
-
-        positiveRow.tap()
-        XCTAssertTrue(
-            waitForElementValue(positiveRow, expectedAnyOf: ["Done. Next: Mark skipped."]),
-            "Tapping a positive Sunrise habit row should mark it done without removing the row"
-        )
-        XCTAssertTrue(waitForHabitMutationToast(containing: "Marked done"), "Done tap should show mutation toast feedback")
-        XCTAssertTrue(positiveRow.exists, "Positive habit row should stay mounted after done state")
-        assertHabitGridStayedMounted(grid: grid, stableRow: negativeRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: initialNegativeRowFrame)
-
-        positiveRow.tap()
-        XCTAssertTrue(
-            waitForElementValue(positiveRow, expectedAnyOf: ["Skipped. Next: Clear to empty."]),
-            "Second positive tap should mark skipped without removing the row"
-        )
-        XCTAssertTrue(waitForHabitMutationToast(containing: "Marked skipped"), "Skipped tap should show mutation toast feedback")
-        XCTAssertTrue(positiveRow.exists, "Positive habit row should stay mounted after skipped state")
-        assertHabitGridStayedMounted(grid: grid, stableRow: negativeRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: initialNegativeRowFrame)
-
-        positiveRow.tap()
-        XCTAssertTrue(
-            waitForElementValue(positiveRow, expectedAnyOf: ["Empty. Next: Mark done."]),
-            "Third positive tap should clear back to empty without removing the row"
-        )
-        XCTAssertTrue(waitForHabitMutationToast(containing: "Cleared to empty"), "Clear tap should show mutation toast feedback")
-        XCTAssertTrue(positiveRow.exists, "Positive habit row should stay mounted after clear state")
-        assertHabitGridStayedMounted(grid: grid, stableRow: negativeRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: initialNegativeRowFrame)
-
-        let positiveRowFrameBeforeNegativeCycle = positiveRow.frame
-        XCTAssertEqual(negativeRow.value as? String, "Empty. Next: Mark stayed clean.")
-
-        negativeRow.tap()
-        XCTAssertTrue(
-            waitForElementValue(negativeRow, expectedAnyOf: ["Stayed clean. Next: Mark lapsed."]),
-            "Tapping a negative Sunrise habit row should mark clean without removing the row"
-        )
-        XCTAssertTrue(waitForHabitMutationToast(containing: "Marked clean"), "Clean tap should show mutation toast feedback")
-        XCTAssertTrue(negativeRow.exists, "Negative habit row should stay mounted after clean state")
-        assertHabitGridStayedMounted(grid: grid, stableRow: positiveRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: positiveRowFrameBeforeNegativeCycle)
-
-        negativeRow.tap()
-        XCTAssertTrue(
-            waitForElementValue(negativeRow, expectedAnyOf: ["Lapsed. Next: Clear to empty."]),
-            "Lapsed negative habit should remain visible in the Sunrise habit grid"
-        )
-        XCTAssertTrue(waitForHabitMutationToast(containing: "Marked lapsed"), "Lapsed tap should show mutation toast feedback")
-        XCTAssertTrue(negativeRow.exists, "Negative habit row should stay mounted after lapsed state")
-        assertHabitGridStayedMounted(grid: grid, stableRow: positiveRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: positiveRowFrameBeforeNegativeCycle)
-    }
+    // Home's habit rows (`home.habitRow.*`, the Sunrise grid) are not in the
+    // live app; Home logs habits in "Habits today", covered by
+    // `LifeBoardUITests`. The Board opens from that section's "All habits".
 
     func testHabitBoardShowsSevenDayMatrixAndPages() throws {
         openHabitBoard()
@@ -121,7 +26,7 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(rangeTitle.waitForExistence(timeout: 3), "Range title should render on the board")
         let rangeSubtitle = app.staticTexts[AccessibilityIdentifiers.HabitBoard.rangeSubtitle]
         XCTAssertTrue(rangeSubtitle.waitForExistence(timeout: 3), "Range subtitle should provide a secondary scanning cue")
-        XCTAssertEqual(rangeSubtitle.label, "7-day window")
+        XCTAssertEqual(rangeSubtitle.label, "7 days")
 
         let previousButton = app.buttons[AccessibilityIdentifiers.HabitBoard.previousWindow]
         let nextButton = app.buttons[AccessibilityIdentifiers.HabitBoard.nextWindow]
@@ -135,8 +40,8 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertGreaterThanOrEqual(previousButton.frame.height, 44)
         XCTAssertGreaterThanOrEqual(nextButton.frame.width, 44)
         XCTAssertGreaterThanOrEqual(nextButton.frame.height, 44)
-        XCTAssertEqual(previousButton.label, "Show previous 7 days")
-        XCTAssertEqual(nextButton.label, "Show next 7 days")
+        XCTAssertEqual(previousButton.label, "Previous 7 days")
+        XCTAssertEqual(nextButton.label, "Next 7 days")
 
         let initialHeaderDateStamps = try waitForVisibleDayHeaderDateStamps()
         XCTAssertEqual(initialHeaderDateStamps.count, 7, "Habit Board should expose exactly seven visible day headers")
@@ -181,7 +86,7 @@ final class HabitBoardUITests: BaseUITest {
         let rangeSubtitle = app.staticTexts[AccessibilityIdentifiers.HabitBoard.rangeSubtitle]
         XCTAssertTrue(rangeTitle.waitForExistence(timeout: 3), "Range title should remain visible at large text sizes")
         XCTAssertTrue(rangeSubtitle.waitForExistence(timeout: 3), "Range subtitle should remain visible at large text sizes")
-        XCTAssertEqual(rangeSubtitle.label, "7-day window")
+        XCTAssertEqual(rangeSubtitle.label, "7 days")
         XCTAssertEqual(try waitForVisibleDayHeaderDateStamps().count, 7, "Board should keep seven visible day headers at large text sizes")
 
         firstRow.tap()
@@ -283,99 +188,6 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(waitForElementToBeHittable(detailsDisclosure, timeout: 3))
     }
 
-    func testHomeHabitLastCellCyclesThroughThreeStates() throws {
-        relaunchForHomeHabitRowAssertions()
-        let (rowID, strip) = try firstHomeHabitStrip()
-
-        XCTAssertTrue(strip.waitForExistence(timeout: 5), "A home habit strip should exist in the seeded workspace")
-        let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
-
-        XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
-        XCTAssertTrue(waitForElementToBeHittable(lastCell, timeout: 3))
-
-        XCTAssertEqual(lastCell.value as? String, "Empty. Next: Mark done.")
-
-        lastCell.tap()
-        XCTAssertTrue(waitForLastCellValue(lastCell, expected: "Done. Next: Mark skipped."))
-
-        lastCell.tap()
-        XCTAssertTrue(waitForLastCellValue(lastCell, expected: "Skipped. Next: Clear to empty."))
-
-        lastCell.tap()
-        XCTAssertTrue(waitForLastCellValue(lastCell, expected: "Empty. Next: Mark done."))
-    }
-
-    func testHomeHabitContextMenuStillCommitsMutation() throws {
-        let (rowID, strip) = try firstHomeHabitStrip()
-        let row = app.otherElements[AccessibilityIdentifiers.Home.habitRow(rowID)]
-        let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
-
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
-        XCTAssertTrue(strip.waitForExistence(timeout: 5), "A home habit strip should exist in the seeded workspace")
-        XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
-        XCTAssertEqual(lastCell.value as? String, "Empty. Next: Mark done.")
-
-        row.press(forDuration: 1.1)
-
-        let positiveAction = app.buttons["Done"]
-        let abstainAction = app.buttons["Stayed clean"]
-        let lapseAction = app.buttons["Log lapse"]
-
-        let actionButton: XCUIElement
-        if positiveAction.waitForExistence(timeout: 2) {
-            actionButton = positiveAction
-        } else if abstainAction.waitForExistence(timeout: 1) {
-            actionButton = abstainAction
-        } else {
-            actionButton = lapseAction
-        }
-
-        XCTAssertTrue(actionButton.waitForExistence(timeout: 2), "Context menu should expose a primary mutation action")
-        actionButton.tap()
-
-        XCTAssertNotEqual(lastCell.value as? String, "Empty. Next: Mark done.")
-    }
-
-    func testHomeHabitRowTapOutsideIconCyclesHabitStateAcrossStripTapPoints() throws {
-        relaunchForHomeHabitRowAssertions()
-        let (rowID, strip) = try firstHomeHabitStrip()
-        XCTAssertTrue(strip.waitForExistence(timeout: 5), "A home habit strip should exist in the seeded workspace")
-        let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
-        XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
-        XCTAssertEqual(lastCell.value as? String, "Empty. Next: Mark done.")
-
-        let stripTapPoints = [0.20, 0.50, 0.80]
-        let expectedValues = [
-            "Done. Next: Mark skipped.",
-            "Skipped. Next: Clear to empty.",
-            "Empty. Next: Mark done."
-        ]
-
-        for (index, tapPoint) in stripTapPoints.enumerated() {
-            let coordinate = strip.coordinate(withNormalizedOffset: CGVector(dx: tapPoint, dy: 0.5))
-            coordinate.tap()
-            XCTAssertTrue(
-                waitForLastCellValue(lastCell, expected: expectedValues[index]),
-                "Tapping strip point \(tapPoint) should cycle the habit state"
-            )
-        }
-    }
-
-    func testHomeHabitIconTapStillOpensDetail() throws {
-        relaunchForHomeHabitRowAssertions()
-        let (rowID, strip) = try firstHomeHabitStrip()
-        XCTAssertTrue(strip.waitForExistence(timeout: 5), "A home habit strip should exist in the seeded workspace")
-        let icon = app.otherElements[AccessibilityIdentifiers.Home.habitRowIcon(rowID)]
-        XCTAssertTrue(icon.waitForExistence(timeout: 5), "Habit row icon should be visible")
-
-        icon.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-
-        XCTAssertTrue(
-            app.staticTexts["Drink water after breakfast"].waitForExistence(timeout: 5),
-            "Tapping the left icon should open habit detail"
-        )
-    }
-
     private func openHabitBoard(file: StaticString = #filePath, line: UInt = #line) {
         for _ in 0..<12 {
             if waitForHabitBoardVisible(timeout: 1) {
@@ -383,22 +195,24 @@ final class HabitBoardUITests: BaseUITest {
             }
         }
 
-        let openBoardButton = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.habitsOpenBoard]
-        let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
-
-        if backToTodayButton.waitForExistence(timeout: 2) && backToTodayButton.isHittable {
-            backToTodayButton.tap()
-        }
+        let openBoardButton = app.buttons[AccessibilityIdentifiers.Home.habitsTodayBoard]
 
         var foundBoardButton = openBoardButton.waitForExistence(timeout: 4)
         if !foundBoardButton || !openBoardButton.isHittable {
-            for _ in 0..<8 {
+            // At accessibility text sizes Home is several screens tall and a
+            // swipe can carry the link past the top; steer by where it is
+            // rather than only swiping one way.
+            for _ in 0..<16 {
                 if openBoardButton.exists && openBoardButton.isHittable {
                     foundBoardButton = true
                     break
                 }
-                app.swipeUp()
-                foundBoardButton = openBoardButton.waitForExistence(timeout: 1)
+                if openBoardButton.exists, openBoardButton.frame.maxY < app.frame.height * 0.2 {
+                    app.swipeDown()
+                } else {
+                    app.swipeUp()
+                }
+                foundBoardButton = openBoardButton.exists
             }
         }
 
@@ -411,106 +225,11 @@ final class HabitBoardUITests: BaseUITest {
     @discardableResult
     private func waitForHabitBoardVisible(timeout: TimeInterval) -> Bool {
         let board = app.otherElements[AccessibilityIdentifiers.HabitBoard.view]
-        let title = app.navigationBars["Habit Board"]
+        let title = app.navigationBars["Habits"]
         let close = app.buttons["Close"]
         return board.waitForExistence(timeout: timeout)
             || title.waitForExistence(timeout: timeout)
             || close.waitForExistence(timeout: timeout)
-    }
-
-    private func firstHomeHabitRow(file: StaticString = #filePath, line: UInt = #line) throws -> XCUIElement {
-        dismissHabitBoardIfVisible()
-
-        let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
-        if backToTodayButton.waitForExistence(timeout: 2) && backToTodayButton.isHittable {
-            backToTodayButton.tap()
-        }
-
-        let rowQuery = app.otherElements.matching(NSPredicate(format: "identifier MATCHES %@", #"^home\.habitRow\.[A-Za-z0-9-]+$"#))
-        let firstRow = rowQuery.firstMatch
-
-        if firstRow.waitForExistence(timeout: 3) && firstRow.isHittable {
-            return firstRow
-        }
-
-        for _ in 0..<8 {
-            app.swipeUp()
-            if firstRow.exists && firstRow.isHittable {
-                break
-            }
-        }
-
-        guard firstRow.waitForExistence(timeout: 2) else {
-            throw XCTSkip("Home habit row is unavailable in the current UI test seed")
-        }
-        return firstRow
-    }
-
-    private func firstHomeHabitStrip(file: StaticString = #filePath, line: UInt = #line) throws -> (rowID: String, strip: XCUIElement) {
-        dismissHabitBoardIfVisible()
-
-        let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
-        if backToTodayButton.waitForExistence(timeout: 2) && backToTodayButton.isHittable {
-            backToTodayButton.tap()
-        }
-
-        let stripQuery = app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier MATCHES %@", #"^home\.habitRow\.strip\.[A-Za-z0-9-]+$"#)
-        )
-        let firstStrip = stripQuery.firstMatch
-
-        if firstStrip.waitForExistence(timeout: 3) && firstStrip.isHittable {
-            let rowID = firstStrip.identifier.replacingOccurrences(of: "home.habitRow.strip.", with: "")
-            return (rowID, firstStrip)
-        }
-
-        for _ in 0..<12 {
-            app.swipeUp()
-            if firstStrip.exists && firstStrip.isHittable {
-                break
-            }
-        }
-
-        guard firstStrip.waitForExistence(timeout: 2) else {
-            throw XCTSkip("Home habit strip is unavailable in the current UI test seed")
-        }
-        let rowID = firstStrip.identifier.replacingOccurrences(of: "home.habitRow.strip.", with: "")
-        return (rowID, firstStrip)
-    }
-
-    private func sunriseHomeHabitRow(title: String, file: StaticString = #filePath, line: UInt = #line) throws -> XCUIElement {
-        dismissHabitBoardIfVisible()
-
-        let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
-        if backToTodayButton.waitForExistence(timeout: 2) && backToTodayButton.isHittable {
-            backToTodayButton.tap()
-        }
-
-        let rowQuery = app.descendants(matching: .any).matching(
-            NSPredicate(
-                format: "identifier MATCHES %@ AND label == %@",
-                #"^home\.habits\.row\.[A-Za-z0-9-]+$"#,
-                title
-            )
-        )
-        let firstRow = rowQuery.firstMatch
-
-        if firstRow.waitForExistence(timeout: 3) && firstRow.isHittable {
-            return firstRow
-        }
-
-        for _ in 0..<12 {
-            app.swipeUp()
-            if firstRow.exists && firstRow.isHittable {
-                break
-            }
-        }
-
-        guard firstRow.waitForExistence(timeout: 2) else {
-            throw XCTSkip("Sunrise home habit row '\(title)' is unavailable in the current UI test seed")
-        }
-        XCTAssertTrue(firstRow.isHittable, "Expected Sunrise home habit row to be hittable", file: file, line: line)
-        return firstRow
     }
 
     private func firstHabitBoardRow() throws -> XCUIElement {
@@ -519,41 +238,6 @@ final class HabitBoardUITests: BaseUITest {
         } catch {
             throw XCTSkip("A board row should be available to open detail")
         }
-    }
-
-    private func dismissHabitBoardIfVisible() {
-        let closeButton = app.buttons["Close"]
-        if closeButton.waitForExistence(timeout: 1) && closeButton.isHittable {
-            closeButton.tap()
-            XCTAssertFalse(waitForHabitBoardVisible(timeout: 2), "Habit Board should dismiss before returning to Home")
-        }
-    }
-
-    @discardableResult
-    private func waitForLastCellValue(_ element: XCUIElement, expected: String, timeout: TimeInterval = 5) -> Bool {
-        let predicate = NSPredicate(format: "value == %@", expected)
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
-        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
-    }
-
-    @discardableResult
-    private func waitForElementValue(_ element: XCUIElement, expectedAnyOf values: [String], timeout: TimeInterval = 5) -> Bool {
-        let predicate = NSPredicate { element, _ in
-            guard let element = element as? XCUIElement,
-                  let value = element.value as? String else {
-                return false
-            }
-            return values.contains(value)
-        }
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
-        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
-    }
-
-    private func waitForHabitMutationToast(containing text: String, timeout: TimeInterval = 3) -> Bool {
-        let toast = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS[c] %@", text)
-        ).firstMatch
-        return toast.waitForExistence(timeout: timeout)
     }
 
     private func relaunchWithPreferredContentSizeCategory(_ contentSizeCategory: String) {
@@ -571,47 +255,6 @@ final class HabitBoardUITests: BaseUITest {
             "-UIPreferredContentSizeCategoryName",
             contentSizeCategory
         ])
-        relaunchedApp.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
-        app = relaunchedApp
-        app.launch()
-        waitForAppLaunch()
-    }
-
-    private func relaunchForHomeHabitRowAssertions() {
-        app.terminate()
-
-        let relaunchedApp = XCUIApplication()
-        relaunchedApp.launchArguments = [
-            "-RESET_APP_STATE",
-            "-UI_TESTING",
-            "-DISABLE_ANIMATIONS",
-            "-SKIP_ONBOARDING"
-        ]
-        relaunchedApp.launchArguments.append(
-            contentsOf: additionalLaunchArguments.filter {
-                $0 != XCUIApplication.LaunchArgumentKey.testPresentHabitBoard.rawValue
-                    && $0 != XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue
-            }
-        )
-        relaunchedApp.launchArguments.append(XCUIApplication.LaunchArgumentKey.testSeedEstablishedWorkspace.rawValue)
-        relaunchedApp.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
-        app = relaunchedApp
-        app.launch()
-        waitForAppLaunch()
-    }
-
-    private func relaunchForSunriseHabitGridAssertions() {
-        app.terminate()
-
-        let relaunchedApp = XCUIApplication()
-        relaunchedApp.launchArguments = [
-            "-RESET_APP_STATE",
-            "-UI_TESTING",
-            "-DISABLE_ANIMATIONS",
-            "-SKIP_ONBOARDING",
-            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
-            XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue
-        ]
         relaunchedApp.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         app = relaunchedApp
         app.launch()
@@ -683,48 +326,6 @@ final class HabitBoardUITests: BaseUITest {
             return 0
         }
         return Calendar(identifier: .gregorian).dateComponents([.day], from: lhsDate, to: rhsDate).day ?? 0
-    }
-
-    private func assertHabitGridStayedMounted(
-        grid: XCUIElement,
-        stableRow: XCUIElement,
-        expectedGridFrame: CGRect,
-        expectedStableRowFrame: CGRect,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        XCTAssertTrue(grid.exists, "Sunrise habits grid should not disappear during a row state change", file: file, line: line)
-        XCTAssertTrue(stableRow.exists, "Untapped Sunrise habit row should remain mounted during another row's state change", file: file, line: line)
-        assertFrame(
-            grid.frame,
-            isStableWith: expectedGridFrame,
-            tolerance: 8,
-            message: "Sunrise habits grid frame should stay stable during a row state change",
-            file: file,
-            line: line
-        )
-        assertFrame(
-            stableRow.frame,
-            isStableWith: expectedStableRowFrame,
-            tolerance: 8,
-            message: "Untapped Sunrise habit row frame should stay stable during another row's state change",
-            file: file,
-            line: line
-        )
-    }
-
-    private func assertFrame(
-        _ actual: CGRect,
-        isStableWith expected: CGRect,
-        tolerance: CGFloat,
-        message: String,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        XCTAssertLessThanOrEqual(abs(actual.minX - expected.minX), tolerance, message, file: file, line: line)
-        XCTAssertLessThanOrEqual(abs(actual.minY - expected.minY), tolerance, message, file: file, line: line)
-        XCTAssertLessThanOrEqual(abs(actual.width - expected.width), tolerance, message, file: file, line: line)
-        XCTAssertLessThanOrEqual(abs(actual.height - expected.height), tolerance, message, file: file, line: line)
     }
 
     private static let accessibilityDateFormatter: DateFormatter = {

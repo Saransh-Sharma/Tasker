@@ -6,6 +6,7 @@ struct LifeManagementAreaIconPicker: View {
     @Binding var selectedSymbolName: String
 
     @Environment(\.lifeboardTokens) private var tokens
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     var spacing: SemanticSpacingTokens { tokens.spacing }
@@ -21,7 +22,7 @@ struct LifeManagementAreaIconPicker: View {
                     title: option.keywords.first?.capitalized ?? option.symbolName,
                     isSelected: selectedSymbolName == option.symbolName
                 ) {
-                    withAnimation(LifeBoardAnimation.stateChange) {
+                    withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                         selectedSymbolName = option.symbolName
                     }
                 }

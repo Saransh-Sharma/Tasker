@@ -1,6 +1,11 @@
 import SwiftUI
 
-/// The confirmation that turns a chosen ending into a recorded one.
+/// The progress and retry for a chosen ending.
+///
+/// Choosing Finish, Continue later or Stop in the transport is the commit —
+/// each option already says what it does — so this section runs the ending as
+/// soon as it appears and stays only to show it running, or to offer a retry
+/// if it failed. It used to wait for a third confirming tap.
 ///
 /// Three things `DESIGN.md` asks of a commit control, all of which `CommitControl`
 /// already implements and which is why this section wraps it rather than
@@ -26,7 +31,7 @@ struct FocusSurfaceCloseSection: View {
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
-                    Button("Cancel") { pendingOutcome = nil }
+                    Button("Keep going") { pendingOutcome = nil }
                         .font(.subheadline.weight(.semibold))
                         .frame(minHeight: 44)
                         .buttonStyle(.plain)
@@ -35,26 +40,34 @@ struct FocusSurfaceCloseSection: View {
 
                 CommitControl(
                     title: Self.commitTitle(for: outcome),
-                    runningTitle: "Ending focus",
-                    successTitle: "Focus saved",
+                    runningTitle: String(localized: "Ending…"),
+                    successTitle: String(localized: "Saved"),
                     phase: store.focusCommitPhase
                 ) {
-                    Task {
-                        await store.endFocus(outcome: outcome)
-                        // Only a success closes the surface. On a recoverable
-                        // failure the section stays mounted with the outcome
-                        // still chosen, so retry costs one tap and no re-decision.
-                        if case .success = store.focusCommitPhase {
-                            pendingOutcome = nil
-                            onCommitted(outcome)
-                        }
-                    }
+                    Task { await commit(outcome) }
                 }
                 .accessibilityIdentifier("focus.surface.commit")
             }
             .padding(14)
             .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
             .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+            .task(id: outcome) {
+                if case .running = store.focusCommitPhase { return }
+                await commit(outcome)
+            }
+        }
+    }
+
+    private func commit(_ outcome: FocusCompletionOutcome) async {
+        await store.endFocus(outcome: outcome)
+        // Only a success closes the surface. On a recoverable failure the
+        // section stays mounted with the outcome still chosen, so retry costs
+        // one tap and no re-decision.
+        if case .success = store.focusCommitPhase {
+            pendingOutcome = nil
+            onCommitted(outcome)
+        } else if case .recoverableFailure = store.focusCommitPhase {
+            Haptic.fail.play()
         }
     }
 
@@ -62,25 +75,25 @@ struct FocusSurfaceCloseSection: View {
     static func consequence(for outcome: FocusCompletionOutcome) -> String {
         switch outcome {
         case .completed:
-            "This session is recorded as finished, with the time you focused."
+            String(localized: "Keeps your time. The task stays open.")
         case .continueLater:
-            "Your progress is kept so you can pick this up again."
+            String(localized: "Keeps your time to pick up later.")
         case .abandoned, .stopped:
-            "The session ends now. Time already focused is still recorded."
+            String(localized: "Ends without finishing. Keeps your time.")
         case .interrupted:
-            "The session is recorded as interrupted."
+            String(localized: "Saved as interrupted.")
         case .intentionallyDeferred:
-            "The session is recorded as deferred to another time."
+            String(localized: "Saved for another time.")
         }
     }
 
     static func commitTitle(for outcome: FocusCompletionOutcome) -> String {
         switch outcome {
-        case .completed: "Finish focus"
-        case .continueLater: "Continue later"
-        case .abandoned, .stopped: "Stop focus"
-        case .interrupted: "Record interruption"
-        case .intentionallyDeferred: "Defer focus"
+        case .completed: String(localized: "Finish focus")
+        case .continueLater: String(localized: "Continue later")
+        case .abandoned, .stopped: String(localized: "Stop focus")
+        case .interrupted: String(localized: "Log interruption")
+        case .intentionallyDeferred: String(localized: "Save for later")
         }
     }
 }

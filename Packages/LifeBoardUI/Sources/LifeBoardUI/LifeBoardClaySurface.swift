@@ -135,8 +135,17 @@ public struct ClaySurfaceModifier: ViewModifier {
     }
 
     public func body(content: Content) -> some View {
+        // The drop shadow belongs to the surface shape, not to the whole
+        // content. Shadowing `content` made Core Animation render every card
+        // and row — text, icons and all — offscreen to derive the shadow's
+        // alpha mask, once per frame while scrolling. The fill is opaque, so
+        // anything inside it cast a shadow nobody could see; shadowing only
+        // the background shape draws the same edge for a fraction of the cost.
         content
-            .background(claySurface)
+            .background {
+                claySurface
+                    .modifier(ClayDropShadow(depth: depth, isPressed: isPressed))
+            }
             .overlay(hairline)
             .modifier(
                 SpecularRimModifier(
@@ -145,7 +154,6 @@ public struct ClaySurfaceModifier: ViewModifier {
                     lightAngle: lightAngle
                 )
             )
-            .modifier(ClayDropShadow(depth: depth, isPressed: isPressed))
     }
 
     /// The sun for this surface, if the screen has told us where it is.

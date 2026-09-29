@@ -744,10 +744,10 @@ extension HomeViewModel {
     func timelineWeekSummaryText(taskCount: Int, eventCount: Int, allDayCount: Int) -> String {
         let totalCount = taskCount + eventCount + allDayCount
         if totalCount == 0 {
-            return "Open"
+            return String(localized: "Open")
         }
         if totalCount >= 5 {
-            return "Busy"
+            return String(localized: "Busy")
         }
         if eventCount > 0 && taskCount > 0 {
             let taskText = taskCount == 1 ? "1 task" : "\(taskCount) tasks"
@@ -774,18 +774,18 @@ extension HomeViewModel {
         switch emphasis {
         case .quietWindow:
             return (
-                headline: "Evening buffer",
-                supportingText: "Need a lighter close with \(durationText)?"
+                headline: String(localized: "Before bed"),
+                supportingText: String(localized: "\(durationText) free")
             )
         case .prepWindow:
             return (
-                headline: "Short opening",
-                supportingText: "Need a short block for \(durationText)?"
+                headline: String(localized: "Short gap"),
+                supportingText: String(localized: "\(durationText) free")
             )
         case .openTime:
             return (
-                headline: "Open time",
-                supportingText: isFinalGap ? "Keep \(durationText) open." : "Want to use \(durationText) well?"
+                headline: String(localized: "Open time"),
+                supportingText: String(localized: "\(durationText) free")
             )
         }
     }
@@ -812,16 +812,9 @@ extension HomeViewModel {
     }
 
     func timelineDurationText(_ duration: TimeInterval) -> String {
+        // "45 min", "1 hr, 30 min": the app's one duration format.
         let totalMinutes = Int((duration / 60).rounded())
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        if hours > 0 && minutes > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        if hours > 0 {
-            return "\(hours)h"
-        }
-        return "\(max(minutes, 1))m"
+        return LifeBoardDuration.text(minutes: max(totalMinutes, 1))
     }
 
     func timelineSystemImageName(for task: TaskDefinition) -> String {
@@ -1014,15 +1007,8 @@ extension HomeViewModel {
     }
 
     static func timelineDurationText(_ duration: TimeInterval) -> String {
+        // "45 min", "1 hr, 30 min": the app's one duration format.
         let totalMinutes = Int((duration / 60).rounded())
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        if hours > 0 && minutes > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        if hours > 0 {
-            return "\(hours)h"
-        }
-        return "\(max(minutes, 1))m"
+        return LifeBoardDuration.text(minutes: max(totalMinutes, 1))
     }
 }

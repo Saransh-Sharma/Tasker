@@ -24,10 +24,11 @@ struct WeeklyResetApplyReceipt: Equatable, Sendable {
     let actionRunID: UUID?
 
     var summary: String {
+        let moved = changedTaskIDs.count
         if skippedTaskIDs.isEmpty {
-            return "Updated \(changedTaskIDs.count) task\(changedTaskIDs.count == 1 ? "" : "s")."
+            return moved == 1 ? String(localized: "Moved 1 task.") : String(localized: "Moved \(moved) tasks.")
         }
-        return "Updated \(changedTaskIDs.count); skipped \(skippedTaskIDs.count) because the plan changed."
+        return String(localized: "Moved \(moved). \(skippedTaskIDs.count) skipped.")
     }
 }
 

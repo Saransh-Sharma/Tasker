@@ -1219,11 +1219,11 @@ public enum AnalyticsError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .repositoryError(let error):
-            return "Repository error: \(error.localizedDescription)"
+            return String(localized: "Couldn’t load stats. \(error.localizedDescription)")
         case .invalidDateRange:
-            return "Invalid date range specified"
+            return String(localized: "Couldn’t load stats. Invalid dates.")
         case .insufficientData:
-            return "Insufficient data for analytics calculation"
+            return String(localized: "Not enough data yet")
         }
     }
 }

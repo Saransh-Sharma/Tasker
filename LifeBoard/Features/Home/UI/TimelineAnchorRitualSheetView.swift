@@ -90,7 +90,7 @@ struct TimelineAnchorRitualSheetView: View {
 
     private func selectTime(_ option: TimelineAnchorRitualTimeOption) {
         selectedDate = option.date
-        HapticFeedback.light()
+        Haptic.pick.play()
     }
 
     private func saveChanges() {
@@ -113,7 +113,7 @@ struct TimelineAnchorRitualSheetView: View {
             calendar: calendar
         )
         if playFeedback {
-            HapticFeedback.success()
+            Haptic.commit.play()
         }
     }
 
@@ -122,7 +122,7 @@ struct TimelineAnchorRitualSheetView: View {
             tokenSettled = true
             return
         }
-        withAnimation(.spring(response: 0.52, dampingFraction: 0.78).delay(0.05)) {
+        withAnimation(MotionProfile.deckSettle.animation(reduceMotion: reduceMotion)?.delay(0.05)) {
             tokenSettled = true
         }
     }
@@ -247,19 +247,21 @@ private struct TimelineAnchorRitualContent: View {
             .accessibilityLabel("Save changes")
             .padding(.top, 18)
 
-            HStack(spacing: 12) {
-                Image(systemName: "sparkles")
-                    .font(.lifeboard(.caption1).weight(.semibold))
-                    .foregroundStyle(theme.accent)
-                Text(model.footerText)
-                    .font(.lifeboard(.callout))
-                    .foregroundStyle(theme.accent.opacity(0.70))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.84)
+            if model.footerText.isEmpty == false {
+                HStack(spacing: 12) {
+                    Image(systemName: "sparkles")
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(theme.accent)
+                    Text(model.footerText)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(theme.accent.opacity(0.70))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.84)
+                }
+                .frame(width: metrics.contentWidth)
+                .multilineTextAlignment(.center)
+                .padding(.top, 14)
             }
-            .frame(width: metrics.contentWidth)
-            .multilineTextAlignment(.center)
-            .padding(.top, 14)
         }
         .padding(.bottom, 18)
         .frame(width: metrics.sheetWidth)
@@ -278,7 +280,7 @@ private struct TimelineAnchorRitualContent: View {
                 .scaleEffect(tokenSettled ? 1 : 0.86)
                 .opacity(tokenSettled ? 1 : 0.76)
                 .offset(y: -52)
-                .animation(reduceMotion ? nil : .spring(response: 0.52, dampingFraction: 0.78), value: tokenSettled)
+                .animation(MotionProfile.deckSettle.animation(reduceMotion: reduceMotion), value: tokenSettled)
         }
     }
 }

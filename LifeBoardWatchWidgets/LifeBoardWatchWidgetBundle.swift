@@ -45,13 +45,18 @@ struct WatchSnapshotProvider: TimelineProvider {
     }
 }
 
+/// The phone widgets' clay palette in its dark appearance (watch faces are
+/// always dark): warm inks that read on black, replacing the old Sunrise
+/// violet / bright leaf / sky. Names are kept as roles so call sites follow:
+/// `violet` is the warm amber accent, `sky` and `leaf` the sage inks,
+/// `peach` apricot, `rose` the clay danger.
 private enum WatchSunriseStyle {
-    static let violet = Color(red: 0.41, green: 0.26, blue: 1.00)
-    static let sunriseGold = Color(red: 1.00, green: 0.70, blue: 0.00)
-    static let sky = Color(red: 0.18, green: 0.55, blue: 1.00)
-    static let leaf = Color(red: 0.16, green: 0.71, blue: 0.25)
-    static let peach = Color(red: 1.00, green: 0.48, blue: 0.24)
-    static let rose = Color(red: 0.96, green: 0.31, blue: 0.58)
+    static let violet = Color(red: 0xC0 / 255, green: 0x84 / 255, blue: 0x3A / 255)
+    static let sunriseGold = Color(red: 0xF0 / 255, green: 0xCD / 255, blue: 0x87 / 255)
+    static let sky = Color(red: 0xC9 / 255, green: 0xC6 / 255, blue: 0xBA / 255)
+    static let leaf = Color(red: 0xB8 / 255, green: 0xC7 / 255, blue: 0x9E / 255)
+    static let peach = Color(red: 0xE7 / 255, green: 0xBB / 255, blue: 0x7E / 255)
+    static let rose = Color(red: 0xD9 / 255, green: 0x88 / 255, blue: 0x73 / 255)
     static let quiet = Color.secondary
 
     static func timelineTint(for item: TaskListWidgetTimelineItem?) -> Color {
@@ -87,8 +92,8 @@ struct WatchTimelineComplication: Widget {
         StaticConfiguration(kind: kind, provider: WatchSnapshotProvider()) { entry in
             WatchTimelineComplicationView(entry: entry)
         }
-        .configurationDisplayName("LifeBoard Timeline")
-        .description("Current and next tasks or calendar events.")
+        .configurationDisplayName("Up Next")
+        .description("Your current and next task or event.")
         .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryCorner, .accessoryRectangular])
     }
 }
@@ -100,8 +105,8 @@ struct WatchMeetingScheduleComplication: Widget {
         StaticConfiguration(kind: kind, provider: WatchSnapshotProvider()) { entry in
             WatchMeetingScheduleComplicationView(entry: entry)
         }
-        .configurationDisplayName("LifeBoard Meetings")
-        .description("Next meeting, countdown, and clear-window status.")
+        .configurationDisplayName("Next Meeting")
+        .description("Your next meeting.")
         .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryCorner, .accessoryRectangular])
     }
 }
@@ -113,8 +118,8 @@ struct WatchHabitStreakComplication: Widget {
         StaticConfiguration(kind: kind, provider: WatchSnapshotProvider()) { entry in
             WatchHabitStreakComplicationView(entry: entry)
         }
-        .configurationDisplayName("LifeBoard Habit")
-        .description("Primary habit rhythm and today status.")
+        .configurationDisplayName("Habit")
+        .description("Your main habit this week.")
         .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryCorner, .accessoryRectangular])
     }
 }
@@ -154,14 +159,14 @@ private struct WatchTimelineComplicationView: View {
                 }
                 .gaugeStyle(.accessoryCircular)
                 .tint(WatchSunriseStyle.timelineTint(for: primary))
-                .widgetLabel(primary?.title ?? "Timeline")
+                .widgetLabel(primary?.title ?? "Today")
                 .widgetURL(WatchRoutes.timeline)
             case .accessoryRectangular:
                 WatchRectangularShell(title: primary?.isCurrent == true ? "Now" : "Next") {
                     WatchRectangularLine(
                         symbol: primary?.systemImageName ?? "calendar",
-                        title: primary?.title ?? "Open timeline",
-                        detail: primary.map(WatchFormat.itemDetail(_:)) ?? "No scheduled items",
+                        title: primary?.title ?? "Nothing next",
+                        detail: primary.map(WatchFormat.itemDetail(_:)) ?? "Nothing scheduled",
                         tint: WatchSunriseStyle.timelineTint(for: primary)
                     )
                     if let secondary {
@@ -182,13 +187,13 @@ private struct WatchTimelineComplicationView: View {
     }
 
     private var inlineText: String {
-        guard let primary else { return "Timeline clear" }
+        guard let primary else { return "Nothing scheduled" }
         return "\(primary.isCurrent ? "Now" : "Next") \(WatchFormat.shortItem(primary))"
     }
 
     private var accessibilityText: String {
-        guard let primary else { return "LifeBoard timeline has no scheduled items." }
-        return "LifeBoard timeline. \(primary.title). \(WatchFormat.itemDetail(primary))."
+        guard let primary else { return "Nothing scheduled." }
+        return "\(primary.isCurrent ? "Now" : "Next"): \(primary.title). \(WatchFormat.itemDetail(primary))."
     }
 }
 
@@ -226,9 +231,9 @@ private struct WatchMeetingScheduleComplicationView: View {
                 }
                 .gaugeStyle(.accessoryCircular)
                 .tint(meeting == nil ? WatchSunriseStyle.sky : WatchSunriseStyle.violet)
-                .widgetLabel(meeting?.event.title ?? "Clear")
+                .widgetLabel(meeting?.event.title ?? "No meetings")
             case .accessoryRectangular:
-                WatchRectangularShell(title: meeting?.isInProgress == true ? "Meeting Now" : "Next Meeting") {
+                WatchRectangularShell(title: meeting?.isInProgress == true ? "Meeting now" : "Next meeting") {
                     if let meeting {
                         WatchRectangularLine(
                             symbol: "calendar.badge.clock",
@@ -244,7 +249,7 @@ private struct WatchMeetingScheduleComplicationView: View {
                         WatchRectangularLine(
                             symbol: "checkmark.circle",
                             title: "No meetings",
-                            detail: calendar.freeUntil.map { "Free until \(WatchFormat.time($0))" } ?? "Clear window",
+                            detail: calendar.freeUntil.map { "Free until \(WatchFormat.time($0))" } ?? "Free all day",
                             tint: WatchSunriseStyle.sky
                         )
                     }
@@ -268,7 +273,7 @@ private struct WatchMeetingScheduleComplicationView: View {
     }
 
     private var circularText: String {
-        guard let meeting else { return "Clear" }
+        guard let meeting else { return "Free" }
         return meeting.isInProgress ? "Now" : WatchFormat.relativeMinutes(meeting.minutesUntilStart)
     }
 
@@ -284,7 +289,7 @@ private struct WatchMeetingScheduleComplicationView: View {
     }
 
     private var accessibilityText: String {
-        guard let meeting else { return "No upcoming meeting. \(inlineText)." }
+        guard let meeting else { return "\(inlineText)." }
         return "\(meeting.isInProgress ? "Current meeting" : "Next meeting") \(meeting.event.title). \(WatchFormat.meetingDetail(meeting, freeUntil: calendar.freeUntil))."
     }
 }
@@ -325,10 +330,10 @@ private struct WatchHabitStreakComplicationView: View {
                 .tint(primary.map { WatchSunriseStyle.habitTint(for: $0.todayState) } ?? WatchSunriseStyle.sunriseGold)
                 .widgetLabel(primary?.title ?? "Habit")
             case .accessoryRectangular:
-                WatchRectangularShell(title: "Habit Rhythm") {
+                WatchRectangularShell(title: "This week") {
                     WatchRectangularLine(
                         symbol: primary?.iconSymbolName ?? "sun.max",
-                        title: primary?.title ?? "No habit selected",
+                        title: primary?.title ?? "No habit chosen",
                         detail: rectangularDetail,
                         tint: primary.map { WatchSunriseStyle.habitTint(for: $0.todayState) } ?? WatchSunriseStyle.sunriseGold
                     )
@@ -346,7 +351,7 @@ private struct WatchHabitStreakComplicationView: View {
         if let primary {
             return "\(primary.title) \(WatchFormat.habitStatus(primary.todayState))"
         }
-        return "Choose a LifeBoard habit"
+        return "Choose a habit"
     }
 
     private var rectangularDetail: String {
@@ -358,7 +363,7 @@ private struct WatchHabitStreakComplicationView: View {
     }
 
     private var accessibilityText: String {
-        guard let primary else { return "No primary habit selected in LifeBoard." }
+        guard let primary else { return "No habit chosen." }
         return "\(primary.title). \(completedWeekCount) active days this week. \(WatchFormat.habitStatus(primary.todayState))."
     }
 
@@ -469,7 +474,7 @@ private enum WatchFormat {
     static func itemDetail(_ item: TaskListWidgetTimelineItem) -> String {
         if item.isAllDay { return "All day" }
         if let start = item.startDate, let end = item.endDate {
-            return "\(time(start))-\(time(end))"
+            return "\(time(start))–\(time(end))"
         }
         if let accessory = item.accessoryText, accessory.isEmpty == false {
             return accessory
@@ -505,7 +510,7 @@ private enum WatchFormat {
         case .completedToday:
             return "Done today"
         case .lapsedToday:
-            return "Lapsed today"
+            return "Slipped today"
         case .skippedToday:
             return "Skipped today"
         case .tracking:

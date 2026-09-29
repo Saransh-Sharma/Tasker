@@ -54,7 +54,7 @@ extension EvaCloudTransport {
             return try await configurationStore.accept(envelope.signedConfiguration)
         } catch {
             if let cached = await configurationStore.loadLastVerified() { return cached }
-            throw EvaProviderError.unavailable("Cloud configuration could not be verified.")
+            throw EvaProviderError.unavailable(String(localized: "Couldn’t verify the cloud setup."))
         }
     }
 

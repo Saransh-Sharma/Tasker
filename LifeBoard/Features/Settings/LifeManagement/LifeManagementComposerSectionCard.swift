@@ -36,10 +36,12 @@ struct LifeManagementComposerSectionCard<Content: View>: View {
                         .font(.lifeboard(.headline))
                         .foregroundStyle(Color.lifeboard.textPrimary)
 
-                    Text(subtitle)
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if subtitle.isEmpty == false {
+                        Text(subtitle)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color.lifeboard.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
 

@@ -209,7 +209,9 @@ struct LifeWeaveCaptureStep: View {
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .lineLimit(1...4)
                 .textInputAutocapitalization(.sentences)
-                .submitLabel(.done)
+                // The first thing a new person types, auto-focused, in a scroll
+                // that doesn't move when it fits: Return has to close it.
+                .returnKey(.done, text: $model.captureText) { isFocused = false }
                 .focused($isFocused)
                 .frame(minHeight: 28)
                 .padding(Theme.Spacing.md)

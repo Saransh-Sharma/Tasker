@@ -40,7 +40,7 @@ struct NutritionTodayHero: View {
             Button {
                 onLogMeal()
             } label: {
-                Label("Log a meal", systemImage: "plus.circle.fill")
+                Label("Log meal", systemImage: "plus.circle.fill")
             }
             .buttonStyle(.lifeBoardPrimary)
             .accessibilityIdentifier("nutrition.hero.log")
@@ -63,16 +63,16 @@ struct NutritionTodayHero: View {
     }
 
     private var provenanceLabel: String {
-        let origin = source == .appleHealth ? "Apple Health" : "LifeBoard meals"
-        return isPartial ? "\(origin) · some nutrients unavailable" : origin
+        let origin = source == .appleHealth ? String(localized: "Apple Health") : String(localized: "Logged here")
+        return isPartial ? String(localized: "\(origin) · some nutrients missing") : origin
     }
 
     private var targetLabel: String? {
         guard let targetCalories, targetCalories > 0, let calories else { return nil }
         let remaining = Int((targetCalories - calories).rounded())
-        if remaining > 0 { return "\(remaining) kcal below today's target" }
-        if remaining < 0 { return "\(abs(remaining)) kcal above today's target" }
-        return "At today's target"
+        if remaining > 0 { return String(localized: "\(remaining) kcal below target") }
+        if remaining < 0 { return String(localized: "\(abs(remaining)) kcal above target") }
+        return String(localized: "At target")
     }
 }
 
@@ -250,18 +250,17 @@ struct WellnessCustomizationView: View {
 
     var body: some View {
         ComposerScaffold(
-            title: "Customize Wellness",
-            subtitle: "Which metrics appear, in which order.",
-            confirmTitle: "Save",
+            title: String(localized: "Body metrics"),
+            confirmTitle: String(localized: "Save"),
             isConfirmEnabled: draft.enabledMetrics.isEmpty == false,
             titleDisplayMode: .inline,
             identifier: "wellness.customize",
             onConfirm: { save(draft); dismiss() }
         ) {
             ComposerSection(
-                "Body dashboard",
-                detail: "Drag to reorder, or use the Move up and Move down actions.",
-                footer: "Enabled metrics keep their order. Source readings and history are never deleted when a metric is hidden."
+                String(localized: "Shown"),
+                detail: String(localized: "Drag to reorder."),
+                footer: String(localized: "Hiding a metric keeps its history.")
             ) {
                 // `ReorderableRows` rather than `List` + `EditButton`.
                 // Dropping edit mode would have removed the only Switch Control
@@ -280,7 +279,7 @@ struct WellnessCustomizationView: View {
                 }
             }
             if hiddenMetrics.isEmpty == false {
-                ComposerSection("Hidden metrics") {
+                ComposerSection(String(localized: "Hidden")) {
                     ForEach(hiddenMetrics, id: \.self) { kind in
                         Button {
                             draft.enabledMetrics.append(kind)

@@ -25,8 +25,8 @@ struct DeleteProjectSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Delete Project") {
-                    Text("\(draft.projectName) has \(draft.taskCount) open tasks and \(draft.linkedHabitCount) linked habits. Move the open tasks before you delete it.")
+                Section("Delete project") {
+                    Text("‘\(draft.projectName)’ has ^[\(draft.taskCount) open task](inflect: true) and ^[\(draft.linkedHabitCount) linked habit](inflect: true).")
                 }
 
                 Section("Move open tasks to") {
@@ -37,13 +37,18 @@ struct DeleteProjectSheet: View {
                     }
                 }
             }
-            .navigationTitle("Delete Project")
+            // The warm canvas behind the grouped list, not the system's pure white
+            // (light) or pure black (dark) grouped background.
+            .scrollContentBackground(.hidden)
+            .background { GrainedCanvas() }
+            .navigationTitle("Delete project")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         onCancel()
                     }
+                    .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Delete", role: .destructive) {

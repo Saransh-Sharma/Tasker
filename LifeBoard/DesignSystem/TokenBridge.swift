@@ -94,6 +94,9 @@ enum TokenBridge {
             // would be a design decision disguised as a refactor.
             Entry(legacyName: "foundationCanvasMuted", role: nil) { SemanticColorTokens.foundationCanvasMuted },
             Entry(legacyName: "foundationSageAccent", role: nil) { SemanticColorTokens.foundationSageAccent },
+            Entry(legacyName: "foundationApricotInk", role: nil) { SemanticColorTokens.foundationApricotInk },
+            Entry(legacyName: "foundationSageInk", role: nil) { SemanticColorTokens.foundationSageInk },
+            Entry(legacyName: "foundationSunInk", role: nil) { SemanticColorTokens.foundationSunInk },
             Entry(legacyName: "foundationOnCelestialAccent", role: nil) { SemanticColorTokens.foundationOnCelestialAccent },
             Entry(legacyName: "foundationOnSettingsHero", role: nil) { SemanticColorTokens.foundationOnSettingsHero },
             Entry(legacyName: "foundationSettingsHeroStart", role: nil) { SemanticColorTokens.foundationSettingsHeroStart },

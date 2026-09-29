@@ -1,0 +1,33 @@
+{
+  "configurations" : [
+    {
+      "id" : "9A493560-3743-4F51-8294-CE232C54F73D",
+      "name" : "Hostless deterministic",
+      "options" : {
+        "environmentVariableEntries" : [
+          { "key" : "LIFEBOARD_TEST_SERVICES", "value" : "disabled" },
+          { "key" : "LIFEBOARD_TEST_STORAGE", "value" : "memory" }
+        ]
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:LifeBoard.xcodeproj",
+      "identifier" : "753EFC992445A24500A739E3",
+      "name" : "LifeBoard"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:LifeBoard.xcodeproj",
+        "identifier" : "753EFCAF2445A24700A739E3",
+        "name" : "LifeBoardTests"
+      }
+    }
+  ],
+  "version" : 1
+}

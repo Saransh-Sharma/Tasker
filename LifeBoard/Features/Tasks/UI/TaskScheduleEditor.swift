@@ -184,7 +184,7 @@ struct TaskTimeWheelPicker: View {
         guard TaskDetailViewModel.roundedToNearestScheduleSlot(slot.date, intervalMinutes: intervalMinutes) != startDate else {
             return
         }
-        HapticFeedback.selection()
+        Haptic.pick.play()
         withAnimation(reduceMotion ? nil : LifeBoardAnimation.stateChange) {
             startDate = slot.date
         }
@@ -266,18 +266,18 @@ enum TimelineAnchorSelection: String, Equatable, Identifiable {
     var title: String {
         switch self {
         case .wake:
-            return "Rise and Shine"
+            return String(localized: "Rise and shine")
         case .windDown:
-            return "Wind Down"
+            return String(localized: "Wind down")
         }
     }
 
     var subtitle: String {
         switch self {
         case .wake:
-            return "Choose when your timeline starts."
+            return String(localized: "Start of your timeline.")
         case .windDown:
-            return "Choose when your timeline closes."
+            return String(localized: "End of your timeline.")
         }
     }
 
@@ -575,7 +575,7 @@ private struct TaskDurationSegmentedPicker: View {
 
     private func select(_ minutes: Int) {
         guard durationMinutes != minutes else { return }
-        HapticFeedback.selection()
+        Haptic.pick.play()
         withAnimation(reduceMotion ? nil : LifeBoardAnimation.stateChange) {
             durationMinutes = minutes
         }

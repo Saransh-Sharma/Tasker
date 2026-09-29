@@ -116,14 +116,14 @@ enum EvaProviderError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .unavailable(let message): message
-        case .authenticationRequired: String(localized: "Cloud EVA is reconnecting. Try again in a moment.")
+        case .authenticationRequired: String(localized: "Eva is reconnecting. Try again in a moment.")
         // Age eligibility is owned by distribution and external platform
         // controls. Keep the legacy case decodable for older wire responses,
         // but never expose an age gate in current product copy.
-        case .adultEligibilityRequired: String(localized: "Cloud EVA is temporarily unavailable. Try again in a moment.")
-        case .consentRequired: String(localized: "Review what Cloud EVA may use before continuing.")
-        case .creditsExhausted: String(localized: "You've reached Cloud EVA's rolling answer limit. Offline EVA is still available.")
-        case .invalidResponse: String(localized: "Cloud EVA returned an unreadable response.")
+        case .adultEligibilityRequired: String(localized: "Couldn’t connect to the cloud. Try again soon.")
+        case .consentRequired: String(localized: "Choose what Eva can use first.")
+        case .creditsExhausted: String(localized: "No cloud answers left. Eva still works on this device.")
+        case .invalidResponse: String(localized: "Couldn’t read Eva’s reply.")
         }
     }
 }

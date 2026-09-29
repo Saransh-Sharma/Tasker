@@ -18,10 +18,10 @@ struct PlanTaskCard: View {
     let onOpenTask: (UUID) -> Void
 
     private var metadataLine: String {
-        var values: [String] = [task.estimatedDuration.map(PlanSectionCopy.duration) ?? "Estimate incomplete"]
+        var values: [String] = [task.estimatedDuration.map(PlanSectionCopy.duration) ?? "No estimate"]
         if let due = task.dueDate { values.append("Due \(due.formatted(date: .abbreviated, time: .omitted))") }
-        if task.metadata.availability != .actionable { values.append(task.metadata.availability.rawValue.capitalized) }
-        if !task.dependenciesReady { values.append("Waiting on dependency") }
+        if task.metadata.availability != .actionable { values.append(task.metadata.availability.displayName) }
+        if !task.dependenciesReady { values.append("Waiting on another task") }
         return values.joined(separator: " · ")
     }
 
@@ -44,7 +44,7 @@ struct PlanTaskCard: View {
                     .foregroundStyle(
                         task.dependenciesReady
                             ? Color(SemanticColorTokens.inkTertiary)
-                            : Color(SemanticColorTokens.foundationApricotAccent)
+                            : Color(SemanticColorTokens.foundationApricotInk)
                     )
             }
             // The body opens the task. It previously did nothing at all: the card
@@ -73,49 +73,11 @@ struct PlanTaskCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .hoverEffect(.highlight)
             .accessibilityIdentifier("plan.task.\(task.id.uuidString)")
             .accessibilityHint("Opens the task")
             Menu {
-                if lens == .backlog {
-                    Button(selectedTaskIDs.contains(task.id) ? "Deselect" : "Select", systemImage: selectedTaskIDs.contains(task.id) ? "checkmark.circle.fill" : "circle") {
-                        if selectedTaskIDs.contains(task.id) { selectedTaskIDs.remove(task.id) }
-                        else { selectedTaskIDs.insert(task.id) }
-                    }
-                }
-                Button(planned ? "Remove from day" : "Plan for this day", systemImage: "calendar") {
-                    Task { await store.updateTask(task, planningDay: planned ? nil : store.selectedDay) }
-                }
-                Button(task.metadata.commitmentLevel == .mustDo ? "Make standard" : "Mark Must Do", systemImage: "exclamationmark.circle") {
-                    Task { await store.updateTask(task, preserveDay: true, commitment: task.metadata.commitmentLevel == .mustDo ? .standard : .mustDo) }
-                }
-                Button("Waiting", systemImage: "hourglass") { Task { await store.updateTask(task, preserveDay: true, availability: .waiting) } }
-                Button("Paused", systemImage: "pause.circle") { Task { await store.updateTask(task, preserveDay: true, availability: .paused) } }
-                if task.metadata.unscheduledDisposition == .archived {
-                    Button("Restore to inbox", systemImage: "tray.and.arrow.up") {
-                        Task { await store.bulkUpdate([task.id], disposition: .inbox) }
-                    }
-                } else {
-                    Button("Archive", systemImage: "archivebox") {
-                        Task { await store.bulkUpdate([task.id], disposition: .archived) }
-                    }
-                }
-                if lens == .backlog {
-                    Divider()
-                    Button("Delete from LifeBoard", systemImage: "trash", role: .destructive) {
-                        pendingBacklogDeletionTaskIDs = [task.id]
-                        showsBacklogDeletionConfirmation = true
-                    }
-                }
-                Button("Start focus", systemImage: "timer") {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    pendingFocusSetup = .init(
-                        taskID: task.id,
-                        timeBlockID: nil,
-                        title: task.title,
-                        suggestedDuration: task.estimatedDuration ?? 25 * 60,
-                        subtaskID: nil
-                    )
-                }
+                taskActions
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .frame(width: 44, height: 44)
@@ -149,6 +111,75 @@ struct PlanTaskCard: View {
         // route, so opening a task grows out of the card you tapped rather than
         // sliding in from the edge as an unrelated screen.
         .lifeBoardTransitionSource("route.task.\(task.id.uuidString)")
+        // The "…" menu's actions on right-click and long-press too: on a Mac or
+        // an iPad with a trackpad, a secondary click on the row did nothing.
+        .contextMenu { taskActions }
+    }
+
+    private var tomorrow: PlanningDay {
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date())) ?? Date()
+        return PlanningDay(date: start)
+    }
+
+    private var isPlannedForTomorrow: Bool {
+        task.metadata.planningDay == tomorrow
+    }
+
+    @ViewBuilder
+    private var taskActions: some View {
+        if lens == .backlog {
+            Button(selectedTaskIDs.contains(task.id) ? "Deselect" : "Select", systemImage: selectedTaskIDs.contains(task.id) ? "checkmark.circle.fill" : "circle") {
+                if selectedTaskIDs.contains(task.id) { selectedTaskIDs.remove(task.id) }
+                else { selectedTaskIDs.insert(task.id) }
+            }
+        }
+        Button(planned ? "Remove from day" : "Plan for this day", systemImage: "calendar") {
+            Task { await store.updateTask(task, planningDay: planned ? nil : store.selectedDay) }
+        }
+        // Reschedule to tomorrow in two taps: the menu, then this.
+        if isPlannedForTomorrow == false {
+            Button(DecisionDestination.tomorrow.title, systemImage: DecisionDestination.tomorrow.systemImage) {
+                Task {
+                    await store.updateTask(
+                        task,
+                        planningDay: tomorrow,
+                        receiptMessage: "Moved \u{2018}\(task.title)\u{2019} to tomorrow"
+                    )
+                }
+            }
+        }
+        Button(task.metadata.commitmentLevel == .mustDo ? "Make standard" : "Mark must do", systemImage: "exclamationmark.circle") {
+            Task { await store.updateTask(task, preserveDay: true, commitment: task.metadata.commitmentLevel == .mustDo ? .standard : .mustDo) }
+        }
+        Button("Waiting", systemImage: "hourglass") { Task { await store.updateTask(task, preserveDay: true, availability: .waiting) } }
+        Button("Paused", systemImage: "pause.circle") { Task { await store.updateTask(task, preserveDay: true, availability: .paused) } }
+        if task.metadata.unscheduledDisposition == .archived {
+            Button("Restore to inbox", systemImage: "tray.and.arrow.up") {
+                Task { await store.bulkUpdate([task.id], disposition: .inbox) }
+            }
+        } else {
+            Button("Archive", systemImage: "archivebox") {
+                Task { await store.bulkUpdate([task.id], disposition: .archived) }
+            }
+        }
+        if lens == .backlog {
+            Divider()
+            Button("Delete task", systemImage: "trash", role: .destructive) {
+                pendingBacklogDeletionTaskIDs = [task.id]
+                showsBacklogDeletionConfirmation = true
+            }
+        }
+        Button("Start focus", systemImage: "timer") {
+            Haptic.settle.play()
+            pendingFocusSetup = .init(
+                taskID: task.id,
+                timeBlockID: nil,
+                title: task.title,
+                suggestedDuration: task.estimatedDuration ?? 25 * 60,
+                subtaskID: nil
+            )
+        }
     }
 }
 

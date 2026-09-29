@@ -52,6 +52,9 @@ struct FocusLiveActivityWidget: Widget {
                 if context.state.phase == "ended" {
                     Image(systemName: "checkmark")
                         .frame(width: 44, height: 44)
+                        // Fixed dark ink on the fixed pale ground: the default foreground
+                        // turns white in dark and in the Dynamic Island (~1.5:1).
+                        .foregroundStyle(Color(SemanticColorTokens.foundationOnCelestialAccent))
                         .background(WidgetPalette.completionGround, in: Circle())
                         .accessibilityLabel("Focus done")
                 } else {
@@ -79,9 +82,11 @@ struct FocusLiveActivityWidget: Widget {
                     }
                 }
             } compactLeading: {
-                Image(systemName: context.state.phase == "paused" ? "pause.fill" : "scope")
-            } compactTrailing: {
                 FocusProgressRing(state: context.state, diameter: 18)
+            } compactTrailing: {
+                // The ring alone said "something is running" but not how long
+                // is left; the time is what a glance at the island is for.
+                focusCompactTime(context.state)
             } minimal: {
                 FocusProgressRing(state: context.state, diameter: 18)
             }
@@ -108,6 +113,23 @@ struct FocusLiveActivityWidget: Widget {
         }
     }
 
+    @ViewBuilder
+    private func focusCompactTime(_ state: FocusActivityAttributes.ContentState) -> some View {
+        Group {
+            if state.phase == "running", let end = state.expectedEndAt {
+                Text(timerInterval: Date()...max(Date().addingTimeInterval(1), end), countsDown: true)
+            } else if state.phase == "ended" {
+                Image(systemName: "checkmark")
+                    .accessibilityLabel("Focus done")
+            } else {
+                Text(durationLabel(state.remainingDuration))
+            }
+        }
+        .font(.caption2.monospacedDigit())
+        .multilineTextAlignment(.trailing)
+        .frame(maxWidth: 44, alignment: .trailing)
+    }
+
     private func durationLabel(_ interval: TimeInterval) -> String {
         let seconds = max(0, Int(interval.rounded()))
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
@@ -131,6 +153,9 @@ private struct FocusActivityControls: View {
                 Image(systemName: isPaused ? "play.fill" : "pause.fill")
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: 44, height: 44)
+                    // Fixed dark ink on the fixed pale ground: the default foreground
+                    // turns white in dark and in the Dynamic Island (~1.5:1).
+                    .foregroundStyle(Color(SemanticColorTokens.foundationOnCelestialAccent))
                     .background(WidgetPalette.sun, in: Circle())
             }
             .buttonStyle(.plain)
@@ -190,24 +215,24 @@ struct FastingLiveActivityWidget: Widget {
                 }
                 Spacer(minLength: 8)
                 if context.state.phase == "active" {
-                    Link(destination: FastingActivityLink.url(
+                    // Finish runs in place through an intent and keeps the
+                    // fast's record. There is no Cancel here: cancelling
+                    // discards the fast, and one stray tap on the Lock Screen
+                    // should never lose it. Cancel stays in the app.
+                    Button(intent: FastingLiveActivityCommandIntent(
                         sessionID: context.attributes.sessionID,
                         command: "finish",
                         token: context.state.finishCommandToken
                     )) {
                         Image(systemName: "checkmark")
                             .frame(width: 44, height: 44)
+                            // Fixed dark ink on the fixed pale ground: the default foreground
+                            // turns white in dark and in the Dynamic Island (~1.5:1).
+                            .foregroundStyle(Color(SemanticColorTokens.foundationOnCelestialAccent))
                             .background(WidgetPalette.completionGround, in: Circle())
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel("End fast")
-                    Link(destination: FastingActivityLink.url(
-                        sessionID: context.attributes.sessionID,
-                        command: "cancel",
-                        token: context.state.cancelCommandToken
-                    )) {
-                        Image(systemName: "xmark").frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel("Cancel fast")
                 }
             }
             .padding(16)
@@ -216,14 +241,21 @@ struct FastingLiveActivityWidget: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) { Image(systemName: "timer") }
-                DynamicIslandExpandedRegion(.trailing) { fastingTime(context.state) }
+                DynamicIslandExpandedRegion(.trailing) {
+                    fastingElapsed(context.state)
+                        .font(.subheadline.monospacedDigit())
+                        .multilineTextAlignment(.trailing)
+                }
                 DynamicIslandExpandedRegion(.bottom) {
                     Text(context.attributes.title).font(.caption).lineLimit(1)
                 }
             } compactLeading: {
                 Image(systemName: "timer")
             } compactTrailing: {
-                fastingTime(context.state)
+                fastingElapsed(context.state)
+                    .font(.caption2.monospacedDigit())
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 52, alignment: .trailing)
             } minimal: {
                 Image(systemName: "timer")
             }
@@ -231,24 +263,38 @@ struct FastingLiveActivityWidget: Widget {
         }
     }
 
+    /// Time fasted so far, counting up. A countdown to the target stopped at
+    /// 0:00 once the target passed while the fast itself carried on, so the
+    /// Lock Screen claimed nothing was happening; elapsed time never stops,
+    /// and the goal is shown beside it as a time of day.
     @ViewBuilder
     private func fastingTime(_ state: FastingActivityAttributes.ContentState) -> some View {
-        if state.phase == "active", let targetEndAt = state.targetEndAt {
-            Text(timerInterval: Date()...max(Date().addingTimeInterval(1), targetEndAt), countsDown: true)
+        VStack(alignment: .leading, spacing: 1) {
+            fastingElapsed(state)
                 .font(.subheadline.monospacedDigit())
-        } else if state.phase == "active" {
+            if state.phase == "active", let targetEndAt = state.targetEndAt {
+                Text("Goal \(targetEndAt.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func fastingElapsed(_ state: FastingActivityAttributes.ContentState) -> some View {
+        if state.phase == "active" {
             Text(state.startedAt, style: .timer)
-                .font(.subheadline.monospacedDigit())
         } else {
             Text(durationLabel(state.elapsedDuration))
-                .font(.subheadline.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
     }
 
+    /// Fasts run for hours, so a finished one reads "16:05" (hours:minutes),
+    /// not "965:12" in minutes:seconds.
     private func durationLabel(_ interval: TimeInterval) -> String {
-        let seconds = max(0, Int(interval.rounded()))
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+        let minutes = max(0, Int((interval / 60).rounded()))
+        return String(format: "%d:%02d", minutes / 60, minutes % 60)
     }
 }
 
@@ -270,19 +316,26 @@ struct RoutineLiveActivityWidget: Widget {
                 if context.state.status == "running"
                     || context.state.status == "paused"
                     || context.state.status == "interrupted" {
-                    Link(destination: primaryURL(context)) {
+                    // Both act in place through intents, like Focus's controls,
+                    // rather than opening the app and hoping it is ready.
+                    Button(intent: primaryIntent(context)) {
                         Image(systemName: context.state.status == "running" ? "pause.fill" : "play.fill")
                             .frame(width: 44, height: 44)
+                            // Fixed dark ink on the fixed pale ground: the default foreground
+                            // turns white in dark and in the Dynamic Island (~1.5:1).
+                            .foregroundStyle(Color(SemanticColorTokens.foundationOnCelestialAccent))
                             .background(WidgetPalette.sun, in: Circle())
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel(context.state.status == "running" ? "Pause routine" : "Resume routine")
-                    Link(destination: RoutineActivityLink.url(
+                    Button(intent: RoutineLiveActivityCommandIntent(
                         runID: context.attributes.runID,
                         command: "stop",
                         token: context.state.stopCommandToken
                     )) {
                         Image(systemName: "stop.fill").frame(width: 44, height: 44)
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel("Stop routine")
                 }
             }
@@ -313,10 +366,10 @@ struct RoutineLiveActivityWidget: Widget {
         }
     }
 
-    private func primaryURL(
+    private func primaryIntent(
         _ context: ActivityViewContext<RoutineActivityAttributes>
-    ) -> URL {
-        RoutineActivityLink.url(
+    ) -> RoutineLiveActivityCommandIntent {
+        RoutineLiveActivityCommandIntent(
             runID: context.attributes.runID,
             command: context.state.status == "running" ? "pause" : "resume",
             token: context.state.primaryCommandToken

@@ -9,6 +9,9 @@ struct ProjectManagementView: View {
     @State private var newProjectName = ""
     @State private var newProjectDescription = ""
     @State private var selectedProjectID: UUID?
+    /// The project waiting on the delete confirmation. Deleting moves its tasks
+    /// to Inbox and cannot be undone, so it always asks first.
+    @State private var projectPendingDeletion: ProjectWithStats?
     @FocusState private var projectNameFocused: Bool
 
     private var supportsIPadSplit: Bool {
@@ -57,15 +60,33 @@ struct ProjectManagementView: View {
                         if viewModel.filteredProjects.filter({ $0.project.id != ProjectConstants.inboxProjectID }).isEmpty {
                             StatusSurface(
                                 state: .empty,
-                                title: "No Custom Projects",
-                                message: "Tap + to create your first custom project"
+                                title: "No projects yet",
+                                message: ""
                             )
                         }
                     }
             }
         }
         .accessibilityIdentifier("projectManagement.view")
-        .alert("Project Error", isPresented: Binding(
+        .confirmationDialog(
+            projectPendingDeletion.map { "Delete \u{201C}\($0.project.name)\u{201D}?" } ?? "Delete project?",
+            isPresented: Binding(
+                get: { projectPendingDeletion != nil },
+                set: { if $0 == false { projectPendingDeletion = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete project", role: .destructive) {
+                guard let entry = projectPendingDeletion else { return }
+                projectPendingDeletion = nil
+                if selectedProjectID == entry.project.id { selectedProjectID = nil }
+                viewModel.deleteProject(entry, strategy: .moveToInbox)
+            }
+            Button("Cancel", role: .cancel) { projectPendingDeletion = nil }
+        } message: {
+            Text(deletionMessage(for: projectPendingDeletion))
+        }
+        .alert("Couldn\u{2019}t save project.", isPresented: Binding(
             get: { viewModel.errorMessage != nil },
             set: { if !$0 { viewModel.clearError() } }
         )) {
@@ -82,10 +103,10 @@ struct ProjectManagementView: View {
             if let selectedProject = selectedProjectEntry?.project {
                 ReflectionNoteComposerView(
                     viewModel: ReflectionNoteComposerViewModel(
-                        title: "Project Reflection",
+                        title: String(localized: "Project note"),
                         kind: .projectReflection,
                         linkedProjectID: selectedProject.id,
-                        prompt: "What matters most about this project this week?",
+                        prompt: String(localized: "What matters this week?"),
                         saveNoteHandler: { note, completion in
                             viewModel.saveReflectionNote(note, completion: completion)
                         }
@@ -127,7 +148,7 @@ struct ProjectManagementView: View {
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
                     HStack(spacing: 8) {
-                        Text("\(entry.taskCount) tasks")
+                        Text(entry.taskCount == 1 ? "1 task" : "\(entry.taskCount) tasks")
                             .font(.caption)
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                         if entry.project.isArchived {
@@ -141,6 +162,13 @@ struct ProjectManagementView: View {
                     }
                 }
                 .tag(entry.project.id).lifeBoardScrollEntrance(intensity: 0.55)
+                .contextMenu {
+                    if entry.project.id != ProjectConstants.inboxProjectID {
+                        Button("Delete project\u{2026}", systemImage: "trash", role: .destructive) {
+                            projectPendingDeletion = entry
+                        }
+                    }
+                }
             }
             .onDelete(perform: deleteProjects)
         }
@@ -178,7 +206,7 @@ struct ProjectManagementView: View {
                             value: "\(max(0, selected.taskCount - selected.completedTaskCount))"
                         )
                         projectMetricCard(
-                            title: "Completed",
+                            title: "Done",
                             value: "\(selected.completedTaskCount)"
                         )
                         projectMetricCard(
@@ -193,13 +221,16 @@ struct ProjectManagementView: View {
                     recentReflectionSection
 
                     if selected.project.id == ProjectConstants.inboxProjectID {
-                        Text("Inbox is your capture project and cannot be deleted.")
+                        Text("Inbox can\u{2019}t be deleted.")
                             .font(.footnote)
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                     } else {
-                        Text("Swipe left on the project in the list to delete it.")
-                            .font(.footnote)
-                            .foregroundStyle(Color.lifeboard(.textSecondary))
+                        Button("Delete project\u{2026}", systemImage: "trash", role: .destructive) {
+                            projectPendingDeletion = selected
+                        }
+                        .buttonStyle(.lifeBoardChip)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("projectManagement.delete")
                     }
                 }
                 .lifeboardReadableContent(maxWidth: 860, alignment: .center)
@@ -211,8 +242,8 @@ struct ProjectManagementView: View {
         } else {
             StatusSurface(
                 state: .empty,
-                title: "Select a Project",
-                message: "Choose a project from the sidebar to inspect details."
+                title: "No project selected",
+                message: ""
             )
         }
     }
@@ -224,7 +255,7 @@ struct ProjectManagementView: View {
             Image(systemName: "plus")
         }
         .accessibilityIdentifier("projectManagement.addProjectButton")
-        .accessibilityLabel("Add Project")
+        .accessibilityLabel("Add project")
     }
 
     private var projectCreateSheet: some View {
@@ -232,27 +263,27 @@ struct ProjectManagementView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("New Project")
+                        Text("New project")
                             .font(.lifeboard(.screenTitle))
                             .foregroundStyle(Color.lifeboard.textPrimary)
-                        Text("Create a focused workspace for tasks, weekly outcomes, and reflections.")
+                        Text("Group related tasks.")
                             .font(.lifeboard(.body))
                             .foregroundStyle(Color.lifeboard.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Project details")
+                        Text("Details")
                             .font(.lifeboard(.headline))
                             .foregroundStyle(Color.lifeboard.textPrimary)
 
-                        TextField("Project name", text: $newProjectName)
+                        TextField("Project name", text: $newProjectName, prompt: Text("Project name").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                             .textFieldStyle(TokenTextFieldStyle())
                             .focused($projectNameFocused)
                             .submitLabel(.done)
                             .onSubmit(createProjectFromDraft)
 
-                        TextField("Description (optional)", text: $newProjectDescription, axis: .vertical)
+                        TextField("Description", text: $newProjectDescription, prompt: Text("Description").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                             .lineLimit(3...6)
                             .textFieldStyle(TokenTextFieldStyle())
                     }
@@ -266,13 +297,14 @@ struct ProjectManagementView: View {
                 .padding(16)
             }
             .background(Color.lifeboard.bgCanvas.ignoresSafeArea())
-            .navigationTitle("Add Project")
+            .navigationTitle("New project")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         showingCreateSheet = false
                     }
+                    .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create", action: createProjectFromDraft)
@@ -305,25 +337,27 @@ struct ProjectManagementView: View {
         selectedProjectID = firstProject.project.id
         viewModel.selectProject(firstProject)
     }
+}
 
+extension ProjectManagementView {
     private var weeklyContributionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Weekly contribution")
+            Text("This week")
                 .font(.headline)
 
             LazyVGrid(columns: [
                 GridItem(.flexible(), spacing: 12),
                 GridItem(.flexible(), spacing: 12)
             ], spacing: 12) {
-                projectMetricCard(title: "This week", value: "\(viewModel.weeklyContributionStats.thisWeekCount)")
-                projectMetricCard(title: "Done this week", value: "\(viewModel.weeklyContributionStats.completedThisWeekCount)")
-                projectMetricCard(title: "Outcome links", value: "\(viewModel.weeklyContributionStats.linkedOutcomeCount)")
-                projectMetricCard(title: "Rescue pressure", value: "\(viewModel.weeklyContributionStats.carryPressureCount)")
+                projectMetricCard(title: "Planned", value: "\(viewModel.weeklyContributionStats.thisWeekCount)")
+                projectMetricCard(title: "Done", value: "\(viewModel.weeklyContributionStats.completedThisWeekCount)")
+                projectMetricCard(title: "Linked to goals", value: "\(viewModel.weeklyContributionStats.linkedOutcomeCount)")
+                projectMetricCard(title: "From earlier", value: "\(viewModel.weeklyContributionStats.carryPressureCount)")
             }
 
             HStack(spacing: 12) {
                 quickActionButton(
-                    title: viewModel.hasSelectedTasks ? "Add selected to this week" : "Add open tasks to this week",
+                    title: viewModel.hasSelectedTasks ? String(localized: "Add to this week") : String(localized: "All to this week"),
                     systemImage: "calendar.badge.plus",
                     tint: Color.lifeboard.accentPrimary
                 ) {
@@ -331,7 +365,7 @@ struct ProjectManagementView: View {
                 }
 
                 quickActionButton(
-                    title: viewModel.hasSelectedTasks ? "Move selected to next week" : "Move open tasks to next week",
+                    title: viewModel.hasSelectedTasks ? String(localized: "Move to next week") : String(localized: "All to next week"),
                     systemImage: "arrow.right.circle",
                     tint: Color.lifeboard.statusWarning
                 ) {
@@ -348,28 +382,28 @@ struct ProjectManagementView: View {
                 Text("Motivation")
                     .font(.headline)
                 Spacer()
-                Button(viewModel.isSavingMotivation ? "Saving..." : "Save") {
+                Button(viewModel.isSavingMotivation ? "Saving…" : "Save") {
                     viewModel.saveMotivation()
                 }
                 .disabled(viewModel.isSavingMotivation)
             }
 
             motivationEditor(
-                title: "Why this matters now",
+                title: String(localized: "Why now"),
                 text: $viewModel.motivationWhyDraft,
-                prompt: project.isInbox ? "Inbox does not use weekly motivation." : "Why does this project matter right now?"
+                prompt: project.isInbox ? String(localized: "Not used for Inbox") : String(localized: "Reason")
             )
 
             motivationEditor(
-                title: "What progress looks like",
+                title: String(localized: "Done looks like"),
                 text: $viewModel.motivationSuccessLooksLikeDraft,
-                prompt: "What would a meaningful weekly win look like?"
+                prompt: String(localized: "Result")
             )
 
             motivationEditor(
-                title: "What slips if it waits",
+                title: String(localized: "If it slips"),
                 text: $viewModel.motivationCostOfNeglectDraft,
-                prompt: "What pressure builds if this slips?"
+                prompt: String(localized: "Why it matters")
             )
         }
         .opacity(project.isInbox ? 0.55 : 1)
@@ -379,7 +413,7 @@ struct ProjectManagementView: View {
     private var projectTasksSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Weekly planning")
+                Text("Tasks")
                     .font(.headline)
                 Spacer()
                 if viewModel.hasSelectedTasks {
@@ -433,7 +467,7 @@ struct ProjectManagementView: View {
     private var recentReflectionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Project reflections")
+                Text("Notes")
                     .font(.headline)
                 Spacer()
                 Button(WeeklyCopy.addReflection) {
@@ -443,7 +477,7 @@ struct ProjectManagementView: View {
             }
 
             if viewModel.recentReflectionNotes.isEmpty {
-                Text("Project reflections help the weekly review stay grounded in what actually happened.")
+                Text(WeeklyCopy.noWeeklyNotes)
                     .font(.footnote)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             } else {
@@ -476,60 +510,31 @@ struct ProjectManagementView: View {
                 .foregroundStyle(Color.lifeboard.textSecondary)
             TextField(prompt, text: text, axis: .vertical)
                 .lineLimit(2...5)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
+                // Clay well, not the system rounded border: that drew a pure white
+                // box on warm paper and a pure black one in dark appearance.
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
         }
     }
 
-    private func quickActionButton(title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(tint)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func planningBucketChip(_ bucket: TaskPlanningBucket) -> some View {
-        statusChip(bucket.displayName, tint: bucketColor(bucket), systemImage: bucket.systemImageName)
-    }
-
-    private func statusChip(_ title: String, tint: Color, systemImage: String? = nil) -> some View {
-        HStack(spacing: 4) {
-            if let systemImage {
-                Image(systemName: systemImage)
-            }
-            Text(title)
-        }
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(tint)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(tint.opacity(0.08), in: Capsule())
-    }
-
-    private func bucketColor(_ bucket: TaskPlanningBucket) -> Color {
-        switch bucket {
-        case .today:
-            return Color.lifeboard.statusSuccess
-        case .thisWeek:
-            return Color.lifeboard.accentPrimary
-        case .nextWeek:
-            return Color.lifeboard.statusWarning
-        case .later, .someday:
-            return Color.lifeboard.textSecondary
-        }
-    }
-
-    /// Executes deleteProjects.
+    /// Swipe to delete asks first, like the visible Delete button: the
+    /// project's tasks move to Inbox and the delete cannot be undone.
     private func deleteProjects(at offsets: IndexSet) {
-        for index in offsets {
-            guard viewModel.filteredProjects.indices.contains(index) else { continue }
-            let entry = viewModel.filteredProjects[index]
-            guard entry.project.id != ProjectConstants.inboxProjectID else { continue }
-            viewModel.deleteProject(entry, strategy: .moveToInbox)
+        guard let index = offsets.first,
+              viewModel.filteredProjects.indices.contains(index) else { return }
+        let entry = viewModel.filteredProjects[index]
+        guard entry.project.id != ProjectConstants.inboxProjectID else { return }
+        projectPendingDeletion = entry
+    }
+
+    private func deletionMessage(for entry: ProjectWithStats?) -> String {
+        guard let entry else { return "" }
+        switch entry.taskCount {
+        case 0: return String(localized: "This can\u{2019}t be undone.")
+        case 1: return String(localized: "Its task moves to Inbox. This can\u{2019}t be undone.")
+        default: return String(localized: "Its \(entry.taskCount) tasks move to Inbox. This can\u{2019}t be undone.")
         }
     }
 

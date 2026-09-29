@@ -395,6 +395,29 @@ scene — resolve both together through
 `DaypartTokens.appearancePalette(for:colorScheme:)`, never the light-only
 `palette(for:)`.
 
+The whole app, the five foundation roots included, follows system appearance
+(revised 2026-09-18; an earlier "paper at night" rule was based on captures
+that were really light). The daypart is a second layer on top of either
+appearance, so every root is checked in light and dark, each at morning,
+golden hour, twilight and night.
+
+- **Copy on the scene, not on a card** (headers, section headings, the Plan
+  ruler) uses `inkPrimary`: the sky moves through mid-tones where secondary and
+  tertiary ink have no headroom. Where it sits on the night sky it takes the
+  fixed `foundationOnScenicDark` ink via `nightSkyAwareForeground`, decided by
+  position against `AtmosphereDescriptor.nightSkyInkBoundary`, never by
+  `textInverse`, which flips with appearance while the sky does not.
+- **Warm accents are fills.** `foundationApricotAccent`, `foundationSageAccent`
+  and `foundationSunAccent` are fixed pale values (1.5–1.9:1 on paper). Labels,
+  meaningful glyphs, chart strokes and on/complete states use their
+  `foundation*Ink` twins. Enforced by `scripts/token-law-guardrails.sh`.
+- **System controls** take `foundationSystemTint` (cocoa in light, amber in
+  dark), set on the shell and the UIKit window: system controls draw white on
+  their tint, so a near-white dark tint erased the selected day.
+- **Evidence:** `scripts/appearance-audit/` captures any surface in any cell
+  and measures contrast from the pixels; `AppearanceContrastMatrixTests`
+  measures every ink against every surface in all four appearances.
+
 - **Canvas** carries atmosphere and negative space. It is not a card background repeated around every section.
 - **Surface** groups content only when a boundary helps comprehension. Raised surface is reserved for the hero, a movable object, a proposal, or a receipt.
 - **Cocoa primary** is the strongest reading and action color in light appearance.
@@ -568,11 +591,22 @@ Show zero to three signals selected by current relevance, actionability, and fre
 
 ### Morphing composer
 
-The composer provides capture and Eva access without dominating the screen. Its states are compact capsule, capture orb, expanded input, dictation, tools, working, review, and receipt. State changes morph in place and preserve draft, keyboard focus, accessibility focus, and input mode. A working or review state cannot be dismissed by automatic chrome compression.
+The composer provides capture and Eva access without dominating the screen. Its states are compact capsule, capture orb, expanded input, dictation, tools, working, review, and receipt. State changes morph in place and preserve draft, keyboard focus, accessibility focus, and input mode — except a send, which ends editing: the keyboard goes away and the receipt is announced. A working or review state cannot be dismissed by automatic chrome compression, and only an outcome of the work ends it; a working state that nothing can end is a dead end. While the composer has the keyboard, its border shows it.
+
+### Keyboard contract
+
+Every text field follows these rules; the shared primitives in `LifeBoardUI` (`KeyboardExits.swift`) make them the default.
+
+1. **Return does what its key says.** Each field declares a role: `send` for the capture composer, `next` for a title with a field after it, `done` for single-purpose fields, `newline` for prose (Eva, journal, notes). The key label matches the role. A typed Return is recognised anywhere in the text, autocorrected or not; a paste never sends itself.
+2. **Every keyboard has a way down that keeps the screen and the draft:** Return or the keyboard bar's Done, a drag on scrolling content, a tap on content, and VoiceOver's escape gesture. (A hardware Esc cannot be offered: a focused text field consumes Escape.) A keyboard without a Return key (number, decimal and phone pads) always carries Done.
+3. **Content stays live while typing.** A tap dismisses the keyboard and still reaches what was tapped, and content keeps scrolling. One-tap commit controls — task completion, habit rings — only dismiss while the composer has the keyboard; holds and scrubs still commit, and VoiceOver and Switch Control activation is never swallowed. Dashboard roots dismiss on any drag; Eva's transcript scrolls and dismisses when the drag reaches the keyboard.
+4. **Navigation ends typing.** A root switch, a push or a pop puts the keyboard away and closes the tools tray. The draft survives.
+5. **Programmatic focus waits for its field.** A request made before the field exists — from the orb, a Home card, or a sheet still dismissing — is held until the field can take it.
+6. **One helper row above the keyboard.** Token suggestions while a token is being typed, otherwise the interpretation or the clarification. The keyboard bar carries `#`, `+` and `@`, so the token syntax is visible without a tutorial.
 
 ### Root dock and selected lens
 
-The dock contains five equally reachable targets with one moving selected lens. Selection uses position, shape, label, and accessibility state—not tint alone. Root transitions originate from the selected target and settle before secondary content animates. On iPad, the same contract appears as a top switcher with pointer and keyboard behavior.
+The dock contains five equally reachable targets with one moving selected lens. Selection uses position, shape, label, and accessibility state—not tint alone. Root transitions originate from the selected target and settle before secondary content animates. On iPad, the same contract appears as a top switcher with pointer and keyboard behavior. The dock stays visible while the shell composer has the keyboard, and a tap on it switches roots and puts the keyboard away; Eva hides its dock while its own composer is focused, and its header chevron and Done remain.
 
 ### Commit control and receipt
 
@@ -651,6 +685,7 @@ Use the existing signature-effect vocabulary only:
 - `clayPressBloom` for a significant press or selection.
 - `completionBurst` and `dissolveAway` only after persisted completion.
 - `triageSettle` beneath Inbox, Rescue, and repair decks.
+- `taskLandingCaustic` where a block or kept task lands on the Plan canvas or the week, after the placement has persisted.
 - `chartRevealSweep` when valid chart data first appears or its range changes.
 - `evaInkReveal` for newly arriving Eva content.
 - `journalMediaReveal` and `memoryDevelopReveal` for committed media and memories.
@@ -664,7 +699,7 @@ Use the existing signature-effect vocabulary only:
 
 Effects mount behind text, charts, evidence, and sensitive content. Every **boundary** effect returns to a settled state; **ambient** effects instead stay within their stated envelope and come to rest whenever the budget withdraws them. Reduce Transparency, Low Power Mode, thermal pressure, inactive scenes, unsupported platforms, or shader failure replaces effects with short semantic crossfades or immediate state changes without removing content or delaying input.
 
-Reduce Motion is honoured the same way, with one deliberate exception: LifeBoard offers a **Full motion** setting that overrides the system preference for this app alone. It is on by default, because motion is central to what this product is. Turning it off restores the complete Reduce Motion path everywhere at once. Energy and thermal limits are never overridable — they are not comfort preferences.
+Reduce Motion is honoured the same way, and the system setting always wins (`MotionOverride.resolve`). LifeBoard's own motion setting can only ask for *less* motion: turning it off takes the complete Reduce Motion path everywhere at once, even when iOS Reduce Motion is off. It can never restore motion the system has reduced. Energy and thermal limits are never overridable — they are not comfort preferences.
 
 ### Accessibility and input
 
@@ -693,6 +728,91 @@ Haptics confirm commit, selection, lift, threshold, settle, decline, and failure
 - **Do** design iPad compositions for their window; **don't** stretch phone cards or fill extra space with more metrics.
 - **Do** end consequential work with a clear receipt and Undo when supported; **don't** hide destructive consequences behind playful motion.
 
+
+## Launch contracts (2026-09-28)
+
+Seven rules every surface follows. They restate the principles above as checks, and `scripts/launch-contract-guardrails.sh` ratchets the mechanical ones.
+
+1. **Mutation.** Persist, then success motion and `Haptic.commit`, then a receipt. A reversible change runs at once and offers Undo in a receipt that survives the screen closing; only an irreversible one (a permanent file delete, a watch capture, a memory wipe, rebuilding from iCloud) asks first, and says what is lost. A failure rolls back, plays `Haptic.fail`, and says what happened. A `catch` that returns silently from a mutation is a defect.
+2. **Routing.** Opening a thing opens it on the current stack. Switching roots and pushing in one step uses `router.navigate(_:in:)`. Eva with context is a sheet (`router.presentEva(context:)`); the Eva root is for direct chat. Feature screens are typed `AppRoute`s, never an untyped `NavigationLink(destination:)`. Every notification, widget, and Live Activity carries a typed route that lands on its subject.
+3. **Presentation.** Push for entities, a sheet for creating, editing, and quick logs, `lifeboardCover` for guided rituals with the composer and dock hidden. Non-editing surfaces close with **Close**; forms use **Cancel** and **Done**. Sheet detents never use a fixed height around Dynamic Type text.
+4. **One name per concept.** "Where does this go" always uses the same words and symbols: Today, Later today, Tomorrow, Pick a day…, Someday, Let it go, Already done. The assistant is called by its persona name, "Eva" by default, never "EVA" in new copy.
+5. **Voice.** Say what the thing does and what happens next. Reassurance ("not a score", "non-clinical") appears at most once on a screen, and only where a real worry exists. No raw enum values, identifiers, or storage terms in the interface. The full rules, budgets, and glossary are in [Voice and copy](#voice-and-copy-2026-09-28).
+6. **States.** Loading, empty, filtered-to-nothing, denied, unavailable, and failed are different screens. An empty state offers one action and never shows a row of zeros. Unknown data is never drawn as 0.
+7. **Motion and haptics.** Animation comes from `MotionProfile` / `.lifeBoardMotion`, haptics from `Haptic` intents. `completionBurst` marks completions only; a reversible log gets lighter feedback. A screen runs at most one ambient loop, and it settles when nobody is interacting.
+
+## Voice and copy (2026-09-28)
+
+LifeBoard writes like Things and Apple's own apps: terse, neutral, confident. Calm and non-judgment come from what the text leaves out, not from saying so. `scripts/check_launch_contracts.rb` ratchets the word lists below; `copy_inventory.rb` measures the rest.
+
+### Principles
+
+1. **Label, don't narrate.** Name the thing or the action. Never describe what the interface is doing or why it exists.
+2. **One idea per line.** A subtitle must add something the screen doesn't already say. If it restates the title, delete it.
+3. **Facts over feelings.** "3 left today", not "Your day is carrying some pressure". Numbers, times, and names do the warm work.
+4. **Non-judgment by omission.** No "missed", "failed", or "overdue", and no "not a verdict" either. The shame and causal word lists in the tests still apply.
+5. **Warmth is budgeted.** The daypart greeting, the Close the day completion line, the first-run welcome, and Eva's persona voice in chat. Everything else is neutral.
+6. **Reassurance at most once per screen**, only where a real worry exists: privacy at the point of consent, and "not medical advice" once in Health.
+7. **The person's words, not the system's.** No storage, model, or pipeline vocabulary.
+
+### Budgets
+
+| Element | Budget | Form |
+|---|---|---|
+| Screen or nav title, section header | ≤ 3 words | Noun: "Habits", "Close the day" |
+| Button, menu item, swipe action | ≤ 3 words | Verb first: "Add task", "Move to Tomorrow" |
+| Row label | ≤ 4 words | Noun |
+| Subtitle, support line, footer | ≤ 10 words, one sentence | Optional, and absent by default |
+| Placeholder | ≤ 3 words | Noun or example, never a question: "Task name" |
+| Empty state | Title ≤ 5 words, optional body ≤ 10, one action | "No habits yet" · New habit |
+| Error | "Couldn't {verb} {object}." plus a fix of ≤ 8 words | "Couldn't save routine." · Try again |
+| Confirmation | Title is the question; a message only when something is lost (≤ 15 words); the destructive button repeats the verb | Irreversible actions only (contract 1) |
+| Receipt | ≤ 6 words, past tense, plus Undo | "Moved to Tomorrow" · Undo |
+| Notification | Title is the subject (the task or habit); body is one line of ≤ 12 words with a time or count | "Write spec" / "Due 3:00 PM" |
+| Permission string | One sentence, ≤ 20 words | "LifeBoard uses X to Y." |
+| Accessibility label, hint | Label is a noun with no role word; a hint only when the result isn't obvious (≤ 6 words, "Opens…") | Never "Double tap to…" |
+| Loading | Nothing, or "Loading…" | Never narrated |
+
+### Mechanics
+
+- **Sentence case** for everything inside the app, including buttons, alerts, and notifications. Title Case only where iOS lists our names beside other apps' names: widget gallery names, App Shortcut titles, and Control Center controls. No uppercase for emphasis.
+- **Punctuation.** "…" (never "..."), curly quotes, no em dash inside a sentence ("—" stands only for a missing value), no exclamation marks except the Close the day celebration. Titles and buttons take no period; sentences in bodies and footers do.
+- **Numbers.** Digits, catalog plural variants (never "day(s)"), durations through `LifeBoardDuration` ("15 min"), and relative dates when near.
+- **Person.** Address the person as "you". The app never says "we", names itself only in permission strings and settings footers, calls the assistant by persona name without a pronoun, and never says "Please".
+- **Filler to cut:** just, simply, easily, really, actually, right now, in one place, so you can, Here's.
+
+### Glossary
+
+Extends contract 4. Shared words live in `LifeBoardGlossary.swift`.
+
+| Concept | Say | Don't say |
+|---|---|---|
+| Assistant | Eva, or the persona name | EVA, Cloud EVA, Offline EVA, Luna, chief of staff, executive assistant |
+| Where Eva runs | "Eva runs on" Cloud / This iPhone | provider, model names outside Models |
+| A to-do | task | item, thing, commitment |
+| Where tasks wait | Inbox, Today, Backlog, Someday | board, surface, slate, queue |
+| Where it goes | Today, Later today, Tomorrow, Pick a day…, Someday, Let it go, Already done | Carry, Release, Defer, Drop, set aside |
+| Recurring behavior | habit | behavior loop, ritual, rhythm, cue |
+| Stopping a behavior | quit habit: clean days, slip | quiet tracking, lapse, relapse |
+| Multi-step sequence | routine | Shutdown as a separate name |
+| Timed work | focus session: Start focus, Focus done | focus block, focus window |
+| Calendar time | time block | window, slot |
+| Daily bookends | Start the day, Close the day, Day closed | Put the day down, Day close, Shutdown |
+| Weekly | Plan week, Review week, Weekly reset (the guided flow) | Close the week, Weekly takeaway |
+| Journal | entry; a quick mood log is a check-in | moment, line, signal, honest note |
+| Reminders | reminder | nudge |
+| Why something is suggested | Why?, "Based on 14 days" | evidence, grounded |
+| Unfinished from earlier days | from earlier, "3 days old" | overdue, late, behind |
+| Gamification | XP, levels, badges, on gamification surfaces only | wins, momentum in widgets and notifications |
+
+### Words the lint rejects in string literals
+
+- **voice-smell:** gentle, gently, calm, calmer, quiet, quietly, honest, softly, breathe, room to, still counts, when you're ready, whenever you, no pressure, nothing to force, intentional, meaningful, deliberately, one small, tiny, Let's, journey, seamless, effortless, empower, Here's, you've got this.
+- **disclaimer:** not a verdict, not a score, never a grade, without judgment, without blame, LifeBoard never, LifeBoard does not, non-clinical, not a diagnosis.
+- **ui-jargon:** canonical, evidence, bounded, deterministic, denominator, sidecar, projection, tombstone, idempotent, grounded, non-authoritative, pseudonymous, billable, provider, occurrence, ledger, MLX, Cloudflare, Luna, chief of staff, behavior loop.
+- **Mechanics:** "..." and "EVA" inside a literal.
+
+LLM prompt files are exempt: they instruct a model, not a person.
 
 ## Ambient illustration contract (2026-09-16)
 

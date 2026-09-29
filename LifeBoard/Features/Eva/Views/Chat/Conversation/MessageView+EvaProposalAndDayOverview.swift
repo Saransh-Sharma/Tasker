@@ -14,12 +14,9 @@ extension MessageView {
             HStack(alignment: .center, spacing: Theme.Spacing.sm) {
                 EvaMascotView(placement: .proposalReview, size: .inline)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("\(AssistantIdentityText.currentSnapshot().displayName) review")
+                    Text("Suggested changes")
                         .font(.lifeboard(.headline))
                         .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text("Check the plan before anything changes.")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
                 Spacer(minLength: 0)
             }
@@ -28,7 +25,7 @@ extension MessageView {
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
 
             DisclosureGroup {
-                Text(proposal.contextReceipt.sources.isEmpty ? "No additional context receipt." : proposal.contextReceipt.sources.joined(separator: "\n"))
+                Text(proposal.contextReceipt.sources.isEmpty ? String(localized: "No details") : proposal.contextReceipt.sources.joined(separator: "\n"))
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -81,7 +78,9 @@ extension MessageView {
                     evaApplyMessage = nil
                     pendingEvaApplyConfirmationIDs = nil
                 } label: {
-                    Label("Start New", systemImage: "square.and.pencil")
+                    // It restores the suggested selection; "Start New" read as
+                    // a new chat.
+                    Label("Reset selection", systemImage: "arrow.counterclockwise")
                 }
                 .buttonStyle(.bordered)
                 .tint(Color.lifeboard(.accentPrimary))
@@ -121,7 +120,7 @@ extension MessageView {
                 } else {
                     if pendingEvaApplyConfirmationIDs == selectedEvaCardIDs {
                         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                            Text("Confirm before \(AssistantIdentityText.currentSnapshot().displayName) changes your tasks.")
+                            Text("Apply these changes?")
                                 .font(.lifeboard(.caption1))
                                 .foregroundStyle(Color.lifeboard(.textSecondary))
 
@@ -130,12 +129,12 @@ extension MessageView {
                                     pendingEvaApplyConfirmationIDs = nil
                                     evaApplyMessage = nil
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.lifeBoardChip)
 
                                 Button {
                                     applyEvaProposal(payload: payload, proposal: proposal)
                                 } label: {
-                                    Text("Confirm Apply")
+                                    Text("Apply")
                                         .font(.lifeboard(.buttonSmall))
                                         .frame(maxWidth: .infinity)
                                 }
@@ -145,7 +144,47 @@ extension MessageView {
                                 .accessibilityIdentifier("eva.proposal.confirm_apply")
                             }
                         }
+                    } else if let runID = payload.runID, dismissedEvaRunIDs.contains(runID) {
+                        // Set aside, not gone: it can come back from here.
+                        HStack(spacing: Theme.Spacing.sm) {
+                            Text("Not applied")
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
+                                .accessibilityIdentifier("eva.proposal.not_now.receipt")
+                            Spacer(minLength: Theme.Spacing.sm)
+                            Button("Bring back") {
+                                Haptic.pick.play()
+                                bringBackEvaProposal(runID: runID, proposal: proposal)
+                            }
+                            .font(.lifeboard(.buttonSmall))
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("eva.proposal.bring_back")
+                        }
                     } else {
+                        Button {
+                            guard let runID = payload.runID else { return }
+                            dismissedEvaRunIDs.insert(runID)
+                            selectedEvaCardIDs.removeAll()
+                            expandedEvaCardID = nil
+                            recordEvaDismissedRunHistory(runID: runID, payload: payload, proposal: proposal)
+                            Haptic.pick.play()
+                            EvaChatReceiptCenter.shared.show(.init(
+                                message: String(localized: "Not applied"),
+                                detail: nil,
+                                undo: {
+                                    bringBackEvaProposal(runID: runID, proposal: proposal)
+                                    return true
+                                }
+                            ))
+                        } label: {
+                            Text(EvaProposalAction.notNow.rawValue)
+                                .font(.lifeboard(.buttonSmall))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.lifeBoardChip)
+                        .frame(minHeight: 44)
+                        .disabled(isApplyingEvaProposal || payload.runID == nil)
+                        .accessibilityIdentifier("eva.proposal.not_now")
                         Button {
                             prepareEvaProposalConfirmation(proposal: proposal)
                         } label: {
@@ -182,7 +221,7 @@ extension MessageView {
                 Image(systemName: "chevron.right")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textTertiary))
-                Text("Your plans")
+                Text("You asked")
                     .font(.lifeboard(.headline))
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             }
@@ -208,13 +247,9 @@ extension MessageView {
             HStack(alignment: .center, spacing: Theme.Spacing.sm) {
                 EvaMascotView(placement: .dayOverview, size: .inline)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("\(AssistantIdentityText.currentSnapshot().displayName) noticed")
+                    Text("Your day")
                         .font(.lifeboard(.headline))
                         .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text("A grounded brief from your current task and habit context.")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
             }
@@ -226,7 +261,7 @@ extension MessageView {
                 HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color.lifeboard(.statusWarning))
-                    Text("Context is partial. \(AssistantIdentityText.currentSnapshot().displayName) is only showing grounded tasks and habits from the slices that loaded.")
+                    Text("Some data didn’t load.")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                         .fixedSize(horizontal: false, vertical: true)
@@ -269,7 +304,7 @@ extension MessageView {
             }
 
             if sections.isEmpty {
-                Text("Everything visible in this brief has already been handled.")
+                Text("All done")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textTertiary))
             } else {
@@ -372,47 +407,5 @@ extension MessageView {
     @ViewBuilder
     func dayStatusChips(_ chips: [EvaDayStatusChip]) -> some View {
         EvaDayStatusChipsView(chips: chips, colorProvider: dayChipColor)
-    }
-
-    func handleDayTaskAction(_ action: EvaDayTaskAction, card: EvaDayTaskCard) {
-        if action == .open {
-            onOpenTaskFromCard?(card.taskSnapshot)
-            return
-        }
-        guard let onPerformDayTaskAction else {
-            appendDayOverviewNotice("Task actions are unavailable right now.")
-            return
-        }
-
-        var overlay = dayTaskOverlayStates[card.taskID] ?? EvaDayTaskOverlayState()
-        overlay.isProcessing = true
-        overlay.statusMessage = nil
-        dayTaskOverlayStates[card.taskID] = overlay
-
-        onPerformDayTaskAction(action, card) { result in
-            Task { @MainActor in
-                var resolved = dayTaskOverlayStates[card.taskID] ?? EvaDayTaskOverlayState()
-                resolved.isProcessing = false
-                switch result {
-                case .success:
-                    switch action {
-                    case .done:
-                        resolved.isHidden = true
-                        appendDayOverviewNotice("Marked \"\(card.title)\" done.")
-                    case .reopen:
-                        resolved.isHidden = true
-                        appendDayOverviewNotice("Reopened \"\(card.title)\".")
-                    case .tomorrow:
-                        resolved.isHidden = true
-                        appendDayOverviewNotice("Moved \"\(card.title)\" to tomorrow.")
-                    case .open:
-                        break
-                    }
-                case .failure(let error):
-                    resolved.statusMessage = error.localizedDescription
-                }
-                dayTaskOverlayStates[card.taskID] = resolved
-            }
-        }
     }
 }

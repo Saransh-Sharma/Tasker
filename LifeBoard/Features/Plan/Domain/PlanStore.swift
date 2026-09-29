@@ -48,6 +48,12 @@ final class PlanStore {
     private(set) var focusReflectionCommitPhase: AsyncActionPhase<FocusExecutionReceipt> = .idle
     private(set) var normalizedEvents: [NormalizedLifeEvent] = []
     private(set) var lastMutationReceiptID: UUID?
+    /// What the day lens says after a change it made in place: an applied
+    /// preview, or a block added on the canvas. Undo is `undoLastMutation`.
+    private(set) var receipt: PlanReceipt?
+    /// True while a staged preview is being applied, so Apply cannot be
+    /// tapped twice.
+    private(set) var isApplyingScenario = false
     private(set) var backlogDeletionUndoState: BacklogDeletionUndoState?
     private(set) var pendingScenario: PlanningScenario?
     private(set) var scenarioRefreshResult: PlanningScenarioRefreshResult?
@@ -102,7 +108,29 @@ final class PlanStore {
         self.focusCompanionStore = focusCompanionStore
         self.focusCommands = focusCommands
         self.calendar = calendar
-        selectedDay = PlanningDay(date: now, timeZone: calendar.timeZone, calendar: calendar)
+        let today = PlanningDay(date: now, timeZone: calendar.timeZone, calendar: calendar)
+        anchoredToday = today
+        selectedDay = today
+    }
+
+    /// The day that was "today" when the person last saw it.
+    private var anchoredToday: PlanningDay
+
+    /// Keeps "today" honest when the date changes under an open app — at
+    /// midnight, or after a time-zone change. Only moves the selection when the
+    /// person was looking at today; a day they chose on purpose stays put.
+    func rollToToday(now: Date = Date()) async {
+        var current = Calendar.autoupdatingCurrent
+        current.locale = calendar.locale
+        current.firstWeekday = calendar.firstWeekday
+        let today = PlanningDay(date: now, timeZone: current.timeZone, calendar: current)
+        guard today != anchoredToday else { return }
+        let wasOnToday = selectedDay == anchoredToday
+        calendar = current
+        anchoredToday = today
+        guard wasOnToday else { return }
+        selectedDay = today
+        await load()
     }
 
     func previewMinimumViableDay(
@@ -134,16 +162,30 @@ final class PlanStore {
         pendingMultiItemSelection = nil
     }
 
+    func clearReceipt() {
+        receipt = nil
+    }
+
+    /// Hides the backlog deletion receipt. The mutation stays undoable from
+    /// the header until the next planning change.
+    func dismissBacklogDeletionReceipt() {
+        backlogDeletionUndoState = nil
+    }
+
     func applyPendingScenario() async {
+        guard isApplyingScenario == false else { return }
         guard let pendingScenario, let scenarioCoordinator else { return }
         guard pendingScenario.isReadyToApply else {
             errorMessage = pendingScenario.validationIssues.joined(separator: " ")
             return
         }
+        isApplyingScenario = true
+        defer { isApplyingScenario = false }
         do {
             let repairSelection = pendingRepairSelection
             let receipt = try await scenarioCoordinator.apply(pendingScenario)
             lastMutationReceiptID = receipt.id
+            self.receipt = PlanReceipt.applied(pendingScenario)
             self.pendingScenario = nil
             scenarioRefreshResult = nil
             pendingRepairSelection = nil
@@ -170,7 +212,7 @@ final class PlanStore {
             let original = pendingScenario
             await load()
             guard let refreshed = rebuildScenario(original, snapshot: daySnapshot) else {
-                errorMessage = "Your plan changed while this preview was open. Rebuild the proposal and review it again."
+                errorMessage = String(localized: "Your plan changed. Review the preview again.")
                 self.pendingScenario = nil
                 return
             }
@@ -311,7 +353,8 @@ final class PlanStore {
         preserveDay: Bool = false,
         commitment: TaskCommitmentLevel? = nil,
         availability: TaskAvailability? = nil,
-        context: PlanningContext? = nil
+        context: PlanningContext? = nil,
+        receiptMessage: String? = nil
     ) async {
         var metadata = task.metadata
         metadata.planningDay = preserveDay ? metadata.planningDay : planningDay
@@ -325,8 +368,15 @@ final class PlanStore {
                 source: "plan.task",
                 summary: "Updated \(task.title)"
             )
+            if let receiptMessage {
+                Haptic.commit.play()
+                receipt = PlanReceipt(message: receiptMessage)
+            }
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch {
+            Haptic.fail.play()
+            errorMessage = error.localizedDescription
+        }
     }
 
     /// Completes or reopens a task.
@@ -403,13 +453,13 @@ final class PlanStore {
             diff: selectedTasks.map {
                 PlanningScenarioDiff(
                     title: $0.title,
-                    before: $0.metadata.planningDay.map(Self.dayLabel) ?? "Unscheduled",
+                    before: $0.metadata.planningDay.map(Self.dayLabel) ?? String(localized: "Unscheduled"),
                     after: Self.dayLabel(day)
                 )
             },
             preview: preview,
             validationIssues: mutations.isEmpty
-                ? ["Choose at least one task to reschedule."]
+                ? [String(localized: "Pick a task to reschedule.")]
                 : []
         )
     }
@@ -458,7 +508,7 @@ final class PlanStore {
             let receiptID = try await commit(
                 .batch(mutations),
                 source: "plan.backlog.delete",
-                summary: "Deleted \(mutations.count) backlog item\(mutations.count == 1 ? "" : "s")"
+                summary: mutations.count == 1 ? String(localized: "Deleted 1 task") : String(localized: "Deleted \(mutations.count) tasks")
             )
             backlogDeletionUndoState = BacklogDeletionUndoState(
                 receiptID: receiptID,
@@ -482,7 +532,7 @@ final class PlanStore {
         bufferDuration: TimeInterval
     ) async {
         guard endMinute > startMinute else {
-            errorMessage = "Working hours must end after they start."
+            errorMessage = String(localized: "End time must be after start time.")
             return
         }
         var value = workingProfile ?? Self.defaultWorkingProfile()
@@ -509,7 +559,7 @@ final class PlanStore {
 
     func acceptCalibration(_ suggestion: EstimateCalibrationSuggestion) async {
         guard let taskDefinitionRepository else {
-            errorMessage = "Task estimates are unavailable right now."
+            errorMessage = String(localized: "Couldn’t load estimates.")
             return
         }
         do {
@@ -519,7 +569,7 @@ final class PlanStore {
                     continuation.resume(with: $0)
                 }
             }) else {
-                errorMessage = "The task changed before its estimate could be updated."
+                errorMessage = String(localized: "Couldn’t update estimate. The task changed.")
                 return
             }
             task.estimatedDuration = suggestion.suggestedDuration
@@ -537,15 +587,24 @@ final class PlanStore {
         }
     }
 
-    func createBlock(title: String, start: Date, duration: TimeInterval, taskID: UUID? = nil) async {
+    /// `showsReceipt` for a block made in place on the canvas, where nothing
+    /// else says it happened: tapping an open window used to add a block
+    /// silently.
+    func createBlock(title: String, start: Date, duration: TimeInterval, taskID: UUID? = nil, showsReceipt: Bool = false) async {
         let value = InternalTimeBlock(
-            title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Focus block" : title,
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "Focus") : title,
             startAt: start,
             endAt: start.addingTimeInterval(max(15 * 60, duration)),
             taskID: taskID
         )
         do {
             try await commit(.saveTimeBlock(before: nil, after: value), source: "plan.block", summary: "Created \(value.title)")
+            if showsReceipt {
+                receipt = PlanReceipt(
+                    message: "Added ‘\(value.title)’",
+                    detail: (value.startAt..<value.endAt).formatted(.interval.hour().minute())
+                )
+            }
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -572,6 +631,10 @@ final class PlanStore {
             // canvas plays `settle` when the finger lifts; the commit belongs
             // here, where the write is known to have landed.
             Haptic.commit.play()
+            receipt = PlanReceipt(
+                message: "Resized ‘\(block.title)’",
+                detail: PlanReceipt.window(value.startAt, value.endAt)
+            )
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -585,6 +648,12 @@ final class PlanStore {
         do {
             try await commit(.saveTimeBlock(before: block, after: value), source: "plan.block", summary: "Moved \(block.title)")
             Haptic.commit.play()
+            // A drag lands silently otherwise, and the only way back was the
+            // unlabeled ↺ in the header.
+            receipt = PlanReceipt(
+                message: "Moved ‘\(block.title)’ to \(value.startAt.formatted(date: .omitted, time: .shortened))",
+                detail: PlanReceipt.window(value.startAt, value.endAt)
+            )
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -612,6 +681,7 @@ final class PlanStore {
                 source: "plan.block",
                 summary: "Split \(block.title)"
             )
+            receipt = PlanReceipt(message: "Split ‘\(block.title)’ in two")
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -619,6 +689,8 @@ final class PlanStore {
     func deleteBlock(_ block: InternalTimeBlock) async {
         do {
             try await commit(.deleteTimeBlock(block), source: "plan.block", summary: "Removed \(block.title)")
+            Haptic.commit.play()
+            receipt = PlanReceipt(message: "Removed ‘\(block.title)’")
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -728,6 +800,7 @@ final class PlanStore {
             }
             lastMutationReceiptID = nil
             backlogDeletionUndoState = nil
+            receipt = nil
             await load()
             return true
         } catch {
@@ -750,7 +823,9 @@ final class PlanStore {
             return false
         }
     }
+}
 
+extension PlanStore {
     /// Returns whether a session is running afterwards, so callers can gate
     /// commit haptics and navigation on the persisted outcome.
     @discardableResult
@@ -804,7 +879,7 @@ final class PlanStore {
                     kind: "started",
                     occurredAt: activeFocusSession.startedAt,
                     numericValue: activeFocusSession.targetDuration,
-                    provenance: "LifeBoard Focus session",
+                    provenance: "Focus session",
                     evidenceDisplay: focusTitle(for: activeFocusSession)
                 ))
                 await synchronizeFocusPresentation(activeFocusSession)
@@ -832,7 +907,7 @@ final class PlanStore {
             focusCommitPhase = .success(receipt: receipt)
         } else if succeeded == false {
             focusCommitPhase = .recoverableFailure(.init(
-                message: errorMessage ?? "Focus could not be ended.",
+                message: errorMessage ?? String(localized: "Couldn’t end focus."),
                 recovery: .retry
             ))
         }
@@ -1009,7 +1084,7 @@ final class PlanStore {
             kind: eventKind,
             occurredAt: occurredAt,
             numericValue: session.focusedDuration(at: occurredAt),
-            provenance: "LifeBoard Focus command",
+            provenance: "Focus",
             evidenceDisplay: focusTitle(for: session),
             receipt: .init(
                 receiptID: commandID,
@@ -1167,7 +1242,7 @@ final class PlanStore {
         case .unavailable:
             return CalendarLoadResult(
                 context: PlanningCalendarContext(authorization: .unavailable),
-                state: .failed(message: "Calendar context is unavailable on this device.")
+                state: .failed(message: String(localized: "Calendar isn’t available on this device."))
             )
         case .authorized:
             break
@@ -1278,7 +1353,7 @@ final class PlanStore {
         let permitsEmpty = action == .resume || action == .leaveUnchanged
         let issues = mutationHasEffect(mutation) || permitsEmpty
             ? []
-            : ["This repair no longer has a matching task or time block."]
+            : [String(localized: "This task or time block no longer exists.")]
         return PlanningScenario(
             source: .repair,
             receiptSource: repairReceiptSource(proposal.id),
@@ -1286,9 +1361,10 @@ final class PlanStore {
             proposedMutations: [mutation],
             diff: [
                 PlanningScenarioDiff(
-                    title: "Repair: \(action.rawValue)",
-                    before: proposal.explanation,
-                    after: repairSummary(action, task: targetTask, block: targetBlock)
+                    title: PlanRepairCopy.title(action),
+                    before: targetBlock.map(Self.repairWindow),
+                    after: repairSummary(action, task: targetTask, block: targetBlock),
+                    receipt: PlanRepairCopy.receipt(action, workTitle: targetTask?.title ?? targetBlock?.title)
                 )
             ],
             preview: preview,
@@ -1414,26 +1490,30 @@ final class PlanStore {
         }
     }
 
+    /// "9:00 – 10:00 AM", in the person's locale.
+    private static func repairWindow(_ block: InternalTimeBlock) -> String {
+        (block.startAt..<block.endAt).formatted(.interval.hour().minute())
+    }
+
     private func repairSummary(
         _ action: PlanRepairAction,
         task: PlanningTaskSummary?,
         block: InternalTimeBlock?
     ) -> String {
+        let name = task?.title ?? block?.title ?? String(localized: "This task")
         switch action {
         case .resume:
-            "Start focus for \(task?.title ?? block?.title ?? "the selected work")"
+            return String(localized: "Focus on \(name)")
         case .moveLaterToday:
-            "Move \(block?.title ?? "the block") into the next real opening"
+            return String(localized: "\(name) · next free time")
         case .moveToAnotherDay:
-            "Move the affected work to tomorrow"
+            return String(localized: "\(name) · tomorrow")
         case .split:
-            "Split \(block?.title ?? "the block") into two sessions"
+            return String(localized: "\(name) · 2 blocks")
         case .defer:
-            "Return \(task?.title ?? "the task") to the unscheduled list"
-        case .leaveUnchanged:
-            "Keep the plan and acknowledge this repair"
-        case .askEva:
-            "Open Eva without changing the plan"
+            return String(localized: "\(name) · unscheduled")
+        case .leaveUnchanged, .askEva:
+            return String(localized: "No change")
         }
     }
 
@@ -1489,7 +1569,7 @@ final class PlanStore {
             domain: "plan",
             kind: source,
             occurredAt: receipt.createdAt,
-            provenance: "LifeBoard planning mutation",
+            provenance: "Plan change",
             evidenceDisplay: summary,
             receipt: .init(receiptID: receipt.id, summary: summary),
             reversal: .reversible(receiptID: receipt.id)
@@ -1529,111 +1609,36 @@ final class PlanStore {
     }
 }
 
-/// Shared, side-effect-free day derivation used by Plan and Home.
-struct PlanDayProjectionInputs: Sendable {
-    let tasks: [PlanningTaskSummary]
-    let allBlocks: [InternalTimeBlock]
-    let workingProfile: WorkingHoursProfile?
-    let calendarContext: PlanningCalendarContext
-    let calendarState: PlanningCalendarState
-    let calendar: Calendar
-    let now: Date
-    func snapshot(for day: PlanningDay) -> PlanDaySnapshot {
-        let bounds = dayBounds(day)
-        let externalCommitments = externalCommitments(for: bounds)
-        let blocks = allBlocks.filter { $0.startAt < bounds.end && $0.endAt > bounds.start }
-        let planned = tasks.filter {
-            $0.metadata.unscheduledDisposition != .deleted
-                && effectivePlanningDay(for: $0) == day
-                && $0.metadata.availability == .actionable
+/// The day lens's receipt: what changed, in the person's words.
+struct PlanReceipt: Equatable, Identifiable {
+    let id = UUID()
+    let message: String
+    let detail: String?
+
+    init(message: String, detail: String? = nil) {
+        self.message = message
+        self.detail = detail
+    }
+
+    /// "9:00 – 9:45 AM", in the person's 12- or 24-hour setting.
+    static func window(_ start: Date, _ end: Date) -> String? {
+        guard end > start else { return nil }
+        return (start..<end).formatted(.interval.hour().minute())
+    }
+
+    /// One change names itself ("Moved ‘Draft the brief’ to later today");
+    /// several are counted.
+    static func applied(_ scenario: PlanningScenario) -> PlanReceipt {
+        if scenario.diff.count == 1, let change = scenario.diff.first {
+            return PlanReceipt(
+                message: change.receipt ?? "Plan updated",
+                detail: change.receipt == nil ? nil : PlanRepairCopy.previousWindowDetail(change.before)
+            )
         }
-        let working = workingIntervals(for: day)
-        let capacity = CapacityBudgetService.calculate(
-            workingIntervals: working,
-            fixedCalendarCommitments: externalCommitments.map { DateInterval(start: $0.startAt, end: $0.endAt) },
-            internalFixedBlocks: blocks.filter(\.isFixed).map { DateInterval(start: $0.startAt, end: $0.endAt) },
-            userBuffer: workingProfile?.bufferDuration ?? 30 * 60,
-            plannedEstimates: planned.map(\.estimatedDuration)
-        )
-        let linkedTaskIDs = Set(blocks.compactMap(\.taskID))
-        let timedIntervals = planned.compactMap { task -> DateInterval? in
-            guard !linkedTaskIDs.contains(task.id), let start = task.scheduledStartAt else { return nil }
-            return DateInterval(start: start, end: task.scheduledEndAt ?? start.addingTimeInterval(task.estimatedDuration ?? 30 * 60))
-        }
-        let occupied = timedIntervals + externalCommitments.map { DateInterval(start: $0.startAt, end: $0.endAt) }
-            + blocks.map { DateInterval(start: $0.startAt, end: $0.endAt) }
-        let freeWindows = FreeWindowService.calculate(
-            workingIntervals: working,
-            occupiedIntervals: occupied
-        )
-        let unscheduled = tasks.filter {
-            effectivePlanningDay(for: $0) == nil
-                && $0.metadata.availability == .actionable
-                && $0.metadata.unscheduledDisposition == .inbox
-        }
-        return PlanDaySnapshot(
-            workingIntervals: working,
-            day: day,
-            capacity: capacity,
-            commitments: externalCommitments.map {
-                PlanningFixedCommitment(
-                    id: $0.id,
-                    title: $0.title,
-                    startAt: $0.startAt,
-                    endAt: $0.endAt,
-                    source: .externalCalendar
-                )
-            } + blocks.filter(\.isFixed).map {
-                PlanningFixedCommitment(id: $0.id.uuidString, title: $0.title, startAt: $0.startAt, endAt: $0.endAt, source: .internalBlock)
-            },
-            calendarAuthorization: calendarContext.authorization,
-            calendarState: calendarState,
-            freeWindows: freeWindows,
-            fitsNextCandidates: FitsNextService.candidates(
-                tasks: unscheduled,
-                windows: freeWindows
-            ),
-            blocks: blocks,
-            plannedTasks: planned,
-            unscheduledTasks: unscheduled,
-            generatedAt: now
+        return PlanReceipt(
+            message: scenario.diff.isEmpty
+                ? String(localized: "Plan updated")
+                : scenario.diff.count == 1 ? String(localized: "Applied 1 change") : String(localized: "Applied \(scenario.diff.count) changes")
         )
     }
-
-    private func effectivePlanningDay(for task: PlanningTaskSummary) -> PlanningDay? {
-        Self.effectivePlanningDay(for: task, calendar: calendar)
-    }
-
-    /// The day a task is planned for: its planning day, or — for a task that was
-    /// only ever given a start time — the day of that start. Every Plan surface
-    /// (Day, Week, Backlog, capacity) must read this one rule, or a timed task
-    /// is "planned" on Day while Week still lists it as unplanned.
-    static func effectivePlanningDay(for task: PlanningTaskSummary, calendar: Calendar) -> PlanningDay? {
-        task.metadata.planningDay ?? task.scheduledStartAt.map {
-            PlanningDay(date: $0, timeZone: calendar.timeZone, calendar: calendar)
-        }
-    }
-
-    private func workingIntervals(for day: PlanningDay) -> [DateInterval] {
-        guard let start = day.startDate(calendar: calendar) else { return [] }
-        let weekday = calendar.component(.weekday, from: start)
-        return (workingProfile?.intervalsByWeekday[weekday] ?? []).compactMap { interval in
-            guard let intervalStart = calendar.date(byAdding: .minute, value: interval.startMinute, to: start),
-                  let intervalEnd = calendar.date(byAdding: .minute, value: interval.endMinute, to: start),
-                  intervalEnd > intervalStart else { return nil }
-            return DateInterval(start: intervalStart, end: intervalEnd)
-        }
-    }
-
-    private func externalCommitments(for bounds: (start: Date, end: Date)) -> [CalendarCommitment] {
-        calendarContext.commitments.filter {
-            $0.isAllDay == false && $0.startAt < bounds.end && $0.endAt > bounds.start && $0.availability != "1"
-        }
-    }
-
-    private func dayBounds(_ day: PlanningDay) -> (start: Date, end: Date) {
-        let start = day.startDate(calendar: calendar) ?? calendar.startOfDay(for: Date())
-        return (start, calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400))
-    }
-
 }

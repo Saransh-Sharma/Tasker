@@ -53,8 +53,8 @@ if rg -n "/\\* TaskDefinitionEntity\\+CoreDataProperties.swift in Sources \\*/|/
 fi
 
 MODEL_FILES=(LifeBoard/Persistence/Resources/TaskModelV3.xcdatamodeld/*.xcdatamodel/contents)
-if [[ "${#MODEL_FILES[@]}" -ne 23 ]]; then
-  echo "Expected 23 packaged TaskModelV3 versions, found ${#MODEL_FILES[@]}"
+if [[ "${#MODEL_FILES[@]}" -ne 25 ]]; then
+  echo "Expected 25 packaged TaskModelV3 versions, found ${#MODEL_FILES[@]}"
   exit 1
 fi
 

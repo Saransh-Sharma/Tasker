@@ -33,7 +33,7 @@ struct AddTaskSecondaryDetailsSection: View {
 
                 if !viewModel.lifeAreas.isEmpty {
                     AddTaskEntityPicker(
-                        label: "Life Area",
+                        label: "Life area",
                         items: viewModel.lifeAreas.map {
                             AddTaskEntityPickerItem(
                                 id: $0.id,

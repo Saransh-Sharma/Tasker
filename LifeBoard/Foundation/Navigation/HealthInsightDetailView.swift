@@ -59,12 +59,12 @@ struct HealthInsightDetailView: View {
                 )
 
                 if isLoading && chartPoints.isEmpty {
-                    ProgressView("Reading Apple Health history…")
+                    ProgressView("Loading…")
                         .frame(maxWidth: .infinity, minHeight: 180)
                 } else if chartPoints.count > 1 {
                     let chart = TrendChart(
                         points: chartPoints,
-                        tint: Color(SemanticColorTokens.foundationSageAccent),
+                        tint: Color(SemanticColorTokens.foundationSageInk),
                         unit: chartUnit
                     )
                     // `TrendChart` runs its own reveal sweep internally. The
@@ -78,12 +78,12 @@ struct HealthInsightDetailView: View {
                 } else {
                     StatusSurface(
                         state: .noRecord,
-                        title: "Not enough history yet",
-                        message: "A trend appears after at least two recorded days. Missing evidence is not treated as zero."
+                        title: String(localized: "Not enough data yet"),
+                        message: String(localized: "A trend needs 2 recorded days.")
                     )
                 }
 
-                evidence
+                historyTable
             }
             .frame(maxWidth: 680)
             .padding(20)
@@ -109,7 +109,7 @@ struct HealthInsightDetailView: View {
                 .lifeboardFont(.body)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             if let errorCode {
-                Label("Some history could not be refreshed. Cached evidence remains below. (\(errorCode))", systemImage: "exclamationmark.triangle")
+                Label("Couldn’t refresh some history.", systemImage: "exclamationmark.triangle")
                     .lifeboardFont(.caption1)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
@@ -120,20 +120,19 @@ struct HealthInsightDetailView: View {
     }
 
     private var interpretationTitle: String {
-        guard let latest = chartPoints.last else { return "No recorded pattern yet" }
-        return "Latest: \(format(latest.value, metric: primaryMetric))"
+        guard let latest = chartPoints.last else { return String(localized: "No data yet") }
+        return String(localized: "Latest: \(format(latest.value, metric: primaryMetric))")
     }
 
+    /// The one reassurance on this screen (DESIGN.md "Voice and copy"): a
+    /// recorded trend is a fact, not an assessment.
     private var interpretationDetail: String {
-        guard chartPoints.count > 1 else {
-            return "LifeBoard will describe change once there is enough evidence, without grading or diagnosing it."
-        }
-        return "This view shows recorded change over \(range.title), with Apple Health provenance preserved below."
+        String(localized: "Not medical advice.")
     }
 
-    private var evidence: some View {
+    private var historyTable: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionHeader("Evidence")
+            SectionHeader("History")
                 .padding(.bottom, 8)
             ForEach(dailyEvidence.prefix(240)) { value in
                 evidenceRow(
@@ -149,7 +148,7 @@ struct HealthInsightDetailView: View {
                         title: sample.kind.title,
                         value: bodyValue(sample),
                         date: sample.observedAt,
-                        source: sample.source == .healthKit ? "Apple Health" : "LifeBoard"
+                        source: sample.source == .healthKit ? String(localized: "Apple Health") : "LifeBoard"
                     )
                 }
             }
@@ -157,7 +156,7 @@ struct HealthInsightDetailView: View {
                 ForEach(workouts.prefix(240)) { workout in
                     evidenceRow(
                         title: workout.activityKind,
-                        value: "\(Int(workout.duration / 60)) min",
+                        value: LifeBoardDuration.text(minutes: Int(workout.duration / 60)),
                         date: workout.startedAt,
                         source: workout.source == .healthKit ? "Apple Health" : "LifeBoard"
                     )
@@ -166,7 +165,7 @@ struct HealthInsightDetailView: View {
             if domain == .sleep {
                 ForEach(sleepNotes.prefix(240)) { note in
                     evidenceRow(
-                        title: "Sleep interval",
+                        title: String(localized: "Sleep"),
                         value: Self.duration(note.duration),
                         date: note.startedAt,
                         source: note.source == .healthKit ? "Apple Health" : "LifeBoard"
@@ -175,7 +174,7 @@ struct HealthInsightDetailView: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(domain.title) evidence table")
+        .accessibilityLabel("\(domain.title) history")
     }
 
     private var dailyEvidence: [HealthAggregateValue] {
@@ -233,24 +232,9 @@ struct HealthInsightDetailView: View {
         }
     }
 
+    /// One name per metric, shared with the Health hub's value table.
     private func metricTitle(_ metric: HealthMetric) -> String {
-        switch metric {
-        case .steps: "Steps"
-        case .walkingRunningDistance: "Walking distance"
-        case .activeEnergy: "Active energy"
-        case .restingEnergy: "Resting energy"
-        case .water: "Hydration"
-        case .dietaryEnergy: "Dietary energy"
-        case .dietaryProtein: "Protein"
-        case .dietaryCarbohydrates: "Carbohydrates"
-        case .dietaryFat: "Fat"
-        case .bodyMass: "Weight"
-        case .bodyFatPercentage: "Body fat"
-        case .waistCircumference: "Waist"
-        case .restingHeartRate: "Resting heart rate"
-        case .workout: "Workout"
-        case .sleep: "Sleep"
-        }
+        HealthHubFormat.title(metric)
     }
 
     private func format(_ value: Double, metric: HealthMetric?) -> String {
@@ -275,7 +259,6 @@ struct HealthInsightDetailView: View {
     }
 
     private static func duration(_ interval: TimeInterval) -> String {
-        let minutes = max(0, Int(interval / 60))
-        return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
+        LifeBoardDuration.text(minutes: max(0, Int(interval / 60)))
     }
 }

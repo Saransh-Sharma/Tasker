@@ -24,7 +24,7 @@ public enum Mood: String, CaseIterable, Identifiable, Sendable, Codable {
 
     public var displayName: String {
         switch self {
-        case .none: return "No mood"
+        case .none: return "Neutral"
         case .happy: return "Happy"
         case .calm: return "Calm"
         case .grateful: return "Grateful"
@@ -68,34 +68,6 @@ public enum Mood: String, CaseIterable, Identifiable, Sendable, Codable {
 
     public static var neutralDialIndex: Int {
         dialMoods.firstIndex(of: .none) ?? 0
-    }
-
-    public var moodSentence: String {
-        switch self {
-        case .none: return "I feel neutral."
-        case .happy: return "I feel happy."
-        case .calm: return "I feel calm."
-        case .grateful: return "I feel grateful."
-        case .excited: return "I feel excited."
-        case .tired: return "I feel tired."
-        case .anxious: return "I feel anxious."
-        case .sad: return "I feel sad."
-        case .angry: return "I feel angry."
-        }
-    }
-
-    public var supportiveCopy: String {
-        switch self {
-        case .none: return "Nothing to force."
-        case .happy: return "Something feels lighter."
-        case .calm: return "A steady moment."
-        case .grateful: return "Something mattered today."
-        case .excited: return "There's energy here."
-        case .tired: return "Move gently."
-        case .anxious: return "Come back to now."
-        case .sad: return "Hold this softly."
-        case .angry: return "Name it without judging it."
-        }
     }
 
     public var largeMoodAssetName: String {

@@ -254,7 +254,10 @@ final class TaskCaptureParserTests: XCTestCase {
     func testPriorityFromBangWordAndFromCode() {
         XCTAssertEqual(parse("ship release !high").priority, .high)
         XCTAssertEqual(parse("ship release !urgent").priority, .max)
-        XCTAssertEqual(parse("tidy desk p1").priority, .low)
+        // p1 is the most urgent (Todoist/Linear), p4 means no priority.
+        XCTAssertEqual(parse("tidy desk p1").priority, .max)
+        XCTAssertEqual(parse("tidy desk p3").priority, .low)
+        XCTAssertEqual(parse("tidy desk p4").priority, TaskPriorityConfig.Priority.none)
     }
 
     func testPriorityIsAbsentRatherThanNoneWhenUnspecified() {

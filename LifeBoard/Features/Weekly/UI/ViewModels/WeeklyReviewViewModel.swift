@@ -5,48 +5,13 @@ private struct WeeklyReviewPayloadState: Sendable {
     var habitRows: [HabitLibraryRow] = []
 }
 
-struct WeeklyReviewOutcomeSnapshot: Equatable, Identifiable {
-    let outcome: WeeklyOutcome
-    let selectedStatus: WeeklyOutcomeStatus
-    let linkedTaskCount: Int
-
-    var id: UUID { outcome.id }
-}
-
-struct WeeklyReviewSnapshot: Equatable {
-    let completedTasks: [TaskDefinition]
-    let unfinishedTasks: [TaskDefinition]
-    let selectedHabits: [HabitLibraryRow]
-    let outcomeSnapshots: [WeeklyReviewOutcomeSnapshot]
-    let reflectionNotes: [ReflectionNote]
-    let reviewSteps: [WeeklyRitualStep]
-    let completionSummaryText: String
-
-    static func == (lhs: WeeklyReviewSnapshot, rhs: WeeklyReviewSnapshot) -> Bool {
-        lhs.completedTasks == rhs.completedTasks
-            && lhs.unfinishedTasks == rhs.unfinishedTasks
-            && lhs.selectedHabits == rhs.selectedHabits
-            && lhs.outcomeSnapshots == rhs.outcomeSnapshots
-            && lhs.reflectionNotes == rhs.reflectionNotes
-            && lhs.completionSummaryText == rhs.completionSummaryText
-            && lhs.reviewSteps.map(\.id) == rhs.reviewSteps.map(\.id)
-            && lhs.reviewSteps.map(\.title) == rhs.reviewSteps.map(\.title)
-            && lhs.reviewSteps.map(\.isComplete) == rhs.reviewSteps.map(\.isComplete)
-    }
-}
-
-struct WeeklyReviewFooterSnapshot: Equatable {
-    let completionSummaryText: String
-    let canFinishReview: Bool
-}
-
 private struct WeeklyReviewRenderCache {
     var unfinishedTasks: [TaskDefinition] = []
     var completedTasks: [TaskDefinition] = []
     var selectedHabits: [HabitLibraryRow] = []
     var outcomeStatuses: [UUID: WeeklyOutcomeStatus] = [:]
     var reviewSteps: [WeeklyRitualStep] = []
-    var completionSummaryText: String = "0 done, 0 still needing a decision, 0 reflections captured."
+    var completionSummaryText: String = String(localized: "0 done · 0 to sort · 0 notes")
     var reviewReflectionIsFilled = false
     var outcomeLinkedTaskCounts: [UUID: Int] = [:]
     var taskIDsByOutcomeID: [UUID: [UUID]] = [:]
@@ -74,7 +39,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
     @Published public private(set) var saveMessage: String?
     @Published private(set) var reviewSnapshot: WeeklyReviewSnapshot?
     @Published private(set) var footerSnapshot = WeeklyReviewFooterSnapshot(
-        completionSummaryText: "0 done, 0 still needing a decision, 0 reflections captured.",
+        completionSummaryText: String(localized: "0 done · 0 to sort · 0 notes"),
         canFinishReview: false
     )
     @Published public var outcomeStatusesByID: [UUID: WeeklyOutcomeStatus] = [:] {
@@ -241,7 +206,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
             let error = NSError(
                 domain: "WeeklyReview",
                 code: 404,
-                userInfo: [NSLocalizedDescriptionKey: "Create the weekly plan before reviewing it."]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "Plan the week before reviewing it.")]
             )
             errorMessage = error.localizedDescription
             completion?(.failure(error))
@@ -351,7 +316,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
                         NSError(
                             domain: "WeeklyReviewViewModel",
                             code: 800,
-                            userInfo: [NSLocalizedDescriptionKey: "We couldn't refresh the weekly review right now."]
+                            userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t load review.")]
                         )
                     ))
                 }
@@ -427,7 +392,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
                             domain: "WeeklyReviewViewModel",
                             code: 900,
                             userInfo: [
-                                NSLocalizedDescriptionKey: "Review saved, but we couldn't refresh the latest state.",
+                                NSLocalizedDescriptionKey: String(localized: "Review saved. Reopen to see changes."),
                                 NSUnderlyingErrorKey: error
                             ]
                         )
@@ -449,7 +414,9 @@ public final class WeeklyReviewViewModel: ObservableObject {
         guard linkedTasks.isEmpty == false else { return .planned }
         return linkedTasks.allSatisfy(\.isComplete) ? .completed : .inProgress
     }
+}
 
+extension WeeklyReviewViewModel {
     private func refreshDerivedState() {
         guard let snapshot else {
             renderCache = WeeklyReviewRenderCache()
@@ -482,7 +449,10 @@ public final class WeeklyReviewViewModel: ObservableObject {
                 linkedTaskCount: outcomeLinkedTaskCounts[outcome.id] ?? 0
             )
         }
-        let completionSummaryText = "\(completedTasks.count) done, \(unfinishedTasks.count) still needing a decision, \(reflectionNotes.count) reflections captured."
+        let notesText = reflectionNotes.count == 1
+            ? String(localized: "1 note")
+            : String(localized: "\(reflectionNotes.count) notes")
+        let completionSummaryText = String(localized: "\(completedTasks.count) done · \(unfinishedTasks.count) to sort") + " · " + notesText
         let reviewSteps = [
             WeeklyRitualStep(id: 0, title: WeeklyCopy.reviewSteps[0], isComplete: true),
             WeeklyRitualStep(
@@ -631,33 +601,6 @@ public final class WeeklyReviewViewModel: ObservableObject {
                 }
             }
         }
-    }
-
-    private func completionMessage(for result: CompleteWeeklyReviewResult) -> String {
-        let staleCount = result.skippedTaskIDs.count + result.skippedOutcomeIDs.count
-        guard staleCount > 0 else {
-            return WeeklyCopy.reviewSaveSuccess
-        }
-        if staleCount == 1 {
-            return "Review saved. 1 stale item was skipped."
-        }
-        return "Review saved. \(staleCount) stale items were skipped."
-    }
-
-    private func presentationErrorMessage(for error: Error) -> String {
-        if error is SyncWriteClosedError {
-            return "Review is unavailable right now because the app is temporarily in read-only mode. Try again after sync recovers."
-        }
-
-        let nsError = error as NSError
-        if nsError.domain == "WeeklyReviewViewModel", nsError.code == 900 {
-            return "Review saved, but we couldn't refresh the latest state. Close and reopen to confirm."
-        }
-        if nsError.domain == "CoreDataWeeklyReviewMutationRepository", nsError.code == 500 {
-            return "This review couldn't be saved right now. Try again in a moment."
-        }
-
-        return error.localizedDescription
     }
 
     private func awardWeeklyReviewXP(using decisions: [WeeklyReviewTaskDecision]) {

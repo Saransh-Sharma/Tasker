@@ -21,7 +21,7 @@ struct TaskExecutionBatchActionBar: View {
             Text("\(selectionCount) selected")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                .accessibilityLabel("\(selectionCount) tasks selected")
+                .accessibilityLabel(selectionCount == 1 ? "1 task selected" : "\(selectionCount) tasks selected")
 
             Spacer(minLength: 4)
 
@@ -90,7 +90,7 @@ struct TaskExecutionBatchActionBar: View {
                     }
                 }
                 if tags.isEmpty && projects.isEmpty {
-                    Text("No tags or projects available")
+                    Text("No tags or projects")
                 }
             } label: {
                 Label("Organize", systemImage: "tray.full")
@@ -125,7 +125,7 @@ struct TaskExecutionBatchActionBar: View {
                     .frame(width: 44, height: 44)
             }
             .disabled(isApplyingBatch)
-            .accessibilityLabel("More batch actions")
+            .accessibilityLabel("More actions")
             .accessibilityIdentifier("plan.taskLibrary.batch.more")
         }
         .padding(.horizontal, 16)

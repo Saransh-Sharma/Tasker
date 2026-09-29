@@ -69,7 +69,7 @@ struct CompactHeaderChrome: View {
         } action: { newWidth in
             containerWidth = newWidth
         }
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22), value: presentation.showsBackToToday)
+        .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: presentation.showsBackToToday)
     }
 
     @ViewBuilder
@@ -212,11 +212,9 @@ struct CompactHeaderChrome: View {
 
             Text(presentation.foregroundRelativeLabel ?? "")
                 .lifeboardFont(.sectionTitle)
-                .tracking(2.8)
                 .foregroundStyle(foregroundDateColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-                .textCase(.uppercase)
                 .offset(y: 10)
         }
         .frame(maxWidth: .infinity)
@@ -324,7 +322,7 @@ struct CompactHeaderChrome: View {
 
     private var reflectionButton: some View {
         Button {
-            HapticFeedback.selection()
+            Haptic.pick.play()
             onOpenReflection()
         } label: {
             Text(presentation.reflectionCTATitle)
@@ -345,7 +343,7 @@ struct CompactHeaderChrome: View {
                 ForEach(HomeQuickView.allCases, id: \.rawValue) { quickView in
                     Button {
                         onSelectQuickView(quickView)
-                        HapticFeedback.selection()
+                        Haptic.pick.play()
                     } label: {
                         HStack {
                             Label(quickView.title, systemImage: iconName(for: quickView))

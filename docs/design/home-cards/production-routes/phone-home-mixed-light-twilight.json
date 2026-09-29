@@ -1,0 +1,92 @@
+{
+  "appearance" : "light",
+  "arrangement" : "mixed",
+  "clockScope" : "all evidence-owned clocks fixed to the seeded morning fixture",
+  "contentBounds" : [
+    0,
+    62,
+    402,
+    778
+  ],
+  "evidenceLevel" : "actual-production-route-seeded-repositories",
+  "fixtureDate" : "2026-09-15T09:00:00Z",
+  "placementDescriptors" : [
+    {
+      "id" : "E7100000-0000-4000-8000-000000000001",
+      "ownership" : "pinned",
+      "semanticSize" : "standard",
+      "widgetKind" : "care"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000002",
+      "ownership" : "pinned",
+      "semanticSize" : "standard",
+      "widgetKind" : "routines"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000003",
+      "ownership" : "pinned",
+      "semanticSize" : "wide",
+      "widgetKind" : "tasks"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000004",
+      "ownership" : "pinned",
+      "semanticSize" : "tall",
+      "widgetKind" : "journal"
+    }
+  ],
+  "placements" : {
+    "E7100000-0000-4000-8000-000000000001" : [
+      23.127437787055968,
+      788.35082499186183,
+      169.07845775922141,
+      172.29287710825611
+    ],
+    "E7100000-0000-4000-8000-000000000002" : [
+      210.41965137004854,
+      789.5359751383462,
+      168.49403059323623,
+      213.3403505229951
+    ],
+    "E7100000-0000-4000-8000-000000000003" : [
+      28.14500000000001,
+      1025.6666666666665,
+      345.71000000000004,
+      317.37833333333333
+    ],
+    "E7100000-0000-4000-8000-000000000004" : [
+      28.14500000000001,
+      1369.9999999999998,
+      345.71000000000004,
+      248.29999999999995
+    ]
+  },
+  "rendererRevision" : "c8db532d8da6842f5a7af194a67ec231b237d6f4+working-tree:c0d312eccc4a072021c543f27cce0e1e922c87cc618b11810659ee66d3b625d4",
+  "route" : "home",
+  "safeArea" : [
+    62,
+    0,
+    34,
+    0
+  ],
+  "shellFrame" : [
+    0,
+    62,
+    402,
+    778
+  ],
+  "sourceIdentityScope" : "stable seeded repository identifiers",
+  "sourceTaskIDs" : [
+    "E7200000-0000-4000-8000-000000000001",
+    "E7200000-0000-4000-8000-000000000002",
+    "E7200000-0000-4000-8000-000000000003",
+    "E7200000-0000-4000-8000-000000000004",
+    "E7200000-0000-4000-8000-000000000005",
+    "E7200000-0000-4000-8000-000000000006"
+  ],
+  "viewport" : [
+    402,
+    874
+  ]
+}

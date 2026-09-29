@@ -113,8 +113,8 @@ public struct InsightsInterpretationService: Sendable {
         guard events.count >= Self.minimumRecordsForDescription else {
             return InsightsInterpretation(
                 density: .empty,
-                claim: "There is not enough recorded history to say anything useful yet.",
-                recommendedAction: "Record only what would genuinely help. LifeBoard will wait.",
+                claim: String(localized: "Not enough data yet"),
+                recommendedAction: String(localized: "Log a few days to see patterns."),
                 completeness: nil,
                 evidenceReferences: [],
                 dailyCounts: dailyCounts
@@ -139,8 +139,12 @@ public struct InsightsInterpretationService: Sendable {
             let domainCount = daysByDomain.keys.count
             return InsightsInterpretation(
                 density: .light,
-                claim: "\(events.count) records across \(domainCount) \(domainCount == 1 ? "area" : "areas"), over \(recordedDays) \(recordedDays == 1 ? "day" : "days").",
-                recommendedAction: "A few more days of history will make a pattern readable.",
+                claim: domainCount == 1
+                    ? String(localized: "\(events.count) records in 1 area")
+                    : String(localized: "\(events.count) records in \(domainCount) areas"),
+                recommendedAction: Self.minimumDaysForPattern - recordedDays == 1
+                    ? String(localized: "Needs 1 more day")
+                    : String(localized: "Needs \(max(1, Self.minimumDaysForPattern - recordedDays)) more days"),
                 completeness: completeness,
                 evidenceReferences: events.map(\.sourceID),
                 dailyCounts: dailyCounts
@@ -151,10 +155,10 @@ public struct InsightsInterpretationService: Sendable {
             let direction = change.lastWeekDays > change.priorWeekDays ? "up from" : "down from"
             return InsightsInterpretation(
                 density: .full,
-                claim: "\(change.domain.capitalized) showed up on \(change.lastWeekDays) of the last 7 days, \(direction) \(change.priorWeekDays) the week before.",
+                claim: String(localized: "\(InsightsDomainCopy.title(for: change.domain)) showed up on \(change.lastWeekDays) of the last 7 days, \(direction) \(change.priorWeekDays) the week before."),
                 // Named without a verdict: fewer entries can mean a hard week,
                 // a finished goal, or simply less to record.
-                recommendedAction: "Open the evidence to see what shifted, or ask Eva about it.",
+                recommendedAction: String(localized: "Open details to see what changed."),
                 completeness: completeness,
                 evidenceReferences: events.filter { $0.domain == change.domain }.map(\.sourceID),
                 dailyCounts: dailyCounts
@@ -167,8 +171,8 @@ public struct InsightsInterpretationService: Sendable {
 
         return InsightsInterpretation(
             density: .full,
-            claim: "\(domain.capitalized) is your most consistent record — present on \(dayCount) of \(recordedDays) \(recordedDays == 1 ? "day" : "days").",
-            recommendedAction: "Open the evidence behind it, or ask Eva what it suggests about the rest of the week.",
+            claim: String(localized: "\(InsightsDomainCopy.title(for: domain)) is your most consistent record, on \(dayCount) of \(recordedDays) days."),
+            recommendedAction: String(localized: "Open details to see the days."),
             completeness: completeness,
             evidenceReferences: supporting.map(\.sourceID),
             dailyCounts: dailyCounts

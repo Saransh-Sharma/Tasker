@@ -10,8 +10,7 @@ let package = Package(
     name: "LifeBoardModules",
     platforms: [
         .iOS("26.0"),
-        .watchOS("26.0"),
-        .macOS("14.0")
+        .watchOS("26.0")
     ],
     products: [
         .library(name: "LifeBoardContracts", targets: ["LifeBoardContracts"]),
@@ -95,7 +94,6 @@ let package = Package(
                 "Domain/LifeBoardJournalReflectionServices.swift",
                 "Domain/LifeBoardPhaseIIModels.swift",
                 "UI/JournalMoodCaptureView.swift",
-                "UI/LifeBoardTrackAndJournalViews.swift",
                 "UI/ReflectionNoteComposerView.swift",
                 "UI/ViewModels/ReflectionNoteComposerViewModel.swift"
             ],

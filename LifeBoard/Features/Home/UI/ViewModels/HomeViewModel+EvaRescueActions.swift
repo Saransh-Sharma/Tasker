@@ -222,7 +222,7 @@ extension HomeViewModel {
         scheduleHomeRenderStateRefresh(.overlay)
 
         guard V2FeatureFlags.evaRescueEnabled else {
-            coordinator.fail("Overdue Rescue is currently unavailable.")
+            coordinator.fail(String(localized: "Rescue isn’t available."))
             scheduleHomeRenderStateRefresh(.overlay)
             return
         }

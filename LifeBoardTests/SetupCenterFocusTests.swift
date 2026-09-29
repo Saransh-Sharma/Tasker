@@ -31,7 +31,7 @@ final class SetupCenterFocusTests: XCTestCase {
     }
 
     func testTruthfulSummarySeparatesReadyWaitingAndActionable() {
-        XCTAssertEqual(status(calendar: .ready, health: .waiting, eva: .notStarted).summary, "3 integrations · 1 ready · 1 waiting · 1 to set up")
+        XCTAssertEqual(status(calendar: .ready, health: .waiting, eva: .notStarted).summary, "1 ready · 1 waiting · 1 to set up")
     }
 
     func testOfflineEvaRequiresUsableInstalledModel() {
@@ -54,7 +54,7 @@ final class SetupCenterFocusTests: XCTestCase {
             offlineModelReady: true
         )
         XCTAssertEqual(missing.eva.state, .attention)
-        XCTAssertEqual(ready.eva.status, "Offline ready")
+        XCTAssertEqual(ready.eva.status, "On this device")
     }
 
     func testCalendarAuthorizationWithoutSelectionIsNotReady() {
@@ -100,7 +100,7 @@ final class SetupCenterFocusTests: XCTestCase {
         )
 
         XCTAssertEqual(value.eva.explanation, message)
-        XCTAssertEqual(value.eva.recoveryAction, "Retry")
+        XCTAssertEqual(value.eva.recoveryAction, "Try again")
     }
 
     func testEvaDuplicateSecondaryErrorIsSuppressed() {
@@ -150,7 +150,7 @@ final class SetupCenterFocusTests: XCTestCase {
             offlineModelReady: false
         )
         XCTAssertEqual(value.health.state, .waiting)
-        XCTAssertEqual(value.health.status, "No readable data yet")
+        XCTAssertEqual(value.health.status, "Waiting")
         XCTAssertEqual(value.health.recoveryActionKind, .manageHealthAccess)
     }
 

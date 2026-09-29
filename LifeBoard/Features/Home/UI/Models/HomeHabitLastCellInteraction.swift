@@ -26,62 +26,62 @@ struct HomeHabitLastCellInteraction: Equatable {
         case (.positive, .due), (.positive, .overdue):
             return HomeHabitLastCellInteraction(
                 action: .complete,
-                currentStateText: "Empty",
-                nextActionText: "Mark done"
+                currentStateText: String(localized: "Not done"),
+                nextActionText: String(localized: "Mark done")
             )
         case (.positive, .completedToday):
             return HomeHabitLastCellInteraction(
                 action: .skip,
-                currentStateText: "Done",
-                nextActionText: "Mark skipped"
+                currentStateText: String(localized: "Done"),
+                nextActionText: String(localized: "Mark skipped")
             )
         case (.positive, .skippedToday):
             return HomeHabitLastCellInteraction(
                 action: .clear,
-                currentStateText: "Skipped",
-                nextActionText: "Clear to empty"
+                currentStateText: String(localized: "Skipped"),
+                nextActionText: String(localized: "Clear")
             )
         case (.negative, .due), (.negative, .overdue):
             return HomeHabitLastCellInteraction(
                 action: .complete,
-                currentStateText: "Empty",
-                nextActionText: "Mark stayed clean"
+                currentStateText: String(localized: "Not done"),
+                nextActionText: String(localized: "Mark stayed clean")
             )
         case (.negative, .completedToday):
             return HomeHabitLastCellInteraction(
                 action: .lapse,
-                currentStateText: "Stayed clean",
-                nextActionText: "Mark lapsed"
+                currentStateText: String(localized: "Stayed clean"),
+                nextActionText: String(localized: "Log slip")
             )
         case (.negative, .lapsedToday):
             return HomeHabitLastCellInteraction(
                 action: .clear,
-                currentStateText: "Lapsed",
-                nextActionText: "Clear to empty"
+                currentStateText: String(localized: "Slipped"),
+                nextActionText: String(localized: "Clear")
             )
         case (.positive, .lapsedToday):
             return HomeHabitLastCellInteraction(
                 action: .clear,
-                currentStateText: "Lapsed",
-                nextActionText: "Clear to empty"
+                currentStateText: String(localized: "Slipped"),
+                nextActionText: String(localized: "Clear")
             )
         case (.positive, .tracking):
             return HomeHabitLastCellInteraction(
                 action: .complete,
-                currentStateText: "Tracking",
-                nextActionText: "Mark done"
+                currentStateText: String(localized: "Tracking"),
+                nextActionText: String(localized: "Mark done")
             )
         case (.negative, .skippedToday):
             return HomeHabitLastCellInteraction(
                 action: .clear,
-                currentStateText: "Skipped",
-                nextActionText: "Clear to empty"
+                currentStateText: String(localized: "Skipped"),
+                nextActionText: String(localized: "Clear")
             )
         case (.negative, .tracking):
             return HomeHabitLastCellInteraction(
                 action: .complete,
-                currentStateText: "Tracking",
-                nextActionText: "Mark stayed clean"
+                currentStateText: String(localized: "Tracking"),
+                nextActionText: String(localized: "Mark stayed clean")
             )
         }
     }
@@ -91,14 +91,14 @@ struct HomeHabitLastCellInteraction: Equatable {
         case .tracking, .due, .overdue:
             return HomeHabitLastCellInteraction(
                 action: .lapse,
-                currentStateText: "Tracking",
-                nextActionText: "Mark lapsed"
+                currentStateText: String(localized: "Tracking"),
+                nextActionText: String(localized: "Log slip")
             )
         case .lapsedToday, .completedToday, .skippedToday:
             return HomeHabitLastCellInteraction(
                 action: .clear,
-                currentStateText: row.state == .lapsedToday ? "Lapsed" : "Resolved",
-                nextActionText: "Clear to tracking"
+                currentStateText: row.state == .lapsedToday ? String(localized: "Slipped") : String(localized: "Resolved"),
+                nextActionText: String(localized: "Clear")
             )
         }
     }

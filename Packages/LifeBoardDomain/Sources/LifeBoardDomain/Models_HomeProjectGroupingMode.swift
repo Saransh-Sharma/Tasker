@@ -16,9 +16,9 @@ public enum HomeProjectGroupingMode: String, Codable, CaseIterable, Sendable {
     public var title: String {
         switch self {
         case .prioritizeOverdue:
-            return "Prioritize Overdue"
+            return String(localized: "From earlier first")
         case .groupByProjects:
-            return "Group by Projects"
+            return String(localized: "By project")
         }
     }
 }

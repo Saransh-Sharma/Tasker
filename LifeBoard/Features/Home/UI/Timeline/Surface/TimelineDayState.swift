@@ -361,7 +361,7 @@ struct TimelineWeekDayCell: View {
             .buttonStyle(.plain)
             .accessibilityLabel(accessibilityLabel)
             .accessibilityValue(isSelected ? "Selected" : "Not selected")
-            .accessibilityHint("Switches the daily timeline to this date.")
+            .accessibilityHint("Shows this day")
             .accessibilityAddTraits(.isButton)
             .accessibilityAddTraits(isSelected ? .isSelected : AccessibilityTraits())
 
@@ -378,7 +378,7 @@ struct TimelineWeekDayCell: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(replanAccessibilityLabel)
-                .accessibilityHint("Starts Plan the Day for this past date.")
+                .accessibilityHint("Plans this day")
             }
         }
         .frame(maxWidth: .infinity, minHeight: isAccessibilityLayout ? 176 : 152, alignment: .top)
@@ -423,7 +423,7 @@ struct TimelineWeekDayCell: View {
                   items.contains(placementCandidate.taskID.uuidString) else {
                 return false
             }
-            HapticFeedback.success()
+            Haptic.commit.play()
             onDropPlacement(placementCandidate)
             return true
         }, isTargeted: { newValue in
@@ -431,7 +431,7 @@ struct TimelineWeekDayCell: View {
         })
         .onChange(of: isDropTargeted) { _, newValue in
             guard newValue else { return }
-            HapticFeedback.selection()
+            Haptic.pick.play()
         }
     }
 
@@ -479,8 +479,8 @@ struct TimelineWeekDayCell: View {
     }
 
     var accessibilityLabel: String {
-        let allDayText = day.allDayCount > 0 ? ", \(day.allDayCount) all-day items" : ""
-        let replanText = day.replanEligibleCount > 0 ? ", \(day.replanEligibleCount) needs replan" : ""
+        let allDayText = day.allDayCount > 0 ? String(localized: ", \(day.allDayCount) all-day") : ""
+        let replanText = day.replanEligibleCount > 0 ? String(localized: ", \(day.replanEligibleCount) to replan") : ""
         return "\(day.date.formatted(.dateTime.weekday(.wide).day().month())), \(day.summaryText)\(allDayText)\(replanText)"
     }
 
@@ -518,7 +518,7 @@ struct TimelineBar: View {
             .contentShape(Rectangle())
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Timeline reveal handle")
-            .accessibilityHint("Drag to reveal the weekly layer behind the timeline.")
+            .accessibilityHint("Drag to show the week")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction {
                 onSnapAnchor(.midReveal)

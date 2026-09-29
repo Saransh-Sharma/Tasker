@@ -66,7 +66,7 @@ struct AddTaskAdvancedPlanningSection: View {
                 VStack(spacing: Theme.Spacing.sm) {
                     if !viewModel.availableParentTasks.isEmpty {
                         AddTaskTaskPicker(
-                            label: "Parent Task",
+                            label: "Parent task",
                             tasks: viewModel.availableParentTasks,
                             selectedTaskID: $viewModel.selectedParentTaskID
                         )

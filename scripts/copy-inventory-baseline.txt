@@ -1,0 +1,7 @@
+# Copy inventory baseline, 2026-09-28, before the copy rewrite (ruby scripts/copy_inventory.rb)
+Copy inventory
+  strings            6571
+  mean words         4.31
+  over 10 words      476
+  by kind            a11y-hint 99 · a11y-label 320 · alert 543 · button 890 · constant 77 · field 53 · localized 318 · returned 1383 · support 523 · text 1107 · title 1258
+  flags              EVA 38 · ascii-ellipsis 14 · disclaimer 21 · em-dash 27 · over-budget 559 · please 14 · title-case 189 · ui-jargon 79 · voice-smell 98

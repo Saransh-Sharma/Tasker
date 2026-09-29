@@ -192,7 +192,7 @@ extension LifeWeaveOnboardingModel {
 
     var calendarPrimaryTitle: String {
         switch calendarStage {
-        case .primer: String(localized: "Connect Calendar")
+        case .primer: String(localized: "Connect calendar")
         case .chooser: selectedCalendarCount > 0
             ? String(localized: "Use these (\(selectedCalendarCount))")
             : String(localized: "Use these")

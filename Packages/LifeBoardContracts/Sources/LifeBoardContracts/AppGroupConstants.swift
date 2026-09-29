@@ -7,6 +7,7 @@ public enum AppGroupConstants {
     public static let taskListSnapshotBackupFileName = "TaskListWidgetSnapshot.backup.json"
     public static let taskListActionCommandFileName = "TaskListWidgetActionCommand.json"
     public static let behaviorOccurrenceActionCommandFileName = "BehaviorOccurrenceActionCommand.json"
+    public static let habitAmountActionCommandFileName = "HabitAmountActionCommand.json"
     public static let pendingCaptureInboxFileName = "PendingCaptureInbox.json"
 
     public static var containerURL: URL? {
@@ -31,6 +32,10 @@ public enum AppGroupConstants {
 
     public static var behaviorOccurrenceActionCommandURL: URL? {
         containerURL?.appendingPathComponent(behaviorOccurrenceActionCommandFileName)
+    }
+
+    public static var habitAmountActionCommandURL: URL? {
+        containerURL?.appendingPathComponent(habitAmountActionCommandFileName)
     }
 
     public static var pendingCaptureInboxURL: URL? {

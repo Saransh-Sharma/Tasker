@@ -25,9 +25,9 @@ public enum SavedHomeViewRepositoryError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .encodingFailed:
-            return "Failed to encode saved Home views"
+            return String(localized: "Couldn’t save views.")
         case .decodingFailed:
-            return "Failed to decode saved Home views"
+            return String(localized: "Couldn’t load saved views.")
         }
     }
 }

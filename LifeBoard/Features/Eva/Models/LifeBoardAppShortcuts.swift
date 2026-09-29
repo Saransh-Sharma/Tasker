@@ -43,7 +43,7 @@ enum ShortcutRuntimeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return "LifeBoard shortcuts are unavailable until the app finishes loading."
+            return String(localized: "Couldn’t run this shortcut. Open LifeBoard and try again.")
         case .bootstrapFailed(let message):
             return message
         case .handoffFailed(let message):
@@ -68,7 +68,7 @@ struct InboxTaskCaptureService {
             throw NSError(
                 domain: "InboxTaskCaptureService",
                 code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Task title cannot be empty."]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "Add a task title.")]
             )
         }
 
@@ -160,7 +160,7 @@ enum ShortcutDependencyResolver {
             let migrationState = try await HealthPrivacyMigrationCoordinator(container: container).migrate()
             guard migrationState == .validated else {
                 throw ShortcutRuntimeError.bootstrapFailed(
-                    "LifeBoard is still preparing private local health storage. Try again in a moment."
+                    String(localized: "Couldn’t open Health data yet. Try again soon.")
                 )
             }
         }
@@ -192,113 +192,17 @@ private func applyShortcutMutation(
 }
 
 @available(iOS 16.0, macOS 13.0, *)
-struct AddTaskIntent: AppIntent {
-    static let title: LocalizedStringResource = "Add Task"
-    static let description = IntentDescription("Captures a task into your LifeBoard inbox to review.")
-    static let openAppWhenRun = false
-
-    @Parameter(title: "Title", requestValueDialog: IntentDialog("What task do you want to add?"))
-    var taskTitle: String
-
-    @Parameter(title: "Details")
-    var details: String?
-
-    static var parameterSummary: some ParameterSummary {
-        Summary("Add task \(\.$taskTitle)") {
-            \.$details
-        }
-    }
-
-    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
-        let trimmedTitle = taskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedTitle.isEmpty == false else {
-            throw $taskTitle.needsValueError(IntentDialog("What task do you want to add?"))
-        }
-
-        // Queued raw, not parsed and committed.
-        //
-        // This used to run `TaskCaptureParser` through `InboxTaskCaptureService`,
-        // which rewrites the title (stripping the date phrase) and assigns a due
-        // date. Invoked hands-free there is no opportunity to review that, so a
-        // spoken "add task tomorrow 3pm" silently acquired a date the user never
-        // saw — and a parser defect meant it was sometimes the wrong one. The
-        // capture now lands in the Inbox with the parser's proposal shown as
-        // review chips, and only becomes a scheduled task once confirmed.
-        let capture = PendingCapture(
-            rawText: [trimmedTitle, details?.trimmingCharacters(in: .whitespacesAndNewlines)]
-                .compactMap { $0?.isEmpty == false ? $0 : nil }
-                .joined(separator: "\n"),
-            source: "siri"
-        )
-        PendingCaptureInbox.append(capture)
-
-        // The dialog states what actually happened. Claiming the task was
-        // scheduled would be the same silent-commit problem wearing a nicer
-        // sentence.
-        let confirmation = "Added “\(trimmedTitle)” to your inbox to review."
-        return .result(value: trimmedTitle, dialog: IntentDialog(stringLiteral: confirmation))
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct OpenEvaChatIntent: AppIntent {
-    static let title: LocalizedStringResource = "Ask Assistant"
-    static let description = IntentDescription("Opens assistant chat with your question prefilled.")
-    static let openAppWhenRun = true
-
-    @Parameter(title: "Question")
-    var prompt: String?
-
-    func perform() async throws -> some IntentResult {
-        do {
-            try PendingShortcutLaunchActionStore.shared.submit(
-                PendingShortcutLaunchAction(kind: .askEva, prompt: prompt)
-            )
-            return .result()
-        } catch {
-            throw ShortcutRuntimeError.handoffFailed(
-                error.localizedDescription.isEmpty == false
-                    ? error.localizedDescription
-                    : "LifeBoard could not open assistant chat right now."
-            )
-        }
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
-struct StartFocusSessionIntent: AppIntent {
-    static let title: LocalizedStringResource = "Start Focus Session"
-    static let description = IntentDescription("Starts a 25-minute focus session using your current focus lane.")
-    static let openAppWhenRun = true
-
-    func perform() async throws -> some IntentResult {
-        do {
-            try PendingShortcutLaunchActionStore.shared.submit(
-                PendingShortcutLaunchAction(kind: .startFocus)
-            )
-            return .result()
-        } catch {
-            throw ShortcutRuntimeError.handoffFailed(
-                error.localizedDescription.isEmpty == false
-                    ? error.localizedDescription
-                    : "LifeBoard could not start focus right now."
-            )
-        }
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, *)
 struct QuickJournalCaptureIntent: AppIntent {
-    static let title: LocalizedStringResource = "Capture Journal Moment"
-    static let description = IntentDescription("Adds a private text moment to today’s Journal.")
+    static let title: LocalizedStringResource = "Add Journal Entry"
+    static let description = IntentDescription("Adds a text entry to today’s journal.")
     static let openAppWhenRun = false
 
-    @Parameter(title: "Moment", requestValueDialog: IntentDialog("What would you like to keep?"))
+    @Parameter(title: "Entry", requestValueDialog: IntentDialog("What do you want to write?"))
     var text: String
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty else { throw $text.needsValueError(IntentDialog("What would you like to keep?")) }
+        guard !content.isEmpty else { throw $text.needsValueError(IntentDialog("What do you want to write?")) }
         let repositories = try await ShortcutDependencyResolver.lifeOSRepositories()
         let repository = repositories.phaseII
         let dayDate = Calendar.current.startOfDay(for: Date())
@@ -309,7 +213,7 @@ struct QuickJournalCaptureIntent: AppIntent {
         day.updatedAt = Date()
         let saved = day
         _ = try await applyShortcutMutation(
-            preview: .init(destination: .track, summary: "Add a Journal moment", changes: ["Journal · Today", content], origin: .appIntent),
+            preview: .init(destination: .track, summary: "Add journal entry", changes: ["Journal · Today", content], origin: .appIntent),
             apply: {
                 try await repository.saveJournalDay(saved)
                 try await JournalIndexingService(repository: repository).upsert(saved)
@@ -331,18 +235,18 @@ struct QuickJournalCaptureIntent: AppIntent {
 
 @available(iOS 16.0, macOS 13.0, *)
 struct QuickNoteCaptureIntent: AppIntent {
-    static let title: LocalizedStringResource = "Create Note"
-    static let description = IntentDescription("Captures a note locally in LifeBoard without opening the app.")
+    static let title: LocalizedStringResource = "Quick Note"
+    static let description = IntentDescription("Saves a text note to LifeBoard.")
     static let openAppWhenRun = false
 
-    @Parameter(title: "Note", requestValueDialog: IntentDialog("What would you like to keep?"))
+    @Parameter(title: "Note", requestValueDialog: IntentDialog("What’s the note?"))
     var text: String
 
     @Parameter(title: "Title")
     var noteTitle: String?
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Create note \(\.$text)") {
+        Summary("Save quick note \(\.$text)") {
             \.$noteTitle
         }
     }
@@ -350,7 +254,7 @@ struct QuickNoteCaptureIntent: AppIntent {
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
         let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else {
-            throw $text.needsValueError(IntentDialog("What would you like to keep?"))
+            throw $text.needsValueError(IntentDialog("What’s the note?"))
         }
         let repositories = try await ShortcutDependencyResolver.lifeOSRepositories()
         let repository = repositories.phaseII
@@ -417,7 +321,7 @@ struct NoteAppEntity: AppEntity {
     var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(
             title: LocalizedStringResource(stringLiteral: isLocked ? "Locked note" : title),
-            subtitle: isLocked ? "Authentication required in LifeBoard" : "LifeBoard Notes",
+            subtitle: isLocked ? "Unlock in LifeBoard" : "LifeBoard Notes",
             image: .init(systemName: isLocked ? "lock.fill" : "note.text")
         )
     }
@@ -458,8 +362,8 @@ struct NoteAppEntityQuery: EntityStringQuery {
 
 @available(iOS 18.0, macOS 15.0, *)
 struct CreateNoteIntent: AppIntent {
-    static let title: LocalizedStringResource = "Create Note"
-    static let description = IntentDescription("Creates a private local-first note in LifeBoard.")
+    static let title: LocalizedStringResource = "Create Note from Template"
+    static let description = IntentDescription("Creates a note in LifeBoard.")
     static let openAppWhenRun = false
 
     @Parameter(title: "Title") var noteTitle: String?
@@ -477,7 +381,7 @@ struct CreateNoteIntent: AppIntent {
         let title = noteTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let content = body?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !title.isEmpty || !content.isEmpty || template != .blank else {
-            throw $body.needsValueError(IntentDialog("What would you like to keep?"))
+            throw $body.needsValueError(IntentDialog("What’s the note?"))
         }
         let repository = try await ShortcutDependencyResolver.lifeOSRepositories().phaseII
         var spaces = try await repository.fetchKnowledgeSpaces()
@@ -512,7 +416,7 @@ struct CreateNoteIntent: AppIntent {
         try await repository.saveKnowledgeNote(note)
         try await KnowledgeIndexingService(repository: repository).upsert(note)
         let entity = NoteAppEntity(id: note.id, title: note.displayTitle, isLocked: false)
-        return .result(value: entity, dialog: "Saved a note to LifeBoard.")
+        return .result(value: entity, dialog: "Note saved.")
     }
 }
 
@@ -528,7 +432,7 @@ struct OpenNoteIntent: AppIntent {
         let url = URL(string: "lifeboard://note/\(note.id.uuidString)")!
         return .result(
             opensIntent: OpenURLIntent(url),
-            dialog: note.isLocked ? "Authenticate in LifeBoard to open this note." : "Opening your note."
+            dialog: note.isLocked ? "Unlock this note in LifeBoard." : "Opening note."
         )
     }
 }
@@ -536,7 +440,7 @@ struct OpenNoteIntent: AppIntent {
 @available(iOS 18.0, macOS 15.0, *)
 struct SearchNotesIntent: AppIntent {
     static let title: LocalizedStringResource = "Search Notes"
-    static let description = IntentDescription("Opens a private search in LifeBoard Notes.")
+    static let description = IntentDescription("Searches your notes in LifeBoard.")
     static let openAppWhenRun = true
 
     @Parameter(title: "Search", requestValueDialog: IntentDialog("What should I search for?"))
@@ -550,7 +454,7 @@ struct SearchNotesIntent: AppIntent {
         components.host = "notes"
         components.queryItems = [URLQueryItem(name: "search", value: query)]
         guard let url = components.url else {
-            throw ShortcutRuntimeError.handoffFailed("LifeBoard could not prepare that search.")
+            throw ShortcutRuntimeError.handoffFailed(String(localized: "Couldn’t start search."))
         }
         return .result(opensIntent: OpenURLIntent(url), dialog: "Opening Notes search.")
     }
@@ -559,7 +463,7 @@ struct SearchNotesIntent: AppIntent {
 @available(iOS 16.0, macOS 13.0, *)
 struct LogWaterIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Water"
-    static let description = IntentDescription("Logs water locally in LifeBoard. Connected health data syncs separately when enabled.")
+    static let description = IntentDescription("Logs water in LifeBoard.")
     static let openAppWhenRun = false
 
     @Parameter(title: "Milliliters")
@@ -567,20 +471,20 @@ struct LogWaterIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard milliliters > 0 else {
-            throw ShortcutRuntimeError.handoffFailed("Water must be greater than zero milliliters.")
+            throw ShortcutRuntimeError.handoffFailed(String(localized: "Enter more than 0 mL."))
         }
         let repositories = try await ShortcutDependencyResolver.lifeOSRepositories()
         let log = HydrationLog(amount: milliliters, unit: .milliliters, source: .manual)
         try await repositories.track.saveHydrationLog(log)
         SystemSurfaceRefresher.requestRefreshSoon()
-        return .result(dialog: IntentDialog(stringLiteral: "Logged \(Int(milliliters.rounded())) milliliters of water in LifeBoard."))
+        return .result(dialog: IntentDialog(stringLiteral: "Logged \(Int(milliliters.rounded())) milliliters of water."))
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
 struct LogWeightIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Weight"
-    static let description = IntentDescription("Logs weight locally in LifeBoard. Connected health data syncs separately when enabled.")
+    static let description = IntentDescription("Logs your weight in LifeBoard.")
     static let openAppWhenRun = false
 
     @Parameter(title: "Kilograms")
@@ -588,7 +492,7 @@ struct LogWeightIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard kilograms > 0 else {
-            throw ShortcutRuntimeError.handoffFailed("Weight must be greater than zero kilograms.")
+            throw ShortcutRuntimeError.handoffFailed(String(localized: "Enter more than 0 kg."))
         }
         let sample = try BodyMetricSample(
             kind: .bodyMass,
@@ -605,14 +509,14 @@ struct LogWeightIntent: AppIntent {
         let repositories = try await ShortcutDependencyResolver.lifeOSRepositories()
         try await repositories.wellness.save(sample)
         SystemSurfaceRefresher.requestRefreshSoon()
-        return .result(dialog: IntentDialog(stringLiteral: "Logged \(kilograms.formatted()) kilograms in LifeBoard."))
+        return .result(dialog: IntentDialog(stringLiteral: "Logged \(kilograms.formatted()) kilograms."))
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
 struct LogBodyMetricIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Body Metric"
-    static let description = IntentDescription("Logs a body metric with an explicit value and unit.")
+    static let description = IntentDescription("Logs a body measurement with a value and unit.")
     static let openAppWhenRun = false
 
     @Parameter(title: "Metric", description: "bodyMass, bodyFatPercentage, waistCircumference, or restingHeartRate")
@@ -624,7 +528,7 @@ struct LogBodyMetricIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let kind = BodyMetricKind(rawValue: metric),
               let displayUnit = WellnessDisplayUnit(rawValue: unit) else {
-            throw ShortcutRuntimeError.handoffFailed("Choose a compatible metric and unit.")
+            throw ShortcutRuntimeError.handoffFailed(String(localized: "Choose a matching metric and unit."))
         }
         let sample = try BodyMetricSample(kind: kind, value: value, unit: displayUnit, source: .manual)
         if case .requiresConfirmation(let message) = WellnessOutlierPolicy().review(
@@ -646,39 +550,39 @@ struct LogBodyMetricIntent: AppIntent {
 
 @available(iOS 16.0, macOS 13.0, *)
 struct StartFastingTimerIntent: AppIntent {
-    static let title: LocalizedStringResource = "Start Fasting Timer"
-    static let description = IntentDescription("Starts a neutral timer using only the duration you choose.")
+    static let title: LocalizedStringResource = "Start a Fast"
+    static let description = IntentDescription("Starts a fast, with an optional target in hours.")
     static let openAppWhenRun = false
 
     @Parameter(title: "Target hours") var targetHours: Double?
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        if let targetHours, targetHours <= 0 { throw ShortcutRuntimeError.handoffFailed("Target hours must be greater than zero.") }
+        if let targetHours, targetHours <= 0 { throw ShortcutRuntimeError.handoffFailed(String(localized: "Enter more than 0 hours.")) }
         let repositories = try await ShortcutDependencyResolver.lifeOSRepositories()
         let store = FastingTimerStore(repository: FastingRepositoryAdapter(repository: repositories.phaseII))
         let session = try await store.start(targetDuration: targetHours.map { $0 * 3_600 })
-        return .result(dialog: IntentDialog(stringLiteral: "Fasting timer started at \(session.startedAt.formatted(date: .omitted, time: .shortened))."))
+        return .result(dialog: IntentDialog(stringLiteral: "Fast started at \(session.startedAt.formatted(date: .omitted, time: .shortened))."))
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
 struct EndFastingTimerIntent: AppIntent {
-    static let title: LocalizedStringResource = "End Fasting Timer"
-    static let description = IntentDescription("Ends the active timer without judgment or coaching.")
+    static let title: LocalizedStringResource = "End Fast"
+    static let description = IntentDescription("Ends your current fast and saves it.")
     static let openAppWhenRun = false
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let repositories = try await ShortcutDependencyResolver.lifeOSRepositories()
         let store = FastingTimerStore(repository: FastingRepositoryAdapter(repository: repositories.phaseII))
         let session = try await store.finish()
-        return .result(dialog: IntentDialog(stringLiteral: "Timer ended after \(Int(session.elapsed() / 60)) minutes."))
+        return .result(dialog: IntentDialog(stringLiteral: "Fast ended after \(LifeBoardDuration.text(seconds: session.elapsed()))."))
     }
 }
 
 @available(iOS 16.0, macOS 13.0, *)
 struct CreateCountdownIntent: AppIntent {
     static let title: LocalizedStringResource = "Create Countdown"
-    static let description = IntentDescription("Keeps a meaningful date in LifeBoard.")
+    static let description = IntentDescription("Counts down to a date in LifeBoard.")
     static let openAppWhenRun = false
 
     @Parameter(title: "Title") var momentTitle: String
@@ -715,11 +619,11 @@ struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
         AppShortcut(
             intent: OpenEvaChatIntent(),
             phrases: [
-                "Ask assistant in \(.applicationName)",
+                "Ask Eva in \(.applicationName)",
                 "Ask \(.applicationName)",
-                "Open assistant in \(.applicationName)"
+                "Open Eva in \(.applicationName)"
             ],
-            shortTitle: "Ask Assistant",
+            shortTitle: "Ask Eva",
             systemImageName: "bubble.left.and.bubble.right"
         )
 
@@ -731,10 +635,18 @@ struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
                 "Begin focus in \(.applicationName)"
             ],
             shortTitle: "Start Focus",
-            systemImageName: "timer"
+            systemImageName: "scope"
         )
 
-        AppShortcut(intent: QuickJournalCaptureIntent(), phrases: ["Capture a journal moment in \(.applicationName)"], shortTitle: "Journal Moment", systemImageName: "book.closed")
+        AppShortcut(
+            intent: QuickJournalCaptureIntent(),
+            phrases: [
+                "Capture a journal moment in \(.applicationName)",
+                "Add a journal entry in \(.applicationName)"
+            ],
+            shortTitle: "Journal Entry",
+            systemImageName: "book.closed"
+        )
         AppShortcut(
             intent: CreateNoteIntent(),
             phrases: [
@@ -747,47 +659,13 @@ struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
         AppShortcut(intent: LogWaterIntent(), phrases: ["Log water in \(.applicationName)"], shortTitle: "Log Water", systemImageName: "drop.fill")
         AppShortcut(intent: LogWeightIntent(), phrases: ["Log weight in \(.applicationName)"], shortTitle: "Log Weight", systemImageName: "scalemass.fill")
         AppShortcut(intent: LogBodyMetricIntent(), phrases: ["Log a body metric in \(.applicationName)"], shortTitle: "Log Metric", systemImageName: "chart.line.uptrend.xyaxis")
-        AppShortcut(intent: StartFastingTimerIntent(), phrases: ["Start fasting timer in \(.applicationName)"], shortTitle: "Start Timer", systemImageName: "timer")
+        AppShortcut(intent: StartFastingTimerIntent(), phrases: ["Start a fast in \(.applicationName)", "Start fasting timer in \(.applicationName)"], shortTitle: "Start a Fast", systemImageName: "hourglass")
         AppShortcut(intent: CreateCountdownIntent(), phrases: ["Create countdown in \(.applicationName)"], shortTitle: "Countdown", systemImageName: "calendar.badge.clock")
-    }
-
-    static var shortcutTileColor: ShortcutTileColor {
-        .orange
     }
 }
 
-/// Teaches Siri and Spotlight which LifeBoard actions this person actually takes.
-///
-/// The framework donates automatically when an intent is run *from* Shortcuts or
-/// Siri; it cannot know about the same action performed inside the app. Without
-/// these calls the suggestion surfaces only ever learn from people who already
-/// found the shortcuts — so the feature could never reach anyone else. Zero
-/// donations existed repo-wide before this.
-///
-/// Deliberately narrow: only the loop-relevant actions, not all 21 intents.
-/// Donating everything trains the suggestion ranker on noise.
-///
-/// Every call is fire-and-forget and failure-tolerant. A donation is a hint; it
-/// must never delay or fail the action the person actually asked for.
-@available(iOS 16.0, macOS 13.0, *)
-enum IntentDonations {
-    static func taskAdded(title: String) {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.isEmpty == false else { return }
-        let intent = AddTaskIntent()
-        intent.taskTitle = trimmed
-        donate(intent)
-    }
-
-    static func focusSessionStarted() {
-        donate(StartFocusSessionIntent())
-    }
-
-    private static func donate(_ intent: some AppIntent) {
-        Task.detached(priority: .background) {
-            // Swallowed on purpose: a donation is a hint to Siri, and a failed
-            // hint must never surface to someone who just added a task.
-            _ = try? await IntentDonationManager.shared.donate(intent: intent)
-        }
+extension LifeBoardAppShortcutsProvider {
+    static var shortcutTileColor: ShortcutTileColor {
+        .orange
     }
 }

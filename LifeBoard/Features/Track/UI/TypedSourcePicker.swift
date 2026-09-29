@@ -14,11 +14,11 @@ public enum TypedSourceKind: String, CaseIterable, Hashable, Sendable {
 
     public var title: String {
         switch self {
-        case .task: "Task"
-        case .project: "Project"
-        case .habit: "Habit"
-        case .routine: "Routine"
-        case .trackerMeasure: "Tracker"
+        case .task: String(localized: "Task")
+        case .project: String(localized: "Project")
+        case .habit: String(localized: "Habit")
+        case .routine: String(localized: "Routine")
+        case .trackerMeasure: String(localized: "Tracker")
         }
     }
 
@@ -193,13 +193,13 @@ public struct TypedSourcePickerView: View {
                 case .empty:
                     StatusSurface(
                         state: .empty,
-                        title: "Nothing to link yet",
-                        message: "Create a \(kind.title.lowercased()) first, then link it here."
+                        title: String(localized: "Nothing to link"),
+                        message: ""
                     )
                 case .failed(let message):
                     StatusSurface(
                         state: .recoverableError,
-                        title: "Couldn’t load \(kind.title.lowercased())s",
+                        title: String(localized: "Couldn’t load \(kind.title.lowercased())s"),
                         message: message
                     )
                 case .loaded(let items):
@@ -230,7 +230,7 @@ public struct TypedSourcePickerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: "Search \(kind.title.lowercased())s")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction) }
                 if kinds.count > 1 {
                     ToolbarItem(placement: .principal) {
                         Picker("Kind", selection: $kind) {

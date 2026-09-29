@@ -10,7 +10,7 @@ struct EvaChatNavigationChromeState {
     static var empty: EvaChatNavigationChromeState {
         EvaChatNavigationChromeState(
             title: AssistantIdentityText.currentSnapshot().displayName,
-            subtitle: "Ask or use / commands",
+            subtitle: String(localized: "New chat"),
             showsUtilityActions: true,
             showsHistoryAction: true,
             showsNewChatAction: false

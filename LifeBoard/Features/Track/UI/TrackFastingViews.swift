@@ -38,6 +38,9 @@ struct TrackFastingSection: View {
     /// Cancelling ends a running session, so it asks first — and reports a
     /// failure instead of swallowing it with `try?`.
     @State private var confirmsCancellation = false
+    /// The fast as it was before Finish, so the receipt can reopen it.
+    @State private var finishedSession: FastingSessionValue?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Whether this lens has nominated fasting as its one hero.
     ///
     /// Decided by the root rather than here: a section cannot know what else is
@@ -67,7 +70,7 @@ struct TrackFastingSection: View {
                             } ?? 0
                             ProgressRing(
                                 fraction: fraction,
-                                tint: Color(SemanticColorTokens.foundationSunAccent),
+                                tint: Color(SemanticColorTokens.foundationSunInk),
                                 trackTint: Color(SemanticColorTokens.foundationSurfaceRecessed),
                                 lineWidth: 7
                             )
@@ -81,25 +84,30 @@ struct TrackFastingSection: View {
                                 Text(TrackSectionCopy.fastingClock(elapsed))
                                     .lifeboardFont(.metric)
                                     .monospacedDigit()
-                                Text(
-                                    activeFast.targetDuration
-                                        .map { "Target \(Int($0 / 3_600))h" } ?? "No target set"
-                                )
-                                .font(.caption)
-                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                                Text(TrackSectionCopy.fastingTargetText(activeFast.targetDuration))
+                                    .lifeboardFont(.caption1)
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer(minLength: 0)
                         }
+                        // "3:12:07" read aloud is three numbers; say what it means.
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(TrackSectionCopy.fastingSpokenElapsed(elapsed))
+                        .accessibilityValue(TrackSectionCopy.fastingTargetText(activeFast.targetDuration))
                     }
 
                     HStack(spacing: 12) {
-                        Button("Finish") {
+                        Button("End fast") {
+                            let before = activeFast
                             Task {
                                 do {
                                     _ = try await fastingTimerStore.finish()
                                     Haptic.commit.play()
+                                    withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
+                                        finishedSession = before
+                                    }
                                 } catch {
-                                    fastingError = error.localizedDescription
+                                    fastingError = TrackSectionCopy.fastingFailure(error)
                                     Haptic.fail.play()
                                 }
                                 await reloadFasting()
@@ -111,7 +119,7 @@ struct TrackFastingSection: View {
                     }
                     .frame(minHeight: 44)
                     .confirmationDialog(
-                        "Cancel this fast?",
+                        "Cancel fast?",
                         isPresented: $confirmsCancellation,
                         titleVisibility: .visible
                     ) {
@@ -119,8 +127,9 @@ struct TrackFastingSection: View {
                             Task {
                                 do {
                                     _ = try await fastingTimerStore.cancel()
+                                    finishedSession = nil
                                 } catch {
-                                    fastingError = error.localizedDescription
+                                    fastingError = TrackSectionCopy.fastingFailure(error)
                                     Haptic.fail.play()
                                 }
                                 await reloadFasting()
@@ -128,20 +137,44 @@ struct TrackFastingSection: View {
                         }
                         Button("Keep fasting", role: .cancel) {}
                     } message: {
-                        Text("The session remains in history as cancelled.")
+                        Text("It stays in history as cancelled.")
                     }
                 } else {
-                    Text("No fast is running.")
-                        .font(.subheadline)
+                    // Finishing is reversible, so it runs at once and offers
+                    // Undo here, under the control that finished it.
+                    if let finishedSession {
+                        ReceiptBar(
+                            ActionReceiptPresentation(
+                                id: finishedSession.id,
+                                message: String(localized: "Fast ended"),
+                                detail: TrackSectionCopy.fastingSpokenElapsed(finishedSession.elapsed(at: Date()))
+                            ),
+                            undo: { Task { await undoFinish(finishedSession) } },
+                            onDismiss: { self.finishedSession = nil }
+                        )
+                        .accessibilityIdentifier("track.fasting.finishReceipt")
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                    Text("No fast running")
+                        .lifeboardFont(.support)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    Button("Start a fast") { showsFastingComposer = true }
+                    Button("Start fast") { showsFastingComposer = true }
                         .buttonStyle(.lifeBoardPrimary)
                 }
 
-                if let fastingError {
-                    Text(fastingError)
-                        .font(.caption)
-                        .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
+                if let message = fastingError {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(message)
+                            .lifeboardFont(.caption1)
+                            .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Try again") {
+                            fastingError = nil
+                            Task { await reloadFasting() }
+                        }
+                        .lifeboardFont(.buttonSmall)
+                        .minimumHitTarget()
+                    }
                 }
 
                 if sessions.contains(where: { $0.endedAt != nil }) {
@@ -167,6 +200,26 @@ struct TrackFastingSection: View {
             .accessibilityIdentifier("track.fasting")
         }
     }
+
+    /// Reopens the fast Finish just closed, with its original start, target
+    /// and note — and so its reminders.
+    private func undoFinish(_ session: FastingSessionValue) async {
+        do {
+            _ = try await fastingTimerStore.correct(
+                sessionID: session.id,
+                startedAt: session.startedAt,
+                endedAt: nil,
+                targetDuration: session.targetDuration,
+                note: session.note
+            )
+            finishedSession = nil
+            Haptic.pick.play()
+        } catch {
+            fastingError = TrackSectionCopy.fastingFailure(error)
+            Haptic.fail.play()
+        }
+        await reloadFasting()
+    }
 }
 
 /// Focused fasting destination used by Home and URL deep links. The Track root
@@ -180,6 +233,8 @@ struct FastingDestinationView: View {
     @State private var errorMessage: String?
     @State private var finishedUndoSession: FastingSessionValue?
     @State private var correctionReceipts: [UUID: FastingSessionMutationReceipt] = [:]
+    /// The history session whose times are open in the exact-time editor.
+    @State private var editingTimesSession: FastingSessionValue?
     @Environment(PresentationPreferences.self) private var preferences
     @Environment(\.colorScheme) private var colorScheme
 
@@ -216,21 +271,29 @@ struct FastingDestinationView: View {
                         _ = try await store.start(targetDuration: target, reminderOffsets: reminders)
                         await reload()
                     } catch {
-                        errorMessage = error.localizedDescription
+                        errorMessage = TrackSectionCopy.fastingFailure(error)
                     }
                 }
             }
         }
-        .confirmationDialog("Cancel this fast?", isPresented: $confirmsCancellation) {
+        .sheet(item: $editingTimesSession) { session in
+            FastingTimesEditor(session: session) { startedAt, endedAt in
+                Task { await correct(session, startedAt: startedAt, endedAt: endedAt) }
+            }
+        }
+        .confirmationDialog("Cancel fast?", isPresented: $confirmsCancellation) {
             Button("Cancel fast", role: .destructive) { Task { await cancel() } }
             Button("Keep fasting", role: .cancel) {}
         } message: {
-            Text("The session remains in history as cancelled.")
+            Text("It stays in history as cancelled.")
         }
-        .alert("Fasting needs attention", isPresented: Binding(
+        .alert("Couldn’t update fast", isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
-        )) { Button("OK", role: .cancel) {} } message: { Text(errorMessage ?? "") }
+        )) {
+            Button("Try again") { Task { await reload() } }
+            Button("OK", role: .cancel) {}
+        } message: { Text(errorMessage ?? "") }
     }
 
     /// The running fast is the one thing this screen exists to show, so it is
@@ -242,7 +305,7 @@ struct FastingDestinationView: View {
     private var statusSection: some View {
         let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
         return VStack(alignment: .leading, spacing: 16) {
-            SectionHeader("Current session")
+            SectionHeader("Current fast")
             if let activeFast {
                 ActiveVisibleTimeline(every: 1) { context in
                     let elapsed = max(0, activeFast.elapsed(at: context.date))
@@ -250,7 +313,7 @@ struct FastingDestinationView: View {
                     HStack(spacing: 16) {
                         ProgressRing(
                             fraction: progress,
-                            tint: Color(SemanticColorTokens.foundationSunAccent),
+                            tint: Color(SemanticColorTokens.foundationSunInk),
                             trackTint: Color(SemanticColorTokens.foundationSurfaceRecessed),
                             lineWidth: 8
                         )
@@ -260,15 +323,15 @@ struct FastingDestinationView: View {
                             Text(TrackSectionCopy.fastingClock(elapsed))
                                 .lifeboardFont(.metric)
                                 .monospacedDigit()
-                            Text(activeFast.targetDuration.map { "Your target: \(Int($0 / 3_600)) hours" } ?? "No target set")
+                            Text(TrackSectionCopy.fastingTargetText(activeFast.targetDuration))
                                 .lifeboardFont(.caption2)
                                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                         Spacer(minLength: 0)
                     }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Active fast")
-                    .accessibilityValue("\(TrackSectionCopy.fastingClock(elapsed)) elapsed")
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(TrackSectionCopy.fastingSpokenElapsed(elapsed))
+                    .accessibilityValue(TrackSectionCopy.fastingTargetText(activeFast.targetDuration))
                 }
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 12) { finishButton; cancelButton }
@@ -277,10 +340,10 @@ struct FastingDestinationView: View {
             } else {
                 StatusSurface(
                     state: .noRecord,
-                    title: "No fast is running",
-                    message: "Start a neutral timer with an optional target you choose."
+                    title: String(localized: "No fast running"),
+                    message: ""
                 )
-                Button("Start a fast") { showsComposer = true }
+                Button("Start fast") { showsComposer = true }
                     .buttonStyle(.lifeBoardPrimary)
                     .accessibilityIdentifier("fasting.start")
             }
@@ -292,31 +355,41 @@ struct FastingDestinationView: View {
     }
 
     private var finishButton: some View {
-        Button("Finish fast") { Task { await finish() } }
+        Button("End fast") { Task { await finish() } }
             .buttonStyle(.lifeBoardPrimary)
             .accessibilityIdentifier("fasting.finish")
     }
 
     private var cancelButton: some View {
+        // A quiet text action, not a clay chip. This row sits on the hero's
+        // system glass, and the chip's clay material rendered there as a bare
+        // white capsule around an unfilled label in every appearance. A
+        // secondary, destructive action beside a strong primary reads better
+        // as text anyway.
         Button("Cancel fast", role: .destructive) { confirmsCancellation = true }
-            .buttonStyle(.lifeBoardChip)
+            .buttonStyle(.plain)
+            .lifeboardFont(.buttonSmall)
+            .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityIdentifier("fasting.cancel")
     }
 
     @ViewBuilder
     private var historySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("History").font(Typography.sectionTitle())
-                Spacer()
-                if finishedUndoSession != nil {
-                    Button("Undo finish") { Task { await undoFinish() } }
-                        .font(.subheadline.weight(.semibold))
-                        .frame(minHeight: 44)
-                }
+            Text("History").font(Typography.sectionTitle())
+            if let finished = finishedUndoSession {
+                ReceiptBar(
+                    ActionReceiptPresentation(id: finished.id, message: String(localized: "Fast ended")),
+                    undo: { Task { await undoFinish() } },
+                    onDismiss: { finishedUndoSession = nil }
+                )
+                .accessibilityIdentifier("fasting.finishReceipt")
             }
             if finishedSessions.isEmpty {
-                Text("Finished and cancelled sessions will appear here.")
+                Text("No past fasts")
                     .font(.subheadline)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
@@ -332,17 +405,26 @@ struct FastingDestinationView: View {
                         }
                         Spacer(minLength: 8)
                         Menu {
-                            Button("Start 15 minutes earlier") { Task { await correct(session, startDelta: -900, endDelta: 0) } }
-                            Button("Start 15 minutes later") { Task { await correct(session, startDelta: 900, endDelta: 0) } }
-                            Button("End 15 minutes earlier") { Task { await correct(session, startDelta: 0, endDelta: -900) } }
-                            Button("End 15 minutes later") { Task { await correct(session, startDelta: 0, endDelta: 900) } }
+                            // The 15-minute steps only reach a time that is a
+                            // multiple of 15 away — a fast started at 7:40 PM
+                            // could never be recorded as 7:40. The editor sets
+                            // the exact time through the same correction.
+                            Button("Edit times…", systemImage: "clock") { editingTimesSession = session }
+                            Section("Start") {
+                                Button("15 min earlier") { Task { await correct(session, startDelta: -900, endDelta: 0) } }
+                                Button("15 min later") { Task { await correct(session, startDelta: 900, endDelta: 0) } }
+                            }
+                            Section("End") {
+                                Button("15 min earlier") { Task { await correct(session, startDelta: 0, endDelta: -900) } }
+                                Button("15 min later") { Task { await correct(session, startDelta: 0, endDelta: 900) } }
+                            }
                             if correctionReceipts[session.id] != nil {
-                                Button("Undo last correction", systemImage: "arrow.uturn.backward") { Task { await undoCorrection(for: session.id) } }
+                                Button("Undo correction", systemImage: "arrow.uturn.backward") { Task { await undoCorrection(for: session.id) } }
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
                         }
-                        .accessibilityLabel("Correct fasting session")
+                        .accessibilityLabel("Correct times")
                     }
                     .padding(14)
                     .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
@@ -356,7 +438,7 @@ struct FastingDestinationView: View {
         do {
             sessions = try await store.sessions(limit: 60)
             errorMessage = nil
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = TrackSectionCopy.fastingFailure(error) }
     }
 
     private func finish() async {
@@ -364,7 +446,7 @@ struct FastingDestinationView: View {
             finishedUndoSession = activeFast
             _ = try await store.finish()
             await reload()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = TrackSectionCopy.fastingFailure(error) }
     }
 
     private func cancel() async {
@@ -372,7 +454,7 @@ struct FastingDestinationView: View {
             _ = try await store.cancel()
             finishedUndoSession = nil
             await reload()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = TrackSectionCopy.fastingFailure(error) }
     }
 
     private func undoFinish() async {
@@ -387,22 +469,33 @@ struct FastingDestinationView: View {
             )
             finishedUndoSession = nil
             await reload()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = TrackSectionCopy.fastingFailure(error) }
     }
 
     private func correct(_ session: FastingSessionValue, startDelta: TimeInterval, endDelta: TimeInterval) async {
         guard let endedAt = session.endedAt else { return }
+        await correct(
+            session,
+            startedAt: session.startedAt.addingTimeInterval(startDelta),
+            endedAt: endedAt.addingTimeInterval(endDelta)
+        )
+    }
+
+    /// The one write path for both the 15-minute steps and the exact-time
+    /// editor, so either leaves an undoable receipt and the same validation
+    /// (end after start) runs in the store.
+    private func correct(_ session: FastingSessionValue, startedAt: Date, endedAt: Date?) async {
         do {
             let receipt = try await store.correctWithReceipt(
                 sessionID: session.id,
-                startedAt: session.startedAt.addingTimeInterval(startDelta),
-                endedAt: endedAt.addingTimeInterval(endDelta),
+                startedAt: startedAt,
+                endedAt: endedAt,
                 targetDuration: session.targetDuration,
                 note: session.note
             )
             correctionReceipts[session.id] = receipt
             await reload()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = TrackSectionCopy.fastingFailure(error) }
     }
 
     private func undoCorrection(for sessionID: UUID) async {
@@ -411,21 +504,92 @@ struct FastingDestinationView: View {
             try await store.undo(receipt)
             correctionReceipts[sessionID] = nil
             await reload()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = TrackSectionCopy.fastingFailure(error) }
     }
 
     private func durationText(_ session: FastingSessionValue) -> String {
-        let minutes = max(0, Int(session.elapsed() / 60))
-        return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
+        LifeBoardDuration.text(seconds: session.elapsed())
     }
 
     private func completionTitle(_ kind: FastingCompletionKind?) -> String {
         switch kind {
-        case .planned: "Completed"
-        case .early: "Ended early"
-        case .cancelled: "Cancelled"
-        case .corrected: "Corrected"
-        case nil: "Recorded"
+        case .planned: String(localized: "Completed")
+        case .early: String(localized: "Ended early")
+        case .cancelled: String(localized: "Cancelled")
+        case .corrected: String(localized: "Corrected")
+        case nil: String(localized: "Logged")
+        }
+    }
+}
+
+/// Exact start and end times for a recorded fast.
+///
+/// It only gathers the two dates; the caller writes them through the same
+/// receipt-producing correction as the 15-minute steps, so Undo keeps working.
+/// Save stays disabled until the end falls after the start — the store would
+/// reject that interval anyway, but an alert after dismissal loses the edit.
+struct FastingTimesEditor: View {
+    let session: FastingSessionValue
+    let onSave: (Date, Date?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var startedAt: Date
+    @State private var endedAt: Date
+
+    init(session: FastingSessionValue, onSave: @escaping (Date, Date?) -> Void) {
+        self.session = session
+        self.onSave = onSave
+        _startedAt = State(initialValue: session.startedAt)
+        _endedAt = State(initialValue: session.endedAt ?? session.startedAt)
+    }
+
+    private var hasEnded: Bool { session.endedAt != nil }
+
+    private var isValid: Bool { hasEnded == false || endedAt > startedAt }
+
+    var body: some View {
+        ComposerScaffold(
+            title: String(localized: "Edit times"),
+            confirmTitle: String(localized: "Save"),
+            isConfirmEnabled: isValid,
+            titleDisplayMode: .inline,
+            detents: [.medium, .large],
+            identifier: "fasting.editTimes",
+            onConfirm: {
+                onSave(startedAt, hasEnded ? endedAt : nil)
+                dismiss()
+            }
+        ) {
+            FastingTimesSection(
+                startedAt: $startedAt,
+                endedAt: $endedAt,
+                hasEnded: hasEnded,
+                isValid: isValid
+            )
+        }
+    }
+}
+
+private struct FastingTimesSection: View {
+    @Binding var startedAt: Date
+    @Binding var endedAt: Date
+    let hasEnded: Bool
+    let isValid: Bool
+
+    var body: some View {
+        ComposerSection(String(localized: "Times")) {
+            // Bounded by now: a recorded fast cannot have started or ended in
+            // the future.
+            DatePicker("Started", selection: $startedAt, in: ...Date.now)
+                .accessibilityIdentifier("fasting.editTimes.start")
+            if hasEnded {
+                DatePicker("Ended", selection: $endedAt, in: ...Date.now)
+                    .accessibilityIdentifier("fasting.editTimes.end")
+                if isValid == false {
+                    Text("End time must be after start.")
+                        .font(.caption)
+                        .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
+                }
+            }
         }
     }
 }

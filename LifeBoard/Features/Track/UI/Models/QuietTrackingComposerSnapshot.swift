@@ -8,8 +8,8 @@ enum QuietTrackingOutcome: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .progress: return "Log progress"
-        case .lapse: return "Log lapse"
+        case .progress: return String(localized: "Log progress")
+        case .lapse: return String(localized: "Log slip")
         }
     }
 }
@@ -106,28 +106,28 @@ struct QuietTrackingComposerSnapshot: Equatable, Identifiable, Sendable {
 
     func heroSubtitle(for entry: QuietTrackingComposerEntry?) -> String {
         guard let entry else {
-            return "Choose a quiet habit and repair the day without pushing it back into your main task list."
+            return String(localized: "Choose a habit to log.")
         }
 
         if entry.kind == .negative {
-            return "Keep the streak honest. Confirm a clean day or record the lapse on the exact date it happened."
+            return String(localized: "Log clean days. Pick a date to record a slip.")
         }
 
-        return "Log the day quietly while keeping the main list focused on active work."
+        return String(localized: "Log any day without adding a task.")
     }
 
     func progressTitle(for entry: QuietTrackingComposerEntry?) -> String {
-        entry?.kind == .negative ? "Stayed clean" : "Done"
+        entry?.kind == .negative ? String(localized: "Stayed clean") : String(localized: "Done")
     }
 
     func progressDetail(for entry: QuietTrackingComposerEntry?) -> String {
         entry?.kind == .negative
-            ? "Use this when the day stayed clean."
-            : "Use this when the habit happened without needing a full task."
+            ? String(localized: "The day stayed clean.")
+            : String(localized: "The habit happened.")
     }
 
     func footerTitle(for entry: QuietTrackingComposerEntry?, outcome: QuietTrackingOutcome) -> String {
-        outcome == .lapse ? "Record lapse" : progressTitle(for: entry)
+        outcome == .lapse ? String(localized: "Log slip") : progressTitle(for: entry)
     }
 }
 

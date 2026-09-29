@@ -37,44 +37,62 @@ struct PlanDaySection: View {
             if store.isLoading && store.daySnapshot == nil {
                 StatusSurface(
                     state: .loading,
-                    title: "Building your day",
-                    message: "Gathering commitments, blocks, and the next usable window."
+                    title: String(localized: "Loading…"),
+                    message: ""
                 )
             } else if let errorMessage = store.errorMessage, store.daySnapshot == nil {
                 StatusSurface(
                     state: .recoverableError,
-                    title: "Your plan is still safe",
+                    title: String(localized: "Couldn’t load plan"),
                     message: errorMessage,
-                    actionTitle: "Try again",
+                    actionTitle: String(localized: "Try again"),
                     action: { Task { await store.load() } }
                 )
             } else if let snapshot = store.daySnapshot {
                 if effectiveDayPresentation == .canvas {
                     decisionLine(snapshot)
                         // The line folds away (or changes) as its decision is made,
-                        // instead of vanishing between two frames.
+                        // instead of vanishing between two frames: a rescue decided,
+                        // a preview staged or applied, a repair answered.
                         .animation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion), value: PlanRescuePool.count(store.tasks))
+                        .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: store.pendingScenario?.id)
+                        .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: store.repairProposals.count)
                         .onChange(of: PlanRescuePool.count(store.tasks)) { previous, current in
                             if previous > 0, current == 0 {
-                                AccessibilityNotification.Announcement("Today has what it needs").post()
+                                AccessibilityNotification.Announcement("All sorted").post()
                             }
                         }
                 } else {
                     decisionSlot(snapshot)
+                        .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: store.pendingScenario?.id)
+                        .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: store.repairProposals.count)
                     PlanCalendarStateSection(store: store, snapshot: snapshot)
                 }
 
-                if requiresAgendaPresentation {
-                    Text("Agenda keeps every block linear and operable.")
-                        .lifeboardFont(.caption1)
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                // Under the decision it answers, above the day it changed: a
+                // bottom inset here sits behind the floating composer.
+                PlanDayReceipt(store: store)
+
                 if effectiveDayPresentation == .canvas {
                     // The drawer floats over the canvas's lower edge rather than
                     // sitting under it, so opening it never reflows the day.
                     if anytimeToday(snapshot).isEmpty == false {
                         PlanAnytimeRow(tasks: anytimeToday(snapshot), onOpenTask: onOpenTask)
+                    }
+                    if snapshot.blocks.isEmpty, snapshot.commitments.isEmpty, snapshot.plannedTasks.isEmpty {
+                        // Canvas mode used to show no empty-day line at all;
+                        // agenda mode had one. The open windows below are the
+                        // next step, so this only names the state.
+                        // On clay, not bare: this line can sit on the night sky,
+                        // where secondary ink alone did not read.
+                        Label("Nothing planned", systemImage: "sun.max")
+                            .lifeboardFont(.support)
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
+                            .accessibilityIdentifier("plan.canvas.openDay")
                     }
                     ZStack(alignment: .bottom) {
                         VStack(spacing: 0) {
@@ -82,7 +100,10 @@ struct PlanDaySection: View {
                                 snapshot: snapshot,
                                 taskForID: store.task(for:),
                                 createBlock: { title, start, duration, taskID in
-                                    Task { await store.createBlock(title: title, start: start, duration: duration, taskID: taskID) }
+                                    Task {
+                                        await store.createBlock(title: title, start: start, duration: duration, taskID: taskID, showsReceipt: true)
+                                        if store.errorMessage == nil { Haptic.commit.play() }
+                                    }
                                 },
                                 moveBlock: { block, minutes in Task { await store.moveBlock(block, minutesDelta: minutes) } },
                                 resizeBlock: { block, minutes in Task { await store.resizeBlock(block, minutesDelta: minutes) } },
@@ -124,7 +145,8 @@ struct PlanDaySection: View {
                                         title: candidate.taskTitle,
                                         start: candidate.window.startAt,
                                         duration: candidate.estimate,
-                                        taskID: candidate.taskID
+                                        taskID: candidate.taskID,
+                                        showsReceipt: true
                                     )
                                     if store.errorMessage == nil { Haptic.settle.play() }
                                 }
@@ -144,12 +166,28 @@ struct PlanDaySection: View {
 
                 if effectiveDayPresentation != .canvas {
                     PlanSectionHeader(
-                        "Planned work",
+                        "Planned tasks",
                         systemImage: "checklist",
                         count: snapshot.plannedTasks.isEmpty ? nil : snapshot.plannedTasks.count
                     )
                     if snapshot.plannedTasks.isEmpty {
-                        PlanOpenDayRescueCard(store: store, onOpenOverdueRescue: onOpenOverdueRescue)
+                        // Rescue only when there is something to rescue: an
+                        // open day with nothing overdue used to lead into an
+                        // empty deck.
+                        if PlanRescuePool.count(store.tasks) > 0 {
+                            PlanOpenDayRescueCard(store: store, onOpenOverdueRescue: onOpenOverdueRescue)
+                        } else {
+                            PlanEmptyCard(
+                                title: String(localized: "Nothing planned"),
+                                detail: nil,
+                                symbol: "sun.max",
+                                actionTitle: String(localized: "Add time block"),
+                                actionIdentifier: "plan.day.empty.addBlock",
+                                action: { showsBlockComposer = true }
+                            )
+                            .accessibilityElement(children: .contain)
+                            .accessibilityIdentifier("plan.day.empty")
+                        }
                     } else {
                         ForEach(snapshot.plannedTasks) { taskCard($0, planned: true) }
                     }
@@ -162,8 +200,12 @@ struct PlanDaySection: View {
                 }
             }
         }
+        // The receipt rises in and settles rather than cutting in.
+        .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: store.receipt)
     }
+}
 
+extension PlanDaySection {
     /// One decision at a time.
     ///
     /// These five could all render at once — an active focus session, a
@@ -237,7 +279,7 @@ struct PlanDaySection: View {
         case .activeFocus:
             if let session = store.activeFocusSession {
                 PlanDecisionLine(
-                    title: "\(session.state == .paused ? "Focus paused" : "Focus in progress")\(focusSuffix(session))",
+                    title: (session.state == .paused ? String(localized: "Focus paused") : String(localized: "Focus in progress")) + focusSuffix(session),
                     systemImage: session.state == .paused ? "pause.circle.fill" : "timer",
                     actionTitle: "Controls"
                 ) {
@@ -246,7 +288,7 @@ struct PlanDaySection: View {
             }
         case .focusReflection:
             if let receipt = store.pendingFocusReflection {
-                PlanDecisionLine(title: "How did that focus go?", systemImage: "sparkles", actionTitle: "Reflect") {
+                PlanDecisionLine(title: String(localized: "Focus done"), systemImage: "sparkles", actionTitle: String(localized: "Reflect")) {
                     PlanFocusReflectionCard(
                         store: store,
                         receipt: receipt,
@@ -256,12 +298,15 @@ struct PlanDaySection: View {
                 }
             }
         case .stagedScenario:
-            PlanDecisionLine(title: "", systemImage: "", actionTitle: "", isAlwaysExpanded: true) {
-                PlanMinimumViableDayCard(store: store)
-            }
+            // The preview is its own decision; it needs no collapsed line
+            // (this used to pass empty title, symbol and action strings).
+            PlanMinimumViableDayCard(store: store)
+                .transition(.opacity.combined(with: .move(edge: .top)))
         case .repair(let count):
             PlanDecisionLine(
-                title: count == 1 ? "One thing didn't get its window" : "\(count) things didn't get their window",
+                title: count == 1
+                    ? String(localized: "1 task needs a new time")
+                    : String(localized: "\(count) tasks need a new time"),
                 systemImage: "arrow.triangle.2.circlepath",
                 actionTitle: "Review"
             ) {
@@ -279,7 +324,7 @@ struct PlanDaySection: View {
             }
         case .overCapacity:
             PlanDecisionLine(
-                title: "\(PlanCapacityCopy.duration(snapshot.capacity.overloadDuration)) more planned than fits",
+                title: String(localized: "\(PlanCapacityCopy.duration(snapshot.capacity.overloadDuration)) over working hours"),
                 systemImage: "arrow.left.and.right.circle",
                 actionTitle: "Make it fit",
                 action: onMakeItFit
@@ -287,8 +332,8 @@ struct PlanDaySection: View {
         case .rescue(let count):
             PlanDecisionLine(
                 title: count == 1
-                    ? "One thing from earlier still needs a decision"
-                    : "\(count) things from earlier still need a decision",
+                    ? String(localized: "1 task from earlier")
+                    : String(localized: "\(count) tasks from earlier"),
                 systemImage: "arrow.uturn.forward.circle",
                 actionTitle: "Rescue",
                 actionIdentifier: "plan.day.openRescue",
@@ -296,7 +341,7 @@ struct PlanDaySection: View {
             ) { EmptyView() }
         case .calendarPrompt:
             PlanDecisionLine(
-                title: "Show your read-only calendar here",
+                title: String(localized: "Show your calendar"),
                 systemImage: "calendar.badge.plus",
                 actionTitle: "Allow",
                 action: {
@@ -325,13 +370,13 @@ struct PlanDaySection: View {
         if V2FeatureFlags.evaMakeItFitTodayV1Enabled, isToday(snapshot.day) {
             Button(action: onMakeItFit) {
                 Label(
-                    snapshot.capacity.overloadDuration > 0 ? "Make today fit" : "Renegotiate today",
+                    snapshot.capacity.overloadDuration > 0 ? "Make today fit" : "Adjust today",
                     systemImage: "arrow.left.and.right.circle.fill"
                 )
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(.lifeBoardChip)
-            .accessibilityHint("Opens EVA's capacity ritual; no task changes happen yet")
+            .accessibilityHint("Opens a preview first")
             .accessibilityIdentifier("plan.repair.makeItFit")
         }
     }
@@ -381,10 +426,12 @@ struct PlanOpenDayRescueCard: View {
                     .frame(width: 58, height: 58)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("This day is open")
+                    Text("Nothing planned")
                         .font(.headline)
                         .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                    Text("Choose overdue work that still deserves a place.")
+                    Text(PlanRescuePool.count(store.tasks) == 1
+                         ? String(localized: "1 task from earlier")
+                         : String(localized: "\(PlanRescuePool.count(store.tasks)) tasks from earlier"))
                         .font(.caption)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .multilineTextAlignment(.leading)
@@ -396,15 +443,15 @@ struct PlanOpenDayRescueCard: View {
                     .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Radius.hero, style: .continuous))
             .foundationClayCard()
         }
         .buttonStyle(.plain)
         .scaleOnPress()
         .hoverEffect(.highlight)
         .accessibilityIdentifier("plan.day.openRescue")
-        .accessibilityLabel("Plan this day with Overdue Rescue")
-        .accessibilityHint("Review overdue tasks and keep, move, edit, or remove them.")
+        .accessibilityLabel("Rescue tasks from earlier")
+        .accessibilityHint("Opens Rescue")
     }
 
     private func open() {
@@ -439,6 +486,10 @@ struct PlanUnscheduledDrawer<Row: View>: View {
     @ViewBuilder let row: (PlanningTaskSummary, Bool) -> Row
     @State private var isExpanded = false
     @State private var pull: CGFloat = 0
+    /// Where the drawer's bottom edge sits in the window — the height it can
+    /// grow into. `UIScreen` was the whole display, not a Split View pane or a
+    /// Mac window.
+    @State private var availableHeight: CGFloat = 800
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -468,7 +519,7 @@ struct PlanUnscheduledDrawer<Row: View>: View {
                                                 onPlace(candidate)
                                             }
                                             .buttonStyle(.lifeBoardChip)
-                                            .accessibilityHint("Puts \(task.title) in the next open window that fits it")
+                                            .accessibilityHint("Schedules it at that time")
                                             .accessibilityIdentifier("plan.day.unscheduled.place.\(task.id.uuidString)")
                                         }
                                     }
@@ -479,12 +530,15 @@ struct PlanUnscheduledDrawer<Row: View>: View {
                     }
                     .frame(height: max(96, PlanDrawerGeometry.expandedHeight(
                         itemCount: anytime.count + unscheduled.count,
-                        screenHeight: UIScreen.main.bounds.height
+                        screenHeight: availableHeight
                     ) + pull))
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
             .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { maxY in
+                if maxY > 0 { availableHeight = maxY }
+            }
             .accessibilityIdentifier("plan.day.unscheduled.drawer")
         }
     }
@@ -523,7 +577,7 @@ struct PlanUnscheduledDrawer<Row: View>: View {
         .onTapGesture { settle(travel: isExpanded ? -120 : 120) }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
-        .accessibilityHint(isExpanded ? "Hides unscheduled work" : "Shows unscheduled work")
+        .accessibilityHint(isExpanded ? "Hides unscheduled tasks" : "Shows unscheduled tasks")
         .accessibilityAction { settle(travel: isExpanded ? -120 : 120) }
         .accessibilityIdentifier("plan.day.unscheduled.handle")
     }
@@ -604,7 +658,7 @@ struct PlanAnytimeRow: View {
                             .lineLimit(1)
                             // Drag a chip onto the canvas to give it a time.
                             .draggable(task.id.uuidString)
-                            .accessibilityHint("Opens the task. Drag onto the timeline to give it a time.")
+                            .accessibilityHint("Opens the task")
                             // Work kept for today arrives rather than appearing.
                             .transition(.scale(scale: 0.92).combined(with: .opacity))
                     }
@@ -634,5 +688,27 @@ enum PlanRescuePool {
             default: return true
             }
         }.count
+    }
+}
+
+/// The day lens's receipt, with Undo through the store's last mutation.
+private struct PlanDayReceipt: View {
+    let store: PlanStore
+
+    var body: some View {
+        if let receipt = store.receipt {
+            ReceiptBar(
+                ActionReceiptPresentation(id: receipt.id, message: receipt.message, detail: receipt.detail),
+                undo: {
+                    Task {
+                        if await store.undoLastMutation() == false { Haptic.fail.play() }
+                    }
+                },
+                destination: nil,
+                onDismiss: { store.clearReceipt() }
+            )
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .accessibilityIdentifier("plan.day.receipt")
+        }
     }
 }

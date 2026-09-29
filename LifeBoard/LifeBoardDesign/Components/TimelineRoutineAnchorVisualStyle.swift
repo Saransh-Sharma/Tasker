@@ -63,7 +63,7 @@ struct TimelineRoutineAnchorVisualStyle: Equatable {
                 anchorID: anchorID,
                 variant: .evening,
                 assetName: "routine_evening_strip",
-                displayTitle: trimmed(title, fallback: "Wind Down"),
+                displayTitle: trimmed(title, fallback: "Wind down"),
                 fallbackSubtitle: trimmed(subtitle, fallback: "Close the day")
             )
         default:

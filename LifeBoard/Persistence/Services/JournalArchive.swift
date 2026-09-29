@@ -103,11 +103,11 @@ public enum JournalArchiveError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .unsupportedSchema(let version):
-            return "This backup uses unsupported schema version \(version)."
+            return String(localized: "Couldn’t read this backup version (\(version)).")
         case .integrityMismatch:
-            return "The backup failed its integrity check."
+            return String(localized: "This backup is damaged.")
         case .invalidArchive:
-            return "This file is not a valid journal archive."
+            return String(localized: "This isn’t a journal backup.")
         }
     }
 }

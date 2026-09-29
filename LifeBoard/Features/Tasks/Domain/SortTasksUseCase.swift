@@ -449,7 +449,7 @@ public final class SortTasksUseCase: @unchecked Sendable {
             let key: String
             switch criteria {
             case .project:
-                key = task.projectName ?? "No Project"
+                key = task.projectName ?? String(localized: "No project")
             case .category:
                 key = task.category.displayName
             case .priority:
@@ -461,21 +461,21 @@ public final class SortTasksUseCase: @unchecked Sendable {
             case .dueDate:
                 if let dueDate = task.dueDate {
                     if Calendar.current.isDateInToday(dueDate) {
-                        key = "Today"
+                        key = String(localized: "Today")
                     } else if Calendar.current.isDateInTomorrow(dueDate) {
-                        key = "Tomorrow"
+                        key = String(localized: "Tomorrow")
                     } else if dueDate < Date() {
-                        key = "Overdue"
+                        key = String(localized: "From earlier")
                     } else {
                         let formatter = DateFormatter()
                         formatter.dateStyle = .medium
                         key = formatter.string(from: dueDate)
                     }
                 } else {
-                    key = "No Due Date"
+                    key = String(localized: "No due date")
                 }
             case .completion:
-                key = task.isComplete ? "Completed" : "Incomplete"
+                key = task.isComplete ? String(localized: "Completed") : String(localized: "Open")
             }
             
             if groups[key] == nil {
@@ -583,11 +583,11 @@ public enum SortError: LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .sortingFailed(let message):
-            return "Sorting failed: \(message)"
+            return String(localized: "Couldn’t sort tasks. \(message)")
         case .invalidCriteria:
-            return "Invalid sorting criteria specified"
+            return String(localized: "Couldn’t sort tasks.")
         case .emptyTaskList:
-            return "Cannot sort an empty task list"
+            return String(localized: "No tasks to sort.")
         }
     }
 }

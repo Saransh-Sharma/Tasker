@@ -49,83 +49,47 @@ struct SnackbarAction: Equatable {
 
 // MARK: - Snackbar View
 
-/// Receipt-style confirmation surface. It stays above keyboard-safe content,
-/// announces its message once, and keeps Undo visible for the full receipt
-/// window. `Snackbar` remains as the compatibility wrapper used by
-/// existing feature views.
+/// Receipt-style confirmation surface, drawn by the shared `ReceiptBar`.
+///
+/// This was the last hand-rolled receipt: a callout-sized row with its own
+/// corner radius, no dismiss control, and actions in a fixed `HStack` that
+/// competed with the message at accessibility sizes. It now renders the one
+/// receipt silhouette the rest of the app uses. An "Undo" action becomes the
+/// bar's Undo (played with `Haptic.decline`), any other single action its
+/// destination. Only a message-only receipt still folds on its own.
 struct ReceiptToast: View {
     let data: SnackbarData
     let onDismiss: () -> Void
 
-    @State private var isVisible = false
-    @State private var dragOffset: CGFloat = 0
     @State private var autoDismissTask: Task<Void, Never>?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
-    private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
+    private var undoAction: SnackbarAction? {
+        data.actions.first { $0.title.caseInsensitiveCompare("Undo") == .orderedSame }
+    }
+
+    private var destinationAction: SnackbarAction? {
+        data.actions.first { $0.title.caseInsensitiveCompare("Undo") != .orderedSame }
+    }
 
     var body: some View {
-        HStack(spacing: spacing.s12) {
-            // Message
-            Text(data.message)
-                .font(.lifeboard(.callout))
-                .foregroundStyle(Color.lifeboard.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer()
-
-            // Action buttons
-            ForEach(data.actions, id: \.title) { action in
-                Button {
-                    HapticFeedback.selection()
+        ReceiptBar(
+            ActionReceiptPresentation(id: data.id, message: data.message),
+            undo: undoAction.map { action in
+                {
                     action.action()
-                    dismissSnackbar()
-                } label: {
-                    Text(action.title)
-                        .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundStyle(Color.lifeboard.accentPrimary)
-                        .frame(minHeight: 44)
+                    dismiss()
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("lifeboard.snackbar.action.\(action.title.lowercased().replacingOccurrences(of: " ", with: "_"))")
-            }
-        }
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s12)
-        .background(
-            RoundedRectangle(cornerRadius: corner.r3)
-                .fill(Color.lifeboard.surfacePrimary)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: corner.r3)
-                .stroke(Color.lifeboard.strokeHairline, lineWidth: 0.5)
-        )
-        .padding(.horizontal, spacing.s16)
-        .offset(y: isVisible ? dragOffset : 100)
-        .opacity(isVisible ? 1 : 0)
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    if value.translation.height > 0 {
-                        dragOffset = value.translation.height
-                    }
+            },
+            destination: destinationAction.map { action in
+                ReceiptBar.Destination(title: action.title) {
+                    action.action()
+                    dismiss()
                 }
-                .onEnded { value in
-                    if value.translation.height > 40 {
-                        dismissSnackbar()
-                    } else {
-                        withAnimation(reduceMotion ? nil : LifeBoardAnimation.roleLocalState) {
-                            dragOffset = 0
-                        }
-                    }
-                }
+            },
+            onDismiss: dismiss
         )
+        .padding(.horizontal, 16)
         .onAppear {
-            withAnimation(reduceMotion ? nil : LifeBoardAnimation.roleRoute) {
-                isVisible = true
-            }
             UIAccessibility.post(notification: .announcement, argument: data.message)
             autoDismissTask?.cancel()
             // Zero means "stays until dismissed" — see `SnackbarData.init`.
@@ -133,26 +97,18 @@ struct ReceiptToast: View {
                 autoDismissTask = Task { @MainActor in
                     try? await Task.sleep(for: .seconds(data.autoDismissSeconds))
                     guard Task.isCancelled == false else { return }
-                    dismissSnackbar()
+                    dismiss()
                 }
             }
         }
         .onDisappear { autoDismissTask?.cancel() }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("lifeboard.snackbar")
     }
 
-    /// Executes dismissSnackbar.
-    private func dismissSnackbar() {
+    private func dismiss() {
         autoDismissTask?.cancel()
-        withAnimation(reduceMotion ? nil : LifeBoardAnimation.roleRoute) {
-            isVisible = false
-        }
-        Task { @MainActor in
-            if reduceMotion == false {
-                try? await Task.sleep(for: .milliseconds(360))
-            }
-            onDismiss()
-        }
+        onDismiss()
     }
 }
 
@@ -171,6 +127,7 @@ struct SnackbarModifier: ViewModifier {
     /// Executes body.
     @Binding var snackbar: SnackbarData?
     var bottomPadding: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         ZStack(alignment: .bottom) {
@@ -186,7 +143,7 @@ struct SnackbarModifier: ViewModifier {
                 .zIndex(100)
             }
         }
-        .animation(LifeBoardAnimation.stateChange, value: snackbar != nil)
+        .animation(InteractionMotion.sheetRise(reduceMotion: reduceMotion), value: snackbar?.id)
     }
 }
 

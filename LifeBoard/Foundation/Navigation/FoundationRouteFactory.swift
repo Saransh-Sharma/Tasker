@@ -96,6 +96,7 @@ extension FoundationShell {
                     lifeMomentRepository: lifeMomentRepository,
                     wellnessRepository: wellnessRepository,
                     initialLens: .history,
+                    onOpenRoute: { runtime.router.push($0, in: .track) },
                     onOpenHabitBoard: { runtime.router.push(.habitBoard, in: .track) },
                     onOpenHealth: { runtime.router.push(.health, in: .track) }
                 )
@@ -275,12 +276,14 @@ extension FoundationShell {
             LifeMomentsView(repository: lifeMomentRepository, initialFocus: focus)
         case .journalDay(let id):
             JournalDayRouteView(id: id, repository: phaseIIRepository)
+                .marksJournalContentVisible()
         case .journalSearch:
             JournalModuleView(
                 repository: phaseIIRepository,
                 initialSection: .library,
                 router: runtime.router
             )
+            .marksJournalContentVisible()
         case .weeklyReflection(let date):
             JournalModuleView(
                 repository: phaseIIRepository,
@@ -288,6 +291,7 @@ extension FoundationShell {
                 reflectionWeekDate: date,
                 router: runtime.router
             )
+            .marksJournalContentVisible()
         case .notesLibrary(let destination):
             KnowledgeModuleView(
                 repository: phaseIIRepository,
@@ -303,9 +307,14 @@ extension FoundationShell {
                     sessionID: id,
                     dependencies: planDependencies,
                     router: runtime.router,
-                    rescueRefreshGeneration: planRescueRefreshGeneration,
                     onOpenOverdueRescue: presentPlanOverdueRescue
                 )
+            } else {
+                PlanRollbackRouteView(router: runtime.router)
+            }
+        case .focusHistory:
+            if let planDependencies {
+                FocusHistoryRouteView(dependencies: planDependencies, router: runtime.router)
             } else {
                 PlanRollbackRouteView(router: runtime.router)
             }
@@ -320,7 +329,8 @@ extension FoundationShell {
                     date: date,
                     mode: .close,
                     dependencies: planDependencies,
-                    router: runtime.router
+                    router: runtime.router,
+                    journal: phaseIIRepository
                 )
                 .lifeBoardZoomDestination(sourceID: DayLoopTransition.close)
             } else {

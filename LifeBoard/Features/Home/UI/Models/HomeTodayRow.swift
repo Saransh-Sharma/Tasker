@@ -20,12 +20,12 @@ public enum HomeHorizonBucket: String, CaseIterable, Equatable, Hashable, Sendab
 
     public var title: String {
         switch self {
-        case .overdue: return "Overdue"
-        case .today: return "Today"
-        case .thisWeek: return "This week"
-        case .nextWeek: return "Next week"
-        case .later: return "Later"
-        case .someday: return "Someday"
+        case .overdue: return String(localized: "From earlier")
+        case .today: return String(localized: "Today")
+        case .thisWeek: return String(localized: "This week")
+        case .nextWeek: return String(localized: "Next week")
+        case .later: return String(localized: "Later")
+        case .someday: return String(localized: "Someday")
         }
     }
 
@@ -178,7 +178,7 @@ public struct HomeListSection: Equatable, Identifiable {
 
     public var title: String {
         guard isOverdueSection else { return anchor.title }
-        return "Overdue · \(anchor.title)"
+        return String(localized: "From earlier · \(anchor.title)")
     }
 
     public var showsHeader: Bool {
@@ -367,7 +367,11 @@ public struct LifeAreaLensHeader: Equatable, Sendable {
         var parts: [String] = [lifeAreaName]
         parts.append(openCount == 0 ? "all caught up" : "\(openCount) open")
         if let due = nextDueDate {
-            parts.append("next due \(Self.relativeDueText(due, referenceDate: referenceDate, calendar: calendar))")
+            if calendar.startOfDay(for: due) < calendar.startOfDay(for: referenceDate) {
+                parts.append(String(localized: "from earlier"))
+            } else {
+                parts.append(String(localized: "next due \(Self.relativeDueText(due, referenceDate: referenceDate, calendar: calendar))"))
+            }
         }
         return parts.joined(separator: " · ")
     }
@@ -376,9 +380,9 @@ public struct LifeAreaLensHeader: Equatable, Sendable {
         let startOfToday = calendar.startOfDay(for: referenceDate)
         let startOfDue = calendar.startOfDay(for: due)
         let days = calendar.dateComponents([.day], from: startOfToday, to: startOfDue).day ?? 0
-        if days < 0 { return "overdue" }
-        if days == 0 { return "today" }
-        if days == 1 { return "tomorrow" }
+        if days < 0 { return String(localized: "earlier") }
+        if days == 0 { return String(localized: "today") }
+        if days == 1 { return String(localized: "tomorrow") }
         if days < 7 {
             let formatter = DateFormatter()
             formatter.calendar = calendar

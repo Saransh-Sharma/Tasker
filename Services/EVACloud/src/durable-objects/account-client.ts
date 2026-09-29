@@ -1,5 +1,6 @@
 import type { EvaConsentPolicy, EvaCreditState, EvaQuotaStateV1 } from '@lifeboard/eva-contracts'
 import type { Env, SessionPrincipal } from '../environment.js'
+import type { EvaTrustPolicy } from '../config/runtime-config.js'
 import { durableJson, durableObjectStub } from './helpers.js'
 import type { AccountAuthorization, EvaDeviceState } from './account-model.js'
 
@@ -10,7 +11,7 @@ export function accountStub(env: Env, accountId: string): DurableObjectStub {
 export function authorizeAccount(
   env: Env,
   principal: SessionPrincipal,
-  options: { requireAdult?: boolean; requireAttestation?: boolean; allowAgeManagement?: boolean } = {},
+  trustPolicy: EvaTrustPolicy,
 ): Promise<AccountAuthorization> {
   return durableJson(accountStub(env, principal.accountId), '/authorize', {
     method: 'POST',
@@ -18,9 +19,7 @@ export function authorizeAccount(
       familyId: principal.sessionFamilyId,
       installationId: principal.installationId,
       platform: principal.platform,
-      requireAdult: options.requireAdult ?? false,
-      requireAttestation: options.requireAttestation ?? false,
-      allowAgeManagement: options.allowAgeManagement ?? false,
+      trustPolicy,
     }),
   })
 }

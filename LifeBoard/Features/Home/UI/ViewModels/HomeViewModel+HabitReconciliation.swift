@@ -173,9 +173,9 @@ extension HomeViewModel {
         let mode: RescueTailMode = rows.count <= 3 ? .compact : .expanded
         let subtitle: String
         if rows.count == 1 {
-            subtitle = "1 task is 2+ weeks overdue"
+            subtitle = String(localized: "1 task, 2+ weeks old")
         } else {
-            subtitle = "\(rows.count) tasks are 2+ weeks overdue"
+            subtitle = String(localized: "\(rows.count) tasks, 2+ weeks old")
         }
 
         return [

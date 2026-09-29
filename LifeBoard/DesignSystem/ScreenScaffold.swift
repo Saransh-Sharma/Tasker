@@ -39,10 +39,15 @@ public enum ScreenMode: String, CaseIterable, Hashable, Sendable {
     /// These were 920 / 720 / 860 — three numbers, none of which appeared
     /// anywhere else in the codebase and none of which was either contract
     /// value. `680` and `1080` did not occur in the project at all.
+    ///
+    /// `.ambient` (the five roots) was `nil`, so on a 13" iPad or a wide Mac
+    /// window the root dashboards ran edge to edge — phone cards stretched to
+    /// ~1300 points. The atmosphere behind them is a sibling of the capped
+    /// content and still bleeds to the edges.
     var defaultReadableWidth: CGFloat? {
         switch self {
         case .ambient:
-            nil
+            1080
         case .detail:
             1080
         case .editor:
@@ -129,18 +134,6 @@ public struct AppRootHeader: View {
         self.contextAccessory = contextAccessory
     }
 
-    private var primaryInk: Color {
-        usesInverseInk
-            ? Color(SemanticColorTokens.foundationOnScenicDark)
-            : Color(SemanticColorTokens.inkPrimary)
-    }
-
-    private var secondaryInk: Color {
-        usesInverseInk
-            ? Color(SemanticColorTokens.foundationOnScenicDarkSecondary)
-            : Color(SemanticColorTokens.inkSecondary)
-    }
-
     public var body: some View {
         let usesAccessibilityLayout = dynamicTypeSize.isAccessibilitySize
         let layout = usesAccessibilityLayout
@@ -198,11 +191,18 @@ public struct AppRootHeader: View {
                         Button(action: onCapture) {
                             Image(systemName: captureExpanded ? "xmark" : "plus")
                                 .contentTransition(.symbolEffect(.replace))
-                                .font(.system(size: 17, weight: .semibold))
+                                // Scales with Dynamic Type up to the point the
+                                // glyph would crowd its 44pt glass button.
+                                .font(.body.weight(.semibold))
+                                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                                 .frame(width: 44, height: 44)
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(primaryInk)
+                        // Same ground as the "More" control beside it: a
+                        // surface backing under the glass, so the glyph reads
+                        // when the sun or moon sits behind the header controls.
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                        .background(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.72), in: Circle())
                         .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
                         .lifeBoardGlassIdentity(.capture)
                         .accessibilityLabel(captureExpanded ? "Close capture" : "Capture")
@@ -217,6 +217,27 @@ public struct AppRootHeader: View {
         }
         .frame(minHeight: 52)
         .accessibilityElement(children: .contain)
+    }
+}
+
+// The header's ink, kept apart from the view body.
+extension AppRootHeader {
+    private var primaryInk: Color {
+        usesInverseInk
+            ? Color(SemanticColorTokens.foundationOnScenicDark)
+            : Color(SemanticColorTokens.inkPrimary)
+    }
+
+    /// The context line sits straight on the daypart scene, never on a card.
+    /// `inkSecondary` measured 2.6:1 on the twilight sky in light appearance
+    /// and 4.1:1 on the veiled morning and golden-hour scenes in dark — the sky
+    /// moves through mid-tones a grey ink has no headroom for. Primary ink
+    /// clears 6:1 on every phase; the title keeps the hierarchy through size
+    /// and weight.
+    private var secondaryInk: Color {
+        usesInverseInk
+            ? Color(SemanticColorTokens.foundationOnScenicDarkSecondary)
+            : Color(SemanticColorTokens.inkPrimary)
     }
 }
 
@@ -408,38 +429,5 @@ public struct ScreenScaffold<Content: View>: View {
     private var resolvedReadableWidth: CGFloat? {
         guard layoutClass.isPad else { return nil }
         return readableWidth ?? mode.defaultReadableWidth
-    }
-}
-
-/// Canonical wrapper for LifeBoard-owned sheets and covers. Apple-owned
-/// controllers remain native and are intentionally exempt.
-public struct PresentationScaffold<Content: View>: View {
-    public let mode: ScreenMode
-    public let readableWidth: CGFloat?
-    private let content: Content
-
-    public init(
-        mode: ScreenMode,
-        readableWidth: CGFloat? = nil,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.mode = mode
-        self.readableWidth = readableWidth
-        self.content = content()
-    }
-
-    public var body: some View {
-        ScreenScaffold(
-            mode: mode,
-            placement: .focusedPresentation,
-            bottomClearance: mode == .editor ? 8 : 0,
-            readableWidth: readableWidth
-        ) {
-            content
-                .scrollDismissesKeyboard(.interactively)
-        }
-        .presentationBackground(Color.lifeboard(.bgElevated))
-        .presentationCornerRadius(mode == .critical ? 24 : 30)
-        .presentationDragIndicator(mode == .critical ? .hidden : .visible)
     }
 }

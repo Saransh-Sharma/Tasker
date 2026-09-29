@@ -27,7 +27,7 @@ struct PlanCanvasCommitmentCard: View {
             Text(
                 compact
                     ? PlanSectionCopy.time(commitment.startAt)
-                    : "\(PlanSectionCopy.time(commitment.startAt))–\(PlanSectionCopy.time(commitment.endAt)) · read-only"
+                    : "\(PlanSectionCopy.time(commitment.startAt))–\(PlanSectionCopy.time(commitment.endAt)) · from Calendar"
             )
             .font(.caption2).lineLimit(1)
         }
@@ -42,10 +42,10 @@ struct PlanCanvasCommitmentCard: View {
             conflict
                 ? Color(SemanticColorTokens.foundationApricotAccent).opacity(0.20)
                 : Color(SemanticColorTokens.foundationSurfaceRecessed),
-            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
         )
-        .overlay { RoundedRectangle(cornerRadius: 10).stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1) }
+        .overlay { RoundedRectangle(cornerRadius: Radius.field, style: .continuous).stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1) }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(commitment.title), \(PlanSectionCopy.time(commitment.startAt)) to \(PlanSectionCopy.time(commitment.endAt))\(conflict ? ", conflicts with another item" : "")")
+        .accessibilityLabel("\(commitment.title), \(PlanSectionCopy.time(commitment.startAt)) to \(PlanSectionCopy.time(commitment.endAt))\(conflict ? ", overlaps another event" : "")")
     }
 }

@@ -65,9 +65,9 @@ public enum FilterProjectsError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .repositoryError(let error):
-            return "Repository error: \(error.localizedDescription)"
+            return String(localized: "Couldn’t load projects. \(error.localizedDescription)")
         case .invalidCriteria:
-            return "Invalid filter criteria"
+            return String(localized: "Couldn’t filter projects.")
         }
     }
 }

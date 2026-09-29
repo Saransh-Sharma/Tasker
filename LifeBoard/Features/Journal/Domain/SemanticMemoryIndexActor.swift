@@ -56,7 +56,7 @@ public actor SemanticMemoryIndexActor {
 
     public func rebuildAll(records: [IndexableEntry], progress: @Sendable @escaping (SemanticIndexProgress) async -> Void) async throws -> MemoryIndexSnapshot {
         try Task.checkCancellation()
-        await progress(SemanticIndexProgress(progress: 0, message: "Building semantic memory..."))
+        await progress(SemanticIndexProgress(progress: 0, message: "Preparing search…"))
         guard !records.isEmpty else {
             try store.deleteAll()
             chunks = []
@@ -85,7 +85,7 @@ public actor SemanticMemoryIndexActor {
                 try await Task.sleep(nanoseconds: 1_000_000_000)
             }
             if shouldPauseForSystemConditions {
-                await progress(SemanticIndexProgress(progress: Double(entryIndex) / Double(total), message: "Semantic memory paused to save power."))
+                await progress(SemanticIndexProgress(progress: Double(entryIndex) / Double(total), message: "Search paused to save power."))
                 try await Task.sleep(nanoseconds: 800_000_000)
             }
 
@@ -93,7 +93,7 @@ public actor SemanticMemoryIndexActor {
             builtChunks.append(contentsOf: entryChunks)
             textByChunkID.merge(entryTexts) { _, new in new }
 
-            await progress(SemanticIndexProgress(progress: Double(entryIndex + 1) / Double(total), message: "Indexed \(entryIndex + 1) of \(records.count) entries..."))
+            await progress(SemanticIndexProgress(progress: Double(entryIndex + 1) / Double(total), message: "Preparing search: \(entryIndex + 1) of \(records.count)…"))
         }
 
         try store.replaceAll(chunks: builtChunks, textByChunkID: textByChunkID)
@@ -132,7 +132,7 @@ public actor SemanticMemoryIndexActor {
     public func search(query: String, records: [IndexableEntry], limit: Int) async -> SemanticMemorySearchResult {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .ready([]) }
-        guard !chunks.isEmpty else { return .unavailable("Semantic memory is not indexed yet.") }
+        guard !chunks.isEmpty else { return .unavailable("Search isn’t ready yet.") }
 
         let provider = providerForCurrentIndex()
         let language = NLLanguageRecognizer.dominantLanguage(for: trimmed)

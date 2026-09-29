@@ -28,7 +28,7 @@ struct MakeItFitTodayView: View {
 
     var body: some View {
         EvaRitualShell(
-            title: "Make It Fit Today",
+            title: String(localized: "Make today fit"),
             orientation: orientation,
             evidence: evidence,
             onOpenEvidence: { reference in onOpenTask(reference.recordID) },
@@ -41,10 +41,12 @@ struct MakeItFitTodayView: View {
 
     private var orientation: String {
         switch phase {
-        case .evidence, .choosing, .previewing: snapshot?.orientation ?? "Gathering the shape of today."
-        case .applying: "Applying only the changes you reviewed."
-        case .receipt: "Today fits the plan you chose."
-        case .failure: errorMessage ?? "The plan changed before it could be applied."
+        case .evidence, .choosing, .previewing: snapshot?.orientation ?? String(localized: "Loading\u{2026}")
+        case .applying: String(localized: "Moving tasks\u{2026}")
+        case .receipt: remainingOverload == 0 || appliedChangeCount == 0
+            ? String(localized: "Plan set.")
+            : String(localized: "Today is lighter.")
+        case .failure: errorMessage ?? String(localized: "Today changed. Check again.")
         }
     }
 
@@ -59,8 +61,8 @@ struct MakeItFitTodayView: View {
                     occurredAt: task.metadata.updatedAt
                 ),
                 reason: task.estimatedDuration.map {
-                    "Planned for today · \(CommitmentRealismSnapshot.duration(Int($0 / 60)))"
-                } ?? "Planned for today · size unknown",
+                    String(localized: "Planned for today · \(LifeBoardDuration.text(minutes: Int($0 / 60)))")
+                } ?? String(localized: "Planned for today · no estimate"),
                 signalKey: task.estimatedDuration == nil ? "missing_estimate" : "planned_today"
             )
         }
@@ -76,26 +78,26 @@ struct MakeItFitTodayView: View {
         case .previewing:
             previewContent
         case .applying:
-            StatusSurface(state: .loading, title: "Making room", message: "Rechecking the day and writing one reversible planning receipt.")
+            StatusSurface(state: .loading, title: String(localized: "Moving tasks\u{2026}"), message: "")
         case .receipt:
             receiptContent
         case .failure:
             StatusSurface(
                 state: .recoverableError,
-                title: "Your plan is still safe",
-                message: errorMessage ?? "Nothing was changed.",
-                actionTitle: "Review again",
+                title: String(localized: "Couldn\u{2019}t change the plan"),
+                message: errorMessage ?? String(localized: "Nothing changed."),
+                actionTitle: String(localized: "Try again"),
                 action: { transition(to: .choosing) }
             )
         }
     }
 
     private var truthContent: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             EvaRitualSection(
-                eyebrow: "See the truth",
-                title: "Fixed first. Flexible second.",
-                message: "Calendar commitments are read-only here. EVA only helps renegotiate the work around them."
+                eyebrow: String(localized: "Today"),
+                title: String(localized: "Fixed and flexible"),
+                message: String(localized: "Events stay put. Tasks can move.")
             ) {
                 if let snapshot {
                     MakeItFitCapacityRibbon(snapshot: snapshot, remainingOverload: snapshot.overloadMinutes)
@@ -103,17 +105,17 @@ struct MakeItFitTodayView: View {
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Image(systemName: "lock.fill")
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(commitment.title).font(.subheadline.weight(.medium))
+                                Text(commitment.title).lifeboardFont(.bodyStrong)
                                 Text(commitmentTime(commitment))
-                                    .font(.caption)
+                                    .lifeboardFont(.caption1)
                                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                         }
                         .accessibilityElement(children: .combine)
                     }
                     if snapshot.fixedCommitments.isEmpty {
-                        Text("No fixed commitments are claiming the working window.")
-                            .font(.subheadline)
+                        Text("No events today")
+                            .lifeboardFont(.support)
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                 }
@@ -122,15 +124,15 @@ struct MakeItFitTodayView: View {
     }
 
     private var choiceContent: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             EvaRitualSection(
-                eyebrow: "Protect one anchor",
-                title: "If one meaningful thing moves, which is it?",
-                message: "EVA used your existing focus ranking. You stay in charge."
+                eyebrow: String(localized: "Anchor"),
+                title: String(localized: "Most important task"),
+                message: String(localized: "Suggested from what you usually do first.")
             ) {
                 if let snapshot {
                     Picker("Anchor task", selection: $anchorTaskID) {
-                        Text("No anchor").tag(UUID?.none)
+                        Text("None").tag(UUID?.none)
                         ForEach(snapshot.flexibleTasks) { task in
                             Text(task.title).tag(Optional(task.id))
                         }
@@ -144,9 +146,9 @@ struct MakeItFitTodayView: View {
             }
 
             EvaRitualSection(
-                eyebrow: "Make room",
-                title: "Give flexible work an honest home",
-                message: "Deadlines stay untouched. Unknown-size work is shown as risk, never counted as free."
+                eyebrow: String(localized: "The rest"),
+                title: String(localized: "Move the rest"),
+                message: String(localized: "Deadlines stay. Tasks with no estimate don\u{2019}t count.")
             ) {
                 if let snapshot {
                     ForEach(snapshot.flexibleTasks) { task in
@@ -173,9 +175,9 @@ struct MakeItFitTodayView: View {
 
     private var previewContent: some View {
         EvaRitualSection(
-            eyebrow: "Review",
-            title: remainingOverload == 0 ? "The known work now fits" : "\(CommitmentRealismSnapshot.duration(remainingOverload)) still needs room",
-            message: "No deadlines or calendar commitments will change."
+            eyebrow: String(localized: "Changes"),
+            title: remainingOverload == 0 ? String(localized: "Everything fits") : String(localized: "\(LifeBoardDuration.text(minutes: remainingOverload)) over"),
+            message: String(localized: "Deadlines and events don\u{2019}t change.")
         ) {
             if let snapshot {
                 MakeItFitCapacityRibbon(snapshot: snapshot, remainingOverload: remainingOverload)
@@ -184,38 +186,40 @@ struct MakeItFitTodayView: View {
                         Text(task.title).lineLimit(2)
                         Spacer()
                         Text(destination.displayTitle)
-                            .font(.caption.weight(.semibold))
+                            .lifeboardFont(.caption1)
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                 }
                 if changedTasks.isEmpty {
-                    Text("You kept the plan as it is. That is still an intentional decision.")
-                        .font(.subheadline)
+                    Text("Plan unchanged")
+                        .lifeboardFont(.support)
                 }
             }
         }
     }
 
+    /// Truthful: "Today fits" only when the moves really cleared the overload.
+    private var receiptTitle: String {
+        if appliedChangeCount == 0 { return String(localized: "Plan unchanged") }
+        if remainingOverload == 0 { return String(localized: "Today fits") }
+        return String(localized: "\(LifeBoardDuration.text(minutes: remainingOverload)) over")
+    }
+
     private var receiptContent: some View {
         EvaRitualSection(
-            eyebrow: "Done",
-            title: appliedChangeCount == 0 ? "Today stays as it is" : "Today fits",
+            eyebrow: String(localized: "Done"),
+            title: receiptTitle,
             message: appliedChangeCount == 0
-                ? "No planning changes were needed."
-                : "We changed the plan, not your deadlines."
+                ? nil
+                : String(localized: "Deadlines didn\u{2019}t change.")
         ) {
             if appliedChangeCount > 0 {
                 Label(receiptSummary, systemImage: "checkmark.seal.fill")
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                Text("One planning receipt · Undo available")
-                    .font(.caption)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            } else {
-                Label("Your existing plan was kept", systemImage: "checkmark.circle")
             }
             if let undoError {
                 Text(undoError)
-                    .font(.caption)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(Color.lifeboard.statusWarning)
                     .accessibilityLabel("Undo error: \(undoError)")
             }
@@ -226,21 +230,29 @@ struct MakeItFitTodayView: View {
     private var footer: some View {
         switch phase {
         case .evidence:
-            PrimaryButton(title: "Choose what stays", systemImage: "arrow.right") {
+            PrimaryButton(title: String(localized: "Next"), systemImage: "arrow.right") {
                 transition(to: .choosing)
             }
             .frame(maxWidth: .infinity)
         case .choosing:
-            PrimaryButton(title: "Review the new shape", systemImage: "rectangle.and.text.magnifyingglass") {
-                transition(to: .previewing)
+            HStack(spacing: 12) {
+                backButton(to: .evidence)
+                PrimaryButton(title: String(localized: "Review changes"), systemImage: "rectangle.and.text.magnifyingglass") {
+                    transition(to: .previewing)
+                }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
         case .previewing:
-            PrimaryButton(
-                title: changedTasks.isEmpty ? "Keep today as it is" : "Apply \(changedTasks.count) changes",
-                systemImage: "checkmark"
-            ) { apply() }
-            .frame(maxWidth: .infinity)
+            HStack(spacing: 12) {
+                backButton(to: .choosing)
+                PrimaryButton(
+                    title: changedTasks.isEmpty
+                        ? String(localized: "Keep plan")
+                        : (changedTasks.count == 1 ? String(localized: "Move 1 task") : String(localized: "Move \(changedTasks.count) tasks")),
+                    systemImage: "checkmark"
+                ) { apply() }
+                .frame(maxWidth: .infinity)
+            }
         case .applying:
             ProgressView().frame(maxWidth: .infinity, minHeight: 48)
         case .receipt:
@@ -256,24 +268,26 @@ struct MakeItFitTodayView: View {
                                 }
                                 transition(to: .choosing)
                             } else {
-                                undoError = store.errorMessage ?? "Undo could not be completed. Your current plan is still visible."
+                                undoError = store.errorMessage ?? String(localized: "Couldn\u{2019}t undo.")
                             }
                         }
                     }
                     .frame(minWidth: 72, minHeight: 48)
                 }
-                PrimaryButton(title: "Today fits — start the next move", systemImage: "arrow.right") {
+                PrimaryButton(title: String(localized: "Start next task"), systemImage: "arrow.right") {
                     startNextMove()
                 }
             }
         case .failure:
-            PrimaryButton(title: "Review again", systemImage: "arrow.clockwise") {
+            PrimaryButton(title: String(localized: "Try again"), systemImage: "arrow.clockwise") {
                 transition(to: .choosing)
             }
             .frame(maxWidth: .infinity)
         }
     }
+}
 
+extension MakeItFitTodayView {
     private var remainingOverload: Int {
         guard let snapshot else { return 0 }
         return CommitmentRealismEngine.remainingOverloadMinutes(snapshot: snapshot, choices: choices)
@@ -288,9 +302,22 @@ struct MakeItFitTodayView: View {
     }
 
     private func transition(to next: MakeItFitPhase) {
-        if reduceMotion { phase = next }
-        else { withAnimation(.easeInOut(duration: 0.24)) { phase = next } }
+        withAnimation(MotionProfile.route.animation(reduceMotion: reduceMotion)) { phase = next }
         persistDraft()
+    }
+
+    /// Steps go back as well as forward; choices made so far are kept.
+    private func backButton(to previous: MakeItFitPhase) -> some View {
+        Button {
+            Haptic.pick.play()
+            transition(to: previous)
+        } label: {
+            Label("Back", systemImage: "chevron.left")
+                .lifeboardFont(.button)
+                .frame(minWidth: 44, minHeight: 48)
+        }
+        .buttonStyle(.lifeBoardChip)
+        .accessibilityIdentifier("eva.makeItFit.back")
     }
 
     private func apply() {
@@ -300,7 +327,7 @@ struct MakeItFitTodayView: View {
             return
         }
         guard let expectedSnapshot = snapshot else {
-            errorMessage = "Today could not be rechecked. Nothing was changed."
+            errorMessage = String(localized: "Couldn\u{2019}t check today. Nothing changed.")
             transition(to: .failure)
             return
         }
@@ -309,7 +336,7 @@ struct MakeItFitTodayView: View {
             switch await store.applyMakeItFit(choices: choices, expectedSnapshot: expectedSnapshot) {
             case .applied(let changedCount):
                 appliedChangeCount = changedCount
-                HapticFeedback.light()
+                Haptic.commit.play()
                 transition(to: .receipt)
             case .noChanges:
                 appliedChangeCount = 0
@@ -317,7 +344,7 @@ struct MakeItFitTodayView: View {
             case .stale(let refreshed):
                 ritualSnapshot = refreshed
                 reconcileChoices(with: refreshed)
-                errorMessage = "Today changed while this ritual was open. The preview has been refreshed; review it once more."
+                errorMessage = String(localized: "Today changed. Check the moves again.")
                 transition(to: .failure)
             case .failed(let message):
                 errorMessage = message
@@ -375,7 +402,7 @@ struct MakeItFitTodayView: View {
     private func saveEstimate(_ minutes: Int, for taskID: UUID) async -> Bool {
         guard await store.updateTaskEstimate(taskID: taskID, minutes: minutes),
               let refreshed = store.daySnapshot.map(CommitmentRealismEngine.snapshot) else {
-            errorMessage = store.errorMessage ?? "The estimate could not be saved."
+            errorMessage = store.errorMessage ?? String(localized: "Couldn\u{2019}t save the estimate.")
             return false
         }
         ritualSnapshot = refreshed
@@ -415,10 +442,10 @@ struct MakeItFitTodayView: View {
         let released = choices.values.filter { $0 == .someday }.count
         let inbox = choices.values.filter { $0 == .inbox }.count
         return [
-            moved > 0 ? "\(moved) to tomorrow" : nil,
-            later > 0 ? "\(later) to Later" : nil,
-            released > 0 ? "\(released) to Someday" : nil,
-            inbox > 0 ? "\(inbox) to Inbox" : nil
+            moved > 0 ? String(localized: "\(moved) to Tomorrow") : nil,
+            later > 0 ? String(localized: "\(later) to Later") : nil,
+            released > 0 ? String(localized: "\(released) to Someday") : nil,
+            inbox > 0 ? String(localized: "\(inbox) to Inbox") : nil
         ].compactMap { $0 }.joined(separator: " · ")
     }
 
@@ -446,11 +473,11 @@ private struct MakeItFitCapacityRibbon: View {
                 }
             }
             .frame(height: 16)
-            Text(remainingOverload > 0 ? "\(CommitmentRealismSnapshot.duration(remainingOverload)) over known capacity" : "Known work fits")
-                .font(.caption.weight(.medium))
+            Text(remainingOverload > 0 ? String(localized: "\(LifeBoardDuration.text(minutes: remainingOverload)) over") : String(localized: "Everything fits"))
+                .lifeboardFont(.caption1)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(remainingOverload > 0 ? "\(remainingOverload) minutes over known capacity" : "Known work fits today")
+        .accessibilityLabel(remainingOverload > 0 ? String(localized: "\(LifeBoardDuration.text(minutes: remainingOverload)) over today") : String(localized: "Everything fits today"))
     }
 }
 
@@ -468,28 +495,33 @@ private struct MakeItFitTaskChoiceRow: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(task.title).font(.subheadline.weight(.semibold))
-                    Text(task.estimatedDuration.map { CommitmentRealismSnapshot.duration(Int($0 / 60)) } ?? "Unknown size · not treated as free")
-                        .font(.caption)
+                    Text(task.title).lifeboardFont(.bodyStrong)
+                    Text(task.estimatedDuration.map { LifeBoardDuration.text(minutes: Int($0 / 60)) } ?? String(localized: "No estimate"))
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer()
-                if isAnchor { Image(systemName: "pin.fill").accessibilityLabel("Protected anchor") }
+                if isAnchor { Image(systemName: "pin.fill").accessibilityLabel("Anchor") }
             }
-            Picker("Home for \(task.title)", selection: $selection) {
+            Picker("Destination for \(task.title)", selection: $selection) {
                 ForEach(MakeItFitDestination.allCases, id: \.self) { destination in
                     Text(destination.displayTitle).tag(destination)
                 }
             }
             .pickerStyle(.menu)
             .disabled(isAnchor)
-            .accessibilityHint(isAnchor ? "This task is protected as today's anchor" : "Choose where this task belongs")
+            .accessibilityHint(isAnchor ? "Anchor stays today" : "Choose where it goes")
             if task.estimatedDuration == nil {
                 if isEditingEstimate {
                     HStack(spacing: 12) {
-                        TextField("Minutes", text: $estimateText)
-                            .keyboardType(.numberPad)
-                            .textFieldStyle(.roundedBorder)
+                        TextField("Minutes", text: $estimateText, prompt: Text("Minutes").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
+                            .padKeyboard(.numberPad)
+                            .textFieldStyle(.plain)
+                            // Clay well, not the system rounded border: that drew a pure white
+                            // box on warm paper and a pure black one in dark appearance.
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 44)
+                            .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
                             .accessibilityLabel("Estimate in minutes for \(task.title)")
                         Button(isSavingEstimate ? "Saving…" : "Save") { saveEstimate() }
                             .buttonStyle(.lifeBoardChip)
@@ -497,17 +529,17 @@ private struct MakeItFitTaskChoiceRow: View {
                     }
                     if let estimateError {
                         Text(estimateError)
-                            .font(.caption)
+                            .lifeboardFont(.caption1)
                             .foregroundStyle(Color.lifeboard.statusWarning)
                             .accessibilityLabel("Estimate error: \(estimateError)")
                     }
                 } else {
-                    Button("Add estimate here") {
+                    Button("Add estimate") {
                         estimateText = "30"
                         estimateError = nil
                         isEditingEstimate = true
                     }
-                    .font(.caption.weight(.semibold))
+                    .lifeboardFont(.caption1)
                     .frame(minHeight: 44)
                 }
             }
@@ -522,7 +554,7 @@ private struct MakeItFitTaskChoiceRow: View {
 
     private func saveEstimate() {
         guard let minutes = validEstimate else {
-            estimateError = "Use 5–1,440 minutes."
+            estimateError = String(localized: "Use 5–1,440 minutes.")
             return
         }
         isSavingEstimate = true
@@ -531,7 +563,7 @@ private struct MakeItFitTaskChoiceRow: View {
             if await onSaveEstimate(minutes) {
                 isEditingEstimate = false
             } else {
-                estimateError = "Could not save this estimate. Try again."
+                estimateError = String(localized: "Couldn\u{2019}t save estimate. Try again.")
             }
             isSavingEstimate = false
         }
@@ -539,13 +571,15 @@ private struct MakeItFitTaskChoiceRow: View {
 }
 
 private extension MakeItFitDestination {
+    /// The shared "where does this go" words where they map (DESIGN.md
+    /// contract 4); Later and Inbox are backlog places, not days.
     var displayTitle: String {
         switch self {
-        case .keepToday: "Keep today"
-        case .tomorrow: "Tomorrow"
-        case .later: "Later"
-        case .someday: "Someday"
-        case .inbox: "Inbox"
+        case .keepToday: DecisionDestination.today.title
+        case .tomorrow: DecisionDestination.tomorrow.title
+        case .later: String(localized: "Later")
+        case .someday: DecisionDestination.someday.title
+        case .inbox: String(localized: "Inbox")
         }
     }
 }

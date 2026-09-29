@@ -38,7 +38,7 @@ class SettingsPageViewController: UIViewController, CompositionRootAware {
 
         view.accessibilityIdentifier = "settings.view"
 
-        self.title = "Settings"
+        self.title = String(localized: "Settings")
         let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(doneTapped))
         doneButton.accessibilityIdentifier = "settings.doneButton"
         self.navigationItem.rightBarButtonItem = doneButton
@@ -181,7 +181,7 @@ class SettingsPageViewController: UIViewController, CompositionRootAware {
             .environment(llmEvaluator)
             .lifeBoardTokenEnvironment(for: currentLayoutClass)
         let vc = UIHostingController(rootView: view)
-        vc.title = "Chat Behavior"
+        vc.title = String(localized: "Chat behavior")
         self.navigationController?.pushViewController(vc, animated: true)
     }
 
@@ -191,7 +191,7 @@ class SettingsPageViewController: UIViewController, CompositionRootAware {
             .environment(llmEvaluator)
             .lifeBoardTokenEnvironment(for: currentLayoutClass)
         let vc = UIHostingController(rootView: view)
-        vc.title = "Models"
+        vc.title = String(localized: "Models")
         self.navigationController?.pushViewController(vc, animated: true)
     }
 
@@ -201,7 +201,7 @@ class SettingsPageViewController: UIViewController, CompositionRootAware {
             .environment(llmEvaluator)
             .lifeBoardTokenEnvironment(for: currentLayoutClass)
         let vc = UIHostingController(rootView: view)
-        vc.title = "AI Assistant"
+        vc.title = String(localized: "Eva")
         navigationController?.pushViewController(vc, animated: true)
     }
 
@@ -214,7 +214,7 @@ class SettingsPageViewController: UIViewController, CompositionRootAware {
         let view = ProjectManagementView(viewModel: viewModel)
             .lifeBoardTokenEnvironment(for: currentLayoutClass)
         let controller = UIHostingController(rootView: view)
-        controller.title = "Projects"
+        controller.title = String(localized: "Projects")
         navigationController?.pushViewController(controller, animated: true)
     }
 
@@ -227,7 +227,7 @@ class SettingsPageViewController: UIViewController, CompositionRootAware {
         let view = LifeManagementView(viewModel: viewModel)
             .lifeBoardTokenEnvironment(for: currentLayoutClass)
         let controller = UIHostingController(rootView: view)
-        controller.title = "Life Management"
+        controller.title = String(localized: "Life management")
         navigationController?.pushViewController(controller, animated: true)
     }
 

@@ -259,9 +259,9 @@ public enum AssistantDropDestination: String, Codable, Equatable, Hashable, Send
 
     public var displayLabel: String {
         switch self {
-        case .inbox: "Inbox"
-        case .later: "Later"
-        case .someday: "Someday"
+        case .inbox: String(localized: "Inbox")
+        case .later: String(localized: "Later")
+        case .someday: String(localized: "Someday")
         }
     }
 }

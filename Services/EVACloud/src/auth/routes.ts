@@ -24,7 +24,7 @@ import { verifyCatalystAppTransaction } from './app-transaction.js'
 import { requireSession } from './middleware.js'
 import { accessTokenExpiresAt, issueAccessToken, newRefreshToken, refreshTokenGeneration } from './session.js'
 import { recordTelemetry } from '../telemetry/events.js'
-import { requiresAgeDecision, runtimeConfig } from '../config/runtime-config.js'
+import { defaultTrustPolicy, runtimeConfig, type EvaTrustPolicy } from '../config/runtime-config.js'
 import { markDeviceCheckGuestBootstrap, queryDeviceCheckRisk } from '../attestation/device-check.js'
 import { guestRolloutBucket } from './guest-rollout.js'
 
@@ -33,6 +33,16 @@ const ChallengeRequestSchema = Type.Object({
 }, { additionalProperties: false })
 
 export const authRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>()
+
+function legacyTrustRequirements(policy: EvaTrustPolicy): {
+  requiresAdultEligibility: boolean
+  requiresAttestation: boolean
+} {
+  return {
+    requiresAdultEligibility: policy.ageEligibilitySource === 'serviceManaged',
+    requiresAttestation: policy.attestationMode === 'required',
+  }
+}
 
 authRoutes.post('/guest/bootstrap', async (context) => {
   const config = await runtimeConfig(context.env)
@@ -122,8 +132,7 @@ authRoutes.post('/guest/bootstrap', async (context) => {
     accessTokenExpiresAt: accessTokenExpiresAt(),
     refreshToken: refresh.token,
     refreshTokenExpiresAt: new Date(refresh.expiresAt).toISOString(),
-    requiresAdultEligibility: requiresAgeDecision(config),
-    requiresAttestation: false,
+    ...legacyTrustRequirements(config.trustPolicy),
     created: bootstrap.created,
     quota: bootstrap.quota,
     credits: bootstrap.credits,
@@ -159,6 +168,7 @@ authRoutes.post('/challenge', async (context) => {
 })
 
 authRoutes.post('/apple/exchange', async (context) => {
+  const config = await runtimeConfig(context.env)
   const body = await readJson<EvaAppleExchangeRequestV1>(context.req.raw, EvaAppleExchangeRequestV1Schema)
   const challenge = authChallengeStub(context.env, body.challengeId)
   try {
@@ -273,8 +283,7 @@ authRoutes.post('/apple/exchange', async (context) => {
     refreshToken: refresh.token,
     refreshTokenExpiresAt: new Date(refresh.expiresAt).toISOString(),
     identityKind: 'apple',
-    requiresAdultEligibility: requiresAgeDecision(await runtimeConfig(context.env)),
-    requiresAttestation: false,
+    ...legacyTrustRequirements(config.trustPolicy),
     created: bootstrap.created,
     trustTier: bootstrap.trustTier,
     requiresConsentReview: recoveredMerge.consent === undefined ? undefined : true,
@@ -290,11 +299,7 @@ authRoutes.post('/apple/reauthenticate', async (context) => {
   if (principal.identityKind !== 'apple') {
     throw new EvaHttpError(409, 'unauthenticated', 'Guest Cloud EVA does not require Apple reauthentication.')
   }
-  const session = await authorizeAccount(context.env, principal, {
-    requireAdult: false,
-    requireAttestation: false,
-    allowAgeManagement: true,
-  })
+  const session = await authorizeAccount(context.env, principal, defaultTrustPolicy)
   if (!session.authorized) throwAuthorizationFailure(session.reason)
 
   const body = await readJson<EvaAppleExchangeRequestV1>(context.req.raw, EvaAppleExchangeRequestV1Schema)
@@ -396,10 +401,7 @@ authRoutes.post('/apple/link', async (context) => {
       recoveryAction: 'wait', retryable: true,
     })
   }
-  const guestAuthorization = await authorizeAccount(context.env, guestPrincipal, {
-    requireAdult: requiresAgeDecision(config),
-    requireAttestation: false,
-  })
+  const guestAuthorization = await authorizeAccount(context.env, guestPrincipal, config.trustPolicy)
   if (!guestAuthorization.authorized) throwAuthorizationFailure(guestAuthorization.reason)
   const body = await readJson<EvaAppleExchangeRequestV1>(context.req.raw, EvaAppleExchangeRequestV1Schema)
   if (body.installationId !== guestPrincipal.installationId || body.platform !== guestPrincipal.platform) {
@@ -487,8 +489,7 @@ authRoutes.post('/apple/link', async (context) => {
       accessTokenExpiresAt: accessTokenExpiresAt(),
       refreshToken: refresh.token,
       refreshTokenExpiresAt: new Date(refresh.expiresAt).toISOString(),
-      requiresAdultEligibility: requiresAgeDecision(config),
-      requiresAttestation: false,
+      ...legacyTrustRequirements(config.trustPolicy),
       requiresConsentReview: true,
       quota: merged.quota,
       consent: merged.consent,
@@ -635,9 +636,7 @@ authRoutes.post('/refresh', async (context) => {
 authRoutes.use('/logout', requireSession)
 authRoutes.post('/logout', async (context) => {
   const principal = context.get('principal')
-  const authorization = await authorizeAccount(context.env, principal, {
-    requireAdult: false, requireAttestation: false, allowAgeManagement: true,
-  })
+  const authorization = await authorizeAccount(context.env, principal, defaultTrustPolicy)
   if (!authorization.authorized && authorization.reason !== 'session') {
     throwAuthorizationFailure(authorization.reason)
   }

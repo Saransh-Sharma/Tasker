@@ -22,7 +22,6 @@ struct JournalTextComposer: View {
     @State private var text: String
     @State private var committed = false
     @State private var commitPhase: LifeBoardComposerPhase = .idle
-    @State private var successTrigger = 0
 
     init(
         prompt: JournalPrompt,
@@ -39,8 +38,7 @@ struct JournalTextComposer: View {
 
     var body: some View {
         ComposerScaffold(
-            title: "Write",
-            subtitle: prompt.supportiveCopy,
+            title: String(localized: "Write"),
             titleDisplayMode: .inline,
             // Journal prose is the most obviously sensitive content in the
             // product and was rendering unredacted in the app switcher.
@@ -50,14 +48,13 @@ struct JournalTextComposer: View {
             JournalTextPromptSection(prompt: prompt, text: $text)
         } commit: {
             ComposerCommitBar(
-                title: "Save entry",
+                title: String(localized: "Save entry"),
                 phase: commitPhase,
                 isEnabled: text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
                 identifier: "journal.text.commit",
                 action: commit
             )
         }
-        .lifeboardCompletionBurst(trigger: successTrigger)
         .task(id: text) {
             do {
                 try await Task.sleep(for: .milliseconds(250))
@@ -82,11 +79,13 @@ struct JournalTextComposer: View {
                     // discard the draft on a failed save and lose the entry.
                     committed = true
                     commitPhase = .success(receipt: ComposerReceipt())
-                    successTrigger &+= 1
+                    // A saved entry can still be edited or deleted, so it
+                    // gets the commit haptic, not the completion burst.
+                    Haptic.commit.play()
                     dismiss()
                 } else {
                     commitPhase = .recoverableFailure(.init(
-                        message: "The entry could not be saved. Your draft is still here.",
+                        message: String(localized: "Couldn’t save entry. Your draft is kept."),
                         recovery: .retry
                     ))
                 }
@@ -101,15 +100,15 @@ private struct JournalTextPromptSection: View {
     @Binding var text: String
 
     var body: some View {
-        // The prompt title becomes the section header and its supportive copy
-        // the scaffold subtitle: prose on the canvas, the control on clay.
+        // The prompt title becomes the section header: prose on the canvas,
+        // the control on clay.
         ComposerSection(
             prompt.title,
-            footer: "Drafts are saved as you type and stay on this device."
+            footer: String(localized: "Drafts save as you type.")
         ) {
             ComposerField(
-                "Journal text",
-                prompt: "Write whatever is true right now",
+                String(localized: "Journal text"),
+                prompt: String(localized: "Start writing…"),
                 text: $text,
                 shape: .prose(lineLimit: 6...24),
                 identifier: "journal.text.body"
@@ -140,7 +139,6 @@ struct JournalAudioCapture: View {
     @State private var processingState: JournalMediaAttachment.ProcessingState = .ready
     @State private var didPersist = false
     @State private var commitPhase: LifeBoardComposerPhase = .idle
-    @State private var successTrigger = 0
 
     init(
         purpose: Purpose = .journal,
@@ -157,11 +155,11 @@ struct JournalAudioCapture: View {
 
     var body: some View {
         ComposerScaffold(
-            title: purpose == .search ? "Voice Search" : "Voice Journal",
+            title: purpose == .search ? String(localized: "Voice search") : String(localized: "Voice entry"),
             subtitle: purpose == .search
-                ? "The temporary recording is deleted after transcription. Journal content is searched only inside LifeBoard."
-                : "Audio is file-protected and stays on this device. Only its duration and optional transcription sync privately.",
-            cancelTitle: didPersist ? "Done" : "Cancel",
+                ? String(localized: "The recording is deleted after search.")
+                : String(localized: "Only the transcript syncs, not the audio."),
+            cancelTitle: didPersist ? String(localized: "Done") : String(localized: "Cancel"),
             titleDisplayMode: .inline,
             isPrivacySensitive: purpose == .journal,
             identifier: "journal.audio.composer",
@@ -197,22 +195,21 @@ struct JournalAudioCapture: View {
             }
         } commit: {
             ComposerCommitBar(
-                title: purpose == .search ? "Search journal" : "Save audio",
+                title: purpose == .search ? String(localized: "Search journal") : String(localized: "Save audio"),
                 phase: commitPhase,
                 isEnabled: capturedURL != nil && isTranscribing == false && didPersist == false,
                 identifier: "journal.audio.commit",
                 action: { Task { await save() } }
             )
         }
-        .lifeboardCompletionBurst(trigger: successTrigger)
-        .alert("About transcription", isPresented: $showsConsent) {
+        .alert("Transcribe audio?", isPresented: $showsConsent) {
             Button("Continue") {
                 UserDefaults.standard.set(true, forKey: "lifeboard.journal.speech_consent.v1")
                 transcribes = true
             }
             Button("Not now", role: .cancel) { transcribes = false }
         } message: {
-            Text("If you continue, Apple Speech may process this recording according to the system’s speech-recognition availability and privacy settings. You can keep audio without transcription.")
+            Text("Apple’s speech recognition may process this recording. You can keep audio without text.")
         }
     }
 
@@ -242,14 +239,14 @@ struct JournalAudioCapture: View {
                 // `.transcriptionFailed` sent the person to a manual-transcript
                 // recovery flow for a problem that had nothing to do with it.
                 commitPhase = .recoverableFailure(.init(
-                    message: "The recording is safe on this device but could not be filed.",
+                    message: String(localized: "Couldn’t save recording. It’s kept on this device."),
                     recovery: .retry
                 ))
                 return
             }
             didPersist = true
             commitPhase = .success(receipt: ComposerReceipt())
-            successTrigger &+= 1
+            Haptic.commit.play()
             guard transcribes else { dismiss(); return }
             await transcribeSavedAudio(capturedURL, path: path)
         } else {
@@ -349,10 +346,10 @@ private struct JournalAudioRecorderSection: View {
                 // A genuinely live state, so it carries the live signature only
                 // while something is actually happening.
                 LiveStatePill(
-                    label: recorder.isRecording ? "Recording" : "Microphone",
+                    label: recorder.isRecording ? String(localized: "Recording") : String(localized: "Microphone"),
                     value: recorder.isRecording
                         ? JournalAudioCapture.duration(recorder.duration)
-                        : (capturedURL == nil ? "Ready when you are" : "Recording ready"),
+                        : (capturedURL == nil ? String(localized: "Ready") : String(localized: "Recorded")),
                     symbol: "waveform",
                     isLive: recorder.isRecording,
                     accessibilityID: "journal.audio.live"
@@ -390,7 +387,7 @@ private struct JournalAudioTranscriptionSection: View {
         if isTranscribing || transcription != nil {
             ComposerSection("Transcript") {
                 if isTranscribing {
-                    ProgressView("Transcribing saved audio…")
+                    ProgressView("Transcribing…")
                         .lifeboardFont(.caption1)
                 }
                 if let transcription {
@@ -415,32 +412,32 @@ private struct JournalAudioRecoverySection: View {
 
     var body: some View {
         ComposerSection(
-            "Transcription didn't finish",
-            detail: "The recording itself is safe."
+            String(localized: "Couldn’t transcribe"),
+            detail: String(localized: "Your recording is kept.")
         ) {
             ComposerField(
-                "Transcription",
-                prompt: "Add transcription manually",
+                String(localized: "Transcript"),
+                prompt: String(localized: "Transcript"),
                 text: $manualTranscription,
                 shape: .prose(lineLimit: 2...6),
                 identifier: "journal.audio.manualTranscription"
             )
             HStack(spacing: 12) {
-                Button("Retry", action: onRetry)
+                Button("Try again", action: onRetry)
                     .buttonStyle(.lifeBoardChip)
                 Button(purpose == .search ? "Use text" : "Save text", action: onUseText)
                     .buttonStyle(.lifeBoardChip)
                     .disabled(manualTranscription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             if purpose == .journal {
-                Button("Keep audio without text", action: onKeepAudio)
+                Button("Keep audio only", action: onKeepAudio)
                     .buttonStyle(.lifeBoardChip)
                 DangerRow(
-                    "Discard recording",
+                    String(localized: "Discard recording"),
                     systemImage: "trash",
-                    confirmationTitle: "Discard this recording?",
-                    confirmationMessage: "The audio is deleted from this device and cannot be recovered.",
-                    confirmActionTitle: "Discard",
+                    confirmationTitle: String(localized: "Discard this recording?"),
+                    confirmationMessage: String(localized: "The audio will be deleted. This can’t be undone."),
+                    confirmActionTitle: String(localized: "Discard"),
                     identifier: "journal.audio.discard",
                     perform: onDiscard
                 )

@@ -7,14 +7,14 @@ enum HabitBoardPresentationBuilder {
     ) -> String {
         switch cadence {
         case .daily:
-            return "Every day"
+            return String(localized: "Every day")
         case .weekly(let daysOfWeek, _, _):
             let sortedDays = daysOfWeek.sorted()
             if sortedDays == [2, 3, 4, 5, 6] {
-                return "Mon-Fri"
+                return String(localized: "Weekdays")
             }
             if sortedDays == [1, 7] {
-                return "Weekends"
+                return String(localized: "Weekends")
             }
             let formatter = calendar.shortWeekdaySymbols
             let names = sortedDays.compactMap { weekday -> String? in
@@ -23,7 +23,7 @@ enum HabitBoardPresentationBuilder {
             }
             return names.joined(separator: " ")
         case .interval(let days, _, _):
-            return "Every \(max(1, days)) days"
+            return String(localized: "Every \(max(1, days)) days")
         }
     }
 

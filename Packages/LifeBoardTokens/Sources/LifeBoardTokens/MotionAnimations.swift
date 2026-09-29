@@ -23,17 +23,29 @@ public enum LifeBoardAnimation {
     }
 
     public static let celebrationDuration: TimeInterval = 0.54
+    /// First-generation name. New code: `MotionProfile.press.animation(reduceMotion:)`.
     public static let press: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.09)
+    /// First-generation name. New code: `MotionProfile.press` or `.selection`.
     public static let feedbackFast: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.14)
+    /// First-generation name. New code: `MotionProfile.localState`.
     public static let stateChange: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.22)
+    /// First-generation name. New code: `MotionProfile.contentInsertion` (or `.route` for a sheet).
     public static let panelIn: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.28)
+    /// First-generation name. New code: `MotionProfile.contentInsertion` (or `.route` for a sheet).
     public static let panelOut: Animation = .timingCurve(0.25, 1, 0.5, 1, duration: 0.22)
+    /// First-generation name. New code: `MotionProfile.controlMorph` or `.cardReflow`.
     public static let heroReveal: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.36)
+    /// Backs `MotionProfile.celebration`; call through the role in feature code.
     public static let celebration: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: celebrationDuration)
+    /// First-generation name. New code: `MotionProfile.route`.
     public static let gatewayReveal: Animation = .timingCurve(0.16, 1, 0.3, 1, duration: 0.38)
+    /// First-generation name. New code: `MotionProfile.contentInsertion`.
     public static let exit: Animation = panelOut
+    /// First-generation name. New code: `MotionProfile.controlMorph`.
     public static let ctaConfirmation: Animation = .timingCurve(0.25, 1, 0.5, 1, duration: 0.32)
+    /// First-generation name. New code: `MotionProfile.localState`.
     public static let numericUpdate: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.34)
+    /// First-generation name. New code: `MotionProfile.controlMorph`.
     public static let heroEmphasis: Animation = .timingCurve(0.16, 1, 0.3, 1, duration: 0.42)
 
     // UIKit parameters
@@ -48,8 +60,11 @@ public enum LifeBoardAnimation {
     public static let staggerInterval: Double = 0.04
 
     // Sunrise Glass motion spec (design doc lines 414-430)
+    /// First-generation name. New code: `MotionProfile.selection`.
     public static let chipSelection: Animation = .spring(response: 0.20, dampingFraction: 0.86)
+    /// First-generation name. New code: `MotionProfile.localState`.
     public static let dateChange: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.28)
+    /// First-generation name. New code: `MotionProfile.localState` or `InteractionMotion.ringSettle`.
     public static let habitFill: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.18)
 
     // The four semantic motion roles from the Life OS premium brief. Named by intent so surfaces
@@ -94,7 +109,9 @@ public enum LifeBoardAnimation {
 
     // Entrance stagger stops compounding past this index so long lists settle quickly.
     public static let entranceStaggerCap: Int = 6
+}
 
+extension LifeBoardAnimation {
     public static var isUITesting: Bool {
         ProcessInfo.processInfo.arguments.contains("-UI_TESTING")
     }
@@ -301,6 +318,7 @@ public struct BreathingPulse: ViewModifier {
     let duration: Double
     @State private var isPulsing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeBoardMotionContext) private var motionContext
 
     public init(min: Double = 0.7, max: Double = 1.0, duration: Double = 2.0) {
         self.minOpacity = min
@@ -308,14 +326,27 @@ public struct BreathingPulse: ViewModifier {
         self.duration = duration
     }
 
+    /// A repeating pulse is idle motion. `DESIGN.md` withdraws idle motion
+    /// under Calm, Low Power, thermal pressure and an inactive scene; this
+    /// loop used to check Reduce Motion alone and ran forever everywhere else.
+    private var isSuppressed: Bool {
+        LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion)
+            || motionContext.allowsSpatialMotion == false
+            || motionContext.comfortProfile == .calm
+    }
+
     public func body(content: Content) -> some View {
         content
-            .opacity(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? maxOpacity : (isPulsing ? maxOpacity : minOpacity))
+            .opacity(isSuppressed ? maxOpacity : (isPulsing ? maxOpacity : minOpacity))
             .onAppear {
-                guard LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false, minOpacity != maxOpacity else { return }
+                guard isSuppressed == false, minOpacity != maxOpacity else { return }
                 withAnimation(.easeInOut(duration: duration).repeatForever(autoreverses: true)) {
                     isPulsing = true
                 }
+            }
+            .onChange(of: isSuppressed) { _, suppressed in
+                guard suppressed else { return }
+                withAnimation(nil) { isPulsing = false }
             }
     }
 }
@@ -597,89 +628,19 @@ public enum HapticFeedback {
         UISelectionFeedbackGenerator().selectionChanged()
     }
 
+    /// Every legacy call site funnels through here, so honouring the motion
+    /// policy in this one place makes ~150 `HapticFeedback.x()` calls across
+    /// the app respect Low Power Mode immediately — the same rule `Haptic`
+    /// applies — without touching them. Prefer `Haptic` intents in new code.
     private static var isHapticFeedbackAvailable: Bool {
         #if targetEnvironment(macCatalyst)
         return false
         #else
-        return true
+        return MotionPolicy.resolve(
+            reduceMotion: false,
+            reduceTransparency: false,
+            sceneIsActive: true
+        ).allowsHaptics
         #endif
-    }
-}
-
-// MARK: - Liquid fill (ported wave surface)
-
-/// A sine-wave liquid surface. Mask it to any shape and drive `level`
-/// (0 = empty, 1 = full); the surface ripples gently via `TimelineView`
-/// unless Reduce Motion or Low Power renders it as a still fill.
-public struct LiquidWaveShape: Shape {
-    public var phase: CGFloat
-    public var level: CGFloat
-    public let amplitude: CGFloat
-    public let frequency: CGFloat
-
-    public var animatableData: AnimatablePair<CGFloat, CGFloat> {
-        get { AnimatablePair(phase, level) }
-        set {
-            phase = newValue.first
-            level = newValue.second
-        }
-    }
-
-    public init(phase: CGFloat, level: CGFloat, amplitude: CGFloat = 3, frequency: CGFloat = 2.2) {
-        self.phase = phase
-        self.level = min(1, max(0, level))
-        self.amplitude = amplitude
-        self.frequency = frequency
-    }
-
-    public func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let surfaceY = rect.height * (1 - level)
-        path.move(to: CGPoint(x: rect.width, y: rect.height * 2))
-        path.addLine(to: CGPoint(x: 0, y: rect.height * 2))
-        var x: CGFloat = 0
-        while x <= rect.width {
-            let y = sin(((x / max(1, rect.width)) + phase) * frequency * .pi) * amplitude + surfaceY
-            path.addLine(to: CGPoint(x: x, y: y))
-            x += 2
-        }
-        path.addLine(to: CGPoint(x: rect.width, y: rect.height * 2))
-        path.closeSubpath()
-        return path
-    }
-}
-
-/// Progress rendered as liquid rising inside the masked container. Used by
-/// hydration and fasting surfaces; falls back to a static fill under Reduce
-/// Motion and Low Power Mode.
-public struct LiquidFill: View {
-    private let level: Double
-    private let tint: Color
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    public init(level: Double, tint: Color) {
-        self.level = min(1, max(0, level))
-        self.tint = tint
-    }
-
-    public var body: some View {
-        if reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled {
-            GeometryReader { proxy in
-                tint.opacity(0.85)
-                    .frame(height: proxy.size.height * level)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
-            }
-        } else {
-            TimelineView(.animation(minimumInterval: 1 / 24)) { context in
-                let time = context.date.timeIntervalSinceReferenceDate
-                let phase = CGFloat(time.truncatingRemainder(dividingBy: 4) / 4)
-                ZStack {
-                    LiquidWaveShape(phase: phase, level: level, amplitude: 2.6)
-                        .fill(tint.opacity(0.4))
-                    LiquidWaveShape(phase: phase + 0.35, level: max(0, level - 0.015), amplitude: 3.4)
-                        .fill(tint.opacity(0.85))
-                }
-            }
-        }
     }
 }

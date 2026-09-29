@@ -34,8 +34,12 @@ internal_modules = adjacency.keys.to_set
 # that Xcode did not retain an undeclared package or an out-of-repository path.
 manifest_path = root.join('Package.swift')
 project_path = root.join('LifeBoard.xcodeproj', 'project.pbxproj')
+workspace_lock_path = root.join('LifeBoard.xcworkspace', 'xcshareddata', 'swiftpm', 'Package.resolved')
+project_lock_path = root.join('LifeBoard.xcodeproj', 'project.xcworkspace', 'xcshareddata', 'swiftpm', 'Package.resolved')
 abort("error: missing root Package.swift: #{manifest_path}") unless manifest_path.file?
 abort("error: missing Xcode project: #{project_path}") unless project_path.file?
+abort("error: missing canonical workspace Package.resolved: #{workspace_lock_path}") unless workspace_lock_path.file?
+abort("error: competing project-local Package.resolved must not exist: #{project_lock_path}") if project_lock_path.exist?
 
 dump_stdout, dump_stderr, dump_status = Open3.capture3('swift', 'package', 'dump-package', chdir: root.to_s)
 abort("error: swift package dump-package failed:\n#{dump_stderr}") unless dump_status.success?

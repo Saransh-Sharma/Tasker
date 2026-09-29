@@ -23,9 +23,9 @@ public enum WeeklyWorkspaceLane: String, CaseIterable, Identifiable, Codable, Se
 
     public var title: String {
         switch self {
-        case .overdue: "Overdue"
-        case .inbox: "Inbox"
-        case .anytime: "Anytime"
+        case .overdue: String(localized: "From earlier")
+        case .inbox: String(localized: "Inbox")
+        case .anytime: String(localized: "Anytime")
         }
     }
 
@@ -101,21 +101,21 @@ public enum WeeklyWorkspaceLoad {
         usableMinutes: Int,
         placedCount: Int
     ) -> String {
-        let items = placedCount == 1 ? "1 item" : "\(placedCount) items"
+        let items = placedCount == 1 ? String(localized: "1 task") : String(localized: "\(placedCount) tasks")
         guard usableMinutes > 0 else {
             return placedCount == 0
-                ? "No working hours"
-                : "\(items), outside working hours"
+                ? String(localized: "No working hours")
+                : String(localized: "\(items) outside working hours")
         }
         guard placedCount > 0 else {
-            return "Open · \(durationPhrase(usableMinutes)) free"
+            return String(localized: "\(durationPhrase(usableMinutes)) free")
         }
         let remaining = remainingMinutes(plannedMinutes: plannedMinutes, usableMinutes: usableMinutes)
         if isOverCapacity(plannedMinutes: plannedMinutes, usableMinutes: usableMinutes) {
             let over = max(0, plannedMinutes - usableMinutes)
-            return "\(items) · \(durationPhrase(over)) more than the day holds"
+            return String(localized: "\(items) · \(durationPhrase(over)) over")
         }
-        return "\(items) · \(durationPhrase(remaining)) still free"
+        return String(localized: "\(items) · \(durationPhrase(remaining)) free")
     }
 
     /// Deliberately warm and non-clinical. An over-full day is information, not
@@ -124,16 +124,16 @@ public enum WeeklyWorkspaceLoad {
         guard isOverCapacity(plannedMinutes: plannedMinutes, usableMinutes: usableMinutes) else {
             return nil
         }
-        return "Fuller than it looks"
+        return String(localized: "Full day")
     }
 
     public static func durationPhrase(_ minutes: Int) -> String {
         let value = max(0, minutes)
-        if value == 0 { return "no time" }
-        if value < 60 { return "\(value)m" }
+        if value == 0 { return String(localized: "0 min") }
+        if value < 60 { return String(localized: "\(value) min") }
         let hours = value / 60
         let rest = value % 60
-        return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
+        return rest == 0 ? String(localized: "\(hours) hr") : String(localized: "\(hours) hr \(rest) min")
     }
 }
 
@@ -251,10 +251,10 @@ public struct WeeklySpreadPlan: Equatable, Sendable {
     /// user finds out the week was full.
     public var summary: String {
         let placed = placements.count
-        let placedPhrase = placed == 1 ? "1 task placed" : "\(placed) tasks placed"
+        let placedPhrase = placed == 1 ? String(localized: "1 task placed") : String(localized: "\(placed) tasks placed")
         guard unplacedTaskIDs.isEmpty == false else { return placedPhrase }
         let left = unplacedTaskIDs.count
-        return "\(placedPhrase) · \(left) left — the week filled up"
+        return String(localized: "\(placedPhrase) · \(left) didn’t fit")
     }
 }
 
@@ -333,9 +333,9 @@ public struct WeeklyOverdueBriefing: Equatable, Sendable {
 
     public var headline: String {
         switch count {
-        case 0: "Nothing is waiting"
-        case 1: "1 task has been waiting"
-        default: "\(count) tasks have been waiting"
+        case 0: String(localized: "Nothing from earlier")
+        case 1: String(localized: "1 task from earlier")
+        default: String(localized: "\(count) tasks from earlier")
         }
     }
 
@@ -346,12 +346,12 @@ public struct WeeklyOverdueBriefing: Equatable, Sendable {
         guard let oldestDate, count > 0 else { return nil }
         let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: oldestDate), to: calendar.startOfDay(for: now)).day ?? 0
         guard days > 0 else { return nil }
-        if days == 1 { return "The oldest is from yesterday." }
-        if days < 14 { return "The oldest is from \(days) days ago." }
+        if days == 1 { return String(localized: "The oldest is from yesterday.") }
+        if days < 14 { return String(localized: "The oldest is from \(days) days ago.") }
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.dateFormat = "d MMMM"
-        return "The oldest is from \(formatter.string(from: oldestDate))."
+        return String(localized: "The oldest is from \(formatter.string(from: oldestDate)).")
     }
 }
 
@@ -367,10 +367,10 @@ public enum CalendarParticipation: String, Codable, Hashable, Sendable {
 
     public var badge: String {
         switch self {
-        case .accepted: "Accepted"
-        case .tentative: "Tentative"
-        case .declined: "Declined"
-        case .pending: "No reply"
+        case .accepted: String(localized: "Accepted")
+        case .tentative: String(localized: "Tentative")
+        case .declined: String(localized: "Declined")
+        case .pending: String(localized: "No reply")
         case .unknown: ""
         }
     }
@@ -395,9 +395,9 @@ public enum WeeklyMeetingIntent: String, Codable, Hashable, Sendable {
 
     public var title: String {
         switch self {
-        case .attending: "In my week"
-        case .undecided: "Undecided"
-        case .skipping: "Skipping"
+        case .attending: String(localized: "In my week")
+        case .undecided: String(localized: "Undecided")
+        case .skipping: String(localized: "Skipping")
         }
     }
 }
@@ -809,39 +809,39 @@ public enum WeeklyComposerPlacement {
 // MARK: - Copy
 
 public enum WeeklyWorkspaceCopy {
-    public static let title = "This week"
+    public static let title = String(localized: "This week")
 
     public static func placementHint(dayName: String) -> String {
-        "Add to \(dayName)"
+        String(localized: "Add to \(dayName)")
     }
 
     public static func placedAnnouncement(title: String, dayName: String) -> String {
-        "\(title) moved to \(dayName)"
+        String(localized: "Moved to \(dayName)")
     }
 
     public static func moveAction(dayName: String) -> String {
-        "Move to \(dayName)"
+        String(localized: "Move to \(dayName)")
     }
 
-    public static let spreadAction = "Spread across this week"
-    public static let bankruptcyAction = "Let them go to Someday"
-    public static let manualAction = "I'll place them myself"
+    public static let spreadAction = String(localized: "Spread across week")
+    public static let bankruptcyAction = String(localized: "Move to Someday")
+    public static let manualAction = String(localized: "Place them myself")
 
     /// Offered plainly, with no warning tone. At a hundred overdue items this
     /// is the correct answer, and every app that buries it gets abandonment
     /// instead of a cleared list.
     public static func bankruptcyConfirmation(count: Int) -> String {
         count == 1
-            ? "Move 1 task to Someday. You can undo this."
-            : "Move \(count) tasks to Someday. You can undo this."
+            ? String(localized: "Moves 1 task to Someday.")
+            : String(localized: "Moves \(count) tasks to Someday.")
     }
 
     public static func ritualSummary(placed: Int, released: Int, freeMinutes: Int) -> String {
         var parts: [String] = []
-        parts.append(placed == 1 ? "1 placed" : "\(placed) placed")
-        if released > 0 { parts.append("\(released) let go") }
-        parts.append("\(WeeklyWorkspaceLoad.durationPhrase(freeMinutes)) of room left")
-        return "Your week: " + parts.joined(separator: ", ") + "."
+        parts.append(String(localized: "\(placed) placed"))
+        if released > 0 { parts.append(String(localized: "\(released) let go")) }
+        parts.append(String(localized: "\(WeeklyWorkspaceLoad.durationPhrase(freeMinutes)) free"))
+        return parts.joined(separator: " · ")
     }
 
     public static func closingSummary(
@@ -850,18 +850,18 @@ public enum WeeklyWorkspaceCopy {
         meetingsReleased: Int,
         freeMinutes: Int
     ) -> String {
-        var parts = [placed == 1 ? "1 task placed" : "\(placed) tasks placed"]
+        var parts = [placed == 1 ? String(localized: "1 task placed") : String(localized: "\(placed) tasks placed")]
         if meetingsReleased > 0 {
             parts.append(
                 meetingsReleased == 1
-                    ? "1 meeting released"
-                    : "\(meetingsReleased) meetings released"
+                    ? String(localized: "1 meeting skipped")
+                    : String(localized: "\(meetingsReleased) meetings skipped")
             )
         }
         if tasksReleased > 0 {
-            parts.append(tasksReleased == 1 ? "1 task moved to Someday" : "\(tasksReleased) tasks moved to Someday")
+            parts.append(String(localized: "\(tasksReleased) to Someday"))
         }
-        parts.append("about \(WeeklyWorkspaceLoad.durationPhrase(freeMinutes)) still open")
+        parts.append(String(localized: "\(WeeklyWorkspaceLoad.durationPhrase(freeMinutes)) free"))
         return parts.joined(separator: " · ")
     }
 }

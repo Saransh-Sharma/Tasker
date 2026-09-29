@@ -59,21 +59,6 @@ enum CommandSearchEmptyState: Equatable {
     case rich
 }
 
-private extension HomeSearchStatusFilter {
-    var searchValue: HomeSearchViewModel.StatusFilterType {
-        switch self {
-        case .all:
-            return .all
-        case .today:
-            return .today
-        case .overdue:
-            return .overdue
-        case .completed:
-            return .completed
-        }
-    }
-}
-
 struct HomeSearchSection: Identifiable, Equatable {
     let projectName: String
     let tasks: [TaskDefinition]
@@ -94,17 +79,17 @@ enum HomeSearchSuggestedCommand: String, CaseIterable, Equatable, Identifiable {
     var title: String {
         switch self {
         case .whatNext:
-            return "What next?"
+            return String(localized: "What next?")
         case .overdueTasks:
-            return "Rescue tasks"
+            return String(localized: "From earlier")
         case .missedHabits:
-            return "Missed habits"
+            return String(localized: "Habits to pick up")
         case .nextTwoHours:
-            return "Next 2 hours"
+            return String(localized: "Next 2 hours")
         case .beforeMeeting:
-            return "Before meeting"
+            return String(localized: "Before meeting")
         case .quickWins:
-            return "Quick wins"
+            return String(localized: "Quick tasks")
         }
     }
 
@@ -128,17 +113,17 @@ enum HomeSearchSuggestedCommand: String, CaseIterable, Equatable, Identifiable {
     var context: String {
         switch self {
         case .whatNext:
-            return "Find the next best move."
+            return String(localized: "Suggested next tasks")
         case .overdueTasks:
-            return "List stale work that needs a decision."
+            return String(localized: "Tasks from earlier days")
         case .missedHabits:
-            return "Recover routine drift."
+            return String(localized: "Habits not done lately")
         case .nextTwoHours:
-            return "Fit work into the next useful block."
+            return String(localized: "Tasks that fit in 2 hr")
         case .beforeMeeting:
-            return "Match tasks to calendar space."
+            return String(localized: "Tasks before your next meeting")
         case .quickWins:
-            return "Find small tasks with useful payoff."
+            return String(localized: "Tasks of 15 min or less")
         }
     }
 
@@ -209,31 +194,33 @@ enum HomeSearchCommandResultBuilder {
             let habits = tasks.isEmpty ? Array(recoveryHabits.prefix(5)) : []
             return result(
                 command: command,
-                title: "What next?",
-                subtitle: tasks.isEmpty ? "\(habits.count) habit\(habits.count == 1 ? "" : "s") need recovery" : "\(tasks.count) recommended move\(tasks.count == 1 ? "" : "s")",
+                title: command.title,
+                subtitle: tasks.isEmpty
+                    ? (habits.count == 1 ? String(localized: "1 habit to pick up") : String(localized: "\(habits.count) habits to pick up"))
+                    : (tasks.count == 1 ? String(localized: "1 suggested task") : String(localized: "\(tasks.count) suggested tasks")),
                 tasks: tasks,
                 habits: habits,
-                emptyTitle: "Nothing needs attention",
-                emptySubtitle: "No open task or missed habit is ready in the current Home snapshot."
+                emptyTitle: String(localized: "Nothing to suggest"),
+                emptySubtitle: ""
             )
         case .overdueTasks:
             let tasks = tasksSnapshot.overdueTasks.filter { $0.isComplete == false }
             return result(
                 command: command,
-                title: "Rescue tasks",
-                subtitle: "\(tasks.count) task\(tasks.count == 1 ? "" : "s") need a decision",
+                title: command.title,
+                subtitle: tasks.count == 1 ? String(localized: "1 task") : String(localized: "\(tasks.count) tasks"),
                 tasks: tasks,
-                emptyTitle: "Nothing to rescue",
-                emptySubtitle: "There is no stale open work in the current task list."
+                emptyTitle: String(localized: "Nothing from earlier"),
+                emptySubtitle: ""
             )
         case .missedHabits:
             return result(
                 command: command,
-                title: "Missed habits",
-                subtitle: "\(recoveryHabits.count) habit\(recoveryHabits.count == 1 ? "" : "s") need recovery",
+                title: command.title,
+                subtitle: recoveryHabits.count == 1 ? String(localized: "1 habit") : String(localized: "\(recoveryHabits.count) habits"),
                 habits: recoveryHabits,
-                emptyTitle: "No missed habits",
-                emptySubtitle: "Your active habits do not show missed or recovery states right now."
+                emptyTitle: String(localized: "All habits on track"),
+                emptySubtitle: ""
             )
         case .nextTwoHours:
             let windowEnd = now.addingTimeInterval(nextTwoHours)
@@ -246,22 +233,22 @@ enum HomeSearchCommandResultBuilder {
             }
             return result(
                 command: command,
-                title: "Next 2 hours",
-                subtitle: "\(tasks.count) task\(tasks.count == 1 ? "" : "s") fit the next block",
+                title: command.title,
+                subtitle: tasks.count == 1 ? String(localized: "1 task fits") : String(localized: "\(tasks.count) tasks fit"),
                 tasks: Array(sortTasksByPriorityThenDue(tasks).prefix(commandResultLimit)),
-                emptyTitle: "No tasks fit the next 2 hours",
-                emptySubtitle: "Add estimates to tasks or ask Eva to help break down larger work."
+                emptyTitle: String(localized: "Nothing fits in 2 hours"),
+                emptySubtitle: String(localized: "Add estimates to your tasks.")
             )
         case .beforeMeeting:
             guard let meeting = calendarSnapshot.nextMeeting,
                   meeting.event.startDate > now else {
                 return result(
                     command: command,
-                    title: "Before meeting",
-                    subtitle: "No upcoming meeting found",
+                    title: command.title,
+                    subtitle: String(localized: "No upcoming meeting"),
                     tasks: [],
-                    emptyTitle: "No meeting ahead",
-                    emptySubtitle: "There is no upcoming calendar meeting in the current Home context.",
+                    emptyTitle: String(localized: "No meeting ahead"),
+                    emptySubtitle: "",
                     emptyPrimaryTitle: HomeSearchSuggestedCommand.quickWins.title,
                     fallbackCommand: .quickWins
                 )
@@ -277,11 +264,11 @@ enum HomeSearchCommandResultBuilder {
             let minutes = max(0, Int(available / 60))
             return result(
                 command: command,
-                title: "Before meeting",
-                subtitle: "\(minutes) min before \(meeting.event.title)",
+                title: command.title,
+                subtitle: String(localized: "\(minutes) min before \(meeting.event.title)"),
                 tasks: Array(sortTasksByPriorityThenDue(tasks).prefix(commandResultLimit)),
-                emptyTitle: "Nothing fits before \(meeting.event.title)",
-                emptySubtitle: "The available window is too small for estimated tasks.",
+                emptyTitle: String(localized: "Nothing fits before \(meeting.event.title)"),
+                emptySubtitle: "",
                 emptyPrimaryTitle: HomeSearchSuggestedCommand.quickWins.title,
                 fallbackCommand: .quickWins
             )
@@ -292,11 +279,11 @@ enum HomeSearchCommandResultBuilder {
             }
             return result(
                 command: command,
-                title: "Quick wins",
-                subtitle: "\(tasks.count) task\(tasks.count == 1 ? "" : "s") at 15 min or less",
+                title: command.title,
+                subtitle: tasks.count == 1 ? String(localized: "1 task, 15 min or less") : String(localized: "\(tasks.count) tasks, 15 min or less"),
                 tasks: Array(sortTasksByPriorityThenDue(tasks).prefix(commandResultLimit)),
-                emptyTitle: "No quick wins",
-                emptySubtitle: "No open task currently has an estimate of 15 minutes or less."
+                emptyTitle: String(localized: "No quick tasks"),
+                emptySubtitle: ""
             )
         }
     }
@@ -505,131 +492,6 @@ enum HomeSearchFocusPolicyResolver {
 }
 
 @MainActor
-protocol HomeSearchService: AnyObject {
-    var onResultsUpdated: ((Int, [TaskDefinition]) -> Void)? { get set }
-    var projects: [Project] { get }
-
-    func search(query: String, revision: Int)
-    func loadProjects(completion: (@MainActor @Sendable () -> Void)?)
-    func setFilters(status: HomeSearchStatusFilter, projects: [String], priorities: [Int32])
-    func clearFilters()
-    func toggleProjectFilter(_ project: String)
-    func togglePriorityFilter(_ priority: Int32)
-    func setStatusFilter(_ filter: HomeSearchStatusFilter)
-    func invalidateSearchCache(revision: Int)
-    func releaseResources()
-    func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])]
-}
-
-@MainActor
-final class HomeSearchEngineAdapter: HomeSearchService {
-    private let viewModel: HomeSearchViewModel
-
-    init(viewModel: HomeSearchViewModel) {
-        self.viewModel = viewModel
-    }
-
-    var onResultsUpdated: ((Int, [TaskDefinition]) -> Void)? {
-        get { viewModel.onResultsUpdatedWithRevision }
-        set { viewModel.onResultsUpdatedWithRevision = newValue }
-    }
-
-    var projects: [Project] {
-        viewModel.projects
-    }
-
-    func search(query: String, revision: Int) {
-        viewModel.search(query: query, revision: revision)
-    }
-
-    func loadProjects(completion: (@MainActor @Sendable () -> Void)?) {
-        viewModel.loadProjects(completion: completion)
-    }
-
-    func setFilters(status: HomeSearchStatusFilter, projects: [String], priorities: [Int32]) {
-        viewModel.replaceFilters(
-            status: status.searchValue,
-            projects: projects,
-            priorities: priorities
-        )
-    }
-
-    func clearFilters() {
-        viewModel.clearFilters()
-    }
-
-    func toggleProjectFilter(_ project: String) {
-        viewModel.toggleProjectFilter(project)
-    }
-
-    func togglePriorityFilter(_ priority: Int32) {
-        viewModel.togglePriorityFilter(priority)
-    }
-
-    func setStatusFilter(_ filter: HomeSearchStatusFilter) {
-        viewModel.setStatusFilter(filter.searchValue)
-    }
-
-    func invalidateSearchCache(revision: Int) {
-        viewModel.invalidateSearchCache(revision: revision)
-    }
-
-    func releaseResources() {
-        viewModel.purgeCaches()
-        viewModel.onResultsUpdatedWithRevision = nil
-    }
-
-    func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
-        viewModel.groupTasksByProject(tasks)
-    }
-}
-
-@MainActor
-final class SearchRefreshCoordinator {
-    private let debounceNanoseconds: UInt64
-    private var debounceTask: Task<Void, Never>?
-    private var generation: UInt64 = 0
-
-    init(debounceDelay: TimeInterval = 0.18) {
-        debounceNanoseconds = UInt64(max(0, debounceDelay) * 1_000_000_000)
-    }
-
-    @discardableResult
-    func request(
-        immediate: Bool,
-        perform: @escaping @MainActor (UInt64) -> Void
-    ) -> UInt64 {
-        generation &+= 1
-        let requestGeneration = generation
-        debounceTask?.cancel()
-
-        if immediate || debounceNanoseconds == 0 {
-            perform(requestGeneration)
-            return requestGeneration
-        }
-
-        let wait = debounceNanoseconds
-        debounceTask = Task {
-            do {
-                try await Task.sleep(nanoseconds: wait)
-            } catch {
-                return
-            }
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                perform(requestGeneration)
-            }
-        }
-        return requestGeneration
-    }
-
-    func cancel() {
-        debounceTask?.cancel()
-        debounceTask = nil
-    }
-}
-
-@MainActor
 final class HomeSearchState: ObservableObject {
     @Published var query: String = ""
     @Published var commandMode: CommandSearchMode = .search
@@ -683,9 +545,9 @@ final class HomeSearchState: ObservableObject {
             return activeSuggestedCommandResult.emptyTitle
         }
         if trimmedQuery.isEmpty && !hasActiveFilters {
-            return "Find anything in LifeBoard"
+            return String(localized: "Search tasks and habits")
         }
-        return "Nothing matched \"\(trimmedQuery)\""
+        return String(localized: "No results for “\(trimmedQuery)”")
     }
 
     var emptyStateSubtitle: String {
@@ -693,9 +555,9 @@ final class HomeSearchState: ObservableObject {
             return activeSuggestedCommandResult.emptySubtitle
         }
         if trimmedQuery.isEmpty && !hasActiveFilters {
-            return "Try asking what to do next, showing rescue tasks, or planning the next block."
+            return ""
         }
-        return "Widen your search, clear filters, or ask Eva to reason over your day."
+        return String(localized: "Try another word or clear filters.")
     }
 
     var emptyPrimaryTitle: String? {
@@ -759,7 +621,7 @@ final class HomeSearchState: ObservableObject {
     func setCommandMode(_ mode: CommandSearchMode) {
         guard commandMode != mode else { return }
         commandMode = mode
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     func updateQuery(_ newValue: String) {
@@ -846,12 +708,12 @@ final class HomeSearchState: ObservableObject {
             selectedStatus = .all
         }
         recordRecentSearch(result.command.title)
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     func toggleCompletedExpansion() {
         isCompletedExpanded.toggle()
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     func markDataMutated() {

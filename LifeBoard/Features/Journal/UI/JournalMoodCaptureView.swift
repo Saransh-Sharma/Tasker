@@ -53,15 +53,18 @@ extension MoodDialTheme {
         MoodDialTheme(
             backgroundTop: palette.color(for: .canvas),
             backgroundBottom: palette.color(for: .canvasSecondary),
-            accent: palette.color(for: .celestialCore),
-            accentContrast: .white,
+            // Sun *ink*, paired with the ink that flips the opposite way. The
+            // pale celestial core with fixed white measured ~1.5:1 for Done
+            // (white on gold) and ~1.7:1 for Cancel (gold on a white pill).
+            accent: Color(SemanticColorTokens.foundationSunInk),
+            accentContrast: Color.lifeboard(.textInverse),
             surface: palette.color(for: .canvas),
             heading: palette.color(for: .foreground),
             textSecondary: palette.color(for: .foregroundSecondary),
             textTertiary: palette.color(for: .foregroundSecondary).opacity(0.78),
-            titleFont: .system(size: 30, weight: .bold, design: .rounded),
-            labelFont: .system(size: 17, weight: .semibold, design: .rounded),
-            captionFont: .system(size: 14, weight: .regular, design: .rounded),
+            titleFont: .system(.title, design: .rounded, weight: .bold),
+            labelFont: .system(.headline, design: .rounded, weight: .semibold),
+            captionFont: .system(.subheadline, design: .rounded),
             segmentColor: { mood in palette.moodSegmentColor(for: mood) },
             moodAccent: { mood in palette.moodSegmentColor(for: mood) }
         )
@@ -91,14 +94,14 @@ extension DaypartPalette {
 // MARK: - Haptics adapter
 
 struct JournalHaptics: JournalHapticsProviding {
-    func selectionChanged() { Task { @MainActor in HapticFeedback.selection() } }
-    func moodSelected() { Task { @MainActor in HapticFeedback.light() } }
-    func buttonTap() { Task { @MainActor in HapticFeedback.light() } }
-    func recordingStarted() { Task { @MainActor in HapticFeedback.medium() } }
-    func recordingStopped() { Task { @MainActor in HapticFeedback.light() } }
-    func entrySaved() { Task { @MainActor in HapticFeedback.success() } }
-    func warning() { Task { @MainActor in HapticFeedback.warning() } }
-    func error() { Task { @MainActor in HapticFeedback.error() } }
+    func selectionChanged() { Task { @MainActor in Haptic.pick.play() } }
+    func moodSelected() { Task { @MainActor in Haptic.pick.play() } }
+    func buttonTap() { Task { @MainActor in Haptic.pick.play() } }
+    func recordingStarted() { Task { @MainActor in Haptic.lift.play() } }
+    func recordingStopped() { Task { @MainActor in Haptic.settle.play() } }
+    func entrySaved() { Task { @MainActor in Haptic.commit.play() } }
+    func warning() { Task { @MainActor in Haptic.decline.play() } }
+    func error() { Task { @MainActor in Haptic.fail.play() } }
 }
 
 // MARK: - Capture view
@@ -141,7 +144,7 @@ struct JournalMoodCaptureView: View {
         let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
 
         ComposerScaffold(
-            title: stage == .mood ? "How are you?" : "Energy",
+            title: stage == .mood ? String(localized: "How are you?") : String(localized: "Energy"),
             titleDisplayMode: .inline,
             identifier: "journalParity.moodCapture",
             contentFit: .filling,
@@ -184,11 +187,11 @@ struct JournalMoodCaptureView: View {
                 if await store.saveMood(value) {
                     commitPhase = .success(receipt: ComposerReceipt())
                     successTrigger &+= 1
-                    HapticFeedback.success()
+                    Haptic.commit.play()
                     dismiss()
                 } else {
                     commitPhase = .recoverableFailure(.init(
-                        message: "The check-in could not be saved.",
+                        message: String(localized: "Couldn’t save check-in."),
                         recovery: .retry
                     ))
                 }
@@ -266,11 +269,8 @@ private struct JournalMoodEnergySection: View {
     @Binding var energy: Int
 
     var body: some View {
-        ComposerSection(
-            "Energy",
-            footer: "This records your signal. LifeBoard does not assign a clinical interpretation."
-        ) {
-            Toggle("Add an energy signal", isOn: $includesEnergy)
+        ComposerSection("Energy") {
+            Toggle("Add energy", isOn: $includesEnergy)
                 .toggleStyle(.lifeBoardClay)
                 .accessibilityIdentifier("journalParity.moodCapture.includesEnergy")
             if includesEnergy {
@@ -292,11 +292,11 @@ private struct JournalMoodEnergySection: View {
 
     private static func caption(_ level: Int) -> String {
         switch level {
-        case 1: "Running on empty"
-        case 2: "Low"
-        case 3: "Steady"
-        case 4: "Good"
-        default: "Full tank"
+        case 1: String(localized: "Running on empty")
+        case 2: String(localized: "Low")
+        case 3: String(localized: "Steady")
+        case 4: String(localized: "Good")
+        default: String(localized: "Full tank")
         }
     }
 }

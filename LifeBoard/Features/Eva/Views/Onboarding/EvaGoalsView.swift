@@ -32,8 +32,8 @@ struct EvaGoalsView: View {
         EvaActivationStageView(
             footer: {
                 EvaFooterButtons(
-                    primaryTitle: "Continue",
-                    secondaryTitle: "Back",
+                    primaryTitle: String(localized: "Continue"),
+                    secondaryTitle: String(localized: "Back"),
                     isPrimaryDisabled: normalizedGoals.isEmpty,
                     onPrimary: onContinue,
                     onSecondary: onBack
@@ -53,18 +53,18 @@ struct EvaGoalsView: View {
     private var mainColumn: some View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
             EvaContentHeader(
-                title: "What matters most this week?",
-                bodyText: "Add 1 to 3 outcomes, not tasks. \(assistantIdentity.snapshot.displayName) will keep these in view when helping you decide what to do next."
+                title: String(localized: "What matters most this week?"),
+                bodyText: String(localized: "Add 1 to 3 outcomes, not tasks.")
             )
             .enhancedStaggeredAppearance(index: 0)
 
             EvaSectionCard(
-                title: "Outcomes",
-                subtitle: "Add 1 to 3 outcomes. Keep them clear and directional.",
+                title: String(localized: "Outcomes"),
+                subtitle: nil,
                 accessibilityIdentifier: "eva.activation.goals.card"
             ) {
                 if normalizedGoals.isEmpty {
-                    Text("No goals added yet")
+                    Text("No outcomes yet")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                 } else {
@@ -82,7 +82,7 @@ struct EvaGoalsView: View {
 
                 if normalizedGoals.count < 3 {
                     EvaGoalComposer(
-                        placeholder: "Example: Finish the client handoff plan",
+                        placeholder: String(localized: "Outcome"),
                         accessibilityIdentifier: "eva.activation.goals.composer",
                         draftText: $draftGoalText,
                         isDisabled: !canAddGoal
@@ -128,11 +128,7 @@ struct EvaGoalsView: View {
     }
 
     private func mutateGoals(_ mutation: () -> Void) {
-        if reduceMotion {
-            mutation()
-        } else {
-            withAnimation(LifeBoardAnimation.feedbackFast, mutation)
-        }
+        withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), mutation)
     }
 
     private func normalizedStoredGoals(from goals: [String]) -> [String] {

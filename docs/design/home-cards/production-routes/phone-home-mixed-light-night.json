@@ -1,0 +1,92 @@
+{
+  "appearance" : "light",
+  "arrangement" : "mixed",
+  "clockScope" : "all evidence-owned clocks fixed to the seeded morning fixture",
+  "contentBounds" : [
+    0,
+    62,
+    402,
+    778
+  ],
+  "evidenceLevel" : "actual-production-route-seeded-repositories",
+  "fixtureDate" : "2026-09-15T09:00:00Z",
+  "placementDescriptors" : [
+    {
+      "id" : "E7100000-0000-4000-8000-000000000001",
+      "ownership" : "pinned",
+      "semanticSize" : "standard",
+      "widgetKind" : "care"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000002",
+      "ownership" : "pinned",
+      "semanticSize" : "standard",
+      "widgetKind" : "routines"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000003",
+      "ownership" : "pinned",
+      "semanticSize" : "wide",
+      "widgetKind" : "tasks"
+    },
+    {
+      "id" : "E7100000-0000-4000-8000-000000000004",
+      "ownership" : "pinned",
+      "semanticSize" : "tall",
+      "widgetKind" : "journal"
+    }
+  ],
+  "placements" : {
+    "E7100000-0000-4000-8000-000000000001" : [
+      22.677973642349244,
+      772.86123657226562,
+      169.97738604863486,
+      172.56259344100954
+    ],
+    "E7100000-0000-4000-8000-000000000002" : [
+      210.1273474931717,
+      774.68379211425781,
+      169.07863834698989,
+      214.0805572986601
+    ],
+    "E7100000-0000-4000-8000-000000000003" : [
+      28.14500000000001,
+      1012,
+      345.71000000000004,
+      317.37833333333333
+    ],
+    "E7100000-0000-4000-8000-000000000004" : [
+      28.14500000000001,
+      1356.3333333333333,
+      345.71000000000004,
+      248.29999999999995
+    ]
+  },
+  "rendererRevision" : "c8db532d8da6842f5a7af194a67ec231b237d6f4+working-tree:c0d312eccc4a072021c543f27cce0e1e922c87cc618b11810659ee66d3b625d4",
+  "route" : "home",
+  "safeArea" : [
+    62,
+    0,
+    34,
+    0
+  ],
+  "shellFrame" : [
+    0,
+    62,
+    402,
+    778
+  ],
+  "sourceIdentityScope" : "stable seeded repository identifiers",
+  "sourceTaskIDs" : [
+    "E7200000-0000-4000-8000-000000000001",
+    "E7200000-0000-4000-8000-000000000002",
+    "E7200000-0000-4000-8000-000000000003",
+    "E7200000-0000-4000-8000-000000000004",
+    "E7200000-0000-4000-8000-000000000005",
+    "E7200000-0000-4000-8000-000000000006"
+  ],
+  "viewport" : [
+    402,
+    874
+  ]
+}

@@ -1,33 +1,6 @@
 import Foundation
 import Observation
 
-/// What the ritual needs from persistence.
-///
-/// Narrower than `CoreDataPlanningRepository` on purpose: everything below is a
-/// read plus one batch write, so the store's tests can drive it with plain fakes
-/// and no Core Data stack. `CoreDataPlanningRepository` already satisfies it.
-public protocol DayCloseReading: Sendable {
-    func fetchOpenPlanningTasks() async throws -> [PlanningTaskSummary]
-    func fetchTimeBlocks(from: Date, to: Date) async throws -> [InternalTimeBlock]
-    func sessions(since: Date?) async throws -> [FocusSessionV2]
-    func hasAppliedReceipt(source: String) async throws -> Bool
-    func fetchMutationReceipts(since: Date?) async throws -> [PlanningReceiptRecord]
-    func undo(receiptID: UUID) async throws
-}
-
-/// The shipping repository already implements every one of these; this states
-/// the conformance so the ritual can depend on the narrow protocol rather than
-/// on the 900-line concrete type.
-extension CoreDataPlanningRepository: DayCloseReading {}
-
-/// Completed-task lookup, kept separate because completion lives on the task
-/// definition rather than on `PlanningTaskSummary` — `fetchOpenPlanningTasks`
-/// filters incomplete rows by definition, so the ribbon's ticks can never come
-/// from there.
-public protocol DayCloseCompletionReading: Sendable {
-    func completions(on day: DateInterval) async throws -> [DayCloseCompletionMark]
-}
-
 /// Drives the end-of-day ritual.
 ///
 /// Deliberately *not* `PlanStore`. That store's `load()` refetches a week of
@@ -109,6 +82,11 @@ public final class DayCloseStore {
     private let closureLog: DayLoopClosureLog
     private let proposalSignalStore: any DayOpenProposalSignalStoring
     private let morningPolicyResolver: MorningCommitPolicyResolver
+    /// Where tonight's undecided-until-close choices are kept, so a ritual cut
+    /// short (the app killed, the phone locked for the night) reopens where it
+    /// was left. `nil` keeps nothing — the default under XCTest, so one test's
+    /// deck never leaks into the next.
+    private let draftDefaults: UserDefaults?
 
     private var dayStart: Date? { day.startDate(calendar: calendar) }
     private var retrospectiveStart: Date? { retrospectiveDay.startDate(calendar: calendar) }
@@ -122,8 +100,10 @@ public final class DayCloseStore {
         calendar: Calendar = .current,
         closureLog: DayLoopClosureLog = DayLoopClosureLog(),
         proposalSignalStore: any DayOpenProposalSignalStoring = DayOpenProposalSignalStore.shared,
-        morningPolicyResolver: MorningCommitPolicyResolver = MorningCommitPolicyResolver()
+        morningPolicyResolver: MorningCommitPolicyResolver = MorningCommitPolicyResolver(),
+        draftDefaults: UserDefaults? = DayCloseStore.defaultDraftDefaults
     ) {
+        self.draftDefaults = draftDefaults
         self.reader = reader
         self.completions = completions
         self.scenarios = scenarios
@@ -135,72 +115,6 @@ public final class DayCloseStore {
         self.morningPolicyResolver = morningPolicyResolver
     }
 
-    // MARK: - Derived
-
-    /// The card currently in hand. Undecided only — a decided card leaves the
-    /// deck even though its mutation has not been written yet.
-    public var currentCard: PlanningTaskSummary? {
-        unfinished.first { decisions[$0.id] == nil }
-    }
-
-    /// Every card still awaiting a decision, front card first.
-    ///
-    /// The deck renders only the front card, but it needs the whole queue:
-    /// `lifeBoardDeckDepth` draws its backing cards from `count`. Handing it a
-    /// single-element array made an eight-task evening look like a one-task one,
-    /// which is the difference between "nearly done" and "this will take a while"
-    /// — exactly the thing someone deciding whether to start needs to see.
-    public var remainingCards: [PlanningTaskSummary] {
-        unfinished.filter { decisions[$0.id] == nil }
-    }
-
-    public var remainingCount: Int {
-        remainingCards.count
-    }
-
-    /// How far through the reconciliation the evening is, or `nil` when there
-    /// was never anything to decide. Absent is not zero.
-    public var reconciliationProgress: Double? {
-        let total = decidedCount + remainingCount
-        guard total > 0 else { return nil }
-        return Double(decidedCount) / Double(total)
-    }
-
-    public var decidedCount: Int { decisions.count }
-
-    /// Candidates for tomorrow's first thing: anything not filed away.
-    ///
-    /// Anchoring something just released would contradict the decision made
-    /// seconds earlier, so those drop out here as well as in the builder.
-    public var anchorCandidates: [PlanningTaskSummary] {
-        unfinished.filter { task in
-            switch decisions[task.id] {
-            case .someday, .doneAnyway, .release: false
-            case .tomorrow, .none: true
-            }
-        }
-    }
-
-    /// A one-line-per-direction account of what is about to happen.
-    /// The same counts as `summaryLines`, but keeping the direction alongside
-    /// the text. The view needs it to give each outcome its own feedback: only
-    /// released rows should erode, and only rows that were already done should
-    /// get a completion burst. Rendering plain strings meant the erosion ran
-    /// over "moved to tomorrow" too, which reads as losing something that was
-    /// in fact carried forward.
-    public var summary: [DayCloseSummaryLine] {
-        DayCloseDirection.allCases.compactMap { direction in
-            let count = decisions.values.count { $0 == direction }
-            guard count > 0 else { return nil }
-            return DayCloseSummaryLine(
-                direction: direction,
-                text: "\(count) \(direction.summaryVerb)"
-            )
-        }
-    }
-
-    public var summaryLines: [String] { summary.map(\.text) }
-
     public var receiptSource: String {
         DayCloseScenarioBuilder.receiptSource(for: day)
     }
@@ -211,7 +125,7 @@ public final class DayCloseStore {
         loadState = .loading
         guard let reportStart = retrospectiveStart,
               let reportEnd = calendar.date(byAdding: .day, value: 1, to: reportStart) else {
-            loadState = .failed("This day could not be resolved on your calendar.")
+            loadState = .failed(String(localized: "Couldn’t find this day on your calendar."))
             return
         }
 
@@ -281,6 +195,7 @@ public final class DayCloseStore {
                 await refreshMorningEvidence()
             }
 
+            if alreadyClosed { clearDraft() } else { restoreDraft() }
             loadState = (unfinished.isEmpty && ribbon?.summary.hasNothingToReport == true)
                 ? .empty
                 : .ready
@@ -400,7 +315,7 @@ public final class DayCloseStore {
             staleTaskIDs = Set(changedRecordIDs)
             openCommitPhase = .recoverableFailure(
                 AsyncActionFailure(
-                    message: "Some of these changed somewhere else. Review and start again.",
+                    message: String(localized: "Some tasks changed. Review and try again."),
                     recovery: .edit
                 )
             )
@@ -455,6 +370,56 @@ public final class DayCloseStore {
         )
     }
 
+    // MARK: - Same-day draft
+
+    public static var defaultDraftDefaults: UserDefaults? {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil ? .standard : nil
+    }
+
+    private struct Draft: Codable {
+        var order: [UUID]
+        var decisions: [UUID: DayCloseDirection]
+        var anchor: UUID?
+    }
+
+    /// Only the evening close has a draft; the morning's one choice commits at once.
+    private var draftKey: String? {
+        guard retrospectiveDay == day else { return nil }
+        return "lifeboard.dayClose.draft.\(day.year)-\(day.month)-\(day.day)"
+    }
+
+    private func saveDraft() {
+        guard let draftDefaults, let draftKey else { return }
+        guard decisionOrder.isEmpty == false || anchorTaskID != nil else {
+            draftDefaults.removeObject(forKey: draftKey)
+            return
+        }
+        let draft = Draft(order: decisionOrder, decisions: decisions, anchor: anchorTaskID)
+        if let data = try? JSONEncoder().encode(draft) {
+            draftDefaults.set(data, forKey: draftKey)
+        }
+    }
+
+    private func clearDraft() {
+        guard let draftDefaults, let draftKey else { return }
+        draftDefaults.removeObject(forKey: draftKey)
+    }
+
+    /// Puts back tonight's choices for tasks that are still open. Never
+    /// overwrites decisions already made in this session.
+    private func restoreDraft() {
+        guard alreadyClosed == false, decisionOrder.isEmpty, anchorTaskID == nil,
+              let draftDefaults, let draftKey,
+              let data = draftDefaults.data(forKey: draftKey),
+              let draft = try? JSONDecoder().decode(Draft.self, from: data) else { return }
+        let live = Set(unfinished.map(\.id))
+        decisionOrder = draft.order.filter { live.contains($0) && draft.decisions[$0] != nil }
+        decisions = draft.decisions.filter { decisionOrder.contains($0.key) }
+        if let anchor = draft.anchor, anchorCandidates.contains(where: { $0.id == anchor }) {
+            anchorTaskID = anchor
+        }
+    }
+
     // MARK: - Deciding
 
     /// Records one card's outcome. **Writes nothing.**
@@ -471,6 +436,7 @@ public final class DayCloseStore {
         if anchorTaskID == taskID, [.someday, .doneAnyway, .release].contains(direction) {
             anchorTaskID = nil
         }
+        saveDraft()
     }
 
     /// Reverses the most recent decision. Pure state — no I/O, nothing to unwind.
@@ -481,13 +447,19 @@ public final class DayCloseStore {
     public func bringBackLastCard() -> UUID? {
         guard let taskID = decisionOrder.popLast() else { return nil }
         decisions.removeValue(forKey: taskID)
+        saveDraft()
         return taskID
     }
 
     public func setAnchor(_ taskID: UUID?) {
-        guard let taskID else { return anchorTaskID = nil }
+        guard let taskID else {
+            anchorTaskID = nil
+            saveDraft()
+            return
+        }
         guard anchorCandidates.contains(where: { $0.id == taskID }) else { return }
         anchorTaskID = taskID
+        saveDraft()
     }
 
     /// The uncommitted reconciliation, for preview and for `close()`.
@@ -542,7 +514,7 @@ public final class DayCloseStore {
         guard let scenario = makeScenario(now: now) else {
             applyPhase = .recoverableFailure(
                 AsyncActionFailure(
-                    message: "This day could not be resolved on your calendar.",
+                    message: String(localized: "Couldn’t find this day on your calendar."),
                     recovery: .retry
                 )
             )
@@ -559,6 +531,7 @@ public final class DayCloseStore {
             // Suppresses tonight's configured nudge. Written only after
             // the receipt lands, so a failed close never silences the nudge.
             closureLog.markClosed(dayStart ?? now, calendar: calendar)
+            clearDraft()
             applyPhase = .success(receipt: receipt)
         } catch let PlanningScenarioApplyError.versionConflict(changedRecordIDs) {
             // Name what moved rather than discarding the evening's work. The
@@ -567,8 +540,8 @@ public final class DayCloseStore {
             applyPhase = .recoverableFailure(
                 AsyncActionFailure(
                     message: staleTaskIDs.count == 1
-                        ? "One of these tasks changed somewhere else while this was open. Review it and close again."
-                        : "\(staleTaskIDs.count) of these tasks changed somewhere else while this was open. Review them and close again.",
+                        ? String(localized: "1 task changed. Review it and close again.")
+                        : String(localized: "\(staleTaskIDs.count) tasks changed. Review them and close again."),
                     // `.edit` rather than `.retry`: retrying the identical
                     // scenario would conflict again. The person has to look.
                     recovery: .edit

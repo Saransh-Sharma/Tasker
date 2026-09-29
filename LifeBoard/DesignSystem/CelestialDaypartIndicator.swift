@@ -128,15 +128,27 @@ public struct CelestialDaypartIndicator: View {
             .scaledToFit()
             .frame(width: side * 0.14, height: side * 0.14)
             .position(x: point.x, y: point.y)
-            .animation(reduceMotion ? nil : LifeBoardAnimation.panelIn, value: progress)
+            .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: progress)
     }
 
     private var accessibilityDescription: String {
         let percent = Int((progress * 100).rounded())
         let period = DaypartProgress.isDaylight(at: date, calendar: calendar)
-            ? "daylight"
-            : "night"
-        return "\(phase.rawValue.capitalized), \(percent) percent through \(period)"
+            ? String(localized: "daylight")
+            : String(localized: "night")
+        return String(localized: "\(phaseName), \(percent) percent through \(period)")
+    }
+
+    /// The phase as a word; `goldenHour.capitalized` read "Goldenhour".
+    private var phaseName: String {
+        switch phase {
+        case .dawn: String(localized: "Dawn")
+        case .morning: String(localized: "Morning")
+        case .midday: String(localized: "Midday")
+        case .goldenHour: String(localized: "Golden hour")
+        case .twilight: String(localized: "Twilight")
+        case .night: String(localized: "Night")
+        }
     }
 }
 

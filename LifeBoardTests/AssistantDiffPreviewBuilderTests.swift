@@ -22,11 +22,11 @@ final class AssistantDiffPreviewBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(lines.count, 5)
-        XCTAssertEqual(lines[0].text, "Add: Draft weekly report")
-        XCTAssertTrue(lines[1].text.hasPrefix("Reschedule 'Tax docs' to "))
-        XCTAssertEqual(lines[2].text, "Complete: 'Review PRD'")
-        XCTAssertEqual(lines[3].text, "Move 'Call dentist' to 'Next Week'")
-        XCTAssertEqual(lines[4].text, "Delete: 'Review PRD'")
+        XCTAssertEqual(lines[0].text, "Add ‘Draft weekly report’")
+        XCTAssertTrue(lines[1].text.hasPrefix("Move ‘Tax docs’ to "))
+        XCTAssertEqual(lines[2].text, "Complete ‘Review PRD’")
+        XCTAssertEqual(lines[3].text, "Move ‘Call dentist’ to ‘Next Week’")
+        XCTAssertEqual(lines[4].text, "Delete ‘Review PRD’")
         XCTAssertFalse(lines[0].isDestructive)
         XCTAssertTrue(lines[3].isDestructive)
         XCTAssertTrue(lines[4].isDestructive)
@@ -40,7 +40,7 @@ final class AssistantDiffPreviewBuilderTests: XCTestCase {
             projectNameByID: [:]
         ).first
 
-        XCTAssertEqual(line?.text, "Move 'Plan trip' to 'selected project'")
+        XCTAssertEqual(line?.text, "Move ‘Plan trip’ to ‘selected project’")
         XCTAssertEqual(line?.isDestructive, true)
     }
 
@@ -73,7 +73,7 @@ final class AssistantDiffPreviewBuilderTests: XCTestCase {
             taskTitleByID: [:]
         ).first
 
-        XCTAssertEqual(line?.text, "Delete: 'task'")
+        XCTAssertEqual(line?.text, "Delete ‘task’")
         XCTAssertFalse(line?.text.contains(unknownTaskID.uuidString) ?? false)
     }
 }

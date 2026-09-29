@@ -29,6 +29,8 @@ final class LifeWeaveOnboardingModel: ObservableObject {
     var captureInterpretationTask: Task<Void, Never>?
     @Published var errorMessage: String?
     @Published var showsOfflineSetup = false
+    /// The Cloud EVA consent sheet; the connector never connects without it.
+    @Published var showsEvaConsent = false
     @Published private(set) var openingPrompts: [EvaStarterPrompt] = []
 
     let feedback: OnboardingFeedbackController
@@ -60,7 +62,7 @@ final class LifeWeaveOnboardingModel: ObservableObject {
 
     var step: LifeWeaveStep { draft.step }
     var coreSteps: [LifeWeaveStep] { LifeWeaveStep.streamlined }
-    var offlineEvaActionTitle: String { powerUps.offlineEvaReady() ? String(localized: "Use EVA offline") : String(localized: "Set up offline EVA") }
+    var offlineEvaActionTitle: String { powerUps.offlineEvaReady() ? String(localized: "Use Eva offline") : String(localized: "Set up offline") }
 
 
     var selectedAreaTemplates: [StarterLifeAreaTemplate] {
@@ -237,6 +239,28 @@ final class LifeWeaveOnboardingModel: ObservableObject {
         feedback.light()
         persist()
         Task { await ProductTelemetry.shared.record(.firstCaptureSkipped, flowVersion: 6) }
+    }
+
+    /// The life areas "Set up later" starts with: broad enough to hold
+    /// anything, and both easy to rename or remove afterwards.
+    static let setUpLaterLifeAreaTemplateIDs = ["work-career", "life-admin"]
+
+    /// "Set up later" on the first screen. Fills anything unanswered with a
+    /// default, skips the capture, and commits, so the person lands on Ready
+    /// with a working LifeBoard instead of three more questions.
+    func setUpLater() async {
+        guard !isCommitting, step == .arrival || step == .intent else { return }
+        errorMessage = nil
+        if draft.intent == nil { draft.intent = .somethingElse }
+        if draft.isLifeAreaSelectionValid == false {
+            draft.orderedLifeAreaTemplateIDs = Self.setUpLaterLifeAreaTemplateIDs
+            draft.primaryLifeAreaTemplateID = draft.orderedLifeAreaTemplateIDs.first
+        }
+        if draft.isCaptureResolved == false {
+            skipCapture()
+        }
+        persist()
+        await assemble()
     }
 
     // MARK: - Navigation

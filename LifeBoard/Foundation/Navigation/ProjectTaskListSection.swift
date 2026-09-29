@@ -20,7 +20,7 @@ struct ProjectTaskListSection: View {
     private func list(_ snapshot: ProjectExecutionSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(
-                snapshot.tasks.isEmpty ? "No open work" : "\(snapshot.tasks.count) open tasks",
+                Self.openTasksTitle(snapshot.tasks.count),
                 systemImage: "checklist"
             )
             .font(.headline)
@@ -91,7 +91,7 @@ struct ProjectTaskListSection: View {
                 Button("Move earlier", systemImage: "arrow.up") { move(task, -1) }
                 Button("Move later", systemImage: "arrow.down") { move(task, 1) }
                 Section("Move to section") {
-                    Button("Unsectioned") { moveToSection(task, nil) }
+                    Button("No section") { moveToSection(task, nil) }
                     ForEach(snapshot.sections, id: \.id) { section in
                         Button(section.name) { moveToSection(task, section.id) }
                     }
@@ -123,7 +123,7 @@ struct ProjectTaskListSection: View {
                 ProjectSectionDefinition(
                     id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                     projectID: projectID,
-                    name: "Unsectioned",
+                    name: String(localized: "No section"),
                     sortOrder: Int.max
                 )
             )
@@ -131,12 +131,20 @@ struct ProjectTaskListSection: View {
         return sections
     }
 
+    static func openTasksTitle(_ count: Int) -> String {
+        switch count {
+        case 0: String(localized: "No open tasks")
+        case 1: String(localized: "1 open task")
+        default: String(localized: "\(count) open tasks")
+        }
+    }
+
     static func durationLabel(_ value: TimeInterval) -> String {
         let minutes = max(0, Int(value / 60))
         let hours = minutes / 60
         let remainder = minutes % 60
-        if hours == 0 { return "\(remainder)m" }
-        if remainder == 0 { return "\(hours)h" }
-        return "\(hours)h \(remainder)m"
+        if hours == 0 { return String(localized: "\(remainder) min") }
+        if remainder == 0 { return String(localized: "\(hours) hr") }
+        return String(localized: "\(hours) hr \(remainder) min")
     }
 }

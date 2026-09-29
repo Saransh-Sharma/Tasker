@@ -6,9 +6,10 @@
 //
 
 import SwiftUI
+import UIKit
 
 public struct AddHabitSheetView: View {
-    @StateObject private var viewModel: AddHabitViewModel
+    @StateObject var viewModel: AddHabitViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.lifeboardTokens) private var tokens
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -19,16 +20,17 @@ public struct AddHabitSheetView: View {
 
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var notesFieldFocused: Bool
-    @State private var selectedDetent: PresentationDetent = .medium
+    @State var selectedDetent: PresentationDetent = .medium
     @State private var showDiscardConfirmation = false
+    @State private var selectedTemplateID: String?
     @State private var showDetails = false
-    @State private var showAppearance = false
+    @State var showAppearance = false
     @State private var successFlash = false
     @State private var didCreateHabit = false
     @State private var successResetTask: Task<Void, Never>?
     @State private var snackbar: SnackbarData?
 
-    private var spacing: SemanticSpacingTokens {
+    var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -50,7 +52,7 @@ public struct AddHabitSheetView: View {
         VStack(spacing: 0) {
             AddTaskNavigationBar(
                 containerMode: .sheet,
-                title: "New Habit",
+                title: "New habit",
                 canSave: canCreate,
                 onCancel: handleCancel,
                 onSave: handleCreate
@@ -62,6 +64,10 @@ public struct AddHabitSheetView: View {
                 VStack(spacing: spacing.s16) {
                     livingPreview
                         .cardEntrance(index: 0)
+                    // Templates first: one tap fills the whole form with a
+                    // real target. Everything below stays editable.
+                    templateRow
+                        .cardEntrance(index: 1)
                     essentialsCard
                         .cardEntrance(index: 1)
                     rhythmCard
@@ -83,7 +89,7 @@ public struct AddHabitSheetView: View {
                 isEnabled: canCreate,
                 isLoading: viewModel.isSaving,
                 successFlash: successFlash,
-                title: "Add Habit",
+                title: "Add habit",
                 action: handleCreate
             )
             .padding(.horizontal, spacing.s16)
@@ -97,6 +103,8 @@ public struct AddHabitSheetView: View {
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(30)
         .interactiveDismissDisabled(viewModel.hasUnsavedChanges)
+        // Esc behaves like Cancel, including asking before unsaved changes go.
+        .escapeCancels(perform: handleCancel)
         .confirmationDialog(
             "Discard changes?",
             isPresented: $showDiscardConfirmation,
@@ -105,15 +113,15 @@ public struct AddHabitSheetView: View {
             Button("Discard", role: .destructive) {
                 dismiss()
             }
-            Button("Keep Editing", role: .cancel) {}
+            Button("Keep editing", role: .cancel) {}
         } message: {
-            Text("You have unsaved changes that will be lost.")
+            Text("Your changes won’t be saved.")
         }
         .lifeboardSnackbar($snackbar)
         .overlay(
             ClayColorTokens.leaf
                 .opacity(successFlash ? 0.06 : 0)
-                .animation(LifeBoardAnimation.heroReveal, value: successFlash)
+                .lifeBoardMotion(.contentInsertion, value: successFlash)
                 .allowsHitTesting(false)
         )
         .onAppear {
@@ -155,10 +163,11 @@ public struct AddHabitSheetView: View {
                     .font(.lifeboard(.title3))
                     .foregroundStyle(isAwaiting ? Color.lifeboard.textTertiary : Color.lifeboard.textPrimary)
                     .lineLimit(1)
-                Text(cadenceSummary(viewModel.selectedCadence))
+                Text(previewRhythm)
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .contentTransition(.opacity)
+                    .accessibilityIdentifier("addHabit.preview.rhythm")
                 HabitCadenceDots(cadence: viewModel.selectedCadence, accent: accent)
                     .padding(.top, 2)
             }
@@ -167,7 +176,77 @@ public struct AddHabitSheetView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(spacing.s16)
         .sunriseHabitGlassCard(reduceTransparency: reduceTransparency)
-        .animation(LifeBoardAnimation.stateChange, value: viewModel.selectedColorHex)
+        .lifeBoardMotion(.localState, value: viewModel.selectedColorHex)
+    }
+
+    /// "8 glasses a day · Daily at 9:00 AM": the target leads once it is
+    /// more than a check-in, so a chosen template reads back immediately.
+    private var previewRhythm: String {
+        let cadence = cadenceSummary(viewModel.selectedCadence)
+        switch viewModel.targetConfig.effectiveTarget {
+        case .binary, .avoidance:
+            return cadence
+        case let target:
+            return "\(HabitTemplateCatalog.summary(for: target)) · \(cadence)"
+        }
+    }
+
+    private var templateRow: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: spacing.s8) {
+                ForEach(HabitTemplateCatalog.all) { template in
+                    let isSelected = selectedTemplateID == template.id
+                    Button {
+                        apply(template)
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(template.title)
+                                    .font(.lifeboard(.bodyStrong))
+                                Text(template.targetSummary)
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundStyle(Color.lifeboard.textSecondary)
+                            }
+                        } icon: {
+                            Image(systemName: template.systemImage)
+                                .foregroundStyle(HexColor.color(template.colorHex, fallback: Color.lifeboard.accentPrimary))
+                        }
+                        .padding(.horizontal, spacing.s12)
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .background(
+                        (isSelected ? Color(SemanticColorTokens.foundationSurfaceSelected) : Color(SemanticColorTokens.foundationSurfaceRecessed))
+                            .opacity(isSelected ? 1 : 0.6),
+                        in: Capsule()
+                    )
+                    .overlay {
+                        if isSelected {
+                            Capsule().strokeBorder(Color(SemanticColorTokens.foundationApricotInk), lineWidth: 1.5)
+                        }
+                    }
+                    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                    .accessibilityLabel("\(template.title), \(template.targetSummary)")
+                    .accessibilityIdentifier("addHabit.template.\(template.id)")
+                }
+            }
+        }
+        .scrollIndicators(.automatic)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("addHabit.templates")
+    }
+
+    /// A template fills the form; it does not lock it.
+    private func apply(_ template: HabitTemplate) {
+        Haptic.pick.play()
+        selectedTemplateID = template.id
+        withAnimation(MotionProfile.localState.animation(reduceMotion: UIAccessibility.isReduceMotionEnabled)) {
+            viewModel.applyPrefill(HabitTemplateCatalog.prefill(
+                for: template,
+                lifeAreaID: viewModel.selectedLifeAreaID,
+                projectID: viewModel.selectedProjectID
+            ))
+        }
     }
 
     private var essentialsCard: some View {
@@ -178,8 +257,7 @@ public struct AddHabitSheetView: View {
                 iconSystemName: viewModel.selectedIconSymbolName,
                 iconAccessibilityLabel: viewModel.selectedIconOption?.displayName,
                 onIconTap: openAppearance,
-                placeholder: "What do you want to repeat?",
-                helperText: "Keep it small enough for an ordinary day.",
+                placeholder: "Habit name",
                 onSubmit: handleCreate
             )
 
@@ -218,12 +296,12 @@ public struct AddHabitSheetView: View {
 
     private var rhythmCard: some View {
         CalmInlineReveal(
-            title: "Rhythm",
+            title: String(localized: "Schedule"),
             collapsedHint: rhythmSummary,
             isExpanded: $showDetails,
             accessibilityID: "addHabit.rhythmDisclosure",
             onToggle: {
-                withAnimation(LifeBoardAnimation.stateChange) {
+                withAnimation(MotionProfile.localState.animation(reduceMotion: UIAccessibility.isReduceMotionEnabled)) {
                     showDetails.toggle()
                     if showDetails {
                         selectedDetent = .large
@@ -297,12 +375,12 @@ public struct AddHabitSheetView: View {
                             set: { viewModel.reminderWindowEndPickerDate = $0 }
                         ),
                         onEnable: {
-                            withAnimation(LifeBoardAnimation.stateChange) {
+                            withAnimation(MotionProfile.localState.animation(reduceMotion: UIAccessibility.isReduceMotionEnabled)) {
                                 viewModel.ensureReminderWindowDefaults()
                             }
                         },
                         onClear: {
-                            withAnimation(LifeBoardAnimation.stateChange) {
+                            withAnimation(MotionProfile.localState.animation(reduceMotion: UIAccessibility.isReduceMotionEnabled)) {
                                 viewModel.clearReminderWindow()
                             }
                         },
@@ -312,80 +390,6 @@ public struct AddHabitSheetView: View {
                     AddTaskDescriptionField(text: $viewModel.habitNotes, isFocused: $notesFieldFocused)
             }
         }
-    }
-
-    private var appearanceCard: some View {
-        CalmInlineReveal(
-            title: "Appearance",
-            collapsedHint: appearanceSummary,
-            isExpanded: $showAppearance,
-            accessibilityID: "addHabit.appearanceDisclosure",
-            onToggle: toggleAppearance
-        ) {
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    TextField("Search icons", text: $viewModel.iconSearchQuery)
-                        .textFieldStyle(TokenTextFieldStyle())
-                        .accessibilityIdentifier("addHabit.iconSearchField")
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: spacing.s8) {
-                            ForEach(viewModel.availableIconOptions.prefix(18)) { option in
-                                Button {
-                                    viewModel.selectedIconSymbolName = option.symbolName
-                                } label: {
-                                    Image(systemName: option.symbolName)
-                                        .font(ClayTypography.bodyStrong)
-                                        .foregroundStyle(viewModel.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
-                                        .frame(width: CreationChipMetrics.compactSwatchSize, height: CreationChipMetrics.compactSwatchSize)
-                                        .background(viewModel.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: CreationChipMetrics.compactCornerRadius, style: .continuous))
-                                }
-                                .frame(width: CreationChipMetrics.hitHeight, height: CreationChipMetrics.hitHeight)
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(option.displayName)
-                                .accessibilityAddTraits(viewModel.selectedIconSymbolName == option.symbolName ? .isSelected : [])
-                            }
-                        }
-                    }
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: spacing.s8) {
-                            ForEach(HabitColorFamily.allCases, id: \.rawValue) { family in
-                                Button {
-                                    viewModel.selectedColorHex = family.canonicalHex
-                                } label: {
-                                    RoundedRectangle(cornerRadius: CreationChipMetrics.compactCornerRadius, style: .continuous)
-                                        .fill(Color(lifeboardHex: family.canonicalHex))
-                                        .frame(width: CreationChipMetrics.compactSwatchSize, height: CreationChipMetrics.compactSwatchSize)
-                                        .overlay {
-                                            if HabitColorFamily.family(for: viewModel.selectedColorHex) == family {
-                                                RoundedRectangle(cornerRadius: CreationChipMetrics.compactCornerRadius, style: .continuous)
-                                                    .stroke(Color.lifeboard.accentOnPrimary, lineWidth: 2)
-                                                    .padding(3)
-                                            }
-                                        }
-                                }
-                                .frame(width: CreationChipMetrics.hitHeight, height: CreationChipMetrics.hitHeight)
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(family.title)
-                                .accessibilityAddTraits(HabitColorFamily.family(for: viewModel.selectedColorHex) == family ? .isSelected : [])
-                            }
-                        }
-                    }
-                }
-        }
-    }
-
-    private var validationText: String? {
-        if let error = viewModel.errorMessage {
-            return error
-        }
-        if viewModel.habitName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Name the habit to continue."
-        }
-        if viewModel.selectedLifeAreaID == nil {
-            return "Choose a life area for this habit."
-        }
-        return viewModel.reminderWindowValidationError
     }
 
     private var rhythmSummary: String {
@@ -398,19 +402,14 @@ public struct AddHabitSheetView: View {
         }
         return parts.joined(separator: " · ")
     }
+}
 
-    private var appearanceSummary: String {
-        let icon = viewModel.selectedIconOption?.displayName ?? "Icon"
-        let color = HabitColorFamily.family(for: viewModel.selectedColorHex).title
-        return "\(icon) · \(color)"
-    }
-
+extension AddHabitSheetView {
     private func handleCancel() {
+        // No haptic: cancelling is not an event worth a buzz.
         if viewModel.hasUnsavedChanges {
-            HapticFeedback.medium()
             showDiscardConfirmation = true
         } else {
-            HapticFeedback.light()
             dismiss()
         }
     }
@@ -430,11 +429,12 @@ public struct AddHabitSheetView: View {
                 case .success(let habit):
                     didCreateHabit = true
                     onHabitCreated?(habit.id)
-                    HapticFeedback.success()
+                    Haptic.commit.play()
                     runSuccessFlash()
                     dismiss()
-                case .failure(let error):
-                    snackbar = SnackbarData(message: error.localizedDescription, autoDismissSeconds: 4)
+                case .failure:
+                    Haptic.fail.play()
+                    snackbar = SnackbarData(message: String(localized: "Couldn’t save habit. Try again."), autoDismissSeconds: 4)
                 }
             }
         }
@@ -442,36 +442,16 @@ public struct AddHabitSheetView: View {
 
     private func runSuccessFlash() {
         successResetTask?.cancel()
-        withAnimation(LifeBoardAnimation.stateChange) {
+        withAnimation(MotionProfile.localState.animation(reduceMotion: UIAccessibility.isReduceMotionEnabled)) {
             successFlash = true
         }
         successResetTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 750_000_000)
-            withAnimation(LifeBoardAnimation.heroReveal) {
+            withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: UIAccessibility.isReduceMotionEnabled)) {
                 successFlash = false
             }
         }
     }
-
-    private func toggleAppearance() {
-        withAnimation(LifeBoardAnimation.stateChange) {
-            showAppearance.toggle()
-            if showAppearance {
-                selectedDetent = .large
-            }
-        }
-    }
-
-    /// Open-only entry point for the title-field icon so tapping it never collapses an
-    /// already-open Appearance panel.
-    private func openAppearance() {
-        guard showAppearance == false else { return }
-        withAnimation(LifeBoardAnimation.stateChange) {
-            showAppearance = true
-            selectedDetent = .large
-        }
-    }
-
 }
 
 private enum AddHabitCadencePreset: String, CaseIterable, Identifiable {
@@ -483,9 +463,9 @@ private enum AddHabitCadencePreset: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .daily: return "Daily"
-        case .weekly: return "Weekly"
-        case .interval: return "Interval"
+        case .daily: return String(localized: "Daily")
+        case .weekly: return String(localized: "Weekly")
+        case .interval: return String(localized: "Every few days")
         }
     }
 }
@@ -554,11 +534,11 @@ private extension AddHabitSheetView {
     func cadenceSummary(_ cadence: HabitCadenceDraft) -> String {
         switch cadence {
         case .daily(let hour, let minute):
-            return "Daily at \(formattedTime(hour: hour, minute: minute))"
+            return String(localized: "Daily at \(formattedTime(hour: hour, minute: minute))")
         case .weekly(let days, let hour, let minute):
-            return "\(weekdaySummary(days)) at \(formattedTime(hour: hour, minute: minute))"
+            return String(localized: "\(weekdaySummary(days)) at \(formattedTime(hour: hour, minute: minute))")
         case .interval(let days, let hour, let minute):
-            return "Every \(max(1, days)) days at \(formattedTime(hour: hour, minute: minute))"
+            return String(localized: "Every \(max(1, days)) days at \(formattedTime(hour: hour, minute: minute))")
         }
     }
 
@@ -601,8 +581,8 @@ private extension AddHabitSheetView {
 
     func weekdaySummary(_ days: [Int]) -> String {
         let symbols = Calendar.current.shortWeekdaySymbols
-        if days.count == 5 && days == [2, 3, 4, 5, 6] { return "Weekdays" }
-        if days.count == 7 { return "Every day" }
+        if days.count == 5 && days == [2, 3, 4, 5, 6] { return String(localized: "Weekdays") }
+        if days.count == 7 { return String(localized: "Every day") }
         return days.compactMap { day in
             let index = max(0, min(symbols.count - 1, day - 1))
             guard symbols.indices.contains(index) else { return nil }
@@ -642,22 +622,30 @@ private struct HabitCadenceDots: View {
                     )
             }
         }
-        .animation(LifeBoardAnimation.stateChange, value: activeDays)
+        .lifeBoardMotion(.localState, value: activeDays)
         .accessibilityHidden(true)
     }
 }
 
 struct HabitTargetEditor: View {
+    static func periodTitle(_ period: HabitQuotaPeriod) -> String {
+        switch period {
+        case .day: String(localized: "Per day")
+        case .week: String(localized: "Per week")
+        case .month: String(localized: "Per month")
+        }
+    }
+
     private enum TargetKind: String, CaseIterable, Identifiable {
         case binary, avoidance, quantitative, quota, timed
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .binary: "Check-in"
-            case .avoidance: "Avoidance"
-            case .quantitative: "Amount"
-            case .quota: "Quota"
-            case .timed: "Timed"
+            case .binary: String(localized: "Check-in")
+            case .avoidance: String(localized: "Stay clear")
+            case .quantitative: String(localized: "Amount")
+            case .quota: String(localized: "Count")
+            case .timed: String(localized: "Duration")
             }
         }
     }
@@ -678,11 +666,26 @@ struct HabitTargetEditor: View {
             case .binary, .avoidance:
                 EmptyView()
             case .quantitative:
+                // The drum is the design system's number control; the raw
+                // text field stayed only as the drum's own keyboard path.
+                ValueDrum(
+                    "Amount",
+                    value: targetValueBinding,
+                    in: 1...max(100, targetValueBinding.wrappedValue * 2),
+                    step: 1,
+                    coarseStep: 5,
+                    unit: unitSuffix,
+                    fractionDigits: 0,
+                    identifier: "addHabit.target.value",
+                    keyboardPrompt: "Amount"
+                )
                 HStack {
-                    TextField("Amount", value: targetValueBinding, format: .number)
-                        .keyboardType(.decimalPad)
-                    TextField("Unit", text: unitBinding)
+                    Text("Unit")
+                    Spacer()
+                    TextField("Unit", text: unitBinding, prompt: Text("Unit").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                         .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 160)
+                        .accessibilityIdentifier("addHabit.target.unit")
                 }
                 .frame(minHeight: 44)
             case .quota:
@@ -695,34 +698,38 @@ struct HabitTargetEditor: View {
                     )
                     Picker("Period", selection: quotaPeriodBinding) {
                         ForEach(HabitQuotaPeriod.allCases, id: \.self) { period in
-                            Text(period.rawValue.capitalized).tag(period)
+                            Text(Self.periodTitle(period)).tag(period)
                         }
                     }
                     .labelsHidden()
                 }
                 .frame(minHeight: 44)
             case .timed:
-                Stepper(
-                    "\(Int(targetValueBinding.wrappedValue.rounded())) minutes",
+                ValueDrum(
+                    "Minutes",
                     value: targetValueBinding,
                     in: 1...480,
-                    step: 5
+                    step: 1,
+                    coarseStep: 5,
+                    unit: "min",
+                    fractionDigits: 0,
+                    identifier: "addHabit.target.value",
+                    keyboardPrompt: "Minutes"
                 )
-                .frame(minHeight: 44)
             }
 
-            Toggle("Offer a low-energy minimum", isOn: minimumEnabledBinding)
+            Toggle("Set a minimum", isOn: minimumEnabledBinding)
                 .frame(minHeight: 44)
             if config.minimumTarget != nil,
                ![TargetKind.binary, .avoidance].contains(kindBinding.wrappedValue) {
                 HStack {
                     Text("Minimum")
                     Spacer()
-                    TextField("Minimum", value: minimumValueBinding, format: .number)
-                        .keyboardType(.decimalPad)
+                    TextField("Minimum", value: minimumValueBinding, format: .number, prompt: Text("Minimum").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
+                        .padKeyboard(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 100)
-                    Text(kindBinding.wrappedValue == .timed ? "minutes" : unitSuffix)
+                    Text(kindBinding.wrappedValue == .timed ? String(localized: "min") : unitSuffix)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
@@ -883,7 +890,7 @@ private struct AddHabitWeekdayPickerRow: View {
             ForEach(weekdays, id: \.day) { item in
                 let isSelected = selectedDays.contains(item.day)
                 Button {
-                    HapticFeedback.selection()
+                    Haptic.pick.play()
                     if isSelected {
                         selectedDays.removeAll { $0 == item.day }
                     } else {
@@ -919,130 +926,6 @@ private struct AddHabitWeekdayPickerRow: View {
     }
 }
 
-struct HabitReminderWindowPicker: View {
-    let isEnabled: Bool
-    let startDate: Binding<Date>
-    let endDate: Binding<Date>
-    let onEnable: () -> Void
-    let onClear: () -> Void
-    var accessibilityIdentifierPrefix: String
-
-    @Environment(\.lifeboardLayoutClass) private var layoutClass
-    @Environment(\.lifeboardTokens) private var tokens
-
-    private var spacing: SemanticSpacingTokens { tokens.spacing }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                VStack(alignment: .leading, spacing: spacing.s4) {
-                    Text("Reminder window")
-                        .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundStyle(Color.lifeboard.textPrimary)
-                    Text("Optional. A gentle nudge window.")
-                        .font(.lifeboard(.meta))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-                if isEnabled {
-                    Button("Clear", systemImage: "xmark.circle", action: onClear)
-                        .font(ClayTypography.meta)
-                        .foregroundStyle(ClayColorTokens.textTertiary)
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("\(accessibilityIdentifierPrefix).clear")
-                }
-            }
-
-            if isEnabled {
-                ViewThatFits(in: .horizontal) {
-                    pickerRow
-                    pickerColumn
-                }
-            } else {
-                Button(action: onEnable) {
-                    HStack(spacing: spacing.s8) {
-                        Image(systemName: "bell.badge")
-                        Text("Add reminder window")
-                        Spacer(minLength: 0)
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(Color.lifeboard.accentPrimary)
-                    }
-                    .font(ClayTypography.meta)
-                    .foregroundStyle(Color.lifeboard.textPrimary)
-                    .padding(.horizontal, spacing.s12)
-                    .frame(minHeight: 44)
-                    .background(Color.lifeboard.surfaceSecondary, in: Capsule())
-                    .overlay {
-                        Capsule()
-                            .stroke(Color.lifeboard.strokeHairline.opacity(0.7), lineWidth: 1)
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("\(accessibilityIdentifierPrefix).add")
-            }
-        }
-        .accessibilityIdentifier(accessibilityIdentifierPrefix)
-    }
-
-    private var pickerRow: some View {
-        HStack(spacing: spacing.s8) {
-            timePicker(title: "Start", selection: startDate, accessibilityID: "\(accessibilityIdentifierPrefix).start")
-            timePicker(title: "End", selection: endDate, accessibilityID: "\(accessibilityIdentifierPrefix).end")
-        }
-    }
-
-    private var pickerColumn: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            timePicker(title: "Start", selection: startDate, accessibilityID: "\(accessibilityIdentifierPrefix).start")
-            timePicker(title: "End", selection: endDate, accessibilityID: "\(accessibilityIdentifierPrefix).end")
-        }
-    }
-
-    private func timePicker(title: String, selection: Binding<Date>, accessibilityID: String) -> some View {
-        DatePicker(title, selection: selection, displayedComponents: .hourAndMinute)
-            .datePickerStyle(.compact)
-            .labelsHidden()
-            .padding(.horizontal, spacing.s12)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .background(Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(alignment: .topLeading) {
-                Text(title)
-                    .font(.lifeboard(.meta))
-                    .foregroundStyle(Color.lifeboard.textTertiary)
-                    .padding(.horizontal, spacing.s8)
-                    .background(Color.lifeboard.surfaceSecondary)
-                    .offset(x: spacing.s8, y: -7)
-            }
-            .accessibilityLabel("Reminder \(title.lowercased()) time")
-            .accessibilityIdentifier(accessibilityID)
-    }
-}
-
-private struct HabitInlineError: View {
-    let message: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .lifeboardFont(.headline)
-                .foregroundStyle(Color.lifeboard.statusWarning)
-            Text(message)
-                .font(.lifeboard(.callout))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color.lifeboard.surfacePrimary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.lifeboard.statusWarning.opacity(0.35), lineWidth: 1)
-        )
-        .accessibilityIdentifier("addHabit.validationMessage")
-    }
-}
-
 private struct HabitBottomActionBar: View {
     let isEnabled: Bool
     let isLoading: Bool
@@ -1063,14 +946,16 @@ private struct HabitBottomActionBar: View {
                 Text(isLoading ? "Adding…" : title)
             }
             .font(.lifeboard(.bodyEmphasis))
-            .foregroundStyle(Color.lifeboard.textInverse)
+            // The violet fill is saturated in both appearances, so the ink is the
+            // fixed light scenic ink. `textInverse` turned cocoa in dark (3.3:1
+            // on violet), and the old leaf-to-sky success flash put light ink on
+            // bright green at 2.4:1. Success now reads through the checkmark.
+            .foregroundStyle(Color(SemanticColorTokens.foundationOnScenicDark))
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
                 LinearGradient(
-                    colors: successFlash
-                        ? [ClayColorTokens.leaf, ClayColorTokens.sky]
-                        : [ClayColorTokens.violetFill, ClayColorTokens.violetFillDeep],
+                    colors: [ClayColorTokens.violetFill, ClayColorTokens.violetFillDeep],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ),

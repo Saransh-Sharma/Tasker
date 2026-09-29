@@ -61,6 +61,8 @@ public struct CompletionControl: View {
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.lifeBoardMotionContext) private var motionContext
+    @TapIsKeyboardDismissal private var tapIsKeyboardDismissal: Bool
 
     @State private var progress: Double = 0
     @State private var burstTrigger = 0
@@ -125,7 +127,7 @@ public struct CompletionControl: View {
                     // control: the lock explains *why* it cannot be completed.
                     Image(systemName: "lock.circle")
                         .font(.system(size: markSide, weight: .regular))
-                        .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                 }
             }
             .frame(width: 44, height: 44)
@@ -138,7 +140,6 @@ public struct CompletionControl: View {
         .onChange(of: isComplete) { _, updated in settle(to: updated ? 1 : 0) }
         .accessibilityLabel(title)
         .accessibilityValue(accessibilityValue)
-        .accessibilityHint(isEnabled ? "Completing can be undone." : "")
         .accessibilityAddTraits(isComplete ? [.isSelected] : [])
     }
 
@@ -146,16 +147,19 @@ public struct CompletionControl: View {
         // Shape carries the state, not colour: the ring and the tick are
         // different marks, so this survives Differentiate Without Color.
         isComplete
-            ? Color(SemanticColorTokens.foundationSageAccent)
+            ? Color(SemanticColorTokens.foundationSageInk)
             : Color(SemanticColorTokens.inkTertiary)
     }
 
     private var accessibilityValue: String {
-        if isEnabled == false { return "Waiting on a dependency" }
-        return isComplete ? "Complete" : "Not complete"
+        if isEnabled == false { return String(localized: "Waiting on another task") }
+        return isComplete ? String(localized: "Complete") : String(localized: "Not complete")
     }
 
     private func toggle() {
+        // `DESIGN.md`, keyboard contract: while typing, this tap only puts the
+        // keyboard away. A tap meant to dismiss must not complete a task.
+        guard tapIsKeyboardDismissal == false else { return }
         let target = isComplete == false
         guard let onCommit else {
             settle(to: target ? 1 : 0)
@@ -191,7 +195,8 @@ public struct CompletionControl: View {
         MotionPolicy.resolve(
             reduceMotion: reduceMotion || VisualAppearanceFixture.active?.usesReducedMotion == true,
             reduceTransparency: reduceTransparency || VisualAppearanceFixture.active?.usesReducedTransparency == true,
-            sceneIsActive: scenePhase == .active
+            sceneIsActive: scenePhase == .active,
+            comfortProfile: motionContext.comfortProfile
         )
     }
 

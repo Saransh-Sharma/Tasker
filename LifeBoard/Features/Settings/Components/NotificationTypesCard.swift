@@ -12,11 +12,11 @@ struct NotificationTypesCard: View {
 
     private var rows: [NotificationToggleRow] {
         [
-            NotificationToggleRow(id: "reminders", icon: "bell.badge.fill", title: "Task Reminders", keyPath: \.taskRemindersEnabled),
-            NotificationToggleRow(id: "dueSoon", icon: "clock.badge.exclamationmark", title: "Due Soon Nudges", keyPath: \.dueSoonEnabled),
-            NotificationToggleRow(id: "overdue", icon: "lifepreserver", title: "Rescue Nudges", keyPath: \.overdueNudgesEnabled),
-            NotificationToggleRow(id: "morning", icon: "sunrise.fill", title: "Morning Agenda", keyPath: \.morningAgendaEnabled),
-            NotificationToggleRow(id: "nightly", icon: "moon.stars.fill", title: "Nightly Retrospective", keyPath: \.nightlyRetrospectiveEnabled),
+            NotificationToggleRow(id: "reminders", icon: "bell.badge.fill", title: String(localized: "Task reminders"), keyPath: \.taskRemindersEnabled),
+            NotificationToggleRow(id: "dueSoon", icon: "clock.badge.exclamationmark", title: String(localized: "Due soon reminders"), keyPath: \.dueSoonEnabled),
+            NotificationToggleRow(id: "overdue", icon: "lifepreserver", title: String(localized: "Tasks from earlier"), keyPath: \.overdueNudgesEnabled),
+            NotificationToggleRow(id: "morning", icon: "sunrise.fill", title: String(localized: "Morning agenda"), keyPath: \.morningAgendaEnabled),
+            NotificationToggleRow(id: "nightly", icon: "moon.stars.fill", title: String(localized: "Close the day"), keyPath: \.nightlyRetrospectiveEnabled),
         ]
     }
 

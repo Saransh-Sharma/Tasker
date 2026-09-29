@@ -42,7 +42,7 @@ struct RecurringTaskDeleteConfirmationView: View {
                     ) {
                         VStack(spacing: ClayLayoutMetrics.sm) {
                             destructiveAction(
-                                title: "Delete This Task",
+                                title: String(localized: "Delete this task"),
                                 systemImage: "calendar.badge.minus",
                                 type: .single,
                                 action: onDeleteSingle
@@ -52,7 +52,7 @@ struct RecurringTaskDeleteConfirmationView: View {
                                 .overlay(Color.lifeboard.strokeHairline.opacity(0.5))
 
                             destructiveAction(
-                                title: "Delete Entire Series",
+                                title: String(localized: "Delete series"),
                                 systemImage: "repeat.circle",
                                 type: .series,
                                 action: onDeleteSeries
@@ -80,6 +80,7 @@ struct RecurringTaskDeleteConfirmationView: View {
                         dismiss()
                     }
                     .accessibilityIdentifier("home.recurringTaskDelete.close")
+                    .keyboardShortcut(.cancelAction)
                 }
             }
         }
@@ -92,7 +93,7 @@ struct RecurringTaskDeleteConfirmationView: View {
                 .font(.lifeboard(.title3))
                 .foregroundColor(Color.lifeboard.textPrimary)
 
-            Text("Choose whether to delete only \"\(taskTitle)\" or every task in the series.")
+            Text("“\(taskTitle)” repeats.")
                 .font(.lifeboard(.body))
                 .foregroundColor(Color.lifeboard.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

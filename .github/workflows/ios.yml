@@ -18,6 +18,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          if [[ ! -d /Applications/Xcode_26.5.app ]]; then
+            ls -1 /Applications
+            echo "Xcode 26.5 is required for Swift 6 and iOS 26 APIs used by LifeBoard."
+            exit 1
+          fi
+          sudo xcode-select -switch /Applications/Xcode_26.5.app
+          xcodebuild -version
+
       - name: Install guardrail tools
         run: |
           set -euo pipefail
@@ -58,6 +69,23 @@ jobs:
           TOKEN_LAW_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: bash scripts/token-law-guardrails.sh
 
+      # DESIGN.md keyboard contract: a keyboard without a Return key carries
+      # Done, so a bare number-pad keyboard type may only come from
+      # `.padKeyboard(_:)`.
+      - name: Enforce keyboard exits
+        run: bash scripts/check-keyboard-exits.sh
+
+      # iPad and Mac parity ratchet: no new swipe actions outside a List, raw
+      # haptic generators, or cancel buttons without an Esc shortcut.
+      - name: Enforce platform parity
+        run: bash scripts/check-platform-parity.sh
+
+      # Launch contracts (DESIGN.md): raw enum copy, legacy haptics, inline
+      # animation curves, untyped navigation links, silent catches, "EVA" in
+      # copy, and fixed-height sheet detents. A per-file ratchet.
+      - name: Enforce launch contracts
+        run: bash scripts/launch-contract-guardrails.sh
+
       # Structural-refactor gates. These hold the invariants that file moves,
       # splits and renames are most likely to break silently: target membership,
       # layer boundaries, file size in both directions, and the accessibility
@@ -88,7 +116,7 @@ jobs:
           set -euo pipefail
           derived_data="${RUNNER_TEMP}/lifeboard-core-products"
           for configuration in Debug Release; do
-            for product in LifeBoardContracts LifeBoardTokens LifeBoardUI LifeBoardDomain LifeBoardPersistence LifeBoardCalendar; do
+            for product in LifeBoardContracts LifeBoardTokens LifeBoardUI LifeBoardDomain LifeBoardPersistence LifeBoardCalendar LifeBoardTranscription KnowledgeFeature JournalFeature; do
               xcodebuild \
                 -scheme "$product" \
                 -configuration "$configuration" \
@@ -137,7 +165,10 @@ jobs:
           xcodebuild \
             -workspace "LifeBoard.xcworkspace" \
             -scheme "LifeBoard" \
+            -testPlan "Unit" \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -skipPackageUpdates \
+            -disableAutomaticPackageResolution \
             -only-testing:LifeBoardTests/TaskNotificationOrchestratorTests \
             -only-testing:LifeBoardTests/TaskSemanticRetrievalServiceTests \
             -only-testing:LifeBoardTests/TaskTagLinkUniquenessTests \
@@ -155,6 +186,14 @@ jobs:
       - name: Run full baseline-aware unit-test gate
         run: bash scripts/run-baseline-aware-tests.sh
 
+      - name: Retain unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: LifeBoard-Unit-xcresult
+          path: build/test-results/LifeBoardTests.xcresult
+          if-no-files-found: warn
+
   screenshot-smoke:
     runs-on: macos-latest
     needs: guardrails
@@ -171,6 +210,11 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
+          if [[ ! -d /Applications/Xcode_26.5.app ]]; then
+            ls -1 /Applications
+            echo "Xcode 26.5 is required for accessibility screenshot qualification."
+            exit 1
+          fi
           sudo xcode-select -switch /Applications/Xcode_26.5.app
           xcodebuild -version
 
@@ -189,8 +233,36 @@ jobs:
           xcodebuild test \
             -workspace "LifeBoard.xcworkspace" \
             -scheme "LifeBoard" \
+            -testPlan "AccessibilityUI" \
             -destination 'platform=iOS Simulator,name=${{ matrix.device }}' \
+            -skipPackageUpdates \
+            -disableAutomaticPackageResolution \
             -only-testing:LifeBoardUITests/AppStoreScreenshotUITests/testCaptureExpandedAppStoreScreenshotSet
+
+      # DESIGN.md → "Keyboard contract". iPhone only: the floating composer,
+      # dock and keyboard bar these cover are the compact shell's.
+      - name: Run keyboard contract UI tests
+        if: matrix.device == 'iPhone 17'
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -workspace "LifeBoard.xcworkspace" \
+            -scheme "LifeBoard" \
+            -testPlan "ReleaseQualification" \
+            -destination 'platform=iOS Simulator,name=${{ matrix.device }}' \
+            -parallel-testing-enabled NO \
+            -skipPackageUpdates \
+            -disableAutomaticPackageResolution \
+            -only-testing:LifeBoardUITests/LifeBoardUITests/testHomeComposerKeyboardHasAWayDown \
+            -only-testing:LifeBoardUITests/LifeBoardUITests/testHomeComposerSendBeforePreviewSavesInPlace \
+            -only-testing:LifeBoardUITests/LifeBoardUITests/testCompletionTapWhileTypingOnlyDismisses \
+            -only-testing:LifeBoardUITests/LifeBoardUITests/testDragOnEachRootPutsTheKeyboardAway \
+            -only-testing:LifeBoardUITests/LifeBoardUITests/testTapOnATaskWhileTypingOpensIt \
+            -only-testing:LifeBoardUITests/LifeBoardUITests/testTaskTitleReturnMovesToNotes \
+            -only-testing:LifeBoardUITests/LifeBoardUITests/testFoundationEvaKeyboardBarAndCommandDraft \
+            -only-testing:LifeBoardUITests/LifeBoardUITests/testFoundationEvaTapWhileTypingStillActs \
+            -only-testing:LifeBoardUITests/LifeBoardUITests/testFoundationEvaComposerClearsDockAndKeyboard \
+            -only-testing:LifeBoardUITests/LifeBoardUITests/testFoundationCompactChromeRemainsReadableAcrossScrollAndCapture
 
   perf-gate:
     runs-on: macos-latest
@@ -198,6 +270,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          if [[ ! -d /Applications/Xcode_26.5.app ]]; then
+            ls -1 /Applications
+            echo "Xcode 26.5 is required for LifeBoard performance qualification."
+            exit 1
+          fi
+          sudo xcode-select -switch /Applications/Xcode_26.5.app
+          xcodebuild -version
 
       - name: Generate deterministic read-model benchmark snapshot
         run: |

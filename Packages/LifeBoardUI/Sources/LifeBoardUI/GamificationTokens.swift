@@ -5,7 +5,7 @@ public enum GamificationTokens {
     // MARK: - XP Ring Sizes
 
     public enum XPRingSize {
-        case navCompact   // 32x32, 4pt ring (existing NavPieChart)
+        case navCompact   // 32x32, 4pt ring
         case homeHero     // 80x80, 6pt ring (Home daily progress)
         case widgetSmall  // 56x56, 5pt ring (widget ring)
         case insightLarge // 120x120, 8pt ring (Insights detail)

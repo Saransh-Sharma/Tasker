@@ -42,14 +42,16 @@ private struct EvaFeatureRow: View {
 struct OnboardingView: View {
     @Binding var showOnboarding: Bool
     @StateObject private var assistantIdentity = AssistantIdentityModel()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeBoardMotionContext) private var motionContext
 
     private let features: [(icon: String, title: String, subtitle: String)] = [
-        ("bolt.fill", "fast", "optimized for apple silicon"),
-        ("checkmark.shield.fill", "offline", "runs locally on your device"),
-        ("lightbulb.fill", "insightful", "smart productivity suggestions"),
-        ("brain.head.profile", "context-aware", "adapts to your current projects"),
-        ("battery.100.bolt", "battery-light", "tiny power footprint"),
-        ("list.bullet.rectangle.fill", "smart recap", "daily / weekly digests")
+        ("bolt.fill", String(localized: "Fast"), String(localized: "Built for Apple silicon")),
+        ("checkmark.shield.fill", String(localized: "Offline"), String(localized: "Runs on your device")),
+        ("lightbulb.fill", String(localized: "Suggestions"), String(localized: "Ideas for what to do next")),
+        ("brain.head.profile", String(localized: "Your projects"), String(localized: "Adapts to what you’re working on")),
+        ("battery.100.bolt", String(localized: "Battery-friendly"), String(localized: "Low power use")),
+        ("list.bullet.rectangle.fill", String(localized: "Recaps"), String(localized: "Daily and weekly summaries"))
     ]
 
     var body: some View {
@@ -69,14 +71,21 @@ struct OnboardingView: View {
                         Image(systemName: "bubble.left.and.text.bubble.right")
                             .lifeboardFont(.heroDisplay)
                             .foregroundColor(Color.lifeboard(.accentPrimary))
-                            .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
+                            // Idle motion: off under Reduce Motion, Calm and energy pressure.
+                            .symbolEffect(
+                                .wiggle.byLayer,
+                                options: .repeat(.continuous),
+                                isActive: !reduceMotion
+                                    && motionContext.allowsSpatialMotion
+                                    && motionContext.comfortProfile != .calm
+                            )
                     }
 
                     VStack(spacing: Theme.Spacing.xs) {
-                        Text("I am \(assistantIdentity.snapshot.displayName)")
+                        Text("Meet \(assistantIdentity.snapshot.displayName)")
                             .font(.lifeboard(.display))
                             .foregroundColor(Color.lifeboard(.textPrimary))
-                        Text("your personal AI assistant")
+                        Text("Plans your day with you.")
                             .font(.lifeboard(.callout))
                             .fontWeight(.semibold)
                             .foregroundColor(Color.lifeboard(.textSecondary))
@@ -104,7 +113,7 @@ struct OnboardingView: View {
 
                 // CTA button
                 NavigationLink(destination: OnboardingInstallModelView(showOnboarding: $showOnboarding)) {
-                    Text("get started")
+                    Text("Get started")
                         #if os(iOS) || os(visionOS)
                         .font(.lifeboard(.button))
                         .foregroundColor(Color.lifeboard(.accentOnPrimary))
@@ -122,7 +131,7 @@ struct OnboardingView: View {
             }
             .padding()
             .background(Color.lifeboard(.bgCanvas))
-            .navigationTitle("welcome")
+            .navigationTitle("Welcome")
             .toolbar(.hidden)
         }
         .tint(Color.lifeboard(.accentPrimary))

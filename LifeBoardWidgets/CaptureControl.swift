@@ -11,13 +11,14 @@ import WidgetKit
 /// rule that nothing uncertain commits silently. An extension has no UI to
 /// review in, so it must not decide.
 ///
-/// The `source` label is surfaced verbatim in the Inbox as "Captured from X",
-/// so it names the surface a person recognizes rather than an internal id.
+/// `source` is a storage id ("control", "widget", "share-extension"); the Inbox
+/// turns it into words a person recognizes ("Control Center") through
+/// `InboxCaptureSourceCopy`, so only ids that table knows should be sent.
 @available(iOS 16.0, *)
 public struct CaptureToInboxIntent: AppIntent {
     public static let title: LocalizedStringResource = "Capture to LifeBoard"
     public static let description = IntentDescription(
-        "Saves a thought to your LifeBoard inbox to sort out later."
+        "Saves text to your LifeBoard Inbox."
     )
     public static let openAppWhenRun = false
 
@@ -52,7 +53,25 @@ public struct CaptureToInboxIntent: AppIntent {
 
         // States what happened, not what it became. Claiming it was scheduled
         // would be the silent-commit problem in a friendlier sentence.
-        return .result(dialog: IntentDialog("Saved to your inbox to review."))
+        return .result(dialog: IntentDialog("Saved to Inbox."))
+    }
+}
+
+/// Control Center's Capture opens the app's capture composer.
+///
+/// It used to run `CaptureToInboxIntent` with empty text. Control Center can't
+/// ask for a value, so the intent's "What do you want to capture?" prompt had
+/// nowhere to appear and the tap did nothing useful. Opening the composer lets
+/// the person type or dictate with the full keyboard.
+@available(iOS 18.0, *)
+struct OpenCaptureControlIntent: AppIntent {
+    static let title: LocalizedStringResource = "Capture"
+    static let description = IntentDescription("Opens LifeBoard to capture a thought.")
+    static let openAppWhenRun = true
+    static let isDiscoverable = false
+
+    func perform() async throws -> some IntentResult & OpensIntent {
+        .result(opensIntent: OpenURLIntent(URL(string: "lifeboard://quickadd")!))
     }
 }
 
@@ -62,12 +81,12 @@ public struct CaptureControl: ControlWidget {
 
     public var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "com.lifeboard.control.capture") {
-            ControlWidgetButton(action: CaptureToInboxIntent(text: "", source: "control")) {
-                Label("Capture", systemImage: "tray.and.arrow.down.fill")
+            ControlWidgetButton(action: OpenCaptureControlIntent()) {
+                Label("Capture", systemImage: "square.and.pencil")
             }
         }
-        .displayName("Capture to Inbox")
-        .description("Save a thought to review later.")
+        .displayName("Capture")
+        .description("Opens LifeBoard to capture a thought.")
     }
 }
 #endif

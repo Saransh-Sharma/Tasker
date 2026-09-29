@@ -20,7 +20,7 @@ struct EvaCloudProvider: EvaInferenceProviding {
 
     let runtime = EvaRuntimeDescriptor(
         provider: .cloud,
-        label: String(localized: "Cloud EVA · Luna"),
+        label: String(localized: "Eva (cloud)"),
         supportsStreaming: true,
         supportsSpokenOutput: true
     )
@@ -85,7 +85,7 @@ struct EvaCloudProvider: EvaInferenceProviding {
 struct EvaMLXProvider: Sendable {
     let runtime = EvaRuntimeDescriptor(
         provider: .mlx,
-        label: String(localized: "Offline EVA · MLX"),
+        label: String(localized: "Eva (on device)"),
         supportsStreaming: true,
         supportsSpokenOutput: false
     )
@@ -117,9 +117,9 @@ final class EvaCloudAccountState {
         var progressCaption: String? {
             switch self {
             case .idle: nil
-            case .creatingGuest: String(localized: "Activating Cloud EVA…")
+            case .creatingGuest: String(localized: "Connecting…")
             case .verifyingDevice: String(localized: "Verifying this device…")
-            case .finalizing: String(localized: "Securing your EVA session…")
+            case .finalizing: String(localized: "Finishing setup…")
             }
         }
     }
@@ -160,7 +160,7 @@ final class EvaCloudAccountState {
             lastError: lastError
         ) { return base }
         if identityKind == .guest, configuration?.guestAccess?.inferenceEnabled != true {
-            return .unavailable(configuration?.maintenanceMessage ?? String(localized: "Guest Cloud EVA is temporarily unavailable."))
+            return .unavailable(configuration?.maintenanceMessage ?? String(localized: "Couldn’t connect to the cloud. Try again soon."))
         }
         return nil
     }
@@ -178,13 +178,13 @@ final class EvaCloudAccountState {
         // Eligibility belongs to app distribution, not session readiness.
         guard isAuthenticated else { return .authenticationRequired }
         guard let configuration else {
-            return .unavailable(lastError ?? String(localized: "Cloud configuration could not be verified."))
+            return .unavailable(lastError ?? String(localized: "Couldn’t verify the cloud setup."))
         }
         guard configuration.cloudState != .disabled else {
-            return .unavailable(configuration.maintenanceMessage ?? String(localized: "Cloud EVA is temporarily unavailable."))
+            return .unavailable(configuration.maintenanceMessage ?? String(localized: "Couldn’t connect to the cloud. Try again soon."))
         }
         guard configuration.routes[route]?.enabled == true else {
-            return .unavailable(configuration.maintenanceMessage ?? String(localized: "This Cloud EVA capability is temporarily unavailable."))
+            return .unavailable(configuration.maintenanceMessage ?? String(localized: "Couldn’t use this in the cloud. Try again soon."))
         }
         guard hasConsent else { return .consentRequired }
         if configuration.routes[route]?.billable == true, (creditBalance ?? 0) <= 0 {
@@ -234,7 +234,7 @@ final class EvaCloudAccountState {
                     return
                 case .unavailable:
                     isAuthenticated = true
-                    lastError = String(localized: "Apple account status is temporarily unavailable. Cloud EVA will retry automatically.")
+                    lastError = String(localized: "Couldn’t check your Apple account. Eva will retry.")
                     return
                 }
             }
@@ -273,7 +273,9 @@ final class EvaCloudAccountState {
             lastError = error.localizedDescription
         }
     }
+}
 
+extension EvaCloudAccountState {
     /// Resumable by design. Each leg checks whether its work is already done, so
     /// retrying after a stalled network hop picks up where it stopped instead of
     /// re-presenting the Apple sheet and spending another of the five exchanges
@@ -303,7 +305,7 @@ final class EvaCloudAccountState {
         } else {
             guard configuration?.guestAccess?.bootstrapEnabled == true else {
                 throw EvaProviderError.unavailable(
-                    configuration?.maintenanceMessage ?? String(localized: "Guest Cloud EVA is not enabled yet.")
+                    configuration?.maintenanceMessage ?? String(localized: "Cloud isn’t available yet.")
                 )
             }
             let credentials = try await transport.bootstrapGuest(grants: grants)
@@ -343,7 +345,7 @@ final class EvaCloudAccountState {
             let installationID = try EvaInstallationIdentity.resolved()
             if credentials.installationId != installationID {
                 throw EvaProviderError.unavailable(
-                    String(localized: "Cloud EVA is restoring this installation. Try again when secure storage is available.")
+                    String(localized: "Couldn’t open secure storage. Unlock this device and try again.")
                 )
             }
         }
@@ -364,7 +366,7 @@ final class EvaCloudAccountState {
                 await handleAppleCredentialInvalidation(using: transport, credentials: credentials)
                 throw EvaProviderError.authenticationRequired
             case .unavailable:
-                throw EvaProviderError.unavailable(String(localized: "Apple account status is temporarily unavailable."))
+                throw EvaProviderError.unavailable(String(localized: "Couldn’t check your Apple account."))
             }
         }
 
@@ -480,7 +482,7 @@ final class EvaCloudAccountState {
         trustTier = nil
         isAuthenticated = false
         isAdultEligible = false
-        lastError = String(localized: "Your protected Cloud EVA session changed. Sign in with Apple to reconnect.")
+        lastError = String(localized: "Sign in with Apple to reconnect.")
     }
 
     func deleteCloudAccount() async throws {
@@ -754,50 +756,5 @@ actor EvaSpeechTicketRegistry {
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let expiration = object["exp"] as? NSNumber else { return nil }
         return Date(timeIntervalSince1970: expiration.doubleValue)
-    }
-}
-
-extension EvaInferenceRequest {
-    /// Builds the wire request.
-    ///
-    /// System messages are still dropped here, and deliberately: the route's
-    /// operating contract and EVA's persona live server-side in `prompts.ts`,
-    /// where they can be corrected without an app release. What the client owns
-    /// is the person's *own* instruction, which now travels as
-    /// `userInstructions` rather than being composed into a system message and
-    /// silently discarded.
-    static func make(
-        route: EvaCloudRoute,
-        promptSnapshot: LLMChatPromptSnapshot,
-        consentRevision: Int,
-        userInstructions: EvaUserInstructions? = nil,
-        contractVersion: Int = 1,
-        surface: EvaSurface = .evaTab
-    ) throws -> EvaInferenceRequest {
-        let messages = promptSnapshot.messages.compactMap { message -> EvaCloudMessage? in
-            switch message.role {
-            case .user: EvaCloudMessage(role: .user, content: message.content)
-            case .assistant: EvaCloudMessage(role: .assistant, content: message.content)
-            case .system, .tool: nil
-            }
-        }
-        return EvaInferenceRequest(
-            requestId: UUID(),
-            route: route,
-            contractVersion: contractVersion,
-            locale: Locale.current.identifier,
-            timeZone: TimeZone.current.identifier,
-            turnContext: contractVersion >= 4 ? .current(surface: surface) : nil,
-            messages: messages.isEmpty ? [EvaCloudMessage(role: .user, content: "Continue.")] : messages,
-            context: promptSnapshot.cloudContext.map { $0.forContract(contractVersion) },
-            // A v1 Worker's strict schema has no `userInstructions` property and
-            // rejects the whole request rather than ignoring it.
-            userInstructions: contractVersion >= 2 ? userInstructions : nil,
-            clientVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0",
-            platform: EvaInstallationIdentity.platform,
-            installationId: try EvaInstallationIdentity.resolved(),
-            consentRevision: consentRevision,
-            providerCapabilities: .init(streaming: true, structuredOutput: true, spokenOutput: true)
-        )
     }
 }

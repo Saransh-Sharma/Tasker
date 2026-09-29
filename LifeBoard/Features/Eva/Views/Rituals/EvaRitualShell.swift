@@ -6,13 +6,18 @@ struct EvaRitualShell<Content: View, Footer: View>: View {
     let evidence: [Insight.Evidence]
     var onOpenEvidence: ((EvaRecordReference) -> Void)? = nil
     let onClose: () -> Void
+    /// False when the ritual is *pushed* onto an existing stack. A pushed
+    /// destination that brings its own `NavigationStack` is unsupported:
+    /// SwiftUI renders a blank page with a yellow warning triangle, which is
+    /// what Weekly Review showed from its notification and deep link.
+    var embedsInNavigationStack = true
     @ViewBuilder let content: () -> Content
     @ViewBuilder let footer: () -> Footer
     @Environment(PresentationPreferences.self) private var preferences
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        NavigationStack {
+        OptionalNavigationStack(isEnabled: embedsInNavigationStack) {
             ZStack(alignment: .top) {
                 ScenicBackdrop(
                     scene: .secondary,
@@ -25,14 +30,12 @@ struct EvaRitualShell<Content: View, Footer: View>: View {
                 .ignoresSafeArea(edges: .top)
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        VStack(alignment: .leading, spacing: 7) {
-                            Text("EVA DECISION RITUAL")
-                                .font(.caption.weight(.semibold))
-                                .tracking(1.2)
-                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            // No eyebrow: the navigation title already says
+                            // what this is.
                             Text(orientation)
-                                .font(.title3.weight(.semibold))
+                                .lifeboardFont(.title3)
                                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -48,15 +51,22 @@ struct EvaRitualShell<Content: View, Footer: View>: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 120)
+                    // The footer is a safe-area inset already; this only
+                    // keeps the last card off it.
+                    .padding(.bottom, 24)
                 }
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", action: onClose)
-                        .frame(minWidth: 44, minHeight: 44)
+                // Pushed, the stack's Back already leaves; a second Close
+                // beside it was redundant and read as a faint grey pill.
+                if embedsInNavigationStack {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close", action: onClose)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .keyboardShortcut(.cancelAction)
+                    }
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -66,7 +76,7 @@ struct EvaRitualShell<Content: View, Footer: View>: View {
                     .background(Color(SemanticColorTokens.foundationSurfaceRaised))
             }
         }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: orientation)
+        .animation(MotionProfile.localState.animation(reduceMotion: reduceMotion), value: orientation)
     }
 }
 
@@ -87,7 +97,7 @@ struct EvaRitualEvidenceDisclosure: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityHint("Opens the referenced record")
+                        .accessibilityHint("Opens details")
                     } else {
                         evidenceRow(item, showsLink: false)
                             .accessibilityElement(children: .combine)
@@ -96,8 +106,8 @@ struct EvaRitualEvidenceDisclosure: View {
             }
             .padding(.top, 12)
         } label: {
-            Label("Evidence behind this ritual", systemImage: "sparkle.magnifyingglass")
-                .font(.headline)
+            Label("Details", systemImage: "sparkle.magnifyingglass")
+                .lifeboardFont(.headline)
         }
         .foundationClayCard()
         .accessibilityIdentifier("eva.ritual.evidence")
@@ -107,12 +117,12 @@ struct EvaRitualEvidenceDisclosure: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: showsLink ? "link" : "doc.text.magnifyingglass")
                 .frame(width: 24, height: 24)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(item.reason)
-                    .font(.subheadline.weight(.medium))
+                    .lifeboardFont(.bodyStrong)
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Text(item.reference.title)
-                    .font(.caption)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
@@ -127,20 +137,35 @@ struct EvaRitualSection<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 13) {
-            Text(eyebrow.uppercased())
-                .font(.caption2.weight(.bold))
-                .tracking(1)
+        VStack(alignment: .leading, spacing: 12) {
+            // Sentence case: `DESIGN.md` bars uppercase for hierarchy.
+            Text(eyebrow)
+                .lifeboardFont(.caption1)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Text(title)
-                .font(.title3.weight(.semibold))
+                .lifeboardFont(.title3)
             if let message {
                 Text(message)
-                    .font(.subheadline)
+                    .lifeboardFont(.support)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             content()
         }
         .foundationClayCard()
+    }
+}
+
+/// A `NavigationStack` only when the view is the root of its own presentation
+/// (a sheet or cover). Pushed destinations must not nest one.
+struct OptionalNavigationStack<Content: View>: View {
+    let isEnabled: Bool
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        if isEnabled {
+            NavigationStack { content() }
+        } else {
+            content()
+        }
     }
 }

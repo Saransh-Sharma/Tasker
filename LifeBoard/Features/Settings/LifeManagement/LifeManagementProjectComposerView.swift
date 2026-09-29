@@ -56,14 +56,14 @@ struct LifeManagementProjectComposerView: View {
     }
 
     var selectedAreaName: String {
-        availableAreas.first(where: { $0.id == draft.lifeAreaID })?.lifeArea.name ?? "No area yet"
+        availableAreas.first(where: { $0.id == draft.lifeAreaID })?.lifeArea.name ?? String(localized: "No area")
     }
 
     var body: some View {
         VStack(spacing: 0) {
             AddTaskNavigationBar(
                 containerMode: containerMode,
-                title: draft.isNew ? "New Project" : "Edit Project",
+                title: draft.isNew ? "New project" : "Edit project",
                 canSave: canSave
             ) {
                 onCancel()
@@ -76,14 +76,14 @@ struct LifeManagementProjectComposerView: View {
             ScrollView {
                 VStack(spacing: spacing.s16) {
                     LifeManagementComposerPreviewCard(
-                        eyebrow: draft.isNew ? "Create project" : "Edit project",
+                        eyebrow: "Project",
                         title: draft.name.lifeManagementNilIfBlank ?? "New project",
-                        subtitle: draft.description.lifeManagementNilIfBlank ?? "Projects group related tasks inside an area.",
+                        subtitle: draft.description.lifeManagementNilIfBlank ?? String(localized: "No description"),
                         iconName: draft.icon.systemImageName,
                         accentColor: lifeManagementResolvedColor(hex: draft.color.hexString, fallback: Color.lifeboard.accentPrimary),
                         metrics: [
                             LifeManagementComposerPreviewMetric(title: "Area", value: selectedAreaName),
-                            LifeManagementComposerPreviewMetric(title: "Accent", value: draft.color.displayName)
+                            LifeManagementComposerPreviewMetric(title: "Color", value: draft.color.displayName)
                         ]
                     )
                     .enhancedStaggeredAppearance(index: 0)
@@ -91,25 +91,24 @@ struct LifeManagementProjectComposerView: View {
                     AddTaskTitleField(
                         text: $draft.name,
                         isFocused: $titleFieldFocused,
-                        placeholder: "Name this project",
-                        helperText: "Keep it specific enough that it still makes sense later.",
+                        placeholder: "Project name",
                         onSubmit: commit
                     )
                     .enhancedStaggeredAppearance(index: 1)
 
                     LifeManagementComposerSectionCard(
-                        title: "Essentials",
-                        subtitle: "Set the project’s name, a short description, and where it belongs.",
+                        title: "Details",
+                        subtitle: "",
                         iconSystemName: "text.alignleft"
                     ) {
                         VStack(alignment: .leading, spacing: spacing.s16) {
                             VStack(alignment: .leading, spacing: spacing.s8) {
                                 LifeManagementComposerFieldLabel(
                                     title: "Description",
-                                    detail: "Optional, but useful when the project name needs context."
+                                    detail: "Optional"
                                 )
 
-                                TextField("What is this project for?", text: $draft.description, axis: .vertical)
+                                TextField("Description", text: $draft.description, prompt: Text("Description").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                                     .textFieldStyle(TokenTextFieldStyle())
                                     .lineLimit(3, reservesSpace: true)
                             }
@@ -132,20 +131,20 @@ struct LifeManagementProjectComposerView: View {
 
                     LifeManagementComposerSectionCard(
                         title: "Appearance",
-                        subtitle: "Choose an accent and icon that make this project easy to scan in lists.",
+                        subtitle: "",
                         iconSystemName: "paintbrush.pointed.fill"
                     ) {
                         VStack(alignment: .leading, spacing: spacing.s16) {
                             LifeManagementComposerFieldLabel(
-                                title: "Accent",
-                                detail: "Project colors already map to the app’s built-in palette."
+                                title: "Color",
+                                detail: ""
                             )
 
                             LifeManagementProjectColorPicker(selectedColor: $draft.color)
 
                             LifeManagementComposerFieldLabel(
                                 title: "Icon",
-                                detail: "Pick the symbol that fits this project best."
+                                detail: ""
                             )
 
                             LifeManagementProjectIconPicker(selectedIcon: $draft.icon)
@@ -172,7 +171,7 @@ struct LifeManagementProjectComposerView: View {
                 isLoading: isSaving,
                 successFlash: false,
                 showAddAnother: false,
-                buttonTitle: draft.isNew ? "Add Project" : "Save Project",
+                buttonTitle: draft.isNew ? "Add project" : "Save",
                 onCreateAction: commit,
                 onAddAnotherAction: {}
             )

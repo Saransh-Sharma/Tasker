@@ -1,5 +1,37 @@
 import Foundation
+import UIKit
 import UserNotifications
+
+/// The subject a non-task reminder is about, as the app's own deep link.
+///
+/// Habit, tracker, medication and focus reminders are scheduled by their own
+/// features and carry only their record's ID in `userInfo`, so a tap used to
+/// resolve to the task route's `home_today` default and land on Home. The
+/// deep links below are the same ones widgets use, so the tap lands on the
+/// habit, the tracker, Care, or the session it was about.
+public enum NotificationSubjectLink {
+    /// The route payload a focus-session reminder carries (set by the Focus
+    /// feature); `NotificationRoute` has no case for it.
+    static let focusSessionPayloadPrefix = "focus_session:"
+
+    public static func url(from userInfo: [AnyHashable: Any]) -> URL? {
+        func id(_ key: String) -> String? {
+            (userInfo[key] as? String).flatMap(UUID.init(uuidString:))?.uuidString
+        }
+        if let payload = userInfo[LocalNotificationRequest.UserInfoKey.route] as? String {
+            // A typed task/day route wins; only the focus payload maps here.
+            guard payload.hasPrefix(focusSessionPayloadPrefix),
+                  let sessionID = UUID(uuidString: String(payload.dropFirst(focusSessionPayloadPrefix.count)))
+            else { return nil }
+            return URL(string: "lifeboard://focus/\(sessionID.uuidString)")
+        }
+        if let habitID = id("habitID") { return URL(string: "lifeboard://habit/\(habitID)") }
+        if let trackerID = id("trackerID") { return URL(string: "lifeboard://tracker/\(trackerID)") }
+        if id("medicationID") != nil { return URL(string: "lifeboard://care") }
+        if let sessionID = id("focusSessionID") { return URL(string: "lifeboard://focus/\(sessionID)") }
+        return nil
+    }
+}
 
 public enum NotificationCoordinator {
     private final class Storage: @unchecked Sendable {
@@ -47,8 +79,15 @@ public enum NotificationCoordinator {
     }
 }
 
+/// Platform-only controls intentionally kept out of the domain notification
+/// contract so feature and domain packages do not import UserNotifications.
+protocol UserNotificationCenterConfiguring: AnyObject {
+    func registerCategories(_ categories: Set<UNNotificationCategory>)
+    func setDelegate(_ delegate: UNUserNotificationCenterDelegate?)
+}
+
 /// Immutable service wrapper around `UNUserNotificationCenter`; mutable scheduling state lives in the system center.
-public final class LocalNotificationService: NotificationServiceProtocol, @unchecked Sendable {
+public final class LocalNotificationService: NotificationServiceProtocol, UserNotificationCenterConfiguring, @unchecked Sendable {
     private let center = UNUserNotificationCenter.current()
     private let dateFormatter: DateFormatter
 
@@ -65,8 +104,8 @@ public final class LocalNotificationService: NotificationServiceProtocol, @unche
             request: LocalNotificationRequest(
                 id: "task.reminder.\(taskId.uuidString)",
                 kind: .taskReminder,
-                title: "Task Reminder",
-                body: taskName,
+                title: taskName,
+                body: "",
                 fireDate: date,
                 route: .taskDetail(taskID: taskId),
                 taskID: taskId
@@ -267,17 +306,17 @@ public enum NotificationCategories {
     public static func all() -> Set<UNNotificationCategory> {
         let openAction = UNNotificationAction(
             identifier: NotificationActionID.open.rawValue,
-            title: "Open",
+            title: String(localized: "Open"),
             options: [.foreground]
         )
         let completeAction = UNNotificationAction(
             identifier: NotificationActionID.complete.rawValue,
-            title: "Complete",
+            title: String(localized: "Complete"),
             options: []
         )
         let snooze15Action = UNNotificationAction(
             identifier: NotificationActionID.snooze15m.rawValue,
-            title: "Snooze 15m",
+            title: String(localized: "Snooze 15 min"),
             options: []
         )
         let taskCategory = UNNotificationCategory(
@@ -289,17 +328,17 @@ public enum NotificationCategories {
 
         let openTodayAction = UNNotificationAction(
             identifier: NotificationActionID.openToday.rawValue,
-            title: "Open Today",
+            title: String(localized: "Open Today"),
             options: [.foreground]
         )
         let planWeekAction = UNNotificationAction(
             identifier: NotificationActionID.openWeeklyPlanner.rawValue,
-            title: "Plan Week",
+            title: String(localized: "Plan week"),
             options: [.foreground]
         )
         let snooze30Action = UNNotificationAction(
             identifier: NotificationActionID.snooze30m.rawValue,
-            title: "Snooze 30m",
+            title: String(localized: "Snooze 30 min"),
             options: []
         )
         let morningCategory = UNNotificationCategory(
@@ -311,17 +350,17 @@ public enum NotificationCategories {
 
         let openDoneAction = UNNotificationAction(
             identifier: NotificationActionID.openDone.rawValue,
-            title: "Open Done",
+            title: String(localized: "Close the day"),
             options: [.foreground]
         )
         let reviewWeekAction = UNNotificationAction(
             identifier: NotificationActionID.openWeeklyReview.rawValue,
-            title: "Review Week",
+            title: String(localized: "Review week"),
             options: [.foreground]
         )
         let snooze60Action = UNNotificationAction(
             identifier: NotificationActionID.snooze60m.rawValue,
-            title: "Snooze 60m",
+            title: String(localized: "Snooze 1 hr"),
             options: []
         )
         let nightlyCategory = UNNotificationCategory(
@@ -332,304 +371,6 @@ public enum NotificationCategories {
         )
 
         return [taskCategory, morningCategory, nightlyCategory]
-    }
-}
-
-public final class NotificationRouteBus: @unchecked Sendable {
-    public static let routeDidChange = Notification.Name("LifeBoardNotificationRouteDidChange")
-    public static let shared = NotificationRouteBus()
-
-    private var pendingRoute: NotificationRoute?
-    private let lock = NSLock()
-
-    private init() {}
-
-    public func post(route: NotificationRoute) {
-        lock.lock()
-        pendingRoute = route
-        lock.unlock()
-        NotificationCenter.default.post(
-            name: Self.routeDidChange,
-            object: nil,
-            userInfo: ["payload": route.payload]
-        )
-    }
-
-    public func consumePendingRoute() -> NotificationRoute? {
-        lock.lock()
-        defer { lock.unlock() }
-        let route = pendingRoute
-        pendingRoute = nil
-        return route
-    }
-}
-
-/// Notification action bridge. Dependencies are immutable and callbacks are hopped back to the main actor.
-public final class NotificationActionUseCase: @unchecked Sendable {
-    private let notificationService: NotificationServiceProtocol
-    private let coordinatorProvider: () -> UseCaseCoordinator?
-    private let routeBus: NotificationRouteBus
-    private let preferencesStore: NotificationPreferencesStore
-    private let calendar: Calendar
-    private let now: () -> Date
-    private let actionCompletionTimeoutSeconds: TimeInterval = 4
-
-    /// Initializes a new instance.
-    public init(
-        notificationService: NotificationServiceProtocol,
-        coordinatorProvider: @escaping () -> UseCaseCoordinator?,
-        routeBus: NotificationRouteBus = .shared,
-        preferencesStore: NotificationPreferencesStore = .shared,
-        calendar: Calendar = .current,
-        now: @escaping () -> Date = Date.init
-    ) {
-        self.notificationService = notificationService
-        self.coordinatorProvider = coordinatorProvider
-        self.routeBus = routeBus
-        self.preferencesStore = preferencesStore
-        self.calendar = calendar
-        self.now = now
-    }
-
-    public func handleAction(identifier: String, request: UNNotificationRequest) {
-        handleAction(identifier: identifier, request: request, completion: {})
-    }
-
-    public func handleAction(
-        identifier: String,
-        request: UNNotificationRequest,
-        completion: @escaping @Sendable () -> Void
-    ) {
-        let finish = completionGate(completion)
-        DispatchQueue.main.asyncAfter(deadline: .now() + actionCompletionTimeoutSeconds) {
-            finish()
-        }
-
-        if identifier == UNNotificationDefaultActionIdentifier {
-            let route = routeFrom(request: request)
-            routeBus.post(route: route)
-            logWarning(event: "notification_opened", message: "Notification opened", fields: ["id": request.identifier])
-            finish()
-            return
-        }
-
-        guard let action = NotificationActionID(rawValue: identifier) else {
-            finish()
-            return
-        }
-
-        switch action {
-        case .open:
-            routeBus.post(route: routeFrom(request: request))
-            logWarning(event: "notification_opened", message: "Opened from action", fields: ["id": request.identifier])
-            finish()
-        case .openToday:
-            routeBus.post(route: .homeToday(taskID: taskID(from: request)))
-            logWarning(event: "notification_opened", message: "Opened today from action", fields: ["id": request.identifier])
-            finish()
-        case .openWeeklyPlanner:
-            routeBus.post(route: .weeklyPlanner)
-            logWarning(event: "notification_opened", message: "Opened weekly planner from action", fields: ["id": request.identifier])
-            finish()
-        case .openWeeklyReview:
-            routeBus.post(route: .weeklyReview)
-            logWarning(event: "notification_opened", message: "Opened weekly review from action", fields: ["id": request.identifier])
-            finish()
-        case .openDone:
-            routeBus.post(route: .homeDone)
-            logWarning(event: "notification_opened", message: "Opened done from action", fields: ["id": request.identifier])
-            finish()
-        case .complete:
-            completeTask(from: request, completion: finish)
-        case .snooze15m:
-            snooze(request: request, minutes: 15)
-            finish()
-        case .snooze30m:
-            snooze(request: request, minutes: 30)
-            finish()
-        case .snooze60m:
-            snooze(request: request, minutes: 60)
-            finish()
-        }
-    }
-
-    private func completeTask(from request: UNNotificationRequest, completion: @escaping @Sendable () -> Void) {
-        guard let taskID = taskID(from: request) else {
-            completion()
-            return
-        }
-        guard let coordinator = coordinatorProvider() else {
-            completion()
-            return
-        }
-        coordinator.completeTaskDefinition.setCompletion(taskID: taskID, to: true) { _ in
-            self.cancelTaskBoundNotifications(taskID: taskID) {
-                completion()
-            }
-        }
-        logWarning(
-            event: "notification_completed_task",
-            message: "Task completed from notification action",
-            fields: ["task_id": taskID.uuidString, "notification_id": request.identifier]
-        )
-    }
-
-    private func cancelTaskBoundNotifications(taskID: UUID, completion: (@Sendable () -> Void)? = nil) {
-        notificationService.pendingRequests { pending in
-            let taskIDString = taskID.uuidString
-            let ids = pending
-                .filter { $0.taskID == taskID || $0.id.contains(taskIDString) }
-                .map(\.id)
-            self.notificationService.cancel(ids: ids)
-            completion?()
-        }
-    }
-
-    private func snooze(request: UNNotificationRequest, minutes: Int) {
-        let currentKind = kind(from: request)
-        let kind: LocalNotificationKind
-        switch currentKind {
-        case .morningPlan, .snoozedMorning:
-            kind = .snoozedMorning
-        case .nightlyRetrospective, .snoozedNightly:
-            kind = .snoozedNightly
-        default:
-            kind = .snoozedTask
-        }
-
-        let route = routeFrom(request: request)
-        let provisionalFireDate = now().addingTimeInterval(TimeInterval(minutes * 60))
-        let fireDate = adjustedSnoozeFireDate(provisionalFireDate, for: kind)
-        let taskID = taskID(from: request)
-        let requestID = "task.snooze.\(request.identifier).\(Int(fireDate.timeIntervalSince1970))"
-
-        notificationService.schedule(
-            request: LocalNotificationRequest(
-                id: requestID,
-                kind: kind,
-                title: request.content.title,
-                body: request.content.body,
-                fireDate: fireDate,
-                route: route,
-                taskID: taskID,
-                categoryIdentifier: request.content.categoryIdentifier.isEmpty ? nil : request.content.categoryIdentifier
-            )
-        )
-
-        logWarning(
-            event: "notification_snoozed",
-            message: "Notification snoozed",
-            fields: [
-                "notification_id": request.identifier,
-                "snooze_minutes": String(minutes)
-            ]
-        )
-    }
-
-    private func taskID(from request: UNNotificationRequest) -> UUID? {
-        let raw = request.content.userInfo[LocalNotificationRequest.UserInfoKey.taskID] as? String
-        return raw.flatMap(UUID.init(uuidString:))
-    }
-
-    private func kind(from request: UNNotificationRequest) -> LocalNotificationKind {
-        let raw = request.content.userInfo[LocalNotificationRequest.UserInfoKey.kind] as? String
-        return raw.flatMap(LocalNotificationKind.init(rawValue:)) ?? .taskReminder
-    }
-
-    private func routeFrom(request: UNNotificationRequest) -> NotificationRoute {
-        let payload = request.content.userInfo[LocalNotificationRequest.UserInfoKey.route] as? String
-        return NotificationRoute.from(
-            payload: payload ?? "home_today",
-            fallbackTaskID: taskID(from: request)
-        )
-    }
-
-    private func completionGate(_ completion: @escaping @Sendable () -> Void) -> @Sendable () -> Void {
-        final class CompletionGate: @unchecked Sendable {
-            private let lock = NSLock()
-            private var completed = false
-
-            func claim() -> Bool {
-                lock.lock()
-                defer { lock.unlock() }
-                guard completed == false else { return false }
-                completed = true
-                return true
-            }
-        }
-        let gate = CompletionGate()
-        return {
-            guard gate.claim() else { return }
-            completion()
-        }
-    }
-
-    private func adjustedSnoozeFireDate(_ fireDate: Date, for kind: LocalNotificationKind) -> Date {
-        let preferences = preferencesStore.load()
-        guard preferences.quietHoursEnabled else { return fireDate }
-        guard shouldApplyQuietHoursToSnooze(kind: kind, preferences: preferences) else { return fireDate }
-        guard isDateInQuietHours(fireDate, preferences: preferences) else { return fireDate }
-        return nextAllowedDate(after: fireDate, preferences: preferences)
-    }
-
-    private func shouldApplyQuietHoursToSnooze(
-        kind: LocalNotificationKind,
-        preferences: NotificationPreferences
-    ) -> Bool {
-        switch kind {
-        case .snoozedTask:
-            return preferences.quietHoursAppliesToTaskAlerts
-        case .snoozedMorning, .snoozedNightly:
-            return preferences.quietHoursAppliesToDailySummaries
-        default:
-            return false
-        }
-    }
-
-    private func isDateInQuietHours(_ date: Date, preferences: NotificationPreferences) -> Bool {
-        let startMinutes = preferences.quietHoursStartHour * 60 + preferences.quietHoursStartMinute
-        let endMinutes = preferences.quietHoursEndHour * 60 + preferences.quietHoursEndMinute
-        guard startMinutes != endMinutes else { return false }
-
-        let hour = calendar.component(.hour, from: date)
-        let minute = calendar.component(.minute, from: date)
-        let currentMinutes = hour * 60 + minute
-
-        if startMinutes < endMinutes {
-            return currentMinutes >= startMinutes && currentMinutes < endMinutes
-        }
-        return currentMinutes >= startMinutes || currentMinutes < endMinutes
-    }
-
-    private func nextAllowedDate(after date: Date, preferences: NotificationPreferences) -> Date {
-        let startMinutes = preferences.quietHoursStartHour * 60 + preferences.quietHoursStartMinute
-        let endMinutes = preferences.quietHoursEndHour * 60 + preferences.quietHoursEndMinute
-        guard startMinutes != endMinutes else { return date }
-
-        let hour = calendar.component(.hour, from: date)
-        let minute = calendar.component(.minute, from: date)
-        let currentMinutes = hour * 60 + minute
-        let dayStart = calendar.startOfDay(for: date)
-        let endTimeForDay = calendar.date(
-            bySettingHour: preferences.quietHoursEndHour,
-            minute: preferences.quietHoursEndMinute,
-            second: 0,
-            of: dayStart
-        ) ?? date
-
-        if startMinutes < endMinutes {
-            return endTimeForDay > date ? endTimeForDay : date
-        }
-        if currentMinutes >= startMinutes {
-            let nextDay = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
-            return calendar.date(
-                bySettingHour: preferences.quietHoursEndHour,
-                minute: preferences.quietHoursEndMinute,
-                second: 0,
-                of: nextDay
-            ) ?? date
-        }
-        return endTimeForDay > date ? endTimeForDay : date
     }
 }
 
@@ -883,7 +624,9 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
             }
         }
     }
+}
 
+extension TaskNotificationOrchestrator {
     private func desiredRequests(
         tasks: [TaskDefinition],
         nowDate: Date,
@@ -923,19 +666,13 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
                 return nil
             }
 
-            let dueText = relativeDueText(for: task, nowDate: nowDate)
-            let body: String
-            if let dueText {
-                body = "\"\(task.title)\" is due \(dueText)."
-            } else {
-                body = "\"\(task.title)\" is waiting for you."
-            }
-
+            // The title is the task itself — "Task Reminder" said nothing a
+            // glance at the lock screen could use. The body says when it is due.
             return LocalNotificationRequest(
                 id: "task.reminder.\(task.id.uuidString)",
                 kind: .taskReminder,
-                title: "Task Reminder",
-                body: body,
+                title: task.title,
+                body: dueLine(for: task, relativeTo: reminderTime),
                 fireDate: reminderTime,
                 route: .taskDetail(taskID: task.id),
                 taskID: task.id
@@ -971,16 +708,17 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         let fireDate = maxDate(nowDate.addingTimeInterval(10), dueDate.addingTimeInterval(TimeInterval(-leadMinutes * 60)))
         let minutesUntilDue = max(1, Int(ceil(dueDate.timeIntervalSince(fireDate) / 60)))
 
-        var body = "\"\(primaryTask.title)\" is due in \(minutesUntilDue)m."
-        if additionalCount > 0 {
-            body += " + \(additionalCount) more due soon"
-        }
+        // Title is the task; the body is when, plus how many others are close.
+        let dueIn = Self.durationText(minutes: minutesUntilDue)
+        let body = additionalCount > 0
+            ? String(localized: "Due in \(dueIn) · \(additionalCount) more due soon")
+            : String(localized: "Due in \(dueIn)")
 
         return [
             LocalNotificationRequest(
                 id: "task.dueSoon.\(primaryTask.id.uuidString).\(stamp)",
                 kind: .dueSoon,
-                title: "Due Soon",
+                title: primaryTask.title,
                 body: body,
                 fireDate: fireDate,
                 route: .taskDetail(taskID: primaryTask.id),
@@ -1000,36 +738,44 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
 
         guard let primary = overdueTasks.first else { return [] }
 
-        let additionalCount = max(0, overdueTasks.count - 1)
-        let daysOverdue = overdueDays(for: primary, nowDate: nowDate)
-        var body = "\"\(primary.title)\" is overdue by \(daysOverdue) day(s)."
-        if additionalCount > 0 {
-            body += " + \(additionalCount) more overdue"
-        }
+        // One nudge a day at 10:00, not two per task per day: a slipped task
+        // is a fact to review once, and the review is one pass through them.
+        // One task: its title, and how long ago it was due. Several: a count
+        // and the first one's name.
+        let count = overdueTasks.count
+        let title = count == 1 ? primary.title : String(localized: "\(count) tasks from earlier")
+        let others = count - 1
+        let body = String(localized: "“\(primary.title)” and \(others) more")
 
-        let slots: [(suffix: String, hour: Int)] = [("am", 10), ("pm", 16)]
-        let offsets = [0, 1]
-        return offsets.flatMap { offset -> [LocalNotificationRequest] in
-            guard let day = calendar.date(byAdding: .day, value: offset, to: startOfToday) else {
-                return []
+        return [0, 1].compactMap { offset -> LocalNotificationRequest? in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: startOfToday),
+                  let fireDate = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: day),
+                  fireDate > nowDate
+            else {
+                return nil
             }
             let stamp = dateStamp(for: day)
-            return slots.compactMap { slot in
-                guard let fireDate = calendar.date(bySettingHour: slot.hour, minute: 0, second: 0, of: day),
-                      fireDate > nowDate
-                else {
-                    return nil
-                }
+            if count == 1 {
                 return LocalNotificationRequest(
-                    id: "task.overdue.\(primary.id.uuidString).\(stamp).\(slot.suffix)",
+                    id: "task.overdue.\(primary.id.uuidString).\(stamp).am",
                     kind: .overdue,
-                    title: "Overdue Task",
-                    body: body,
+                    title: title,
+                    body: fromEarlierLine(dueDate: primary.dueDate, relativeTo: day),
                     fireDate: fireDate,
                     route: .taskDetail(taskID: primary.id),
                     taskID: primary.id
                 )
             }
+            // Several tasks open the rescue deck, which walks through them.
+            return LocalNotificationRequest(
+                id: "task.overdue.digest.\(stamp)",
+                kind: .overdue,
+                title: title,
+                body: body,
+                fireDate: fireDate,
+                route: .dayCompass(flow: .rescue, dateStamp: stamp),
+                categoryIdentifier: NotificationCategoryID.dailyMorning.rawValue
+            )
         }
     }
 
@@ -1038,15 +784,24 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         nowDate: Date,
         preferences: NotificationPreferences
     ) -> [LocalNotificationRequest] {
-        makeDailyNotifications(
+        // A morning with nothing on it gets no notification: "No tasks
+        // queued" was a nudge about nothing.
+        let quietStamps = Set((0...2).compactMap { offset -> String? in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: nowDate)) else { return nil }
+            return morningAgendaBody(tasks: tasks, day: day) == nil ? dateStamp(for: day) : nil
+        })
+        return makeDailyNotifications(
             prefix: "daily.morning",
             kind: .morningPlan,
-            title: "Morning Plan",
+            title: String(localized: "Start the day"),
             nowDate: nowDate,
             hour: preferences.morningHour,
             minute: preferences.morningMinute
         ) { day, _ in
-            self.morningAgendaBody(tasks: tasks, day: day)
+            self.morningAgendaBody(tasks: tasks, day: day) ?? ""
+        }
+        .filter { request in
+            quietStamps.contains(String(request.id.suffix(8))) == false
         }
     }
 
@@ -1060,12 +815,14 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         return makeDailyNotifications(
             prefix: "daily.nightly",
             kind: .nightlyRetrospective,
-            title: "Close the day",
+            title: String(localized: "Close the day"),
             nowDate: nowDate,
             hour: preferences.nightlyHour,
             minute: preferences.nightlyMinute
         ) { _, _ in
-            "Whenever you're ready — see how the day went and carry what's left."
+            // Static on purpose: the body is written up to two days ahead,
+            // so a done/left count would be stale by the time it fires.
+            String(localized: "See what’s done and what’s left.")
         }
         .filter { request in
             let stamp = String(request.id.suffix(8))
@@ -1109,7 +866,8 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         }
     }
 
-    private func morningAgendaBody(tasks: [TaskDefinition], day: Date) -> String {
+    /// `nil` when the day has nothing due or slipped.
+    private func morningAgendaBody(tasks: [TaskDefinition], day: Date) -> String? {
         let start = calendar.startOfDay(for: day)
         let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start
         let openTasks = tasks.filter { !$0.isComplete }
@@ -1128,11 +886,14 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         let highCount = candidate.filter { $0.priority.isHighPriority }.count
         let overdueCount = overdue.count
 
-        guard let topTask = candidate.first else {
-            return "No tasks queued. Capture one meaningful win."
-        }
+        guard let topTask = candidate.first else { return nil }
 
-        return "\(openCount) tasks today (\(highCount) high priority, \(overdueCount) overdue). Start with \"\(topTask.title)\"."
+        var detail: [String] = []
+        if highCount > 0 { detail.append(String(localized: "\(highCount) high priority")) }
+        if overdueCount > 0 { detail.append(String(localized: "\(overdueCount) from earlier")) }
+        let count = openCount == 1 ? String(localized: "1 task today") : String(localized: "\(openCount) tasks today")
+        let summary = detail.isEmpty ? count : "\(count) (\(detail.joined(separator: ", ")))"
+        return String(localized: "\(summary). First: “\(topTask.title)”")
     }
 
     private func nightlyRetrospectiveBody(tasks: [TaskDefinition], day: Date, exactDayXP: Int?) -> String {
@@ -1146,8 +907,9 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
             }
             .sorted(by: taskUrgencySort(lhs:rhs:))
 
+        // Unused today; kept neutral in case the evening body turns dynamic.
         guard completedToday.isEmpty == false else {
-            return "No completions today. Pick one tiny restart for tomorrow."
+            return String(localized: "Nothing done today")
         }
 
         let dueTodayIDs = Set(tasks.compactMap { task -> UUID? in
@@ -1156,26 +918,57 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         })
         let completedIDs = Set(completedToday.map(\.id))
         let totalCount = max(completedToday.count, dueTodayIDs.union(completedIDs).count)
-        let topCompletedTask = completedToday.first?.title ?? "Task"
+        let doneCount = completedToday.count
+        return String(localized: "\(doneCount) of \(totalCount) done today")
+    }
 
-        if let exactDayXP {
-            return "Completed \(completedToday.count)/\(totalCount) tasks, earned \(exactDayXP) XP. Biggest win: \"\(topCompletedTask)\"."
+    /// "Due at 3:30 PM", "Due tomorrow at 9:00 AM", "Due Thu, Feb 26": the
+    /// line under a reminder, read against the day the reminder fires.
+    private func dueLine(for task: TaskDefinition, relativeTo reference: Date) -> String {
+        // No due date: the title says it all.
+        guard let dueDate = task.dueDate else { return "" }
+        let timeFormatter = DateFormatter()
+        timeFormatter.calendar = calendar
+        timeFormatter.timeZone = calendar.timeZone
+        timeFormatter.dateStyle = .none
+        timeFormatter.timeStyle = .short
+        let components = calendar.dateComponents([.hour, .minute], from: dueDate)
+        let hasTime = (components.hour ?? 0) != 0 || (components.minute ?? 0) != 0
+        let time = timeFormatter.string(from: dueDate)
+        if calendar.isDate(dueDate, inSameDayAs: reference) {
+            return hasTime ? String(localized: "Due at \(time)") : String(localized: "Due today")
         }
-        return "Completed \(completedToday.count)/\(totalCount) tasks. Biggest win: \"\(topCompletedTask)\". Open LifeBoard for exact XP."
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: reference),
+           calendar.isDate(dueDate, inSameDayAs: tomorrow) {
+            return hasTime ? String(localized: "Due tomorrow at \(time)") : String(localized: "Due tomorrow")
+        }
+        let dayFormatter = DateFormatter()
+        dayFormatter.calendar = calendar
+        dayFormatter.timeZone = calendar.timeZone
+        dayFormatter.setLocalizedDateFormatFromTemplate("EEE MMM d")
+        let day = dayFormatter.string(from: dueDate)
+        return hasTime ? String(localized: "Due \(day) at \(time)") : String(localized: "Due \(day)")
     }
 
-    private func relativeDueText(for task: TaskDefinition, nowDate: Date) -> String? {
-        guard let dueDate = task.dueDate else { return nil }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        return formatter.localizedString(for: dueDate, relativeTo: nowDate)
+    /// "From yesterday", "From 3 days ago": how old a task from earlier is,
+    /// counted from the day the notification fires.
+    private func fromEarlierLine(dueDate: Date?, relativeTo day: Date) -> String {
+        guard let dueDate else { return String(localized: "From earlier") }
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: dueDate),
+            to: calendar.startOfDay(for: day)
+        ).day ?? 0
+        guard days > 1 else { return String(localized: "From yesterday") }
+        return String(localized: "From \(days) days ago")
     }
 
-    private func overdueDays(for task: TaskDefinition, nowDate: Date) -> Int {
-        guard let dueDate = task.dueDate else { return 1 }
-        let dueStart = calendar.startOfDay(for: dueDate)
-        let nowStart = calendar.startOfDay(for: nowDate)
-        return max(1, calendar.dateComponents([.day], from: dueStart, to: nowStart).day ?? 1)
+    /// "25 min", "1 hr", "1 hr, 30 min" — the app's duration voice.
+    static func durationText(minutes: Int) -> String {
+        guard minutes >= 60 else { return "\(max(1, minutes)) min" }
+        let hours = minutes / 60
+        let rest = minutes % 60
+        return rest == 0 ? "\(hours) hr" : "\(hours) hr, \(rest) min"
     }
 
     private func dateStamp(for date: Date) -> String {

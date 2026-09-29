@@ -79,20 +79,20 @@ struct AppearanceSettingsView: View {
                         Label(selection.title, systemImage: selection.systemImage).tag(selection)
                     }
                 }
-                Picker("Comfort", selection: $preferences.comfortProfile) {
+                Picker("Motion", selection: $preferences.comfortProfile) {
                     ForEach(ComfortProfile.allCases, id: \.self) { profile in
                         Text(profile.title).tag(profile)
                     }
                 }
-                Picker("Rendering", selection: $preferences.renderingTier) {
+                Picker("Visual detail", selection: $preferences.renderingTier) {
                     ForEach(AmbientRenderingTier.allCases, id: \.self) { tier in
                         Text(tier.title).tag(tier)
                     }
                 }
             }
             Section("Privacy") {
-                Label("Journal evidence stays off until you allow it", systemImage: "lock.shield")
-                Label("Sensitive media uses protected local storage", systemImage: "externaldrive.badge.lock")
+                Label("Eva reads your journal only if you allow it", systemImage: "lock.shield")
+                Label("Photos and recordings use protected storage", systemImage: "externaldrive.badge.lock")
             }
             Section("About") {
                 NavigationLink {
@@ -103,6 +103,10 @@ struct AppearanceSettingsView: View {
                 .accessibilityIdentifier("foundation.settings.third-party-notices")
             }
         }
+        // The warm canvas behind the grouped list, not the system's pure white
+        // (light) or pure black (dark) grouped background.
+        .scrollContentBackground(.hidden)
+        .background { GrainedCanvas() }
         .navigationTitle("Appearance & motion")
         .accessibilityIdentifier("foundation.settings.appearance")
     }
@@ -112,7 +116,7 @@ struct ThirdPartyNoticesView: View {
     private let notice: String = {
         guard let url = Bundle.main.url(forResource: "SwiftUI-Animations-NOTICE", withExtension: "txt"),
               let value = try? String(contentsOf: url, encoding: .utf8) else {
-            return "The bundled third-party notice could not be loaded."
+            return String(localized: "Couldn’t load notices.")
         }
         return value
     }()

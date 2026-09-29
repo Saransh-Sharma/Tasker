@@ -219,6 +219,40 @@ final class EvaCloudAccessCoordinator: ObservableObject {
             && EvaCloudActivationRecordStore.load(defaults: defaults)?.explicitOffline != true
     }
 
+    /// Whether the person has confirmed the Cloud EVA disclosure.
+    ///
+    /// Only an explicit confirmation counts. A record written from automatic
+    /// defaults is not consent, so nothing — no session, no account refresh —
+    /// reaches the cloud until `confirmCloudConsent(grants:)` has run.
+    var hasConfirmedCloudConsent: Bool {
+        EvaCloudActivationRecordStore.load(defaults: defaults)?.origin == .userSelection
+    }
+
+    /// Records the person's explicit choice from `EvaCloudConsentSheet`, then
+    /// connects. Every surface that turns Cloud EVA on goes through here.
+    @discardableResult
+    func confirmCloudConsent(
+        grants: Set<EvaConsentPolicy.Grant>,
+        source: EvaCloudAccessSource
+    ) async -> Bool {
+        selectedGrants = grants
+        selectCloud()
+        EvaCloudActivationRecordStore.save(
+            grants: grants,
+            origin: .userSelection,
+            defaults: defaults,
+            lastServerConsentRevision: account.consent?.revision
+        )
+        await ProductTelemetry.shared.record(.evaActivationReviewConfirmed, outcome: source.rawValue)
+        let ready = await ensureActivated(source: source)
+        // An account created before this confirmation may hold broader
+        // grants; the person's choice replaces them.
+        if ready, let consent = account.consent, Set(consent.grants) != grants {
+            return await activate(grants: grants, source: source, preserveExistingGrants: false)
+        }
+        return ready
+    }
+
     /// Install once at launch; network changes only resume an unfinished activation.
     func startAutomaticActivation() {
         guard networkMonitor == nil else { return }
@@ -283,6 +317,11 @@ final class EvaCloudAccessCoordinator: ObservableObject {
 
     @discardableResult
     func hydrate() async -> EvaCloudAccessState {
+        guard hasConfirmedCloudConsent else {
+            state = .needsActivation
+            errorMessage = nil
+            return state
+        }
         if let activationTask {
             _ = await activationTask.value
             return state
@@ -313,7 +352,7 @@ final class EvaCloudAccessCoordinator: ObservableObject {
                 // stale item surviving an uninstall or a temporary identity
                 // read problem; neither is permission to create another guest.
                 previousIdentityKind = credentials.resolvedIdentityKind
-                let message = String(localized: "Cloud EVA is restoring this installation. Try again when secure storage is available.")
+                let message = String(localized: "Couldn’t open secure storage. Unlock this device and try again.")
                 errorMessage = message
                 state = .temporarilyUnavailable(message)
                 await ProductTelemetry.shared.record(.evaSessionStorageDeferred, outcome: "identity_mismatch")
@@ -353,6 +392,12 @@ final class EvaCloudAccessCoordinator: ObservableObject {
     @discardableResult
     func ensureActivated(source: EvaCloudAccessSource) async -> Bool {
         guard automaticActivationAllowed else { return false }
+        // Surfaces show `EvaCloudConsentSheet` when this is false and the
+        // person asked for EVA; automatic callers simply wait.
+        guard hasConfirmedCloudConsent else {
+            state = .needsActivation
+            return false
+        }
         if let ensureTask { return await ensureTask.value }
         guard Date() >= nextRetryAt else { return false }
         let task = Task { @MainActor [weak self] () -> Bool in
@@ -421,6 +466,9 @@ final class EvaCloudAccessCoordinator: ObservableObject {
             _ = await ensureActivated(source: source)
         }
     }
+}
+
+extension EvaCloudAccessCoordinator {
 
     @discardableResult
     func ensureReadyForSend(promptID: UUID) async -> Bool {
@@ -542,8 +590,8 @@ final class EvaCloudAccessCoordinator: ObservableObject {
             case "daily_quota_exhausted":
                 state = .quotaExhausted(envelope.quota?.nextAvailableAt)
             case "adult_eligibility_required", "age_eligibility_required", "age_decision_required":
-                state = .temporarilyUnavailable("EVA could not connect. Please try again.")
-                errorMessage = "EVA could not connect. Please try again."
+                state = .temporarilyUnavailable("Eva couldn’t connect. Try again.")
+                errorMessage = "Eva couldn’t connect. Try again."
             case "session_expired", "unauthenticated":
                 state = account.identityKind == .apple
                     ? .appleReauthenticationRequired
@@ -556,8 +604,8 @@ final class EvaCloudAccessCoordinator: ObservableObject {
             case .authenticationRequired:
                 state = account.identityKind == .apple ? .appleReauthenticationRequired : .needsActivation
             case .adultEligibilityRequired:
-                state = .temporarilyUnavailable("EVA could not connect. Please try again.")
-                errorMessage = "EVA could not connect. Please try again."
+                state = .temporarilyUnavailable("Eva couldn’t connect. Try again.")
+                errorMessage = "Eva couldn’t connect. Try again."
             case .consentRequired:
                 state = .needsActivation
             case .creditsExhausted:

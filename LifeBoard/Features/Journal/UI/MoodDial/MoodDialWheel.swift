@@ -1,3 +1,4 @@
+import LifeBoardTokens
 import SwiftUI
 
 public struct MoodDialWheel: View {
@@ -29,12 +30,12 @@ public struct MoodDialWheel: View {
                         y: metrics.center.y / max(metrics.size.height, 1)
                     )
                 )
-                .animation(isDragging || reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.78), value: rotationDegrees)
+                .animation(isDragging ? nil : MotionProfile.controlMorph.animation(reduceMotion: reduceMotion), value: rotationDegrees)
                 .zIndex(1)
 
             MoodDialPointer()
                 .position(x: metrics.center.x, y: metrics.pointerCenterY + (pointerBounce ? -5 : 0))
-                .animation(reduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.62), value: pointerBounce)
+                .animation(MotionProfile.press.animation(reduceMotion: reduceMotion), value: pointerBounce)
                 .zIndex(2)
 
             Color.clear
@@ -48,10 +49,16 @@ public struct MoodDialWheel: View {
         .accessibilityElement()
         .accessibilityLabel("Mood dial")
         .accessibilityValue(selectedMood.displayName)
-        .accessibilityHint("Swipe up or down to change mood.")
         .accessibilityAdjustableAction { direction in
             adjustSelection(direction)
         }
+        // Drag was the only way to turn the dial. Arrow keys step it, and a
+        // pointer scroll or click-drag still works through the gesture above.
+        .focusable()
+        .onKeyPress(.rightArrow) { adjustSelection(.increment); return .handled }
+        .onKeyPress(.upArrow) { adjustSelection(.increment); return .handled }
+        .onKeyPress(.leftArrow) { adjustSelection(.decrement); return .handled }
+        .onKeyPress(.downArrow) { adjustSelection(.decrement); return .handled }
         .accessibilityIdentifier("moodDial.wheel")
         .onAppear {
             rotationDegrees = MoodDialMath.rotationDegrees(for: selectedMood)
@@ -134,7 +141,7 @@ public struct MoodDialWheel: View {
         }
 
         if animated && !reduceMotion {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+            withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
                 apply()
             }
         } else {

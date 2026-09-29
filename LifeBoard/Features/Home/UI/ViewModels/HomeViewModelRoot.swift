@@ -39,10 +39,6 @@ public final class HomeViewModel: ObservableObject {
 
     @Published public internal(set) var nextLevelXP: Int64 = 0
 
-    @Published public internal(set) var insightsLaunchRequest: InsightsLaunchRequest?
-
-    @Published public internal(set) var insightsLaunchToken: UUID?
-
     @Published public internal(set) var habitRecoveryReflectionPrompt: HabitRecoveryReflectionPrompt?
 
     // TaskDefinition lists by category
@@ -136,8 +132,6 @@ public final class HomeViewModel: ObservableObject {
     var canonicalFocusCommands: FocusSessionCommands?
 
     var cancellables = Set<AnyCancellable>()
-
-    var retainedInsightsViewModel: InsightsViewModel?
 
     var retainedHomeSearchViewModel: HomeSearchViewModel?
 
@@ -519,27 +513,6 @@ public final class HomeViewModel: ObservableObject {
             return agendaOpenTaskIDs.union(visibleFocusOpenTaskIDs).count
         }
         return (morningTasks + eveningTasks).filter { !$0.isComplete }.count
-    }
-
-    // Projects
-    var needsReplanCandidates: [HomeReplanCandidate] {
-        get { needsReplanViewModel.passiveCandidates }
-        set { needsReplanViewModel.passiveCandidates = newValue }
-    }
-
-    var activeReplanCandidates: [HomeReplanCandidate] {
-        get { needsReplanViewModel.activeCandidates }
-        set { needsReplanViewModel.activeCandidates = newValue }
-    }
-
-    var replanUndoStack: [HomeReplanUndoEntry] {
-        get { needsReplanViewModel.undoStack }
-        set { needsReplanViewModel.undoStack = newValue }
-    }
-
-    var replanApplyingAction: HomeReplanApplyingAction? {
-        get { needsReplanViewModel.applyingAction }
-        set { needsReplanViewModel.applyingAction = newValue }
     }
 
     deinit {

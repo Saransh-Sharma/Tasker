@@ -130,7 +130,7 @@ struct ComposerOptionGrid<ID: Hashable>: View {
         let hasAccent = HexColor.normalized(accentHex) != nil
         let accentColor = HexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)
         return Button {
-            HapticFeedback.selection()
+            Haptic.pick.play()
             action()
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
@@ -201,7 +201,7 @@ struct ComposerDisclosureRow: View {
 
     var body: some View {
         Button {
-            HapticFeedback.selection()
+            Haptic.pick.play()
             action()
         } label: {
             HStack(alignment: .top, spacing: spacing.s12) {

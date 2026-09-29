@@ -19,7 +19,7 @@ struct SetupCenterDisclosureCard<Content: View>: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("setupCenter.\(snapshot.integration.rawValue).expand")
-            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+            .accessibilityValue(isExpanded ? String(localized: "Expanded") : String(localized: "Collapsed"))
 
             if isExpanded {
                 Divider().overlay(Color.lifeboard(.strokeHairline)).padding(.vertical, 14)
@@ -86,16 +86,16 @@ struct SetupCenterEvaGrantsSection: View {
 
 private extension SetupCenterIntegration {
     var title: String {
-        switch self { case .calendar: "Calendar"; case .health: "Apple Health"; case .eva: "EVA" }
+        switch self { case .calendar: String(localized: "Calendar"); case .health: String(localized: "Apple Health"); case .eva: String(localized: "Eva") }
     }
     var symbolName: String {
         switch self { case .calendar: "calendar"; case .health: "heart.text.square.fill"; case .eva: "sparkles" }
     }
     var benefit: String {
         switch self {
-        case .calendar: "Plan around the events already shaping your day."
-        case .health: "Use private, on-device wellness context."
-        case .eva: "Choose Cloud intelligence or an on-device model."
+        case .calendar: String(localized: "Events next to your tasks")
+        case .health: String(localized: "Sleep, workouts and more")
+        case .eva: String(localized: "Cloud or on-device")
         }
     }
 }

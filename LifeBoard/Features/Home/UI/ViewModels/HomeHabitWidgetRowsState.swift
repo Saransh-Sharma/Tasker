@@ -17,4 +17,15 @@ import WidgetKit
 struct HomeHabitWidgetRowsState: Sendable {
     var agendaRows: [HomeHabitRow] = []
     var trackingRows: [HomeHabitRow] = []
+    /// Today's recorded amount and target for amount habits, by habit id.
+    var amounts: [UUID: HomeHabitWidgetAmount] = [:]
+}
+
+/// What the widget needs to draw and log an amount ring.
+struct HomeHabitWidgetAmount: Equatable, Sendable {
+    let current: Double
+    let target: Double
+    let unit: String
+    let isTimed: Bool
+    let step: Double
 }

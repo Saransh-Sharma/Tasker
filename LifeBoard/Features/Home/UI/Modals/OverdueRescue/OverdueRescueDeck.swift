@@ -153,6 +153,29 @@ struct OverdueRescueDeckView: View {
                 )
                 .disabled(viewModel.isDecisionInFlight)
                 .frame(width: metrics.contentWidth)
+                // The deck is decided by swiping; a hardware keyboard and the
+                // Mac had only the on-screen buttons. → keeps (a right swipe),
+                // ← moves (a left swipe), E edits. Hidden: the visible buttons
+                // above are the labelled way to do the same thing.
+                .background {
+                    // Hidden per button: on the stack alone they still showed
+                    // up to VoiceOver and XCUITest as three unlabeled buttons.
+                    ZStack {
+                        Button("") { viewModel.keepToday(source: .tap) }
+                            .keyboardShortcut(.rightArrow, modifiers: [])
+                            .accessibilityHidden(true)
+                        Button("") { viewModel.moveLater(source: .tap) }
+                            .keyboardShortcut(.leftArrow, modifiers: [])
+                            .accessibilityHidden(true)
+                        Button("", action: viewModel.requestEdit)
+                            .keyboardShortcut("e", modifiers: [])
+                            .accessibilityHidden(true)
+                    }
+                    .disabled(viewModel.isDecisionInFlight)
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
+                    .accessibilityHidden(true)
+                }
                 .padding(.top, metrics.dynamicTypeIsExpanded ? 12 : (metrics.isCompactHeight ? 12 : 16))
             } else {
                 Spacer()
@@ -182,20 +205,22 @@ struct OverdueRescueDeckView: View {
                 .lifeboardElevation(.e1, cornerRadius: OverdueRescueVisualSpec.topButtonSize / 2, includesBorder: false)
                 .accessibilityLabel("Close rescue")
                 .accessibilityIdentifier("home.rescue.close")
+                .keyboardShortcut(.cancelAction)
                 .disabled(viewModel.isDecisionInFlight)
 
                 Spacer()
 
                 Menu {
                     if viewModel.safeFixes.isEmpty == false {
-                        Button("Apply high-confidence fixes") {
+                        // One name for this action everywhere in the deck.
+                        Button(OverdueRescueDeckCopy.applySuggested) {
                             viewModel.showSafeFixesConfirmation = true
                         }
                     }
                     Button("Pause rescue") {
                         viewModel.pause()
                     }
-                    Button("Restart sprint") {
+                    Button("Start over") {
                         viewModel.startManualReview()
                     }
                 } label: {
@@ -215,7 +240,7 @@ struct OverdueRescueDeckView: View {
                     .font(.lifeboard(.title2))
                     .fontWeight(.bold)
                     .foregroundStyle(OverdueRescuePalette.ink)
-                Text("Swipe or tap to sort what still matters.")
+                Text("Sort what’s left")
                     .font(.lifeboard(.callout))
                     .foregroundStyle(OverdueRescuePalette.secondaryInk)
                     .multilineTextAlignment(.center)
@@ -246,7 +271,7 @@ struct OverdueRescueDeckView: View {
                     cardWidth: metrics.cardWidth
                 )
                 if candidate != nil, snapCandidate == nil {
-                    HapticFeedback.selection()
+                    Haptic.threshold.play()
                 }
                 snapCandidate = candidate
             }
@@ -257,10 +282,12 @@ struct OverdueRescueDeckView: View {
                     predictedEndTranslation: value.predictedEndTranslation,
                     cardWidth: metrics.cardWidth
                 ) {
-                    HapticFeedback.medium()
+                    // A release, not the commit: the success haptic plays once
+                    // the decision is saved.
+                    Haptic.settle.play()
                     commitDrag(action, metrics: metrics)
                 } else {
-                    withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.stateChange) {
+                    withAnimation(MotionProfile.directManipulation.animation(reduceMotion: reduceMotion)) {
                         commitOffset = .zero
                     }
                 }
@@ -296,7 +323,8 @@ struct OverdueRescueDeckView: View {
         // The commit runs when the card's exit animation actually finishes,
         // rather than on a hard-coded 0.20s timer racing it. Plan's repair deck
         // already works this way.
-        withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.panelOut) {
+        // Nil under Reduce Motion: the completion still runs, without the fling.
+        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.panelOut) {
             switch action {
             case .keepToday:
                 commitOffset = CGSize(width: metrics.cardWidth + 120, height: 0)
@@ -458,6 +486,9 @@ enum OverdueRescueDeckCopy {
     static let moveLater = "Move later"
     static let edit = "Edit"
     static let delete = "Delete"
+    /// Was "Apply high-confidence fixes" in the menu, "Apply safe fixes" on
+    /// the large-stack screen, and "Apply N safe fixes?" in the sheet.
+    static let applySuggested = "Apply suggested fixes"
 }
 
 // MARK: - OverdueRescueBackCards
@@ -532,19 +563,19 @@ struct OverdueRescueLargeStackView: View {
         VStack(spacing: 22) {
             OverdueRescueShieldHero()
                 .frame(width: 220, height: 180)
-            Text("Large rescue stack")
+            Text("\(count) tasks from earlier")
                 .font(.lifeboard(.title1))
                 .fontWeight(.bold)
                 .foregroundStyle(OverdueRescuePalette.ink)
                 .multilineTextAlignment(.center)
-            Text("\(count) tasks need review. Start with high-confidence fixes or review manually.")
+            Text("Apply the suggested fixes or go one by one.")
                 .font(.lifeboard(.title3))
                 .foregroundStyle(OverdueRescuePalette.secondaryInk)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
                 .padding(.horizontal, 8)
             Spacer()
-            Button("Apply safe fixes") {
+            Button(OverdueRescueDeckCopy.applySuggested) {
                 dismiss()
                 applySafeFixes()
             }
@@ -555,7 +586,7 @@ struct OverdueRescueLargeStackView: View {
             .background(OverdueRescueVisualSpec.primaryButtonBackground())
             .opacity(safeCount == 0 ? 0.58 : 1.0)
             .disabled(safeCount == 0)
-            Button("Start manual review") {
+            Button("Review each") {
                 dismiss()
                 startManualReview()
             }

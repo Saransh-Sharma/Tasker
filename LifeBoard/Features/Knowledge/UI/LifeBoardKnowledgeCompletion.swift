@@ -360,6 +360,10 @@ public struct UnifiedNoteEditor: UIViewRepresentable {
         view.textContainerInset = UIEdgeInsets(top: 8, left: 0, bottom: 80, right: 0)
         view.textContainer.lineFragmentPadding = 0
         view.keyboardDismissMode = .interactive
+        // The editor doesn't scroll itself — the note's column does — so the
+        // dismiss mode above never fires, and dragging the outer column was the
+        // only way out of editing. `DESIGN.md`'s keyboard contract: Done.
+        view.inputAccessoryView = Self.doneAccessory(for: view)
         view.allowsEditingTextAttributes = true
         view.smartDashesType = .yes
         view.smartQuotesType = .yes
@@ -387,16 +391,6 @@ public struct UnifiedNoteEditor: UIViewRepresentable {
             context.coordinator.lastCommandID = command.id
             context.coordinator.apply(command.command, to: view)
         }
-    }
-
-    public static func sizeThatFits(
-        _ proposal: ProposedViewSize,
-        uiView: UITextView,
-        context: Context
-    ) -> CGSize? {
-        let width = proposal.width ?? 680
-        let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-        return CGSize(width: width, height: max(220, size.height))
     }
 
     public final class Coordinator: NSObject, UITextViewDelegate {
@@ -625,6 +619,23 @@ public struct UnifiedNoteEditor: UIViewRepresentable {
                 textView.textStorage.removeAttribute(key, range: target)
             }
         }
+    }
+}
+
+/// Kept out of the representable's body for the file-size gate's `largest`
+/// metric.
+extension UnifiedNoteEditor {
+    /// Done above the keyboard. Resigning ends editing, and the delegate
+    /// reports that back through `isFocused`.
+    fileprivate static func doneAccessory(for view: UITextView) -> UIView {
+        let done = UIBarButtonItem(systemItem: .done, primaryAction: UIAction { [weak view] _ in
+            view?.resignFirstResponder()
+        })
+        done.accessibilityHint = "Closes the keyboard"
+        let toolbar = UIToolbar()
+        toolbar.items = [UIBarButtonItem(systemItem: .flexibleSpace), done]
+        toolbar.sizeToFit()
+        return toolbar
     }
 }
 
@@ -1217,10 +1228,10 @@ public actor DefaultKnowledgeSecureNoteService: KnowledgeSecureNoteService {
 
         public var errorDescription: String? {
             switch self {
-            case .authenticationFailed: "LifeBoard could not verify your identity."
-            case .malformedPayload: "This locked note could not be decoded safely."
-            case .keyUnavailable: "The key for this note is unavailable on this device."
-            case let .keychain(status): "Secure storage failed with status \(status)."
+            case .authenticationFailed: String(localized: "Couldn’t verify it’s you.")
+            case .malformedPayload: String(localized: "Couldn’t open this locked note.")
+            case .keyUnavailable: String(localized: "Couldn’t open this note on this device.")
+            case let .keychain(status): String(localized: "Couldn’t access secure storage (error \(Int(status))).")
             }
         }
     }
@@ -1355,112 +1366,6 @@ public actor DefaultKnowledgeSecureNoteService: KnowledgeSecureNoteService {
             throw SecureNoteError.keychain(status)
         }
         return SymmetricKey(data: data)
-    }
-}
-
-// MARK: - EVA proposal and attachment contracts
-
-public enum NoteAIAction: String, Codable, CaseIterable, Sendable {
-    case summarize
-    case cleanUp
-    case continueWriting
-    case extractTasks
-    case suggestTags
-    case suggestLinks
-}
-
-public struct NoteAIProposal: Identifiable, Hashable, Sendable {
-    public var id: UUID
-    public var noteID: UUID
-    public var baseContentVersion: Int
-    public var action: NoteAIAction
-    public var explanation: String
-    public var preview: String
-    public var mutations: [NoteMutation]
-
-    public init(
-        id: UUID = UUID(),
-        noteID: UUID,
-        baseContentVersion: Int,
-        action: NoteAIAction,
-        explanation: String,
-        preview: String,
-        mutations: [NoteMutation]
-    ) {
-        self.id = id
-        self.noteID = noteID
-        self.baseContentVersion = baseContentVersion
-        self.action = action
-        self.explanation = explanation
-        self.preview = preview
-        self.mutations = mutations
-    }
-
-    public func isStale(for note: KnowledgeNoteValue) -> Bool {
-        note.id != noteID || (note.contentVersion ?? 1) != baseContentVersion
-    }
-}
-
-public protocol NoteAIProposalService: Sendable {
-    func propose(
-        action: NoteAIAction,
-        note: KnowledgeNoteValue,
-        selectedText: String?
-    ) async throws -> NoteAIProposal
-}
-
-public struct ModelsNoteAIProposalService: NoteAIProposalService {
-    public enum ProposalError: LocalizedError {
-        case unavailable
-
-        public var errorDescription: String? {
-            "On-device writing assistance is unavailable right now. Your note was not changed."
-        }
-    }
-
-    public init() {}
-
-    public func propose(
-        action: NoteAIAction,
-        note: KnowledgeNoteValue,
-        selectedText: String?
-    ) async throws -> NoteAIProposal {
-        let source = selectedText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            ? selectedText!
-            : note.plainText
-        let output = try await NoteAITextProviderRegistry.shared.generate(action: action, source: source)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard output.isEmpty == false else { throw ProposalError.unavailable }
-        var after = note
-        switch action {
-        case .summarize:
-            after.blocks.insert(
-                .init(noteID: note.id, kind: .callout, text: output, ordinal: 0),
-                at: 0
-            )
-        case .cleanUp:
-            var block = note.blocks.first ?? .init(noteID: note.id)
-            block.kind = .paragraph
-            block.text = output
-            block.richTextData = nil
-            after.blocks = [block]
-        case .continueWriting:
-            after.blocks.append(.init(noteID: note.id, kind: .paragraph, text: output, ordinal: note.blocks.count))
-        case .extractTasks, .suggestTags, .suggestLinks:
-            break
-        }
-        for index in after.blocks.indices { after.blocks[index].ordinal = index }
-        after.updatedAt = Date()
-        after.contentVersion = max(1, note.contentVersion ?? 1) + 1
-        let mutations: [NoteMutation] = after == note ? [] : [.replaceNote(before: note, after: after)]
-        return .init(
-            noteID: note.id,
-            baseContentVersion: note.contentVersion ?? 1,
-            action: action,
-            explanation: "Eva used only this note\(selectedText == nil ? "" : " selection") and prepared a reviewable proposal.",
-            preview: output,
-            mutations: mutations
-        )
     }
 }
 

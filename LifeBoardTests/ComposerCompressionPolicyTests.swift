@@ -50,9 +50,9 @@ final class ComposerCompressionPolicyTests: XCTestCase {
         )
     }
 
-    func testEveryNonRestingStateSuppressesCompression() {
+    func testEveryActiveStateSuppressesCompression() {
         let suppressing: [LifeThreadComposerState] = [
-            .focused, .tools, .recording, .scanning, .working, .review, .dictating
+            .tools, .recording, .scanning, .working, .review, .dictating
         ]
         for state in suppressing {
             XCTAssertEqual(
@@ -63,16 +63,24 @@ final class ComposerCompressionPolicyTests: XCTestCase {
         }
     }
 
-    func testOnlyRestingAndSettlingAreCompressible() {
+    func testRestingSettlingAndIdleFocusedAreCompressible() {
         // `.settling` is the tail of a committed capture — there is nothing left
-        // to lose, so it compresses like `.resting`.
-        for state in [LifeThreadComposerState.resting, .settling] {
+        // to lose, so it compresses like `.resting`. A `.focused` composer with
+        // no keyboard and no draft is one the coordinator parked after an
+        // outcome; it used to block compression until the next focus-and-blur.
+        for state in [LifeThreadComposerState.resting, .settling, .focused] {
             XCTAssertTrue(
                 ComposerCompressionPolicy.isCompressible(input(state: state)),
                 "\(state) should be compressible"
             )
         }
         XCTAssertEqual(LifeThreadComposerState.allCases.count, 9, "New states need a compression decision")
+    }
+
+    func testFocusedStillNeverCompressesWhileEditing() {
+        // Editing is the keyboard or a draft, and each still suppresses on its own.
+        XCTAssertFalse(ComposerCompressionPolicy.isCompressible(input(state: .focused, keyboard: true)))
+        XCTAssertFalse(ComposerCompressionPolicy.isCompressible(input(state: .focused, hasDraft: true)))
     }
 
     func testPreviewReceiptKeyboardAndVoiceOverEachSuppress() {

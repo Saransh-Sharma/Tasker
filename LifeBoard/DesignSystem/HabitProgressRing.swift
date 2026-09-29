@@ -125,12 +125,13 @@ struct HabitProgressRing: View {
     }
 
     enum Size {
-        case hero, board, row
+        case hero, board, card, row
 
         var diameter: CGFloat {
             switch self {
             case .hero: 120
             case .board: 56
+            case .card: 48
             case .row: 36
             }
         }
@@ -139,6 +140,7 @@ struct HabitProgressRing: View {
             switch self {
             case .hero: 10
             case .board: 6
+            case .card: 5
             case .row: 4
             }
         }
@@ -158,11 +160,26 @@ struct HabitProgressRing: View {
     var tapBehavior: TapBehavior = .addStep
     /// Check-ins have no count worth printing in the middle of the ring.
     var showsCount = true
+    /// The habit's own colour for the arc, the done disc and the bead. `nil`
+    /// keeps the shared sage, so callers that do not know a habit's colour
+    /// are unchanged.
+    var tint: Color? = nil
+    /// Ink for the tick on the done disc; light on deep tints.
+    var completedMarkTint: Color? = nil
+    /// A symbol in the middle of a count-less ring: the habit's icon.
+    var centerSymbol: String? = nil
+    /// `false` for a ring that only shows state (a lapse-only habit is clean
+    /// by default and is never completed by holding).
+    var holdEnabled = true
+    /// `false` keeps a full ring as a ring: a quit habit's clean state is a
+    /// protected arc around its icon, not a ticked-off task.
+    var showsCompletionDisc = true
     /// Persist a change; return true once it is saved.
     let onChange: (HabitAmountChange) async -> Bool
 
     @Environment(\.lifeBoardMotionContext) private var motion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @TapIsKeyboardDismissal private var tapIsKeyboardDismissal: Bool
 
     @State private var liveValue: Double?
     @State private var holdStartedAt: Date?
@@ -175,6 +192,7 @@ struct HabitProgressRing: View {
     @State private var completionProgress: Double = 0
     @State private var shakeOffset: CGFloat = 0
 
+    private var arcTint: Color { tint ?? Color(SemanticColorTokens.foundationSageInk) }
     private var displayedValue: Double { liveValue ?? value }
     private var isComplete: Bool { displayedValue >= target }
     private var spatialMotion: Bool { motion.allowsSpatialMotion && motion.comfortProfile != .calm }
@@ -212,14 +230,25 @@ struct HabitProgressRing: View {
                     ticks: size == .row ? [] : HabitRingGeometry.tickFractions(target: target, step: step),
                     ghostFraction: holdStartedAt != nil && isScrubbing == false && value < target ? 1 : nil,
                     lineWidth: size.lineWidth,
-                    completionProgress: completionProgress
+                    completionProgress: completionProgress,
+                    tint: arcTint,
+                    markTint: completedMarkTint ?? Color.lifeboard(.textInverse),
+                    showsCompletionDisc: showsCompletionDisc
                 )
                 if isScrubbing {
                     HabitRingBead(
                         fraction: HabitRingGeometry.fraction(value: displayedValue, target: target),
                         radius: radius,
-                        diameter: size.lineWidth + 6
+                        diameter: size.lineWidth + 6,
+                        tint: arcTint
                     )
+                }
+                if showsCount == false, let centerSymbol {
+                    Image(systemName: centerSymbol)
+                        .lifeboardFont(size == .hero ? .title3 : .headline)
+                        .foregroundStyle(arcTint)
+                        .opacity(completionProgress >= 1 && showsCompletionDisc ? 0 : 1)
+                        .accessibilityHidden(true)
                 }
                 if showsCount {
                     HabitRingCenter(
@@ -234,12 +263,14 @@ struct HabitProgressRing: View {
         }
         .frame(width: size.diameter, height: size.diameter)
         .contentShape(Circle())
-        // Tap and hold live on the same view. As a child gesture the hold used
-        // to outrank the tap, so a quick tap never added a step; recognizing
-        // them together, the hold's release is kept from counting as a tap by
-        // `holdEngaged`.
-        .onTapGesture { tap() }
-        .simultaneousGesture(holdAndScrub(center: center, radius: radius))
+        .modifier(HabitRingHoldGesture(
+            inScrollingRow: size == .card,
+            isEnabled: holdEnabled,
+            began: { if holdStartedAt == nil { beginHold() } },
+            changed: { start, location in continueHoldGesture(from: start, to: location, center: center, radius: radius) },
+            ended: { endHold() },
+            tap: { tap() }
+        ))
         .scaleEffect(holdStartedAt != nil && spatialMotion ? 0.97 : 1)
         .animation(MotionProfile.press.animation(reduceMotion: motion.effectiveReduceMotion), value: holdStartedAt != nil)
         .offset(x: shakeOffset)
@@ -264,31 +295,34 @@ struct HabitProgressRing: View {
             }
         }
         .accessibilityAction(named: "Complete") { commit(.set(max(target, value))) }
+        // Keyboard and pointer. The ring is a gesture surface, not a Button,
+        // so a hardware keyboard could not reach it and completing needed a
+        // press-and-hold no mouse or keyboard can make. Return steps it like a
+        // tap; ⌥Return completes it, the hold's outcome; ↑/↓ step by one.
+        .focusable(holdEnabled)
+        .onKeyPress(.return, phases: .down) { press in
+            if press.modifiers.contains(.option) {
+                commit(.set(max(target, value)))
+            } else {
+                tap()
+            }
+            return .handled
+        }
+        .onKeyPress(.upArrow) { commit(.add(step)); return .handled }
+        .onKeyPress(.downArrow) { commit(.add(-step)); return .handled }
+        .hoverEffect(.highlight)
     }
 
     // MARK: Gestures
 
-    private func holdAndScrub(center: CGPoint, radius: CGFloat) -> some Gesture {
-        LongPressGesture(minimumDuration: HabitRingGeometry.holdDelay, maximumDistance: 12)
-            .sequenced(before: DragGesture(minimumDistance: 0))
-            .onChanged { phase in
-                switch phase {
-                case .first:
-                    break
-                case .second(true, let drag):
-                    if holdStartedAt == nil { beginHold() }
-                    guard let drag, size.supportsScrub else { return }
-                    let moved = hypot(drag.translation.width, drag.translation.height)
-                    if isScrubbing == false, moved > 6,
-                       HabitRingGeometry.isOnStroke(drag.startLocation, center: center, radius: radius, tolerance: radius * 0.6) {
-                        beginScrub()
-                    }
-                    if isScrubbing { scrub(to: drag.location, center: center) }
-                default:
-                    break
-                }
-            }
-            .onEnded { _ in endHold() }
+    private func continueHoldGesture(from start: CGPoint, to location: CGPoint, center: CGPoint, radius: CGFloat) {
+        guard size.supportsScrub else { return }
+        let moved = hypot(location.x - start.x, location.y - start.y)
+        if isScrubbing == false, moved > 6,
+           HabitRingGeometry.isOnStroke(start, center: center, radius: radius, tolerance: radius * 0.6) {
+            beginScrub()
+        }
+        if isScrubbing { scrub(to: location, center: center) }
     }
 
     private func tap() {
@@ -297,6 +331,10 @@ struct HabitProgressRing: View {
             holdEngaged = false
             return
         }
+        // `DESIGN.md`, keyboard contract: while typing, this tap only puts the
+        // keyboard away. A tap meant to dismiss must not log a step; holds and
+        // scrubs are deliberate and still commit.
+        guard tapIsKeyboardDismissal == false else { return }
         bloomTrigger &+= 1
         switch tapBehavior {
         case .addStep:
@@ -382,7 +420,7 @@ struct HabitProgressRing: View {
         let wasComplete = before >= target
         let willComplete = optimistic >= target
         isCommitting = true
-        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: motion.effectiveReduceMotion) ? nil : LifeBoardAnimation.numericUpdate) {
+        withAnimation(MotionProfile.localState.animation(reduceMotion: motion.effectiveReduceMotion)) {
             liveValue = optimistic
         }
         if fromHold == false, HabitRingGeometry.detentsCrossed(from: before, to: optimistic, step: step, target: target) > 0 {
@@ -410,7 +448,7 @@ struct HabitProgressRing: View {
     private func celebrate() {
         Haptic.commit.play()
         if spatialMotion { burstTrigger &+= 1 }
-        withAnimation(spatialMotion ? InteractionMotion.completion(reduceMotion: false) : .easeOut(duration: 0.16)) {
+        withAnimation(InteractionMotion.completion(reduceMotion: spatialMotion == false)) {
             completionProgress = 1
         }
         if motion.comfortProfile == .playful, spatialMotion {
@@ -430,7 +468,7 @@ struct HabitProgressRing: View {
         guard spatialMotion else { return }
         Task { @MainActor in
             for offset in [4.0, -4.0, 3.0, -3.0, 0.0] {
-                withAnimation(.easeInOut(duration: 0.048)) { shakeOffset = offset }
+                withAnimation(MotionProfile.press.animation(reduceMotion: false)) { shakeOffset = offset }
                 try? await Task.sleep(for: .milliseconds(48))
             }
         }
@@ -447,6 +485,9 @@ private struct HabitRingTrack: View {
     let ghostFraction: Double?
     let lineWidth: CGFloat
     let completionProgress: Double
+    var tint: Color = Color(SemanticColorTokens.foundationSageInk)
+    var markTint: Color = Color.lifeboard(.textInverse)
+    var showsCompletionDisc = true
 
     var body: some View {
         ZStack {
@@ -461,7 +502,7 @@ private struct HabitRingTrack: View {
                     .inset(by: lineWidth / 2)
                     .trim(from: 0, to: ghostFraction)
                     .stroke(
-                        Color(SemanticColorTokens.foundationSageAccent).opacity(0.35),
+                        tint.opacity(0.35),
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, dash: [2, lineWidth])
                     )
                     .rotationEffect(.degrees(-90))
@@ -470,7 +511,7 @@ private struct HabitRingTrack: View {
             Circle()
                 .inset(by: lineWidth / 2)
                 .trim(from: 0, to: min(1, fraction))
-                .stroke(Color(SemanticColorTokens.foundationSageAccent), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             if fraction > 1 {
                 // Past the target: a second, lighter lap rather than a full ring
@@ -478,7 +519,7 @@ private struct HabitRingTrack: View {
                 Circle()
                     .inset(by: lineWidth / 2)
                     .trim(from: 0, to: fraction - 1)
-                    .stroke(Color(SemanticColorTokens.foundationSageAccent).opacity(0.45), style: StrokeStyle(lineWidth: lineWidth * 0.6, lineCap: .round))
+                    .stroke(tint.opacity(0.45), style: StrokeStyle(lineWidth: lineWidth * 0.6, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .padding(lineWidth * 1.2)
             }
@@ -489,13 +530,13 @@ private struct HabitRingTrack: View {
                     .offset(y: -1)
                     .modifier(RingTickPlacement(fraction: tick, lineWidth: lineWidth))
             }
-            if completionProgress > 0 {
+            if completionProgress > 0, showsCompletionDisc {
                 Circle()
-                    .fill(Color(SemanticColorTokens.foundationSageAccent))
+                    .fill(tint)
                     .padding(lineWidth / 2)
                     .opacity(completionProgress)
                 CompletionMark(progress: completionProgress)
-                    .stroke(Color.lifeboard(.textInverse), style: StrokeStyle(lineWidth: max(2, lineWidth * 0.45), lineCap: .round, lineJoin: .round))
+                    .stroke(markTint, style: StrokeStyle(lineWidth: max(2, lineWidth * 0.45), lineCap: .round, lineJoin: .round))
                     .padding(lineWidth * 2.2)
             }
         }
@@ -522,12 +563,13 @@ private struct HabitRingBead: View {
     let fraction: Double
     let radius: CGFloat
     let diameter: CGFloat
+    var tint: Color = Color(SemanticColorTokens.foundationSageInk)
 
     var body: some View {
         let angle = min(fraction, HabitRingGeometry.overachievementCeiling) * 2 * .pi
         Circle()
             .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
-            .overlay(Circle().stroke(Color(SemanticColorTokens.foundationSageAccent), lineWidth: 2))
+            .overlay(Circle().stroke(tint, lineWidth: 2))
             .frame(width: diameter, height: diameter)
             .offset(x: radius * sin(angle), y: -radius * cos(angle))
             .transition(.scale.combined(with: .opacity))
@@ -553,7 +595,7 @@ private struct HabitRingCenter: View {
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .opacity(isComplete ? 0 : 1)
-        case .board:
+        case .board, .card:
             Text(HabitRingGeometry.centerText(value: value, target: target, isTimed: isTimed))
                 .lifeboardFont(.caption2)
                 .monospacedDigit()
@@ -598,5 +640,60 @@ private struct HabitRingStepper: View {
             .accessibilityLabel("More \(title)")
         }
         .buttonStyle(.lifeBoardChip)
+    }
+}
+
+/// Tap and hold on the ring, in the form its container allows.
+///
+/// In a horizontally scrolling row (Home's habit cards) the hold is SwiftUI's
+/// `onLongPressGesture`, which gives the touch back to the scroll view when
+/// the finger travels: the `LongPressGesture` sequenced into a zero-distance
+/// `DragGesture` claimed every touch from touch-down, so a swipe that began on
+/// a ring never scrolled the row, and Home's cards could not be scrolled past
+/// the first screen. The row gives up scrubbing for that; a tap still adds a
+/// step, a hold still finishes, and "Enter amount…" sets any value.
+///
+/// Everywhere else the ring keeps the sequenced gesture, so a hold can slide
+/// into a scrub. A UIKit long press was tried first and lost its release on
+/// the Habit Board, so a hold never finished there.
+private struct HabitRingHoldGesture: ViewModifier {
+    let inScrollingRow: Bool
+    let isEnabled: Bool
+    let began: () -> Void
+    let changed: (CGPoint, CGPoint) -> Void
+    let ended: () -> Void
+    let tap: () -> Void
+
+    func body(content: Content) -> some View {
+        if inScrollingRow {
+            content
+                .onTapGesture(perform: tap)
+                .onLongPressGesture(
+                    minimumDuration: HabitRingGeometry.holdDelay,
+                    maximumDistance: 12,
+                    perform: { if isEnabled { began() } },
+                    onPressingChanged: { pressing in
+                        if pressing == false { ended() }
+                    }
+                )
+        } else {
+            // Tap and hold live on the same view. As a child gesture the hold
+            // used to outrank the tap, so a quick tap never added a step;
+            // recognizing them together, the hold's release is kept from
+            // counting as a tap by `holdEngaged`.
+            content
+                .onTapGesture(perform: tap)
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: HabitRingGeometry.holdDelay, maximumDistance: 12)
+                        .sequenced(before: DragGesture(minimumDistance: 0))
+                        .onChanged { phase in
+                            guard isEnabled, case .second(true, let drag) = phase else { return }
+                            began()
+                            if let drag { changed(drag.startLocation, drag.location) }
+                        }
+                        .onEnded { _ in ended() },
+                    including: isEnabled ? .all : .subviews
+                )
+        }
     }
 }

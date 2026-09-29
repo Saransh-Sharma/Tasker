@@ -13,7 +13,7 @@ struct WeeklyPlannerView: View {
 
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: SemanticSpacingTokens { tokens.spacing }
+    var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         NavigationStack {
@@ -27,24 +27,24 @@ struct WeeklyPlannerView: View {
                 if viewModel.hasLoadedInitialData == false {
                     if viewModel.isLoading {
                         WeeklyBlockingStateCard(
-                            title: "Loading weekly plan…",
-                            message: "Pulling tasks, habits, and outcomes for this week.",
+                            title: "Loading…",
+                            message: "",
                             showsProgress: true,
                             primaryActionTitle: nil,
                             onPrimaryAction: nil
                         )
                     } else if let errorMessage = viewModel.errorMessage {
                         WeeklyBlockingStateCard(
-                            title: "We couldn't load this week",
+                            title: "Couldn’t load this week.",
                             message: errorMessage,
                             showsProgress: false,
-                            primaryActionTitle: "Retry",
+                            primaryActionTitle: "Try again",
                             onPrimaryAction: { viewModel.load() }
                         )
                     } else {
                         WeeklyBlockingStateCard(
-                            title: "Loading weekly plan…",
-                            message: "Preparing your planner.",
+                            title: "Loading…",
+                            message: "",
                             showsProgress: true,
                             primaryActionTitle: nil,
                             onPrimaryAction: nil
@@ -69,8 +69,8 @@ struct WeeklyPlannerView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close", action: onClose)
-                        .accessibilityLabel("Close weekly planner")
-                        .accessibilityHint("Dismiss the weekly planner and return to Home.")
+                        .accessibilityLabel("Close weekly plan")
+                        .keyboardShortcut(.cancelAction)
                 }
             }
             .task {
@@ -175,32 +175,6 @@ struct WeeklyPlannerView: View {
         WeeklyPlannerFooterSummaryView(snapshot: viewModel.footerSnapshot)
     }
 
-    @ViewBuilder
-    private var footerActions: some View {
-        switch viewModel.currentStep {
-        case .review:
-            HStack(spacing: spacing.s8) {
-                Button(viewModel.isRequestingEvaPreview ? "Working..." : WeeklyCopy.getAISuggestion) {
-                    viewModel.requestEvaPreview()
-                }
-                .buttonStyle(.bordered)
-                .disabled(viewModel.isSaving || viewModel.isRequestingEvaPreview)
-
-                Button(viewModel.isSaving ? "Saving..." : WeeklyCopy.savePlan) {
-                    viewModel.save()
-                }
-                .buttonStyle(.lifeBoardPrimaryCompact)
-                .disabled(viewModel.isSaving)
-            }
-        default:
-            Button(viewModel.currentStep.nextButtonTitle) {
-                viewModel.moveForward()
-            }
-            .buttonStyle(.lifeBoardPrimaryCompact)
-            .disabled(viewModel.isLoading || viewModel.canMoveForward == false)
-        }
-    }
-
     private func toggleReviewLane(_ bucket: TaskPlanningBucket) {
         if expandedReviewBuckets.contains(bucket) {
             expandedReviewBuckets.remove(bucket)
@@ -213,13 +187,13 @@ struct WeeklyPlannerView: View {
         guard let decision = viewModel.assignCurrentTriageTask(to: bucket) else { return }
 
         if bucket == .thisWeek {
-            HapticFeedback.success()
+            Haptic.commit.play()
         } else {
-            HapticFeedback.selection()
+            Haptic.pick.play()
         }
 
         snackbar = SnackbarData(
-            message: "\(decision.task.title) moved to \(bucket.conciseDisplayTitle)",
+            message: String(localized: "Moved to \(bucket.conciseDisplayTitle)"),
             actions: [
                 SnackbarAction(title: "Undo") {
                     outcomeAttachmentState = nil
@@ -236,7 +210,7 @@ struct WeeklyPlannerView: View {
 
     private func handleAddTaskToReviewFlow(_ taskID: UUID) {
         guard viewModel.addTaskToReviewFlow(taskID) else { return }
-        HapticFeedback.success()
+        Haptic.commit.play()
         snackbar = SnackbarData(message: WeeklyCopy.addedToReview, autoDismissSeconds: 2)
     }
 }
@@ -303,10 +277,12 @@ private struct WeeklyPlannerField: View {
                 .padding(12)
                 .lifeboardDenseSurface(cornerRadius: 16, fillColor: Color.lifeboard.surfaceSecondary)
 
-            Text(helper)
-                .font(.lifeboard(.caption2))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if helper.isEmpty == false {
+                Text(helper)
+                    .font(.lifeboard(.caption2))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }
@@ -389,11 +365,11 @@ private struct WeeklyPlannerDirectionStep: View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             WeeklySectionCard(
                 title: WeeklyPlannerStep.direction.title,
-                detail: "Start with one sentence. It should be short enough to remember when the week gets noisy."
+                detail: "One sentence for the week"
             ) {
                 WeeklyPlannerField(
                     title: WeeklyCopy.directionPrompt,
-                    helper: "Write the shortest version of the truth for this week.",
+                    helper: "",
                     text: $focusStatement,
                     lineLimit: 2...3
                 )
@@ -401,7 +377,7 @@ private struct WeeklyPlannerDirectionStep: View {
 
             WeeklySectionCard(
                 title: WeeklyCopy.includedThisWeek,
-                detail: "All active habits start included. Remove anything you do not want this week carrying with it."
+                detail: "All active habits start included."
             ) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     if availableHabits.isEmpty {
@@ -420,14 +396,13 @@ private struct WeeklyPlannerDirectionStep: View {
                         }
 
                         Button(WeeklyCopy.editHabits, action: onEditHabits)
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.lifeBoardChip)
                     }
                 }
             }
 
             WeeklySectionCard(
-                title: "Pace",
-                detail: "Keep This Week believable. A smaller plan you will keep is stronger than an ambitious one you will abandon."
+                title: "Pace"
             ) {
                 VStack(alignment: .leading, spacing: spacing.s16) {
                     WeeklyCapacityCard(
@@ -441,9 +416,6 @@ private struct WeeklyPlannerDirectionStep: View {
                             Text(WeeklyCopy.intentionalWeekLabel)
                                 .font(.lifeboard(.bodyEmphasis))
                                 .foregroundStyle(Color.lifeboard.textPrimary)
-                            Text("Turn this on when constraints matter more than ambition.")
-                                .font(.lifeboard(.caption1))
-                                .foregroundStyle(Color.lifeboard.textSecondary)
                         }
                     }
                     .tint(Color.lifeboard.accentPrimary)
@@ -472,8 +444,7 @@ private struct WeeklyPlannerOutcomesStep: View {
 
     var body: some View {
         WeeklySectionCard(
-            title: WeeklyPlannerStep.outcomes.title,
-            detail: "Choose up to three results worth protecting this week."
+            title: WeeklyPlannerStep.outcomes.title
         ) {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 ForEach(Array(outcomeDrafts.indices), id: \.self) { index in
@@ -484,10 +455,10 @@ private struct WeeklyPlannerOutcomesStep: View {
                     Button {
                         onAddOutcome()
                     } label: {
-                        Label("Add weekly outcome", systemImage: "plus")
+                        Label("Add goal", systemImage: "plus")
                             .font(.lifeboard(.buttonSmall))
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                 }
             }
         }
@@ -497,10 +468,10 @@ private struct WeeklyPlannerOutcomesStep: View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             HStack(alignment: .top, spacing: spacing.s12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Outcome \(index + 1)")
+                    Text("Goal \(index + 1)")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard.textSecondary)
-                    TextField("Weekly outcome", text: draft.title, axis: .vertical)
+                    TextField("Weekly goal", text: draft.title, prompt: Text("Weekly goal").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                         .lineLimit(1...3)
                         .font(.lifeboard(.body))
                         .foregroundStyle(Color.lifeboard.textPrimary)
@@ -520,20 +491,20 @@ private struct WeeklyPlannerOutcomesStep: View {
                 }
             }
 
-            Text("Name the result, not the activity.")
+            Text("A result, not an activity.")
                 .font(.lifeboard(.caption2))
                 .foregroundStyle(Color.lifeboard.textSecondary)
 
             HStack(spacing: spacing.s8) {
-                Button(draft.wrappedValue.showsDetails ? "Hide detail" : "Add detail") {
+                Button(draft.wrappedValue.showsDetails ? "Hide details" : "Add details") {
                     draft.wrappedValue.showsDetails.toggle()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
 
                 Button(draft.wrappedValue.sourceProjectID.flatMap { projectNamesByID[$0] } ?? "Link project") {
                     draft.wrappedValue.showsProjectPicker.toggle()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
             }
 
             if draft.wrappedValue.showsProjectPicker {
@@ -555,15 +526,15 @@ private struct WeeklyPlannerOutcomesStep: View {
             if draft.wrappedValue.showsDetails {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     WeeklyPlannerField(
-                        title: "Why this matters",
-                        helper: "Only add this if it helps you protect the outcome.",
+                        title: "Why it matters",
+                        helper: "",
                         text: draft.whyItMatters,
                         lineLimit: 1...3
                     )
 
                     WeeklyPlannerField(
-                        title: "How you will know it happened",
-                        helper: "Describe the finished state in concrete terms.",
+                        title: "Done looks like",
+                        helper: "",
                         text: draft.successDefinition,
                         lineLimit: 1...3
                     )
@@ -665,14 +636,13 @@ private struct WeeklyPlannerTasksStep: View {
                     }
 
                     Button(WeeklyCopy.findMoreTasks, action: onFindMoreTasks)
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                 }
             }
 
             if snapshot.cardModel == nil {
                 WeeklySectionCard(
-                    title: "What the week holds",
-                    detail: "Review the balance before you move on."
+                    title: "This week’s plan"
                 ) {
                     VStack(alignment: .leading, spacing: spacing.s12) {
                         laneView(for: .thisWeek, expandsByDefault: true)
@@ -716,7 +686,7 @@ private struct WeeklyPlannerReviewStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             HStack(spacing: spacing.s8) {
-                WeeklyPlannerMetricPill(value: "\(snapshot.outcomes.count)", label: "Outcomes")
+                WeeklyPlannerMetricPill(value: "\(snapshot.outcomes.count)", label: "Goals")
                 WeeklyPlannerMetricPill(value: "\(lane(.thisWeek).tasks.count)", label: WeeklyCopy.thisWeek)
                 WeeklyPlannerMetricPill(value: "\(snapshot.habits.count)", label: "Habits")
             }
@@ -728,7 +698,7 @@ private struct WeeklyPlannerReviewStep: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            reviewSectionCard(title: "Weekly outcomes", step: .outcomes) {
+            reviewSectionCard(title: "Goals", step: .outcomes) {
                 if snapshot.outcomes.isEmpty {
                     Text(WeeklyCopy.noOutcomes)
                         .font(.lifeboard(.support))
@@ -1018,11 +988,6 @@ private struct WeeklyPlannerTaskSourceSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: spacing.s16) {
-                Text("Bring in more work only if it still deserves attention this week.")
-                    .font(.lifeboard(.support))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
-                    .padding(.horizontal, spacing.screenHorizontal)
-
                 // Was `.pickerStyle(.segmented)`, the stock grey segmented
                 // control. `OptionRail` is the design system's equivalent and
                 // keeps the semantics: one selection, per-value accessibility
@@ -1042,7 +1007,7 @@ private struct WeeklyPlannerTaskSourceSheet: View {
                         let tasks = snapshot.tasks
 
                         if tasks.isEmpty {
-                            Text("Nothing is available here right now.")
+                            Text("No tasks")
                                 .font(.lifeboard(.support))
                                 .foregroundStyle(Color.lifeboard.textSecondary)
                                 .padding(.top, spacing.s16)
@@ -1073,6 +1038,7 @@ private struct WeeklyPlannerTaskSourceSheet: View {
                     Button("Close") {
                         dismiss()
                     }
+                    .keyboardShortcut(.cancelAction)
                 }
             }
         }
@@ -1120,7 +1086,7 @@ private struct WeeklyPlannerSourceTaskRow: View {
                 Button(WeeklyCopy.addTaskToReview) {
                     onAdd()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
             }
         }
         .padding(14)
@@ -1165,11 +1131,12 @@ private struct WeeklyPlannerOutcomeAttachmentSheet: View {
                     }
                 }
             }
-            .navigationTitle("Weekly outcome")
+            .navigationTitle("Weekly goal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close", action: onDismiss)
+                        .keyboardShortcut(.cancelAction)
                 }
             }
         }
@@ -1300,38 +1267,36 @@ private struct WeeklyPlannerProposalSheet: View {
     var body: some View {
         NavigationStack {
             WeeklyRitualScaffold(
-                eyebrow: "AI suggestion",
-                title: "Review the suggested changes",
-                subtitle: "Read the changes before they touch your plan. Nothing applies until you confirm.",
-                weekRange: "Draft preview",
+                eyebrow: "Suggestion",
+                title: "Suggested changes",
+                subtitle: "Nothing changes until you apply it.",
+                weekRange: "Draft",
                 steps: [
-                    WeeklyRitualStep(id: 0, title: "Review summary", isComplete: true),
-                    WeeklyRitualStep(id: 1, title: "Read changes", isComplete: state.preview.diffLines.isEmpty == false),
-                    WeeklyRitualStep(id: 2, title: "Confirm or reject", isComplete: state.preview.run != nil)
+                    WeeklyRitualStep(id: 0, title: "Summary", isComplete: true),
+                    WeeklyRitualStep(id: 1, title: "Changes", isComplete: state.preview.diffLines.isEmpty == false),
+                    WeeklyRitualStep(id: 2, title: "Apply or reject", isComplete: state.preview.run != nil)
                 ],
                 message: state.errorMessage,
                 messageTone: .warning,
                 headerScene: .plan
             ) {
                 WeeklySectionCard(
-                    title: "\(AssistantIdentityText.currentSnapshot().displayName) suggestion",
-                    detail: "Review what \(AssistantIdentityText.currentSnapshot().displayName) wants to change before applying it."
+                    title: "From \(AssistantIdentityText.currentSnapshot().displayName)"
                 ) {
                     HStack(spacing: 12) {
                         DecorImage(asset: .decisionSign, size: 44, opacity: 0.9)
-                        Text("\(AssistantIdentityText.currentSnapshot().displayName) has a planning recommendation ready for review.")
+                        Text("\(AssistantIdentityText.currentSnapshot().displayName) suggested changes to your plan.")
                             .font(.lifeboard(.support))
                             .foregroundStyle(Color.lifeboard.textSecondary)
                     }
                 }
 
                 WeeklySectionCard(
-                    title: "Summary",
-                    detail: "Start here before deciding whether to use the suggestion."
+                    title: "Summary"
                 ) {
                     VStack(alignment: .leading, spacing: 12) {
                         LabeledContent("Affected tasks", value: "\(state.preview.affectedTaskCount)")
-                        LabeledContent("Removals or drops", value: "\(state.preview.destructiveCount)")
+                        LabeledContent("Tasks removed", value: "\(state.preview.destructiveCount)")
                         Text(state.preview.rationale)
                             .font(.lifeboard(.support))
                             .foregroundStyle(Color.lifeboard.textSecondary)
@@ -1339,8 +1304,7 @@ private struct WeeklyPlannerProposalSheet: View {
                 }
 
                 WeeklySectionCard(
-                    title: "Suggested changes",
-                    detail: "Each line shows what would change if you confirm."
+                    title: "Changes"
                 ) {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(Array(state.preview.diffLines.enumerated()), id: \.offset) { _, line in
@@ -1361,13 +1325,13 @@ private struct WeeklyPlannerProposalSheet: View {
                         .disabled(state.isWorking || state.preview.run == nil)
                 } trailing: {
                     if state.preview.run == nil {
-                        Button(state.isWorking ? "Working..." : WeeklyCopy.getAISuggestion) {
+                        Button(state.isWorking ? "Loading…" : WeeklyCopy.getAISuggestion) {
                             onSuggest()
                         }
                         .buttonStyle(.lifeBoardPrimaryCompact)
                         .disabled(state.isWorking)
                     } else {
-                        Button(state.isWorking ? "Applying..." : "Apply suggestion") {
+                        Button(state.isWorking ? "Applying…" : "Apply") {
                             onConfirm()
                         }
                         .buttonStyle(.lifeBoardPrimaryCompact)
@@ -1375,11 +1339,12 @@ private struct WeeklyPlannerProposalSheet: View {
                     }
                 }
             }
-            .navigationTitle("AI suggestion")
+            .navigationTitle("Suggestion")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close", action: onDismiss)
+                        .keyboardShortcut(.cancelAction)
                 }
             }
         }

@@ -1,4 +1,6 @@
 import Foundation
+import LifeBoardDomain
+import LifeBoardUI
 import OSLog
 import UserNotifications
 
@@ -19,6 +21,65 @@ enum FocusNotificationFallbackPolicy {
               session.state == .running else { return .cancel }
         let remaining = session.targetDuration - session.focusedDuration(at: now)
         return remaining > 0 ? .schedule(after: remaining) : .cancel
+    }
+}
+
+/// When each Pomodoro phase of a running session ends, as notifications.
+///
+/// Phases only advanced while the Focus screen was open, so a session running
+/// in the background passed its break silently. Each phase end is scheduled
+/// up front, assuming the next phase starts when the last one ends (which is
+/// what the in-app auto-advance does); any pause, resume or end reschedules.
+enum FocusPomodoroNotificationPlan {
+    struct Alert: Equatable {
+        let fireDate: Date
+        let title: String
+        let body: String
+    }
+
+    static func alerts(
+        from current: FocusPomodoroPhase,
+        focus: TimeInterval,
+        breakDuration: TimeInterval,
+        rounds: Int,
+        now: Date
+    ) -> [Alert] {
+        let totalRounds = max(1, rounds)
+        var alerts: [Alert] = []
+        var kind = current.kind
+        var round = current.round
+        var endsAt = current.phaseEndsAt
+        // Bounded: two phases per round at most.
+        for _ in 0..<(totalRounds * 2) {
+            switch kind {
+            case .focus:
+                alerts.append(.init(
+                    fireDate: endsAt,
+                    title: String(localized: "Break"),
+                    body: String(localized: "Round \(round) of \(totalRounds) done · \(LifeBoardDuration.text(minutes: Int((breakDuration / 60).rounded()))) break")
+                ))
+                kind = .rest
+                endsAt = endsAt.addingTimeInterval(max(0, breakDuration))
+            case .rest:
+                if round >= totalRounds {
+                    alerts.append(.init(
+                        fireDate: endsAt,
+                        title: String(localized: "Focus done"),
+                        body: String(localized: "All \(totalRounds) rounds done")
+                    ))
+                    return alerts.filter { $0.fireDate > now }
+                }
+                round += 1
+                alerts.append(.init(
+                    fireDate: endsAt,
+                    title: String(localized: "Back to focus"),
+                    body: String(localized: "Round \(round) of \(totalRounds)")
+                ))
+                kind = .focus
+                endsAt = endsAt.addingTimeInterval(max(0, focus))
+            }
+        }
+        return alerts.filter { $0.fireDate > now }
     }
 }
 
@@ -54,7 +115,19 @@ actor FocusNotificationFallbackCoordinator {
         default: false
         }
         let identifier = Self.identifier(for: session.id)
-        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        let phasePrefix = Self.phaseIdentifierPrefix(for: session.id)
+        let stalePhases = await center.pendingNotificationRequests()
+            .map(\.identifier)
+            .filter { $0.hasPrefix(phasePrefix) }
+        center.removePendingNotificationRequests(withIdentifiers: [identifier] + stalePhases)
+
+        // Pomodoro phase ends are announced whether or not a Live Activity is
+        // showing: the activity counts down, it does not alert. Paused or
+        // ended sessions get none — the removal above cancelled them.
+        if authorized, session.state == .running {
+            await schedulePomodoroPhases(for: session, prefix: phasePrefix, now: now)
+        }
+
         guard case let .schedule(delay) = FocusNotificationFallbackPolicy.decision(
             for: session,
             now: now,
@@ -63,16 +136,72 @@ actor FocusNotificationFallbackCoordinator {
         ) else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = "Your focus block is complete. Open LifeBoard to record the outcome."
+        content.title = String(localized: "Focus done")
+        content.body = Self.completionBody(title: title, duration: session.targetDuration)
         content.sound = .default
-        content.userInfo = ["focusSessionID": session.id.uuidString]
+        content.userInfo = Self.userInfo(for: session)
         let request = UNNotificationRequest(
             identifier: identifier,
             content: content,
             trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, delay), repeats: false)
         )
         try? await center.add(request)
+    }
+
+    /// "25 min on ‘Write spec’", or just the length when the session has no
+    /// name of its own (the generic "Focus session" title).
+    static func completionBody(title: String, duration: TimeInterval) -> String {
+        let length = LifeBoardDuration.text(seconds: duration)
+        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard name.isEmpty == false, name != "Focus session" else { return length }
+        return String(localized: "\(length) on ‘\(name)’")
+    }
+
+    private func schedulePomodoroPhases(for session: FocusSessionV2, prefix: String, now: Date) async {
+        guard let companion = try? await FocusSessionCompanionStore.shared.companion(sessionID: session.id, now: now),
+              case let .pomodoro(focus, breakDuration, rounds) = companion.mode,
+              let phase = companion.pomodoroPhase else { return }
+        let alerts = FocusPomodoroNotificationPlan.alerts(
+            from: phase,
+            focus: focus,
+            breakDuration: breakDuration,
+            rounds: rounds,
+            now: now
+        )
+        for (index, alert) in alerts.enumerated() {
+            let content = UNMutableNotificationContent()
+            content.title = alert.title
+            content.body = alert.body
+            content.sound = .default
+            content.userInfo = Self.userInfo(for: session)
+            let request = UNNotificationRequest(
+                identifier: "\(prefix)\(index)",
+                content: content,
+                trigger: UNTimeIntervalNotificationTrigger(
+                    timeInterval: max(1, alert.fireDate.timeIntervalSince(now)),
+                    repeats: false
+                )
+            )
+            try? await center.add(request)
+        }
+    }
+
+    /// Carries the session and a route in the same keys `LocalNotificationService`
+    /// writes, so a tap lands on the focus session (or its task) instead of
+    /// just opening the app.
+    private static func userInfo(for session: FocusSessionV2) -> [String: String] {
+        var info = [
+            "focusSessionID": session.id.uuidString,
+            LocalNotificationRequest.UserInfoKey.route: "focus_session:\(session.id.uuidString)"
+        ]
+        if let taskID = session.taskID {
+            info[LocalNotificationRequest.UserInfoKey.taskID] = taskID.uuidString
+        }
+        return info
+    }
+
+    private static func phaseIdentifierPrefix(for sessionID: UUID) -> String {
+        "lifeboard.focus.fallback.phase.\(sessionID.uuidString)."
     }
 
     func cancelAll() async {

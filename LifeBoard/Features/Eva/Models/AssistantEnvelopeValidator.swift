@@ -165,7 +165,7 @@ struct AssistantEnvelopeValidator {
             } else if dict["commands"] != nil, dict["schemaVersion"] == nil {
                 dict["schemaVersion"] = 3
                 if dict["rationaleText"] == nil {
-                    dict["rationaleText"] = "Here's how your day is planned:"
+                    dict["rationaleText"] = String(localized: "Today’s plan")
                 }
                 normalized = dict
             } else {
@@ -186,7 +186,7 @@ struct AssistantEnvelopeValidator {
         [
             "schemaVersion": 3,
             "commands": commands,
-            "rationaleText": "Here's how your day is planned:"
+            "rationaleText": String(localized: "Today’s plan")
         ]
     }
 

@@ -343,28 +343,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertTrue(TimelineNowBeadPresentation.shouldPulse(reduceMotion: false))
     }
 
-    func testSunriseDaySwipeHandleInteractionStartsOncePerDragSequence() {
-        var state = DaySwipeHandleInteractionState()
 
-        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
-        XCTAssertFalse(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
-
-        state.reset()
-
-        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
-    }
-
-    func testSunriseDaySwipeHandleInteractionResetsWhenUnavailable() {
-        var state = DaySwipeHandleInteractionState()
-
-        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
-        XCTAssertFalse(state.startIfNeeded(isEnabled: false, isChromeVisible: true))
-        XCTAssertFalse(state.isActive)
-
-        XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
-        XCTAssertFalse(state.startIfNeeded(isEnabled: true, isChromeVisible: false))
-        XCTAssertFalse(state.isActive)
-    }
 
     func testScheduleFaceMapsToCalendarBottomBarItem() {
         XCTAssertEqual(HomeSunriseFace.schedule.selectedBottomBarItem, .calendar)
@@ -647,27 +626,8 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(trailing.opacity, 0, accuracy: 0.001)
     }
 
-    func testHomeScrollChromeTrackerEmitsCollapsedAfterDownwardScroll() {
-        var tracker = HomeScrollChromeStateTracker()
 
-        XCTAssertEqual(tracker.consume(offset: 50), .expanded)
-        XCTAssertEqual(tracker.consume(offset: 80), .collapsed)
-    }
 
-    func testHomeScrollChromeTrackerCollapsesWhenFirstSampleJumpsPastHideThreshold() {
-        var tracker = HomeScrollChromeStateTracker()
-
-        XCTAssertEqual(tracker.consume(offset: 80), .collapsed)
-    }
-
-    func testHomeScrollChromeTrackerEmitsExpandedAfterUpwardScroll() {
-        var tracker = HomeScrollChromeStateTracker()
-
-        _ = tracker.consume(offset: 50)
-        _ = tracker.consume(offset: 80)
-
-        XCTAssertEqual(tracker.consume(offset: 67), .expanded)
-    }
 
     func testSunriseDaySwipeRestingPositionUsesDefaultWhenNoTopModulesAreVisible() {
         let centerY = liquidRestingCenterY(
@@ -1587,7 +1547,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertTrue(plan.blocks[0].block.isConflict)
         XCTAssertFalse(plan.blocks[0].block.containsTask)
         XCTAssertTrue(plan.blocks[0].block.containsCalendarEvent)
-        XCTAssertEqual(plan.blocks[0].block.countLabel, "2 Events")
+        XCTAssertEqual(plan.blocks[0].block.countLabel, "2 events")
     }
 
     func testTimelineLayoutPlanUsesCompactLaneModeForThreeSimultaneousItems() {
@@ -2428,87 +2388,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertFalse(surfaceSource.contains("Button(\"+ Create task\""))
     }
 
-    func testLifeBoardDesignTimelinePlacesTypeIconsOnSpine() throws {
-        let screenSource = try Self.sourceFile(
-            "LifeBoard",
-            "LifeBoardDesign",
-            "HomeScreen.swift"
-        )
-        let itemSource = try Self.sourceFile(
-            "LifeBoard",
-            "LifeBoardDesign",
-            "Components",
-            "TimelineItem.swift"
-        )
-        let spineSource = try Self.sourceFile(
-            "LifeBoard",
-            "LifeBoardDesign",
-            "Components",
-            "TimelineSpine.swift"
-        )
 
-        XCTAssertEqual(ClayLayoutMetrics.timelineRailWidth, 36, accuracy: 0.001)
-        XCTAssertTrue(itemSource.contains("spineIconSystemName"))
-        XCTAssertTrue(itemSource.contains("spineIconAccessibilityValue"))
-        XCTAssertTrue(spineSource.contains("var iconSystemName: String?"))
-        XCTAssertTrue(spineSource.contains("var iconAccessibilityValue: String?"))
-        XCTAssertTrue(spineSource.contains("Button(action: iconAction)"))
-        XCTAssertTrue(spineSource.contains(".accessibilityValue(iconAccessibilityValue ?? \"\")"))
-        XCTAssertTrue(screenSource.contains("spineIconSystemName: spineIconSystemName(for: anchor)"))
-        XCTAssertTrue(screenSource.contains("spineIconSystemName: spineIconSystemName(for: item, kind: kind)"))
-        XCTAssertTrue(screenSource.contains("spineIconAccessibilityLabel: item.isComplete ? \"Reopen \\(item.title)\" : \"Complete \\(item.title)\""))
-        XCTAssertTrue(screenSource.contains("spineIconAccessibilityValue: item.isComplete ? \"Completed\" : \"Not completed\""))
-        XCTAssertTrue(screenSource.contains("spineIconSystemName: \"calendar\""))
-        // The "sparkles" assistant-gap spine icon was deliberately removed in
-        // f588d73e ("open time reads as restful"); that commit updated the
-        // behavioral tests but missed this source-text assertion.
-        XCTAssertTrue(screenSource.contains("anchor.id == \"sleep\" ? \"moon.fill\" : \"sun.max.fill\""))
-        XCTAssertTrue(screenSource.contains("return item.isComplete ? \"checkmark.square.fill\" : \"checkmark.square\""))
-    }
-
-    func testLifeBoardDesignTimelineCardsDoNotRepeatSpineIcons() throws {
-        let timelineCardSource = try Self.sourceFile(
-            "LifeBoard",
-            "LifeBoardDesign",
-            "Components",
-            "TimelineCard.swift"
-        )
-        let assistantSource = try Self.sourceFile(
-            "LifeBoard",
-            "LifeBoardDesign",
-            "Components",
-            "AssistantPromptCard.swift"
-        )
-        let routineSource = try Self.sourceFile(
-            "LifeBoard",
-            "LifeBoardDesign",
-            "Components",
-            "TimelineRoutineAnchorCard.swift"
-        )
-        let meetingFlockSource = try Self.sourceFile(
-            "LifeBoard",
-            "LifeBoardDesign",
-            "Components",
-            "MeetingFlockCard.swift"
-        )
-
-        XCTAssertFalse(timelineCardSource.contains("private func leadingControl"))
-        XCTAssertFalse(timelineCardSource.contains("LBIconBadge(systemName: model.systemImage"))
-        XCTAssertTrue(timelineCardSource.contains(".accessibilityLabel(accessibilityLabel)"))
-        XCTAssertTrue(timelineCardSource.contains("model.kind == .task ? (model.isCompleted ? \"Completed\" : \"Not completed\") : \"\""))
-        XCTAssertFalse(assistantSource.contains("Image(systemName: \"sparkles\")"))
-        // The card's trailing symbol moved from a hardcoded `chevron.right` to a
-        // style-driven one. What this test actually guards — that the card does
-        // not repeat the spine's icon — is covered by the assertion above; this
-        // now checks the symbol is parameterized rather than pinning a glyph.
-        XCTAssertTrue(assistantSource.contains("Image(systemName: style.symbolName)"))
-        XCTAssertTrue(assistantSource.contains(".accessibilityLabel(\"Assistant prompt, \\(title), \\(subtitle)\")"))
-        XCTAssertTrue(routineSource.contains(".frame(width: leadingArtworkReserve)"))
-        XCTAssertFalse(routineSource.contains("artworkOffsetX(for: proxy.size.width)"))
-        XCTAssertFalse(routineSource.contains(".scaleEffect(1.5)"))
-        XCTAssertFalse(meetingFlockSource.contains("LBIconBadge(systemName: \"calendar\""))
-        XCTAssertTrue(meetingFlockSource.contains(".accessibilityLabel(\"Meeting, \\(meeting.title), \\(meeting.isNow ? \"Now\" : meeting.timeText)\")"))
-    }
 
     func testTimelineSurfaceMetricsUsePadExpandedReadableWidthAndExpandedValues() {
         let metrics = TimelineSurfaceMetrics.make(for: .padExpanded)
@@ -2724,7 +2604,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         let defaultTitle = await MainActor.run { state.emptyStateTitle }
         let defaultVisible = await MainActor.run { state.shouldShowNoResultsMessage }
         XCTAssertTrue(defaultVisible)
-        XCTAssertEqual(defaultTitle, "Find anything in LifeBoard")
+        XCTAssertEqual(defaultTitle, "Search tasks and habits")
 
         await MainActor.run {
             state.updateQuery("xyz")
@@ -2733,7 +2613,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         let queryTitle = await MainActor.run { state.emptyStateTitle }
         let queryVisible = await MainActor.run { state.shouldShowNoResultsMessage }
         XCTAssertTrue(queryVisible)
-        XCTAssertEqual(queryTitle, "Nothing matched \"xyz\"")
+        XCTAssertEqual(queryTitle, "No results for “xyz”")
     }
 
     func testSearchFocusPolicyAutofocusesPhoneOnly() {

@@ -21,7 +21,7 @@ extension PlanStore {
         // applying. A changed fact gets a new preview instead of a best-effort write.
         await load()
         guard let current = daySnapshot.map(CommitmentRealismEngine.snapshot) else {
-            return .failed(errorMessage ?? "Today could not be rechecked. Nothing was changed.")
+            return .failed(errorMessage ?? String(localized: "Couldn’t check today. Nothing changed."))
         }
         guard current == expectedSnapshot else { return .stale(current) }
 
@@ -60,8 +60,8 @@ extension PlanStore {
                 .batch(mutations),
                 source: "eva.make_it_fit_today",
                 summary: mutations.count == 1
-                    ? "Made room in today"
-                    : "Made room in today · \(mutations.count) changes"
+                    ? String(localized: "Made room in today")
+                    : String(localized: "Made room in today · \(mutations.count) changes")
             )
             await load()
             return .applied(changedCount: mutations.count)
@@ -74,7 +74,7 @@ extension PlanStore {
     @discardableResult
     func updateTaskEstimate(taskID: UUID, minutes: Int) async -> Bool {
         guard (5...1_440).contains(minutes), let taskDefinitionRepository = workspaceTaskRepository else {
-            errorMessage = "Enter an estimate between 5 minutes and 24 hours."
+            errorMessage = String(localized: "Enter 5 min to 24 hr.")
             return false
         }
         do {
@@ -84,7 +84,7 @@ extension PlanStore {
                     continuation.resume(with: $0)
                 }
             }) else {
-                errorMessage = "The task changed before its estimate could be updated."
+                errorMessage = String(localized: "Couldn’t update estimate. The task changed.")
                 return false
             }
             task.estimatedDuration = TimeInterval(minutes * 60)

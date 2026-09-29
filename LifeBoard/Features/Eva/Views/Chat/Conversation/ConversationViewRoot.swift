@@ -31,6 +31,8 @@ struct ConversationView: View {
 
     var onPerformDayHabitAction: EvaDayHabitActionHandler?
 
+    var onEditResend: ((UUID) -> Void)?
+
     @State var scrollID: String?
 
     @State var scrollInterrupted = false
@@ -38,6 +40,14 @@ struct ConversationView: View {
     @State var now = Date()
 
     @State private var inkRevealProgress = 1.0
+
+    /// Card decisions outlive the lazy stack's message views; see
+    /// `EvaProposalCardSession`.
+    @State private var cardSessions = EvaProposalCardSessions()
+
+    /// Held as an instance so the pending target is observed.
+    @State private var scrollTarget = EvaChatScrollTarget.shared
+    @State private var highlightedMessageID: UUID?
 
     var body: some View {
         ScrollViewReader { scrollView in
@@ -52,10 +62,22 @@ struct ConversationView: View {
                             onOpenRecordFromCard: onOpenRecordFromCard,
                             onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
                             onPerformDayTaskAction: onPerformDayTaskAction,
-                            onPerformDayHabitAction: onPerformDayHabitAction
+                            onPerformDayHabitAction: onPerformDayHabitAction,
+                            onEditResend: onEditResend
                         )
                         .padding(.horizontal, Theme.Spacing.lg)
                         .padding(.vertical, Theme.Spacing.sm)
+                        .background {
+                            // The message a search opened, lit briefly so the
+                            // eye lands on it; a tint fade, not motion.
+                            if highlightedMessageID == message.id {
+                                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                                    .fill(Color.lifeboard(.accentWash))
+                                    .padding(.horizontal, Theme.Spacing.sm)
+                                    .transition(.opacity)
+                                    .accessibilityHidden(true)
+                            }
+                        }
                         .id(message.id.uuidString)
                         .transition(messageTransition(for: message))
                     }
@@ -96,6 +118,7 @@ struct ConversationView: View {
                         .id("bottom")
                 }
                 .scrollTargetLayout()
+                .environment(\.evaProposalCardSessions, cardSessions)
                 .animation(messageInsertionAnimation, value: snapshot.identityHash)
                 .animation(messageInsertionAnimation, value: shouldRenderLiveOutput)
             }
@@ -105,32 +128,31 @@ struct ConversationView: View {
                 if scrollInterrupted && shouldRenderLiveOutput {
                     Button {
                         scrollInterrupted = false
-                        if reduceMotion {
+                        withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
                             scrollView.scrollTo("bottom", anchor: .bottom)
-                        } else {
-                            withAnimation(LifeBoardAnimation.roleLocalState) {
-                                scrollView.scrollTo("bottom", anchor: .bottom)
-                            }
                         }
                     } label: {
                         Label("New response", systemImage: "arrow.down")
-                            .font(.subheadline.weight(.semibold))
+                            .lifeboardFont(.bodyStrong)
                             .frame(minHeight: 44)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                     .padding(.trailing, Theme.Spacing.lg)
                     .padding(.bottom, Theme.Spacing.md)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    .accessibilityHint("Moves to the newest settled part of Eva's response")
+                    .accessibilityHint("Scrolls to the latest text")
                 }
             }
             .onAppear {
-                if !scrollInterrupted {
+                if revealSearchTarget(with: scrollView) == false, !scrollInterrupted {
                     scrollView.scrollTo("bottom")
                 }
             }
+            .onChange(of: scrollTarget.messageID) { _, _ in
+                _ = revealSearchTarget(with: scrollView)
+            }
             .onChange(of: snapshot.identityHash) { _, _ in
-                if !scrollInterrupted {
+                if revealSearchTarget(with: scrollView) == false, !scrollInterrupted {
                     scrollView.scrollTo("bottom")
                 }
             }
@@ -166,7 +188,7 @@ struct ConversationView: View {
                 // announced, so VoiceOver users had to keep probing the
                 // transcript to find out whether Eva was done.
                 if oldPhase == .answering, newPhase != .answering {
-                    AccessibilityNotification.Announcement("Eva finished responding").post()
+                    AccessibilityNotification.Announcement("\(AssistantIdentitySnapshot.current.displayName) finished responding").post()
                 }
             }
             .onChange(of: scrollID) { _, _ in
@@ -237,4 +259,31 @@ struct ConversationView: View {
     ConversationView(snapshot: .empty, liveOutput: .empty)
         .environment(LLMEvaluator())
         .environmentObject(AppManager())
+}
+
+extension ConversationView {
+    /// Scrolls to the message a search hit opened, once, and lights it.
+    /// `false` when there is no target in this thread, so the caller keeps
+    /// its usual scroll to the bottom.
+    func revealSearchTarget(with scrollView: ScrollViewProxy) -> Bool {
+        guard let target = scrollTarget.messageID,
+              snapshot.messages.contains(where: { $0.id == target }) else { return false }
+        _ = scrollTarget.consume()
+        // Reading an older message is an interruption of the live tail.
+        scrollInterrupted = true
+        withAnimation(MotionProfile.route.animation(reduceMotion: reduceMotion)) {
+            scrollView.scrollTo(target.uuidString, anchor: .center)
+        }
+        withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
+            highlightedMessageID = target
+        }
+        AccessibilityNotification.Announcement("Showing the matching message").post()
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(1_400))
+            withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
+                if highlightedMessageID == target { highlightedMessageID = nil }
+            }
+        }
+        return true
+    }
 }

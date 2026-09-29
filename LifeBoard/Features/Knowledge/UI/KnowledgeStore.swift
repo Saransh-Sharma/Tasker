@@ -42,9 +42,9 @@ final class KnowledgeStore {
     var errorMessage: String?
     var undoMessage: String?
     private var undoNotes: [KnowledgeNoteValue] = []
-    private let searchIndex: (any KnowledgeSearchIndex)?
+    let searchIndex: (any KnowledgeSearchIndex)?
     private let indexingService: KnowledgeIndexingService
-    private let secureNotes: (any KnowledgeSecureNoteService)?
+    let secureNotes: (any KnowledgeSecureNoteService)?
     private var didSeedSearchIndex = false
     private var searchTask: Task<Void, Never>?
 
@@ -171,7 +171,7 @@ final class KnowledgeStore {
 
     func move(_ folder: KnowledgeFolderValue, to parentID: UUID?) async {
         guard KnowledgeFolderHierarchy.canMove(folderID: folder.id, to: parentID, in: folders) else {
-            errorMessage = "A folder can’t be moved inside itself or one of its subfolders."
+            errorMessage = String(localized: "Couldn’t move a folder into its own subfolder.")
             return
         }
         var updated = folder
@@ -277,7 +277,7 @@ final class KnowledgeStore {
         updated.deletedAt = Date()
         updated.updatedAt = Date()
         undoNotes = [note]
-        undoMessage = "Moved “\(note.displayTitle)” to Trash"
+        undoMessage = String(localized: "Moved “\(note.displayTitle)” to Trash")
         await save(updated)
     }
 
@@ -294,7 +294,7 @@ final class KnowledgeStore {
         updated.state = .archived
         updated.updatedAt = Date()
         undoNotes = [note]
-        undoMessage = "Archived “\(note.displayTitle)”"
+        undoMessage = String(localized: "Archived “\(note.displayTitle)”")
         await save(updated)
     }
 
@@ -302,7 +302,7 @@ final class KnowledgeStore {
         let newID = UUID()
         var copy = note
         copy.id = newID
-        copy.title = "\(note.displayTitle) Copy"
+        copy.title = String(localized: "\(note.displayTitle) copy")
         copy.isPinned = false
         copy.createdAt = Date()
         copy.updatedAt = Date()
@@ -357,12 +357,13 @@ final class KnowledgeStore {
                 try await reconcileBlockLinks(for: updated)
                 await index(updated)
             }
+            let notes = originals.count == 1 ? String(localized: "1 note") : String(localized: "\(originals.count) notes")
             undoMessage = switch operation {
-            case .favorite: "Added \(originals.count) notes to Favorites"
-            case .pin: "Pinned \(originals.count) notes"
-            case .archive: "Archived \(originals.count) notes"
-            case .trash: "Moved \(originals.count) notes to Trash"
-            case .restore: "Restored \(originals.count) notes"
+            case .favorite: String(localized: "Added \(notes) to Favorites")
+            case .pin: String(localized: "Pinned \(notes)")
+            case .archive: String(localized: "Archived \(notes)")
+            case .trash: String(localized: "Moved \(notes) to Trash")
+            case .restore: String(localized: "Restored \(notes)")
             }
             await load()
         } catch {
@@ -480,14 +481,14 @@ final class KnowledgeStore {
 
     func addAttachment(noteID: UUID, url: URL) async -> KnowledgeAttachmentValue? {
         guard url.startAccessingSecurityScopedResource() else {
-            errorMessage = "LifeBoard couldn’t access that file. Choose it again to retry."
+            errorMessage = String(localized: "Couldn’t open that file. Choose it again.")
             return nil
         }
         defer { url.stopAccessingSecurityScopedResource() }
         do {
             let data = try Data(contentsOf: url, options: .mappedIfSafe)
             guard data.count <= 20_000_000 else {
-                errorMessage = "Files larger than 20 MB are not supported."
+                errorMessage = String(localized: "Couldn’t attach file. It must be under 20 MB.")
                 return nil
             }
             return await addAttachment(
@@ -511,7 +512,7 @@ final class KnowledgeStore {
         sourceKind: String
     ) async -> KnowledgeAttachmentValue? {
         guard data.count <= 20_000_000 else {
-            errorMessage = "Attachments larger than 20 MB are not supported."
+            errorMessage = String(localized: "Couldn’t attach file. It must be under 20 MB.")
             return nil
         }
         do {
@@ -527,115 +528,6 @@ final class KnowledgeStore {
             errorMessage = error.localizedDescription
             return nil
         }
-    }
-
-    func lock(_ note: KnowledgeNoteValue) async {
-        guard let secureNotes else {
-            errorMessage = "Locked notes are not enabled in this build."
-            return
-        }
-        do {
-            let attachments = try await repository.fetchKnowledgeAttachments(noteID: note.id)
-            let encryptedLinks = links.filter {
-                $0.sourceNoteID == note.id || $0.destinationNoteID == note.id
-            }
-            let envelope = try await secureNotes.lock(
-                note: note,
-                attachments: attachments,
-                links: encryptedLinks,
-                reason: "Lock “\(note.displayTitle)”"
-            )
-            var redacted = note
-            redacted.title = ""
-            redacted.blocks = []
-            redacted.tagIDs = []
-            redacted.lockPolicy = .deviceAuthentication
-            redacted.updatedAt = Date()
-            let payload = KnowledgeSecurePayloadValue(
-                noteID: note.id,
-                ciphertext: envelope.ciphertext,
-                contentVersion: envelope.contentVersion,
-                algorithmVersion: envelope.algorithmVersion,
-                keyIdentifier: envelope.keyIdentifier
-            )
-            let secureAttachments = attachments.compactMap { attachment -> KnowledgeSecureAttachmentPayloadValue? in
-                guard let ciphertext = envelope.attachmentCiphertexts[attachment.id] else { return nil }
-                return .init(
-                    noteID: note.id,
-                    attachmentID: attachment.id,
-                    ciphertext: ciphertext,
-                    checksum: attachment.checksum,
-                    byteCount: attachment.byteCount ?? Int64(attachment.payload.count)
-                )
-            }
-            try await repository.lockKnowledgeNote(
-                redacted: redacted,
-                payload: payload,
-                attachments: secureAttachments
-            )
-            try? await searchIndex?.remove(noteID: note.id)
-            await load()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    func unlock(_ note: KnowledgeNoteValue) async throws -> KnowledgeUnlockedNoteSession {
-        guard let secureNotes,
-              let (payload, attachments) = try await repository.fetchKnowledgeSecurePayload(noteID: note.id) else {
-            throw CocoaError(.fileReadNoSuchFile)
-        }
-        let envelope = KnowledgeSecureEnvelope(
-            noteID: note.id,
-            keyIdentifier: payload.keyIdentifier,
-            algorithmVersion: payload.algorithmVersion,
-            contentVersion: payload.contentVersion,
-            ciphertext: payload.ciphertext,
-            attachmentCiphertexts: Dictionary(uniqueKeysWithValues: attachments.map { ($0.attachmentID, $0.ciphertext) })
-        )
-        let unlocked = try await secureNotes.unlock(envelope, reason: "Unlock this note")
-        return .init(
-            note: unlocked.0,
-            attachments: unlocked.1,
-            links: unlocked.2,
-            keyIdentifier: payload.keyIdentifier
-        )
-    }
-
-    func saveLocked(_ session: KnowledgeUnlockedNoteSession) async throws {
-        guard let secureNotes else { throw CocoaError(.featureUnsupported) }
-        var note = session.note
-        note.lockPolicy = .deviceAuthentication
-        note.updatedAt = Date()
-        note.contentVersion = max(1, note.contentVersion ?? 1) + 1
-        let envelope = try await secureNotes.reseal(
-            note: note,
-            attachments: session.attachments,
-            links: session.links,
-            keyIdentifier: session.keyIdentifier
-        )
-        var redacted = note
-        redacted.title = ""
-        redacted.blocks = []
-        redacted.tagIDs = []
-        let payload = KnowledgeSecurePayloadValue(
-            noteID: note.id,
-            ciphertext: envelope.ciphertext,
-            contentVersion: envelope.contentVersion,
-            algorithmVersion: envelope.algorithmVersion,
-            keyIdentifier: envelope.keyIdentifier
-        )
-        let secureAttachments = session.attachments.compactMap { attachment -> KnowledgeSecureAttachmentPayloadValue? in
-            guard let ciphertext = envelope.attachmentCiphertexts[attachment.id] else { return nil }
-            return .init(
-                noteID: note.id,
-                attachmentID: attachment.id,
-                ciphertext: ciphertext,
-                checksum: attachment.checksum,
-                byteCount: attachment.byteCount ?? Int64(attachment.payload.count)
-            )
-        }
-        try await repository.lockKnowledgeNote(redacted: redacted, payload: payload, attachments: secureAttachments)
     }
 
     func search() {
@@ -660,7 +552,7 @@ final class KnowledgeStore {
                 rankedSearchIDs = results.map(\.noteID)
                 searchIndexStatus = await searchIndex.status()
             } catch {
-                errorMessage = "Search is rebuilding. Your notes are still available."
+                errorMessage = String(localized: "Couldn’t finish search. Showing basic matches.")
                 rankedSearchIDs = KnowledgeNoteQuery(searchText: terms).apply(to: notes).map(\.id)
             }
             isSearching = false

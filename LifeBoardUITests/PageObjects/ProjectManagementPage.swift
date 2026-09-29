@@ -19,7 +19,7 @@ class ProjectManagementPage {
     }
 
     private var unifiedNavigationBar: XCUIElement {
-        app.navigationBars["Life Management"]
+        app.navigationBars["Life management"]
     }
 
     // MARK: - Elements
@@ -42,7 +42,7 @@ class ProjectManagementPage {
             return unifiedAddMenu
         }
 
-        return app.buttons["Add Project"]
+        return app.buttons["Add project"]
     }
 
     var addAreaButton: XCUIElement {
@@ -57,7 +57,7 @@ class ProjectManagementPage {
         if cardScopedButton.exists {
             return cardScopedButton
         }
-        return app.buttons["Add Area"]
+        return app.buttons["Add area"]
     }
 
     var areaComposer: XCUIElement {
@@ -74,7 +74,7 @@ class ProjectManagementPage {
 
     var emptyStateLabel: XCUIElement {
         app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS[c] 'No projects' OR label CONTAINS[c] 'Create a new area'")
+            NSPredicate(format: "label CONTAINS[c] 'No projects' OR label CONTAINS[c] 'No areas'")
         ).firstMatch
     }
 
@@ -96,7 +96,7 @@ class ProjectManagementPage {
     /// Tap add project button
     @discardableResult
     func tapAddProject() -> NewProjectPage {
-        let addProjectAction = app.buttons["Add Project"]
+        let addProjectAction = app.buttons["Add project"]
         let unifiedAddMenu = app.buttons["settings.lifeManagement.addMenu"]
         if unifiedAddMenu.waitForExistence(timeout: 2) {
             unifiedAddMenu.tap()

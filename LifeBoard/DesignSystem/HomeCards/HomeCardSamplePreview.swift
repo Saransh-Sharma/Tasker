@@ -29,26 +29,26 @@ struct HomeCardSamplePreview: View {
                     rows: isCare ? HomeCardPreviewFixtures.careRows : HomeCardPreviewFixtures.routineRows,
                     limit: HomeCardPresentationStyle(kind: descriptor.kind, preset: effectivePreset).rowLimit(),
                     statusMessage: nil, statusSymbol: "checkmark.circle",
-                    actionTitle: isCare ? "Open Care" : "View morning routines",
+                    actionTitle: isCare ? "Open Care" : "View routines",
                     identifier: isCare ? "care" : "routines", palette: palette, titleIsAction: !isCare
                 )
                 .modifier(HomeCardIllustratedSurface(style: .init(kind: descriptor.kind, preset: effectivePreset), palette: palette))
             } else if descriptor.kind == .focusNow && effectivePreset != .standard {
-                HomeFocusCardContent(title: "Focus Now", primary: "Sketch the first draft", reason: "A quiet 25-minute focus block",
+                HomeFocusCardContent(title: "Focus Now", primary: "Sketch the first draft", reason: "25 min focus session",
                     symbol: "scope", actionTitle: "Start", actionHint: "", preset: effectivePreset, palette: palette)
                     .modifier(HomeCardIllustratedSurface(style: .init(kind: descriptor.kind, preset: effectivePreset), palette: palette))
             } else if descriptor.kind == .lifeSnapshot && effectivePreset != .standard {
                 HomeLifeSnapshotCardContent(mood: "Check in", moodLabel: "Mood", hydration: "500 ml", lowEnergy: false, palette: palette)
                     .modifier(HomeCardIllustratedSurface(style: .init(kind: descriptor.kind, preset: effectivePreset), palette: palette))
             } else if descriptor.kind == .progressReflection {
-                HomeProgressCardContent(title: "Progress", completionRate: 0.4, openTaskCount: 7, rhythm: "2 of 14 days · 1 day running", palette: palette)
+                HomeProgressCardContent(title: "Progress", completionRate: 0.4, openTaskCount: 7, rhythm: "2 of 14 days closed · 1 in a row", palette: palette)
                     .modifier(HomeCardIllustratedSurface(style: .init(kind: descriptor.kind, preset: effectivePreset), palette: palette))
             } else if descriptor.kind == .fasting && effectivePreset != .standard {
                 HomeFastingCardContent(elapsed: nil, finish: "", progress: 0, palette: palette)
                     .modifier(HomeCardIllustratedSurface(style: .init(kind: descriptor.kind, preset: effectivePreset), palette: palette))
             } else if descriptor.kind == .tasks {
                 HomeTasksCardContent(
-                    tasks: HomeCardPreviewFixtures.tasks, title: "Today’s tasks", emptyMessage: "No tasks due today",
+                    tasks: HomeCardPreviewFixtures.tasks, title: "Tasks", emptyMessage: "No tasks due today",
                     isLoading: false, hasPlanningRepository: true,
                     collapsedLimit: HomeCardPresentationStyle(kind: .tasks, preset: effectivePreset).rowLimit(),
                     isExpanded: false, allowsCompletion: true, completedTask: nil, refreshFailure: nil,
@@ -62,7 +62,7 @@ struct HomeCardSamplePreview: View {
                     ))
             } else if descriptor.kind == .scheduleCapacity {
                 HomeCapacityCardContent(
-                    title: "Capacity", summary: "1h 30m known room", detail: "Usable capacity 4h", palette: palette
+                    title: "Capacity", summary: "1 hr, 30 min free", detail: "4 hr available today", palette: palette
                 )
                 .modifier(HomeCardIllustratedSurface(style: .init(kind: descriptor.kind, preset: effectivePreset), palette: palette))
             } else if descriptor.kind == .compactTimeline && effectivePreset != .standard {

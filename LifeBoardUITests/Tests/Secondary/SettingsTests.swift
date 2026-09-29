@@ -42,7 +42,7 @@ class SettingsTests: BaseUITest {
         XCTAssertTrue(settingsPage.verifyLifeManagementRowExists(), "Life Management row should exist")
         XCTAssertFalse(settingsPage.verifyProjectManagementRowExists(), "Separate Projects row should not exist")
         XCTAssertTrue(settingsPage.verifyAIAssistantRowExists(), "AI Assistant row should exist")
-        XCTAssertTrue(app.staticTexts["Notifications & Focus"].waitForExistence(timeout: 3), "Notifications section should exist")
+        XCTAssertTrue(app.staticTexts["Notifications"].waitForExistence(timeout: 3), "Notifications section should exist")
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Settings.onboardingRestartButton].waitForExistence(timeout: 3), "Guided Setup row should exist")
 
         takeScreenshot(named: "settings_primary_rows_visible")
@@ -158,7 +158,7 @@ class SettingsTests: BaseUITest {
 
         let recommendedRow = app.buttons[AccessibilityIdentifiers.LLMModelPicker.recommendedRow]
         XCTAssertTrue(recommendedRow.waitForExistence(timeout: 8), "Recommended row should be visible")
-        XCTAssertEqual(recommendedRow.value as? String, "selected", "Recommended model should be preselected")
+        XCTAssertEqual(recommendedRow.value as? String, "Selected", "Recommended model should be preselected")
     }
 
     func testDecorativeButtonEffectsToggleDefaultsOffAndCanBeEnabled() throws {

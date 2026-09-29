@@ -95,7 +95,7 @@ struct LifeWeaveCanvas: View {
         // One semantic summary instead of a dozen decorative paths. The rows
         // below already publish every actionable state.
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Your Life Map")
+        .accessibilityLabel("Your life areas")
         .accessibilityValue(presentation.accessibilitySummary)
     }
 

@@ -27,8 +27,9 @@ struct ProjectSummaryRow: View {
 
     var summarySubtitle: String {
         if row.taskCount == 0 {
-            return "Empty"
+            return String(localized: "No tasks")
         }
-        return "\(row.lifeArea?.name ?? "No Area") · \(row.taskCount) open tasks"
+        let tasks = row.taskCount == 1 ? String(localized: "1 open task") : String(localized: "\(row.taskCount) open tasks")
+        return "\(row.lifeArea?.name ?? String(localized: "No area")) · \(tasks)"
     }
 }

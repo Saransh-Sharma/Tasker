@@ -18,8 +18,8 @@ final class OverdueAgeFormatterTests: XCTestCase {
 
         XCTAssertEqual(OverdueAgeFormatter.lateAgeToken(dueDate: oneDayLate, now: now), "1d")
         XCTAssertEqual(OverdueAgeFormatter.lateAgeToken(dueDate: sixDaysLate, now: now), "6d")
-        XCTAssertEqual(OverdueAgeFormatter.lateLabel(dueDate: oneDayLate, now: now), "1d late")
-        XCTAssertEqual(OverdueAgeFormatter.lateLabel(dueDate: sixDaysLate, now: now), "6d late")
+        XCTAssertEqual(OverdueAgeFormatter.lateLabel(dueDate: oneDayLate, now: now), "1 day old")
+        XCTAssertEqual(OverdueAgeFormatter.lateLabel(dueDate: sixDaysLate, now: now), "6 days old")
     }
 
     func testLateLabelFormatsWeekCompressionUsingFloorDivision() {
@@ -31,8 +31,8 @@ final class OverdueAgeFormatterTests: XCTestCase {
         XCTAssertEqual(OverdueAgeFormatter.lateAgeToken(dueDate: sevenDaysLate, now: now), "1w")
         XCTAssertEqual(OverdueAgeFormatter.lateAgeToken(dueDate: thirteenDaysLate, now: now), "1w")
         XCTAssertEqual(OverdueAgeFormatter.lateAgeToken(dueDate: fourteenDaysLate, now: now), "2w")
-        XCTAssertEqual(OverdueAgeFormatter.lateLabel(dueDate: sevenDaysLate, now: now), "1w late")
-        XCTAssertEqual(OverdueAgeFormatter.lateLabel(dueDate: thirteenDaysLate, now: now), "1w late")
-        XCTAssertEqual(OverdueAgeFormatter.lateLabel(dueDate: fourteenDaysLate, now: now), "2w late")
+        XCTAssertEqual(OverdueAgeFormatter.lateLabel(dueDate: sevenDaysLate, now: now), "1 week old")
+        XCTAssertEqual(OverdueAgeFormatter.lateLabel(dueDate: thirteenDaysLate, now: now), "1 week old")
+        XCTAssertEqual(OverdueAgeFormatter.lateLabel(dueDate: fourteenDaysLate, now: now), "2 weeks old")
     }
 }

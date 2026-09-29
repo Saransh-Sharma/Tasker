@@ -91,6 +91,15 @@ struct EvaPowerUpView: View {
         .sheet(isPresented: $showsGrantReview) {
             EvaPowerUpGrantSheet(model: model, isLocked: isGrantSelectionLocked)
         }
+        .sheet(isPresented: $model.showsEvaConsent) {
+            EvaCloudConsentSheet(
+                access: evaAccess,
+                source: .onboarding,
+                identifierPrefix: "onboarding.lifeweave.powerup.eva.consent"
+            ) { ready in
+                model.evaConsentFinished(ready: ready)
+            }
+        }
     }
 
     // MARK: - Header
@@ -104,7 +113,7 @@ struct EvaPowerUpView: View {
                 .lifeBoardClaySurface(.well, cornerRadius: Radius.card)
                 .symbolEffect(.bounce, options: .nonRepeating)
                 .accessibilityHidden(true)
-            Text(String(localized: "Meet EVA"))
+            Text(String(localized: "Meet Eva"))
                 .lifeboardFont(.screenTitle)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -143,21 +152,21 @@ struct EvaPowerUpView: View {
                 readyCard
             case .temporarilyUnavailable(let message):
                 failureCard(
-                    title: String(localized: "Couldn't connect EVA"),
+                    title: String(localized: "Couldn't connect Eva"),
                     detail: resolvedDetail(message, fallback: String(localized: "Nothing was lost.")),
                     recovery: String(localized: "Try again to pick up where it stopped.")
                 )
             case .quotaExhausted(let nextAvailableAt):
                 failureCard(
-                    title: String(localized: "You've used today's EVA answers"),
+                    title: String(localized: "You've used today's Eva answers"),
                     detail: quotaDetail(nextAvailableAt),
-                    recovery: String(localized: "Wait for more, or use EVA offline now.")
+                    recovery: String(localized: "Wait for more, or use Eva offline now.")
                 )
             case .appleReauthenticationRequired:
                 failureCard(
                     title: String(localized: "Sign in with Apple again"),
-                    detail: resolvedDetail(nil, fallback: String(localized: "Your EVA session expired.")),
-                    recovery: String(localized: "Your EVA and its settings come back as they were.")
+                    detail: resolvedDetail(nil, fallback: String(localized: "Your Eva session expired.")),
+                    recovery: String(localized: "Your settings come back as they were.")
                 )
             }
         }
@@ -167,14 +176,14 @@ struct EvaPowerUpView: View {
 
     private var offlineCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text(String(localized: "EVA runs on this iPhone"))
+            Text(String(localized: "Eva runs on \(DeviceNoun.this)"))
                 .lifeboardFont(.bodyStrong)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
-            Text(String(localized: "Nothing leaves your iPhone. Download a model to start."))
+            Text(String(localized: "Nothing leaves \(DeviceNoun.this). Download a model to start."))
                 .lifeboardFont(.support)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
-            Button(String(localized: "Use Cloud EVA instead")) { selectCloud() }
+            Button(String(localized: "Use cloud instead")) { selectCloud() }
                 .buttonStyle(.lifeBoardChip)
                 .accessibilityIdentifier(EvaPowerUpAccessibilityID.cloud)
         }
@@ -192,7 +201,7 @@ struct EvaPowerUpView: View {
     /// "this is broken", and it costs nothing: the stage is already published.
     private var activationCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            ProgressView(String(localized: "Connecting EVA…"))
+            ProgressView(String(localized: "Connecting Eva…"))
             DisclosureGroup(String(localized: "Details"), isExpanded: $showsActivationDetails) {
             ForEach(activationStages) { stage in
                 EvaPowerUpStageRow(
@@ -247,7 +256,7 @@ struct EvaPowerUpView: View {
 
     private var readyCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text(String(localized: "EVA is ready"))
+            Text(String(localized: "Eva is ready"))
                 .lifeboardFont(.bodyStrong)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
             Text(readyDetail)
@@ -276,7 +285,7 @@ struct EvaPowerUpView: View {
         guard selected > 0 else {
             return String(localized: "It uses your life areas, tasks, and plans.")
         }
-        return String(localized: "It uses your life areas, tasks, and plans, plus what you allow in Settings.")
+        return String(localized: "It uses your life areas, tasks, plans, and what you allowed.")
     }
 
     /// Only for a guest session — an Apple-backed one already has recovery.
@@ -290,7 +299,7 @@ struct EvaPowerUpView: View {
                 .buttonStyle(.lifeBoardChip)
                 .disabled(evaAccess.isWorking)
                 .accessibilityIdentifier(EvaPowerUpAccessibilityID.protectWithApple)
-            Text(String(localized: "Optional. Keeps EVA if you reinstall or change iPhones."))
+            Text(String(localized: "Optional. Keeps Eva if you reinstall or get a new \(DeviceNoun.current)."))
                 .lifeboardFont(.caption1)
                 .foregroundStyle(Color.lifeboard(.textTertiary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -366,6 +375,10 @@ struct EvaPowerUpView: View {
         model.chooseCloudEva()
         prefersOffline = false
         appleLinkMessage = nil
+        guard evaAccess.hasConfirmedCloudConsent else {
+            model.showsEvaConsent = true
+            return
+        }
         Task { _ = await evaAccess.ensureActivated(source: .onboarding) }
     }
 
@@ -383,7 +396,7 @@ struct EvaPowerUpView: View {
             guard succeeded == false else { return }
             let reason = evaAccess.errorMessage
             _ = await evaAccess.ensureActivated(source: .onboarding)
-            appleLinkMessage = reason ?? String(localized: "That didn't finish. EVA still works.")
+            appleLinkMessage = reason ?? String(localized: "Couldn’t link Apple. Eva still works.")
         }
     }
 }
@@ -400,9 +413,9 @@ private enum EvaPowerUpStage: Int, Identifiable, CaseIterable {
 
     var title: String {
         switch self {
-        case .session: "Starting your EVA session"
-        case .device: "Verifying this device"
-        case .securing: "Securing your EVA session"
+        case .session: String(localized: "Starting session")
+        case .device: String(localized: "Verifying device")
+        case .securing: String(localized: "Securing session")
         }
     }
 
@@ -461,9 +474,9 @@ private struct EvaPowerUpStageRow: View {
 
     private var spokenStatus: String {
         switch status {
-        case .pending: "waiting"
-        case .active: "in progress"
-        case .done: "done"
+        case .pending: String(localized: "Waiting")
+        case .active: String(localized: "In progress")
+        case .done: String(localized: "Done")
         }
     }
 }
@@ -502,7 +515,7 @@ private struct EvaPowerUpGrantSheet: View {
                         .accessibilityIdentifier(EvaPowerUpAccessibilityID.grant(grant.rawValue))
                     }
                 } header: {
-                    Text("EVA may also look at")
+                    Text("Eva can also use")
                         .lifeboardFont(.eyebrow)
                         .foregroundStyle(Color.lifeboard(.textTertiary))
                 } footer: {
@@ -511,7 +524,7 @@ private struct EvaPowerUpGrantSheet: View {
                         .foregroundStyle(Color.lifeboard(.textTertiary))
                 }
             }
-            .navigationTitle("Optional context")
+            .navigationTitle("Sharing")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -525,8 +538,8 @@ private struct EvaPowerUpGrantSheet: View {
 
     private var footerText: String {
         isLocked
-            ? "These are active for your Cloud EVA session. Change them any time in EVA settings — updates take effect before EVA's next answer, on every device."
-            : "Cloud EVA enables these categories by default. Change them any time in EVA settings — updates take effect before EVA's next answer, on every device."
+            ? String(localized: "Change these anytime in Settings.")
+            : String(localized: "These start on. Change them anytime in Settings.")
     }
 
     private func binding(for grant: EvaConsentPolicy.Grant) -> Binding<Bool> {

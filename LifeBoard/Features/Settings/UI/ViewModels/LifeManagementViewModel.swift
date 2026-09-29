@@ -13,98 +13,22 @@ private func lifeManagementTreeAreaAccentHex(_ area: LifeArea?) -> String {
 }
 
 private func lifeManagementTreeHabitStatusText(_ row: HabitLibraryRow) -> String {
-    if row.isArchived { return "Archived" }
-    if row.isPaused { return "Paused" }
-    if row.currentStreak > 0 { return "\(row.currentStreak)d active" }
+    if row.isArchived { return String(localized: "Archived") }
+    if row.isPaused { return String(localized: "Paused") }
+    if row.currentStreak > 0 {
+        return row.currentStreak == 1
+            ? String(localized: "1-day streak")
+            : String(localized: "\(row.currentStreak)-day streak")
+    }
 
     switch row.cadence {
     case .daily:
-        return "Daily"
+        return String(localized: "Daily")
     case .weekly(let days, _, _):
-        return days.count == 1 ? "Weekly" : "\(days.count)x weekly"
+        return days.count == 1 ? String(localized: "Weekly") : String(localized: "\(days.count) days a week")
     case .interval(let days, _, _):
-        return "Every \(max(1, days)) days"
+        return String(localized: "Every \(max(1, days)) days")
     }
-}
-
-public struct LifeAreaIconOption: Identifiable, Equatable, Hashable {
-    public let symbolName: String
-    public let keywords: [String]
-
-    public var id: String { symbolName }
-
-    public init(symbolName: String, keywords: [String]) {
-        self.symbolName = symbolName
-        self.keywords = keywords
-    }
-}
-
-public struct LifeManagementAreaRow: Identifiable, Equatable, Sendable {
-    public let lifeArea: LifeArea
-    public let projectCount: Int
-    public let habitCount: Int
-    public let taskCount: Int
-    public let isGeneral: Bool
-
-    public var id: UUID { lifeArea.id }
-}
-
-public struct LifeManagementProjectRow: Identifiable, Equatable, Sendable {
-    public let project: Project
-    public let taskCount: Int
-    public let lifeArea: LifeArea?
-    public let linkedHabitCount: Int
-
-    public var id: UUID { project.id }
-    public var isInbox: Bool { project.isInbox || project.id == ProjectConstants.inboxProjectID }
-    public var isMoveLocked: Bool { isInbox || project.isDefault }
-}
-
-public struct LifeManagementHabitRow: Identifiable, Equatable, Sendable {
-    public let row: HabitLibraryRow
-    public let lifeArea: LifeArea?
-    public let project: Project?
-
-    public var id: UUID { row.habitID }
-}
-
-public enum LifeManagementSelection: Hashable, Identifiable, Sendable {
-    case area(UUID)
-    case project(UUID)
-    case habit(UUID)
-
-    public var id: String {
-        switch self {
-        case .area(let id):
-            return "area:\(id.uuidString)"
-        case .project(let id):
-            return "project:\(id.uuidString)"
-        case .habit(let id):
-            return "habit:\(id.uuidString)"
-        }
-    }
-}
-
-public enum LifeManagementTreeSectionKind: String, Hashable, Identifiable, Sendable {
-    case active
-    case archived
-
-    public var id: String { rawValue }
-
-    public var title: String {
-        switch self {
-        case .active:
-            return "Life Areas"
-        case .archived:
-            return "Archived"
-        }
-    }
-}
-
-public enum LifeManagementTreeNodePayload: Equatable, Sendable {
-    case area(LifeManagementAreaRow)
-    case project(LifeManagementProjectRow)
-    case habit(LifeManagementHabitRow)
 }
 
 public struct LifeManagementTreeNode: Identifiable, Equatable, Sendable {
@@ -160,16 +84,22 @@ public struct LifeManagementTreeNode: Identifiable, Equatable, Sendable {
     public var subtitle: String {
         switch payload {
         case .area(let row):
-            return "\(row.projectCount) projects · \(row.habitCount) habits"
+            let projects = row.projectCount == 1 ? String(localized: "1 project") : String(localized: "\(row.projectCount) projects")
+            let habits = row.habitCount == 1 ? String(localized: "1 habit") : String(localized: "\(row.habitCount) habits")
+            return "\(projects) · \(habits)"
         case .project(let row):
             var parts: [String] = [row.lifeArea?.name ?? LifeManagementConstants.generalDisplayName]
-            parts.append(row.taskCount == 0 ? "Empty" : "\(row.taskCount) open tasks")
+            parts.append(
+                row.taskCount == 0
+                    ? String(localized: "No tasks")
+                    : row.taskCount == 1 ? String(localized: "1 open task") : String(localized: "\(row.taskCount) open tasks")
+            )
             if row.linkedHabitCount > 0 {
-                parts.append("\(row.linkedHabitCount) habits")
+                parts.append(row.linkedHabitCount == 1 ? String(localized: "1 habit") : String(localized: "\(row.linkedHabitCount) habits"))
             }
             return parts.joined(separator: " · ")
         case .habit(let row):
-            var parts: [String] = [row.row.kind == .positive ? "Build" : "Quit"]
+            var parts: [String] = [row.row.kind == .positive ? String(localized: "Build") : String(localized: "Quit")]
             if let projectName = row.row.projectName?.nilIfBlank {
                 parts.append(projectName)
             } else if let lifeAreaName = row.lifeArea?.name.nilIfBlank {
@@ -938,7 +868,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 throw NSError(
                     domain: "LifeManagementViewModel",
                     code: 400,
-                    userInfo: [NSLocalizedDescriptionKey: "Enter a name for the life area."]
+                    userInfo: [NSLocalizedDescriptionKey: String(localized: "Add a name.")]
                 )
             }
 
@@ -963,7 +893,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 }
             }
             self.lifeAreaDraft = nil
-            self.snackbar = SnackbarData(message: draft.isNew ? "Area added" : "Area updated")
+            self.snackbar = SnackbarData(message: draft.isNew ? String(localized: "Area added") : String(localized: "Area updated"))
         }
     }
 
@@ -1002,7 +932,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 throw NSError(
                     domain: "LifeManagementViewModel",
                     code: 400,
-                    userInfo: [NSLocalizedDescriptionKey: "Enter a name for the project."]
+                    userInfo: [NSLocalizedDescriptionKey: String(localized: "Add a name.")]
                 )
             }
 
@@ -1017,7 +947,7 @@ public final class LifeManagementViewModel: ObservableObject {
                     throw NSError(
                         domain: "LifeManagementViewModel",
                         code: 404,
-                        userInfo: [NSLocalizedDescriptionKey: "The project could not be found."]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t find project.")]
                     )
                 }
 
@@ -1099,7 +1029,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 }
             }
             self.projectDraft = nil
-            self.snackbar = SnackbarData(message: draft.isNew ? "Project added" : "Project updated")
+            self.snackbar = SnackbarData(message: draft.isNew ? String(localized: "Project added") : String(localized: "Project updated"))
         }
     }
 
@@ -1156,7 +1086,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 throw NSError(
                     domain: "LifeManagementViewModel",
                     code: 400,
-                    userInfo: [NSLocalizedDescriptionKey: "Choose a destination area before deleting this area."]
+                    userInfo: [NSLocalizedDescriptionKey: String(localized: "Choose an area to move them to.")]
                 )
             }
 
@@ -1198,7 +1128,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 throw NSError(
                     domain: "LifeManagementViewModel",
                     code: 400,
-                    userInfo: [NSLocalizedDescriptionKey: "Choose a destination project before deleting this project."]
+                    userInfo: [NSLocalizedDescriptionKey: String(localized: "Choose a project to move tasks to.")]
                 )
             }
 
@@ -1245,7 +1175,7 @@ public final class LifeManagementViewModel: ObservableObject {
             _ = try await self.awaitResult { completion in
                 self.manageLifeAreasUseCase.archive(id: lifeAreaID, completion: completion)
             }
-            self.presentArchiveUndo(message: "\(row.lifeArea.name) archived", action: .lifeArea(lifeAreaID))
+            self.presentArchiveUndo(message: String(localized: "Archived ‘\(row.lifeArea.name)’"), action: .lifeArea(lifeAreaID))
         }
     }
 
@@ -1263,7 +1193,7 @@ public final class LifeManagementViewModel: ObservableObject {
             _ = try await self.awaitProjectResult { completion in
                 self.manageProjectsUseCase.archiveProject(projectId: projectID, completion: completion)
             }
-            self.presentArchiveUndo(message: "\(row.project.name) archived", action: .project(projectID))
+            self.presentArchiveUndo(message: String(localized: "Archived ‘\(row.project.name)’"), action: .project(projectID))
         }
     }
 
@@ -1281,7 +1211,7 @@ public final class LifeManagementViewModel: ObservableObject {
             _ = try await self.awaitResult { completion in
                 self.useCaseCoordinator.setHabitArchived.execute(id: habitID, isArchived: true, completion: completion)
             }
-            self.presentArchiveUndo(message: "\(row.row.title) archived", action: .habit(habitID))
+            self.presentArchiveUndo(message: String(localized: "Archived ‘\(row.row.title)’"), action: .habit(habitID))
         }
     }
 
@@ -1623,9 +1553,9 @@ private enum LifeManagementMutationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .projectMoveRolledBack:
-            return "Project details were restored because moving the project to the selected area failed."
+            return String(localized: "Couldn’t move project. Nothing changed.")
         case .projectMoveRollbackFailed:
-            return "Project updates could not be safely rolled back after the move failed."
+            return String(localized: "Couldn’t move project. Check its details.")
         }
     }
 }

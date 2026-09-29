@@ -154,9 +154,9 @@ final class QuietTrackingRailPresentationTests: XCTestCase {
             initialOutcome: .progress
         )
 
-        XCTAssertTrue(negativeSnapshot.heroSubtitle(for: negativeSnapshot.entry(for: negativeRow.id)).contains("Keep the streak honest"))
+        XCTAssertTrue(negativeSnapshot.heroSubtitle(for: negativeSnapshot.entry(for: negativeRow.id)).contains("Log clean days"))
         XCTAssertEqual(negativeSnapshot.footerTitle(for: negativeSnapshot.entry(for: negativeRow.id), outcome: .progress), "Stayed clean")
-        XCTAssertEqual(negativeSnapshot.footerTitle(for: negativeSnapshot.entry(for: negativeRow.id), outcome: .lapse), "Record lapse")
+        XCTAssertEqual(negativeSnapshot.footerTitle(for: negativeSnapshot.entry(for: negativeRow.id), outcome: .lapse), "Log slip")
         XCTAssertEqual(positiveSnapshot.footerTitle(for: positiveSnapshot.entry(for: positiveRow.id), outcome: .progress), "Done")
     }
 

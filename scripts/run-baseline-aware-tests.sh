@@ -44,8 +44,11 @@ set +e
 xcodebuild \
   -workspace "LifeBoard.xcworkspace" \
   -scheme "LifeBoard" \
+  -testPlan "Unit" \
   -destination "$DESTINATION" \
   -derivedDataPath "$DERIVED_DATA" \
+  -skipPackageUpdates \
+  -disableAutomaticPackageResolution \
   -only-testing:LifeBoardTests \
   ${PROFILE_FLAGS[@]+"${PROFILE_FLAGS[@]}"} \
   -resultBundlePath "$RESULT_BUNDLE" \

@@ -12,7 +12,7 @@ struct TaskEditorRecurrenceSection: View {
 
     private func recurrence(editor: Bindable<TaskEditorStore>) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            TaskEditorControls.header("Rhythm", symbol: "repeat")
+            TaskEditorControls.header("Repeat", symbol: "repeat")
             Picker(
                 "Repeat",
                 selection: Binding(
@@ -24,7 +24,7 @@ struct TaskEditorRecurrenceSection: View {
                 Text("Daily").tag(1)
                 Text("Weekdays").tag(2)
                 Text("Weekly").tag(3)
-                Text("Every two weeks").tag(4)
+                Text("Every 2 weeks").tag(4)
                 Text("Monthly on a date").tag(5)
                 Text("Monthly by weekday").tag(6)
                 Text("Yearly").tag(7)
@@ -36,16 +36,16 @@ struct TaskEditorRecurrenceSection: View {
                 // `OptionRail` keeps the semantics: one selection, per-value
                 // accessibility identifiers, and reflow at accessibility text sizes.
                 OptionRail(
-                    "Anchor",
+                    "Repeats from",
                     selection: editor.draft.recurrenceAnchor,
                     values: [.scheduledDate, .completionDate],
                     identifierPrefix: "task.recurrence.anchor",
-                    title: { $0 == .scheduledDate ? "Scheduled date" : "When completed" }
+                    title: { $0 == .scheduledDate ? String(localized: "Scheduled date") : String(localized: "When completed") }
                 )
                 Text(
                     editor.wrappedValue.draft.recurrenceAnchor == .completionDate
-                        ? "The next occurrence begins from the day you finish this one."
-                        : "Future occurrences stay on their intended calendar rhythm."
+                        ? "The next one starts from the day you finish."
+                        : "Repeats stay on the calendar dates."
                 )
                 .font(.caption)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -182,7 +182,7 @@ struct TaskEditorRecurrenceSection: View {
                 )
             )
             Toggle(
-                "Limit occurrences",
+                "Limit repeats",
                 isOn: Binding(
                     get: { pattern.maxOccurrences != nil },
                     set: {
@@ -198,7 +198,7 @@ struct TaskEditorRecurrenceSection: View {
             )
             if let maximum = pattern.maxOccurrences {
                 Stepper(
-                    "Stop after \(maximum)",
+                    maximum == 1 ? String(localized: "Stop after 1 time") : String(localized: "Stop after \(maximum) times"),
                     value: Binding(
                         get: { maximum },
                         set: {

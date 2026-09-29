@@ -50,7 +50,7 @@ struct EvaDayHabitRowView: View {
     }
 
     var streakLabel: String {
-        card.currentStreak > 0 ? "\(card.currentStreak)d streak" : "Streak ready"
+        card.currentStreak > 0 ? String(localized: "\(card.currentStreak)-day streak") : String(localized: "No streak yet")
     }
 
     var body: some View {
@@ -147,8 +147,8 @@ struct EvaDayHabitRowView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(card.title)
-        .accessibilityValue("\(streakLabel). Last \(boardCells.count) days shown.")
-        .accessibilityHint("Opens habit details.")
+        .accessibilityValue("\(streakLabel). Last \(boardCells.count) days.")
+        .accessibilityHint("Opens habit details")
         .accessibilityIdentifier("chat.dayOverview.habitTile.\(card.habitID.uuidString)")
     }
 }

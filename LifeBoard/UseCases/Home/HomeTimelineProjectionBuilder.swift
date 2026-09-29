@@ -95,17 +95,17 @@ struct HomeTimelineProjectionBuilder {
         )
         let wakeAnchor = TimelineAnchorItem(
             id: "wake",
-            title: "Rise and shine",
+            title: String(localized: "Rise and shine"),
             time: anchorWindow.wake,
             systemImageName: "alarm.fill",
-            subtitle: "Start the day"
+            subtitle: String(localized: "Start the day")
         )
         let sleepAnchor = TimelineAnchorItem(
             id: "sleep",
-            title: "Wind down",
+            title: String(localized: "Wind down"),
             time: anchorWindow.sleep,
             systemImageName: "moon.fill",
-            subtitle: "Close the day"
+            subtitle: String(localized: "Close the day")
         )
 
         let dayTasks = timelineTasksForSelectedDay(input.taskCandidates, input: input)
@@ -763,7 +763,7 @@ struct HomeTimelineProjectionBuilder {
             return task.estimatedDuration.map(Self.timelineDurationText)
         }
         let roundedMinutes = max(1, Int(ceil(end.timeIntervalSince(now) / 60)))
-        return "\(roundedMinutes)m remaining"
+        return String(localized: "\(LifeBoardDuration.text(minutes: roundedMinutes)) left")
     }
 
     private func timelineIsMeetingLikeEvent(_ event: CalendarEventSnapshot) -> Bool {
@@ -793,20 +793,22 @@ struct HomeTimelineProjectionBuilder {
     ) -> (headline: String, supportingText: String) {
         let durationText = Self.timelineDurationText(duration)
         switch emphasis {
+        // Matches `HomeViewModel.timelineGapCopy`: a gap names itself and its
+        // length, and asks nothing.
         case .quietWindow:
             return (
-                headline: "Evening buffer",
-                supportingText: "Need a lighter close with \(durationText)?"
+                headline: String(localized: "Before bed"),
+                supportingText: String(localized: "\(durationText) free")
             )
         case .prepWindow:
             return (
-                headline: "Short opening",
-                supportingText: "Need a short block for \(durationText)?"
+                headline: String(localized: "Short gap"),
+                supportingText: String(localized: "\(durationText) free")
             )
         case .openTime:
             return (
-                headline: "Open time",
-                supportingText: isFinalGap ? "Keep \(durationText) open." : "Want to use \(durationText) well?"
+                headline: String(localized: "Open time"),
+                supportingText: String(localized: "\(durationText) free")
             )
         }
     }
@@ -937,16 +939,7 @@ struct HomeTimelineProjectionBuilder {
     }
 
     private static func timelineDurationText(_ duration: TimeInterval) -> String {
-        let totalMinutes = Int((duration / 60).rounded())
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        if hours > 0 && minutes > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        if hours > 0 {
-            return "\(hours)h"
-        }
-        return "\(max(minutes, 1))m"
+        LifeBoardDuration.text(minutes: max(1, Int((duration / 60).rounded())))
     }
 }
 

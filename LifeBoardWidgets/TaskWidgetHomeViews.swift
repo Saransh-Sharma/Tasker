@@ -15,7 +15,7 @@ private struct TopTaskActionRow: View {
                         .widgetAccentable()
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Complete \(task.title)")
+                .accessibilityLabel("Complete ‘\(task.title)’")
 
                 Button(intent: DeferTaskFromWidgetIntent(taskID: task.id.uuidString, minutes: .fifteen)) {
                     Image(systemName: "clock.arrow.circlepath")
@@ -24,7 +24,7 @@ private struct TopTaskActionRow: View {
                         .widgetAccentable()
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Snooze \(task.title) by 15 minutes")
+                .accessibilityLabel("Snooze ‘\(task.title)’ 15 min")
             }
 
             Link(destination: TaskWidgetRoutes.task(task.id)) {
@@ -33,7 +33,7 @@ private struct TopTaskActionRow: View {
                     accent: WidgetBrand.actionPrimary
                 )
             }
-            .accessibilityLabel(TaskWidgetFeatureGate.interactiveTaskWidgetsEnabled ? "Open \(task.title)" : "Review \(task.title)")
+            .accessibilityLabel(TaskWidgetFeatureGate.interactiveTaskWidgetsEnabled ? "Open ‘\(task.title)’" : "Review ‘\(task.title)’")
         }
     }
 }
@@ -67,8 +67,8 @@ struct TopTaskNowWidgetView: View {
 
     var body: some View {
         SmallStoryShell(
-            eyebrow: "Focus",
-            title: "Top Task",
+            eyebrow: "Today",
+            title: "Next up",
             detail: entry.snapshot.nextTask?.priorityCode,
             accent: WidgetBrand.actionPrimary
         ) {
@@ -85,10 +85,10 @@ struct TopTaskNowWidgetView: View {
                 Spacer(minLength: 0)
                 TopTaskActionRow(task: task)
             } else {
-                TaskWidgetEmptyState(title: "No open tasks. Capture the next one.", symbol: "tray")
+                TaskWidgetEmptyState(title: "No open tasks", symbol: "tray")
                 Spacer(minLength: 0)
                 Link(destination: TaskWidgetRoutes.quickAdd) {
-                    TaskWidgetActionBandLabel(title: "Quick Add", accent: WidgetBrand.actionPrimary)
+                    TaskWidgetActionBandLabel(title: "Add task", accent: WidgetBrand.actionPrimary)
                 }
             }
         }
@@ -102,15 +102,15 @@ struct TodayCounterNextWidgetView: View {
     var body: some View {
         SmallStoryShell(
             eyebrow: "Today",
-            title: "Open Queue",
+            title: "Open tasks",
             detail: entry.snapshot.nextTask?.priorityCode,
             accent: WidgetBrand.actionPrimary
         ) {
             TaskWidgetHeroMetric(
-                eyebrow: "Open Today",
+                eyebrow: "Open today",
                 value: "\(entry.snapshot.openCount)",
                 numericValue: Double(entry.snapshot.openCount),
-                supporting: entry.snapshot.nextTask?.title ?? "No queued tasks",
+                supporting: entry.snapshot.nextTask?.title ?? "No open tasks",
                 accent: WidgetBrand.actionPrimary
             )
             if let task = entry.snapshot.nextTask {
@@ -134,10 +134,10 @@ struct OverdueRescueWidgetView: View {
             accent: WidgetBrand.sunriseGold
         ) {
             TaskWidgetHeroMetric(
-                eyebrow: "Rescue Count",
+                eyebrow: "From earlier",
                 value: "\(entry.snapshot.overdueCount)",
                 numericValue: Double(entry.snapshot.overdueCount),
-                supporting: entry.snapshot.overdueTasks.first?.title ?? "Backlog is clear",
+                supporting: entry.snapshot.overdueTasks.first?.title ?? "Nothing from earlier",
                 accent: WidgetBrand.sunriseGold
             )
             if let task = entry.snapshot.overdueTasks.first {
@@ -155,9 +155,9 @@ struct QuickWin15mWidgetView: View {
 
     var body: some View {
         SmallStoryShell(
-            eyebrow: "Momentum",
-            title: "Quick Win",
-            detail: "15m",
+            eyebrow: "Short",
+            title: "Quick task",
+            detail: "15 min",
             accent: WidgetBrand.sandstone
         ) {
             if let task = entry.snapshot.quickWins.first {
@@ -169,7 +169,7 @@ struct QuickWin15mWidgetView: View {
                     .font(TaskWidgetTypography.support)
                     .foregroundStyle(WidgetBrand.textSecondary)
             } else {
-                TaskWidgetEmptyState(title: "No short tasks right now.", symbol: "sparkles")
+                TaskWidgetEmptyState(title: "No short tasks", symbol: "sparkles")
             }
         }
         .widgetURL(entry.snapshot.quickWins.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.today)
@@ -182,7 +182,7 @@ struct MorningKickoffWidgetView: View {
     var body: some View {
         SmallStoryShell(
             eyebrow: "Morning",
-            title: "Kickoff",
+            title: "First task",
             detail: nil,
             accent: WidgetBrand.actionPrimary
         ) {
@@ -195,7 +195,7 @@ struct MorningKickoffWidgetView: View {
                     .font(TaskWidgetTypography.support)
                     .foregroundStyle(WidgetBrand.textSecondary)
             } else {
-                TaskWidgetEmptyState(title: "No morning tasks queued.", symbol: "sun.horizon")
+                TaskWidgetEmptyState(title: "No morning tasks", symbol: "sun.horizon")
             }
         }
         .widgetURL(entry.snapshot.morningTasks.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.today)
@@ -208,15 +208,15 @@ struct EveningWrapWidgetView: View {
     var body: some View {
         SmallStoryShell(
             eyebrow: "Evening",
-            title: "Wrap",
+            title: "Wrap-up",
             detail: nil,
             accent: WidgetBrand.emerald
         ) {
             TaskWidgetHeroMetric(
-                eyebrow: "Done Today",
+                eyebrow: "Done today",
                 value: "\(entry.snapshot.doneTodayCount)",
                 numericValue: Double(entry.snapshot.doneTodayCount),
-                supporting: entry.snapshot.overdueCount == 0 ? "Ready for tomorrow." : "Review \(entry.snapshot.overdueCount) task\(entry.snapshot.overdueCount == 1 ? "" : "s").",
+                supporting: entry.snapshot.overdueCount == 0 ? "All clear" : "\(entry.snapshot.overdueCount) from earlier",
                 accent: WidgetBrand.emerald
             )
         }
@@ -230,15 +230,15 @@ struct WaitingOnWidgetView: View {
     var body: some View {
         SmallStoryShell(
             eyebrow: "Blocked",
-            title: "Waiting On",
+            title: "Waiting on",
             detail: "\(entry.snapshot.waitingOn.count)",
             accent: WidgetBrand.magenta
         ) {
             TaskWidgetHeroMetric(
-                eyebrow: "Blocked Tasks",
+                eyebrow: "Blocked",
                 value: "\(entry.snapshot.waitingOn.count)",
                 numericValue: Double(entry.snapshot.waitingOn.count),
-                supporting: entry.snapshot.waitingOn.first?.title ?? "No blocked tasks right now",
+                supporting: entry.snapshot.waitingOn.first?.title ?? "No blocked tasks",
                 accent: WidgetBrand.magenta
             )
             if let task = entry.snapshot.waitingOn.first {
@@ -259,15 +259,15 @@ struct InboxTriageWidgetView: View {
 
         return SmallStoryShell(
             eyebrow: "Capture",
-            title: "Inbox Triage",
+            title: "Inbox",
             detail: "\(inboxTasks.count)",
             accent: WidgetBrand.sandstone
         ) {
             TaskWidgetHeroMetric(
-                eyebrow: "Inbox Count",
+                eyebrow: "In Inbox",
                 value: "\(inboxTasks.count)",
                 numericValue: Double(inboxTasks.count),
-                supporting: inboxTasks.first?.title ?? "Inbox is clear",
+                supporting: inboxTasks.first?.title ?? "Inbox is empty",
                 accent: WidgetBrand.sandstone
             )
         }
@@ -280,16 +280,16 @@ struct DueSoonRadarWidgetView: View {
 
     var body: some View {
         SmallStoryShell(
-            eyebrow: "Radar",
-            title: "Due Soon",
+            eyebrow: "Upcoming",
+            title: "Due soon",
             detail: "\(entry.snapshot.dueSoonTasks.count)",
             accent: WidgetBrand.sunriseGold
         ) {
             TaskWidgetHeroMetric(
-                eyebrow: "Near Deadlines",
+                eyebrow: "Next 2 days",
                 value: "\(entry.snapshot.dueSoonTasks.count)",
                 numericValue: Double(entry.snapshot.dueSoonTasks.count),
-                supporting: entry.snapshot.dueSoonTasks.first?.title ?? "No near deadlines",
+                supporting: entry.snapshot.dueSoonTasks.first?.title ?? "Nothing due soon",
                 accent: WidgetBrand.sunriseGold
             )
             if let task = entry.snapshot.dueSoonTasks.first {
@@ -319,7 +319,7 @@ struct EnergyMatchWidgetView: View {
     var body: some View {
         SmallStoryShell(
             eyebrow: "Energy",
-            title: "Best Match",
+            title: "Best match",
             detail: nil,
             accent: WidgetBrand.actionPrimary
         ) {
@@ -328,11 +328,11 @@ struct EnergyMatchWidgetView: View {
                     eyebrow: normalizedBucketLabel(topBucket.energy, fallback: "Medium"),
                     value: "\(topBucket.count)",
                     numericValue: Double(topBucket.count),
-                    supporting: matchingTask?.title ?? "No matching task yet",
+                    supporting: matchingTask?.title ?? "No match",
                     accent: WidgetBrand.actionPrimary
                 )
             } else {
-                TaskWidgetEmptyState(title: "No energy signal available.", symbol: "bolt")
+                TaskWidgetEmptyState(title: "No energy set", symbol: "bolt")
             }
         }
         .widgetURL(matchingTask.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.today)
@@ -360,10 +360,10 @@ struct ProjectSpotlightWidgetView: View {
                     .lineLimit(2)
                 HStack(spacing: 10) {
                     TaskWidgetSummaryPill(title: "Open", value: "\(slice.openCount)", numericValue: Double(slice.openCount), tint: WidgetBrand.actionPrimary)
-                    TaskWidgetSummaryPill(title: "Rescue", value: "\(slice.overdueCount)", numericValue: Double(slice.overdueCount), tint: WidgetBrand.sunriseGold)
+                    TaskWidgetSummaryPill(title: "Rescue", value: "\(slice.overdueCount)", numericValue: Double(slice.overdueCount), tint: WidgetBrand.goldInk)
                 }
             } else {
-                TaskWidgetEmptyState(title: "No active projects yet.", symbol: "square.grid.2x2")
+                TaskWidgetEmptyState(title: "No active projects", symbol: "square.grid.2x2")
             }
         }
         .widgetURL(slice?.projectID.map(TaskWidgetRoutes.project(_:)) ?? TaskWidgetRoutes.today)
@@ -382,19 +382,19 @@ struct CalendarTaskBridgeWidgetView: View {
 
     var body: some View {
         SmallStoryShell(
-            eyebrow: "Schedule",
-            title: "Calendar Bridge",
+            eyebrow: "Today",
+            title: "Scheduled",
             detail: "\(dueToday.count) today",
             accent: WidgetBrand.sandstone
         ) {
             TaskWidgetHeroMetric(
-                eyebrow: "Time-Bound",
+                eyebrow: "Due today",
                 value: "\(dueToday.count)",
                 numericValue: Double(dueToday.count),
-                supporting: (dueToday.first ?? entry.snapshot.upcomingTasks.first)?.title ?? "No scheduled tasks",
+                supporting: (dueToday.first ?? entry.snapshot.upcomingTasks.first)?.title ?? "Nothing scheduled",
                 accent: WidgetBrand.sandstone
             )
-            Text("48h horizon: \(entry.snapshot.upcomingTasks.count)")
+            Text("Next 48 hr: \(entry.snapshot.upcomingTasks.count)")
                 .font(TaskWidgetTypography.caption)
                 .foregroundStyle(WidgetBrand.textSecondary)
         }
@@ -454,8 +454,8 @@ struct TodayTop3WidgetView: View {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 12) {
                     TaskWidgetSectionHeader(
                         eyebrow: "Today",
-                        title: "Top 3",
-                        detail: "Done \(entry.snapshot.doneTodayCount)",
+                        title: "Top tasks",
+                        detail: "\(entry.snapshot.doneTodayCount) done",
                         accent: WidgetBrand.textPrimary
                     )
                     if let task = entry.snapshot.todayTopTasks.first {
@@ -467,19 +467,19 @@ struct TodayTop3WidgetView: View {
                             .font(TaskWidgetTypography.support)
                             .foregroundStyle(WidgetBrand.textSecondary)
                     } else {
-                        TaskWidgetEmptyState(title: "No tasks for today.", symbol: "sun.max")
+                        TaskWidgetEmptyState(title: "No tasks today", symbol: "sun.max")
                     }
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 12) {
                     TaskWidgetSectionHeader(
-                        eyebrow: "Queue",
-                        title: "Support Lane",
+                        eyebrow: "After that",
+                        title: "Also today",
                         detail: nil,
                         accent: WidgetBrand.textPrimary
                     )
                     if entry.snapshot.todayTopTasks.isEmpty {
-                        TaskWidgetEmptyState(title: "Nothing queued.", symbol: "checkmark")
+                        TaskWidgetEmptyState(title: "Nothing else today", symbol: "checkmark")
                     } else {
                         TaskWidgetTaskList(
                             tasks: entry.snapshot.todayTopTasks,
@@ -507,7 +507,7 @@ struct NowLaneWidgetView: View {
         TaskWidgetScene { context in
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Focus", title: "Now Lane", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Focus", title: "Now", detail: nil, accent: WidgetBrand.textPrimary)
                     if let lead = tasks.first {
                         Text(lead.title)
                             .font(TaskWidgetTypography.titleLarge)
@@ -517,12 +517,12 @@ struct NowLaneWidgetView: View {
                             .font(TaskWidgetTypography.support)
                             .foregroundStyle(WidgetBrand.textSecondary)
                     } else {
-                        TaskWidgetEmptyState(title: "No current lane.", symbol: "target")
+                        TaskWidgetEmptyState(title: "Nothing now", symbol: "target")
                     }
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Queue", title: "Next Up", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Later", title: "Next up", detail: nil, accent: WidgetBrand.textPrimary)
                     TaskWidgetTaskList(
                         tasks: tasks.dropFirstArray(),
                         limit: 3,
@@ -545,16 +545,16 @@ struct OverdueBoardWidgetView: View {
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
                 TaskWidgetPanel(accent: WidgetBrand.sunriseGold, padding: 12) {
                     TaskWidgetHeroMetric(
-                        eyebrow: "Rescue Board",
+                        eyebrow: "From earlier",
                         value: "\(entry.snapshot.overdueCount)",
                         numericValue: Double(entry.snapshot.overdueCount),
-                        supporting: entry.snapshot.overdueTasks.first?.title ?? "Nothing to rescue",
+                        supporting: entry.snapshot.overdueTasks.first?.title ?? "Nothing from earlier",
                         accent: WidgetBrand.sunriseGold
                     )
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sunriseGold, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Recovery", title: "Priority Order", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Rescue", title: "By priority", detail: nil, accent: WidgetBrand.textPrimary)
                         TaskWidgetTaskList(
                             tasks: entry.snapshot.overdueTasks,
                             limit: context.supportListLimit,
@@ -576,7 +576,7 @@ struct Upcoming48hWidgetView: View {
         TaskWidgetScene { context in
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Horizon", title: "Upcoming 48h", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Upcoming", title: "Next 48 hr", detail: nil, accent: WidgetBrand.textPrimary)
                     if let lead = entry.snapshot.upcomingTasks.first {
                         Text(lead.title)
                             .font(TaskWidgetTypography.titleLarge)
@@ -586,12 +586,12 @@ struct Upcoming48hWidgetView: View {
                             .font(TaskWidgetTypography.support)
                             .foregroundStyle(WidgetBrand.textSecondary)
                     } else {
-                        TaskWidgetEmptyState(title: "No deadlines in 48 hours.", symbol: "calendar")
+                        TaskWidgetEmptyState(title: "Nothing due in 48 hr", symbol: "calendar")
                     }
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Support", title: "Deadline Lane", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Then", title: "By due date", detail: nil, accent: WidgetBrand.textPrimary)
                         TaskWidgetTaskList(
                             tasks: entry.snapshot.upcomingTasks,
                             limit: context.supportListLimit,
@@ -613,18 +613,18 @@ struct MorningEveningPlanWidgetView: View {
         TaskWidgetScene { context in
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Morning", title: "Launch Lane", detail: nil, accent: WidgetBrand.actionPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Morning", title: "Start", detail: nil, accent: WidgetBrand.actionPrimary)
                     if entry.snapshot.morningTasks.isEmpty {
-                        TaskWidgetEmptyState(title: "No morning tasks.", symbol: "sunrise")
+                        TaskWidgetEmptyState(title: "No morning tasks", symbol: "sunrise")
                     } else {
                         TaskWidgetTaskList(tasks: entry.snapshot.morningTasks, limit: context.supportListLimit, subtitle: { $0.shortDueLabel })
                     }
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Evening", title: "Close Lane", detail: nil, accent: WidgetBrand.sandstone)
+                    TaskWidgetSectionHeader(eyebrow: "Evening", title: "Finish", detail: nil, accent: WidgetBrand.sandstone)
                     if entry.snapshot.eveningTasks.isEmpty {
-                        TaskWidgetEmptyState(title: "No evening tasks.", symbol: "moon.stars")
+                        TaskWidgetEmptyState(title: "No evening tasks", symbol: "moon.stars")
                     } else {
                         TaskWidgetTaskList(tasks: entry.snapshot.eveningTasks, limit: context.supportListLimit, subtitle: { $0.shortDueLabel })
                     }
@@ -643,10 +643,10 @@ struct QuickViewSwitcherWidgetView: View {
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 12) {
                     TaskWidgetHeroMetric(
-                        eyebrow: "Navigator",
+                        eyebrow: "Today",
                         value: "\(entry.snapshot.todayTopTasks.count)",
                         numericValue: Double(entry.snapshot.todayTopTasks.count),
-                        supporting: "Today is the lead lane. Jump to the scope you need next.",
+                        supporting: "Open a list",
                         accent: WidgetBrand.actionPrimary
                     )
                 }
@@ -669,7 +669,7 @@ struct ProjectSprintWidgetView: View {
         TaskWidgetScene { context in
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Projects", title: "Sprint", detail: "\(entry.snapshot.projectSlices.count) active", accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Projects", title: "Busiest", detail: "\(entry.snapshot.projectSlices.count) active", accent: WidgetBrand.textPrimary)
                     if let lead = entry.snapshot.projectSlices.first {
                         Text(lead.projectName)
                             .font(TaskWidgetTypography.titleLarge)
@@ -680,12 +680,12 @@ struct ProjectSprintWidgetView: View {
                             TaskWidgetSummaryPill(title: "Rescue", value: "\(lead.overdueCount)", numericValue: Double(lead.overdueCount), tint: WidgetBrand.sunriseGold)
                         }
                     } else {
-                        TaskWidgetEmptyState(title: "No active project slices.", symbol: "square.stack.3d.up")
+                        TaskWidgetEmptyState(title: "No active projects", symbol: "square.stack.3d.up")
                     }
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Portfolio", title: "Other Loads", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "More", title: "Other projects", detail: nil, accent: WidgetBrand.textPrimary)
                     ForEach(Array(entry.snapshot.projectSlices.dropFirst().prefix(3))) { slice in
                         TaskWidgetTaskLine(
                             title: slice.projectName,
@@ -721,13 +721,13 @@ struct PriorityMatrixLiteWidgetView: View {
                         eyebrow: "Priority",
                         value: "\(high)",
                         numericValue: Double(high),
-                        supporting: "High-priority tasks need the next protected slot.",
+                        supporting: "High priority",
                         accent: WidgetBrand.red
                     )
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Balance", title: "Spread", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "All", title: "By priority", detail: nil, accent: WidgetBrand.textPrimary)
                     VStack(alignment: .leading, spacing: 8) {
                         TaskWidgetTaskLine(title: "P0 / P1", trailing: "\(high)", trailingTint: WidgetBrand.red)
                         TaskWidgetTaskLine(title: "P2", trailing: "\(medium)", trailingTint: WidgetBrand.sunriseGold)
@@ -755,17 +755,17 @@ struct ContextWidgetView: View {
                         TaskWidgetHeroMetric(
                             eyebrow: "Context",
                             value: topContext.key,
-                            supporting: "\(topContext.value) tasks match this lane.",
+                            supporting: topContext.value == 1 ? "1 task" : "\(topContext.value) tasks",
                             accent: WidgetBrand.sandstone,
                             alignment: .leading
                         )
                     } else {
-                        TaskWidgetEmptyState(title: "No context buckets yet.", symbol: "tag")
+                        TaskWidgetEmptyState(title: "No contexts", symbol: "tag")
                     }
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Buckets", title: "Available", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Contexts", title: "All", detail: nil, accent: WidgetBrand.textPrimary)
                     ForEach(Array(entry.snapshot.contextCounts.prefix(4)), id: \.key) { contextBucket in
                         TaskWidgetTaskLine(
                             title: contextBucket.key,
@@ -791,7 +791,7 @@ struct FocusSessionQueueWidgetView: View {
         TaskWidgetScene { context in
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Deep Work", title: "Queue", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Focus", title: "Up next", detail: nil, accent: WidgetBrand.textPrimary)
                     if let lead = queue.first {
                         Text(lead.title)
                             .font(TaskWidgetTypography.titleLarge)
@@ -801,12 +801,12 @@ struct FocusSessionQueueWidgetView: View {
                             .font(TaskWidgetTypography.support)
                             .foregroundStyle(WidgetBrand.textSecondary)
                     } else {
-                        TaskWidgetEmptyState(title: "No focus session queue.", symbol: "timer")
+                        TaskWidgetEmptyState(title: "Nothing up next", symbol: "timer")
                     }
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Next", title: "Support Queue", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Then", title: "After that", detail: nil, accent: WidgetBrand.textPrimary)
                     TaskWidgetTaskList(tasks: queue.dropFirstArray(), limit: context.supportListLimit, subtitle: { "\($0.estimateLabel) • \($0.projectLabel)" })
                 }
             }
@@ -822,22 +822,22 @@ struct RecoveryWidgetView: View {
         TaskWidgetScene { context in
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
                 TaskWidgetPanel(accent: WidgetBrand.sunriseGold, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Resume", title: "Recovery", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Resume", title: "Pick up", detail: nil, accent: WidgetBrand.textPrimary)
                     if let task = entry.snapshot.nextTask {
                         Text(task.title)
                             .font(TaskWidgetTypography.titleLarge)
                             .foregroundStyle(WidgetBrand.textPrimary)
                             .lineLimit(3)
-                        Text("Resume with \(task.projectLabel.lowercased()) and clear the first blocker.")
+                        Text(task.projectLabel)
                             .font(TaskWidgetTypography.support)
                             .foregroundStyle(WidgetBrand.textSecondary)
                     } else {
-                        TaskWidgetEmptyState(title: "Momentum is clear. Start fresh.", symbol: "arrow.clockwise")
+                        TaskWidgetEmptyState(title: "Nothing to pick up", symbol: "arrow.clockwise")
                     }
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Signals", title: "What Matters", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Status", title: "Open", detail: nil, accent: WidgetBrand.textPrimary)
                     VStack(alignment: .leading, spacing: 8) {
                         TaskWidgetTaskLine(title: "Now", trailing: "\(entry.snapshot.focusNow.count)", trailingTint: WidgetBrand.actionPrimary)
                         TaskWidgetTaskLine(title: "Rescue", trailing: "\(entry.snapshot.overdueCount)", trailingTint: WidgetBrand.sunriseGold)
@@ -858,20 +858,20 @@ struct DoneReflectionWidgetView: View {
             TaskWidgetTwoZone(spacing: context.panelSpacing) {
                 TaskWidgetPanel(accent: WidgetBrand.emerald, padding: 12) {
                     TaskWidgetHeroMetric(
-                        eyebrow: "Reflection",
+                        eyebrow: "Today",
                         value: "\(entry.snapshot.doneTodayCount)",
                         numericValue: Double(entry.snapshot.doneTodayCount),
-                        supporting: entry.snapshot.doneTodayCount == 0 ? "No wins logged yet. Start with the cleanest next task." : "Wins logged today. Protect the momentum into the next block.",
+                        supporting: entry.snapshot.doneTodayCount == 1 ? "task done" : "tasks done",
                         accent: WidgetBrand.emerald
                     )
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 12) {
-                    TaskWidgetSectionHeader(eyebrow: "Tomorrow", title: "Next Cue", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Next", title: "Up next", detail: nil, accent: WidgetBrand.textPrimary)
                     if let task = entry.snapshot.nextTask {
                         TaskWidgetTaskLine(title: task.title, subtitle: task.projectLabel, trailing: task.priorityCode, trailingTint: WidgetBrand.priority(task.priorityCode), destination: TaskWidgetRoutes.task(task.id), emphasize: true)
                     } else {
-                        TaskWidgetEmptyState(title: "No open tasks remaining.", symbol: "party.popper")
+                        TaskWidgetEmptyState(title: "No open tasks", symbol: "party.popper")
                     }
                 }
             }
@@ -912,7 +912,7 @@ struct TodayPlannerBoardWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Planner", title: "Today Board", detail: "Done \(entry.snapshot.doneTodayCount)", accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Today", title: "Plan", detail: "\(entry.snapshot.doneTodayCount) done", accent: WidgetBrand.textPrimary)
                 HStack(spacing: 10) {
                     TaskWidgetSummaryPill(title: "Now", value: "\(entry.snapshot.todayTopTasks.count)", numericValue: Double(entry.snapshot.todayTopTasks.count), tint: WidgetBrand.actionPrimary)
                     TaskWidgetSummaryPill(title: "Rescue", value: "\(entry.snapshot.overdueTasks.count)", numericValue: Double(entry.snapshot.overdueTasks.count), tint: WidgetBrand.sunriseGold)
@@ -924,7 +924,7 @@ struct TodayPlannerBoardWidgetView: View {
                     trailingWeight: context.supportRatio
                 ) {
                     TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 14) {
-                        TaskWidgetSectionHeader(eyebrow: "Lead", title: "Now", detail: nil, accent: WidgetBrand.textPrimary)
+                        TaskWidgetSectionHeader(eyebrow: "First", title: "Now", detail: nil, accent: WidgetBrand.textPrimary)
                         if let lead = entry.snapshot.todayTopTasks.first {
                             TaskWidgetTaskLine(
                                 title: lead.title,
@@ -935,13 +935,13 @@ struct TodayPlannerBoardWidgetView: View {
                                 emphasize: true
                             )
                         } else {
-                            TaskWidgetEmptyState(title: "No focus task.", symbol: "target")
+                            TaskWidgetEmptyState(title: "Nothing now", symbol: "target")
                         }
                     }
                 } trailing: {
                     VStack(alignment: .leading, spacing: context.panelSpacing) {
-                        TaskWidgetColumn(title: "Rescue", accent: WidgetBrand.sunriseGold, tasks: Array(entry.snapshot.overdueTasks.prefix(context.supportListLimit)), fallback: "Nothing to rescue.")
-                        TaskWidgetColumn(title: "Later", accent: WidgetBrand.sandstone, tasks: Array(entry.snapshot.upcomingTasks.prefix(context.supportListLimit)), fallback: "Nothing upcoming.")
+                        TaskWidgetColumn(title: "Rescue", accent: WidgetBrand.sunriseGold, tasks: Array(entry.snapshot.overdueTasks.prefix(context.supportListLimit)), fallback: "Nothing from earlier")
+                        TaskWidgetColumn(title: "Later", accent: WidgetBrand.sandstone, tasks: Array(entry.snapshot.upcomingTasks.prefix(context.supportListLimit)), fallback: "Nothing upcoming")
                     }
                 }
             }
@@ -962,7 +962,7 @@ struct WeekTaskPlannerWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Week", title: "Task Planner", detail: nil, accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Plan", title: "This week", detail: nil, accent: WidgetBrand.textPrimary)
                 TaskWidgetTwoZone(
                     spacing: context.panelSpacing,
                     leadingWeight: context.leadRatio,
@@ -982,12 +982,12 @@ struct WeekTaskPlannerWidgetView: View {
                                 TaskWidgetSummaryPill(title: "Rescue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.sunriseGold)
                             }
                         } else {
-                            TaskWidgetEmptyState(title: "No scheduled deadlines.", symbol: "calendar.badge.checkmark")
+                            TaskWidgetEmptyState(title: "Nothing due this week", symbol: "calendar.badge.checkmark")
                         }
                     }
                 } trailing: {
                     TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 14) {
-                        TaskWidgetSectionHeader(eyebrow: "Sequence", title: "Upcoming Order", detail: nil, accent: WidgetBrand.textPrimary)
+                        TaskWidgetSectionHeader(eyebrow: "Coming up", title: "By due date", detail: nil, accent: WidgetBrand.textPrimary)
                         TaskWidgetTaskList(tasks: datedTasks, limit: context.supportListLimit + 1, subtitle: { $0.projectLabel }, trailing: { $0.shortDueLabel })
                     }
                 }
@@ -1005,7 +1005,7 @@ struct ProjectCockpitWidgetView: View {
 
         return TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Projects", title: "Cockpit", detail: "\(entry.snapshot.projectSlices.count) live", accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Projects", title: "Overview", detail: "\(entry.snapshot.projectSlices.count) active", accent: WidgetBrand.textPrimary)
                 TaskWidgetTwoZone(
                     spacing: context.panelSpacing,
                     leadingWeight: context.leadRatio,
@@ -1022,12 +1022,12 @@ struct ProjectCockpitWidgetView: View {
                                 TaskWidgetSummaryPill(title: "Rescue", value: "\(lead.overdueCount)", numericValue: Double(lead.overdueCount), tint: WidgetBrand.sunriseGold)
                             }
                         } else {
-                            TaskWidgetEmptyState(title: "No active project slices.", symbol: "square.stack.3d.down.right")
+                            TaskWidgetEmptyState(title: "No active projects", symbol: "square.stack.3d.down.right")
                         }
                     }
                 } trailing: {
                     TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 14) {
-                        TaskWidgetSectionHeader(eyebrow: "Support", title: "Other Projects", detail: nil, accent: WidgetBrand.textPrimary)
+                        TaskWidgetSectionHeader(eyebrow: "More", title: "Other projects", detail: nil, accent: WidgetBrand.textPrimary)
                         ForEach(Array(entry.snapshot.projectSlices.dropFirst().prefix(context.supportListLimit + 1))) { slice in
                             TaskWidgetTaskLine(
                                 title: slice.projectName,
@@ -1054,7 +1054,7 @@ struct BacklogHealthWidgetView: View {
 
         return TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Backlog", title: "Health", detail: nil, accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Backlog", title: "Overview", detail: nil, accent: WidgetBrand.textPrimary)
                 HStack(spacing: 12) {
                     TaskWidgetSummaryPill(title: "Rescue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.sunriseGold)
                     TaskWidgetSummaryPill(title: "Blocked", value: "\(blocked)", numericValue: Double(blocked), tint: WidgetBrand.magenta)
@@ -1066,17 +1066,14 @@ struct BacklogHealthWidgetView: View {
                     trailingWeight: context.supportRatio
                 ) {
                     TaskWidgetPanel(accent: WidgetBrand.sunriseGold, padding: 14) {
-                        Text(entry.snapshot.overdueCount == 0 && blocked == 0 ? "Healthy backlog" : "Recovery recommended")
+                        Text(entry.snapshot.overdueCount == 0 && blocked == 0 ? "All clear" : "\(entry.snapshot.overdueCount) from earlier")
                             .font(TaskWidgetTypography.titleLarge)
                             .foregroundStyle(WidgetBrand.textPrimary)
                             .lineLimit(2)
-                        Text("Clear the oldest rescue task first, then unblock stalled work.")
-                            .font(TaskWidgetTypography.support)
-                            .foregroundStyle(WidgetBrand.textSecondary)
                     }
                 } trailing: {
                     TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 14) {
-                        TaskWidgetSectionHeader(eyebrow: "Rescue", title: "Oldest Work", detail: nil, accent: WidgetBrand.textPrimary)
+                        TaskWidgetSectionHeader(eyebrow: "Rescue", title: "From earlier", detail: nil, accent: WidgetBrand.textPrimary)
                         TaskWidgetTaskList(tasks: entry.snapshot.overdueTasks, limit: context.supportListLimit + 1, subtitle: { $0.dueLabel }, trailing: { $0.priorityCode }, trailingTint: { WidgetBrand.priority($0.priorityCode) })
                     }
                 }
@@ -1092,7 +1089,7 @@ struct KanbanLiteWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Board", title: "Kanban Lite", detail: nil, accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Board", title: "Tasks", detail: nil, accent: WidgetBrand.textPrimary)
                 TaskWidgetTwoZone(
                     spacing: context.panelSpacing,
                     leadingWeight: context.leadRatio,
@@ -1133,7 +1130,7 @@ struct DeadlineHeatmapWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Deadlines", title: "Heatmap", detail: nil, accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Deadlines", title: "Next 7 days", detail: nil, accent: WidgetBrand.textPrimary)
                 HStack(spacing: 8) {
                     ForEach(buckets, id: \.offset) { bucket in
                         DeadlineHeatCell(label: bucket.label, count: bucket.count)
@@ -1150,7 +1147,7 @@ struct DeadlineHeatmapWidgetView: View {
                             emphasize: true
                         )
                     } else {
-                        TaskWidgetEmptyState(title: "No dated tasks in the week horizon.", symbol: "calendar.badge.clock")
+                        TaskWidgetEmptyState(title: "Nothing due this week", symbol: "calendar.badge.clock")
                     }
                 }
             }
@@ -1165,7 +1162,7 @@ struct ExecutionDashboardWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Execution", title: "Dashboard", detail: nil, accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Today", title: "Overview", detail: nil, accent: WidgetBrand.textPrimary)
                 HStack(spacing: 12) {
                     TaskWidgetSummaryPill(title: "Done", value: "\(entry.snapshot.doneTodayCount)", numericValue: Double(entry.snapshot.doneTodayCount), tint: WidgetBrand.emerald)
                     TaskWidgetSummaryPill(title: "Open", value: "\(entry.snapshot.openCount)", numericValue: Double(entry.snapshot.openCount), tint: WidgetBrand.actionPrimary)
@@ -1183,16 +1180,16 @@ struct ExecutionDashboardWidgetView: View {
                                 .font(TaskWidgetTypography.titleLarge)
                                 .foregroundStyle(WidgetBrand.textPrimary)
                                 .lineLimit(3)
-                            Text("Next action • \(task.projectLabel)")
+                            Text("Next • \(task.projectLabel)")
                                 .font(TaskWidgetTypography.support)
                                 .foregroundStyle(WidgetBrand.textSecondary)
                         } else {
-                            TaskWidgetEmptyState(title: "No next action available.", symbol: "bolt.badge.clock")
+                            TaskWidgetEmptyState(title: "No next task", symbol: "bolt.badge.clock")
                         }
                     }
                 } trailing: {
                     TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 14) {
-                        TaskWidgetSectionHeader(eyebrow: "Signals", title: "Focus + Rescue", detail: nil, accent: WidgetBrand.textPrimary)
+                        TaskWidgetSectionHeader(eyebrow: "Also", title: "Now and rescue", detail: nil, accent: WidgetBrand.textPrimary)
                         TaskWidgetTaskList(tasks: entry.snapshot.focusNow + entry.snapshot.overdueTasks, limit: context.supportListLimit + 1, subtitle: { $0.projectLabel }, trailing: { $0.priorityCode }, trailingTint: { WidgetBrand.priority($0.priorityCode) })
                     }
                 }
@@ -1212,7 +1209,7 @@ struct DeepWorkAgendaWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Deep Work", title: "Agenda", detail: nil, accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Focus", title: "Agenda", detail: nil, accent: WidgetBrand.textPrimary)
                 TaskWidgetTwoZone(
                     spacing: context.panelSpacing,
                     leadingWeight: context.leadRatio,
@@ -1228,12 +1225,12 @@ struct DeepWorkAgendaWidgetView: View {
                                 .font(TaskWidgetTypography.support)
                                 .foregroundStyle(WidgetBrand.textSecondary)
                         } else {
-                            TaskWidgetEmptyState(title: "No deep work queue.", symbol: "brain.head.profile")
+                            TaskWidgetEmptyState(title: "Nothing up next", symbol: "brain.head.profile")
                         }
                     }
                 } trailing: {
                     TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 14) {
-                        TaskWidgetSectionHeader(eyebrow: "Support", title: "Warm-Up Tasks", detail: nil, accent: WidgetBrand.textPrimary)
+                        TaskWidgetSectionHeader(eyebrow: "Short", title: "Quick tasks", detail: nil, accent: WidgetBrand.textPrimary)
                         TaskWidgetTaskList(tasks: entry.snapshot.quickWins + queue.dropFirstArray(), limit: context.supportListLimit + 1, subtitle: { "\($0.estimateLabel) • \($0.projectLabel)" })
                     }
                 }
@@ -1253,10 +1250,10 @@ struct AssistantPlanPreviewWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Preview", title: "Assistant Plan", detail: nil, accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Eva", title: "Plan", detail: nil, accent: WidgetBrand.textPrimary)
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 14) {
                     if planTasks.isEmpty {
-                        TaskWidgetEmptyState(title: "No scoped plan available yet.", symbol: "list.bullet.rectangle")
+                        TaskWidgetEmptyState(title: "No plan yet", symbol: "list.bullet.rectangle")
                     } else {
                         ForEach(Array(planTasks.enumerated()), id: \.element.id) { index, task in
                             TaskWidgetTaskLine(
@@ -1282,20 +1279,20 @@ struct LifeAreasBoardWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Balance", title: "Life Areas", detail: nil, accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Balance", title: "Life areas", detail: nil, accent: WidgetBrand.textPrimary)
                 TaskWidgetTwoZone(spacing: context.panelSpacing) {
                     TaskWidgetPanel(accent: WidgetBrand.sandstone, padding: 14) {
                         TaskWidgetHeroMetric(
-                            eyebrow: "Projects In Motion",
+                            eyebrow: "Active projects",
                             value: "\(entry.snapshot.projectSlices.count)",
                             numericValue: Double(entry.snapshot.projectSlices.count),
-                            supporting: "Use project slices and energy balance to prevent one lane from swallowing the day.",
+                            supporting: "With open tasks",
                             accent: WidgetBrand.sandstone
                         )
                     }
                 } trailing: {
                     TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 14) {
-                        TaskWidgetSectionHeader(eyebrow: "Mix", title: "Energy Spread", detail: nil, accent: WidgetBrand.textPrimary)
+                        TaskWidgetSectionHeader(eyebrow: "Energy", title: "By energy", detail: nil, accent: WidgetBrand.textPrimary)
                         ForEach(Array(entry.snapshot.energyBuckets.prefix(4))) { bucket in
                             TaskWidgetTaskLine(
                                 title: normalizedBucketLabel(bucket.energy, fallback: "Medium"),

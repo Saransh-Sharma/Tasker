@@ -44,8 +44,10 @@ struct TimelineAnchorRitualTheme {
                 heroAssetName: "routine_evening_strip",
                 tokenSystemImageName: "moon.fill",
                 pillSystemImageName: "moon.fill",
-                accent: Color(lifeboardHex: "#6A35E8"),
-                accentDeep: Color(lifeboardHex: "#5529D5"),
+                // Adaptive: the fixed violet was the time and title ink on the
+                // dark `accentSoft` sheet in dark appearance, at ~2.9:1.
+                accent: adaptiveColor(light: "#6A35E8", dark: "#B69CFF"),
+                accentDeep: adaptiveColor(light: "#5529D5", dark: "#CDB9FF"),
                 accentSoft: adaptiveColor(light: "#F0E8FF", dark: "#1C1630"),
                 accentMist: adaptiveColor(light: "#E7DCFF", dark: "#281E42"),
                 surface: adaptiveColor(light: "#FFFDFC", dark: "#15151E"),

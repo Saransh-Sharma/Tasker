@@ -15,7 +15,7 @@ import MetricKit
 import Synchronization
 import UserNotifications
 
-private final class ReminderReconcileCompletionGate: @unchecked Sendable {
+final class ReminderReconcileCompletionGate: @unchecked Sendable {
     private let lock = NSLock()
     private var didFinish = false
 
@@ -90,6 +90,60 @@ private final class MetricKitSubscriber: NSObject, MXMetricManagerSubscriber {
         }
     }
 
+    /// Crash, hang, CPU and disk diagnostics, delivered on the next launch.
+    ///
+    /// Only daily metrics were subscribed, so a crash in the field left no
+    /// trace anywhere. This logs a privacy-safe summary — counts, exception
+    /// and signal codes, hang durations, app build — and never the call-stack
+    /// trees, virtual-memory regions or termination strings, which can carry
+    /// file paths.
+    func didReceive(_ payloads: [MXDiagnosticPayload]) {
+        for payload in payloads {
+            var fields: [String: String] = [
+                "time_start": Self.iso8601String(from: payload.timeStampBegin),
+                "time_end": Self.iso8601String(from: payload.timeStampEnd),
+                "crash_count": String(payload.crashDiagnostics?.count ?? 0),
+                "hang_count": String(payload.hangDiagnostics?.count ?? 0),
+                "cpu_exception_count": String(payload.cpuExceptionDiagnostics?.count ?? 0),
+                "disk_write_exception_count": String(payload.diskWriteExceptionDiagnostics?.count ?? 0)
+            ]
+            if let crashes = payload.crashDiagnostics, crashes.isEmpty == false {
+                fields["crash_signals"] = crashes
+                    .map { crash in
+                        let type = crash.exceptionType.map { "exc\($0)" } ?? "exc?"
+                        let signal = crash.signal.map { "sig\($0)" } ?? "sig?"
+                        return "\(type)/\(signal)"
+                    }
+                    .joined(separator: ",")
+                fields["crash_builds"] = Set(crashes.map(\.metaData.applicationBuildVersion))
+                    .sorted()
+                    .joined(separator: ",")
+            }
+            if let hangs = payload.hangDiagnostics, hangs.isEmpty == false {
+                fields["hang_durations_ms"] = hangs
+                    .map { String(Int($0.hangDuration.converted(to: .milliseconds).value)) }
+                    .joined(separator: ",")
+            }
+            let isSevere = (payload.crashDiagnostics?.isEmpty == false)
+                || (payload.hangDiagnostics?.isEmpty == false)
+            if isSevere {
+                logError(
+                    event: "performance_metrickit_diagnostic_received",
+                    message: "Received MetricKit diagnostic payload",
+                    component: "performance",
+                    fields: fields
+                )
+            } else {
+                logInfo(
+                    event: "performance_metrickit_diagnostic_received",
+                    message: "Received MetricKit diagnostic payload",
+                    component: "performance",
+                    fields: fields
+                )
+            }
+        }
+    }
+
     private static func histogramDescription(_ histogram: MXHistogram<UnitDuration>) -> String {
         histogram.bucketEnumerator.allObjects.compactMap { value -> String? in
             guard let bucket = value as? MXHistogramBucket<UnitDuration> else { return nil }
@@ -135,15 +189,17 @@ private final class MetricKitSubscriber: NSObject, MXMetricManagerSubscriber {
 @main
 @MainActor
 class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotificationCenterDelegate {
-    private static var isRunningTests: Bool {
+    static var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
             || ProcessInfo.processInfo.arguments.contains(where: { $0.contains("xctest") })
     }
 
-    private let occurrenceRefreshTaskIdentifier = "com.lifeboard.refresh.occurrences"
-    private let remindersRefreshTaskIdentifier = "com.lifeboard.refresh.reminders"
+    let occurrenceRefreshTaskIdentifier = "com.lifeboard.refresh.occurrences"
+    let remindersRefreshTaskIdentifier = "com.lifeboard.refresh.reminders"
     private let persistentStoreLocationService = PersistentStoreLocationService()
     private let persistentRuntimeInitializer = PersistentRuntimeInitializer()
+    let appRuntime = AppRuntime()
+    private let appBootstrapCoordinator = AppBootstrapCoordinator()
     private lazy var persistentStoreBootstrapService = PersistentStoreBootstrapService(
         storeLocationService: persistentStoreLocationService
     )
@@ -152,11 +208,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     private let cloudKitContainerIdentifier = PersistentStoreBootstrapService.defaultCloudKitContainerIdentifier
     private let v3StoreEpoch = 4
     private let orientationPolicyResolver = DeviceOrientationPolicyResolver()
-    private var notificationOrchestrator: TaskNotificationOrchestrator?
-    private var notificationActionHandler: NotificationActionUseCase?
+    var notificationOrchestrator: TaskNotificationOrchestrator?
+    var notificationActionHandler: NotificationActionUseCase?
     private var gamificationRemoteChangeCoordinator: GamificationRemoteChangeCoordinator?
     private var persistentStoreRemoteChangeObserver: NSObjectProtocol?
     private var cloudKitEventObserver: NSObjectProtocol?
+    private var cloudAccountObserver: NSObjectProtocol?
     private var semanticTaskObservers: [NSObjectProtocol] = []
     private var semanticStateContainer: CompositionRoot?
     private var lastHabitRuntimeMaintenanceAt: Date?
@@ -194,6 +251,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     private(set) var persistentBootstrapState: PersistentBootstrapState = .loading
     private(set) var persistentContainer: NSPersistentCloudKitContainer?
     private var didScheduleDeferredLaunchServices = false
+    private var didPrepareHealthObservers = false
+    private var firstContentObserver: NSObjectProtocol?
+    private var hasShownFirstContent = false
+    private var firstContentWaiters: [@MainActor @Sendable () -> Void] = []
     private let persistentBootstrapQueue = DispatchQueue(
         label: "lifeboard.app.persistentBootstrap",
         qos: .userInitiated
@@ -208,14 +269,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         let launchInterval = PerformanceTrace.begin("AppLaunchCriticalPath")
         defer { PerformanceTrace.end(launchInterval) }
-        HealthCoordinator.shared.prepareForLaunch()
+        installFirstContentObserver()
+        prepareHealthObserversIfAuthorized()
 
         EvaFeatureProviderRegistration.install()
-        if !ProcessInfo.processInfo.arguments.contains("-UI_TESTING"),
-           ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
-            EvaCloudAccessCoordinator.shared.startAutomaticActivation()
-        }
-
+        #if os(iOS) && !targetEnvironment(macCatalyst)
+        // Before the store bootstrap, not after it: a Live Activity button can
+        // be what launched the process, and its intent runs as soon as the
+        // app is up. Installed late, the bridge was still nil and the tap did
+        // nothing. The closures wait (bounded) for the store instead.
+        Self.installFastingAndRoutineIntentBridges()
+        #endif
         let launchArguments = ProcessInfo.processInfo.arguments
 
         // MARK: - UI Testing Mode
@@ -254,7 +318,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         // Hard-reset cutover to V3 model/container.
         let bootstrapInterval = PerformanceTrace.begin("PersistentBootstrap")
         performV3BootstrapCutoverIfNeeded()
-        registerBackgroundTasks()
+        if Self.isRunningTests == false {
+            registerBackgroundTasks()
+        }
         beginPersistentStoreBootstrap(trigger: "launch")
         PerformanceTrace.end(bootstrapInterval)
         registerPerformanceTelemetryIfNeeded()
@@ -263,16 +329,78 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         return true
     }
 
+    /// Installs the HealthKit observers (27 metric queries plus background
+    /// delivery) only for someone who has been asked to connect Health.
+    ///
+    /// They used to be installed on every launch for every user, including
+    /// the majority who never connected Health — each launch registered 27
+    /// observer queries that could only ever fail authorization. Before
+    /// bootstrap, as before, so wakes for a connected user are still buffered.
+    private func prepareHealthObserversIfAuthorized() {
+        guard Self.isRunningTests == false,
+              didPrepareHealthObservers == false,
+              HealthAuthorizationPromptState.hasRequested else { return }
+        didPrepareHealthObservers = true
+        HealthCoordinator.shared.prepareForLaunch()
+    }
+
     private func scheduleDeferredLaunchServices(application: UIApplication) {
         guard didScheduleDeferredLaunchServices == false else { return }
         didScheduleDeferredLaunchServices = true
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(700)) { [weak self] in
+        installFirstContentObserver()
+        // Keyed to Home's first frame, not to a fixed 700 ms after launch:
+        // a slow store open used to run this work under the splash.
+        afterFirstContent(delay: 0.3) { [weak self] in
             guard let self else { return }
             self.runDeferredLaunchPostFirstFrameMain(application: application)
             Task { @MainActor [weak self] in
                 self?.runDeferredLaunchBackgroundWarmup()
             }
+        }
+    }
+
+    private func installFirstContentObserver() {
+        guard firstContentObserver == nil else { return }
+        firstContentObserver = NotificationCenter.default.addObserver(
+            forName: .lifeboardShellDidBecomeInteractive,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.markFirstContentShown() }
+        }
+    }
+
+    private func markFirstContentShown() {
+        guard hasShownFirstContent == false else { return }
+        hasShownFirstContent = true
+        let waiters = firstContentWaiters
+        firstContentWaiters.removeAll()
+        waiters.forEach { $0() }
+    }
+
+    /// Runs `work` `delay` seconds after the shell's first frame — or after
+    /// `fallback` seconds if that never comes (a bootstrap failure screen, a
+    /// UI-test seed gate), so nothing deferred is ever skipped.
+    private func afterFirstContent(
+        delay: TimeInterval,
+        fallback: TimeInterval = 4,
+        _ work: @escaping @MainActor @Sendable () -> Void
+    ) {
+        let gate = ReminderReconcileCompletionGate()
+        let run: @MainActor @Sendable () -> Void = {
+            guard gate.claim() else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                MainActor.assumeIsolated { work() }
+            }
+        }
+        if hasShownFirstContent {
+            run()
+            return
+        }
+        firstContentWaiters.append(run)
+        DispatchQueue.main.asyncAfter(deadline: .now() + fallback) {
+            MainActor.assumeIsolated { run() }
         }
     }
 
@@ -283,6 +411,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         defer { PerformanceTrace.end(interval) }
         guard Self.isRunningTests == false else { return }
         application.registerForRemoteNotifications()
+        // Off the critical path: it starts a reachability monitor and (only
+        // after consent) a network activation, neither of which the first
+        // frame needs. `sceneDidBecomeActive` already asks for activation.
+        if ProcessInfo.processInfo.arguments.contains("-UI_TESTING") == false {
+            EvaCloudAccessCoordinator.shared.startAutomaticActivation()
+        }
     }
 
     private func runDeferredLaunchBackgroundWarmup() {
@@ -325,6 +459,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     /// Executes applicationDidBecomeActive.
     func applicationDidBecomeActive(_ application: UIApplication) {
         reconcileNotifications(reason: "app_did_become_active")
+        // Returning from the Health permission sheet is a become-active, so a
+        // first connection installs its observers here instead of waiting
+        // for the next launch.
+        prepareHealthObserversIfAuthorized()
         HealthCoordinator.shared.applicationDidBecomeActive()
         guard case .ready = persistentBootstrapState else { return }
         if let persistentContainer, AppDelegate.isWriteClosed == false {
@@ -346,20 +484,34 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
     /// Executes makeLaunchRootMode.
     func makeLaunchRootMode(state overrideState: PersistentBootstrapState? = nil) -> LaunchRootMode {
-        let state = overrideState ?? persistentBootstrapState
-        switch state {
-        case .loading:
+        if let overrideState {
+            switch overrideState {
+            case .loading:
+                return .loading
+            case .ready:
+                return .home
+            case .failed(let message):
+                return .bootstrapFailure(message: message)
+            }
+        }
+        switch appRuntime.state {
+        case .bootstrapping:
             return .loading
         case .ready:
             return .home
-        case .failed(let message):
-            return .bootstrapFailure(message: message)
+        case .failed(let failure):
+            return .bootstrapFailure(message: failure.userFacingMessage)
         }
     }
 
     private func updatePersistentSyncMode(_ mode: PersistentSyncMode, source: String) {
         let previous = AppDelegate.persistentSyncMode
         AppDelegate.persistentSyncMode = mode
+        if case .writeClosed = mode {
+            PersistentStoreReadOnlyState.shared.update(isReadOnly: true)
+        } else {
+            PersistentStoreReadOnlyState.shared.update(isReadOnly: false)
+        }
 
         guard previous != mode else { return }
         NotificationCenter.default.post(
@@ -381,19 +533,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         case .loading:
             AppDelegate.persistentBootstrapFailureMessage = nil
             persistentContainer = nil
+            appRuntime.publishBootstrapping(.openingPersistentStores)
             postPersistentBootstrapStateDidChange()
             return .loading
 
         case .ready(let container):
             persistentContainer = container
             AppDelegate.persistentBootstrapFailureMessage = nil
-            HealthCoordinator.shared.attach(container: container)
+            if Self.isRunningTests == false {
+                refreshCloudSyncStatus()
+            }
+            if Self.isRunningTests == false {
+                HealthCoordinator.shared.attach(container: container)
+            }
 
-            let didConfigureRuntime = setupCleanArchitecture()
-            guard didConfigureRuntime else {
+            appRuntime.publishBootstrapping(.composingDependencies)
+            guard let graph = setupCleanArchitecture() else {
+                appRuntime.publishFailure(.dependencyGraph())
                 postPersistentBootstrapStateDidChange()
                 return makeLaunchRootMode()
             }
+            appRuntime.publishBootstrapping(.startingPlatformServices)
 
             if Self.isRunningTests == false {
                 gamificationRemoteChangeCoordinator = GamificationRemoteChangeCoordinator(
@@ -442,8 +602,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                     scheduleRemindersRefresh()
                 }
             }
-            configureLifeBoardNotifications()
             if Self.isRunningTests == false {
+                configureLifeBoardNotifications()
                 installPersistentStoreObservers(container: container)
                 TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "bootstrap_ready")
             }
@@ -457,12 +617,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                     "trigger": trigger
                 ]
             )
+            appRuntime.publishReady(graph)
             postPersistentBootstrapStateDidChange()
             return .home
 
         case .failed(let message):
             AppDelegate.persistentBootstrapFailureMessage = message
             persistentContainer = nil
+            appRuntime.publishFailure(.persistence(message: message))
             gamificationRemoteChangeCoordinator = nil
             if let persistentStoreRemoteChangeObserver {
                 NotificationCenter.default.removeObserver(persistentStoreRemoteChangeObserver)
@@ -600,6 +762,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             object: container,
             queue: .main
         ) { note in
+            for event in Self.cloudKitEvents(from: note) {
+                let kind: CloudSyncStatusStore.EventKind
+                switch event.type {
+                case .import: kind = .importing
+                case .export: kind = .exporting
+                default: kind = .setup
+                }
+                CloudSyncStatusStore.shared.recordEvent(
+                    kind: kind,
+                    endDate: event.endDate,
+                    succeeded: event.succeeded,
+                    error: event.error
+                )
+            }
             for event in Self.cloudKitEvents(from: note) where event.error != nil {
                 let errorDescription = event.error?.localizedDescription ?? "unknown"
                 logError(
@@ -642,8 +818,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         )
 
         do {
-            let quarantineURL = try quarantineV3StoreFiles(reason: "cloud_authoritative_reset")
-            clearActiveV3SplitStoreFiles()
+            // Only the synced store is rebuilt from iCloud; the local-only
+            // store has no other copy and stays where it is.
+            let quarantineURL = try persistentStoreLocationService.quarantineCloudSyncStoreFiles(reason: "cloud_authoritative_reset")
+            persistentStoreLocationService.clearCloudSyncStoreFiles()
             let launchMode = rebootstrapPersistentStore(trigger: "cloud_authoritative_reset")
             switch launchMode {
             case .loading:
@@ -834,112 +1012,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         }
     }
     
-    // MARK: - Push Notification Handling
-    
-    // Remote notification registration success/failure callbacks
-    /// Executes application.
-    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
-        // Token forwarding is intentionally deferred until a push provider is configured.
-    }
-    
-    /// Executes application.
-    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        logError(
-            event: "apns_registration_failed",
-            message: "APNs registration failed",
-            fields: [
-                "error": error.localizedDescription
-            ]
-        )
-    }
-
-    // MARK: - Local Notification Runtime
-
-    private func configureLifeBoardNotifications() {
-        guard let taskRepository = CompositionRoot.shared.taskDefinitionRepository,
-              let notificationService = CompositionRoot.shared.notificationService
-        else {
-            return
-        }
-
-        let orchestrator = TaskNotificationOrchestrator(
-            taskRepository: taskRepository,
-            notificationService: notificationService,
-            gamificationRepository: CompositionRoot.shared.gamificationRepository,
-            preferencesStore: .shared,
-            reconcileDebounceInterval: 0.35
-        )
-        orchestrator.startObservingMutations()
-        notificationOrchestrator = orchestrator
-        NotificationCoordinator.orchestrator = orchestrator
-
-        let actionHandler = NotificationActionUseCase(
-            notificationService: notificationService,
-            coordinatorProvider: {
-                let container = CompositionRoot.shared
-                guard container.isConfiguredForRuntime else { return nil }
-                return container.coordinator
-            }
-        )
-        notificationActionHandler = actionHandler
-        NotificationCoordinator.actionHandler = actionHandler
-
-        notificationService.registerCategories(NotificationCategories.all())
-        notificationService.setDelegate(self)
-
-        notificationService.fetchAuthorizationStatus { status in
-            switch status {
-            case .notDetermined:
-                break
-            case .authorized, .provisional, .ephemeral:
-                orchestrator.reconcile(reason: "app_launch_authorized")
-            case .denied:
-                break
-            }
-        }
-    }
-
-    func reconcileNotifications(reason: String = "manual") {
-        notificationOrchestrator?.reconcile(reason: reason)
-    }
-
-    // MARK: - UNUserNotificationCenterDelegate
-
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification,
-        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
-    ) {
-        logWarning(
-            event: "notification_delivered",
-            message: "Notification delivered while app is foreground",
-            fields: [
-                "id": notification.request.identifier
-            ]
-        )
-        if #available(iOS 14.0, *) {
-            completionHandler([.banner, .badge, .sound])
-        } else {
-            completionHandler([.alert, .badge, .sound])
-        }
-    }
-
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
-    ) {
-        guard let notificationActionHandler else {
-            completionHandler()
-            return
-        }
-        notificationActionHandler.handleAction(
-            identifier: response.actionIdentifier,
-            request: response.notification.request,
-            completion: completionHandler
-        )
-    }
-
     // MARK: - V3 Bootstrap
 
     /// Records V3 epoch changes without deleting production stores.
@@ -986,6 +1058,35 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         context: CloudKitRuntimeContext = .current()
     ) -> CloudKitMirroringMode {
         persistentStoreBootstrapService.cloudKitMirroringMode(context: context)
+    }
+
+    /// Records whether this launch mirrors to iCloud and the account status,
+    /// for the Recovery Center and for onboarding's first-import wait.
+    private func refreshCloudSyncStatus() {
+        let mirroringEnabled = cloudKitMirroringMode() == .enabled && AppDelegate.isWriteClosed == false
+        CloudSyncStatusStore.shared.recordMirroring(enabled: mirroringEnabled)
+        guard mirroringEnabled else { return }
+        if cloudAccountObserver == nil {
+            cloudAccountObserver = NotificationCenter.default.addObserver(
+                forName: .CKAccountChanged,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshCloudSyncStatus() }
+            }
+        }
+        CKContainer(identifier: cloudKitContainerIdentifier).accountStatus { status, _ in
+            let resolved: CloudSyncStatusStore.AccountStatus
+            switch status {
+            case .available: resolved = .available
+            case .noAccount: resolved = .noAccount
+            case .restricted: resolved = .restricted
+            case .temporarilyUnavailable: resolved = .temporarilyUnavailable
+            case .couldNotDetermine: resolved = .unknown
+            @unknown default: resolved = .unknown
+            }
+            CloudSyncStatusStore.shared.recordAccountStatus(resolved)
+        }
     }
 
     private func logCloudKitPreflightTelemetry() {
@@ -1178,14 +1279,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         persistentStoreLocationService.v3SplitStoreFileNames()
     }
 
-    private func quarantineV3StoreFiles(reason: String) throws -> URL? {
-        try persistentStoreLocationService.quarantineActiveV3StoreFiles(reason: reason)
-    }
-
-    private func clearActiveV3SplitStoreFiles() {
-        persistentStoreLocationService.clearActiveV3StoreFiles()
-    }
-
     /// Executes clearLegacyV1PreferenceKeys.
     private func clearLegacyV1PreferenceKeys(defaults: UserDefaults) {
         let legacyKeys = [
@@ -1218,265 +1311,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         AppDelegate.isWriteClosed == false
     }
 
-    /// Executes registerBackgroundTasks.
-    private func registerBackgroundTasks() {
-        guard Self.isRunningTests == false else { return }
-        BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: occurrenceRefreshTaskIdentifier,
-            using: nil
-        ) { [weak self] task in
-            guard let refreshTask = task as? BGAppRefreshTask else {
-                task.setTaskCompleted(success: false)
-                return
-            }
-            self?.handleOccurrenceRefresh(task: refreshTask)
-        }
-
-        BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: remindersRefreshTaskIdentifier,
-            using: nil
-        ) { [weak self] task in
-            guard let refreshTask = task as? BGAppRefreshTask else {
-                task.setTaskCompleted(success: false)
-                return
-            }
-            self?.handleRemindersRefresh(task: refreshTask)
-        }
-    }
-
-    /// Executes scheduleOccurrenceRefresh.
-    private func scheduleOccurrenceRefresh() {
-        guard Self.isRunningTests == false else { return }
-        let request = BGAppRefreshTaskRequest(identifier: occurrenceRefreshTaskIdentifier)
-        request.earliestBeginDate = Calendar.current.date(byAdding: .hour, value: 12, to: Date())
-        do {
-            try BGTaskScheduler.shared.submit(request)
-        } catch {
-            logWarning(
-                event: "bg_refresh_schedule_failed",
-                message: "Failed to schedule V3 occurrence refresh task",
-                fields: ["error": error.localizedDescription]
-            )
-        }
-    }
-
-    /// Executes scheduleRemindersRefresh.
-    private func scheduleRemindersRefresh() {
-        guard Self.isRunningTests == false else { return }
-        let request = BGAppRefreshTaskRequest(identifier: remindersRefreshTaskIdentifier)
-        request.earliestBeginDate = Calendar.current.date(byAdding: .hour, value: 6, to: Date())
-        do {
-            try BGTaskScheduler.shared.submit(request)
-        } catch {
-            logWarning(
-                event: "bg_reminders_schedule_failed",
-                message: "Failed to schedule reminders background refresh task",
-                fields: ["error": error.localizedDescription]
-            )
-        }
-    }
-
-    /// Executes handleOccurrenceRefresh.
-    private func handleOccurrenceRefresh(task: BGAppRefreshTask) {
-        scheduleOccurrenceRefresh()
-        task.expirationHandler = {
-            task.setTaskCompleted(success: false)
-        }
-
-        let coordinator = CompositionRoot.shared.coordinator
-        let generateUseCase = coordinator.generateOccurrences
-        let maintain = coordinator.maintainOccurrences
-        let purge = coordinator.purgeExpiredTombstones
-
-        generateUseCase.execute(daysAhead: 14) { result in
-            switch result {
-            case .success:
-                maintain.execute { maintainResult in
-                    switch maintainResult {
-                    case .success:
-                        purge.execute { purgeResult in
-                            switch purgeResult {
-                            case .success:
-                                task.setTaskCompleted(success: true)
-                            case .failure(let error):
-                                logWarning(
-                                    event: "bg_tombstone_purge_failed",
-                                    message: "Tombstone purge failed in background refresh",
-                                    fields: ["error": error.localizedDescription]
-                                )
-                                task.setTaskCompleted(success: false)
-                            }
-                        }
-                    case .failure(let error):
-                        logWarning(
-                            event: "bg_maintenance_failed",
-                            message: "Occurrence maintenance failed in background refresh",
-                            fields: ["error": error.localizedDescription]
-                        )
-                        task.setTaskCompleted(success: false)
-                    }
-                }
-            case .failure(let error):
-                logWarning(
-                    event: "bg_refresh_execute_failed",
-                    message: "Occurrence generation failed in background refresh",
-                    fields: ["error": error.localizedDescription]
-                )
-                task.setTaskCompleted(success: false)
-            }
-        }
-    }
-
-    /// Executes handleRemindersRefresh.
-    private func handleRemindersRefresh(task: BGAppRefreshTask) {
-        scheduleRemindersRefresh()
-        task.expirationHandler = {
-            task.setTaskCompleted(success: false)
-        }
-
-        guard V2FeatureFlags.remindersSyncEnabled, V2FeatureFlags.remindersBackgroundRefreshEnabled else {
-            task.setTaskCompleted(success: true)
-            return
-        }
-
-        let reconcileUseCase = CompositionRoot.shared.coordinator.reconcileExternalReminders
-        guard let externalRepository = CompositionRoot.shared.externalSyncRepository else {
-            logWarning(
-                event: "bg_reminders_missing_dependencies",
-                message: "Skipping reminders refresh because V3 sync dependencies are unavailable",
-                fields: [:]
-            )
-            task.setTaskCompleted(success: false)
-            return
-        }
-
-        externalRepository.fetchContainerMappings { result in
-            switch result {
-            case .failure(let error):
-                logWarning(
-                    event: "bg_reminders_fetch_mappings_failed",
-                    message: "Failed to load external container mappings for reminders refresh",
-                    fields: ["error": error.localizedDescription]
-                )
-                task.setTaskCompleted(success: false)
-            case .success(let mappings):
-                let syncedMappings = mappings.filter { $0.provider == "apple_reminders" && $0.syncEnabled }
-                guard syncedMappings.isEmpty == false else {
-                    task.setTaskCompleted(success: true)
-                    return
-                }
-
-                Self.processReminderReconcileQueue(
-                    mappings: syncedMappings,
-                    index: 0,
-                    reconcileUseCase: reconcileUseCase,
-                    externalRepository: externalRepository,
-                    failureCount: 0
-                ) { failureCount in
-                    task.setTaskCompleted(success: failureCount == 0)
-                }
-            }
-        }
-    }
-
-    /// Executes processReminderReconcileQueue.
-    nonisolated private static func processReminderReconcileQueue(
-        mappings: [ExternalContainerMapDefinition],
-        index: Int,
-        reconcileUseCase: ReconcileExternalRemindersUseCase,
-        externalRepository: ExternalSyncRepositoryProtocol,
-        failureCount: Int,
-        completion: @escaping @Sendable (Int) -> Void
-    ) {
-        guard index < mappings.count else {
-            completion(failureCount)
-            return
-        }
-
-        let mapping = mappings[index]
-        let completionGate = ReminderReconcileCompletionGate()
-        let timeoutItem = DispatchWorkItem {
-            guard completionGate.claim() else { return }
-            logWarning(
-                event: "bg_reminders_project_timeout",
-                message: "Project reconcile timed out in background reminders refresh",
-                fields: [
-                    "project_id": mapping.projectID.uuidString,
-                    "external_container_id": mapping.externalContainerID
-                ]
-            )
-            Self.processReminderReconcileQueue(
-                mappings: mappings,
-                index: index + 1,
-                reconcileUseCase: reconcileUseCase,
-                externalRepository: externalRepository,
-                failureCount: failureCount + 1,
-                completion: completion
-            )
-        }
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 55, execute: timeoutItem)
-
-        reconcileUseCase.reconcileProject(projectID: mapping.projectID) { result in
-            guard completionGate.claim() else { return }
-            timeoutItem.cancel()
-
-            switch result {
-            case .success:
-                externalRepository.upsertContainerMapping(
-                    provider: mapping.provider,
-                    projectID: mapping.projectID
-                ) { existing in
-                    var resolved = existing ?? mapping
-                    resolved.lastSyncAt = Date()
-                    resolved.syncEnabled = true
-                    return resolved
-                } completion: { _ in
-                    Self.processReminderReconcileQueue(
-                        mappings: mappings,
-                        index: index + 1,
-                        reconcileUseCase: reconcileUseCase,
-                        externalRepository: externalRepository,
-                        failureCount: failureCount,
-                        completion: completion
-                    )
-                }
-            case .failure(let error):
-                logWarning(
-                    event: "bg_reminders_project_failed",
-                    message: "Project reconcile failed in background reminders refresh",
-                    fields: [
-                        "project_id": mapping.projectID.uuidString,
-                        "external_container_id": mapping.externalContainerID,
-                        "error": error.localizedDescription
-                    ]
-                )
-                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2) {
-                    Self.processReminderReconcileQueue(
-                        mappings: mappings,
-                        index: index + 1,
-                        reconcileUseCase: reconcileUseCase,
-                        externalRepository: externalRepository,
-                        failureCount: failureCount + 1,
-                        completion: completion
-                    )
-                }
-            }
-        }
-    }
-
     // MARK: - Clean Architecture Setup
 
     /// Setup Clean Architecture with modern components only
     @discardableResult
     @MainActor
-    func setupCleanArchitecture() -> Bool {
+    func setupCleanArchitecture() -> AppGraph? {
         guard let persistentContainer else {
             logError(
                 event: "setup_clean_architecture_skipped",
                 message: "Skipping dependency configuration because persistent container is unavailable",
                 fields: ["reason": "persistent_container_nil"]
             )
-            return false
+            return nil
         }
 
         // Runtime composition is AppDelegate -> CompositionRoot -> UseCaseCoordinator.
@@ -1486,19 +1333,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         // of them across via `configureFromStateLayer()`. The required order was
         // enforced by a comment. One root means the order is the method body,
         // and there is no second copy to fall out of step.
-        let root = CompositionRoot.shared
-        let persistenceStack = LifeBoardPersistenceStack(container: persistentContainer)
-        root.configure(
-            with: persistenceStack.makeRepositoryBundle(
+        let graph: AppGraph
+        do {
+            graph = try appBootstrapCoordinator.composeGraph(
+                container: persistentContainer,
                 syncModeProvider: AppDelegate.persistentSyncModeSnapshot
             )
-        )
-
-        do {
-            try root.assertV3RuntimeReady()
         } catch {
-            return failClosedV3Runtime(reason: error.localizedDescription)
+            _ = failClosedV3Runtime(reason: error.localizedDescription)
+            return nil
         }
+        let root = CompositionRoot.shared
 
         if shouldRunStartupMutationWorkflows {
             repairProjectIdentityIfNeeded()
@@ -1544,11 +1389,48 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
            let habitReadRepository = root.habitRuntimeReadRepository {
             Task { await HabitReminderCoordinator.shared.install(readRepository: habitReadRepository) }
         }
-        return true
+        return graph
+    }
+
+    /// The live container once the store has opened, waiting up to `timeout`
+    /// for a cold launch to finish bootstrapping. `nil` when the store failed,
+    /// is read-only, or did not open in time — callers then do nothing rather
+    /// than write somewhere unexpected.
+    static func readyWritableContainer(
+        timeout: Duration = .seconds(10)
+    ) async -> NSPersistentCloudKitContainer? {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while true {
+            if let delegate = UIApplication.shared.delegate as? AppDelegate {
+                switch delegate.persistentBootstrapState {
+                case .ready:
+                    if let container = delegate.persistentContainer {
+                        return AppDelegate.isWriteClosed ? nil : container
+                    }
+                case .failed:
+                    return nil
+                case .loading:
+                    break
+                }
+            }
+            guard clock.now < deadline else { return nil }
+            try? await Task.sleep(for: .milliseconds(100))
+            guard Task.isCancelled == false else { return nil }
+        }
     }
 
     private func scheduleDeferredStartupReconciliation(stateContainer: CompositionRoot) {
-        deferredLaunchWarmupQueue.asyncAfter(deadline: .now() + .seconds(1)) { [weak self] in
+        // A second after Home's first frame rather than a second after the
+        // store opened: on a slow launch the fixed timer fired while the
+        // splash was still up and competed with the first render.
+        afterFirstContent(delay: 1) { [weak self] in
+            self?.runDeferredStartupReconciliation(stateContainer: stateContainer)
+        }
+    }
+
+    private func runDeferredStartupReconciliation(stateContainer: CompositionRoot) {
+        deferredLaunchWarmupQueue.async { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if self.shouldRunStartupMutationWorkflows {
@@ -1768,7 +1650,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
     /// Executes failClosedV3Runtime.
     private func failClosedV3Runtime(reason: String) -> Bool {
-        let failureMessage = "LifeBoard failed to initialize required V3 runtime dependencies."
+        let failureMessage = String(localized: "Couldn’t finish setting up.")
         persistentBootstrapState = .failed(failureMessage)
         persistentContainer = nil
         AppDelegate.persistentBootstrapFailureMessage = failureMessage
@@ -1876,11 +1758,23 @@ final class GamificationRemoteChangeCoordinator: @unchecked Sendable {
         self.historyToken = Self.loadPersistedToken(defaults: defaults)
     }
 
+    /// CloudKit posts remote-change notifications in bursts — one per
+    /// imported batch — and each used to trigger its own history scan.
+    /// Changes are now batched for `debounceInterval` and scanned once.
+    static let debounceInterval: TimeInterval = 2
+    private var isDebouncing = false
+
     func handleRemoteChange() {
         workQueue.async { [weak self] in
             guard let self else { return }
             self.pendingReplay = true
-            self.processIfNeeded()
+            guard self.isDebouncing == false else { return }
+            self.isDebouncing = true
+            self.workQueue.asyncAfter(deadline: .now() + Self.debounceInterval) { [weak self] in
+                guard let self else { return }
+                self.isDebouncing = false
+                self.processIfNeeded()
+            }
         }
     }
 

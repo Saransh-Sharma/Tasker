@@ -14,19 +14,19 @@ private enum ReplanHotZone: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .planToday: return "Plan Today"
-        case .moveToInbox: return "Inbox"
-        case .complete: return "Complete"
-        case .delete: return "Delete"
+        case .planToday: return String(localized: "Plan today")
+        case .moveToInbox: return String(localized: "Inbox")
+        case .complete: return String(localized: "Complete")
+        case .delete: return String(localized: "Delete")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .planToday: return "Drop to place"
-        case .moveToInbox: return "Clear date"
-        case .complete: return "Done"
-        case .delete: return "Remove"
+        case .planToday: return String(localized: "Drop to place")
+        case .moveToInbox: return String(localized: "Clear date")
+        case .complete: return String(localized: "Done")
+        case .delete: return String(localized: "Remove")
         }
     }
 
@@ -84,10 +84,10 @@ private struct ReplanHotZoneTarget: View {
             })
             .onChange(of: isTargeted) { _, newValue in
                 guard newValue else { return }
-                HapticFeedback.selection()
+                Haptic.pick.play()
             }
-            .animation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast, value: isVisible)
-            .animation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast, value: isTargeted)
+            .animation(MotionProfile.press.animation(reduceMotion: reduceMotion), value: isVisible)
+            .animation(MotionProfile.press.animation(reduceMotion: reduceMotion), value: isTargeted)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(zone.title), \(zone.subtitle)")
             .accessibilityIdentifier(zone.accessibilityIdentifier)
@@ -167,10 +167,10 @@ struct NeedsReplanCardOverlay: View {
                         DragGesture(minimumDistance: 3)
                             .onChanged { _ in
                                 guard isDraggingTask == false else { return }
-                                withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.panelIn) {
+                                withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
                                     isDraggingTask = true
                                 }
-                                HapticFeedback.light()
+                                Haptic.pick.play()
                             }
                             .onEnded { _ in
                                 resetDragState()
@@ -215,16 +215,12 @@ struct NeedsReplanCardOverlay: View {
                         }
 
                         if candidate.task.replanCount >= 3 {
-                            Text("Replanned \(candidate.task.replanCount)x")
+                            Text("Moved \(candidate.task.replanCount) times")
                                 .font(.lifeboard(.support).weight(.semibold))
                                 .foregroundStyle(Color.lifeboard.statusWarning)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 5)
                                 .background(Color.lifeboard.statusWarning.opacity(0.12), in: Capsule())
-                            Text("This keeps slipping. Consider shrinking it.")
-                                .font(.lifeboard(.support))
-                                .foregroundStyle(Color.lifeboard.textSecondary)
-                                .lineSpacing(1)
                         }
                     }
 
@@ -242,14 +238,14 @@ struct NeedsReplanCardOverlay: View {
                         VStack(spacing: 12) {
                             fullWidthAction("Reschedule", systemImage: "calendar.badge.clock", disabled: state.isApplying, action: onReschedule)
                             fullWidthAction("Move to Inbox", systemImage: "tray.fill", disabled: state.isApplying, action: onMoveToInbox)
-                            fullWidthAction("Check Off", systemImage: "checkmark.circle.fill", disabled: state.isApplying, action: onCheckOff)
+                            fullWidthAction("Complete", systemImage: "checkmark.circle.fill", disabled: state.isApplying, action: onCheckOff)
                             fullWidthAction("Delete", systemImage: "trash.fill", role: .destructive, disabled: state.isApplying, action: onDelete)
                         }
                     } else {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                             compactAction("Move to Inbox", systemImage: "tray.fill", disabled: state.isApplying, action: onMoveToInbox)
                             compactAction("Reschedule", systemImage: "calendar.badge.clock", emphasized: true, disabled: state.isApplying, action: onReschedule)
-                            compactAction("Check Off", systemImage: "checkmark.circle.fill", disabled: state.isApplying, action: onCheckOff)
+                            compactAction("Complete", systemImage: "checkmark.circle.fill", disabled: state.isApplying, action: onCheckOff)
                             compactAction("Delete", systemImage: "trash.fill", role: .destructive, disabled: state.isApplying, action: onDelete)
                         }
                     }
@@ -335,26 +331,26 @@ struct NeedsReplanCardOverlay: View {
         resetDragState()
         switch zone {
         case .planToday:
-            HapticFeedback.selection()
-            onFeedback("Drag into a time or All Day.")
+            Haptic.pick.play()
+            onFeedback(String(localized: "Drag to a time or All day"))
             onReschedule()
         case .moveToInbox:
-            HapticFeedback.success()
-            onFeedback("Moved to Inbox")
+            Haptic.commit.play()
+            onFeedback(String(localized: "Moved to Inbox"))
             onMoveToInbox()
         case .complete:
-            HapticFeedback.success()
-            onFeedback("Marked complete")
+            Haptic.commit.play()
+            onFeedback(String(localized: "Completed"))
             onCheckOff()
         case .delete:
-            HapticFeedback.warning()
-            onFeedback("Deleted")
+            Haptic.decline.play()
+            onFeedback(String(localized: "Deleted"))
             onDelete()
         }
     }
 
     private func resetDragState() {
-        withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast) {
+        withAnimation(MotionProfile.press.animation(reduceMotion: reduceMotion)) {
             isDraggingTask = false
             planTargeted = false
             inboxTargeted = false
@@ -366,36 +362,36 @@ struct NeedsReplanCardOverlay: View {
     private var applyingMessage: String {
         switch state.applyingAction {
         case .moveToInbox:
-            return "Moving to Inbox..."
+            return String(localized: "Moving to Inbox…")
         case .reschedule:
-            return "Scheduling..."
+            return String(localized: "Scheduling…")
         case .checkOff:
-            return "Marking complete..."
+            return String(localized: "Completing…")
         case .delete:
-            return "Deleting..."
+            return String(localized: "Deleting…")
         case .undo:
-            return "Undoing..."
+            return String(localized: "Undoing…")
         case nil:
-            return "Updating..."
+            return String(localized: "Updating…")
         }
     }
 
     private func originalLine(for candidate: HomeReplanCandidate) -> String {
         switch candidate.kind {
         case .pastDue:
-            guard let anchorDate = candidate.anchorDate else { return "Due date needs a plan" }
+            guard let anchorDate = candidate.anchorDate else { return String(localized: "No due date") }
             if candidate.task.isAllDay || isDateOnly(anchorDate) {
-                return "Due \(anchorDate.formatted(.dateTime.weekday(.wide).month().day()))"
+                return String(localized: "Due \(anchorDate.formatted(.dateTime.weekday(.wide).month().day()))")
             }
-            return "Due \(anchorDate.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))"
+            return String(localized: "Due \(anchorDate.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))")
         case .scheduledCarryOver:
-            guard let anchorDate = candidate.anchorDate else { return "Scheduled on a past day" }
+            guard let anchorDate = candidate.anchorDate else { return String(localized: "Scheduled earlier") }
             if candidate.task.isAllDay || isDateOnly(anchorDate) {
-                return "Scheduled \(anchorDate.formatted(.dateTime.weekday(.wide).month().day()))"
+                return String(localized: "Scheduled \(anchorDate.formatted(.dateTime.weekday(.wide).month().day()))")
             }
-            return "Scheduled \(anchorDate.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))"
+            return String(localized: "Scheduled \(anchorDate.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))")
         case .unscheduledBacklog:
-            return "No due date or time • Added \(candidate.task.createdAt.formatted(.dateTime.weekday(.wide).month().day()))"
+            return String(localized: "No date · Added \(candidate.task.createdAt.formatted(.dateTime.weekday(.wide).month().day()))")
         }
     }
 
@@ -486,7 +482,7 @@ struct NeedsReplanCardOverlay: View {
         switch title {
         case "Move to Inbox": return "home.needsReplan.action.inbox"
         case "Reschedule": return "home.needsReplan.action.planToday"
-        case "Check Off": return "home.needsReplan.action.complete"
+        case "Complete": return "home.needsReplan.action.complete"
         case "Delete": return "home.needsReplan.action.delete"
         default: return "home.needsReplan.action.\(title)"
         }

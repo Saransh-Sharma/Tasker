@@ -35,7 +35,7 @@ struct FrictionDetectiveView: View {
 
     var body: some View {
         EvaRitualShell(
-            title: "Friction Detective",
+            title: String(localized: "Why it\u{2019}s stuck"),
             orientation: orientation,
             evidence: analysis.evidence,
             onOpenEvidence: { _ in onClose() },
@@ -48,13 +48,13 @@ struct FrictionDetectiveView: View {
 
     private var orientation: String {
         switch phase {
-        case .evidence: "This is evidence about the work, not a verdict about you."
-        case .choosingReason: "EVA can offer possibilities. Only you can name what was actually in the way."
-        case .choosingExperiment: "Change one condition and see what becomes easier."
-        case .previewing: "One experiment. One explicit task change."
-        case .applying: "Applying the experiment you reviewed."
-        case .receipt: "We changed the conditions, not your score."
-        case .failure: errorMessage ?? "Nothing was changed."
+        case .evidence: String(localized: "History for this task.")
+        case .choosingReason: String(localized: "Pick what got in the way.")
+        case .choosingExperiment: String(localized: "Try one change.")
+        case .previewing: String(localized: "Check the change.")
+        case .applying: String(localized: "Changing the task\u{2026}")
+        case .receipt: String(localized: "Task changed")
+        case .failure: errorMessage ?? String(localized: "Nothing changed.")
         }
     }
 
@@ -66,14 +66,14 @@ struct FrictionDetectiveView: View {
         case .choosingExperiment: experimentChoice
         case .previewing: preview
         case .applying:
-            StatusSurface(state: .loading, title: "Changing one condition", message: "Saving the task change and your confirmed finding.")
+            StatusSurface(state: .loading, title: String(localized: "Changing the task\u{2026}"), message: "")
         case .receipt: receipt
         case .failure:
             StatusSurface(
                 state: .recoverableError,
-                title: "The task is still safe",
-                message: errorMessage ?? "Nothing was changed.",
-                actionTitle: "Review again",
+                title: String(localized: "Couldn\u{2019}t change the task"),
+                message: errorMessage ?? String(localized: "Nothing changed."),
+                actionTitle: String(localized: "Try again"),
                 action: { transition(to: .previewing) }
             )
         }
@@ -81,11 +81,11 @@ struct FrictionDetectiveView: View {
 
     private var evidenceThread: some View {
         EvaRitualSection(
-            eyebrow: "Observed",
+            eyebrow: String(localized: "History"),
             title: task.title,
             message: analysis.distinctEventCount == 0
-                ? "There is not enough history for a confident pattern. You can still inspect the task manually."
-                : "These are the signals LifeBoard can verify."
+                ? String(localized: "Not enough history yet.")
+                : nil
         ) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(analysis.evidence.enumerated()), id: \.element.id) { index, item in
@@ -97,36 +97,36 @@ struct FrictionDetectiveView: View {
                             }
                         }
                         Text(item.reason)
-                            .font(.subheadline)
-                            .padding(.bottom, 18)
+                            .lifeboardFont(.support)
+                            .padding(.bottom, 16)
                         Spacer()
                     }
                 }
                 if analysis.evidence.isEmpty {
-                    Label("No repeated event history yet", systemImage: "circle.dashed")
-                        .font(.subheadline)
+                    Label("No history yet", systemImage: "circle.dashed")
+                        .lifeboardFont(.support)
                 }
             }
         }
     }
 
     private var reasonChoice: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             if analysis.possibleReasons.isEmpty == false {
                 EvaRitualSection(
-                    eyebrow: "Possible explanation",
-                    title: "A few hypotheses—not conclusions",
-                    message: "These come from task structure and planning signals. EVA will not save them."
+                    eyebrow: String(localized: "Suggested"),
+                    title: String(localized: "Possible reasons"),
+                    message: nil
                 ) {
                     ForEach(analysis.possibleReasons, id: \.self) { reason in
                         Label(reason.displayTitle, systemImage: "questionmark.bubble")
-                            .font(.subheadline)
+                            .lifeboardFont(.support)
                     }
                 }
             }
             EvaRitualSection(
-                eyebrow: "Chosen by you",
-                title: "What was actually in the way?",
+                eyebrow: String(localized: "Pick one"),
+                title: String(localized: "What\u{2019}s blocking it?"),
                 message: nil
             ) {
                 ForEach(FrictionReason.allCases, id: \.self) { reason in
@@ -153,9 +153,9 @@ struct FrictionDetectiveView: View {
 
     private var experimentChoice: some View {
         EvaRitualSection(
-            eyebrow: "One experiment",
-            title: "What should change this time?",
-            message: "Pick one small intervention. You can come back if it does not help."
+            eyebrow: String(localized: "Pick one"),
+            title: String(localized: "Try a change"),
+            message: nil
         ) {
             ForEach(FrictionIntervention.allCases, id: \.self) { intervention in
                 Button {
@@ -164,9 +164,9 @@ struct FrictionDetectiveView: View {
                 } label: {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(intervention.displayTitle).font(.subheadline.weight(.semibold))
+                            Text(intervention.displayTitle).lifeboardFont(.bodyStrong)
                             Text(intervention.explanation)
-                                .font(.caption)
+                                .lifeboardFont(.caption1)
                                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                         Spacer()
@@ -180,8 +180,13 @@ struct FrictionDetectiveView: View {
                 .accessibilityValue(selectedIntervention == intervention ? "Selected" : "Not selected")
             }
             if selectedIntervention?.acceptsText == true {
-                TextField(selectedIntervention?.textPrompt ?? "Optional detail", text: $experimentText, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
+                TextField(selectedIntervention?.textPrompt ?? String(localized: "Details"), text: $experimentText, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    // Clay well, not the system rounded border: that drew a pure white
+                    // box on warm paper and a pure black one in dark appearance.
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
                     .lineLimit(2...4)
                     .onChange(of: experimentText) { _, _ in persistDraft() }
             }
@@ -190,49 +195,46 @@ struct FrictionDetectiveView: View {
 
     private var preview: some View {
         EvaRitualSection(
-            eyebrow: "Will change",
-            title: selectedIntervention?.displayTitle ?? "Choose an experiment",
-            message: selectedReason.map { "You named the friction as “\($0.displayTitle.lowercased())”." }
+            eyebrow: String(localized: "Change"),
+            title: selectedIntervention?.displayTitle ?? String(localized: "Pick a change"),
+            message: selectedReason.map { String(localized: "Reason: \($0.displayTitle)") }
         ) {
             if let selectedIntervention {
                 Label(selectedIntervention.explanation, systemImage: "arrow.triangle.2.circlepath")
-                    .font(.subheadline)
-                Text("The evidence remains observed history. EVA's hypotheses will not be saved as memory.")
-                    .font(.caption)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    .lifeboardFont(.support)
             }
         }
     }
 
     private var receipt: some View {
         EvaRitualSection(
-            eyebrow: findingSaved ? "Experiment started" : "Task changed",
-            title: "We changed the conditions, not your score.",
+            eyebrow: String(localized: "Done"),
+            title: String(localized: "Task changed"),
             message: findingSaved
-                ? "Weekly Reset will ask whether this helped after seven days."
-                : "The task change succeeded, but no seven-day follow-up was scheduled."
+                ? String(localized: "Weekly reset will ask if it helped.")
+                : String(localized: "Couldn\u{2019}t set up the follow-up.")
         ) {
             if findingSaved {
-                Label("Finding saved locally", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline.weight(.semibold))
+                Label("Saved on \(DeviceNoun.this)", systemImage: "checkmark.seal.fill")
+                    .lifeboardFont(.bodyStrong)
             } else {
                 Label("Follow-up not saved", systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline.weight(.semibold))
+                    .lifeboardFont(.bodyStrong)
                     .foregroundStyle(Color.lifeboard.statusWarning)
             }
             if let receiptIssue {
                 Text(receiptIssue)
-                    .font(.caption)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             if appliedReceipt != nil {
-                Button(isUndoing ? "Undoing…" : "Undo experiment") { undo() }
-                    .buttonStyle(.bordered)
+                Button(isUndoing ? "Undoing…" : "Undo") { undo() }
+                    .buttonStyle(.lifeBoardChip)
                     .disabled(isUndoing)
-                    .accessibilityHint("Restores the task and removes the saved friction finding")
+                    .accessibilityHint("Restores the task")
             } else if taskMutationApplied {
-                Text("The in-session Undo is unavailable after reopening this ritual. The saved task remains editable in Task Detail.")
-                    .font(.caption)
+                Text("Edit the task to change this.")
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
         }
@@ -242,36 +244,60 @@ struct FrictionDetectiveView: View {
     private var footer: some View {
         switch phase {
         case .evidence:
-            PrimaryButton(title: "What was in the way?", systemImage: "arrow.right") { transition(to: .choosingReason) }
+            PrimaryButton(title: String(localized: "Pick a reason"), systemImage: "arrow.right") { transition(to: .choosingReason) }
                 .frame(maxWidth: .infinity)
         case .choosingReason:
-            PrimaryButton(title: "Choose one experiment", systemImage: "arrow.right") { transition(to: .choosingExperiment) }
-                .frame(maxWidth: .infinity)
-                .disabled(selectedReason == nil)
-                .accessibilityHint(selectedReason == nil ? "Choose what was in the way first" : "Continues to intervention choices")
+            HStack(spacing: 12) {
+                backButton(to: .evidence)
+                PrimaryButton(title: String(localized: "Next"), systemImage: "arrow.right") { transition(to: .choosingExperiment) }
+                    .frame(maxWidth: .infinity)
+                    .disabled(selectedReason == nil)
+                    .accessibilityHint(selectedReason == nil ? "Pick a reason first" : "Shows changes to try")
+            }
         case .choosingExperiment:
-            PrimaryButton(title: "Review the change", systemImage: "rectangle.and.text.magnifyingglass") { transition(to: .previewing) }
-                .frame(maxWidth: .infinity)
-                .disabled(canReviewExperiment == false)
-                .accessibilityHint(canReviewExperiment ? "Shows the exact task change" : "Choose and complete one experiment first")
+            HStack(spacing: 12) {
+                backButton(to: .choosingReason)
+                PrimaryButton(title: String(localized: "Review change"), systemImage: "rectangle.and.text.magnifyingglass") { transition(to: .previewing) }
+                    .frame(maxWidth: .infinity)
+                    .disabled(canReviewExperiment == false)
+                    .accessibilityHint(canReviewExperiment ? "Shows the change" : "Pick a change first")
+            }
         case .previewing:
-            PrimaryButton(title: "Start this experiment", systemImage: "checkmark") { apply() }
-                .frame(maxWidth: .infinity)
+            HStack(spacing: 12) {
+                backButton(to: .choosingExperiment)
+                PrimaryButton(title: String(localized: "Apply change"), systemImage: "checkmark") { apply() }
+                    .frame(maxWidth: .infinity)
+            }
         case .applying:
             ProgressView().frame(maxWidth: .infinity, minHeight: 48)
         case .receipt:
-            PrimaryButton(title: "Done", systemImage: "checkmark") { close() }
+            PrimaryButton(title: String(localized: "Done"), systemImage: "checkmark") { close() }
                 .frame(maxWidth: .infinity)
         case .failure:
-            PrimaryButton(title: "Review again", systemImage: "arrow.clockwise") { transition(to: .previewing) }
+            PrimaryButton(title: String(localized: "Try again"), systemImage: "arrow.clockwise") { transition(to: .previewing) }
                 .frame(maxWidth: .infinity)
         }
     }
+}
 
+extension FrictionDetectiveView {
     private func transition(to next: FrictionDetectivePhase) {
-        if reduceMotion { phase = next }
-        else { withAnimation(.easeInOut(duration: 0.24)) { phase = next } }
+        withAnimation(MotionProfile.route.animation(reduceMotion: reduceMotion)) { phase = next }
         persistDraft()
+    }
+
+    /// Steps go back as well as forward; what was picked is kept.
+    private func backButton(to previous: FrictionDetectivePhase) -> some View {
+        Button {
+            Haptic.pick.play()
+            transition(to: previous)
+        } label: {
+            Label("Back", systemImage: "chevron.left")
+                .lifeboardFont(.button)
+                .frame(minWidth: 44, minHeight: 48)
+        }
+        .buttonStyle(.lifeBoardChip)
+        .accessibilityIdentifier("eva.friction.back")
     }
 
     private var canReviewExperiment: Bool {
@@ -284,7 +310,7 @@ struct FrictionDetectiveView: View {
 
     private func apply() {
         guard let selectedReason, let selectedIntervention, let repository else {
-            errorMessage = "Friction findings are unavailable in this context. Nothing was changed."
+            errorMessage = String(localized: "Couldn\u{2019}t save from here. Nothing changed.")
             transition(to: .failure)
             return
         }
@@ -344,14 +370,14 @@ struct FrictionDetectiveView: View {
                         findingSaved = true
                         savedFindingID = savedFinding.id
                         receiptIssue = nil
-                        HapticFeedback.light()
+                        Haptic.commit.play()
                         transition(to: .receipt)
                     case .failure(let error):
                         var receipt = mutationReceipt
                         receipt.reflectionNoteID = noteID
                         appliedReceipt = receipt
                         findingSaved = false
-                        receiptIssue = "The follow-up could not be saved: \(error.localizedDescription)"
+                        receiptIssue = String(localized: "Couldn\u{2019}t save the follow-up. \(error.localizedDescription)")
                         transition(to: .receipt)
                     }
                 }
@@ -373,7 +399,7 @@ struct FrictionDetectiveView: View {
             case .failure(let error):
                 appliedReceipt = mutationReceipt
                 findingSaved = false
-                receiptIssue = "Your task change succeeded, but the private note could not be saved: \(error.localizedDescription)"
+                receiptIssue = String(localized: "Task changed. Couldn\u{2019}t save your note. \(error.localizedDescription)")
                 transition(to: .receipt)
             }
         }
@@ -390,10 +416,10 @@ struct FrictionDetectiveView: View {
                 taskMutationApplied = false
                 savedFindingID = nil
                 EvaRitualDraftStore.shared.clear(.frictionDetective)
-                HapticFeedback.light()
+                Haptic.decline.play()
                 close()
             case .failure(let error):
-                receiptIssue = "Undo could not finish cleanly: \(error.localizedDescription)"
+                receiptIssue = String(localized: "Couldn\u{2019}t undo. \(error.localizedDescription)")
             }
         }
     }
@@ -431,8 +457,8 @@ struct FrictionDetectiveView: View {
         let matchingFinding = await fetchMatchingFinding()
         findingSaved = matchingFinding != nil
         receiptIssue = matchingFinding == nil
-            ? "The task change was saved earlier, but its seven-day follow-up was not found."
-            : "This experiment was saved earlier."
+            ? String(localized: "Task changed earlier. Follow-up not found.")
+            : String(localized: "Saved earlier.")
         phase = .receipt
     }
 
@@ -460,13 +486,13 @@ struct FrictionDetectiveView: View {
 private extension FrictionReason {
     var displayTitle: String {
         switch self {
-        case .scopeTooLarge: "Too large"
-        case .nextStepUnclear: "Next step unclear"
-        case .timingOrEnergy: "Wrong time or energy"
-        case .blockedOrWaiting: "Blocked or waiting"
-        case .interruptions: "Too many interruptions"
-        case .priorityChanged: "Priority changed"
-        case .other: "Something else"
+        case .scopeTooLarge: String(localized: "Too large")
+        case .nextStepUnclear: String(localized: "Next step unclear")
+        case .timingOrEnergy: String(localized: "Wrong time or energy")
+        case .blockedOrWaiting: String(localized: "Blocked or waiting")
+        case .interruptions: String(localized: "Too many interruptions")
+        case .priorityChanged: String(localized: "Priority changed")
+        case .other: String(localized: "Something else")
         }
     }
 
@@ -485,35 +511,35 @@ private extension FrictionReason {
 private extension FrictionIntervention {
     var displayTitle: String {
         switch self {
-        case .clarifyNextAction: "Clarify the next action"
-        case .splitTask: "Create a first step"
-        case .reduceScope: "Reduce the working scope"
-        case .moveToBetterWindow: "Move to a better window"
-        case .moveLater: "Move to Later"
-        case .releaseToSomeday: "Release to Someday"
-        case .noteDependency: "Name what it is waiting on"
+        case .clarifyNextAction: String(localized: "Add next action")
+        case .splitTask: String(localized: "Add a first step")
+        case .reduceScope: String(localized: "Make it smaller")
+        case .moveToBetterWindow: String(localized: "Move to next week")
+        case .moveLater: String(localized: "Move to Later")
+        case .releaseToSomeday: String(localized: "Move to Someday")
+        case .noteDependency: String(localized: "Note the blocker")
         }
     }
 
     var explanation: String {
         switch self {
-        case .clarifyNextAction: "Add one concrete next action to the task."
-        case .splitTask: "Create a 15-minute child step so starting is visible."
-        case .reduceScope: "Set a smaller 15–30 minute working estimate."
-        case .moveToBetterWindow: "Move the task to Next Week without changing its deadline."
-        case .moveLater: "Remove it from the active week and place it in Later."
-        case .releaseToSomeday: "Keep the task, but stop asking when it will happen."
-        case .noteDependency: "Record the dependency in task details."
+        case .clarifyNextAction: String(localized: "Adds one next action to the task.")
+        case .splitTask: String(localized: "Adds a 15 min subtask.")
+        case .reduceScope: String(localized: "Sets a 15–30 min estimate.")
+        case .moveToBetterWindow: String(localized: "The deadline stays the same.")
+        case .moveLater: String(localized: "Takes it out of this week.")
+        case .releaseToSomeday: String(localized: "Keeps the task with no date.")
+        case .noteDependency: String(localized: "Adds it to the task details.")
         }
     }
 
     var acceptsText: Bool { self == .clarifyNextAction || self == .splitTask || self == .noteDependency }
     var textPrompt: String {
         switch self {
-        case .clarifyNextAction: "What is the next physical action?"
-        case .splitTask: "Name the first small step"
-        case .noteDependency: "What or who is this waiting on?"
-        default: "Optional detail"
+        case .clarifyNextAction: String(localized: "Next action")
+        case .splitTask: String(localized: "First step")
+        case .noteDependency: String(localized: "Waiting on")
+        default: String(localized: "Details")
         }
     }
 }

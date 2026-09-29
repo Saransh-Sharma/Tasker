@@ -45,7 +45,7 @@ struct TaskEditorRelationsSection: View {
                         }
                         .buttonStyle(.bordered)
                         .tint(selected
-                            ? Color(SemanticColorTokens.foundationSageAccent)
+                            ? Color(SemanticColorTokens.foundationSageInk)
                             : Color(SemanticColorTokens.inkSecondary))
                         .accessibilityAddTraits(selected ? .isSelected : [])
                     }
@@ -58,7 +58,7 @@ struct TaskEditorRelationsSection: View {
     private func subtasks(editor: Bindable<TaskEditorStore>) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                TaskEditorControls.header("Subtasks", symbol: "list.bullet.indent")
+                TaskEditorControls.header("Steps", symbol: "list.bullet.indent")
                 Spacer()
                 Menu {
                     let available = editor.wrappedValue.taskCandidates.filter {
@@ -82,7 +82,7 @@ struct TaskEditorRelationsSection: View {
             }
 
             if editor.wrappedValue.draft.subtasks.isEmpty {
-                Text("Break this down by linking an existing task.")
+                Text("No steps yet")
                     .font(.subheadline)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
@@ -105,7 +105,7 @@ struct TaskEditorRelationsSection: View {
                                 .frame(width: 44, height: 44)
                         }
                         .disabled(index == 0)
-                        .accessibilityLabel("Move subtask earlier")
+                        .accessibilityLabel("Move step up")
                         Button {
                             guard index + 1 < editor.wrappedValue.draft.subtasks.count else {
                                 return
@@ -119,14 +119,14 @@ struct TaskEditorRelationsSection: View {
                                 .frame(width: 44, height: 44)
                         }
                         .disabled(index + 1 == editor.wrappedValue.draft.subtasks.count)
-                        .accessibilityLabel("Move subtask later")
+                        .accessibilityLabel("Move step down")
                         Button(role: .destructive) {
                             editor.wrappedValue.toggleSubtask(subtaskID)
                         } label: {
                             Image(systemName: "minus.circle")
                                 .frame(width: 44, height: 44)
                         }
-                        .accessibilityLabel("Remove subtask")
+                        .accessibilityLabel("Remove step")
                     }
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("task.editor.subtask.\(subtaskID.uuidString)")
@@ -139,7 +139,7 @@ struct TaskEditorRelationsSection: View {
     private func dependencies(editor: Bindable<TaskEditorStore>) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                TaskEditorControls.header("Dependencies", symbol: "link")
+                TaskEditorControls.header("Waiting on", symbol: "link")
                 Spacer()
                 Menu {
                     let linked = Set(
@@ -165,7 +165,7 @@ struct TaskEditorRelationsSection: View {
             }
 
             if editor.wrappedValue.draft.dependencies.isEmpty {
-                Text("Nothing else has to finish first.")
+                Text("Not waiting on anything")
                     .font(.subheadline)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
@@ -196,7 +196,7 @@ struct TaskEditorRelationsSection: View {
                             Image(systemName: "ellipsis.circle")
                                 .frame(width: 44, height: 44)
                         }
-                        .accessibilityLabel("Dependency actions")
+                        .accessibilityLabel("Link actions")
                     }
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier(
@@ -209,5 +209,5 @@ struct TaskEditorRelationsSection: View {
     }
 
     private func taskTitle(_ id: UUID, editor: TaskEditorStore) -> String {
-        editor.taskCandidates.first(where: { $0.id == id })?.title ?? "Unavailable task"
+        editor.taskCandidates.first(where: { $0.id == id })?.title ?? String(localized: "Unavailable task")
     }}

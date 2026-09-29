@@ -5,6 +5,7 @@ struct LifeManagementProjectIconPicker: View {
     @Binding var selectedIcon: ProjectIcon
 
     @Environment(\.lifeboardTokens) private var tokens
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     var spacing: SemanticSpacingTokens { tokens.spacing }
@@ -20,7 +21,7 @@ struct LifeManagementProjectIconPicker: View {
                     title: icon.displayName,
                     isSelected: selectedIcon == icon
                 ) {
-                    withAnimation(LifeBoardAnimation.stateChange) {
+                    withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                         selectedIcon = icon
                     }
                 }

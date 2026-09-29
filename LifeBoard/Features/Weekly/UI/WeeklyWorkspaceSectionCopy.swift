@@ -155,17 +155,17 @@ enum WeeklyWorkspaceSectionCopy {
 
     static func emptyTrayMessage(_ lane: WeeklyWorkspaceLane) -> String {
         switch lane {
-        case .overdue: "Nothing is overdue. "
-        case .inbox: "The inbox is clear."
-        case .anytime: "Everything open already has a day."
+        case .overdue: String(localized: "Nothing from earlier")
+        case .inbox: String(localized: "Inbox is empty")
+        case .anytime: String(localized: "Every task has a day")
         }
     }
 
     static func meetingDecisionLabel(_ intent: WeeklyMeetingIntent) -> String {
         switch intent {
-        case .attending: "In my week"
-        case .skipping: "Skip this week"
-        case .undecided: "Decide"
+        case .attending: String(localized: "In my week")
+        case .skipping: String(localized: "Skip this week")
+        case .undecided: String(localized: "Decide")
         }
     }
 
@@ -187,9 +187,9 @@ enum WeeklyWorkspaceSectionCopy {
         let toPlace = store.workspaceTasks(in: .anytime).count
         let briefing = store.overdueBriefing()
         var parts: [String] = []
-        parts.append(toPlace == 1 ? "1 waiting for a home" : "\(toPlace) waiting for a home")
+        parts.append(String(localized: "\(toPlace) to place"))
         if briefing.count > 0 {
-            parts.append(briefing.count == 1 ? "1 carried forward" : "\(briefing.count) carried forward")
+            parts.append(String(localized: "\(briefing.count) from earlier"))
         }
         return parts.joined(separator: " · ")
     }
@@ -218,8 +218,8 @@ enum WeeklyWorkspaceSectionCopy {
     }
 
     static func shortDayName(store: PlanStore, _ day: PlanningDay) -> String {
-        if day == store.todayPlanningDay() { return "Today" }
-        guard let date = day.startDate(calendar: store.workspaceCalendar) else { return "that day" }
+        if day == store.todayPlanningDay() { return String(localized: "Today") }
+        guard let date = day.startDate(calendar: store.workspaceCalendar) else { return String(localized: "that day") }
         let formatter = DateFormatter()
         formatter.calendar = store.workspaceCalendar
         formatter.dateFormat = "EEEE"
@@ -232,11 +232,11 @@ enum WeeklyWorkspaceSectionCopy {
         formatter.calendar = store.workspaceCalendar
         formatter.dateFormat = "EEEE d"
         let base = formatter.string(from: date)
-        return day == store.todayPlanningDay() ? "\(base) · Today" : base
+        return day == store.todayPlanningDay() ? String(localized: "\(base) · Today") : base
     }
 
     static func timeLabel(store: PlanStore, _ commitment: CalendarCommitment) -> String {
-        guard commitment.isAllDay == false else { return "All day" }
+        guard commitment.isAllDay == false else { return String(localized: "All day") }
         let formatter = DateFormatter()
         formatter.calendar = store.workspaceCalendar
         formatter.timeStyle = .short
@@ -256,7 +256,7 @@ enum WeeklyWorkspaceSectionCopy {
             to: store.workspaceCalendar.startOfDay(for: Date())
         ).day ?? 0
         guard days > 0 else { return nil }
-        return days == 1 ? "Waiting since yesterday" : "Waiting \(days) days"
+        return days == 1 ? String(localized: "1 day old") : String(localized: "\(days) days old")
     }
 
     static func dayAccessibilityLabel(

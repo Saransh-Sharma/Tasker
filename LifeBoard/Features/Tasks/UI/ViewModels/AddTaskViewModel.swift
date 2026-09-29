@@ -8,87 +8,6 @@
 import Foundation
 import Combine
 
-public enum AddTaskPrefillDueIntent: Equatable, Sendable {
-    case none
-    case today
-    case exact(Date)
-
-    func resolvedDate(now: Date = Date(), calendar: Calendar = .current) -> Date? {
-        switch self {
-        case .none:
-            return nil
-        case .today:
-            return DatePreset.today.resolvedDueDate(anchorDate: now, calendar: calendar)
-        case .exact(let date):
-            return date
-        }
-    }
-}
-
-public struct AddTaskPrefillTemplate: Equatable {
-    public let title: String
-    public let details: String?
-    public let projectID: UUID?
-    public let projectName: String?
-    public let lifeAreaID: UUID?
-    public let priority: TaskPriority
-    public let type: TaskType
-    public let dueDateIntent: AddTaskPrefillDueIntent
-    public let estimatedDuration: TimeInterval?
-    public let energy: TaskEnergy
-    public let category: TaskCategory
-    public let context: TaskContext
-    public let expandedSections: Set<TaskEditorSection>?
-    public let showMoreDetails: Bool
-    public let showAdvancedPlanning: Bool
-
-    /// Initializes a new instance.
-    public init(
-        title: String,
-        details: String? = nil,
-        projectID: UUID? = nil,
-        projectName: String? = nil,
-        lifeAreaID: UUID? = nil,
-        priority: TaskPriority = .low,
-        type: TaskType = .morning,
-        dueDateIntent: AddTaskPrefillDueIntent? = nil,
-        dueDate: Date? = Date(),
-        estimatedDuration: TimeInterval? = nil,
-        energy: TaskEnergy = .medium,
-        category: TaskCategory = .general,
-        context: TaskContext = .anywhere,
-        expandedSections: Set<TaskEditorSection>? = nil,
-        showMoreDetails: Bool = false,
-        showAdvancedPlanning: Bool = false
-    ) {
-        self.title = title
-        self.details = details
-        self.projectID = projectID
-        self.projectName = projectName
-        self.lifeAreaID = lifeAreaID
-        self.priority = priority
-        self.type = type
-        if let dueDateIntent {
-            self.dueDateIntent = dueDateIntent
-        } else if let dueDate {
-            self.dueDateIntent = .exact(dueDate)
-        } else {
-            self.dueDateIntent = .none
-        }
-        self.estimatedDuration = estimatedDuration
-        self.energy = energy
-        self.category = category
-        self.context = context
-        self.expandedSections = expandedSections
-        self.showMoreDetails = showMoreDetails
-        self.showAdvancedPlanning = showAdvancedPlanning
-    }
-
-    public var dueDate: Date? {
-        dueDateIntent.resolvedDate()
-    }
-}
-
 public enum AddTaskCreationError: Error, Equatable {
     case invalidInput
 }
@@ -204,7 +123,7 @@ public final class AddTaskViewModel: ObservableObject {
         } else if let plannedDate {
             parts.append(DateUtils.formatDate(plannedDate))
         } else {
-            parts.append("No schedule")
+            parts.append(String(localized: "No schedule"))
         }
         if hasReminder {
             parts.append(formatTime(reminderTime))
@@ -229,7 +148,7 @@ public final class AddTaskViewModel: ObservableObject {
             parts.append(section.name)
         }
         if selectedTagIDs.isEmpty == false {
-            parts.append(selectedTagIDs.count == 1 ? "1 tag" : "\(selectedTagIDs.count) tags")
+            parts.append(selectedTagIDs.count == 1 ? String(localized: "1 tag") : String(localized: "\(selectedTagIDs.count) tags"))
         }
         return parts.joined(separator: ", ")
     }
@@ -249,7 +168,7 @@ public final class AddTaskViewModel: ObservableObject {
             parts.append(selectedCategory.displayName)
         }
         if selectedPlanningBucket != .thisWeek || selectedWeeklyOutcomeID != nil {
-            parts.append(selectedPlanningBucket.rawValue.replacingOccurrences(of: "Week", with: " Week").capitalized)
+            parts.append(Self.planningBucketTitle(selectedPlanningBucket))
         }
         return parts.joined(separator: ", ")
     }
@@ -369,7 +288,7 @@ public final class AddTaskViewModel: ObservableObject {
     private let aiSuggestionService: AISuggestionService?
     private let taskIconResolver: TaskIconResolver
     private let isAISuggestionRefinementReady: @MainActor () -> Bool
-    private let nowProvider: () -> Date
+    let nowProvider: () -> Date
     private let taskIconResolutionQueue = DispatchQueue(label: "lifeboard.add-task-icon-resolution", qos: .userInitiated)
     private var cancellables = Set<AnyCancellable>()
     private var suggestionTask: Task<Void, Never>?
@@ -387,8 +306,8 @@ public final class AddTaskViewModel: ObservableObject {
     private let suggestionDebounceMilliseconds = 650
     private let taskIconDebounceMilliseconds = 140
     private var loadedTaskMetadataProjectID: UUID?
-    private var pristineScheduledStartAt: Date?
-    private var pristineEstimatedDuration: TimeInterval?
+    var pristineScheduledStartAt: Date?
+    var pristineEstimatedDuration: TimeInterval?
     private var taskIconSearchCache: (key: TaskIconSearchCacheKey, options: [TaskIconOption])?
     private var lastTaskIconLogSignature: String?
     private var taskIconResolutionToken: Int = 0
@@ -533,6 +452,39 @@ public final class AddTaskViewModel: ObservableObject {
         pendingCaptureProjectName = projectName.isEmpty ? nil : projectName
         pendingCaptureTagNames = parsed.tags
         resolvePendingCaptureSelections()
+    }
+
+    /// What the title field would mean if saved now ("Call mom tomorrow 3pm
+    /// #family"), or nil when it is plain words. Live, for the "Understood" line.
+    public var typedTitleParse: ParsedCapture? {
+        let parsed = TaskCaptureParser.parse(taskName, now: nowProvider())
+        guard parsed.hasProposals, parsed.cleanTitle.isEmpty == false else { return nil }
+        return parsed
+    }
+
+    /// Applies what the parser understood in a typed title before saving.
+    ///
+    /// Add Task never ran the parser on its own title, so "Call mom tomorrow
+    /// 3pm #family" was saved word for word while the composer and the Inbox
+    /// understood the same text. Unlike a capture seed, a title that names no
+    /// date leaves the schedule the person chose alone. Waits for `#tag`
+    /// creation and `+project` lookup; a project that does not exist goes back
+    /// into the title rather than being dropped.
+    public func applyTypedTitleParse(calendar: Calendar = .current) async {
+        guard let parsed = typedTitleParse else { return }
+        let raw = taskName
+        let schedule = (hasExplicitSchedule, scheduledStartAt, plannedDate)
+        applyCaptureSeed(parsed, rawText: raw, calendar: calendar)
+        if parsed.dueDate == nil {
+            hasExplicitSchedule = schedule.0
+            scheduledStartAt = schedule.1
+            plannedDate = schedule.2
+        }
+        _ = await awaitCaptureSelectionsResolved()
+        if let unresolved = pendingCaptureProjectName {
+            pendingCaptureProjectName = nil
+            taskName += " +\(unresolved)"
+        }
     }
 
     static func taskContext(matching token: String) -> TaskContext? {
@@ -805,10 +757,22 @@ public final class AddTaskViewModel: ObservableObject {
         }
     }
 
+    /// Sentence-case bucket name. `displayName` in the domain package is
+    /// Title Case, and the raw value is a storage key.
+    static func planningBucketTitle(_ bucket: TaskPlanningBucket) -> String {
+        switch bucket {
+        case .today: String(localized: "Today")
+        case .thisWeek: String(localized: "This week")
+        case .nextWeek: String(localized: "Next week")
+        case .later: String(localized: "Later")
+        case .someday: String(localized: "Someday")
+        }
+    }
+
     /// Reschedule task (for editing existing tasks)
     public func rescheduleTask(_ taskId: UUID, to newDate: Date) {
         guard let rescheduleTaskDefinitionUseCase else {
-            errorMessage = "Task rescheduling is not configured."
+            errorMessage = String(localized: "Couldn’t reschedule task.")
             return
         }
 
@@ -955,7 +919,7 @@ public final class AddTaskViewModel: ObservableObject {
         return validationErrors.isEmpty
     }
 
-    private func validationErrorsForCurrentInput(now: Date) -> [ValidationError] {
+    func validationErrorsForCurrentInput(now: Date) -> [ValidationError] {
         var errors: [ValidationError] = []
 
         if taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -977,7 +941,9 @@ public final class AddTaskViewModel: ObservableObject {
 
         return errors
     }
+}
 
+extension AddTaskViewModel {
     // MARK: - Private Methods
 
     /// Executes setupValidation.
@@ -1479,166 +1445,6 @@ public final class AddTaskViewModel: ObservableObject {
         }
     }
 
-    private func resolvedExpandedSections(for template: AddTaskPrefillTemplate) -> Set<TaskEditorSection> {
-        var sections = template.expandedSections ?? []
-        if template.showMoreDetails {
-            sections.insert(.organize)
-        }
-        if template.showAdvancedPlanning {
-            sections.formUnion([.schedule, .execution, .relationships])
-        }
-        sections.formUnion(derivedExpandedSections())
-        return sections
-    }
-
-    private func derivedExpandedSections() -> Set<TaskEditorSection> {
-        var sections = Set<TaskEditorSection>()
-
-        if hasReminder || repeatPattern != nil || selectedType != .morning {
-            sections.insert(.schedule)
-        }
-
-        if selectedProjectID != ProjectConstants.inboxProjectID
-            || selectedLifeAreaID != nil
-            || selectedSectionID != nil
-            || selectedTagIDs.isEmpty == false {
-            sections.insert(.organize)
-        }
-
-        if selectedEnergy != .medium
-            || selectedCategory != .general
-            || selectedContext != .anywhere
-            || areDurationsDifferent(estimatedDuration, Self.defaultEstimatedDuration) {
-            sections.insert(.execution)
-        }
-
-        if selectedParentTaskID != nil || selectedDependencyTaskIDs.isEmpty == false {
-            sections.insert(.relationships)
-        }
-
-        return sections
-    }
-
-    private func applyDefaultScheduleAsPristine(calendar: Calendar = .current) {
-        let start = Self.defaultScheduledStart(now: nowProvider(), calendar: calendar)
-        scheduledStartAt = start
-        plannedDate = start
-        estimatedDuration = Self.defaultEstimatedDuration
-        pristineScheduledStartAt = start
-        pristineEstimatedDuration = Self.defaultEstimatedDuration
-    }
-
-    private func applyPrefillDueDate(_ date: Date?, calendar: Calendar = .current) {
-        guard let date else {
-            clearSchedule()
-            return
-        }
-        if TaskScheduleNormalizer.isDateOnly(date, calendar: calendar) {
-            setScheduledDate(date, calendar: calendar)
-        } else {
-            let start = Self.clearingSubminuteComponents(date, calendar: calendar)
-            scheduledStartAt = start
-            plannedDate = start
-        }
-    }
-
-    public static func defaultScheduledStart(now: Date = Date(), calendar: Calendar = .current) -> Date {
-        let start = calendar.date(byAdding: .minute, value: 20, to: now) ?? now.addingTimeInterval(20 * 60)
-        return clearingSubminuteComponents(start, calendar: calendar)
-    }
-
-    /// "Anytime" or "Anytime · Fri 19 Sep" for a task planned on a day without a time.
-    public static func anytimeLabel(day: Date?, calendar: Calendar = .current) -> String {
-        guard let day else { return "Anytime" }
-        if calendar.isDateInToday(day) { return "Today · Anytime" }
-        if calendar.isDateInTomorrow(day) { return "Tomorrow · Anytime" }
-        return "\(day.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))) · Anytime"
-    }
-
-    public static func scheduleRangeLabel(start: Date, end: Date?) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        guard let end else {
-            return formatter.string(from: start)
-        }
-        return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
-    }
-
-    public static func scheduleDateTimeSummary(start: Date, end: Date?) -> String {
-        let dateText = DateUtils.formatDate(start)
-        let rangeText = scheduleRangeLabel(start: start, end: end)
-        return "\(dateText), \(rangeText)"
-    }
-
-    private static func clearingSubminuteComponents(_ date: Date, calendar: Calendar = .current) -> Date {
-        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
-        return calendar.date(from: components) ?? date
-    }
-
-    private func areDatesDifferent(_ lhs: Date?, _ rhs: Date?) -> Bool {
-        switch (lhs, rhs) {
-        case (.none, .none):
-            return false
-        case let (.some(lhs), .some(rhs)):
-            return abs(lhs.timeIntervalSince(rhs)) >= 1
-        default:
-            return true
-        }
-    }
-
-    private func areDurationsDifferent(_ lhs: TimeInterval?, _ rhs: TimeInterval?) -> Bool {
-        switch (lhs, rhs) {
-        case (.none, .none):
-            return false
-        case let (.some(lhs), .some(rhs)):
-            return abs(lhs - rhs) >= 1
-        default:
-            return true
-        }
-    }
-
-    private static func durationLabel(for duration: TimeInterval) -> String {
-        let minutes = max(1, Int(duration / 60))
-        if minutes < 60 {
-            return "\(minutes) min"
-        }
-        let hours = minutes / 60
-        let remainder = minutes % 60
-        if remainder == 0 {
-            return "\(hours) hr"
-        }
-        return "\(hours) hr \(remainder) min"
-    }
-
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-
-    /// Executes resolveProjectForPrefill.
-    private func resolveProjectForPrefill(_ template: AddTaskPrefillTemplate) -> Project? {
-        if let projectID = template.projectID,
-           let project = projects.first(where: { $0.id == projectID }) {
-            return project
-        }
-
-        guard let projectName = template.projectName?.trimmingCharacters(in: .whitespacesAndNewlines),
-              projectName.isEmpty == false else {
-            return nil
-        }
-
-        let normalizedProjectName = projectName.lowercased()
-        return projects.first(where: {
-            $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalizedProjectName
-        })
-    }
-
-    private func hasNonEmptyProjectName(_ template: AddTaskPrefillTemplate) -> Bool {
-        guard let projectName = template.projectName else { return false }
-        return projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-    }
-
     private func normalizeProjectSelectionForSelectedLifeArea() {
         guard selectedProjectID != ProjectConstants.inboxProjectID else { return }
         guard let selectedProjectModel = selectedProjectObject else {
@@ -1803,59 +1609,4 @@ public final class AddTaskViewModel: ObservableObject {
             }
         }
     }
-}
-
-// MARK: - Validation Errors
-
-public enum ValidationError: LocalizedError {
-    case emptyTaskName
-    case taskNameTooLong
-    case pastDueDate
-    case pastReminderTime
-
-    public var errorDescription: String? {
-        switch self {
-        case .emptyTaskName:
-            return "Task name cannot be empty"
-        case .taskNameTooLong:
-            return "Task name is too long (max 200 characters)"
-        case .pastDueDate:
-            return "Due date cannot be in the past"
-        case .pastReminderTime:
-            return "Reminder time cannot be in the past"
-        }
-    }
-}
-
-// MARK: - View State
-
-extension AddTaskViewModel {
-
-    /// Combined state for the view
-    public var viewState: AddTaskViewState {
-        return AddTaskViewState(
-            isLoading: isLoading,
-            errorMessage: errorMessage,
-            isTaskCreated: isTaskCreated,
-            validationErrors: validationErrors,
-            projects: projects,
-            lifeAreas: lifeAreas,
-            sections: sections,
-            tags: tags,
-            canSubmit: validationErrorsForCurrentInput(now: nowProvider()).isEmpty
-        )
-    }
-}
-
-/// State structure for the add task view
-public struct AddTaskViewState {
-    public let isLoading: Bool
-    public let errorMessage: String?
-    public let isTaskCreated: Bool
-    public let validationErrors: [ValidationError]
-    public let projects: [Project]
-    public let lifeAreas: [LifeArea]
-    public let sections: [ProjectSectionDefinition]
-    public let tags: [TagDefinition]
-    public let canSubmit: Bool
 }

@@ -34,9 +34,9 @@ enum DaySwipeSide: CaseIterable {
     var accessibilityLabel: String {
         switch self {
         case .leading:
-            return "Previous Day"
+            return String(localized: "Previous day")
         case .trailing:
-            return "Next Day"
+            return String(localized: "Next day")
         }
     }
 

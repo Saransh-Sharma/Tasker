@@ -12,6 +12,8 @@ struct PlanOrientationBar: View {
     let store: PlanStore
     let lens: PlanLens
     var onEditWorkingHours: () -> Void = {}
+    /// A quiet secondary action, never the hero: Eva over this day.
+    var onAskEva: (() -> Void)? = nil
     var presentation: PresentationToggle?
     @State private var showsDatePicker = false
 
@@ -47,7 +49,10 @@ struct PlanOrientationBar: View {
                     Image(systemName: "arrow.uturn.backward")
                         .frame(width: 44, height: 44)
                 }
+                // Not bare "Undo": a receipt's Undo is often on screen at the
+                // same time, and two identical labels are indistinguishable.
                 .accessibilityLabel("Undo last planning change")
+                .accessibilityIdentifier("plan.header.undo")
             }
             if lens == .day {
                 if isShowingToday == false {
@@ -60,6 +65,19 @@ struct PlanOrientationBar: View {
                     .accessibilityLabel("Return to today")
                 }
                 stepButton(1, symbol: "chevron.right", label: "Next day")
+                if let onAskEva {
+                    Button {
+                        Haptic.pick.play()
+                        onAskEva()
+                    } label: {
+                        Image(systemName: "sparkles")
+                            .lifeboardFont(.buttonSmall)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("Ask Eva about today")
+                    .accessibilityIdentifier("plan.header.askEva")
+                }
                 if let presentation {
                     Button {
                         Haptic.pick.play()
@@ -72,7 +90,7 @@ struct PlanOrientationBar: View {
                     }
                     .disabled(presentation.isForced)
                     .accessibilityLabel(presentation.showsAgenda ? "Show as timeline" : "Show as agenda")
-                    .accessibilityHint(presentation.isForced ? "Agenda keeps every block linear and operable." : "")
+                    .accessibilityHint(presentation.isForced ? "Agenda only at this setting" : "")
                     .accessibilityIdentifier("plan.day.presentation.toggle")
                 }
             }
@@ -87,7 +105,7 @@ struct PlanOrientationBar: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("plan.header")
         .homeAmbientArtwork(.compactTimeline)
-        .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
+        .lifeBoardGlassSurface(cornerRadius: Radius.card, interactive: true)
     }
 
     private var dayTitle: some View {
@@ -136,19 +154,31 @@ struct PlanOrientationBar: View {
             Haptic.pick.play()
             onEditWorkingHours()
         } label: {
-            Text(capacity.map(PlanCapacityCopy.openLabel) ?? "Finding open time…")
-                .lifeboardFont(.caption1)
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                .foregroundStyle(
-                    isOver
-                        ? Color(SemanticColorTokens.foundationApricotAccent)
-                        : Color(SemanticColorTokens.inkSecondary)
-                )
-                .lineLimit(1)
-                .animation(MotionProfile.localState.animation(reduceMotion: reduceMotion), value: capacity?.remainingKnownCapacity)
+            // Over capacity carries its signal in an apricot glyph beside
+            // primary ink: apricot text on grey clay did not reach body-text
+            // contrast, so "1h 30m over" was the hardest line to read.
+            HStack(spacing: 4) {
+                if isOver {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
+                        .accessibilityHidden(true)
+                        .transition(.opacity)
+                }
+                Text(capacity.map(PlanCapacityCopy.openLabel) ?? String(localized: "Loading…"))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .foregroundStyle(
+                        isOver
+                            ? Color(SemanticColorTokens.inkPrimary)
+                            : Color(SemanticColorTokens.inkSecondary)
+                    )
+                    .lineLimit(1)
+            }
+            .lifeboardFont(.caption1)
+            .animation(MotionProfile.localState.animation(reduceMotion: reduceMotion), value: capacity?.remainingKnownCapacity)
+            .animation(MotionProfile.localState.animation(reduceMotion: reduceMotion), value: isOver)
         }
-        .accessibilityHint("Edit working hours and buffer")
+        .accessibilityHint("Opens working hours")
         .accessibilityIdentifier("plan.capacity.edit")
     }
 
@@ -170,14 +200,54 @@ struct PlanOrientationBar: View {
     }
 }
 
+/// Plan-wide actions that have no other home at the root, whose navigation
+/// bar is hidden: an open-ended focus session and a project from a template.
+/// They sat in a toolbar nobody could see; they now sit beside the lens picker.
+struct PlanActionsMenu: View {
+    let onStartFocus: () -> Void
+    let onNewProjectFromTemplate: () -> Void
+
+    var body: some View {
+        Menu {
+            Button {
+                onStartFocus()
+            } label: {
+                Label("Start focus", systemImage: "timer")
+            }
+            .accessibilityIdentifier("plan.focus.startUnscoped")
+            Button {
+                onNewProjectFromTemplate()
+            } label: {
+                Label("Project from template", systemImage: "folder.badge.plus")
+            }
+            .accessibilityIdentifier("plan.projectTemplates.open")
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .lifeboardFont(.headline)
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("More plan actions")
+        .accessibilityIdentifier("plan.more")
+    }
+}
+
 /// The words Plan uses for a day's room. "Known room" was our vocabulary, not
 /// the person's; "open" and "over" are what they would say.
 enum PlanCapacityCopy {
     static func openLabel(_ capacity: CapacityBudget) -> String {
-        if capacity.workingDuration <= 0 { return "No working hours set" }
-        if capacity.overloadDuration > 0 { return "\(duration(capacity.overloadDuration)) over" }
+        if capacity.workingDuration <= 0 { return String(localized: "No working hours set") }
+        if capacity.overloadDuration > 0 { return String(localized: "\(duration(capacity.overloadDuration)) over") }
         // An explicit zero is a real answer, not missing data.
-        return "\(duration(capacity.remainingKnownCapacity)) open"
+        return String(localized: "\(duration(capacity.remainingKnownCapacity)) open")
+    }
+
+    /// VoiceOver for the canvas's overload band. The band used to reuse
+    /// `openLabel` and read "Over capacity: 1h 20m over past the end…".
+    static func overloadAccessibilityLabel(_ capacity: CapacityBudget) -> String {
+        let spoken = Duration.seconds(capacity.overloadDuration).formatted(.units(allowed: [.hours, .minutes], width: .wide))
+        return String(localized: "\(spoken) past your working hours")
     }
 
     static func dayTitle(_ day: PlanningDay, now: Date = Date(), calendar: Calendar = .current) -> String {
@@ -191,10 +261,7 @@ enum PlanCapacityCopy {
     }
 
     static func duration(_ seconds: TimeInterval) -> String {
-        let minutes = max(0, Int((seconds / 60).rounded()))
-        if minutes < 60 { return "\(minutes)m" }
-        let hours = minutes / 60, remainder = minutes % 60
-        return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
+        LifeBoardDuration.text(seconds: max(0, seconds))
     }
 }
 
@@ -257,7 +324,7 @@ struct PlanDecisionLine<Expanded: View>: View {
                 Button(action: tap) {
                     HStack(spacing: 12) {
                         Image(systemName: systemImage)
-                            .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                            .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                             .accessibilityHidden(true)
                         Text(title)
                             .lifeboardFont(.support)

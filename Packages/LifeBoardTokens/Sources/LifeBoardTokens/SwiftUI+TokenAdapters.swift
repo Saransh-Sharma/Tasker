@@ -480,7 +480,7 @@ public extension View {
 
     /// Keeps dense content readable on iPad and Designed for iPad on Mac.
     func lifeboardReadableContent(
-        maxWidth: CGFloat = 920,
+        maxWidth: CGFloat = 680,
         alignment: Alignment = .center
     ) -> some View {
         modifier(

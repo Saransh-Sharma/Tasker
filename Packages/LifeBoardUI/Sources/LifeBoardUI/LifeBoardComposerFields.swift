@@ -27,7 +27,7 @@ public struct ComposerField: View {
     private let label: String
     private let prompt: String?
     private let shape: Shape
-    private let submitLabel: SubmitLabel
+    private let submitLabel: SubmitLabel?
     private let keyboard: UIKeyboardType
     private let identifier: String?
     private let showsLabel: Bool
@@ -40,7 +40,7 @@ public struct ComposerField: View {
         prompt: String? = nil,
         text: Binding<String>,
         shape: Shape = .line,
-        submitLabel: SubmitLabel = .done,
+        submitLabel: SubmitLabel? = nil,
         keyboard: UIKeyboardType = .default,
         showsLabel: Bool = true,
         identifier: String? = nil
@@ -66,8 +66,17 @@ public struct ComposerField: View {
                 .font(.lifeboard(.body))
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .focused($isFocused)
-                .submitLabel(submitLabel)
+                .submitLabel(resolvedSubmitLabel)
                 .keyboardType(keyboard)
+                // A pad has no Return and prose spends Return on a newline, so
+                // both carry Done; every field answers VoiceOver's escape.
+                .modifier(KeyboardBar(
+                    isFocused: isFocused,
+                    endEditing: { isFocused = false },
+                    doneIdentifier: nil,
+                    leading: EmptyView(),
+                    showsDone: needsDone
+                ))
                 .textFieldStyle(.plain)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 12)
@@ -100,6 +109,17 @@ public struct ComposerField: View {
             TextField(prompt ?? label, text: $text, axis: .vertical)
                 .lineLimit(lineLimit)
         }
+    }
+
+    /// Prose breaks the line on Return, so its key says "return". It used to say
+    /// "done" and insert a newline anyway, in nine composers.
+    private var resolvedSubmitLabel: SubmitLabel {
+        if let submitLabel { return submitLabel }
+        return shape == .line ? .done : .return
+    }
+
+    private var needsDone: Bool {
+        shape != .line || [.decimalPad, .numberPad, .phonePad, .asciiCapableNumberPad].contains(keyboard)
     }
 }
 
@@ -164,7 +184,7 @@ public struct ComposerNumberField: View {
                     .font(.lifeboard(.bodyStrong))
                     .monospacedDigit()
                     .multilineTextAlignment(.trailing)
-                    .keyboardType(.decimalPad)
+                    .padKeyboard(.decimalPad, isFocused: $isFocused)
                     .focused($isFocused)
                     .frame(minWidth: 64)
                     .modifier(FieldIdentity(identifier: identifier))
@@ -184,12 +204,6 @@ public struct ComposerNumberField: View {
                     .stroke(Color.lifeboard(.actionFocus), lineWidth: 2)
                     .opacity(isFocused ? 1 : 0)
                     .lifeBoardMotion(.controlMorph, value: isFocused)
-            }
-        }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { isFocused = false }
             }
         }
     }
@@ -272,9 +286,11 @@ public struct ClayToggleStyle: ToggleStyle {
             // Apricot, not `foundationSageAccent`: despite the name, sage
             // resolves to #C9C6BA, a warm grey. An "on" track in it reads as
             // disabled, and it matched the off state closely enough that the
-            // knob position was doing all the work.
+            // knob position was doing all the work. The apricot *ink*, not the
+            // fill: the pale accent sat at 1.6:1 on the light canvas, below the
+            // 3:1 a control's state needs.
             fill: isOn
-                ? Color(SemanticColorTokens.foundationApricotAccent)
+                ? Color(SemanticColorTokens.foundationApricotInk)
                 : Color(SemanticColorTokens.foundationSurfaceRecessed)
         )
     }

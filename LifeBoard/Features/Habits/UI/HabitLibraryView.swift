@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 private enum HabitLibraryFilter: String, CaseIterable, Identifiable {
     case active
@@ -10,9 +11,9 @@ private enum HabitLibraryFilter: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .active:
-            return "Active"
+            return String(localized: "Active")
         case .paused:
-            return "Paused"
+            return String(localized: "Paused")
         case .archived:
             return String(localized: "Archived", defaultValue: "Archived")
         }
@@ -108,20 +109,21 @@ struct HabitLibraryView: View {
             .padding(.bottom, spacing.s24)
         }
         .background(Color.lifeboard.bgCanvas)
-        .navigationTitle("Manage Habits")
+        .navigationTitle("Manage habits")
         .toolbar {
             if presentationStyle == .modal {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") {
                         dismiss()
                     }
+                    .keyboardShortcut(.cancelAction)
                 }
             }
             ToolbarItem(placement: .topBarLeading) {
                 Button {
                     presentHabitComposer()
                 } label: {
-                    Label("Add Habit", systemImage: "plus")
+                    Label("Add habit", systemImage: "plus")
                 }
                 .accessibilityLabel("Add habit")
             }
@@ -159,7 +161,7 @@ struct HabitLibraryView: View {
             )
         }
         .alert(
-            "Habit Error",
+            "Couldn’t update habits",
             isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
                 set: { if !$0 { viewModel.clearError() } }
@@ -176,8 +178,8 @@ struct HabitLibraryView: View {
         if viewModel.isLoading && viewModel.rows.isEmpty {
             HabitEmptyStateCard(
                 systemImage: "clock.arrow.circlepath",
-                title: "Loading habits",
-                message: "Pulling in your behavior loops and their latest rhythm signals.",
+                title: String(localized: "Loading…"),
+                message: nil,
                 showsProgress: true
             )
         } else if filteredRows.isEmpty {
@@ -186,14 +188,14 @@ struct HabitLibraryView: View {
                     systemImage: "circle.dashed",
                     title: emptyTitle,
                     message: emptyBody,
-                    actionTitle: "Add Habit",
+                    actionTitle: String(localized: "Add habit"),
                     action: presentHabitComposer
                 )
             } else {
                 HabitEmptyStateCard(
                     systemImage: "magnifyingglass",
-                    title: "No matching habits",
-                    message: "Try a different search or switch filters to see more habits."
+                    title: String(localized: "No matching habits"),
+                    message: nil
                 )
             }
         } else {
@@ -216,27 +218,27 @@ struct HabitLibraryView: View {
     private var emptyTitle: String {
         switch selectedFilter {
         case .active:
-            return "No active habits"
+            return String(localized: "No active habits")
         case .paused:
-            return "No paused habits"
+            return String(localized: "No paused habits")
         case .archived:
-            return "No archived habits"
+            return String(localized: "No archived habits")
         }
     }
 
-    private var emptyBody: String {
+    private var emptyBody: String? {
         switch selectedFilter {
         case .active:
-            return "Create a behavior loop to keep consistency visible without adding more task clutter."
+            return nil
         case .paused:
-            return "Paused habits stay here so they can come back without losing their history."
+            return String(localized: "Paused habits keep their history.")
         case .archived:
-            return "Archived habits keep their rhythm history, but stay out of your active management flow."
+            return String(localized: "Archived habits keep their history.")
         }
     }
 
     private func trackingLabel(for row: HabitLibraryRow) -> String {
-        row.trackingMode == .lapseOnly ? "Log lapse only" : "Daily check-in"
+        row.trackingMode == .lapseOnly ? String(localized: "Log slips only") : String(localized: "Daily check-in")
     }
 
     private func presentHabitComposer() {
@@ -256,18 +258,18 @@ private struct HabitLibrarySummaryHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            Text("Habit system")
+            Text("Habits")
                 .font(.lifeboard(.screenTitle))
                 .foregroundColor(Color.lifeboard.textPrimary)
 
-            Text("Keep recurring behavior legible without turning it into more task noise.")
-                .font(.lifeboard(.body))
-                .foregroundColor(Color.lifeboard.textSecondary)
-
-            HStack(spacing: spacing.s8) {
-                HabitCountPill(title: "Active", value: activeCount, tone: .accent)
-                HabitCountPill(title: "Paused", value: pausedCount, tone: .neutral)
-                HabitCountPill(title: String(localized: "Archived", defaultValue: "Archived"), value: archivedCount, tone: .neutral)
+            // An empty library never shows a row of zeros (DESIGN.md launch
+            // contract 6); the empty state below offers the one action.
+            if activeCount + pausedCount + archivedCount > 0 {
+                HStack(spacing: spacing.s8) {
+                    HabitCountPill(title: String(localized: "Active"), value: activeCount, tone: .accent)
+                    HabitCountPill(title: String(localized: "Paused"), value: pausedCount, tone: .neutral)
+                    HabitCountPill(title: String(localized: "Archived", defaultValue: "Archived"), value: archivedCount, tone: .neutral)
+                }
             }
         }
         .padding(spacing.s16)
@@ -317,7 +319,7 @@ private struct HabitLibraryControlRail: View {
             HStack(spacing: spacing.s8) {
                 ForEach(HabitLibraryFilter.allCases) { filter in
                     Button {
-                        withAnimation(LifeBoardAnimation.stateChange) {
+                        withAnimation(MotionProfile.localState.animation(reduceMotion: UIAccessibility.isReduceMotionEnabled)) {
                             selectedFilter = filter
                         }
                     } label: {
@@ -343,7 +345,7 @@ private struct HabitLibraryControlRail: View {
             HStack(spacing: spacing.s8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(Color.lifeboard.textSecondary)
-                TextField("Search habits, life areas, or projects", text: $searchText)
+                TextField("Search habits", text: $searchText, prompt: Text("Search habits").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                     .textFieldStyle(.plain)
                     .font(.lifeboard(.body))
             }
@@ -381,8 +383,8 @@ private struct HabitLibraryCard: View {
                         .lineLimit(2)
 
                     HStack(spacing: spacing.s4) {
-                        HabitPill(text: row.kind == .positive ? "Build" : "Quit", tone: row.kind == .positive ? .success : .warning)
-                        HabitPill(text: row.trackingMode == .lapseOnly ? "Log lapse only" : "Daily check-in", tone: .neutral)
+                        HabitPill(text: row.kind == .positive ? String(localized: "Build") : String(localized: "Quit"), tone: row.kind == .positive ? .success : .warning)
+                        HabitPill(text: row.trackingMode == .lapseOnly ? String(localized: "Log slips only") : String(localized: "Daily check-in"), tone: .neutral)
                     }
                 }
 
@@ -404,8 +406,8 @@ private struct HabitLibraryCard: View {
             )
 
             HStack(spacing: spacing.s8) {
-                HabitMiniMetric(title: "Active", value: "\(row.currentStreak)d")
-                HabitMiniMetric(title: "Best", value: "\(row.bestStreak)d")
+                HabitMiniMetric(title: String(localized: "Streak"), value: String(localized: "\(row.currentStreak)d"))
+                HabitMiniMetric(title: String(localized: "Best"), value: String(localized: "\(row.bestStreak)d"))
                 HabitMiniMetric(title: stateLabel, value: stateValue)
             }
         }
@@ -431,18 +433,18 @@ private struct HabitLibraryCard: View {
     }
 
     private var stateLabel: String {
-        if row.isArchived { return "Status" }
-        if row.isPaused { return "Status" }
-        return "Next"
+        if row.isArchived { return String(localized: "Status") }
+        if row.isPaused { return String(localized: "Status") }
+        return String(localized: "Next")
     }
 
     private var stateValue: String {
         if row.isArchived { return String(localized: "Archived", defaultValue: "Archived") }
-        if row.isPaused { return "Paused" }
+        if row.isPaused { return String(localized: "Paused") }
         if let nextDueAt = row.nextDueAt {
             return nextDueAt.formatted(date: .abbreviated, time: .shortened)
         }
-        return "Open"
+        return "—"
     }
 }
 
@@ -473,7 +475,7 @@ private struct HabitMiniMetric: View {
 private struct HabitEmptyStateCard: View {
     let systemImage: String
     let title: String
-    let message: String
+    let message: String?
     let showsProgress: Bool
     let actionTitle: String?
     let action: (() -> Void)?
@@ -481,7 +483,7 @@ private struct HabitEmptyStateCard: View {
     init(
         systemImage: String,
         title: String,
-        message: String,
+        message: String?,
         showsProgress: Bool = false,
         actionTitle: String? = nil,
         action: (() -> Void)? = nil
@@ -513,11 +515,13 @@ private struct HabitEmptyStateCard: View {
                 .font(.lifeboard(.headline))
                 .foregroundColor(Color.lifeboard.textPrimary)
 
-            Text(message)
-                .font(.lifeboard(.body))
-                .foregroundColor(Color.lifeboard.textSecondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+            if let message {
+                Text(message)
+                    .font(.lifeboard(.body))
+                    .foregroundColor(Color.lifeboard.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             if let actionTitle, let action {
                 Button(actionTitle, action: action)

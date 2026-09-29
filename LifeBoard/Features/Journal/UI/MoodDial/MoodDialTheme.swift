@@ -93,9 +93,9 @@ public struct MoodDialTheme: @unchecked Sendable {
         heading: Color(uiColor: .lifeboardDynamic(lightHex: "#262626", darkHex: "#F2F2F5")),
         textSecondary: Color(uiColor: .lifeboardDynamic(lightHex: "#595959", darkHex: "#B8B8C0")),
         textTertiary: Color(uiColor: .lifeboardDynamic(lightHex: "#8C8C8C", darkHex: "#8E8E96")),
-        titleFont: .system(size: 30, weight: .bold, design: .rounded),
-        labelFont: .system(size: 17, weight: .semibold, design: .rounded),
-        captionFont: .system(size: 14, weight: .regular, design: .rounded),
+        titleFont: .system(.title, design: .rounded, weight: .bold),
+        labelFont: .system(.headline, design: .rounded, weight: .semibold),
+        captionFont: .system(.subheadline, design: .rounded),
         segmentColor: { _ in Color(uiColor: .lifeboardDynamic(lightHex: "#CCCCCC", darkHex: "#3A3A44")) },
         moodAccent: { _ in Color(uiColor: .lifeboardDynamic(lightHex: "#666666", darkHex: "#9A9AA4")) }
     )

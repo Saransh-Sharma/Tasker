@@ -61,33 +61,18 @@ struct EvaWakeEvaInstallView: View {
     }
 
     private var statusMessages: [String] {
-        switch currentSelectionTitle {
-        case "Smarter":
-            return [
-                "Preparing deeper planning support…",
-                "Getting ready to prioritize with you…",
-                "Setting up private on-device responses…",
-                "Finalizing your setup…"
-            ]
-        default:
-            return [
-                "Preparing fast daily help…",
-                "Getting ready to prioritize with you…",
-                "Preparing your planning workspace…",
-                "Finalizing your setup…"
-            ]
-        }
+        [String(localized: "Downloading…")]
     }
 
     private var titleText: String {
         installSucceeded
-            ? "\(assistantIdentity.snapshot.displayName) is ready"
-            : "Getting \(assistantIdentity.snapshot.displayName) ready"
+            ? String(localized: "\(assistantIdentity.snapshot.displayName) is ready")
+            : String(localized: "Getting \(assistantIdentity.snapshot.displayName) ready")
     }
 
     private var statusText: String {
         if installSucceeded {
-            return "Opening your first win…"
+            return String(localized: "Opening chat…")
         }
         return statusMessages[min(statusIndex, max(statusMessages.count - 1, 0))]
     }
@@ -113,8 +98,8 @@ struct EvaWakeEvaInstallView: View {
             footer: {
                 if installSucceeded {
                     EvaFooterButtons(
-                        primaryTitle: "Open chat",
-                        secondaryTitle: "Choose another mode",
+                        primaryTitle: String(localized: "Open chat"),
+                        secondaryTitle: String(localized: "Choose another mode"),
                         isPrimaryDisabled: false,
                         onPrimary: {
                             onInstallComplete(
@@ -132,8 +117,8 @@ struct EvaWakeEvaInstallView: View {
         ) {
             VStack(alignment: .leading, spacing: spacing.sectionGap) {
                 EvaContentHeader(
-                    title: "Getting \(assistantIdentity.snapshot.displayName) ready",
-                    bodyText: "Preparing a private on-device mode for your first planning session."
+                    title: String(localized: "Getting \(assistantIdentity.snapshot.displayName) ready"),
+                    bodyText: String(localized: "Downloading to \(DeviceNoun.this).")
                 )
                 .enhancedStaggeredAppearance(index: 0)
 
@@ -204,7 +189,7 @@ struct EvaWakeEvaInstallView: View {
                         .id(installPresentation.statusText)
                         .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)))
 
-                    Text("Installing \(installPresentation.modeTitle)")
+                    Text("\(installPresentation.modeTitle) model")
                         .font(.lifeboard(.caption1).weight(.semibold))
                         .foregroundStyle(Color.lifeboard(.accentPrimary))
                 }
@@ -215,7 +200,7 @@ struct EvaWakeEvaInstallView: View {
 
             VStack(alignment: .leading, spacing: spacing.s12) {
                 EvaInstallProgressCard(
-                    title: "Install progress",
+                    title: String(localized: "Progress"),
                     progress: installPresentation.progress,
                     subtitle: installPresentation.progressText
                 )
@@ -238,7 +223,7 @@ struct EvaWakeEvaInstallView: View {
             }
             .enhancedStaggeredAppearance(index: 2)
 
-            Text("Keep this screen open while \(assistantIdentity.snapshot.displayName) finishes getting ready.")
+            Text("Keep this screen open until it’s done.")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: layoutClass.isPad ? .leading : .center)
@@ -340,7 +325,7 @@ struct EvaWakeEvaInstallView: View {
     private func updateProgressPresentation(for rawProgress: Double) {
         let clampedProgress = max(0, min(rawProgress, 1))
 
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.feedbackFast) {
+        withAnimation(MotionProfile.threadAdvance.animation(reduceMotion: reduceMotion)) {
             displayedProgress = clampedProgress
         }
 
@@ -376,7 +361,7 @@ struct EvaWakeEvaInstallView: View {
                 try? await Task.sleep(nanoseconds: 2_600_000_000)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.feedbackFast) {
+                    withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
                         statusIndex = (statusIndex + 1) % max(statusMessages.count, 1)
                     }
                 }
@@ -398,25 +383,25 @@ struct EvaActivationRecoveryView: View {
         ) {
             VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                 EvaContentHeader(
-                    title: "\(assistantIdentity.snapshot.displayName) couldn’t finish getting ready",
-                    bodyText: "The selected mode did not prepare correctly. Try again, or switch to Fast for a lighter setup."
+                    title: String(localized: "Couldn’t set up \(assistantIdentity.snapshot.displayName)"),
+                    bodyText: String(localized: "Try again, or switch to Fast.")
                 )
                 .enhancedStaggeredAppearance(index: 0)
 
                 EvaRecoveryCard(
-                    title: "Recovery options",
-                    bodyText: "Retry the same setup, switch to Fast, or return to model selection.",
-                    footerText: "Your setup and saved memory are still intact.",
-                    primaryTitle: "Retry",
-                    secondaryTitle: "Switch to Fast",
-                    tertiaryTitle: "Open Models",
+                    title: String(localized: "Options"),
+                    bodyText: String(localized: "Choose how to continue."),
+                    footerText: String(localized: "Your setup and memory are saved."),
+                    primaryTitle: String(localized: "Try again"),
+                    secondaryTitle: String(localized: "Switch to Fast"),
+                    tertiaryTitle: String(localized: "Choose a model"),
                     onPrimary: onRetry,
                     onSecondary: onSwitchToFast,
                     onTertiary: onOpenModels
                 )
                 .enhancedStaggeredAppearance(index: 1)
 
-                Text("Last attempted mode: \(failedModelTitle)")
+                Text("Last tried: \(failedModelTitle)")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .enhancedStaggeredAppearance(index: 2)
@@ -517,7 +502,7 @@ struct EvaActivationStageView<Content: View, Footer: View>: View {
                 .padding(.bottom, spacing.s8)
             }
         }
-        .animation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.heroReveal, value: footerIsEmpty)
+        .lifeBoardMotion(.contentInsertion, value: footerIsEmpty)
     }
 
     private var footerIsEmpty: Bool {
@@ -616,7 +601,7 @@ private struct EvaInstallHeroTile: View {
                 }
                     .breathingPulse(min: reduceMotion ? 1 : 0.84, max: 1, duration: 2.3)
 
-                Text(isComplete ? "Ready" : "Private mode")
+                Text(isComplete ? "Ready" : "Offline")
                     .font(.lifeboard(.caption1).weight(.semibold))
                     .foregroundStyle(Color.lifeboard(.accentPrimary))
             }

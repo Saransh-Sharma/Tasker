@@ -35,24 +35,27 @@ struct LifeManagementComposerPreviewCard: View {
                         }
                     }
                     .lifeboardFont(.title1)
-                    .foregroundStyle(Color.lifeboard(.textInverse))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationOnScenicDark))
                 }
                 .accessibilityHidden(true)
 
+                // Fixed light ink: the card is an accent gradient under a dark
+                // scrim in both appearances. The image-ink policy returned
+                // `textInverse`, which turns cocoa in dark, onto that dark card.
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(eyebrow)
                         .lifeboardFont(.eyebrow)
-                        .foregroundStyle(Color.lifeboard(.secondary, on: .image, imageLuminance: 0.2))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationOnScenicDarkSecondary))
 
                     Text(title)
                         .lifeboardFont(.title2)
-                        .foregroundStyle(Color.lifeboard(.primary, on: .image, imageLuminance: 0.2))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationOnScenicDark))
                         .contentTransition(.opacity)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(subtitle)
                         .lifeboardFont(.callout)
-                        .foregroundStyle(Color.lifeboard(.secondary, on: .image, imageLuminance: 0.2))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationOnScenicDarkSecondary))
                         .contentTransition(.opacity)
                         .fixedSize(horizontal: false, vertical: true)
                 }

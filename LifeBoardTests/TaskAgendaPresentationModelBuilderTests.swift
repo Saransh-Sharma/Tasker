@@ -78,7 +78,7 @@ final class TaskAgendaPresentationModelBuilderTests: XCTestCase {
             now: referenceNow
         )
 
-        XCTAssertEqual(presentation.primaryBadge.text, "Overdue")
+        XCTAssertEqual(presentation.primaryBadge.text, "From earlier")
         XCTAssertEqual(presentation.primaryBadge.tone, AgendaRowStateTone.danger)
         XCTAssertTrue(presentation.metadataLine?.contains("Growth") == true)
         XCTAssertTrue(presentation.metadataLine?.contains("Daily") == true)

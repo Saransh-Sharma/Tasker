@@ -15,7 +15,7 @@ struct HabitArchiveRow: View {
                 Button("Restore", systemImage: "arrow.uturn.backward") {
                     onRestore()
                 }
-                Button("Delete Permanently", systemImage: "trash", role: .destructive) {
+                Button("Delete permanently", systemImage: "trash", role: .destructive) {
                     onDelete()
                 }
             } label: {

@@ -10,39 +10,23 @@ struct InsightsReviewSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Reflection, not a report card", symbol: "calendar.badge.clock")
+            SectionHeader("Your days", symbol: "calendar.badge.clock")
             Text(reviewSummary)
                 .lifeboardFont(.body)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
             if let report = dayLoopEvidenceReport {
+                // Only what a person did with their days. The proposal and
+                // eligibility counts were bookkeeping, not something to act on.
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 132), spacing: 12)],
                     spacing: 12
                 ) {
-                    InsightMetric(count: report.eligibleDays, label: "Eligible days")
                     InsightMetric(count: report.closes, label: "Days closed")
-                    InsightMetric(count: report.opensBeforeEleven, label: "Opened before 11")
-                    InsightMetric(count: report.daysWithBoth, label: "Opened and closed")
-                    InsightMetric(count: report.reversals, label: "Taken back")
-                    InsightMetric(count: report.knownProposalSignals, label: "Known proposals")
-                    InsightMetric(
-                        label: "Unedited proposal share",
-                        // No sidecar means no record — not the word "Unknown"
-                        // rendered where a number goes.
-                        reading: report.uneditedShare.map {
-                            .recorded(value: $0.formatted(.percent.precision(.fractionLength(0))), unit: nil)
-                        } ?? .noRecord
-                    )
+                    InsightMetric(count: report.opensBeforeEleven, label: "Started before 11")
+                    InsightMetric(count: report.daysWithBoth, label: "Started and closed")
                 }
-                Text("Proposal evidence is local and non-authoritative. Missing sidecars stay unknown; undone receipts stop counting.")
-                    .lifeboardFont(.caption1)
-                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
-            Button("Open weekly review") {
-                router.push(.weeklyReview, in: .insights)
-            }
-            .buttonStyle(.lifeBoardChip)
-            .frame(minHeight: 44)
+            // The weekly review has its own entry card on this lens.
         }
         .padding(18)
         .lifeBoardClaySurface(.raised)
@@ -66,32 +50,33 @@ struct InsightsReviewSection: View {
         let review = loopReview
         guard review.hasNoHistory == false else {
             // Nothing recorded is not zero days closed. It is no history.
-            return "No days have been opened or closed yet. When you start closing days, what you did with them shows up here."
+            return String(localized: "No days closed yet")
         }
         guard review.meetsFloor else {
-            let days = review.recordedDays
-            return "\(days) \(days == 1 ? "day" : "days") recorded so far — not yet enough to read as a pattern."
+            let remaining = max(1, InsightsInterpretationService.minimumDaysForPattern - review.recordedDays)
+            return remaining == 1
+                ? String(localized: "Needs 1 more day")
+                : String(localized: "Needs \(remaining) more days")
         }
 
         var parts: [String] = []
         if review.daysClosed > 0 {
-            parts.append("closed \(review.daysClosed) \(review.daysClosed == 1 ? "day" : "days")")
+            parts.append(review.daysClosed == 1
+                ? String(localized: "1 day closed")
+                : String(localized: "\(review.daysClosed) days closed"))
         }
         if review.daysOpened > 0 {
-            parts.append("began \(review.daysOpened) deliberately")
-        }
-        let opening = parts.isEmpty
-            ? "You have \(review.recordedDays) days of loop history"
-            : "You've \(parts.joined(separator: " and "))"
-
-        var sentence = "\(opening)."
-        if review.daysWithBoth > 0 {
-            sentence += " \(review.daysWithBoth) had both a beginning and an end."
+            parts.append(review.daysOpened == 1
+                ? String(localized: "1 day started")
+                : String(localized: "\(review.daysOpened) days started"))
         }
         if review.reversals > 0 {
             // Named plainly: taking something back is a normal use of Undo, and
             // burying it would make the other numbers quietly wrong.
-            sentence += " \(review.reversals) \(review.reversals == 1 ? "was" : "were") taken back."
+            parts.append(String(localized: "\(review.reversals) undone"))
         }
-        return sentence + " Choose one win, one friction point, and one adjustment."
+        guard parts.isEmpty == false else {
+            return String(localized: "\(review.recordedDays) days recorded")
+        }
+        return parts.joined(separator: " · ")
     }}

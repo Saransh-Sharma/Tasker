@@ -93,19 +93,22 @@ public enum TaskRepeatPattern: Codable, Equatable, Hashable, Sendable {
     public var displayName: String {
         switch self {
         case .daily:
-            return "Daily"
+            return String(localized: "Daily")
         case .weekdays:
-            return "Weekdays (Mon-Fri)"
+            return String(localized: "Weekdays")
         case .weekly(let days):
-            return "Weekly (\(days.displayName))"
+            let dayList = days.displayName
+            return dayList.isEmpty ? String(localized: "Weekly") : String(localized: "Weekly on \(dayList)")
         case .biweekly(let days):
-            return "Biweekly (\(days.displayName))"
+            let dayList = days.displayName
+            return dayList.isEmpty ? String(localized: "Every 2 weeks") : String(localized: "Every 2 weeks on \(dayList)")
         case .monthly(let pattern):
-            return "Monthly (\(pattern.displayName))"
+            return String(localized: "Monthly on the \(pattern.displayName)")
         case .yearly(let pattern):
-            return "Yearly (\(pattern.displayName))"
+            return String(localized: "Yearly on \(pattern.displayName)")
         case .custom(let pattern):
-            return "Every \(pattern.intervalDays) days"
+            let interval = pattern.intervalDays
+            return interval == 1 ? String(localized: "Daily") : String(localized: "Every \(interval) days")
         }
     }
     
@@ -240,11 +243,11 @@ public extension TaskRepeatPattern.MonthlyPattern {
     var displayName: String {
         switch self {
         case .onDate(let day):
-            return "on \(day)th"
+            return day.ordinal
         case .onWeekday(let week, let dayOfWeek):
             return "\(week.ordinal) \(dayOfWeek.weekdayName)"
         case .lastWeekday(let dayOfWeek):
-            return "last \(dayOfWeek.weekdayName)"
+            return String(localized: "last \(dayOfWeek.weekdayName)")
         }
     }
 }
@@ -255,7 +258,7 @@ public extension TaskRepeatPattern.YearlyPattern {
         case .onDate(let month, let day):
             return "\(month.monthName) \(day)"
         case .onWeekday(let month, let week, let dayOfWeek):
-            return "\(week.ordinal) \(dayOfWeek.weekdayName) of \(month.monthName)"
+            return String(localized: "the \(week.ordinal) \(dayOfWeek.weekdayName) of \(month.monthName)")
         }
     }
 }
@@ -263,13 +266,11 @@ public extension TaskRepeatPattern.YearlyPattern {
 // MARK: - Private Extensions
 
 private extension Int {
+    /// "1st", "22nd", "13th", in the person's locale.
     var ordinal: String {
-        switch self {
-        case 1: return "1st"
-        case 2: return "2nd"
-        case 3: return "3rd"
-        default: return "\(self)th"
-        }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .ordinal
+        return formatter.string(from: NSNumber(value: self)) ?? "\(self)"
     }
     
     var weekdayName: String {

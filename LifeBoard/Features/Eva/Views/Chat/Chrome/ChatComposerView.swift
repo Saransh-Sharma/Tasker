@@ -52,6 +52,7 @@ struct ChatComposerView: View {
     let onSubmitPrompt: () -> Void
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.dynamicTypeSize) var dynamicTypeSize
 
     @State var structuredDeferredFeedback: String?
     @State var dictationController = UniversalDictationController()
@@ -94,7 +95,7 @@ struct ChatComposerView: View {
             }
 
             if isActivationPresentation {
-                Text(activationConfiguration?.helperCopy ?? "Type / for structured help like today, week, or project.")
+                Text(activationConfiguration?.helperCopy ?? String(localized: "Type / to see commands."))
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .padding(.horizontal, Theme.Spacing.md)
@@ -116,12 +117,12 @@ struct ChatComposerView: View {
                     .tint(EvaChatSunriseGlass.primary)
                     .padding(.horizontal, Theme.Spacing.md)
                     .padding(.vertical, Theme.Spacing.sm)
-                    // `.submitLabel` was macOS-only, which left the iOS return
-                    // key doing nothing but inserting a newline into a
-                    // vertical-axis field. A send key is the fastest exit a
-                    // hardware keyboard has.
+                    // Eva is prose: on the software keyboard Return breaks the
+                    // line — a vertical-axis field never fires `onSubmit` for
+                    // it — so the key says "return", not "send". Send, or
+                    // ⌘Return on a hardware keyboard, sends.
                     .onSubmit(onSubmitPrompt)
-                    .submitLabel(.send)
+                    .submitLabel(.return)
                 #if os(iOS) || os(visionOS)
                     .frame(minHeight: 48)
                     .evaComposerKeyboardDismissal(isFocused: $isPromptFocused)
@@ -150,6 +151,10 @@ struct ChatComposerView: View {
                 .fill(Color.lifeboard(.surfaceSecondary))
         )
         #endif
+        // A container, so its identifier names the composer instead of being
+        // stamped onto every control in it (the slash button answered to
+        // "chat.composer.container", not "chat.slash_button").
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat.composer.container")
         .lifeBoardGlassIdentity(.evaComposer)
         .contentShape(Rectangle())
@@ -162,38 +167,15 @@ struct ChatComposerView: View {
 
 /// The keyboard's own way out of Eva.
 ///
-/// Eva's composer is the one field in the app that can strand a user. The shell
-/// hides the compact dock while it is focused
-/// (`FoundationCompactChromeVisibilityPolicy`), Eva is a stack root so there is
-/// no back chevron behind it, and a vertical-axis `TextField` spends its return
-/// key on a newline — so with the keyboard up there was no control left on
-/// screen that could put it away.
-///
-/// Modelled on `ComposerNumberField`'s accessory in `LifeBoardComposerFields`,
-/// which added the same affordance to `.decimalPad` for the same reason: an
-/// accessory belongs to the control, not to each call site that remembers it.
-struct EvaComposerKeyboardDismissal: ViewModifier {
-    @FocusState.Binding var isFocused: Bool
-
-    func body(content: Content) -> some View {
-        content
-        #if os(iOS) || os(visionOS)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { isFocused = false }
-                        .font(.lifeboard(.callout))
-                        .accessibilityLabel("Close keyboard")
-                        .accessibilityIdentifier("chat.composer.dismiss_keyboard")
-                }
-            }
-        #endif
-    }
-}
-
+/// Eva's composer can strand a user: the shell hides the compact dock while it
+/// is focused (`FoundationCompactChromeVisibilityPolicy`), Eva is a stack root
+/// so there is no back chevron behind it, and a vertical-axis `TextField`
+/// spends its return key on a newline. The bar itself is the shared
+/// `keyboardBar` (Done and VoiceOver escape); this keeps Eva's identifier
+/// stable.
 extension View {
     func evaComposerKeyboardDismissal(isFocused: FocusState<Bool>.Binding) -> some View {
-        modifier(EvaComposerKeyboardDismissal(isFocused: isFocused))
+        keyboardBar(isFocused: isFocused, doneIdentifier: "chat.composer.dismiss_keyboard")
     }
 }
 
@@ -323,6 +305,84 @@ extension ChatComposerView {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
+        .lifeboardPressFeedback()
+    }
+}
+
+extension ChatComposerView {
+    var generateButton: some View {
+        Button {
+            Haptic.pick.play()
+            onGenerate()
+        } label: {
+            Image(systemName: "arrow.up")
+                .font(.lifeboard(.buttonSmall))
+                .fontWeight(.semibold)
+                .foregroundStyle(canSubmit ? Color.lifeboard(.accentOnPrimary) : Color.lifeboard(.textQuaternary))
+            #if os(iOS) || os(visionOS)
+                .frame(width: 32, height: 32)
+            #else
+                .frame(width: 24, height: 24)
+            #endif
+                .background(
+                    Circle()
+                        .fill(canSubmit ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.glassFill.opacity(0.68))
+                )
+                // The drawn circle stays 32pt; the target around it is 44.
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .disabled(!canSubmit)
+        // Return is a newline in Eva, so a hardware keyboard sends with ⌘Return.
+        .keyboardShortcut(.return, modifiers: .command)
+        // VoiceOver read the SF Symbol's name, "Up Arrow", because the button
+        // had no label of its own.
+        .accessibilityLabel("Send")
+        .accessibilityIdentifier("chat.send_button")
+        #if os(iOS) || os(visionOS)
+            .padding(.trailing, Theme.Spacing.md)
+            .padding(.bottom, Theme.Spacing.xs)
+        #else
+            .padding(.trailing, Theme.Spacing.sm)
+            .padding(.bottom, Theme.Spacing.sm)
+        #endif
+        .lifeBoardMotion(.controlMorph, value: canSubmit)
+        #if os(macOS) || os(visionOS)
+        .buttonStyle(.plain)
+        #endif
+        .lifeboardPressFeedback()
+    }
+
+    var stopButton: some View {
+        Button(action: onStop) {
+            Image(systemName: "stop.fill")
+                .lifeboardFont(.caption1)
+                .foregroundStyle(Color.lifeboard(.accentOnPrimary))
+            #if os(iOS) || os(visionOS)
+                .frame(width: 32, height: 32)
+            #else
+                .frame(width: 24, height: 24)
+            #endif
+                .background(
+                    Circle()
+                        .fill(Color.lifeboard(.statusDanger))
+                )
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .disabled(llmCancelled)
+        .accessibilityLabel("Stop response")
+        .accessibilityIdentifier("chat.stop_button")
+        #if os(iOS) || os(visionOS)
+            .padding(.trailing, Theme.Spacing.md)
+            .padding(.bottom, Theme.Spacing.xs)
+        #else
+            .padding(.trailing, Theme.Spacing.sm)
+            .padding(.bottom, Theme.Spacing.sm)
+        #endif
+        #if os(macOS) || os(visionOS)
+        .buttonStyle(.plain)
+        #endif
         .lifeboardPressFeedback()
     }
 }

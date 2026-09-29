@@ -33,6 +33,61 @@ enum EvaProposalAction: String, Codable, Equatable, Hashable, Sendable {
     case edit = "Edit"
     case discard = "Discard"
     case show = "Show"
+    /// Leaves the card out without judgement; nothing changes, nothing is
+    /// called wrong. Recorded, never scolded.
+    case notNow = "Not now"
+}
+
+/// A person's edit to one proposed line before it is applied: when, how
+/// long, what it is called. Applied to the commands the card points at;
+/// the apply gate sees the rewritten envelope like any other.
+struct EvaProposalCardOverride: Codable, Equatable, Hashable, Sendable {
+    var cardID: UUID
+    var scheduledStartAt: Date?
+    var estimatedDuration: TimeInterval?
+    var title: String?
+
+    var isEmpty: Bool { scheduledStartAt == nil && estimatedDuration == nil && (title?.isEmpty ?? true) }
+
+    /// "3:00 PM · 45 min" for the card's badge.
+    var badgeText: String? {
+        var parts: [String] = []
+        if let start = scheduledStartAt { parts.append(start.formatted(date: .omitted, time: .shortened)) }
+        if let duration = estimatedDuration { parts.append("\(Int((duration / 60).rounded())) min") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    func apply(to command: AssistantCommand) -> AssistantCommand {
+        switch command {
+        case let .updateTaskSchedule(taskID, start, end, duration, dueDate):
+            let newStart = scheduledStartAt ?? start
+            let newDuration = estimatedDuration ?? duration
+            let newEnd: Date? = {
+                guard let newStart else { return end }
+                if let newDuration { return newStart.addingTimeInterval(newDuration) }
+                if let start, let end { return newStart.addingTimeInterval(end.timeIntervalSince(start)) }
+                return end
+            }()
+            return .updateTaskSchedule(taskID: taskID, scheduledStartAt: newStart, scheduledEndAt: newEnd, estimatedDuration: newDuration, dueDate: dueDate)
+        case let .createScheduledTask(projectID, oldTitle, start, end, duration, lifeAreaID, priority, energy, category, context, details, tagIDs):
+            let newStart = scheduledStartAt ?? start
+            let newDuration = estimatedDuration ?? duration
+            let newEnd = newDuration.map { newStart.addingTimeInterval($0) } ?? newStart.addingTimeInterval(end.timeIntervalSince(start))
+            return .createScheduledTask(
+                projectID: projectID, title: title?.isEmpty == false ? title! : oldTitle,
+                scheduledStartAt: newStart, scheduledEndAt: newEnd, estimatedDuration: newDuration,
+                lifeAreaID: lifeAreaID, priority: priority, energy: energy, category: category, context: context, details: details, tagIDs: tagIDs
+            )
+        case let .createInboxTask(projectID, oldTitle, duration, lifeAreaID, priority, category, details, tagIDs):
+            return .createInboxTask(
+                projectID: projectID, title: title?.isEmpty == false ? title! : oldTitle,
+                estimatedDuration: estimatedDuration ?? duration,
+                lifeAreaID: lifeAreaID, priority: priority, category: category, details: details, tagIDs: tagIDs
+            )
+        default:
+            return command
+        }
+    }
 }
 
 struct EvaContextReceipt: Codable, Equatable, Hashable, Sendable {
@@ -41,28 +96,28 @@ struct EvaContextReceipt: Codable, Equatable, Hashable, Sendable {
     static let empty = EvaContextReceipt(sources: [])
 
     var collapsedText: String {
-        guard sources.isEmpty == false else { return "\(AssistantIdentityText.currentSnapshot().displayName) used task context" }
-        return "\(AssistantIdentityText.currentSnapshot().displayName) used \(sources.joined(separator: ", "))"
+        guard sources.isEmpty == false else { return String(localized: "Based on your tasks") }
+        return String(localized: "Based on: \(sources.joined(separator: ", "))")
     }
 
     var compactSourceText: String {
         let labels = compactSourceLabels
-        guard labels.isEmpty == false else { return "task context" }
+        guard labels.isEmpty == false else { return String(localized: "your tasks") }
         return labels.joined(separator: ", ")
     }
 
     var compactReviewText: String {
-        "Review before applying • Context: \(compactSourceText)"
+        String(localized: "Based on: \(compactSourceText)")
     }
 
     private var compactSourceLabels: [String] {
         var labels: [String] = []
         for source in sources {
             let normalized = source.lowercased()
-            appendCompactLabel("Today", if: normalized.contains("today"), to: &labels)
-            appendCompactLabel("overdue", if: normalized.contains("overdue"), to: &labels)
-            appendCompactLabel("upcoming", if: normalized.contains("upcoming"), to: &labels)
-            appendCompactLabel("habits", if: normalized.contains("habit"), to: &labels)
+            appendCompactLabel(String(localized: "Today"), if: normalized.contains("today"), to: &labels)
+            appendCompactLabel(String(localized: "from earlier"), if: normalized.contains("overdue"), to: &labels)
+            appendCompactLabel(String(localized: "upcoming"), if: normalized.contains("upcoming"), to: &labels)
+            appendCompactLabel(String(localized: "habits"), if: normalized.contains("habit"), to: &labels)
         }
         return labels
     }
@@ -141,16 +196,16 @@ enum EvaProposalApplyGate: Equatable {
 
     static func validate(selectedCards: [EvaProposalCard]) -> Decision {
         guard selectedCards.isEmpty == false else {
-            return .blocked(message: "Select at least one card to apply.")
+            return .blocked(message: String(localized: "Select a change to apply."))
         }
         if selectedCards.contains(where: { $0.kind == .drop || $0.kind == .delete || $0.riskLevel == .destructive }) {
-            return .blocked(message: "Drop and delete changes need a separate confirmation before \(AssistantIdentityText.currentSnapshot().displayName) can apply them.")
+            return .blocked(message: String(localized: "Deletes can’t be applied here. Deselect them."))
         }
         if selectedCards.contains(where: { $0.riskLevel != .safe }) {
-            return .blocked(message: "This plan includes high-impact changes. Deselect those cards before applying selected changes.")
+            return .blocked(message: String(localized: "Some changes need review. Deselect them to apply."))
         }
         if selectedCards.count >= 5 && isHomogeneousSafeRescheduleSelection(selectedCards) == false {
-            return .blocked(message: "This plan changes 5 or more tasks. Apply a smaller selection first.")
+            return .blocked(message: String(localized: "Select up to 4 changes at a time."))
         }
         return .allowed(appliedCount: selectedCards.count)
     }
@@ -167,7 +222,7 @@ enum EvaProposalApplyGate: Equatable {
 enum EvaProposalApplyButtonTitleResolver {
     static func title(cards: [EvaProposalCard], selectedCardIDs: Set<UUID>) -> String {
         let defaultIDs = Set(cards.filter(\.isSelectedByDefault).map(\.id))
-        return selectedCardIDs == defaultIDs ? "Apply all" : "Apply selected"
+        return selectedCardIDs == defaultIDs ? String(localized: "Apply all") : String(localized: "Apply selected")
     }
 }
 
@@ -216,266 +271,5 @@ final class EvaAppliedRunHistoryStore: @unchecked Sendable {
 
     func clear() {
         defaults.removeObject(forKey: key)
-    }
-}
-
-enum EvaProposalCardBuilder {
-    static func build(
-        commands: [AssistantCommand],
-        taskTitleByID: [UUID: String] = [:],
-        runID: UUID? = nil
-    ) -> [EvaProposalCard] {
-        commands.enumerated().map { index, command in
-            card(for: command, commandIndex: index, taskTitleByID: taskTitleByID, runID: runID)
-        }
-    }
-
-    static func groups(for cards: [EvaProposalCard]) -> [EvaProposalGroup] {
-        let ordered: [(String, (EvaProposalCard) -> Bool)] = [
-            ("Creates", { $0.kind == .create }),
-            ("Schedule changes", { [.edit, .move, .shorten].contains($0.kind) }),
-            ("Deferrals", { $0.kind == .deferred }),
-            ("Drops / Deletes", { [.drop, .delete].contains($0.kind) }),
-            ("Needs review", { [.needsReview, .noOp].contains($0.kind) }),
-            ("Unchanged", { $0.kind == .unchanged })
-        ]
-        return ordered.compactMap { title, predicate in
-            let filtered = cards.filter(predicate)
-            return filtered.isEmpty ? nil : EvaProposalGroup(title: title, cards: filtered)
-        }
-    }
-
-    static func selectedEnvelope(
-        from envelope: AssistantCommandEnvelope,
-        selectedCardIDs: Set<UUID>,
-        cards: [EvaProposalCard]
-    ) -> AssistantCommandEnvelope {
-        let selectedIndexes = Set(
-            cards
-                .filter { selectedCardIDs.contains($0.id) }
-                .flatMap(\.commandIndexes)
-        )
-        let selectedCommands = envelope.commands.enumerated().compactMap { index, command in
-            selectedIndexes.contains(index) ? command : nil
-        }
-        let selectedUndoCommands = envelope.undoCommands.map { undoCommands in
-            undoCommands.enumerated().compactMap { index, command in
-                selectedIndexes.contains(index) ? command : nil
-            }
-        }
-        return AssistantCommandEnvelope(
-            schemaVersion: envelope.schemaVersion,
-            commands: selectedCommands,
-            undoCommands: selectedUndoCommands,
-            rationaleText: envelope.rationaleText
-        )
-    }
-
-    static func noOpCard(title: String, subtitle: String, contextExplanation: String? = nil) -> EvaProposalCard {
-        EvaProposalCard(
-            id: UUID(),
-            runID: nil,
-            commandIndexes: [],
-            kind: .noOp,
-            title: title,
-            subtitle: subtitle,
-            before: nil,
-            after: nil,
-            badgeText: "NEEDS REVIEW",
-            tone: .neutral,
-            primaryAction: .edit,
-            secondaryActions: [.discard],
-            riskLevel: .needsReview,
-            contextExplanation: contextExplanation,
-            isSelectedByDefault: false
-        )
-    }
-
-    private static func card(
-        for command: AssistantCommand,
-        commandIndex: Int,
-        taskTitleByID: [UUID: String],
-        runID: UUID?
-    ) -> EvaProposalCard {
-        switch command {
-        case .createTask(_, let title):
-            return createCard(
-                title: title,
-                subtitle: "Inbox",
-                commandIndex: commandIndex,
-                runID: runID,
-                after: EvaTaskCardSnapshot(taskID: nil, title: title, iconSymbolName: nil, placement: "Inbox", dueDate: nil, scheduledStartAt: nil, scheduledEndAt: nil, estimatedDuration: nil)
-            )
-        case .createScheduledTask(_, let title, let start, let end, let duration, _, _, _, _, _, _, _):
-            return createCard(
-                title: title,
-                subtitle: "\(format(date: start)), \(format(time: start))-\(format(time: end)) (\(durationText(duration ?? end.timeIntervalSince(start))))",
-                commandIndex: commandIndex,
-                runID: runID,
-                after: EvaTaskCardSnapshot(taskID: nil, title: title, iconSymbolName: nil, placement: "Timeline", dueDate: start, scheduledStartAt: start, scheduledEndAt: end, estimatedDuration: duration ?? end.timeIntervalSince(start))
-            )
-        case .createInboxTask(_, let title, let duration, _, _, _, _, _):
-            return createCard(
-                title: title,
-                subtitle: duration.map { "Inbox (\(durationText($0)))" } ?? "Inbox",
-                commandIndex: commandIndex,
-                runID: runID,
-                after: EvaTaskCardSnapshot(taskID: nil, title: title, iconSymbolName: nil, placement: "Inbox", dueDate: nil, scheduledStartAt: nil, scheduledEndAt: nil, estimatedDuration: duration)
-            )
-        case .updateTaskSchedule(let taskID, let start, let end, let duration, let dueDate):
-            let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            let subtitle: String
-            if let start, let end {
-                subtitle = "\(format(date: start)), \(format(time: start))-\(format(time: end)) (\(durationText(duration ?? end.timeIntervalSince(start))))"
-            } else if let dueDate {
-                subtitle = "Move to \(format(date: dueDate))"
-            } else {
-                subtitle = "Update schedule"
-            }
-            return editCard(
-                kind: .edit,
-                title: title,
-                subtitle: subtitle,
-                badgeText: "EDIT",
-                commandIndex: commandIndex,
-                runID: runID,
-                after: EvaTaskCardSnapshot(taskID: taskID, title: title, iconSymbolName: nil, placement: "Timeline", dueDate: dueDate ?? start, scheduledStartAt: start, scheduledEndAt: end, estimatedDuration: duration)
-            )
-        case .updateTaskFields(let taskID, let newTitle, _, _, _, _, _, _, _):
-            let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            let resolvedTitle = newTitle.setValue
-            return editCard(
-                kind: .edit,
-                title: resolvedTitle ?? title,
-                subtitle: resolvedTitle == nil ? "Update task details" : "Rename from \(title)",
-                badgeText: "EDIT",
-                commandIndex: commandIndex,
-                runID: runID,
-                after: EvaTaskCardSnapshot(taskID: taskID, title: resolvedTitle ?? title, iconSymbolName: nil, placement: "Task", dueDate: nil, scheduledStartAt: nil, scheduledEndAt: nil, estimatedDuration: nil)
-            )
-        case .deferTask(let taskID, let targetDate, _):
-            let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            return riskCard(kind: .deferred, title: title, subtitle: "Move to \(format(date: targetDate))", badgeText: "DEFER", commandIndex: commandIndex, runID: runID)
-        case .dropTaskFromToday(let taskID, let destination, _):
-            let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            return riskCard(kind: .drop, title: title, subtitle: "Drop from today to \(destination.displayLabel)", badgeText: "DROP", commandIndex: commandIndex, runID: runID)
-        case .deleteTask(let taskID):
-            let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            return riskCard(kind: .delete, title: title, subtitle: "Delete task", badgeText: "NEEDS REVIEW", commandIndex: commandIndex, runID: runID)
-        case .moveTask(let taskID, _):
-            let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            return editCard(kind: .move, title: title, subtitle: "Move project", badgeText: "EDIT", commandIndex: commandIndex, runID: runID, after: nil)
-        case .updateTask(let taskID, let title, let dueDate):
-            let display = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            let subtitle = dueDate.map { "Move to \(format(date: $0))" } ?? "Rename to \(title ?? display)"
-            return editCard(kind: .edit, title: title ?? display, subtitle: subtitle, badgeText: "EDIT", commandIndex: commandIndex, runID: runID, after: nil)
-        case .setTaskCompletion(let taskID, let isComplete, _):
-            let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            return editCard(kind: .edit, title: title, subtitle: isComplete ? "Mark complete" : "Reopen task", badgeText: "EDIT", commandIndex: commandIndex, runID: runID, after: nil)
-        case .completeTask(let taskID):
-            let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            return editCard(kind: .edit, title: title, subtitle: "Mark complete", badgeText: "EDIT", commandIndex: commandIndex, runID: runID, after: nil)
-        case .restoreTask(_, _, let title, _, _, _):
-            return editCard(kind: .edit, title: title, subtitle: "Restore task", badgeText: "EDIT", commandIndex: commandIndex, runID: runID, after: nil)
-        case .restoreTaskSnapshot(let snapshot):
-            return editCard(
-                kind: .edit,
-                title: snapshot.title,
-                subtitle: snapshot.scheduledStartAt.map { "\(format(date: $0)), \(format(time: $0))" } ?? "Restore task snapshot",
-                badgeText: "EDIT",
-                commandIndex: commandIndex,
-                runID: runID,
-                after: EvaTaskCardSnapshot(taskID: snapshot.id, title: snapshot.title, iconSymbolName: nil, placement: "Task", dueDate: snapshot.dueDate, scheduledStartAt: snapshot.scheduledStartAt, scheduledEndAt: snapshot.scheduledEndAt, estimatedDuration: snapshot.estimatedDuration)
-            )
-        }
-    }
-
-    private static func createCard(title: String, subtitle: String, commandIndex: Int, runID: UUID?, after: EvaTaskCardSnapshot?) -> EvaProposalCard {
-        EvaProposalCard(
-            id: UUID(),
-            runID: runID,
-            commandIndexes: [commandIndex],
-            kind: .create,
-            title: title,
-            subtitle: subtitle,
-            before: nil,
-            after: after,
-            badgeText: "CREATE",
-            tone: .create,
-            primaryAction: .add,
-            secondaryActions: [.edit, .discard, .show],
-            riskLevel: .safe,
-            contextExplanation: "Scheduled from your prompt.",
-            isSelectedByDefault: true
-        )
-    }
-
-    private static func editCard(kind: EvaProposalKind, title: String, subtitle: String, badgeText: String, commandIndex: Int, runID: UUID?, after: EvaTaskCardSnapshot?) -> EvaProposalCard {
-        EvaProposalCard(
-            id: UUID(),
-            runID: runID,
-            commandIndexes: [commandIndex],
-            kind: kind,
-            title: title,
-            subtitle: subtitle,
-            before: nil,
-            after: after,
-            badgeText: badgeText,
-            tone: .edit,
-            primaryAction: .save,
-            secondaryActions: [.show, .edit, .discard],
-            riskLevel: .safe,
-            contextExplanation: "You asked \(AssistantIdentityText.currentSnapshot().displayName) to update this task.",
-            isSelectedByDefault: true
-        )
-    }
-
-    private static func riskCard(kind: EvaProposalKind, title: String, subtitle: String, badgeText: String, commandIndex: Int, runID: UUID?) -> EvaProposalCard {
-        let isDeferral = kind == .deferred
-        return EvaProposalCard(
-            id: UUID(),
-            runID: runID,
-            commandIndexes: [commandIndex],
-            kind: kind,
-            title: title,
-            subtitle: subtitle,
-            before: nil,
-            after: nil,
-            badgeText: badgeText,
-            tone: isDeferral ? .edit : .destructive,
-            primaryAction: .save,
-            secondaryActions: [.show, .edit, .discard],
-            riskLevel: isDeferral ? .safe : .destructive,
-            contextExplanation: isDeferral ? "You asked \(AssistantIdentityText.currentSnapshot().displayName) to move this task." : "\(AssistantIdentityText.currentSnapshot().displayName) needs confirmation before applying this change.",
-            isSelectedByDefault: isDeferral
-        )
-    }
-
-    private static func displayTitle(taskID: UUID, taskTitleByID: [UUID: String]) -> String {
-        let title = taskTitleByID[taskID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return title.isEmpty ? "task" : title
-    }
-
-    private static func format(date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .none
-        return formatter.string(from: date)
-    }
-
-    private static func format(time: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter.string(from: time)
-    }
-
-    private static func durationText(_ duration: TimeInterval) -> String {
-        let minutes = max(1, Int((duration / 60).rounded()))
-        if minutes % 60 == 0 {
-            let hours = minutes / 60
-            return hours == 1 ? "1 hr" : "\(hours) hr"
-        }
-        return "\(minutes) min"
     }
 }

@@ -33,10 +33,6 @@ struct NeedsReplanSummaryOverlay: View {
                             .font(.lifeboard(.title1).weight(.semibold))
                             .foregroundStyle(Color.lifeboard.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text(state.skippedCount > 0 ? "You can review them now or leave them for later." : "You've resolved your unfinished tasks.")
-                            .font(.lifeboard(.body))
-                            .foregroundStyle(Color.lifeboard.textSecondary)
-                            .lineSpacing(2)
                     }
                 }
 
@@ -53,7 +49,7 @@ struct NeedsReplanSummaryOverlay: View {
                     summaryPrimaryButton("Review skipped", systemImage: "arrow.uturn.backward.circle.fill", action: onReviewSkipped)
                     summarySecondaryButton("Finish", action: onDone)
                 } else {
-                    summaryPrimaryButton("View Today", systemImage: "sun.max.fill", action: onViewToday)
+                    summaryPrimaryButton("View today", systemImage: "sun.max.fill", action: onViewToday)
                     summarySecondaryButton("Done", action: onDone)
                 }
             }
@@ -72,9 +68,9 @@ struct NeedsReplanSummaryOverlay: View {
     }
 
     private var summaryHeadline: String {
-        guard state.skippedCount > 0 else { return "All caught up" }
-        let noun = state.skippedCount == 1 ? "task" : "tasks"
-        return "You skipped \(state.skippedCount) \(noun)"
+        guard state.skippedCount > 0 else { return String(localized: "All sorted") }
+        let skipped = state.skippedCount
+        return skipped == 1 ? String(localized: "1 skipped") : String(localized: "\(skipped) skipped")
     }
 
     private func metric(_ label: String, _ count: Int) -> some View {
@@ -92,7 +88,7 @@ struct NeedsReplanSummaryOverlay: View {
 
     private func summaryPrimaryButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: {
-            HapticFeedback.selection()
+            Haptic.pick.play()
             action()
         }) {
             Label(title, systemImage: systemImage)

@@ -216,19 +216,19 @@ public enum ProjectValidationError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .emptyName:
-            return "Project name cannot be empty"
+            return String(localized: "Add a project name.")
         case .nameTooLong:
-            return "Project name cannot exceed 100 characters"
+            return String(localized: "Use up to 100 characters for the name.")
         case .descriptionTooLong:
-            return "Project description cannot exceed 500 characters"
+            return String(localized: "Use up to 500 characters for the description.")
         case .duplicateName:
-            return "A project with this name already exists"
+            return String(localized: "A project with this name already exists.")
         case .tooManyTags:
-            return "Cannot have more than 20 tags"
+            return String(localized: "Use up to 20 tags.")
         case .tooManySubprojects:
-            return "Cannot have more than 50 subprojects"
+            return String(localized: "Use up to 50 subprojects.")
         case .circularReference:
-            return "Project cannot reference itself"
+            return String(localized: "A project can’t contain itself.")
         }
     }
 }

@@ -13,24 +13,39 @@ import XCTest
 /// a store that already holds their data: `addPersistentStore` throws, and the
 /// app cannot open the file it wrote.
 ///
-/// Twenty-three model versions shipped with nothing checking this. These tests
-/// are the check.
+/// Twenty-five model versions ship today. These tests ensure the append-only
+/// registry, compiled bundle, and migration behavior cannot drift apart.
 final class CoreDataMigrationChainTests: XCTestCase {
     // MARK: - Model loading
 
     /// Every compiled version inside the momd, oldest first.
-    ///
-    /// Ordering comes from `VersionInfo.plist`, not from the filenames — the
-    /// versions are named after the feature that added them (`_Trackers`,
-    /// `_WellnessCore`), so alphabetical order is not chronological order and
-    /// sorting by name would silently test the wrong chain.
     private static func modelVersionURLs() throws -> [URL] {
         let momd = try PersistenceTestModel.url()
         let contents = try FileManager.default.contentsOfDirectory(
             at: momd,
             includingPropertiesForKeys: nil
         )
-        return contents.filter { $0.pathExtension == "mom" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        let compiledModels = Dictionary(
+            uniqueKeysWithValues: contents
+                .filter { $0.pathExtension == "mom" }
+                .map { ($0.lastPathComponent, $0) }
+        )
+        let registered = LifeBoardPersistenceModel.orderedVersions
+        XCTAssertEqual(
+            Set(compiledModels.keys),
+            Set(registered.map(\.compiledModelName)),
+            "The compiled model bundle and append-only version registry must match exactly."
+        )
+        XCTAssertEqual(registered.last, PersistenceModelVersion.current)
+        return try registered.map { version in
+            try XCTUnwrap(compiledModels[version.compiledModelName])
+        }
+    }
+
+    private static func closeStores(in coordinator: NSPersistentStoreCoordinator) throws {
+        for store in coordinator.persistentStores {
+            try coordinator.remove(store)
+        }
     }
 
     private static func currentModel() throws -> NSManagedObjectModel {
@@ -130,9 +145,7 @@ final class CoreDataMigrationChainTests: XCTestCase {
                 }
                 try context.save()
             }
-            for store in coordinator.persistentStores {
-                try coordinator.remove(store)
-            }
+            try Self.closeStores(in: coordinator)
         }
 
         // Opened the same way `makeV3PersistentContainer` opens it.
@@ -164,6 +177,8 @@ final class CoreDataMigrationChainTests: XCTestCase {
                 "the task written at the first model version did not survive migration to the current one"
             )
         }
+        context.reset()
+        try Self.closeStores(in: migrated)
     }
 
     /// Habit amounts arrived in `TaskModelV3_HabitProgress`. An occurrence
@@ -200,7 +215,7 @@ final class CoreDataMigrationChainTests: XCTestCase {
                 occurrence.setValue("pending", forKey: "state")
                 try context.save()
             }
-            for store in coordinator.persistentStores { try coordinator.remove(store) }
+            try Self.closeStores(in: coordinator)
         }
 
         let current = try Self.currentModel()
@@ -226,6 +241,8 @@ final class CoreDataMigrationChainTests: XCTestCase {
             context.refresh(occurrence, mergeChanges: false)
             XCTAssertEqual((occurrence.value(forKey: "recordedValue") as? NSNumber)?.doubleValue, 3)
         }
+        context.reset()
+        try Self.closeStores(in: migrated)
     }
 
     // MARK: - Store layout

@@ -18,13 +18,13 @@ public enum TaskType: Int32, CaseIterable, Codable, Sendable {
     public var displayName: String {
         switch self {
         case .morning:
-            return "Morning"
+            return String(localized: "Morning")
         case .evening:
-            return "Evening"
+            return String(localized: "Evening")
         case .upcoming:
-            return "Upcoming"
+            return String(localized: "Upcoming")
         case .inbox:
-            return "Inbox"
+            return String(localized: "Inbox")
         }
     }
     

@@ -159,7 +159,7 @@ public struct XPCalculationService {
         return XPCompletionPreview(awardedXP: awardedXP)
     }
 
-    @available(*, deprecated, message: "Use completionXPIfCompletedNow(...) for precise XP rewards.")
+    @available(*, deprecated, message: "Use completionXPIfCompletedNow(…) for precise XP rewards.")
     public static func completionEstimate(
         priorityRaw: Int32,
         estimatedDuration: TimeInterval?,

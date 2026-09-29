@@ -6,8 +6,8 @@ import stagingPolicy from '../config/runtime-config.staging.json'
 import type { Env } from '../src/environment.js'
 import {
   EvaRuntimeConfigSchema,
+  defaultTrustPolicy,
   failClosedRuntimeConfig,
-  requiresAgeDecision,
   runtimeConfig,
 } from '../src/config/runtime-config.js'
 
@@ -27,13 +27,26 @@ describe.sequential('signed runtime configuration source', () => {
     await expect(runtimeConfig(bindings)).resolves.toMatchObject({ version: 0, cloudState: 'disabled', ttsEnabled: false })
   })
 
-  it('does not turn a disabled cloud into an age-verification dead end', () => {
+  it('declares one explicit trust policy instead of ignored booleans', () => {
     const disabled = failClosedRuntimeConfig(bindings)
-    expect(disabled.agePolicy?.requiredRegionFailClosed).toBe(false)
-    expect(requiresAgeDecision(disabled)).toBe(false)
+    expect(disabled.trustPolicy).toEqual(defaultTrustPolicy)
+    expect(disabled.trustPolicy).toEqual({
+      attestationMode: 'optionalRiskSignal',
+      ageEligibilitySource: 'distribution',
+    })
+  })
 
-    disabled.cloudState = 'enabled'
-    expect(requiresAgeDecision(disabled)).toBe(false)
+  it('validates both supported trust-policy modes and rejects unknown controls', () => {
+    const candidate = failClosedRuntimeConfig(bindings)
+    candidate.trustPolicy = {
+      attestationMode: 'required',
+      ageEligibilitySource: 'serviceManaged',
+    }
+    expect(Value.Check(EvaRuntimeConfigSchema, candidate)).toBe(true)
+    expect(Value.Check(EvaRuntimeConfigSchema, {
+      ...candidate,
+      trustPolicy: { attestationMode: 'ignored', ageEligibilitySource: 'distribution' },
+    })).toBe(false)
   })
 
   it('rejects future, rolled-back, and unapproved enabled documents', async () => {
@@ -124,6 +137,7 @@ describe('versioned runtime policies', () => {
       evaFrictionDetectiveV1Enabled: true,
       evaWeeklyResetV1Enabled: true,
     })
+    expect(policy.trustPolicy).toEqual(defaultTrustPolicy)
     for (const route of supportedProductionRoutes) {
       expect(policy.routes[route].enabled, `${environment}.${route}`).toBe(true)
     }

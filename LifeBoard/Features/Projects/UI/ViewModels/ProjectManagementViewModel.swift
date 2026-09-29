@@ -313,7 +313,7 @@ public final class ProjectManagementViewModel: ObservableObject {
                 Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.isSavingMotivation = false
-                self.saveMessage = "Motivation saved"
+                self.saveMessage = String(localized: "Saved")
                 self.applyUpdatedProject(updatedProject)
                 }
             case .failure(let error):
@@ -571,8 +571,8 @@ public final class ProjectManagementViewModel: ObservableObject {
 
             if updateState.changedCount > 0 {
                 self.saveMessage = bucket == .thisWeek
-                    ? "Added to this week"
-                    : (bucket == .nextWeek ? "Moved to next week" : "Moved out of this week")
+                    ? String(localized: "Added to this week")
+                    : (bucket == .nextWeek ? String(localized: "Moved to next week") : String(localized: "Moved out of this week"))
             }
 
             self.clearSelection()
@@ -651,10 +651,10 @@ public enum ProjectFilterType: CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .all: return "All Projects"
-        case .active: return "Active"
-        case .inactive: return "Inactive"
-        case .completed: return "Completed"
+        case .all: return String(localized: "All projects")
+        case .active: return String(localized: "Active")
+        case .inactive: return String(localized: "Inactive")
+        case .completed: return String(localized: "Completed")
         }
     }
 }
@@ -667,10 +667,10 @@ public enum ProjectSortOption: CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .name: return "Name"
-        case .taskCount: return "Task Count"
-        case .completionRate: return "Completion Rate"
-        case .dateCreated: return "Date Created"
+        case .name: return String(localized: "Name")
+        case .taskCount: return String(localized: "Task count")
+        case .completionRate: return String(localized: "Completion rate")
+        case .dateCreated: return String(localized: "Date created")
         }
     }
 }

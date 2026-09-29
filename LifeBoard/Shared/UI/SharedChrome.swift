@@ -142,3 +142,52 @@ struct SegmentedControl<Option: Hashable>: View {
         }
     }
 }
+
+// MARK: - ReadOnlyModeBanner
+
+/// Tells the person the app opened read-only (the write-closed fallback).
+///
+/// Every write is refused in that mode; without this, edits failed one at a
+/// time with nothing on screen explaining why. Reads
+/// `PersistentStoreReadOnlyState.shared` and draws nothing otherwise, so a
+/// shell can mount it unconditionally:
+///
+///     .safeAreaInset(edge: .top) { ReadOnlyModeBanner(onDetails: { … }) }
+struct ReadOnlyModeBanner: View {
+    var state: PersistentStoreReadOnlyState = .shared
+    /// Opens the Recovery Center, when the host can.
+    var onDetails: (() -> Void)?
+
+    var body: some View {
+        if state.isReadOnly {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: "lock.fill")
+                    .lifeboardFont(.support)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Editing is paused")
+                        .lifeboardFont(.bodyStrong)
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                    Text("Your data is safe. Read-only while LifeBoard checks it.")
+                        .lifeboardFont(.support)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                if let onDetails {
+                    Button("Details", action: onDetails)
+                        .lifeboardFont(.buttonSmall)
+                        .minimumHitTarget()
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lifeBoardClaySurface(.resting)
+            .padding(.horizontal, 16)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("shell.readOnlyBanner")
+        }
+    }
+}

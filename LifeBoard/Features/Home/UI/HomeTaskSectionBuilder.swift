@@ -617,7 +617,7 @@ enum HomeMixedSectionBuilder {
 
             return .lifeArea(
                 id: habit.lifeAreaID,
-                name: "Life Area",
+                name: String(localized: "Life area"),
                 iconSystemName: "square.grid.2x2.fill"
             )
         }

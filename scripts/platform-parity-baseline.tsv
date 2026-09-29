@@ -1,0 +1,3 @@
+# file	rule	count — regenerate with: ruby scripts/check_platform_parity.rb --update
+LifeBoard/Features/Knowledge/UI/LifeBoardKnowledgeViews.swift	escape-less	1
+LifeBoard/Foundation/Navigation/FoundationCaptureHosts.swift	escape-less	1

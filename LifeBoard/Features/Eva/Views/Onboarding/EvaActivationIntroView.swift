@@ -10,7 +10,7 @@ struct EvaActivationIntroView: View {
 
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private let trustChips = ["Luna-powered", "Private by design", "Offline option"]
+    private let trustChips = [String(localized: "Private by design"), String(localized: "Works offline too")]
 
     private var spacing: SemanticSpacingTokens {
         tokens.spacing
@@ -31,8 +31,8 @@ struct EvaActivationIntroView: View {
             contentTopPaddingOverride: 0,
             footer: {
                 EvaFooterButtons(
-                    primaryTitle: "Activate \(assistantIdentity.snapshot.displayName)",
-                    secondaryTitle: "Not now",
+                    primaryTitle: String(localized: "Turn on \(assistantIdentity.snapshot.displayName)"),
+                    secondaryTitle: String(localized: "Not now"),
                     isPrimaryDisabled: false,
                     onPrimary: onContinue,
                     onSecondary: onDismiss
@@ -111,8 +111,8 @@ struct EvaActivationIntroView: View {
                     locale: Locale.current,
                     assistantIdentity.snapshot.displayName
                 ),
-                bodyText: String(localized: "Your executive assistant for planning, prioritizing, and keeping momentum. Cloud EVA uses Luna for stronger answers, while Apple powers text input and Offline EVA remains optional."),
-                eyebrow: assistantIdentity.snapshot.uppercaseName
+                bodyText: String(localized: "Plans your day with you. Runs in the cloud or on \(DeviceNoun.this)."),
+                eyebrow: assistantIdentity.snapshot.displayName
             )
             .enhancedStaggeredAppearance(index: 1)
 
@@ -123,7 +123,7 @@ struct EvaActivationIntroView: View {
             }
             .enhancedStaggeredAppearance(index: 2)
 
-            Text("Cloud EVA starts with a private guest session. Journal, Health, life moments, and personal memory context are enabled by default; you can change those settings later or protect EVA with Apple.")
+            Text("No sign-up needed, and you choose what Eva can use.")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(maxWidth: .infinity, alignment: .leading)

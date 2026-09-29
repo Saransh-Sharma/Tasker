@@ -38,15 +38,15 @@ enum OnboardingContextualTip: String, CaseIterable, Sendable {
         case .home: String(localized: "This is Today")
         case .plan: String(localized: "Plan around your day")
         case .track: String(localized: "Track what helps")
-        case .eva: String(localized: "Ask EVA")
+        case .eva: String(localized: "Ask Eva")
         }
     }
 
     var detail: String {
         switch self {
-        case .home: String(localized: "Your next thing lives here.")
+        case .home: String(localized: "Your next task shows here.")
         case .plan: String(localized: "Drop tasks into open time.")
-        case .track: String(localized: "A missed day isn't a failure.")
+        case .track: String(localized: "Log habits, mood, and water here.")
         case .eva: String(localized: "You approve changes before they happen.")
         }
     }

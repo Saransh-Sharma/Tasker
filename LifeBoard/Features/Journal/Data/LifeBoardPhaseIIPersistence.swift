@@ -21,13 +21,13 @@ public enum TrackerDefinitionServiceError: LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .emptyTitle: "Give this tracker a name."
-        case .invalidRange: "The tracker range is not valid."
-        case .invalidChoiceOptions: "Choice trackers need distinct, non-empty options."
-        case .valueTypeMismatch: "That value does not match this tracker."
-        case .valueOutOfRange: "That value is outside this tracker’s range."
-        case .unknownChoice: "Choose one of this tracker’s saved options."
-        case .sensitiveHomeProjection: "Sensitive trackers must be authorized before appearing on Home."
+        case .emptyTitle: String(localized: "Give this tracker a name.")
+        case .invalidRange: String(localized: "Check the tracker’s range.")
+        case .invalidChoiceOptions: String(localized: "Each option needs a different name.")
+        case .valueTypeMismatch: String(localized: "That value doesn’t fit this tracker.")
+        case .valueOutOfRange: String(localized: "That value is outside this tracker’s range.")
+        case .unknownChoice: String(localized: "Choose one of this tracker’s options.")
+        case .sensitiveHomeProjection: String(localized: "Allow sensitive trackers on Home first.")
         }
     }
 }
@@ -221,11 +221,11 @@ public enum MedicationScheduleServiceError: LocalizedError, Equatable, Sendable 
 
     public var errorDescription: String? {
         switch self {
-        case .emptyName: "Give this medication a name."
-        case .invalidActiveRange: "The medication end date must follow its start date."
-        case .invalidRefillState: "Refill values cannot be negative or exceed the refill quantity."
-        case .invalidSchedule: "Choose at least one day and a valid medication window."
-        case .eventOutsideActiveRange: "That event is outside this medication’s active dates."
+        case .emptyName: String(localized: "Give this medication a name.")
+        case .invalidActiveRange: String(localized: "End date must be after the start date.")
+        case .invalidRefillState: String(localized: "Refills must be between 0 and the refill quantity.")
+        case .invalidSchedule: String(localized: "Pick at least 1 day and a time.")
+        case .eventOutsideActiveRange: String(localized: "That date is outside this medication’s dates.")
         }
     }
 }
@@ -408,7 +408,7 @@ actor TrackerReminderCoordinator {
         for value in TrackerReminderPolicy.requests(for: tracker) {
             let content = UNMutableNotificationContent()
             content.title = tracker.title
-            content.body = "A gentle reminder to record today’s check-in."
+            content.body = String(localized: "Add today’s log.")
             content.sound = .default
             content.userInfo = ["trackerID": tracker.id.uuidString]
             var components = DateComponents()
@@ -465,7 +465,7 @@ actor MedicationReminderCoordinator {
         for value in MedicationReminderPolicy.requests(medication: medication, schedule: schedule) {
             let content = UNMutableNotificationContent()
             content.title = medication.name
-            content.body = medication.dosageText.map { "Scheduled care window · \($0)" } ?? "Your scheduled care window is beginning."
+            content.body = medication.dosageText ?? String(localized: "Scheduled now")
             content.sound = .default
             content.userInfo = ["medicationID": medication.id.uuidString]
             var components = DateComponents()
@@ -1809,69 +1809,6 @@ public final class CoreDataLifeBoardPhaseIIRepository: PhaseIIRepository, Journa
             duration: (object.value(forKey: "duration") as? NSNumber)?.doubleValue,
             createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
             syncPolicy: policyRaw.flatMap(JournalMediaSyncPolicy.init(rawValue:)) ?? (kind == .audio ? .protectedLocalOnly : .privateCloud)
-        )
-    }
-
-    private static func spaceValue(_ object: NSManagedObject) -> KnowledgeSpaceValue? {
-        guard let id = object.value(forKey: "id") as? UUID,
-              let title = object.value(forKey: "title") as? String else { return nil }
-        return .init(id: id, title: title, icon: object.value(forKey: "icon") as? String ?? "square.grid.2x2", createdAt: object.value(forKey: "createdAt") as? Date ?? Date(), updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date())
-    }
-
-    private static func folderValue(_ object: NSManagedObject) -> KnowledgeFolderValue? {
-        guard let id = object.value(forKey: "id") as? UUID,
-              let spaceID = object.value(forKey: "spaceID") as? UUID,
-              let title = object.value(forKey: "title") as? String else { return nil }
-        return .init(id: id, spaceID: spaceID, parentFolderID: object.value(forKey: "parentFolderID") as? UUID, title: title, ordinal: (object.value(forKey: "ordinal") as? NSNumber)?.intValue ?? 0)
-    }
-
-    private static func noteValue(_ object: NSManagedObject) -> KnowledgeNoteValue? {
-        guard let id = object.value(forKey: "id") as? UUID,
-              let spaceID = object.value(forKey: "spaceID") as? UUID,
-              let title = object.value(forKey: "title") as? String else { return nil }
-        let blocks = ((object.value(forKey: "blocks") as? Set<NSManagedObject>) ?? []).compactMap(knowledgeBlockValue)
-        let links = (object.value(forKey: "tagLinks") as? Set<NSManagedObject>) ?? []
-        let tagIDs = Set(links.compactMap { $0.value(forKey: "tagID") as? UUID })
-        return .init(
-            id: id,
-            spaceID: spaceID,
-            folderID: object.value(forKey: "folderID") as? UUID,
-            title: title,
-            isPinned: (object.value(forKey: "isPinned") as? NSNumber)?.boolValue ?? false,
-            isFavorite: (object.value(forKey: "isFavorite") as? NSNumber)?.boolValue ?? false,
-            createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
-            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date(),
-            blocks: blocks,
-            tagIDs: tagIDs,
-            state: (object.value(forKey: "stateRaw") as? String).flatMap(KnowledgeNoteState.init(rawValue:)),
-            deletedAt: object.value(forKey: "deletedAt") as? Date,
-            lastOpenedAt: object.value(forKey: "lastOpenedAt") as? Date,
-            manualSortOrder: (object.value(forKey: "manualSortOrder") as? NSNumber)?.doubleValue,
-            templateID: object.value(forKey: "templateID") as? String,
-            contentVersion: (object.value(forKey: "contentVersion") as? NSNumber)?.intValue,
-            lockPolicy: (object.value(forKey: "lockPolicyRaw") as? String).flatMap(KnowledgeNoteLockPolicy.init(rawValue:))
-        )
-    }
-
-    private static func knowledgeBlockValue(_ object: NSManagedObject) -> KnowledgeBlockValue? {
-        guard let id = object.value(forKey: "id") as? UUID,
-              let noteID = object.value(forKey: "noteID") as? UUID,
-              let raw = object.value(forKey: "kindRaw") as? String,
-              let kind = KnowledgeBlockKind(rawValue: raw) else { return nil }
-        return .init(
-            id: id,
-            noteID: noteID,
-            kind: kind,
-            text: object.value(forKey: "text") as? String ?? "",
-            metadata: object.value(forKey: "metadataData") as? Data,
-            ordinal: (object.value(forKey: "ordinal") as? NSNumber)?.intValue ?? 0,
-            isChecked: (object.value(forKey: "isChecked") as? NSNumber)?.boolValue ?? false,
-            richTextData: object.value(forKey: "richTextData") as? Data,
-            parentBlockID: object.value(forKey: "parentBlockID") as? UUID,
-            indentLevel: (object.value(forKey: "indentLevel") as? NSNumber)?.intValue,
-            isCollapsed: (object.value(forKey: "isCollapsed") as? NSNumber)?.boolValue,
-            createdAt: object.value(forKey: "createdAt") as? Date,
-            updatedAt: object.value(forKey: "updatedAt") as? Date
         )
     }
 

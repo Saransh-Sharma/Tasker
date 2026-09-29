@@ -92,7 +92,7 @@ extension EvaCloudTransport {
                 // mismatch alone must never turn a temporary read problem
                 // into a replacement guest account.
                 throw EvaProviderError.unavailable(
-                    String(localized: "Cloud EVA is restoring this installation. Try again when secure storage is available.")
+                    String(localized: "Couldn’t open secure storage. Unlock this device and try again.")
                 )
             }
         }
@@ -172,7 +172,7 @@ extension EvaCloudTransport {
             if let errorData, let envelope = try? JSONDecoder.evaCloud.decode(EvaErrorEnvelope.self, from: errorData) {
                 throw envelope
             }
-            throw EvaProviderError.unavailable("Cloud EVA returned HTTP \(http.statusCode).")
+            throw EvaProviderError.unavailable(String(localized: "Couldn’t reach Eva. Error \(http.statusCode)."))
         }
     }
 
@@ -188,7 +188,7 @@ extension EvaCloudTransport {
               components.fragment == nil,
               components.path.isEmpty || components.path == "/",
               let url = components.url else {
-            throw EvaProviderError.unavailable("Cloud EVA has no trusted service endpoint in this build.")
+            throw EvaProviderError.unavailable(String(localized: "Cloud isn’t set up in this build."))
         }
         return url
     }

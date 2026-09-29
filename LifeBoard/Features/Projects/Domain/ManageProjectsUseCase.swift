@@ -55,7 +55,7 @@ public final class ManageProjectsUseCase: @unchecked Sendable {
     ) {
         // Validate project name
         guard validateProjectName(request.name) else {
-            completion(.failure(.invalidName("Project name is invalid")))
+            completion(.failure(.invalidName(String(localized: "Enter a project name."))))
             return
         }
         
@@ -139,7 +139,7 @@ public final class ManageProjectsUseCase: @unchecked Sendable {
                 if let newName = request.name {
                     // Validate new name
                     guard self?.validateProjectName(newName) == true else {
-                        completion(.failure(.invalidName("Project name is invalid")))
+                        completion(.failure(.invalidName(String(localized: "Enter a project name."))))
                         return
                     }
                     
@@ -710,19 +710,19 @@ public enum ProjectError: LocalizedError, @unchecked Sendable {
     public var errorDescription: String? {
         switch self {
         case .projectNotFound:
-            return "Project not found"
+            return String(localized: "Couldn’t find project.")
         case .invalidName(let reason):
-            return "Invalid project name: \(reason)"
+            return reason
         case .duplicateName:
-            return "A project with this name already exists"
+            return String(localized: "That name is already used.")
         case .cannotDeleteDefault:
-            return "Cannot delete the default Inbox project"
+            return String(localized: "Inbox can’t be deleted.")
         case .cannotModifyDefault:
-            return "Cannot modify the default Inbox project"
+            return String(localized: "Inbox can’t be changed.")
         case .validationFailed(let reason):
-            return "Validation failed: \(reason)"
+            return String(localized: "Couldn’t save project. \(reason)")
         case .repositoryError(let error):
-            return "Repository error: \(error.localizedDescription)"
+            return String(localized: "Couldn’t save project. \(error.localizedDescription)")
         }
     }
 }

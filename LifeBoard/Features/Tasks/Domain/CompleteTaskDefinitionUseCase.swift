@@ -73,6 +73,19 @@ public final class CompleteTaskDefinitionUseCase: @unchecked Sendable {
                             name: NSNotification.Name("TaskCompletionChanged"),
                             object: updatedTask
                         )
+                        // A persisted completion is a commitment; the shell's
+                        // `FirstLightGate` decides whether it is today's first.
+                        // Tasks never posted this, so "first one done" could
+                        // only ever celebrate a habit or a capture.
+                        if updatedTask.isComplete, previousTask.isComplete == false {
+                            TaskNotificationDispatcher.postOnMain(
+                                name: .lifeboardDailyCommitment,
+                                userInfo: [
+                                    FirstLightCommitment.sourceKey: FirstLightCommitment.Source.task.rawValue,
+                                    "taskID": updatedTask.id.uuidString
+                                ]
+                            )
+                        }
                         let payload = HomeTaskMutationPayload(
                             reason: updatedTask.isComplete ? .completed : .reopened,
                             source: "completeTaskDefinitionUseCase",

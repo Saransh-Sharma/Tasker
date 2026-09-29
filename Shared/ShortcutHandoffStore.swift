@@ -5,15 +5,53 @@ extension Notification.Name {
     static let lifeboardEvaChatLaunchRequestDidChange = Notification.Name("LifeBoardEvaChatLaunchRequestDidChange")
 }
 
+/// What Eva is being asked about, as records rather than prose: the chat
+/// turns it into context attachments, so the envelope stays "records, not
+/// prose" and the journal consent gate still applies.
+struct EvaLaunchContext: Codable, Equatable, Sendable {
+    enum Kind: String, Codable, Sendable {
+        case day, task, habit, journalDay, insight, project
+    }
+
+    let kind: Kind
+    /// Record ids the context points at (task, habit, journal day, project, evidence).
+    let recordIDs: [UUID]
+    /// A day, when `kind` is `.day` or `.journalDay`.
+    let date: Date?
+    /// One line for the sheet's header; never the record's content.
+    let summary: String?
+
+    init(kind: Kind, recordIDs: [UUID] = [], date: Date? = nil, summary: String? = nil) {
+        self.kind = kind
+        self.recordIDs = recordIDs
+        self.date = date
+        self.summary = summary
+    }
+
+    var title: String {
+        switch kind {
+        case .day: "About today"
+        case .task: "About this task"
+        case .habit: "About this habit"
+        case .journalDay: "About this day"
+        case .insight: "About this pattern"
+        case .project: "About this project"
+        }
+    }
+}
+
 struct EvaChatLaunchRequest: Codable, Equatable, Sendable {
     let id: UUID
     let prompt: String?
     let createdAt: Date
+    /// Optional so requests written before contexts existed still decode.
+    let context: EvaLaunchContext?
 
-    init(id: UUID = UUID(), prompt: String?, createdAt: Date = Date()) {
+    init(id: UUID = UUID(), prompt: String?, context: EvaLaunchContext? = nil, createdAt: Date = Date()) {
         let trimmedPrompt = prompt?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.id = id
         self.prompt = trimmedPrompt?.isEmpty == false ? trimmedPrompt : nil
+        self.context = context
         self.createdAt = createdAt
     }
 }
@@ -27,18 +65,23 @@ struct PendingShortcutLaunchAction: Codable, Equatable, Sendable {
     let id: UUID
     let kind: PendingShortcutLaunchActionKind
     let prompt: String?
+    /// For `.startFocus`: which `FocusPreset` to start. Optional so payloads
+    /// written before presets existed still decode (nil = the default preset).
+    let presetID: String?
     let createdAt: Date
 
     init(
         id: UUID = UUID(),
         kind: PendingShortcutLaunchActionKind,
         prompt: String? = nil,
+        presetID: String? = nil,
         createdAt: Date = Date()
     ) {
         let trimmedPrompt = prompt?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.id = id
         self.kind = kind
         self.prompt = trimmedPrompt?.isEmpty == false ? trimmedPrompt : nil
+        self.presetID = presetID
         self.createdAt = createdAt
     }
 }

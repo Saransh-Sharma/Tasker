@@ -308,6 +308,44 @@ public extension SemanticColorTokens {
     static let foundationOnSettingsHero = UIColor(lifeboardHex: "#2B2118")
     static let foundationApricotAccent = UIColor(lifeboardHex: "#E7BB7E")
     static let foundationSageAccent = UIColor(lifeboardHex: "#C9C6BA")
+    /// The three warm accents above are *fills*: fixed pale values that sit at
+    /// 1.5–1.9:1 on the light canvas. Drawn as a label, a meaningful glyph, a
+    /// chart stroke or a completion/toggle-on state they were illegible in
+    /// light appearance, so each has an ink twin that keeps the hue and clears
+    /// 4.5:1 on every foundation plane in all four appearances. In dark the ink
+    /// is the accent itself, which already reads on navy.
+    static let foundationApricotInk = accentInk(light: "#8A5412", lightHighContrast: "#6E420C",
+                                                dark: "#E7BB7E", darkHighContrast: "#F3D3A6")
+    static let foundationSageInk = accentInk(light: "#5E6650", lightHighContrast: "#454C3A",
+                                             dark: "#C9C6BA", darkHighContrast: "#E3E1D8")
+    static let foundationSunInk = accentInk(light: "#7F5C0E", lightHighContrast: "#634708",
+                                            dark: "#F0CD87", darkHighContrast: "#F8E3B5")
+
+    /// The tint handed to system controls: the SwiftUI root and the UIKit
+    /// window. System controls draw *white* on their tint (a graphical date
+    /// picker's selected day, a filled progress track, alert and share-sheet
+    /// buttons), so `inkPrimary` — near-white in dark — made the selected day a
+    /// cream disc with a white numeral. Cocoa in light (unchanged), a warm amber
+    /// in dark that clears 3:1 against every dark plane *and* under white text.
+    /// The window had no tint at all, so UIKit-presented surfaces fell back to
+    /// system blue.
+    static let foundationSystemTint = accentInk(light: "#2B2118", lightHighContrast: "#1A140E",
+                                                dark: "#C0843A", darkHighContrast: "#D1964B")
+
+    private static func accentInk(
+        light: String,
+        lightHighContrast: String,
+        dark: String,
+        darkHighContrast: String
+    ) -> UIColor {
+        UIColor { traits in
+            let high = traits.accessibilityContrast == .high
+            if traits.userInterfaceStyle == .dark {
+                return UIColor(lifeboardHex: high ? darkHighContrast : dark)
+            }
+            return UIColor(lifeboardHex: high ? lightHighContrast : light)
+        }
+    }
     /// Overdue and destructive states in foundation surfaces. Same clay values
     /// as `statusDanger` in the instance token set, exposed statically so
     /// foundation views do not have to resolve a token group first.

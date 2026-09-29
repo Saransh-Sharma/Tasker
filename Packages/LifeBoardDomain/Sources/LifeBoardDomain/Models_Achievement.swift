@@ -35,7 +35,7 @@ public struct AchievementProgressState: Codable, Equatable, Hashable, Identifiab
 
     public var progressLabel: String {
         if unlocked {
-            return "Unlocked"
+            return String(localized: "Unlocked")
         }
         return "\(min(progressCurrent, progressTarget))/\(progressTarget)"
     }

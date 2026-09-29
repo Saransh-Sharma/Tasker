@@ -5,10 +5,10 @@ extension MessageView {
     var inlineMemoryCandidate: some View {
         if let candidate = activeMemoryCandidate {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                Label("Remember this?", systemImage: "person.crop.circle.badge.questionmark").font(.headline)
+                Label("Remember this?", systemImage: "person.crop.circle.badge.questionmark").lifeboardFont(.headline)
                 if isEditingMemoryCandidate {
-                    TextField("Memory", text: $memoryCandidateDraft, axis: .vertical).lineLimit(2...4)
-                    Button("Done editing") { isEditingMemoryCandidate = false }.buttonStyle(.bordered)
+                    TextField("Memory", text: $memoryCandidateDraft, prompt: Text("Memory").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical).lineLimit(2...4)
+                    Button("Done") { isEditingMemoryCandidate = false }.buttonStyle(.lifeBoardChip)
                 } else {
                     Text(memoryCandidateDraft.isEmpty ? candidate.text : memoryCandidateDraft)
                         .foregroundStyle(Color.lifeboard(.textSecondary))

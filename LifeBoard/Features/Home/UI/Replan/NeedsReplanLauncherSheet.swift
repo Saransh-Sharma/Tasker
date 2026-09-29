@@ -52,24 +52,24 @@ struct NeedsReplanLauncherSheet: View {
 
             if summary.count > 0 {
                 VStack(alignment: .leading, spacing: spacing.s12) {
-                    launcherRow(summary.count == 1 ? "1 task needs a decision" : "\(summary.count) tasks need a decision", systemImage: "checklist")
+                    launcherRow(summary.count == 1 ? String(localized: "1 task to sort") : String(localized: "\(summary.count) tasks to sort"), systemImage: "checklist")
                     if summary.datedCount > 0 {
                         let datedLabel = summary.datedCount == 1
-                            ? "1 rescue or carry-forward task"
-                            : "\(summary.datedCount) rescue or carry-forward tasks"
+                            ? String(localized: "1 task from earlier")
+                            : String(localized: "\(summary.datedCount) tasks from earlier")
                         launcherRow(datedLabel, systemImage: "calendar.badge.exclamationmark")
                     }
                     if summary.unscheduledCount > 0 {
                         let unscheduledLabel = summary.unscheduledCount == 1
-                            ? "1 task has no due date or time"
-                            : "\(summary.unscheduledCount) tasks have no due date or time"
+                            ? String(localized: "1 task with no date")
+                            : String(localized: "\(summary.unscheduledCount) tasks with no date")
                         launcherRow(unscheduledLabel, systemImage: "tray")
                     }
                     if summary.dayCount > 1 {
-                        launcherRow("Spanning \(summary.dayCount) past days", systemImage: "calendar")
+                        launcherRow(String(localized: "Across \(summary.dayCount) days"), systemImage: "calendar")
                     }
                     if let newestDate = summary.newestDate {
-                        launcherRow("Start with \(newestDate.formatted(.dateTime.weekday(.wide).month().day()))", systemImage: "arrow.forward.circle")
+                        launcherRow(String(localized: "Start with \(newestDate.formatted(.dateTime.weekday(.wide).month().day()))"), systemImage: "arrow.forward.circle")
                     }
                 }
                 .padding(spacing.s12)
@@ -81,7 +81,7 @@ struct NeedsReplanLauncherSheet: View {
             }
 
             Button(action: {
-                HapticFeedback.selection()
+                Haptic.pick.play()
                 onStart()
             }) {
                 Label(summary.launcherPrimaryActionTitle, systemImage: summary.count == 0 ? "plus.circle.fill" : "arrow.triangle.2.circlepath")
@@ -97,7 +97,7 @@ struct NeedsReplanLauncherSheet: View {
 
             HStack {
                 Button("Later") {
-                    HapticFeedback.light()
+                    Haptic.pick.play()
                     onLater()
                 }
                     .font(.lifeboard(.body).weight(.semibold))

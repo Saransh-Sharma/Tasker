@@ -1339,7 +1339,7 @@ final class SlashCommandExecutionServiceTests: XCTestCase {
         )
 
         XCTAssertEqual(result.commandID, .area)
-        XCTAssertEqual(result.commandLabel, "Life Area: Health")
+        XCTAssertEqual(result.commandLabel, "Life area: Health")
         XCTAssertEqual(result.totalTaskCount, 1)
         XCTAssertEqual(result.sections.first?.tasks.map(\.title), ["Workout"])
     }

@@ -28,11 +28,11 @@ public enum DocumentScanError: LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .unavailable:
-            "Document scanning is unavailable on this device."
+            String(localized: "Scanning isn’t available on this device.")
         case .noReadableText:
-            "No readable text was found. You can retake the scan with steadier light."
+            String(localized: "Couldn’t find text. Try again in better light.")
         case .recognitionFailed:
-            "LifeBoard couldn’t read that scan. Nothing was saved."
+            String(localized: "Couldn’t read that scan.")
         }
     }
 }
@@ -150,13 +150,14 @@ public struct ScanReviewView: View {
     public var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Review what LifeBoard read")
+                Text("Review text")
                     .lifeboardFont(.metric)
-                Text("Nothing has been saved. Fix any words before placing this in your composer.")
+                Text("Fix any words before using it.")
                     .font(.subheadline)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                 TextEditor(text: $text)
                     .font(.body)
+                    .keyboardBar()
                     .scrollContentBackground(.hidden)
                     .padding(12)
                     .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: Radius.card))
@@ -165,16 +166,16 @@ public struct ScanReviewView: View {
                             .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
                     }
                     .accessibilityLabel("Scanned text")
-                Text("\(pageCount) scanned page\(pageCount == 1 ? "" : "s") · processed locally")
+                Text(pageCount == 1 ? "1 page · read on this device" : "\(pageCount) pages · read on this device")
                     .font(.caption)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             }
             .padding(20)
             .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onCancel) }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onCancel).keyboardShortcut(.cancelAction) }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Use in composer") {
+                    Button("Use text") {
                         onUse(text.trimmingCharacters(in: .whitespacesAndNewlines))
                     }
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -190,8 +191,8 @@ public enum BarcodeScanError: LocalizedError, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .unavailable: "Barcode scanning is unavailable on this device. You can still enter a food manually."
-        case .cancelled: "Scanning was cancelled."
+        case .unavailable: String(localized: "Barcode scanning isn’t available on this device.")
+        case .cancelled: String(localized: "Scan cancelled.")
         }
     }
 }

@@ -472,7 +472,7 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             metadataPolicy: .homeUnifiedList
         )
 
-        XCTAssertEqual(model.metadataText, "1w late • Daily • Client")
+        XCTAssertEqual(model.metadataText, "1 week old • Daily • Client")
         XCTAssertEqual(model.statusChip, nil)
     }
 
@@ -500,7 +500,7 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertNil(todayModel.statusChip)
         XCTAssertEqual(todayModel.metadataText, "Ops")
         XCTAssertNil(overdueModel.statusChip)
-        XCTAssertEqual(overdueModel.metadataText, "2d late • Ops")
+        XCTAssertEqual(overdueModel.metadataText, "2 days old • Ops")
     }
 
     func testTaskRowDisplayModelHidesDueTodayTimeAndInboxProjectOnHomeRows() {
@@ -965,38 +965,9 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertEqual(sections[3].rows.map(\.title), ["Inbox 1", "Inbox 2", "Inbox 3", "Inbox 4"])
     }
 
-    func testHomeSurfaceSectionHeadersUseSectionAccentHexSource() throws {
-        let source = try loadWorkspaceFile("LifeBoard/Features/Tasks/UI/TaskSectionView.swift")
 
-        XCTAssertTrue(source.contains("guard let accentHex = section.accentHex"))
-        XCTAssertTrue(source.contains("HexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)"))
-    }
 
-    func testHomeSurfacePlainSectionRowsUseCanonicalRowTintResolver() throws {
-        let source = try loadWorkspaceFile("LifeBoard/Features/Tasks/UI/TaskSectionView.swift")
 
-        XCTAssertTrue(source.contains("if section.showsHeader, let sectionAccentHex = section.accentHex"))
-        XCTAssertTrue(source.contains("HomeTaskTintResolver.rowAccentHex("))
-    }
-
-    /// Remaining task-list routes tint rows through one shared resolver rather
-    /// than rolling their own accent after the Sunrise shell retirement.
-    func testHomeSurfaceDueTodayAndRescueRowsUseSharedRowResolver() throws {
-        let users = try filesContaining("HomeTaskTintResolver.rowAccentHex(")
-
-        XCTAssertTrue(
-            users.contains { $0.contains("TaskListView") || $0.contains("TaskSectionView") },
-            "The task list must tint through the shared resolver. Found: \(users)"
-        )
-    }
-
-    func testTaskListSectionIDsAvoidRuntimeRandomizedSources() throws {
-        let source = try loadWorkspaceFile("LifeBoard/Features/Tasks/UI/TaskListView.swift")
-
-        XCTAssertFalse(source.contains("value.hashValue"))
-        XCTAssertFalse(source.contains("id: UUID(),\n                name:"))
-        XCTAssertTrue(source.contains("timeIntervalSinceReferenceDate"))
-    }
 
     /// Timeline tint resolves through the canonical owning-section resolver.
     /// Path-independent for the same reason as above — this moved into

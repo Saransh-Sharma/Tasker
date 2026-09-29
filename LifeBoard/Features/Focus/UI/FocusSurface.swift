@@ -23,6 +23,8 @@ struct FocusSurface: View {
     let store: PlanStore
     let session: FocusSessionV2
     let onClose: () -> Void
+    /// Opens focus history from the settled receipt; nil hides the link.
+    var onOpenHistory: (() -> Void)? = nil
 
     @State private var pendingOutcome: FocusCompletionOutcome?
     @State private var receipt: ActionReceiptPresentation?
@@ -31,6 +33,9 @@ struct FocusSurface: View {
     /// its receipt: the clock freezes, the transport leaves, and the one primary
     /// action becomes the way back.
     @State private var settledAt: Date?
+    /// Done or Skip on the in-place reflection; the way back stays available
+    /// throughout, this only decides whether the reflection is still shown.
+    @State private var reflectionFinished = false
 
     /// The route loads its session once, so reading `session` alone left the
     /// dial and the pause button saying "In focus" after a pause succeeded. The
@@ -88,6 +93,20 @@ struct FocusSurface: View {
                         }
                     )
 
+                    // The reflection happens here, right after the ending is
+                    // persisted, rather than as a card waiting on Plan. The
+                    // store's pending receipt is the source of truth, so a
+                    // session that ended elsewhere still gets Plan's card.
+                    if settledAt != nil, reflectionFinished == false,
+                       let pending = store.pendingFocusReflection, pending.sessionID == liveSession.id {
+                        FocusReflectionSection(
+                            store: store,
+                            receipt: pending,
+                            taskTitle: liveSession.taskID.flatMap { store.task(for: $0)?.title },
+                            onFinished: { reflectionFinished = true }
+                        )
+                    }
+
                     if settledAt == nil {
                         FocusSurfaceTransportSection(
                             store: store,
@@ -113,10 +132,17 @@ struct FocusSurface: View {
         }
         .lifeBoardMotion(.contentInsertion, value: pendingOutcome)
         .lifeBoardMotion(.contentInsertion, value: settledAt)
-        .lifeBoardReceipt($receipt)
+        .lifeBoardMotion(.contentInsertion, value: reflectionFinished)
+        .lifeBoardReceipt(
+            $receipt,
+            destination: onOpenHistory.map { open in ReceiptBar.Destination(title: "History", action: open) }
+        )
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button("Close", systemImage: "chevron.down", action: onClose)
+                // A pushed screen, so not the sheet-dismiss chevron; Esc closes
+                // it from a hardware keyboard and the Mac.
+                Button("Close", systemImage: "xmark", action: onClose)
+                    .keyboardShortcut(.cancelAction)
                     .accessibilityIdentifier("focus.surface.close")
             }
         }
@@ -172,20 +198,16 @@ struct FocusSurface: View {
         settledAt = Date()
         completionTrigger &+= 1
         Haptic.commit.play()
-        receipt = ActionReceiptPresentation(
-            message: Self.receiptMessage(for: outcome),
-            detail: "Saved to your focus history."
-        )
+        receipt = ActionReceiptPresentation(message: Self.receiptMessage(for: outcome))
     }
 
     static func receiptMessage(for outcome: FocusCompletionOutcome) -> String {
         switch outcome {
-        case .completed: "Focus finished."
-        case .continueLater: "Focus paused for later."
-        case .abandoned: "Focus stopped."
-        case .stopped: "Focus stopped."
-        case .interrupted: "Focus interrupted."
-        case .intentionallyDeferred: "Focus deferred."
+        case .completed: String(localized: "Focus done")
+        case .continueLater: String(localized: "Saved for later")
+        case .abandoned, .stopped: String(localized: "Focus stopped")
+        case .interrupted: String(localized: "Focus interrupted")
+        case .intentionallyDeferred: String(localized: "Moved to later")
         }
     }
 }
@@ -209,4 +231,51 @@ enum FocusPomodoroAutoAdvance {
 private struct PomodoroWaitKey: Equatable {
     let endsAt: Date?
     let state: FocusSessionState
+}
+
+/// The words for the one thing you said you were doing. `FocusSurface`'s
+/// hero renders them through `DecisionSurface`; the standalone section body
+/// that once duplicated that hero is gone, and only the copy rules remain.
+enum FocusSurfaceCommitmentSection {
+    /// The intention if one was stated, else the task the session is on, else
+    /// "Focusing". A session started on a task used to read "Focusing" — the
+    /// screen whose one job is holding a commitment did not say what it was.
+    static func headline(companion: FocusSessionCompanion?, taskTitle: String? = nil) -> String {
+        if let intention = companion?.intention.trimmingCharacters(in: .whitespacesAndNewlines),
+           intention.isEmpty == false {
+            return intention
+        }
+        if let taskTitle = taskTitle?.trimmingCharacters(in: .whitespacesAndNewlines), taskTitle.isEmpty == false {
+            return taskTitle
+        }
+        // No stated intention is a real state, not a blank. Naming it keeps
+        // the dominant line from collapsing to empty space.
+        return "Focusing"
+    }
+
+    /// Mode and round, folded into one quiet line. Two separate metadata rows
+    /// competed with the intention above them for no added meaning.
+    static func context(session: FocusSessionV2, companion: FocusSessionCompanion?) -> String? {
+        guard let companion else { return nil }
+        var parts: [String] = []
+        switch companion.mode {
+        case .countdown:
+            parts.append("Countdown")
+        case .stopwatch:
+            parts.append("Stopwatch")
+        case .openEnded:
+            parts.append("Open-ended")
+        case let .pomodoro(_, _, rounds):
+            if let phase = companion.pomodoroPhase {
+                parts.append(phase.kind == .focus ? "Focus" : "Rest")
+                parts.append("round \(phase.round) of \(rounds)")
+            } else {
+                parts.append("Pomodoro")
+            }
+        }
+        if session.state == .paused {
+            parts.append("paused")
+        }
+        return parts.joined(separator: " · ")
+    }
 }

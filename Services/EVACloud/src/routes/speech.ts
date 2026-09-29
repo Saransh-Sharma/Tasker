@@ -4,14 +4,14 @@ import { EvaSpeechRequestSchema } from '@lifeboard/eva-contracts'
 import type { AppVariables, Env } from '../environment.js'
 import { requireSession } from '../auth/middleware.js'
 import { verifySpeechTicket } from '../auth/speech-ticket.js'
-import { verifyRequestAttestation } from '../attestation/app-attest.js'
+import { enforceRequestTrust } from '../attestation/app-attest.js'
 import { accountStub, authorizeAccount } from '../durable-objects/account-client.js'
 import { durableJson } from '../durable-objects/helpers.js'
 import { readJson } from '../http/body.js'
 import { EvaHttpError } from '../http/errors.js'
 import { commitCost, markRequestRunning, releaseCost, reserveCost, speechCostMicroUsd } from '../openai/accounting.js'
 import { openAIClient } from '../openai/client.js'
-import { requiresAgeDecision, runtimeConfig } from '../config/runtime-config.js'
+import { runtimeConfig } from '../config/runtime-config.js'
 import { sha256 } from '../security/crypto.js'
 
 export const speechRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>()
@@ -19,20 +19,16 @@ speechRoutes.use('*', requireSession)
 
 speechRoutes.post('/speech', async (context) => {
   const principal = context.get('principal')
-  if (principal.platform === 'ios' && context.req.header('X-EVA-Attest-Assertion')) {
-    await verifyRequestAttestation(context.env, principal, context.req.raw)
-  }
   const request = await readJson<EvaSpeechRequest>(context.req.raw, EvaSpeechRequestSchema)
   const config = await runtimeConfig(context.env)
+  await enforceRequestTrust(context.env, principal, context.req.raw, config.trustPolicy)
   if (!config.ttsEnabled) {
     throw new EvaHttpError(503, 'configuration_unavailable', 'Spoken output is temporarily unavailable.')
   }
   if (principal.identityKind === 'guest' && !config.guestAccess?.inferenceEnabled) {
     throw new EvaHttpError(503, 'configuration_unavailable', 'Guest Cloud EVA is temporarily unavailable.')
   }
-  const authorization = await authorizeAccount(context.env, principal, {
-    requireAdult: requiresAgeDecision(config),
-  })
+  const authorization = await authorizeAccount(context.env, principal, config.trustPolicy)
   if (!authorization.authorized) {
     throw new EvaHttpError(401, 'session_expired', 'Your EVA session has expired.', {
       recoveryAction: 'wait',

@@ -257,6 +257,8 @@ animation to finish.
 
 ## Content design
 
+The voice, word budgets, glossary, and banned-word lists are in [DESIGN.md "Voice and copy"](../../DESIGN.md#voice-and-copy-2026-09-28); `scripts/check_launch_contracts.rb` enforces the word lists. The rules below are the product-specific additions.
+
 - Lead with the decision or state, then rationale.
 - Use concrete dates and outcomes for Move, Defer, Delete, Retry, and Undo.
 - State the source and timeframe of metrics or claims.

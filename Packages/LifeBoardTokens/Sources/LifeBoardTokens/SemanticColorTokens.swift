@@ -206,7 +206,9 @@ public struct SemanticColorTokens: TokenGroup, @unchecked Sendable {
         case .priorityNone: return priorityNone
         }
     }
+}
 
+extension SemanticColorTokens {
     /// Executes make. The unified Life OS presentation resolves the warm
     /// paper/cocoa system. A stored disable override remains a data-preserving
     /// diagnostic rollback, but extensions never default to the retired palette.

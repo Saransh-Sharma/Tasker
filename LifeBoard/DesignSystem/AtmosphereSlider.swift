@@ -114,6 +114,7 @@ public struct AtmosphereSlider: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.lifeBoardMotionContext) private var motionContext
     @State private var lastHapticIndex: Int?
 
     /// - Parameters:
@@ -312,7 +313,8 @@ public struct AtmosphereSlider: View {
     private func stopGlyphs(innerWidth: CGFloat) -> some View {
         ForEach(Array(Self.stops.enumerated()), id: \.element) { index, stop in
             Image(systemName: stop.systemImage)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.subheadline.weight(.semibold))
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .foregroundStyle(glyphInk(for: stop).opacity(0.5))
                 .frame(width: 24, height: 24)
                 .offset(
@@ -345,7 +347,8 @@ public struct AtmosphereSlider: View {
             .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
             .overlay {
                 Image(systemName: selection.systemImage)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.body.weight(.semibold))
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             }
             .frame(width: knobSide, height: knobSide)
@@ -354,8 +357,8 @@ public struct AtmosphereSlider: View {
             // A plain offset, not `matchedGeometryEffect`: five discrete
             // anchors and one continuous drag pull the effect in opposite
             // directions, and the knob visibly stutters.
-            .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: selectedIndex)
-            .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: innerWidth)
+            .animation(MotionProfile.directManipulation.animation(reduceMotion: reduceMotion), value: selectedIndex)
+            .animation(MotionProfile.directManipulation.animation(reduceMotion: reduceMotion), value: innerWidth)
     }
 
     // MARK: Accessibility-size variant
@@ -410,10 +413,20 @@ public struct AtmosphereSlider: View {
 
     private var readoutSuffix: String {
         if selection == .automatic {
-            return " · following \(resolvedDaypart.rawValue.capitalized)"
+            return String(localized: " · now \(Self.daypartName(resolvedDaypart))")
         }
         guard let expiresAt = activeOverride?.expiresAt else { return "" }
-        return " · until \(Self.expiryFormatter.string(from: expiresAt))"
+        return String(localized: " · until \(Self.expiryFormatter.string(from: expiresAt))")
+    }
+
+    /// The daypart as a word; never the raw enum value.
+    private static func daypartName(_ daypart: ResolvedDaypart) -> String {
+        switch daypart {
+        case .morning: String(localized: "morning")
+        case .afternoon: String(localized: "afternoon")
+        case .evening: String(localized: "evening")
+        case .night: String(localized: "night")
+        }
     }
 
     private var readoutAccessibilityValue: String {
@@ -431,7 +444,8 @@ public struct AtmosphereSlider: View {
         MotionPolicy.resolve(
             reduceMotion: reduceMotion,
             reduceTransparency: reduceTransparency,
-            sceneIsActive: scenePhase == .active
+            sceneIsActive: scenePhase == .active,
+            comfortProfile: motionContext.comfortProfile
         )
     }
 }

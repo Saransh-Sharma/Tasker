@@ -1,0 +1,28 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  body{margin:0;background:#111;color:#ccc;font:13px/1.4 ui-monospace,Menlo,monospace;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px}
+  canvas#c{width:min(92vw,720px);height:auto;background:#000;box-shadow:0 0 0 1px #333}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
+  button{background:#222;color:#ddd;border:1px solid #444;padding:4px 10px;cursor:pointer;font:inherit}
+  input[type=range]{width:320px}
+</style>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="core.js"></script>
+<script src="lifeboard-scenes.js"></script>
+<title>LifeBoard bumper (6 s)</title>
+<script>
+'use strict';
+// BRIEF: logo ident. The sun rises, crosses a day, and lands as the icon's eye. 6.0 s. Anchor: the sun dot.
+// t    dur  scene    look         what happens
+// 0.0  2.0  sunrise  ink morning  dunes, the sun rises with a hatch bloom
+// 2.0  1.5  arc      ink to dusk  the sun arcs across, paper flickers to dusk, tally marks
+// 3.5  2.5  print    riso         the dot drops into the eye, plates print, LifeBoard / a Life OS + sting
+const TIMELINE = [
+  { name: 'sunrise', dur: 2.0, fn: sceneSunrise(2.0, { label: '' }) },
+  { name: 'arc',     dur: 1.5, fn: sceneArc(1.5) },
+  { name: 'print',   dur: 2.5, fn: scenePrint(2.5, { from: () => LAYOUT().sunPos(.88), tagline: 'a Life OS' }) },
+];
+function score(ac, t0, dest) { scoreFromTimeline(ac, t0, dest, TIMELINE); }
+defineFilm({ palette: lbMorning, timeline: TIMELINE, score, format: { ar: '9:16', width: 1080 } });
+</script>

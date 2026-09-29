@@ -523,7 +523,7 @@ class AppManager: ObservableObject {
     /// Executes playHaptic.
     func playHaptic() {
         if shouldPlayHaptics {
-            HapticFeedback.light()
+            Haptic.pick.play()
         }
     }
     

@@ -82,21 +82,24 @@ struct CommitmentRealismSnapshot: Equatable, Sendable {
     var canAssertOverload: Bool { overloadMinutes > 0 && missingEstimateCount <= 2 }
     var orientation: String {
         if canAssertOverload {
-            return "You have \(Self.duration(usableMinutes)) usable and \(Self.duration(plannedKnownMinutes)) planned. About \(Self.duration(overloadMinutes)) needs another home."
+            let free = Self.duration(usableMinutes)
+            let planned = Self.duration(plannedKnownMinutes)
+            let over = Self.duration(overloadMinutes)
+            return String(localized: "\(free) free, \(planned) planned. \(over) over.")
         }
         if missingEstimateCount > 2 {
-            return "Today may be tighter than it looks. \(missingEstimateCount) tasks still need an estimate."
+            return String(localized: "\(missingEstimateCount) tasks need an estimate.")
         }
-        return "Today fits the known capacity. You can still renegotiate what deserves the day."
+        return String(localized: "Today fits.")
     }
 
     static func duration(_ minutes: Int) -> String {
         let value = max(0, minutes)
         let hours = value / 60
         let remainder = value % 60
-        if hours == 0 { return "\(remainder)m" }
-        if remainder == 0 { return "\(hours)h" }
-        return "\(hours)h \(remainder)m"
+        if hours == 0 { return String(localized: "\(remainder) min") }
+        if remainder == 0 { return String(localized: "\(hours) hr") }
+        return String(localized: "\(hours) hr \(remainder) min")
     }
 }
 
@@ -185,20 +188,20 @@ enum FrictionEvidenceIndex {
         if task.estimatedDuration == nil {
             evidence.append(.init(
                 reference: reference,
-                reason: "No duration estimate yet",
+                reason: String(localized: "No estimate yet"),
                 signalKey: "missing_estimate"
             ))
         } else if (task.estimatedDuration ?? 0) >= 90 * 60 {
             evidence.append(.init(
                 reference: reference,
-                reason: "Estimated at least 90 minutes",
+                reason: String(localized: "90 min or more"),
                 signalKey: "large_scope"
             ))
         }
         if task.dependencies.isEmpty == false {
             evidence.append(.init(
                 reference: reference,
-                reason: "Linked dependencies may affect readiness",
+                reason: String(localized: "Waiting on other tasks"),
                 signalKey: "dependencies"
             ))
         }

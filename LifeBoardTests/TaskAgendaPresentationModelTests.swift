@@ -20,7 +20,7 @@ final class TaskAgendaPresentationModelTests: XCTestCase {
         )
 
         XCTAssertEqual(presentation.title, "Ship release notes")
-        XCTAssertEqual(presentation.primaryBadge.text, "Overdue")
+        XCTAssertEqual(presentation.primaryBadge.text, "From earlier")
         XCTAssertEqual(presentation.primaryBadge.tone, .danger)
         XCTAssertEqual(presentation.secondaryLine, "Needs the migration summary")
         XCTAssertEqual(presentation.secondaryActionTitle, "Move")

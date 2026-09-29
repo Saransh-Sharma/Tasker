@@ -71,7 +71,24 @@ struct PlanFeatureDependencies {
             planning: planningRepository,
             tagLinks: taskTagLinkRepository
         )
-        focusCommands = FocusSessionCommands(repository: planningRepository)
+        focusCommands = FocusSessionCommands(
+            repository: planningRepository,
+            titleResolver: { session in
+                // The island shows the task, not "Focus session"; a block-only
+                // session names its block.
+                if let taskID = session.taskID {
+                    let definition: TaskDefinition? = try? await withCheckedThrowingContinuation { continuation in
+                        taskDefinitionRepository.fetchTaskDefinition(id: taskID) { continuation.resume(with: $0) }
+                    }
+                    if let title = definition?.title { return title }
+                }
+                if let blockID = session.timeBlockID {
+                    let blocks = try? await planningRepository.fetchTimeBlocks(from: .distantPast, to: .distantFuture)
+                    return blocks?.first(where: { $0.id == blockID })?.title
+                }
+                return nil
+            }
+        )
         focusXPSubscriber = FocusCompletionXPSubscriber(
             events: focusCommands.completionEvents,
             engine: gamificationEngine
@@ -378,6 +395,7 @@ extension CompositionRoot {
             updateHabitUseCase: useCaseCoordinator.updateHabit,
             pauseHabitUseCase: useCaseCoordinator.pauseHabit,
             archiveHabitUseCase: useCaseCoordinator.archiveHabit,
+            setHabitArchivedUseCase: useCaseCoordinator.setHabitArchived,
             resolveHabitOccurrenceUseCase: useCaseCoordinator.resolveHabitOccurrence,
             resetHabitOccurrenceUseCase: useCaseCoordinator.resetHabitOccurrence,
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,

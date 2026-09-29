@@ -19,6 +19,8 @@ struct WeeklyResetView: View {
     let onClose: () -> Void
     let onOpenWeeklyPlanner: () -> Void
     let onOpenTask: (UUID) -> Void
+    /// False when pushed onto an existing stack; see `OptionalNavigationStack`.
+    var embedsInNavigationStack = true
 
     @State private var phase: WeeklyResetPhase = .whatHeld
     @State private var weeklyIntention = ""
@@ -57,7 +59,7 @@ struct WeeklyResetView: View {
         .onChange(of: viewModel.hasLoadedInitialData) { _, loaded in
             if loaded { rebuildProposalLines() }
         }
-        .alert("Weekly Reset needs another look", isPresented: Binding(
+        .alert("Weekly reset", isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
         )) {
@@ -69,29 +71,30 @@ struct WeeklyResetView: View {
     }
 
     private var loadingView: some View {
-        NavigationStack {
+        OptionalNavigationStack(isEnabled: embedsInNavigationStack) {
             Group {
                 if let loadError = viewModel.errorMessage {
                     StatusSurface(
                         state: .recoverableError,
-                        title: "The week is still here",
+                        title: String(localized: "Couldn\u{2019}t load the week"),
                         message: loadError,
-                        actionTitle: "Retry",
+                        actionTitle: String(localized: "Try again"),
                         action: { viewModel.load() }
                     )
                 } else {
                     StatusSurface(
                         state: .loading,
-                        title: "Gathering the week",
-                        message: "Collecting outcomes, tasks, habits, and reflections."
+                        title: String(localized: "Loading\u{2026}"),
+                        message: ""
                     )
                 }
             }
             .padding(20)
-            .navigationTitle("Weekly Reset with EVA")
+            .navigationTitle("Weekly reset")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close", action: onClose)
+                        .keyboardShortcut(.cancelAction)
                 }
             }
         }
@@ -99,13 +102,14 @@ struct WeeklyResetView: View {
 
     private var ritualView: some View {
         EvaRitualShell(
-            title: "Weekly Reset with EVA",
+            title: String(localized: "Weekly reset"),
             orientation: orientation,
             evidence: evidence,
             onOpenEvidence: { reference in
                 if reference.kind == .task { onOpenTask(reference.recordID) }
             },
             onClose: close,
+            embedsInNavigationStack: embedsInNavigationStack,
             content: { phaseContent },
             footer: { footer }
         )
@@ -113,14 +117,14 @@ struct WeeklyResetView: View {
 
     private var orientation: String {
         switch phase {
-        case .whatHeld: "Close the week with evidence, not a score."
-        case .drag: "Release carry-over that no longer deserves automatic consent."
-        case .shape: "Give next week a viable opening shape, not a packed promise."
-        case .savingReview: "Saving the reflection before touching next week's plan."
-        case .proposal: "Your review is safe. These planning changes are still only a proposal."
-        case .applying: "Rechecking each task before changing its planning home."
-        case .receipt: "The week is closed. Next week has room to breathe."
-        case .failure: errorMessage ?? "The review is safe; the planning proposal needs another look."
+        case .whatHeld: String(localized: "Look back at the week.")
+        case .drag: String(localized: "Sort unfinished tasks.")
+        case .shape: String(localized: "Set up next week.")
+        case .savingReview: String(localized: "Saving your review\u{2026}")
+        case .proposal: String(localized: "Your review is saved.")
+        case .applying: String(localized: "Moving tasks\u{2026}")
+        case .receipt: String(localized: "Week reviewed")
+        case .failure: errorMessage ?? String(localized: "Couldn\u{2019}t move tasks. Your review is saved.")
         }
     }
 
@@ -128,14 +132,14 @@ struct WeeklyResetView: View {
         let completed = viewModel.completedTasks.prefix(3).map { task in
             Insight.Evidence(
                 reference: .init(kind: .task, recordID: task.id, title: task.title, occurredAt: task.dateCompleted),
-                reason: "Observed: completed this week",
+                reason: String(localized: "Done this week"),
                 signalKey: "weekly_completed"
             )
         }
         let unfinished = viewModel.unfinishedTasks.prefix(3).map { task in
             Insight.Evidence(
                 reference: .init(kind: .task, recordID: task.id, title: task.title, occurredAt: task.updatedAt),
-                reason: "Observed: still open at review",
+                reason: String(localized: "Still open"),
                 signalKey: "weekly_open"
             )
         }
@@ -149,50 +153,50 @@ struct WeeklyResetView: View {
         case .drag: whatCreatedDrag
         case .shape: shapeNextWeek
         case .savingReview:
-            StatusSurface(state: .loading, title: "Finishing the review", message: "Planning changes have not started.")
+            StatusSurface(state: .loading, title: String(localized: "Saving review\u{2026}"), message: "")
         case .proposal: proposalPreview
         case .applying:
-            StatusSurface(state: .loading, title: "Shaping the handoff", message: "Stale or completed tasks will be skipped, never overwritten.")
+            StatusSurface(state: .loading, title: String(localized: "Moving tasks\u{2026}"), message: "")
         case .receipt: receiptView
         case .failure:
             StatusSurface(
                 state: .recoverableError,
-                title: reviewFinished ? "Your review is safely finished" : "Nothing was applied",
-                message: errorMessage ?? "Try the planning proposal again when you're ready."
+                title: reviewFinished ? String(localized: "Review saved") : String(localized: "Nothing changed"),
+                message: errorMessage ?? String(localized: "Couldn\u{2019}t move tasks.")
             )
         }
     }
+}
 
+extension WeeklyResetView {
     private var whatHeld: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             EvaRitualSection(
-                eyebrow: "Chapter 1 · What held",
-                title: sparseWeek ? "A quiet week still counts" : "Start with what genuinely moved",
-                message: "Correct or ignore any interpretation. These are observed records, not EVA's grade."
+                eyebrow: String(localized: "Step 1 of 3"),
+                title: sparseWeek ? String(localized: "This week") : String(localized: "What got done"),
+                message: nil
             ) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) { weeklyMetrics }
-                    VStack(spacing: 12) { weeklyMetrics }
-                }
-                if viewModel.completedTasks.isEmpty {
-                    Text("What held you together may not be stored as a completed task. Capture it below.")
-                        .font(.subheadline)
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                } else {
-                    ForEach(viewModel.completedTasks.prefix(4)) { task in
-                        Label(task.title, systemImage: "checkmark.circle.fill")
-                            .font(.subheadline)
+                // Only when there is something to count: an empty week drew
+                // a row of zeros.
+                if hasWeeklyMetrics {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) { weeklyMetrics }
+                        VStack(spacing: 12) { weeklyMetrics }
                     }
+                }
+                ForEach(viewModel.completedTasks.prefix(4)) { task in
+                    Label(task.title, systemImage: "checkmark.circle.fill")
+                        .lifeboardFont(.support)
                 }
 
                 if let outcomes = viewModel.snapshot?.outcomes, outcomes.isEmpty == false {
                     Divider()
-                    Text("Correct outcome status")
-                        .font(.subheadline.weight(.semibold))
+                    Text("Goals")
+                        .lifeboardFont(.bodyStrong)
                     ForEach(outcomes) { outcome in
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Text(outcome.title)
-                                .font(.subheadline)
+                                .lifeboardFont(.support)
                                 .lineLimit(2)
                             Spacer()
                             Picker(
@@ -212,25 +216,41 @@ struct WeeklyResetView: View {
                 }
             }
 
-            EvaRitualSection(eyebrow: "Chosen by you", title: "What deserves to be remembered?", message: nil) {
-                TextField("A win, a boundary, or something that quietly worked", text: $viewModel.wins, axis: .vertical)
+            EvaRitualSection(eyebrow: String(localized: "Optional"), title: String(localized: "Worth remembering"), message: nil) {
+                TextField("What went well", text: $viewModel.wins, prompt: Text("What went well").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                     .lineLimit(3...6)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
+                    // Clay well, not the system rounded border: that drew a pure white
+                    // box on warm paper and a pure black one in dark appearance.
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
             }
         }
     }
 
     private var whatCreatedDrag: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             EvaRitualSection(
-                eyebrow: "Chapter 2 · What created drag",
-                title: "Every open task needs a conscious destination",
-                message: "Carry, Later, and Release are different commitments. Release sends work to Someday; it never deletes it."
+                eyebrow: String(localized: "Step 2 of 3"),
+                title: String(localized: "Unfinished tasks"),
+                message: nil
             ) {
                 if viewModel.unfinishedTasks.isEmpty {
-                    Text("There is no unfinished work asking for a decision.")
-                        .font(.subheadline)
+                    Text("No unfinished tasks")
+                        .lifeboardFont(.support)
                 } else {
+                    Button {
+                        Haptic.pick.play()
+                        for task in viewModel.unfinishedTasks {
+                            viewModel.setDecision(.carry, for: task.id)
+                        }
+                    } label: {
+                        Label("All to next week", systemImage: "arrow.right.circle")
+                    }
+                    .buttonStyle(.lifeBoardChip)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("eva.weeklyReset.carryAll")
                     ForEach(viewModel.unfinishedTasks) { task in
                         WeeklyResetDecisionRow(
                             task: task,
@@ -246,61 +266,66 @@ struct WeeklyResetView: View {
 
             if let finding = findings.min(by: { $0.reviewAfter < $1.reviewAfter }) {
                 EvaRitualSection(
-                    eyebrow: "Recurring friction",
-                    title: taskForFinding(finding)?.title ?? "A task no longer in this week's plan",
+                    eyebrow: String(localized: "Follow-up"),
+                    title: taskForFinding(finding)?.title ?? String(localized: "Earlier task"),
                     message: finding.reviewAfter <= Date()
-                        ? "Chosen by you: \(finding.selectedReason.resetLabel). It is time to close the loop."
-                        : "Chosen by you: \(finding.selectedReason.resetLabel). Follow-up on \(finding.reviewAfter.formatted(date: .abbreviated, time: .omitted))."
+                        ? String(localized: "Reason: \(finding.selectedReason.resetLabel)")
+                        : String(localized: "Reason: \(finding.selectedReason.resetLabel) · Follow-up \(finding.reviewAfter.formatted(date: .abbreviated, time: .omitted))")
                 ) {
                     if finding.reviewAfter <= Date() {
-                        Text("Did this change help?")
-                            .font(.subheadline.weight(.semibold))
+                        Text("Did it help?")
+                            .lifeboardFont(.bodyStrong)
                         ViewThatFits(in: .horizontal) {
                             HStack(spacing: 8) { findingOutcomeButtons(for: finding) }
                             VStack(spacing: 8) { findingOutcomeButtons(for: finding) }
                         }
                     }
                     if taskForFinding(finding) != nil {
-                        Button("Review the task and experiment") { onOpenTask(finding.taskID) }
+                        Button("Open task") { onOpenTask(finding.taskID) }
                             .buttonStyle(.lifeBoardChip)
                             .frame(minHeight: 44)
                     }
                 }
             }
 
-            EvaRitualSection(eyebrow: "Possible, not proven", title: "What made the week heavier?", message: nil) {
-                TextField("A condition, interruption, or constraint—not a verdict about you", text: $viewModel.blockers, axis: .vertical)
+            EvaRitualSection(eyebrow: String(localized: "Optional"), title: String(localized: "Blockers"), message: nil) {
+                TextField("What got in the way", text: $viewModel.blockers, prompt: Text("What got in the way").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                     .lineLimit(3...6)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
+                    // Clay well, not the system rounded border: that drew a pure white
+                    // box on warm paper and a pure black one in dark appearance.
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
             }
         }
     }
 
     private var shapeNextWeek: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             EvaRitualSection(
-                eyebrow: "Chapter 3 · Shape next week",
-                title: "Name the minimum before adding the maximum",
-                message: "Concrete day placement stays inside LifeBoard's canonical weekly workspace and its three-day horizon."
+                eyebrow: String(localized: "Step 3 of 3"),
+                title: String(localized: "Next week"),
+                message: nil
             ) {
-                resetField("One weekly intention", placeholder: "How should the week feel or function?", text: $weeklyIntention)
-                resetField("Minimum viable week", placeholder: "What would make the week meaningfully enough?", text: $minimumViableWeek)
-                resetField("Protected commitment", placeholder: "A boundary, appointment, or recovery window", text: $protectedCommitment)
+                resetField(String(localized: "Focus this week"), placeholder: String(localized: "One line"), text: $weeklyIntention)
+                resetField(String(localized: "Smallest version"), placeholder: String(localized: "The essentials"), text: $minimumViableWeek)
+                resetField(String(localized: "Protected time"), placeholder: String(localized: "Appointment or boundary"), text: $protectedCommitment)
             }
 
             EvaRitualSection(
-                eyebrow: "Meaningful outcomes",
-                title: "Up to three threads worth carrying",
-                message: "EVA keeps the first three reachable outcomes visible. It does not invent work to fill space."
+                eyebrow: String(localized: "Goals"),
+                title: String(localized: "Open goals"),
+                message: String(localized: "Up to 3 stay in view.")
             ) {
                 if reachableOutcomes.isEmpty {
-                    Text("No open outcomes are waiting. You can create or shape them in the weekly workspace.")
-                        .font(.subheadline)
+                    Text("No open goals. Add them in the weekly plan.")
+                        .lifeboardFont(.support)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 } else {
                     ForEach(reachableOutcomes.prefix(3)) { outcome in
                         Label(outcome.title, systemImage: "sparkles")
-                            .font(.subheadline)
+                            .lifeboardFont(.support)
                     }
                 }
             }
@@ -312,41 +337,41 @@ struct WeeklyResetView: View {
 
     private var proposalPreview: some View {
         EvaRitualSection(
-            eyebrow: "Will change",
-            title: proposalLines.isEmpty ? "No task homes need changing" : "Review the next-week handoff",
-            message: "Your completed review is already saved. This second commit can fail, be skipped, or be undone without touching it."
+            eyebrow: String(localized: "Changes"),
+            title: proposalLines.isEmpty ? String(localized: "No tasks to move") : String(localized: "Check the moves"),
+            message: String(localized: "Your review is saved.")
         ) {
             ForEach(proposalLines) { line in
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text(line.task.title).lineLimit(2)
                     Spacer()
-                    Text(line.destination.displayName)
-                        .font(.caption.weight(.semibold))
+                    Text(line.disposition.resetTitle)
+                        .lifeboardFont(.caption1)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
-            Text("No deadlines, calendar events, archives, or deletions will change.")
-                .font(.caption)
+            Text("Deadlines and events don\u{2019}t change.")
+                .lifeboardFont(.caption1)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
     }
 
     private var receiptView: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             EvaRitualSection(
-                eyebrow: "Review saved",
-                title: "The folded week can rest",
-                message: receipt?.summary ?? "No planning changes were needed."
+                eyebrow: String(localized: "Done"),
+                title: String(localized: "Week reviewed"),
+                message: receipt?.summary ?? String(localized: "No tasks moved.")
             ) {
-                Label("Reflection and planning remain independently recoverable", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline.weight(.medium))
+                Label("Review saved", systemImage: "checkmark.seal.fill")
+                    .lifeboardFont(.bodyStrong)
             }
             EvaRitualSection(
-                eyebrow: "Next",
-                title: "Place only what the near horizon can hold",
-                message: "The weekly workspace will keep concrete placement to the first three reachable days and leave the rest soft."
+                eyebrow: String(localized: "Up next"),
+                title: String(localized: "Schedule tasks"),
+                message: nil
             ) {
-                Button("Open the weekly workspace", action: openPlanner)
+                Button("Plan week", action: openPlanner)
                     .buttonStyle(.lifeBoardPrimary)
             }
         }
@@ -356,18 +381,26 @@ struct WeeklyResetView: View {
     private var footer: some View {
         switch phase {
         case .whatHeld:
-            PrimaryButton(title: "See what created drag", systemImage: "arrow.right") { transition(.drag) }
+            PrimaryButton(title: String(localized: "Next"), systemImage: "arrow.right") { transition(.drag) }
         case .drag:
-            PrimaryButton(title: "Shape next week", systemImage: "arrow.right") { transition(.shape) }
-                .disabled(viewModel.unfinishedTasks.contains { viewModel.taskDecisions[$0.id] == nil })
+            HStack(spacing: 12) {
+                backButton(to: .whatHeld)
+                PrimaryButton(title: String(localized: "Next"), systemImage: "arrow.right") { transition(.shape) }
+                    .disabled(viewModel.unfinishedTasks.contains { viewModel.taskDecisions[$0.id] == nil })
+            }
         case .shape:
-            PrimaryButton(title: "Finish review", systemImage: "checkmark") { finishReview() }
-                .disabled(viewModel.isSaving || viewModel.footerSnapshot.canFinishReview == false)
+            HStack(spacing: 12) {
+                backButton(to: .drag)
+                PrimaryButton(title: String(localized: "Finish review"), systemImage: "checkmark") { finishReview() }
+                    .disabled(viewModel.isSaving || viewModel.footerSnapshot.canFinishReview == false)
+            }
         case .savingReview, .applying:
             ProgressView().frame(maxWidth: .infinity, minHeight: 48)
         case .proposal:
             PrimaryButton(
-                title: proposalLines.isEmpty ? "Continue" : "Apply \(proposalLines.count) planning changes",
+                title: proposalLines.isEmpty
+                    ? String(localized: "Continue")
+                    : (proposalLines.count == 1 ? String(localized: "Move 1 task") : String(localized: "Move \(proposalLines.count) tasks")),
                 systemImage: "checkmark"
             ) { applyProposal() }
         case .receipt:
@@ -376,10 +409,10 @@ struct WeeklyResetView: View {
                     Button("Undo") { undo(receipt) }
                         .frame(minWidth: 72, minHeight: 48)
                 }
-                PrimaryButton(title: "Shape next week", systemImage: "calendar.badge.plus", action: openPlanner)
+                PrimaryButton(title: String(localized: "Plan week"), systemImage: "calendar.badge.plus", action: openPlanner)
             }
         case .failure:
-            PrimaryButton(title: reviewFinished ? "Review proposal again" : "Return to review", systemImage: "arrow.clockwise") {
+            PrimaryButton(title: reviewFinished ? String(localized: "Try again") : String(localized: "Back to review"), systemImage: "arrow.clockwise") {
                 transition(reviewFinished ? .proposal : .shape)
             }
         }
@@ -400,21 +433,41 @@ struct WeeklyResetView: View {
             .sorted { $0.orderIndex < $1.orderIndex } ?? []
     }
 
+    private var hasWeeklyMetrics: Bool {
+        viewModel.completedTasks.isEmpty == false
+            || completedOutcomes.isEmpty == false
+            || viewModel.selectedHabits.isEmpty == false
+    }
+
+    /// Chapters move back as well as forward; decisions made so far are kept.
+    private func backButton(to previous: WeeklyResetPhase) -> some View {
+        Button {
+            Haptic.pick.play()
+            transition(previous)
+        } label: {
+            Label("Back", systemImage: "chevron.left")
+                .lifeboardFont(.button)
+                .frame(minWidth: 44, minHeight: 48)
+        }
+        .buttonStyle(.lifeBoardChip)
+        .accessibilityIdentifier("eva.weeklyReset.back")
+    }
+
     private var sparseWeek: Bool {
         viewModel.completedTasks.isEmpty && viewModel.unfinishedTasks.count < 3
     }
 
     @ViewBuilder
     private var weeklyMetrics: some View {
-        resetMetric(value: viewModel.completedTasks.count, label: "Tasks done")
-        resetMetric(value: completedOutcomes.count, label: "Outcomes held")
-        resetMetric(value: viewModel.selectedHabits.count, label: "Habits present")
+        resetMetric(value: viewModel.completedTasks.count, label: String(localized: "Tasks done"))
+        resetMetric(value: completedOutcomes.count, label: String(localized: "Goals done"))
+        resetMetric(value: viewModel.selectedHabits.count, label: String(localized: "Habits"))
     }
 
     private func resetMetric(value: Int, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("\(value)").font(.title2.weight(.bold))
-            Text(label).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(value)").lifeboardFont(.title2)
+            Text(label).lifeboardFont(.caption1).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -422,13 +475,20 @@ struct WeeklyResetView: View {
 
     private func resetField(_ label: String, placeholder: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label).font(.subheadline.weight(.semibold))
+            Text(label).lifeboardFont(.bodyStrong)
             TextField(placeholder, text: text, axis: .vertical)
                 .lineLimit(2...4)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
+                // Clay well, not the system rounded border: that drew a pure white
+                // box on warm paper and a pure black one in dark appearance.
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
         }
     }
+}
 
+extension WeeklyResetView {
     private func finishReview() {
         rebuildProposalLines()
         let shape = [
@@ -444,7 +504,7 @@ struct WeeklyResetView: View {
             case .success:
                 reviewFinished = true
                 if let refreshIssue = viewModel.errorMessage {
-                    errorMessage = "Your review was saved, but the latest screen could not refresh: \(refreshIssue)"
+                    errorMessage = String(localized: "Your review is saved. Couldn\u{2019}t refresh: \(refreshIssue)")
                 }
                 transition(.proposal)
             case .failure(let error):
@@ -489,7 +549,7 @@ struct WeeklyResetView: View {
                 pendingActionRunID = nil
                 transition(.proposal)
             } catch {
-                errorMessage = "Some planning changes could not be restored. \(error.localizedDescription)"
+                errorMessage = String(localized: "Couldn\u{2019}t undo every move. \(error.localizedDescription)")
             }
         }
     }
@@ -537,9 +597,9 @@ struct WeeklyResetView: View {
 
     @ViewBuilder
     private func findingOutcomeButtons(for finding: FrictionFinding) -> some View {
-        findingOutcomeButton("Helped", outcome: .helped, finding: finding)
-        findingOutcomeButton("Not really", outcome: .didNotHelp, finding: finding)
-        findingOutcomeButton("Dismiss", outcome: .dismissed, finding: finding)
+        findingOutcomeButton(String(localized: "Helped"), outcome: .helped, finding: finding)
+        findingOutcomeButton(String(localized: "Not really"), outcome: .didNotHelp, finding: finding)
+        findingOutcomeButton(String(localized: "Dismiss"), outcome: .dismissed, finding: finding)
     }
 
     private func updateFinding(_ finding: FrictionFinding, outcome: FrictionFindingOutcome) {
@@ -551,9 +611,9 @@ struct WeeklyResetView: View {
                 switch result {
                 case .success:
                     findings.removeAll { $0.id == finding.id }
-                    HapticFeedback.light()
+                    Haptic.pick.play()
                 case .failure(let error):
-                    errorMessage = "The experiment response could not be saved: \(error.localizedDescription)"
+                    errorMessage = String(localized: "Couldn\u{2019}t save your answer. \(error.localizedDescription)")
                 }
             }
         }
@@ -566,8 +626,7 @@ struct WeeklyResetView: View {
     }
 
     private func transition(_ next: WeeklyResetPhase) {
-        if reduceMotion { phase = next }
-        else { withAnimation(.easeInOut(duration: 0.24)) { phase = next } }
+        withAnimation(MotionProfile.route.animation(reduceMotion: reduceMotion)) { phase = next }
         persistDraft()
     }
 
@@ -601,7 +660,7 @@ struct WeeklyResetView: View {
                     phase = draft.actionRunID == nil ? .proposal : .applying
                     pendingActionRunID = draft.actionRunID
                     if draft.actionRunID == nil {
-                        errorMessage = "Your review is safe. The planning proposal was refreshed because its prior receipt could not be restored."
+                        errorMessage = String(localized: "Your review is saved. Check the moves again.")
                     }
                 } else {
                     phase = .shape
@@ -641,12 +700,12 @@ struct WeeklyResetView: View {
             } else {
                 pendingActionRunID = nil
                 phase = .proposal
-                errorMessage = "Your review is safe. The previous planning run is no longer applied, so the proposal was refreshed."
+                errorMessage = String(localized: "Your review is saved. Check the moves again.")
             }
         } catch {
             pendingActionRunID = nil
             phase = .proposal
-            errorMessage = "Your review is safe, but the planning receipt could not be restored: \(error.localizedDescription)"
+            errorMessage = String(localized: "Your review is saved. Couldn\u{2019}t restore the last moves.")
         }
         persistDraft()
     }
@@ -671,36 +730,57 @@ private struct WeeklyResetDecisionRow: View {
         VStack(alignment: .leading, spacing: 8) {
             Button(action: onOpen) {
                 HStack {
-                    Text(task.title).font(.subheadline.weight(.semibold)).multilineTextAlignment(.leading)
+                    Text(task.title).lifeboardFont(.bodyStrong).multilineTextAlignment(.leading)
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption)
+                    Image(systemName: "chevron.right").lifeboardFont(.caption1)
                 }
             }
             .buttonStyle(.plain)
 
             Picker("Destination for \(task.title)", selection: $selection) {
-                Text("Choose…").tag(WeeklyReviewTaskDisposition?.none)
-                Text("Carry").tag(Optional(WeeklyReviewTaskDisposition.carry))
-                Text("Later").tag(Optional(WeeklyReviewTaskDisposition.later))
-                Text("Release").tag(Optional(WeeklyReviewTaskDisposition.drop))
+                Text("Choose\u{2026}").tag(WeeklyReviewTaskDisposition?.none)
+                ForEach(WeeklyReviewTaskDisposition.allCases, id: \.self) { disposition in
+                    Label(disposition.resetTitle, systemImage: disposition.resetSymbol)
+                        .tag(Optional(disposition))
+                }
             }
             .pickerStyle(.menu)
             .frame(minHeight: 44)
         }
-        .padding(.vertical, 5)
+        .padding(.vertical, 4)
+    }
+}
+
+/// Where a weekly decision sends a task, in the shared vocabulary. "Release"
+/// sent work to Someday, so it now says Someday.
+private extension WeeklyReviewTaskDisposition {
+    var resetTitle: String {
+        switch self {
+        case .carry: String(localized: "Next week")
+        case .later: String(localized: "Later")
+        case .drop: DecisionDestination.someday.title
+        }
+    }
+
+    var resetSymbol: String {
+        switch self {
+        case .carry: "calendar"
+        case .later: "clock"
+        case .drop: DecisionDestination.someday.systemImage
+        }
     }
 }
 
 private extension FrictionReason {
     var resetLabel: String {
         switch self {
-        case .scopeTooLarge: "too large"
-        case .nextStepUnclear: "next step unclear"
-        case .timingOrEnergy: "wrong time or energy"
-        case .blockedOrWaiting: "blocked or waiting"
-        case .interruptions: "too many interruptions"
-        case .priorityChanged: "priority changed"
-        case .other: "something else"
+        case .scopeTooLarge: String(localized: "Too large")
+        case .nextStepUnclear: String(localized: "Next step unclear")
+        case .timingOrEnergy: String(localized: "Wrong time or energy")
+        case .blockedOrWaiting: String(localized: "Blocked or waiting")
+        case .interruptions: String(localized: "Too many interruptions")
+        case .priorityChanged: String(localized: "Priority changed")
+        case .other: String(localized: "Something else")
         }
     }
 }

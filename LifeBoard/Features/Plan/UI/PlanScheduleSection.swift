@@ -18,7 +18,7 @@ struct PlanScheduleSection: View {
         // reaches these children now that they live behind a struct boundary.
         LazyVStack(spacing: 16) {
             if snapshot.freeWindows.isEmpty == false {
-                PlanSectionHeader("Free windows", systemImage: "clock.badge.checkmark")
+                PlanSectionHeader("Free time", systemImage: "clock.badge.checkmark")
                 ScrollView(.horizontal) {
                     HStack(spacing: 12) {
                         ForEach(snapshot.freeWindows) { window in freeWindowButton(window) }
@@ -32,7 +32,7 @@ struct PlanScheduleSection: View {
                 daypartGroupedSchedule
             } else {
                 if snapshot.commitments.isEmpty == false {
-                    PlanSectionHeader("Fixed commitments", systemImage: "calendar")
+                    PlanSectionHeader("Events", systemImage: "calendar")
                     ForEach(snapshot.commitments) { commitmentCard($0) }
                 }
                 PlanSectionHeader(
@@ -42,8 +42,8 @@ struct PlanScheduleSection: View {
                 )
                 if snapshot.blocks.isEmpty {
                     PlanEmptyCard(
-                        title: "No LifeBoard blocks yet",
-                        detail: "Add a calm focus window without changing your external calendar.",
+                        title: "No time blocks",
+                        detail: nil,
                         symbol: "calendar.badge.plus"
                     )
                 } else {
@@ -72,8 +72,8 @@ struct PlanScheduleSection: View {
         )
         if entries.isEmpty {
             PlanEmptyCard(
-                title: "Nothing scheduled yet",
-                detail: "Add a calm focus window or let a commitment sync in — your day stays open until then.",
+                title: "Nothing scheduled",
+                detail: nil,
                 symbol: "calendar.badge.plus"
             )
         } else {
@@ -154,7 +154,7 @@ struct PlanScheduleSection: View {
         Button {
             Task {
                 await store.createBlock(
-                    title: "Focus block",
+                    title: String(localized: "Focus"),
                     start: window.startAt,
                     duration: min(window.duration, 60 * 60)
                 )
@@ -168,10 +168,10 @@ struct PlanScheduleSection: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
-            .background(Color(SemanticColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .background(Color(SemanticColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityHint("Creates a one-hour LifeBoard block, or uses the full opening when shorter")
+        .accessibilityHint("Adds a time block")
         .dropDestination(for: String.self) { values, _ in
             guard let taskID = values.lazy.compactMap({ UUID(uuidString: $0) }).first,
                   let task = store.task(for: taskID), task.dependenciesReady else { return false }
@@ -221,12 +221,12 @@ struct PlanScheduleSection: View {
                             .frame(minHeight: 52)
                             .background(
                                 Color(SemanticColorTokens.foundationSageAccent).opacity(0.14),
-                                in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                             )
                         }
                         .buttonStyle(.plain)
                         .accessibilityHint(
-                            "Schedules this task into the displayed free window"
+                            "Adds a time block for it"
                         )
                         .accessibilityIdentifier(
                             "plan.fitsNext.\(candidate.taskID.uuidString)"
@@ -245,7 +245,7 @@ struct PlanScheduleSection: View {
                 .font(.title3).frame(width: 30)
             VStack(alignment: .leading, spacing: 3) {
                 Text(commitment.title).font(.headline)
-                Text("\(PlanSectionCopy.time(commitment.startAt))–\(PlanSectionCopy.time(commitment.endAt)) · read-only context")
+                Text("\(PlanSectionCopy.time(commitment.startAt))–\(PlanSectionCopy.time(commitment.endAt)) · from Calendar")
                     .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
@@ -273,10 +273,10 @@ struct PlanScheduleSection: View {
                         subtaskID: nil
                     )
                 }
-                Button("Add 15 minutes", systemImage: "plus") { Task { await store.resizeBlock(block, minutesDelta: 15) } }
-                Button("Remove 15 minutes", systemImage: "minus") { Task { await store.resizeBlock(block, minutesDelta: -15) } }
-                Button("Move 15 minutes earlier", systemImage: "arrow.up") { Task { await store.moveBlock(block, minutesDelta: -15) } }
-                Button("Move 15 minutes later", systemImage: "arrow.down") { Task { await store.moveBlock(block, minutesDelta: 15) } }
+                Button("Add 15 min", systemImage: "plus") { Task { await store.resizeBlock(block, minutesDelta: 15) } }
+                Button("Remove 15 min", systemImage: "minus") { Task { await store.resizeBlock(block, minutesDelta: -15) } }
+                Button("15 min earlier", systemImage: "arrow.up") { Task { await store.moveBlock(block, minutesDelta: -15) } }
+                Button("15 min later", systemImage: "arrow.down") { Task { await store.moveBlock(block, minutesDelta: 15) } }
                 Button("Split block", systemImage: "rectangle.split.2x1") { Task { await store.splitBlock(block) } }
                 Button("Remove", systemImage: "trash", role: .destructive) { Task { await store.deleteBlock(block) } }
             } label: { Image(systemName: "ellipsis.circle") }

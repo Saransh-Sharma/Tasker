@@ -1,0 +1,115 @@
+Attributes: Application, 0x112c34780, pid: 38929, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x112c34780, pid: 38929, label: 'LifeBoard'
+    Window (Main), 0x112c348c0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x112c34a00, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x112c34b40, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x112c34c80, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x112c34dc0, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x112c34f00, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x112c35040, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x112c35180, {{0.0, 0.0}, {402.0, 874.0}}
+                    Button, 0x112c352c0, {{201.0, 451.0}, {0.0, 0.0}}
+                    Other, 0x112c35400, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x112c35540, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x112c35680, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x112c357c0, {{0.0, 0.0}, {402.0, 874.0}}
+                          Other, 0x112c35900, {{0.0, 0.0}, {402.0, 874.0}}
+                            Other, 0x112c35a40, {{0.0, 0.0}, {402.0, 874.0}}
+                              Other, 0x112c35b80, {{0.0, 0.0}, {402.0, 874.0}}
+                                Other, 0x112c35cc0, {{0.0, 62.0}, {402.0, 632.0}}
+                                Other, 0x112c35e00, {{0.0, 0.0}, {402.0, 874.0}}
+                                  Other, 0x112c35f40, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x112c36080, {{0.0, 0.0}, {402.0, 874.0}}
+                                      Other, 0x112c361c0, {{0.0, 0.0}, {402.0, 874.0}}
+                                        Other, 0x112c36300, {{0.0, 0.0}, {402.0, 874.0}}
+                                          Image, 0x112c36440, {{-45.0, -3.3}, {492.0, 874.0}}
+                                          Image, 0x112c36580, {{228.0, 69.9}, {140.8, 140.4}}
+                                          Other, 0x112c366c0, {{201.0, 62.0}, {0.0, 0.0}}
+                                          Other, 0x112c36800, {{0.0, 73.3}, {402.0, 766.7}}, identifier: 'foundation.plan.scroll'
+                                            Other, 0x112c36940, {{19.5, 129.5}, {363.0, 53.0}}, identifier: 'plan.lens', label: 'Plan lens'
+                                              Button, 0x112c36a80, {{24.0, 134.0}, {85.7, 44.0}}, identifier: 'plan.lens.Inbox', label: 'Inbox'
+                                              Button, 0x112c36bc0, {{113.7, 134.0}, {85.3, 44.0}}, identifier: 'plan.lens.Day', label: 'Day', Selected
+                                              Button, 0x112c36d00, {{203.0, 134.0}, {85.7, 44.0}}, identifier: 'plan.lens.Week', label: 'Week'
+                                              Button, 0x112c36e40, {{292.7, 134.0}, {85.3, 44.0}}, identifier: 'plan.lens.Backlog', label: 'Backlog'
+                                            Image, 0x112c36f80, {{20.0, 73.3}, {362.0, 309.7}}
+                                            Other, 0x112c370c0, {{24.0, 198.0}, {354.0, 60.3}}, identifier: 'plan.header'
+                                              Button, 0x112c37200, {{24.0, 206.0}, {44.0, 44.3}}, identifier: 'chevron.left', label: 'Previous day'
+                                              Button, 0x112c37340, {{72.0, 198.0}, {101.3, 40.7}}, identifier: 'plan.header.day', label: 'Today · Thu, Sep 17'
+                                              Button, 0x112c37480, {{72.0, 242.7}, {80.7, 15.7}}, identifier: 'plan.capacity.edit', label: '9h 30m open'
+                                              Button, 0x112c375c0, {{238.0, 206.0}, {44.0, 44.3}}, identifier: 'chevron.right', label: 'Next day'
+                                              Button, 0x112c37700, {{286.0, 206.0}, {44.0, 44.3}}, identifier: 'plan.header.askEva', label: 'Ask Eva about today'
+                                              Button, 0x112c37840, {{334.0, 206.0}, {44.0, 44.3}}, identifier: 'plan.day.presentation.toggle', label: 'Show as agenda'
+                                            Other, 0x112c37980, {{20.0, 274.3}, {362.0, 48.0}}, identifier: 'plan.day.decisionLine'
+                                              Button, 0x112c37ac0, {{20.0, 274.3}, {362.0, 48.0}}, identifier: 'plan.day.openRescue', label: '6 things from earlier still need a decision, Rescue'
+                                                Image, 0x112c37c00, {{37.3, 290.0}, {17.0, 17.0}}, identifier: 'arrow.uturn.forward.circle', label: 'Redo'
+                                                StaticText, 0x112c37d40, {{67.7, 280.3}, {207.7, 36.0}}, label: '6 things from earlier still need a decision'
+                                                StaticText, 0x112c37e80, {{295.7, 289.8}, {49.3, 17.0}}, label: 'Rescue'
+                                                Image, 0x102e22d00, {{359.3, 293.3}, {6.0, 10.3}}, identifier: 'chevron.right', label: 'Forward'
+                                            Image, 0x102e22e40, {{37.3, 347.3}, {16.0, 16.0}}, identifier: 'plan.canvas.openDay', label: 'Brightness Higher'
+                                            StaticText, 0x102e22f80, {{20.0, 334.3}, {362.0, 60.0}}, identifier: 'plan.canvas.openDay', label: 'This day is open. Tap an open window to hold time.'
+                                            ScrollView, 0x102e230c0, {{20.0, 406.3}, {362.0, 249.7}}
+                                              Other, 0x102e23200, {{20.0, 276.0}, {362.0, 859.0}}
+                                                StaticText, 0x102e23340, {{32.7, 276.0}, {27.3, 13.3}}, identifier: 'plan.day.canvas', label: '6 AM'
+                                                StaticText, 0x102e23480, {{32.7, 342.0}, {27.3, 13.3}}, identifier: 'plan.day.canvas', label: '7 AM'
+                                                StaticText, 0x102e235c0, {{32.7, 408.0}, {27.3, 13.3}}, identifier: 'plan.day.canvas', label: '8 AM'
+                                                StaticText, 0x102e23700, {{32.7, 474.0}, {27.3, 13.3}}, identifier: 'plan.day.canvas', label: '9 AM'
+                                                Other, 0x102e23840, {{36.3, 473.5}, {346.7, 14.3}}, identifier: 'plan.day.canvas', label: 'Now, 9:05 AM'
+                                                  StaticText, 0x112c60000, {{36.3, 473.5}, {27.7, 14.3}}, label: '9:05'
+                                                StaticText, 0x112c60140, {{25.7, 540.0}, {34.3, 13.3}}, identifier: 'plan.day.canvas', label: '10 AM'
+                                                StaticText, 0x112c60280, {{25.7, 606.0}, {34.3, 13.3}}, identifier: 'plan.day.canvas', label: '11 AM'
+                                                StaticText, 0x112c603c0, {{32.0, 672.0}, {28.0, 13.3}}, identifier: 'plan.day.canvas', label: 'Noon'
+                                                StaticText, 0x112c60500, {{33.0, 738.0}, {27.0, 13.3}}, identifier: 'plan.day.canvas', label: '1 PM'
+                                                StaticText, 0x112c60640, {{33.0, 804.0}, {27.0, 13.3}}, identifier: 'plan.day.canvas', label: '2 PM'
+                                                StaticText, 0x112c60780, {{33.0, 870.0}, {27.0, 13.3}}, identifier: 'plan.day.canvas', label: '3 PM'
+                                                StaticText, 0x112c608c0, {{33.0, 936.0}, {27.0, 13.3}}, identifier: 'plan.day.canvas', label: '4 PM'
+                                                StaticText, 0x112c60a00, {{33.0, 1002.0}, {27.0, 13.3}}, identifier: 'plan.day.canvas', label: '5 PM'
+                                                Button, 0x112c60b40, {{67.5, 407.5}, {307.0, 658.0}}, identifier: 'plan.day.canvas', label: 'Open window, 8:00 AM to 6:00 PM'
+                                                StaticText, 0x112c60c80, {{33.0, 1068.0}, {27.0, 13.3}}, identifier: 'plan.day.canvas', label: '6 PM'
+                                                StaticText, 0x112c60dc0, {{33.0, 1134.0}, {27.0, 13.3}}, identifier: 'plan.day.canvas', label: '7 PM'
+                                              Other, 0x112c60f00, {{349.0, 406.3}, {30.0, 249.7}}, label: 'Vertical scroll bar, 4 pages', value: 21%
+                                                Other, 0x112c61040, {{376.0, 445.3}, {3.0, 69.0}}
+                                              Other, 0x112c61180, {{349.0, 406.3}, {30.0, 249.7}}, label: 'Vertical scroll bar, 4 pages', value: 21%
+                                                Other, 0x112c612c0, {{376.0, 445.3}, {3.0, 69.0}}
+                                          Other, 0x112c61400, {{20.0, 72.3}, {362.0, 47.3}}, identifier: 'plan.header'
+                                            StaticText, 0x112c61540, {{20.0, 72.3}, {45.0, 26.3}}, label: 'Plan'
+                                            StaticText, 0x112c61680, {{20.0, 101.7}, {197.0, 18.0}}, label: 'Make room for what matters.'
+                                            Button, 0x112c617c0, {{338.0, 74.0}, {44.0, 44.0}}, identifier: 'foundation.more.plan', label: 'More'
+                                              Button, 0x112c61900, {{338.0, 74.0}, {44.0, 44.0}}
+                                                Image, 0x112c61a40, {{352.3, 94.3}, {15.7, 3.3}}, identifier: 'ellipsis', label: 'More'
+                                  Other, 0x112c61b80, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x112c61cc0, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x112c61e00, {{0.0, 791.0}, {402.0, 83.0}}
+                        Other, 0x112c61f40, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x112c62080, {{0.0, 791.0}, {402.0, 83.0}}
+                    Other, 0x112c621c0, {{0.0, 672.0}, {402.0, 162.5}}, identifier: 'LifeBoardCompactChrome'
+                      Button, 0x112c62300, {{20.0, 702.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.toolsToggle', label: 'Open capture tools'
+                      TextField, 0x112c62440, {{72.0, 713.0}, {258.0, 22.0}}, identifier: 'home.lifeThread.composer', placeholderValue: 'Plan, move, or make sense of your time'
+                        Other, 0x112c62580, {{72.0, 721.0}, {258.0, 11.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                          Other, 0x112c626c0, {{75.0, 729.0}, {252.0, 3.0}}
+                      Button, 0x112c62800, {{338.0, 702.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.send', label: 'Start dictation'
+                      Button, 0x112c62940, {{20.0, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.home', label: 'Home', value: Root
+                        Image, 0x112c62a80, {{46.3, 783.0}, {20.0, 17.7}}, identifier: 'house', label: 'Home'
+                        StaticText, 0x112c62bc0, {{40.7, 804.7}, {31.0, 13.3}}, label: 'Home'
+                      Button, 0x112c62d00, {{92.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.plan', label: 'Plan', value: Root, Selected
+                        Image, 0x112c62e40, {{120.0, 784.0}, {17.3, 15.7}}, identifier: 'calendar', label: 'Calendar'
+                        StaticText, 0x112c62f80, {{116.8, 804.0}, {23.7, 13.3}}, label: 'Plan'
+                      Button, 0x112c630c0, {{164.7, 774.0}, {72.7, 52.0}}, identifier: 'foundation.destination.track', label: 'Track', value: Root
+                        Image, 0x112c63200, {{190.7, 784.0}, {21.0, 15.7}}, identifier: 'chart.bar.fill', label: 'Chart Column'
+                        StaticText, 0x112c63340, {{186.5, 803.7}, {29.0, 13.3}}, label: 'Track'
+                      Button, 0x112c63480, {{237.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.insights', label: 'Insights', value: Root
+                        Image, 0x112c635c0, {{265.7, 782.3}, {15.7, 19.0}}, identifier: 'sparkles', label: 'Sparkle'
+                        StaticText, 0x112c63700, {{252.7, 805.3}, {41.3, 13.3}}, label: 'Insights'
+                      Button, 0x112c63840, {{309.7, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.eva', label: 'Eva', value: Root
+                        Image, 0x112c63980, {{333.7, 782.3}, {24.0, 19.0}}, identifier: 'bubble.left.and.bubble.right', label: 'Conversation'
+                        StaticText, 0x112c63ac0, {{336.5, 805.3}, {18.7, 13.3}}, label: 'Eva'
+                    Other, 0x112c63c00, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.night', label: 'Celestial atmosphere: night'
+                    Button, 0x112c63d40, {{0.0, 62.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                    Other, 0x112c63e80, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x112c34780, pid: 38929, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x11352c000, pid: 38929, label: 'LifeBoard'
+  }

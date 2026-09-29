@@ -1,4 +1,5 @@
 import SwiftUI
+import LifeBoardDomain
 import UIKit
 
 struct FocusSetupContext: Identifiable {
@@ -30,6 +31,9 @@ struct FocusSetupSheet: View {
     @State private var pomodoroBreakMinutes = 5
     @State private var pomodoroRounds = 4
     @State private var intention = ""
+    @State private var selectedPresetID: String?
+    @State private var presetBloom = 0
+    private let presets = WorkspacePreferencesStore.shared.load().focusPresets
 
     init(
         context: FocusSetupContext,
@@ -48,13 +52,12 @@ struct FocusSetupSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(context.title)
-                            .font(.title2.weight(.semibold))
-                        Text("Choose the rhythm that fits this moment.")
-                            .font(.subheadline)
-                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    }
+                    Text(context.title)
+                        .lifeboardFont(.title2)
+
+                    // Presets first: one tap fills the rhythm below. The rail and
+                    // steppers stay for anyone who wants to tune this session.
+                    presetRow
 
                     // Was `.pickerStyle(.segmented)`, the stock grey segmented
                     // control. `OptionRail` is the design system's equivalent and
@@ -72,11 +75,14 @@ struct FocusSetupSheet: View {
                     modeControls
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Intention")
-                            .font(.subheadline.weight(.semibold))
-                        TextField("What would make this session enough?", text: $intention, axis: .vertical)
+                        TextField("Goal (optional)", text: $intention, prompt: Text("Goal (optional)").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                             .lineLimit(2...4)
-                            .textFieldStyle(.roundedBorder)
+                            .textFieldStyle(.plain)
+                            // Clay well, not the system rounded border: that drew a pure white
+                            // box on warm paper and a pure black one in dark appearance.
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 44)
+                            .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
                             .accessibilityIdentifier("plan.focus.setup.intention")
                     }
 
@@ -98,11 +104,77 @@ struct FocusSetupSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
                         .frame(minHeight: 44)
+                        .keyboardShortcut(.cancelAction)
                 }
             }
         }
+        .escapeCancels(perform: onCancel)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private var presetRow: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(presets) { preset in
+                    let isSelected = selectedPresetID == preset.id
+                    Button {
+                        apply(preset)
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(preset.name).font(.subheadline.weight(.semibold))
+                                Text(preset.summary)
+                                    .font(.caption)
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                            }
+                        } icon: {
+                            Image(systemName: preset.systemImage)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .background(
+                        (isSelected ? Color(SemanticColorTokens.foundationSurfaceSelected) : Color(SemanticColorTokens.foundationSurfaceRecessed)).opacity(isSelected ? 1 : 0.6),
+                        in: Capsule()
+                    )
+                    .overlay {
+                        if isSelected {
+                            Capsule().strokeBorder(Color(SemanticColorTokens.foundationApricotAccent), lineWidth: 1.5)
+                        }
+                    }
+                    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                    .accessibilityLabel("\(preset.name), \(preset.summary)")
+                    .accessibilityIdentifier("plan.focus.setup.preset.\(preset.id)")
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
+        .lifeboardClayPressBloom(trigger: presetBloom)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("plan.focus.setup.presets")
+    }
+
+    /// A preset fills the controls; it does not lock them.
+    private func apply(_ preset: FocusPreset) {
+        Haptic.pick.play()
+        presetBloom &+= 1
+        selectedPresetID = preset.id
+        switch preset.kind {
+        case .countdown:
+            mode = .countdown
+            countdownMinutes = preset.minutes
+        case .stopwatch:
+            mode = .stopwatch
+        case .pomodoro:
+            mode = .pomodoro
+            pomodoroFocusMinutes = preset.minutes
+            pomodoroBreakMinutes = preset.breakMinutes
+            pomodoroRounds = preset.rounds
+        case .openEnded:
+            mode = .openEnded
+        }
     }
 
     @ViewBuilder
@@ -110,22 +182,22 @@ struct FocusSetupSheet: View {
         switch mode {
         case .countdown:
             Stepper(value: $countdownMinutes, in: 5...240, step: 5) {
-                settingLabel("Duration", value: "\(countdownMinutes) min")
+                settingLabel("Duration", value: LifeBoardDuration.text(minutes: countdownMinutes))
             }
             .frame(minHeight: 44)
         case .stopwatch:
             settingExplanation(
-                title: "Count upward",
-                detail: "Elapsed time stays primary. Stop whenever the work reaches a natural edge.",
+                title: String(localized: "Counts up"),
+                detail: String(localized: "Stop when you’re done."),
                 symbol: "stopwatch"
             )
         case .pomodoro:
             VStack(spacing: 12) {
                 Stepper(value: $pomodoroFocusMinutes, in: 5...90, step: 5) {
-                    settingLabel("Focus", value: "\(pomodoroFocusMinutes) min")
+                    settingLabel("Focus", value: LifeBoardDuration.text(minutes: pomodoroFocusMinutes))
                 }
                 Stepper(value: $pomodoroBreakMinutes, in: 1...30) {
-                    settingLabel("Rest", value: "\(pomodoroBreakMinutes) min")
+                    settingLabel("Rest", value: LifeBoardDuration.text(minutes: pomodoroBreakMinutes))
                 }
                 Stepper(value: $pomodoroRounds, in: 1...8) {
                     settingLabel("Rounds", value: "\(pomodoroRounds)")
@@ -134,8 +206,8 @@ struct FocusSetupSheet: View {
             .frame(minHeight: 44)
         case .openEnded:
             settingExplanation(
-                title: "No clock pressure",
-                detail: "The timer recedes. This session ends only when you choose Finish, Continue Later, or Abandon.",
+                title: String(localized: "No timer"),
+                detail: String(localized: "Timer hidden while you work."),
                 symbol: "infinity"
             )
         }
@@ -160,10 +232,10 @@ struct FocusSetupSheet: View {
 
     private var startTitle: String {
         switch mode {
-        case .countdown: "Start \(countdownMinutes)-minute focus"
-        case .stopwatch: "Start stopwatch"
-        case .pomodoro: "Start Pomodoro"
-        case .openEnded: "Begin open-ended focus"
+        case .countdown: String(localized: "Start \(LifeBoardDuration.text(minutes: countdownMinutes))")
+        case .stopwatch: String(localized: "Start stopwatch")
+        case .pomodoro: String(localized: "Start Pomodoro")
+        case .openEnded: String(localized: "Start focus")
         }
     }
 
@@ -183,7 +255,7 @@ struct FocusSetupSheet: View {
                 .frame(width: 32, height: 32)
                 .background(
                     Color(SemanticColorTokens.foundationSageAccent).opacity(0.16),
-                    in: RoundedRectangle(cornerRadius: 10)
+                    in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                 )
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.subheadline.weight(.semibold))

@@ -58,7 +58,8 @@ final class LifeWeaveOnboardingUITests: BaseUITest {
         )
     }
 
-    /// Usual hours are a default on Ready, editable in a sheet — never a screen.
+    /// Usual hours are never asked, so Ready does not list them (or offer to
+    /// edit a choice the person never made).
     func testHoursAreEditedFromReadyNotAsked() throws {
         try requireFlow()
         try walkToCapture()
@@ -66,13 +67,7 @@ final class LifeWeaveOnboardingUITests: BaseUITest {
 
         XCTAssertTrue(step("reveal").waitForExistence(timeout: 25))
         let edit = app.buttons[AccessibilityIdentifiers.LifeWeave.hoursEdit]
-        XCTAssertTrue(edit.waitForExistence(timeout: 5))
-        edit.tap()
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.LifeWeave.dayShapePreset("early")].firstMatch.waitForExistence(timeout: 5))
-        app.buttons[AccessibilityIdentifiers.LifeWeave.dayShapePreset("early")].firstMatch.tap()
-        app.buttons[AccessibilityIdentifiers.LifeWeave.dayShapeDone].tap()
-        XCTAssertTrue(step("reveal").waitForExistence(timeout: 5))
-        XCTAssertTrue(flow.exists, "editing hours returns to Ready")
+        XCTAssertFalse(edit.waitForExistence(timeout: 2), "Ready must not show hours the flow never asked for")
     }
 
     /// The Cloud EVA disclosure is one line on Ready with the full detail a tap away.
@@ -127,7 +122,7 @@ final class LifeWeaveOnboardingUITests: BaseUITest {
         let canvas = app.descendants(matching: .any)[AccessibilityIdentifiers.LifeWeave.canvas]
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
         XCTAssertTrue(
-            canvas.label.contains("Life Map"),
+            canvas.label.contains("life areas"),
             "the map must publish one summary; VoiceOver cannot see geometry"
         )
     }

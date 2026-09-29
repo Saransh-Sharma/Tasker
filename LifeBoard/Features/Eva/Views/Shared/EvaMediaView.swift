@@ -16,20 +16,20 @@ struct AssistantMascotPersona: Identifiable, Equatable, Sendable {
     let usesSprites: Bool
 
     static let all: [AssistantMascotPersona] = [
-        AssistantMascotPersona(id: .eva, displayName: "Eva", shortDescription: "Calm planning support with the original LifeBoard look.", resourceFolderName: nil, usesSprites: false),
-        AssistantMascotPersona(id: .cloudlet, displayName: "Cloudlet", shortDescription: "Soft, calm prompts for keeping the day light and clear.", resourceFolderName: "Cloudlet", usesSprites: true),
-        AssistantMascotPersona(id: .dude, displayName: "Dude", shortDescription: "Relaxed, low-pressure guidance for steady follow-through.", resourceFolderName: "Dude", usesSprites: true),
-        AssistantMascotPersona(id: .elon, displayName: "Elon", shortDescription: "Bold, direct energy for ambitious planning and fast decisions.", resourceFolderName: "Elon", usesSprites: true),
-        AssistantMascotPersona(id: .friday, displayName: "Friday", shortDescription: "Bright, direct nudges for keeping the week moving.", resourceFolderName: "Friday", usesSprites: true),
-        AssistantMascotPersona(id: .johnny, displayName: "Johnny", shortDescription: "High-energy focus for decisive work sessions.", resourceFolderName: "Johnny", usesSprites: true),
-        AssistantMascotPersona(id: .maddie, displayName: "Maddie", shortDescription: "Grounded reflection for deliberate planning.", resourceFolderName: "Maddie", usesSprites: true),
-        AssistantMascotPersona(id: .paperclip, displayName: "Paperclip", shortDescription: "Tidy office-minded support for lists, notes, and loose ends.", resourceFolderName: "Paperclip", usesSprites: true),
-        AssistantMascotPersona(id: .punch, displayName: "Punch", shortDescription: "Playful momentum for getting unstuck and moving again.", resourceFolderName: "Punch", usesSprites: true),
-        AssistantMascotPersona(id: .retriever, displayName: "Retriever", shortDescription: "Loyal follow-up support for fetching the next right task.", resourceFolderName: "Retriever", usesSprites: true),
-        AssistantMascotPersona(id: .sato, displayName: "Sato", shortDescription: "Compact signal for turning complexity into next steps.", resourceFolderName: "Sato", usesSprites: true),
-        AssistantMascotPersona(id: .steve, displayName: "Steve", shortDescription: "Crisp product-minded coaching for prioritization.", resourceFolderName: "Steve", usesSprites: true),
-        AssistantMascotPersona(id: .theo, displayName: "Theo", shortDescription: "Curious builder energy for shaping ideas into action.", resourceFolderName: "Theo", usesSprites: true),
-        AssistantMascotPersona(id: .yesman, displayName: "YesMan", shortDescription: "Cheerful momentum when tasks need a helpful push.", resourceFolderName: "YesMan", usesSprites: true)
+        AssistantMascotPersona(id: .eva, displayName: "Eva", shortDescription: String(localized: "Clear, steady planning help."), resourceFolderName: nil, usesSprites: false),
+        AssistantMascotPersona(id: .cloudlet, displayName: "Cloudlet", shortDescription: String(localized: "Light, simple prompts."), resourceFolderName: "Cloudlet", usesSprites: true),
+        AssistantMascotPersona(id: .dude, displayName: "Dude", shortDescription: String(localized: "Relaxed and easygoing."), resourceFolderName: "Dude", usesSprites: true),
+        AssistantMascotPersona(id: .elon, displayName: "Elon", shortDescription: String(localized: "Blunt, fast, first-principles."), resourceFolderName: "Elon", usesSprites: true),
+        AssistantMascotPersona(id: .friday, displayName: "Friday", shortDescription: String(localized: "Bright and direct."), resourceFolderName: "Friday", usesSprites: true),
+        AssistantMascotPersona(id: .johnny, displayName: "Johnny", shortDescription: String(localized: "High energy, decisive."), resourceFolderName: "Johnny", usesSprites: true),
+        AssistantMascotPersona(id: .maddie, displayName: "Maddie", shortDescription: String(localized: "Thoughtful and reflective."), resourceFolderName: "Maddie", usesSprites: true),
+        AssistantMascotPersona(id: .paperclip, displayName: "Paperclip", shortDescription: String(localized: "Tidy lists and loose ends."), resourceFolderName: "Paperclip", usesSprites: true),
+        AssistantMascotPersona(id: .punch, displayName: "Punch", shortDescription: String(localized: "Playful help getting unstuck."), resourceFolderName: "Punch", usesSprites: true),
+        AssistantMascotPersona(id: .retriever, displayName: "Retriever", shortDescription: String(localized: "Fetches your next task."), resourceFolderName: "Retriever", usesSprites: true),
+        AssistantMascotPersona(id: .sato, displayName: "Sato", shortDescription: String(localized: "Turns complexity into next steps."), resourceFolderName: "Sato", usesSprites: true),
+        AssistantMascotPersona(id: .steve, displayName: "Steve", shortDescription: String(localized: "Crisp, product-minded priorities."), resourceFolderName: "Steve", usesSprites: true),
+        AssistantMascotPersona(id: .theo, displayName: "Theo", shortDescription: String(localized: "Turns ideas into action."), resourceFolderName: "Theo", usesSprites: true),
+        AssistantMascotPersona(id: .yesman, displayName: "YesMan", shortDescription: String(localized: "Cheerful and encouraging."), resourceFolderName: "YesMan", usesSprites: true)
     ]
 
     static func persona(for id: AssistantMascotID) -> AssistantMascotPersona {
@@ -44,6 +44,12 @@ struct AssistantIdentitySnapshot: Equatable {
     init(mascotID: AssistantMascotID) {
         self.mascotID = mascotID
         self.persona = AssistantMascotPersona.persona(for: mascotID)
+    }
+
+    /// The persona the person chose, read where no `AssistantIdentityModel`
+    /// is in scope. Copy names the assistant through this, never "EVA".
+    static var current: AssistantIdentitySnapshot {
+        AssistantIdentitySnapshot(mascotID: WorkspacePreferencesStore.shared.load().chiefOfStaffMascotID)
     }
 
     var displayName: String { persona.displayName }
@@ -431,8 +437,8 @@ struct EvaMascotView: View {
 
 struct MascotPersonaSelector: View {
     let selectedID: AssistantMascotID
-    var title: String = "Choose your chief of staff"
-    var subtitle: String = "Pick the companion style LifeBoard should use across assistant surfaces."
+    var title: String = String(localized: "Choose a persona")
+    var subtitle: String = String(localized: "Changes the name and look app-wide.")
     var cardAccessibilityPrefix: String
     let onSelect: (AssistantMascotID) -> Void
 
@@ -804,46 +810,5 @@ struct EvaLoopingLottieContainer: View {
         // `size`; the outer frame only *reported* `size`, because frames do not clip.
         // The result was a several-hundred-point disc drawn behind Eva's empty state.
         .frame(width: size, height: size).clipShape(Circle())
-    }
-}
-
-struct EvaInstallStatusView: View {
-    let isComplete: Bool
-    let progress: Double
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.lifeboard(.surfaceTertiary), lineWidth: 12)
-            Circle()
-                .trim(from: 0, to: max(0.04, min(progress, 1)))
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.lifeboard(.accentPrimary), Color.lifeboard(.accentSecondary)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    style: StrokeStyle(lineWidth: 12, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .animation(LifeBoardAnimation.heroReveal, value: progress)
-
-            if isComplete {
-                Image(systemName: "checkmark.circle.fill")
-                    .lifeboardFont(.heroDisplay)
-                    .foregroundStyle(Color.lifeboard(.statusSuccess))
-            } else {
-                ZStack {
-                    EvaLoopingLottieContainer(size: 92)
-                    Circle()
-                        .fill(Color.clear)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.lifeboard(.accentMuted).opacity(0.5), lineWidth: 1)
-                        )
-                }
-            }
-        }
-        .frame(width: 140, height: 140)
     }
 }

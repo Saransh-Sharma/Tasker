@@ -1603,15 +1603,11 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testRenderingPolicyHonorsComfortAndAccessibility() {
-        // `AmbientRenderingPolicy.resolve` now applies `MotionOverride` itself
-        // rather than trusting callers to pre-resolve, so Full Motion has to be
-        // off for the system Reduce Motion setting to reach the tier at all.
-        // That is the intended semantic — Full Motion exists precisely to
-        // override system Reduce Motion — and it is why this test has to state
-        // which of the two it is exercising.
+        // `AmbientRenderingPolicy.resolve` applies the shared motion policy.
+        // System Reduce Motion is authoritative regardless of the app setting.
         let previousFullMotion = MotionOverride.fullMotionEnabled
         defer { MotionOverride.fullMotionEnabled = previousFullMotion }
-        MotionOverride.fullMotionEnabled = false
+        MotionOverride.fullMotionEnabled = true
 
         let reduced = AmbientRenderingPolicy.resolve(
             requestedTier: .enhanced3D,
@@ -1624,21 +1620,17 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(reduced.maximumParallax, 0)
         XCTAssertFalse(reduced.allowsIdleMotion)
 
-        // The other half of the contract: with Full Motion on, the same raw
-        // system flag must no longer pin the tier to `.static`. This is the
-        // behaviour the policy could not deliver while it took a bare `Bool`.
+        // Allowing motion in-app cannot restore motion disabled by the system.
         MotionOverride.fullMotionEnabled = true
-        let overridden = AmbientRenderingPolicy.resolve(
+        let stillReduced = AmbientRenderingPolicy.resolve(
             requestedTier: .ambient2D,
             comfortProfile: .playful,
             reduceMotion: true,
             lowPowerMode: false,
             thermalState: .nominal
         )
-        XCTAssertEqual(overridden.effectiveTier, .ambient2D)
-        XCTAssertTrue(overridden.allowsIdleMotion)
-        MotionOverride.fullMotionEnabled = false
-
+        XCTAssertEqual(stillReduced.effectiveTier, .static)
+        XCTAssertFalse(stillReduced.allowsIdleMotion)
         let balanced = AmbientRenderingPolicy.resolve(
             requestedTier: .ambient2D,
             comfortProfile: .balanced,
@@ -1676,13 +1668,11 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testSharedMotionPolicyDisablesPremiumEffectsUnderEveryConstraint() {
-        // This test asserts the *accessibility* contract, so it pins the Full
-        // motion override off. With the override on — the shipped default —
-        // Reduce Motion is deliberately cleared; that path is covered by
-        // `testFullMotionOverrideClearsReduceMotionAcrossThePolicyLayer`.
+        // Keep the app preference permissive so each system/device constraint
+        // is isolated and proves it can independently suppress premium effects.
         let originalOverride = MotionOverride.fullMotionEnabled
         defer { MotionOverride.fullMotionEnabled = originalOverride }
-        MotionOverride.fullMotionEnabled = false
+        MotionOverride.fullMotionEnabled = true
 
         let nominal = MotionPolicy.resolve(
             reduceMotion: false,
@@ -1801,35 +1791,33 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertFalse(focused.allowsIdleMotion, "Ambient drift still quiets on focused routes")
     }
 
-    /// "Full motion" is applied inside the motion policy rather than injected
-    /// into `\.accessibilityReduceMotion`, which SwiftUI exposes get-only. These
-    /// assertions are what make that indirection trustworthy.
-    func testFullMotionOverrideClearsReduceMotionAcrossThePolicyLayer() {
+    /// The app preference is applied inside the motion policy because SwiftUI's
+    /// Reduce Motion environment value is get-only. System accessibility wins.
+    func testMotionPreferenceRespectsReduceMotionAcrossThePolicyLayer() {
         let original = MotionOverride.fullMotionEnabled
         defer { MotionOverride.fullMotionEnabled = original }
 
         MotionOverride.fullMotionEnabled = true
-        XCTAssertFalse(MotionOverride.resolve(true), "Full motion must clear a system Reduce Motion")
+        XCTAssertTrue(MotionOverride.resolve(true), "System Reduce Motion must always win")
         XCTAssertFalse(MotionOverride.resolve(false))
 
-        // With the override on, a Reduce Motion user still gets spatial motion,
-        // full transition duration and the shader layer.
-        let overridden = MotionPolicy.resolve(
+        let systemReduced = MotionPolicy.resolve(
             reduceMotion: true,
             reduceTransparency: false,
             lowPowerMode: false,
             thermalState: .nominal,
             sceneIsActive: true
         )
-        XCTAssertTrue(overridden.allowsSpatialMotion)
-        XCTAssertTrue(overridden.allowsCustomShaders)
-        XCTAssertEqual(overridden.transitionDuration, 0.28)
+        XCTAssertFalse(systemReduced.allowsSpatialMotion)
+        XCTAssertFalse(systemReduced.allowsCustomShaders)
+        XCTAssertEqual(systemReduced.transitionDuration, 0)
 
-        // Off, the accessibility path is intact and unchanged.
+        // Turning the app preference off requests reduced motion even when the
+        // system setting is off.
         MotionOverride.fullMotionEnabled = false
         XCTAssertTrue(MotionOverride.resolve(true))
         let respected = MotionPolicy.resolve(
-            reduceMotion: true,
+            reduceMotion: false,
             reduceTransparency: false,
             lowPowerMode: false,
             thermalState: .nominal,
@@ -1840,7 +1828,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(respected.transitionDuration, 0)
     }
 
-    /// Energy and heat are not comfort preferences. The override must not be a
+    /// Energy and heat are not comfort preferences. The app setting must not be a
     /// way to keep shaders running on a hot or nearly-flat device.
     func testFullMotionOverrideDoesNotDefeatLowPowerOrThermalGates() {
         let original = MotionOverride.fullMotionEnabled
@@ -1862,7 +1850,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         }
     }
 
-    /// The UI suite depends on `-UI_TESTING` suppressing motion. The override
+    /// The UI suite depends on `-UI_TESTING` suppressing motion. The app setting
     /// must never reach the process flags.
     @MainActor
     func testFullMotionOverrideNeverDefeatsProcessAnimationFlags() {
@@ -1874,9 +1862,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
             XCTAssertTrue(LifeBoardAnimation.animationsDisabled(reduceMotion: false))
             XCTAssertNil(MotionProfile.press.animation(reduceMotion: false))
         } else {
-            // Outside a UI-testing process the override is what decides.
-            XCTAssertFalse(LifeBoardAnimation.animationsDisabled(reduceMotion: true))
-            XCTAssertNotNil(MotionProfile.press.animation(reduceMotion: true))
+            XCTAssertTrue(LifeBoardAnimation.animationsDisabled(reduceMotion: true))
+            XCTAssertNil(MotionProfile.press.animation(reduceMotion: true))
         }
     }
 
@@ -2868,7 +2855,12 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
         router.popToRoot(in: .plan)
         router.handle(notificationRoute: .dayCompass(flow: .rescue, dateStamp: "20260716"))
-        XCTAssertEqual(router.path(for: .plan), [.backlog])
+        // A rescue nudge opens the Overdue Rescue deck (the shell presents it
+        // from this request), the same deck Home's and Plan's rows open.
+        XCTAssertEqual(router.selectedDestination, .home)
+        XCTAssertNotNil(router.overdueRescueRequest)
+        XCTAssertEqual(router.path(for: .plan), [])
+        router.overdueRescueRequest = nil
 
         // The nightly summary used to land on Insights while Home's evening row
         // opened the ritual — two destinations for one moment. Both now open the
@@ -3003,12 +2995,15 @@ final class LifeOSFoundationContractTests: XCTestCase {
     func testEveryPreviousModelMigratesToCurrentModelWithoutChangingStableIDs() throws {
         let modelBundleURL = try taskModelBundleURL()
         let currentVersionName = try currentModelVersionName()
-        let previousModelNames = try FileManager.default
-            .contentsOfDirectory(at: modelBundleURL, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "mom" }
-            .map { $0.deletingPathExtension().lastPathComponent }
-            .filter { $0 != currentVersionName }
-            .sorted()
+        let previousModelNames = LifeBoardPersistenceModel.orderedVersions
+            .dropLast()
+            .map(\.rawValue)
+
+        XCTAssertEqual(
+            currentVersionName,
+            PersistenceModelVersion.current.rawValue,
+            "The compiled current model and append-only registry must agree."
+        )
 
         XCTAssertFalse(
             previousModelNames.isEmpty,
@@ -3353,7 +3348,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
         let result = engine.interpret(events: events, now: now, calendar: calendar)
         XCTAssertEqual(result.density, .full)
-        XCTAssertEqual(result.claim, "Hydration showed up on 5 of the last 7 days, up from 1 the week before.")
+        XCTAssertEqual(result.claim, "Water showed up on 5 of the last 7 days, up from 1 the week before.")
 
         // Without a prior week there is nothing to compare: consistency claim.
         let firstWeek = events.filter { $0.occurredAt >= calendar.date(byAdding: .day, value: -6, to: now)! }
@@ -3375,6 +3370,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let snapshot = InsightsRenderSnapshot.build(authorizedEvents: events, lens: .overview, now: now, calendar: calendar)
         XCTAssertEqual(snapshot.events.count, 1, "The evidence list stays on today")
         XCTAssertEqual(snapshot.interpretation.density, .full, snapshot.interpretation.claim)
+        XCTAssertTrue(snapshot.hasPatternWindowEvidence)
+
+        // A quiet today with earlier days on record must not read as empty.
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
+        let quietToday = InsightsRenderSnapshot.build(authorizedEvents: events, lens: .overview, now: tomorrow, calendar: calendar)
+        XCTAssertTrue(quietToday.events.isEmpty)
+        XCTAssertTrue(quietToday.hasPatternWindowEvidence, "The two-week claim survives an empty today")
+        XCTAssertFalse(InsightsRenderSnapshot.build(authorizedEvents: [], lens: .overview, now: now, calendar: calendar).hasPatternWindowEvidence)
     }
 
     /// `planningReview` rendered exactly the same weekly-review route as
@@ -3532,7 +3535,6 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
         let snapshot = JournalInsightService.makeSnapshot(days: days, now: now, calendar: calendar)
         XCTAssertEqual(snapshot.daysWritten, 2)
-        XCTAssertEqual(snapshot.currentStreak, 2)
         XCTAssertEqual(snapshot.totalWords, 7)
         XCTAssertEqual(snapshot.dominantMood, .calm)
         XCTAssertEqual(snapshot.averageEnergy, 3)
@@ -4995,7 +4997,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let chips = InterpretationChip.taskChips(rawText: raw, parsed: parsed, now: now, calendar: calendar)
 
         XCTAssertTrue(chips[0].label.hasPrefix("Fri "), chips[0].label)
-        XCTAssertEqual(chips.map(\.label).dropFirst(), ["30m", "#health"])
+        XCTAssertEqual(chips.map(\.label).dropFirst(), ["30 min", "#health"])
         XCTAssertEqual(chips[0].sourceTexts, ["fri", "3pm"])
 
         XCTAssertEqual(InterpretationChip.draft(raw, removing: chips[0].sourceTexts), "Dentist for 30m #health")
@@ -5110,6 +5112,91 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(coordinator.state, .resting)
     }
 
+    @MainActor
+    func testComposerBlurRestsOnlyAPlainFocusedComposer() {
+        let coordinator = LifeThreadComposerCoordinator(destination: .home)
+        coordinator.focus()
+        coordinator.draftText = "Keep me"
+        coordinator.blur()
+        XCTAssertEqual(coordinator.state, .resting)
+        XCTAssertEqual(coordinator.draftText, "Keep me", "Dismissing the keyboard must not drop the draft.")
+
+        coordinator.showTools()
+        coordinator.blur()
+        XCTAssertEqual(coordinator.state, .tools, "Tools own their own exit.")
+    }
+
+    @MainActor
+    func testComposerWorkIsALockThatOnlyAnOutcomeReleases() {
+        let coordinator = LifeThreadComposerCoordinator(destination: .home)
+        coordinator.draftText = "Buy milk tomorrow"
+        XCTAssertTrue(coordinator.beginWorking("Understanding what you need"))
+        XCTAssertFalse(
+            coordinator.beginWorking("Understanding what you need"),
+            "A second Send or Return must not start the same work."
+        )
+
+        // Every draft edit dismisses the preview rows. That used to hand the
+        // composer back mid-save: the Return key's own newline strip is an edit.
+        coordinator.dismissInterpretation()
+        coordinator.dismissClarification()
+        XCTAssertEqual(coordinator.state, .working)
+
+        // A live preview that lands late never replaces the work.
+        coordinator.showInterpretation(.init(
+            label: "Add task",
+            systemImage: "checkmark.circle",
+            chips: [],
+            resolution: .answer(.init(prompt: "Buy milk tomorrow", destination: .home))
+        ))
+        XCTAssertNil(coordinator.interpretation)
+        XCTAssertEqual(coordinator.state, .working)
+
+        // A submit that resolves into an in-place save keeps the lock; the old
+        // guard returned here instead and stranded the composer.
+        coordinator.relabelWorking("Adding task")
+        XCTAssertEqual(coordinator.workingLabel, "Adding task")
+
+        coordinator.returnToEditing()
+        XCTAssertEqual(coordinator.state, .focused)
+        XCTAssertNil(coordinator.workingLabel, "The spinner cannot outlive the work.")
+        XCTAssertTrue(coordinator.beginWorking("Saving locally"))
+    }
+
+    @MainActor
+    func testAnyWayOutOfWorkClearsTheWorkingLabel() {
+        let coordinator = LifeThreadComposerCoordinator(destination: .home)
+        coordinator.draftText = "open plan"
+        coordinator.beginWorking("Understanding what you need")
+        coordinator.focus()
+        XCTAssertNil(coordinator.workingLabel, "A navigation outcome left the spinner up.")
+    }
+
+    @MainActor
+    func testComposerExitsForToolsScanningAndDeferredFocus() {
+        let coordinator = LifeThreadComposerCoordinator(destination: .home)
+        coordinator.showTools()
+        coordinator.closeTools()
+        XCTAssertEqual(coordinator.state, .resting)
+
+        coordinator.beginScanning()
+        coordinator.endScanning()
+        XCTAssertEqual(coordinator.state, .resting, "A cancelled scan used to leave the composer scanning.")
+
+        coordinator.draftText = "Keep me"
+        coordinator.showTools()
+        coordinator.closeTools()
+        XCTAssertEqual(coordinator.state, .focused)
+        coordinator.endScanning()
+        XCTAssertEqual(coordinator.state, .focused, "Ending a scan that isn't running changes nothing.")
+
+        XCTAssertFalse(coordinator.consumeFocusRequest())
+        coordinator.requestFocus()
+        XCTAssertTrue(coordinator.hasPendingFocusRequest)
+        XCTAssertTrue(coordinator.consumeFocusRequest())
+        XCTAssertFalse(coordinator.consumeFocusRequest(), "A focus request is taken once.")
+    }
+
     func testPhraseSettlerUsesPunctuationLengthAndTimeWithoutReanimatingOldText() async {
         let start = Date(timeIntervalSince1970: 70_000)
         let settler = PhraseSettler(policy: .init(maximumGraphemes: 8, maximumDelay: 0.14), now: start)
@@ -5192,7 +5279,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         }
         let redacted = try await store.load(.journal)
         XCTAssertEqual(redacted?.snapshots.first?.title, "LifeBoard")
-        XCTAssertEqual(redacted?.snapshots.first?.primaryValue, "Open LifeBoard to view")
+        XCTAssertEqual(redacted?.snapshots.first?.primaryValue, "Hidden. Tap to open.")
         XCTAssertNil(redacted?.snapshots.first?.secondaryValue)
 
         let second = SystemSnapshotEnvelope(
@@ -5284,7 +5371,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             updatedAt: Date()
         )
         XCTAssertEqual(snapshot.redactedForExternalDisplay.title, "LifeBoard")
-        XCTAssertEqual(snapshot.redactedForExternalDisplay.primaryValue, "Open LifeBoard to view")
+        XCTAssertEqual(snapshot.redactedForExternalDisplay.primaryValue, "Hidden. Tap to open.")
     }
 
     func testSystemSurfaceEnvelopeDeduplicatesAndOrdersNewestFirst() throws {
@@ -5569,7 +5656,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         ))
 
         XCTAssertEqual(snapshot.value, "300 kcal")
-        XCTAssertTrue(snapshot.detail?.contains("1 named LifeBoard item") == true)
+        XCTAssertTrue(snapshot.detail?.contains("1 meal logged here") == true)
     }
 
     func testBodyMetricNormalizedEventIsSensitiveAndUsesCaptureDay() throws {
@@ -6280,7 +6367,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(candidates.count, 1)
         XCTAssertEqual(candidates.first?.title, "Launch day")
         XCTAssertEqual(candidates.first?.reason.signal, "lifeMomentThreshold")
-        XCTAssertTrue(candidates.first?.reason.message.contains("final week") == true)
+        XCTAssertEqual(candidates.first?.reason.message, "In 3 days")
     }
 
     func testLifeMomentHomeCardDensityAndArchiveRecovery() async throws {
@@ -7299,15 +7386,15 @@ final class LifeBoardRecoveryStatusTests: XCTestCase {
     func testWorkInProgressIsNotReportedAsAFailure() {
         let status = makeService(notesIndex: .rebuilding, pendingJobs: 3).status()
         XCTAssertEqual(status.worstHealth, .working)
-        XCTAssertEqual(status.headline, "Your data is safe. Some things are still catching up.")
-        XCTAssertEqual(status.areas.first { $0.id == "jobs" }?.detail, "3 attachments are still being processed.")
+        XCTAssertEqual(status.headline, "Still updating.")
+        XCTAssertEqual(status.areas.first { $0.id == "jobs" }?.detail, "Processing 3 attachments.")
     }
 
     func testPendingJobsAreOmittedEntirelyWhenThereIsNoWork() {
         XCTAssertNil(makeService(pendingJobs: 0).status().areas.first { $0.id == "jobs" })
         XCTAssertEqual(
             makeService(pendingJobs: 1).status().areas.first { $0.id == "jobs" }?.detail,
-            "One attachment is still being processed."
+            "Processing 1 attachment."
         )
     }
 
@@ -7433,7 +7520,7 @@ final class InboxTriageContractTests: XCTestCase {
         let id = UUID()
         XCTAssertEqual(
             InboxTriageMutation.setDisposition(taskID: id, before: .inbox, after: .reference).summary,
-            "Kept as reference"
+            "Moved to Reference"
         )
         XCTAssertEqual(
             InboxTriageMutation.setDisposition(taskID: id, before: .inbox, after: .someday).summary,
@@ -8652,5 +8739,376 @@ final class StartDayPersistenceTests: XCTestCase {
             }
         }
         return container
+    }
+}
+
+/// Daily series, usual ranges, and the correlation engine — pure and fixed-date.
+final class DailySeriesAndCorrelationTests: XCTestCase {
+    private var calendar: Calendar { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "UTC")!; return c }
+    private func day(_ offset: Int) -> Date { calendar.date(byAdding: .day, value: offset, to: calendar.date(from: DateComponents(year: 2026, month: 9, day: 1))!)! }
+    private func series(_ metric: DailyMetric, _ values: [Double]) -> DailySeries {
+        DailySeries(metric: metric, points: values.enumerated().map { HomeSeriesPoint(date: day($0.offset), value: $0.element) })
+    }
+
+    func testUsualRangeIsMedianAndInterquartileBand() throws {
+        let usual = try XCTUnwrap(UsualRange.make([6, 7, 8, 7.5, 6.5, 9, 5]))
+        XCTAssertEqual(usual.median, 7, accuracy: 0.001)
+        XCTAssertEqual(usual.lower, 6.25, accuracy: 0.001)
+        XCTAssertEqual(usual.upper, 7.75, accuracy: 0.001)
+        XCTAssertEqual(usual.text(unit: "h", fractionDigits: 1), "usually 6.2–7.8 h")
+        XCTAssertNil(UsualRange.make([1, 2]), "Two days is not a usual")
+    }
+
+    func testAssemblerGroupsByCalendarDay() {
+        let noon = day(0).addingTimeInterval(12 * 3600)
+        let counts = DailySeriesAssembler.perDayCount([noon, noon.addingTimeInterval(60), day(1)], calendar: calendar)
+        XCTAssertEqual(counts[day(0)], 2); XCTAssertEqual(counts[day(1)], 1)
+        let average = DailySeriesAssembler.perDayAverage([(noon, 2), (noon, 4)], calendar: calendar)
+        XCTAssertEqual(average[day(0)], 3)
+        XCTAssertEqual(InsightsRange.year.days, 364)
+        XCTAssertEqual(HealthHistoryRange.oneYear.startDate(now: day(363), calendar: calendar), day(0))
+    }
+
+    func testLoaderConvertsSleepSecondsAndDropsEmptySeries() async {
+        var sources = InsightsDailySeriesSources()
+        sources.health = { domain, _, _ in
+            switch domain {
+            case .sleep: [.sleep: [HealthAggregateValue(metric: .sleep, value: 7.5 * 3600, start: self.day(0), end: self.day(1), lastSampleAt: nil)]]
+            default: [:]
+            }
+        }
+        let loaded = await InsightsDailySeriesLoader.load(range: .week, sources: sources, now: day(3), calendar: calendar)
+        XCTAssertEqual(loaded.map(\.metric), [.sleepHours])
+        XCTAssertEqual(loaded[0].points.first?.value ?? 0, 7.5, accuracy: 0.001)
+    }
+
+    func testSpearmanKnownVectorsTiesAndMinimum() {
+        let x: [Double] = (1...12).map(Double.init)
+        XCTAssertEqual(DailyCorrelationEngine.spearman(x, x) ?? 0, 1, accuracy: 0.0001)
+        XCTAssertEqual(DailyCorrelationEngine.spearman(x, x.reversed()) ?? 0, -1, accuracy: 0.0001)
+        XCTAssertNil(DailyCorrelationEngine.spearman(Array(x.prefix(9)), Array(x.prefix(9))), "Under ten pairs says nothing")
+        XCTAssertNil(DailyCorrelationEngine.spearman(x, Array(repeating: 3, count: 12)), "A constant has no rank order")
+        XCTAssertEqual(DailyCorrelationEngine.ranks([10, 20, 20, 30]), [1, 2.5, 2.5, 4])
+        XCTAssertEqual(DailyCorrelationEngine.Strength.bucket(0.29), .none)
+        XCTAssertEqual(DailyCorrelationEngine.Strength.bucket(-0.55), .moderate)
+    }
+
+    func testLagAlignsYesterdayWithTodayAndCopyIsNeverCausal() throws {
+        // Non-monotonic, so only the day-after alignment is a perfect match.
+        let values: [Double] = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8]
+        let first = series(.focusMinutes, values)
+        // second lags first by one day: second[t] = first[t-1]
+        let second = DailySeries(metric: .journalEnergy, points: values.enumerated().map { HomeSeriesPoint(date: day($0.offset + 1), value: $0.element) })
+        let lagged = try XCTUnwrap(DailyCorrelationEngine.correlate(first, second, lag: .previousDay, calendar: calendar))
+        XCTAssertEqual(lagged.rho, 1, accuracy: 0.0001)
+        XCTAssertEqual(lagged.pairs, 12)
+        let sentence = (DailyCorrelationEngine.sentence(for: lagged) + " " + DailyCorrelationEngine.evidence(for: lagged)).lowercased()
+        XCTAssertEqual(DailyCorrelationEngine.evidence(for: lagged), "Based on 12 days · early pattern")
+        XCTAssertEqual(DailyCorrelationEngine.progressLine(recordedDays: 4), "Needs 6 more days")
+        XCTAssertNil(DailyCorrelationEngine.progressLine(recordedDays: 10))
+        for word in DailyCorrelationEngine.forbiddenWords {
+            XCTAssertFalse(sentence.contains(word), "Copy must not say \"\(word)\": \(sentence)")
+        }
+        XCTAssertTrue(sentence.hasPrefix("the day after more focus"), sentence)
+        let ranked = DailyCorrelationEngine.rank([first, second], calendar: calendar)
+        XCTAssertEqual(ranked.first?.lag, .previousDay)
+    }
+}
+
+/// "Try for a week" round-trips through a reflection note and stays reversible.
+final class InsightExperimentTests: XCTestCase {
+    func testExperimentRoundTripsThroughAReflectionNote() throws {
+        let start = Date(timeIntervalSince1970: 1_758_110_400)
+        let experiment = InsightExperiment(
+            hypothesis: "On days with more focus, your energy tended to be higher",
+            sourceCorrelationID: "focusMinutes|journalEnergy|sameDay",
+            action: .habit(templateID: "meditate", habitID: UUID()),
+            startedAt: start
+        )
+        let note = try experiment.note()
+        XCTAssertEqual(note.kind, .insightExperiment)
+        XCTAssertEqual(note.linkedHabitID, experiment.habitID)
+        XCTAssertEqual(note.prompt, experiment.hypothesis)
+        let decoded = try XCTUnwrap(InsightExperiment.experiment(from: note))
+        XCTAssertEqual(decoded, experiment)
+        XCTAssertEqual(decoded.endsAt.timeIntervalSince(start), 7 * 86_400, accuracy: 3_700)
+        XCTAssertNil(InsightExperiment.experiment(from: ReflectionNote(kind: .freeform, noteText: note.noteText)), "Only its own kind decodes")
+    }
+
+    func testSuggestionsMapMetricsToCatalogTemplates() {
+        func result(_ a: DailyMetric, _ b: DailyMetric) -> DailyCorrelationEngine.Result {
+            DailyCorrelationEngine.Result(first: a, second: b, lag: .sameDay, rho: 0.6, pairs: 12, evidenceDays: [])
+        }
+        XCTAssertEqual(InsightExperimentSuggestion.templateID(for: result(.steps, .journalEnergy)), "walk")
+        XCTAssertEqual(InsightExperimentSuggestion.templateID(for: result(.sleepHours, .focusMinutes)), "no-phone-after-ten")
+        XCTAssertEqual(InsightExperimentSuggestion.templateID(for: result(.focusMinutes, .thingsDone)), "meditate")
+        XCTAssertNil(InsightExperimentSuggestion.templateID(for: result(.thingsDone, .habitsCompleted)))
+        for id in ["walk", "no-phone-after-ten", "meditate", "water"] {
+            XCTAssertNotNil(HabitTemplateCatalog.template(id: id), id)
+        }
+    }
+
+    func testOnlyTheStartedExperimentsReceiptOffersUndo() {
+        let started = UUID()
+        XCTAssertTrue(InsightsExperimentUndoPolicy.canUndo(receiptID: started, lastStartedID: started))
+        XCTAssertFalse(
+            InsightsExperimentUndoPolicy.canUndo(receiptID: UUID(), lastStartedID: started),
+            "A failure receipt must never cancel an earlier, successful experiment"
+        )
+        XCTAssertFalse(InsightsExperimentUndoPolicy.canUndo(receiptID: started, lastStartedID: nil))
+    }
+
+    @MainActor
+    func testVerdictCanBeRecordedAndCleared() async throws {
+        let notes = InMemoryExperimentNotes()
+        let store = InsightExperimentStore(dependencies: .init(
+            notes: notes,
+            createHabit: { _ in UUID() },
+            deleteHabit: { _ in }
+        ))
+        let template = try XCTUnwrap(HabitTemplateCatalog.template(id: "walk"))
+        let experiment = try await store.start(hypothesis: "h", correlationID: "c", template: template)
+
+        try await store.record(.helped, for: experiment)
+        let answered = await store.experiments()
+        XCTAssertEqual(answered.first?.verdict, .helped)
+        let openAfterAnswer = await store.open()
+        XCTAssertTrue(openAfterAnswer.isEmpty)
+
+        try await store.clearVerdict(for: experiment)
+        let cleared = await store.experiments()
+        XCTAssertNil(cleared.first?.verdict)
+        let reopened = await store.open()
+        XCTAssertEqual(reopened.map(\.id), [experiment.id], "Undo puts the question back")
+    }
+}
+
+private final class InMemoryExperimentNotes: ReflectionNoteRepositoryProtocol, @unchecked Sendable {
+    private let lock = NSLock()
+    private var notes: [UUID: ReflectionNote] = [:]
+
+    func fetchNotes(query: ReflectionNoteQuery, completion: @escaping @Sendable (Result<[ReflectionNote], Error>) -> Void) {
+        lock.lock(); let values = Array(notes.values); lock.unlock()
+        completion(.success(values))
+    }
+
+    func saveNote(_ note: ReflectionNote, completion: @escaping @Sendable (Result<ReflectionNote, Error>) -> Void) {
+        lock.lock(); notes[note.id] = note; lock.unlock()
+        completion(.success(note))
+    }
+
+    func deleteNote(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        lock.lock(); notes[id] = nil; lock.unlock()
+        completion(.success(()))
+    }
+}
+
+/// The month read back: counts, shifts of at least a fifth, and due experiments.
+final class MonthlyReviewSummaryTests: XCTestCase {
+    private var calendar: Calendar { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "UTC")!; return c }
+    private func date(_ d: Int, hour: Int = 12) -> Date { calendar.date(from: DateComponents(year: 2026, month: 9, day: d, hour: hour))! }
+    private func series(_ metric: DailyMetric, _ values: [Double]) -> DailySeries {
+        DailySeries(metric: metric, points: values.enumerated().map { HomeSeriesPoint(date: self.date(1 + $0.offset), value: $0.element) })
+    }
+
+    func testCountsNotesInTheMonthAndSurfacesShiftsAndDueExperiments() {
+        let now = date(17)
+        let notes = [
+            ReflectionNote(kind: .dayClose, energy: 4, noteText: "Quiet evening", createdAt: date(3)),
+            ReflectionNote(kind: .dayClose, energy: 2, noteText: "", createdAt: date(10)),
+            ReflectionNote(kind: .weeklyReview, noteText: "Week one", createdAt: date(7)),
+            ReflectionNote(kind: .dayClose, energy: 5, noteText: "Last month", createdAt: calendar.date(from: DateComponents(year: 2026, month: 8, day: 20))!),
+        ]
+        let current = [series(.sleepHours, [7, 7.2, 7.4, 7.1, 7.3]), series(.focusMinutes, [30, 32, 31, 29, 30])]
+        let previous = [series(.sleepHours, [5.5, 5.8, 5.6, 5.9, 5.7]), series(.focusMinutes, [31, 30, 32, 30, 31])]
+        let due = InsightExperiment(hypothesis: "h", sourceCorrelationID: "c", action: .habit(templateID: "walk", habitID: nil), startedAt: date(1), calendar: calendar)
+        let fresh = InsightExperiment(hypothesis: "h2", sourceCorrelationID: "c2", action: .habit(templateID: "water", habitID: nil), startedAt: date(15), calendar: calendar)
+        let summary = MonthlyReviewSummary.make(notes: notes, current: current, previous: previous, experiments: [due, fresh], now: now, calendar: calendar)
+
+        XCTAssertEqual(summary.daysClosed, 2)
+        XCTAssertEqual(summary.weeklyReviews, 1)
+        XCTAssertEqual(summary.averageCloseEnergy ?? 0, 3, accuracy: 0.001)
+        XCTAssertEqual(summary.closeNotes.map(\.noteText), ["Quiet evening"], "Empty notes are not quoted")
+        XCTAssertEqual(summary.shifts.map(\.metric), [.sleepHours], "Focus moved by less than a fifth")
+        XCTAssertEqual(MonthlyReviewSummary.sentence(for: summary.shifts[0]), "Sleep: usually 7.2 h, up from 5.7 h the month before.")
+        XCTAssertEqual(summary.dueExperiments.map(\.id), [due.id])
+    }
+}
+
+
+/// Receipts name what changed in plain words: no enum spellings, no service
+/// sentences, no judgement, and short enough to read at a glance.
+final class ReceiptCopyTests: XCTestCase {
+    private let judgementWords = ["missed", "failed", "behind", "should", "overdue", "late"]
+
+    private func assertReceipt(_ text: String, maxWords: Int, file: StaticString = #filePath, line: UInt = #line) {
+        // A quoted work title is the person's own words and is not counted.
+        let unquoted = text.replacingOccurrences(of: #"‘[^’]*’"#, with: "X", options: .regularExpression)
+        let words = unquoted.split(whereSeparator: { $0.isWhitespace })
+        XCTAssertLessThanOrEqual(words.count, maxWords, text, file: file, line: line)
+        let lowered = unquoted.lowercased()
+        let tokens = Set(lowered.split(whereSeparator: { $0.isLetter == false }).map(String.init))
+        for word in judgementWords + DailyCorrelationEngine.forbiddenWords {
+            // Whole words only: "later today" is not "late".
+            let found = word.contains(" ") ? lowered.contains(word) : tokens.contains(word)
+            XCTAssertFalse(found, "\(text) contains \(word)", file: file, line: line)
+        }
+        XCTAssertNil(unquoted.range(of: #"[a-z][A-Z]"#, options: .regularExpression), "\(text) looks like an enum spelling", file: file, line: line)
+    }
+
+    func testRepairReceiptsNameTheWorkPlainly() {
+        let actions: [PlanRepairAction] = [.resume, .moveLaterToday, .moveToAnotherDay, .split, .defer, .leaveUnchanged, .askEva]
+        for action in actions {
+            let titled = PlanRepairCopy.receipt(action, workTitle: "Draft the launch brief")
+            assertReceipt(titled, maxWords: 6)
+            assertReceipt(PlanRepairCopy.receipt(action, workTitle: nil), maxWords: 6)
+            // Deck buttons follow the button budget (DESIGN.md: ≤ 3 words).
+            assertReceipt(PlanRepairCopy.title(action), maxWords: 3)
+            XCTAssertFalse(titled.contains(action.rawValue) && action.rawValue.count > 5, titled)
+        }
+        XCTAssertEqual(
+            PlanRepairCopy.receipt(.moveLaterToday, workTitle: "Draft the launch brief"),
+            "Moved ‘Draft the launch brief’ to later today"
+        )
+        XCTAssertEqual(PlanRepairCopy.previousWindowDetail("9:00 – 10:00"), "Was 9:00 – 10:00")
+        XCTAssertNil(PlanRepairCopy.previousWindowDetail(nil))
+    }
+
+    func testGoalReceiptsNameTheGoalNotTheStatusCase() {
+        for status in GoalStatus.allCases {
+            let text = ReceiptCopy.goalTransition(status, title: "Run a 10k")
+            assertReceipt(text, maxWords: 6)
+            XCTAssertTrue(text.contains("‘Run a 10k’"), text)
+        }
+    }
+
+    func testJournalReceiptsStayWithinBudget() {
+        assertReceipt(ReceiptCopy.moodSaved, maxWords: 6)
+        assertReceipt(ReceiptCopy.journalTitle(cleared: true), maxWords: 6)
+        assertReceipt(ReceiptCopy.journalTitle(cleared: false), maxWords: 6)
+    }
+
+    func testInsightsReceiptsStayWithinBudget() {
+        assertReceipt(ReceiptCopy.experimentStarted("Walk"), maxWords: 6)
+        assertReceipt(ReceiptCopy.experimentStartedDetail, maxWords: 10)
+        assertReceipt(ReceiptCopy.experimentFailed, maxWords: 6)
+        for verdict in [InsightExperiment.Verdict.helped, .didNotHelp, .unsure] {
+            assertReceipt(ReceiptCopy.verdict(verdict), maxWords: 6)
+        }
+    }
+}
+
+// MARK: - Copy voice (DESIGN.md "Voice and copy")
+
+/// The checks every piece of copy shares, so a feature's copy test states only
+/// its budgets. The word lists mirror `scripts/copy_voice_rules.rb`: the lint
+/// scans source literals, these check what the copy types actually return.
+enum CopyVoiceAssertions {
+    static let shameWords = ["missed", "failed", "fail", "behind", "should", "overdue", "late", "broke", "broken", "relapse", "lapse"]
+    static let voiceSmells = [
+        "gentle", "gently", "calmer", "quietly", "honest", "softly", "breathe", "room to", "still counts",
+        "when you're ready", "when you’re ready", "whenever you", "no pressure", "intentional", "intentionally",
+        "meaningful", "deliberately", "journey", "seamless", "effortless", "empower", "here's", "here’s"
+    ]
+    static let disclaimers = ["not a verdict", "not a score", "never a grade", "without judg", "without blame", "lifeboard never", "lifeboard does not", "non-clinical", "not a diagnosis"]
+    static let jargon = ["canonical", "evidence", "bounded", "deterministic", "denominator", "sidecar", "projection", "tombstone", "idempotent", "grounded", "provider", "occurrence", "ledger", "chief of staff", "behavior loop"]
+
+    /// A quoted title is the person's own words and is not counted.
+    static func wordCount(_ text: String) -> Int {
+        let unquoted = text.replacingOccurrences(of: #"‘[^’]*’"#, with: "X", options: .regularExpression)
+        return unquoted.split(whereSeparator: { $0.isWhitespace }).count
+    }
+
+    static func assertVoice(_ text: String, maxWords: Int, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertLessThanOrEqual(wordCount(text), maxWords, "“\(text)” is over \(maxWords) words", file: file, line: line)
+        let lowered = text.lowercased()
+        let tokens = Set(lowered.split(whereSeparator: { $0.isLetter == false && $0 != "'" && $0 != "’" }).map(String.init))
+        for phrase in shameWords + voiceSmells + disclaimers + jargon + DailyCorrelationEngine.forbiddenWords {
+            // Whole words only: "later today" is not "late".
+            let found = phrase.contains(" ") || phrase.hasSuffix("judg") ? lowered.contains(phrase) : tokens.contains(phrase)
+            XCTAssertFalse(found, "“\(text)” uses “\(phrase)”", file: file, line: line)
+        }
+        XCTAssertFalse(text.contains("..."), "“\(text)” uses ... instead of …", file: file, line: line)
+        XCTAssertNil(text.range(of: #"\bEVA\b"#, options: .regularExpression), "“\(text)” spells Eva in capitals", file: file, line: line)
+        XCTAssertNil(text.range(of: #"\bplease\b"#, options: [.regularExpression, .caseInsensitive]), "“\(text)” says please", file: file, line: line)
+    }
+
+    /// Titles and buttons: within budget and in sentence case.
+    static func assertLabel(_ text: String, maxWords: Int = 3, file: StaticString = #filePath, line: UInt = #line) {
+        assertVoice(text, maxWords: maxWords, file: file, line: line)
+        let proper: Set<String> = ["Eva", "LifeBoard", "Today", "Tomorrow", "Someday", "Inbox", "Health", "Apple", "iPhone", "Home", "Plan"]
+        let capitalised = text.split(separator: " ").dropFirst().filter { word in
+            guard let first = word.first, first.isUppercase else { return false }
+            return proper.contains(String(word).trimmingCharacters(in: .punctuationCharacters)) == false
+        }
+        XCTAssertTrue(capitalised.isEmpty, "“\(text)” is not sentence case", file: file, line: line)
+    }
+}
+
+@MainActor
+final class CopyVoiceContractTests: XCTestCase {
+    func testWeeklyCopyReadsPlainly() {
+        let labels = [
+            WeeklyCopy.reviewTitle, WeeklyCopy.reflectionTitle, WeeklyCopy.plannerSaveSuccess, WeeklyCopy.reviewSaveSuccess,
+            WeeklyCopy.reflectionSaveSuccess, WeeklyCopy.planningPlacementLabel, WeeklyCopy.weeklyOutcomeLabel,
+            WeeklyCopy.intentionalWeekLabel, WeeklyCopy.getAISuggestion, WeeklyCopy.addReflection, WeeklyCopy.savePlan,
+            WeeklyCopy.finishReview, WeeklyCopy.editHabits, WeeklyCopy.continueToOutcomes, WeeklyCopy.continueToTasks,
+            WeeklyCopy.reviewPlan, WeeklyCopy.chooseTasks, WeeklyCopy.findMoreTasks, WeeklyCopy.addTaskToReview,
+            WeeklyCopy.noOutcome, WeeklyCopy.directionPrompt
+        ]
+        for label in labels { CopyVoiceAssertions.assertLabel(label) }
+        for support in [WeeklyCopy.plannerSubtitle, WeeklyCopy.reviewSubtitle, WeeklyCopy.reviewErrorTitle, WeeklyCopy.reflectionErrorTitle] {
+            CopyVoiceAssertions.assertVoice(support, maxWords: 10)
+        }
+    }
+
+    func testDecisionDestinationsKeepTheirSharedWords() {
+        for destination in DecisionDestination.allCases {
+            CopyVoiceAssertions.assertVoice(destination.title, maxWords: 3)
+        }
+    }
+
+    func testHabitStatusLinesStayShortAndNeverShame() {
+        let kinds: [HomeHabitKind] = [.buildCheckIn, .buildAmount, .quitCheckIn, .quitLapseOnly]
+        for kind in kinds {
+            for done in [false, true] {
+                for slipped in [false, true] {
+                    for clean in [0, 1, 12] {
+                        let text = HomeHabitCopy.status(kind: kind, isDoneToday: done, slippedToday: slipped, cleanDays: clean, amount: nil)
+                        CopyVoiceAssertions.assertVoice(text, maxWords: 5)
+                    }
+                }
+            }
+        }
+        for label in [HomeHabitCopy.sectionTitle, HomeHabitCopy.allHabits, HomeHabitCopy.allHandled, HomeHabitCopy.undoSlip, HomeHabitCopy.slipConfirmAction] {
+            CopyVoiceAssertions.assertLabel(label)
+        }
+        CopyVoiceAssertions.assertVoice(HomeHabitCopy.slipConfirmTitle, maxWords: 8)
+        CopyVoiceAssertions.assertVoice(HomeHabitCopy.slipConfirmMessage, maxWords: 10)
+    }
+
+    func testHomeHeroAndDayLoopHeadingsStayShort() {
+        // "Focus Now" is a registry name Home keeps, so the hero is held to the
+        // budget and word lists but not to sentence case.
+        let priorities: [AdaptiveHeroPriority?] = AdaptiveHeroPriority.allCases + [nil]
+        for priority in priorities {
+            CopyVoiceAssertions.assertVoice(HomeSectionCopy.heroLabel(for: priority), maxWords: 3)
+        }
+        for stage in DayLoopStage.allCases {
+            CopyVoiceAssertions.assertLabel(HomeSectionCopy.spineTitle(for: stage))
+        }
+    }
+}
+
+/// A chart's prose names the latest reading and the span, never a direction
+/// read off two endpoints.
+final class TrendChartTextEquivalentTests: XCTestCase {
+    func testTextEquivalentDescribesSpanNotDirection() {
+        XCTAssertEqual(TrendChart.textEquivalent(for: [], unit: "min"), "No readings yet.")
+        XCTAssertEqual(TrendChart.textEquivalent(for: [30], unit: "min"), "1 reading, 30 min.")
+        XCTAssertEqual(TrendChart.textEquivalent(for: [4, 4, 4], unit: nil), "3 readings, 4.")
+        let noisy = TrendChart.textEquivalent(for: [20, 80, 15, 60, 25], unit: "min")
+        XCTAssertEqual(noisy, "5 readings, latest 25 min, between 15 and 80 min.")
+        XCTAssertFalse(noisy.contains("up from") || noisy.contains("down from"))
     }
 }

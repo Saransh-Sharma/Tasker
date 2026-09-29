@@ -31,6 +31,7 @@ public enum HealthHistoryRange: String, CaseIterable, Codable, Hashable, Sendabl
     case sevenDays
     case thirtyDays
     case ninetyDays
+    case oneYear
     case all
 
     public var id: String { rawValue }
@@ -40,6 +41,7 @@ public enum HealthHistoryRange: String, CaseIterable, Codable, Hashable, Sendabl
         case .sevenDays: "7D"
         case .thirtyDays: "30D"
         case .ninetyDays: "90D"
+        case .oneYear: "1Y"
         case .all: "All"
         }
     }
@@ -50,6 +52,7 @@ public enum HealthHistoryRange: String, CaseIterable, Codable, Hashable, Sendabl
         case .sevenDays: 6
         case .thirtyDays: 29
         case .ninetyDays: 89
+        case .oneYear: 363
         case .all: 36_500
         }
         return calendar.date(byAdding: .day, value: -days, to: today) ?? today
@@ -484,65 +487,5 @@ public struct HealthWritePayload: Codable, Hashable, Sendable {
 
     public var syncIdentifier: String {
         "com.lifeboard.\(metric.rawValue).\(localID.uuidString.lowercased()).\(role)"
-    }
-}
-
-public enum HealthSyncOperationKind: String, Codable, Sendable {
-    case write
-    case update
-    case delete
-}
-
-public enum HealthSyncOperationState: String, Codable, Sendable {
-    case pending
-    case processing
-    case retryScheduled
-    case pausedPermission
-    case completed
-}
-
-public struct HealthSyncOperation: Codable, Hashable, Sendable, Identifiable {
-    public let id: UUID
-    public let localID: UUID
-    public let metric: HealthMetric
-    public let role: String
-    public var kind: HealthSyncOperationKind
-    public var state: HealthSyncOperationState
-    public var payload: HealthWritePayload?
-    public var syncVersion: Int64
-    public var attemptCount: Int
-    public var nextAttemptAt: Date?
-    public var lastErrorCode: String?
-    public let createdAt: Date
-    public var updatedAt: Date
-
-    public init(
-        id: UUID = UUID(),
-        localID: UUID,
-        metric: HealthMetric,
-        role: String = "primary",
-        kind: HealthSyncOperationKind,
-        state: HealthSyncOperationState = .pending,
-        payload: HealthWritePayload? = nil,
-        syncVersion: Int64 = 1,
-        attemptCount: Int = 0,
-        nextAttemptAt: Date? = nil,
-        lastErrorCode: String? = nil,
-        createdAt: Date = Date(),
-        updatedAt: Date = Date()
-    ) {
-        self.id = id
-        self.localID = localID
-        self.metric = metric
-        self.role = role
-        self.kind = kind
-        self.state = state
-        self.payload = payload
-        self.syncVersion = max(1, syncVersion)
-        self.attemptCount = attemptCount
-        self.nextAttemptAt = nextAttemptAt
-        self.lastErrorCode = lastErrorCode
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
     }
 }

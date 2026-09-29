@@ -14,7 +14,7 @@ enum HomeCardPreviewFixtures {
         .init(id: UUID(uuidString: String(format: "00000000-0000-0000-0001-%012d", index))!,
             title: "Medication decision", symbol: "pills", detail: "Scheduled")
     }
-    static let routineRows: [HomeCardQueueRow] = ["Morning stretch", "Read for ten minutes", "Water the plants", "Prepare a walking bag", "Evening wind-down"].enumerated().map { index, title in
+    static let routineRows: [HomeCardQueueRow] = ["Morning stretch", "Read for 10 min", "Water the plants", "Prepare a walking bag", "Evening wind-down"].enumerated().map { index, title in
         .init(id: UUID(uuidString: String(format: "00000000-0000-0000-0002-%012d", index+1))!, title: title, symbol: "figure.mind.and.body")
     }
     static let timeline: [AdaptiveTimelineItem] = [
@@ -26,19 +26,19 @@ enum HomeCardPreviewFixtures {
         let copy: (String, String, String)
         switch kind {
         case .setupChecklist: copy = ("2 of 5 steps", "Connect your calendar", "Continue setup")
-        case .focusNow: copy = ("Sketch the first draft", "A quiet 25-minute focus block", "Open focus")
-        case .lifeSnapshot: copy = ("Your day at a glance", "Tasks, care, and reflection", "View snapshot")
-        case .care: copy = ("A little care", "Water break", "Open care")
-        case .tasks: copy = ("Today’s Tasks", "Sketch the first draft", "View tasks")
-        case .routines: copy = ("Evening wind-down", "Read for ten minutes", "View routines")
-        case .scheduleCapacity: copy = ("Room to breathe", "One open afternoon block", "View schedule")
-        case .quickCapture: copy = ("Make a little room", "Capture what is on your mind", "Capture")
-        case .compactTimeline: copy = ("Your day, in order", "09:00 Design review", "View day")
-        case .journal: copy = ("A moment for you", "The walk home helped me slow down.", "Open journal")
-        case .progressReflection: copy = ("Small steps count", "Look back at what you recorded", "View reflection")
-        case .fasting: copy = ("No active fast", "Start when it works for you", "Open fasting")
+        case .focusNow: copy = ("Sketch the first draft", "25 min focus session", "Open focus")
+        case .lifeSnapshot: copy = ("Today", "Tasks, care and mood", "View snapshot")
+        case .care: copy = ("1 due", "Water break", "Open care")
+        case .tasks: copy = ("Today’s tasks", "Sketch the first draft", "View tasks")
+        case .routines: copy = ("Evening wind-down", "Read for 10 min", "View routines")
+        case .scheduleCapacity: copy = ("2 hr free", "Free this afternoon", "View schedule")
+        case .quickCapture: copy = ("Capture", "Task, note or water", "Capture")
+        case .compactTimeline: copy = ("Your day", "09:00 Design review", "View day")
+        case .journal: copy = ("Today’s entry", "The walk home helped me slow down.", "Open journal")
+        case .progressReflection: copy = ("4 of 6 done", "This week", "View progress")
+        case .fasting: copy = ("Not fasting", "Last meal 12:30", "Open fasting")
         case .goals: copy = ("3 of 5 milestones", "Finish the portfolio", "View goal")
-        case .evaConversation: copy = ("Leave a little space", "Keep one afternoon free for focused work.", "Open insight")
+        case .evaConversation: copy = ("Suggestion", "Keep Thursday afternoon free for focus.", "Open insight")
         case .bodyMetric: copy = ("72.4 kg", "Recorded 15 September", "View body metrics")
         case .workout: copy = ("30 min", "Afternoon walk", "View workout")
         case .sleep: copy = ("7.5 hours", "Recorded 15 September", "View sleep")
@@ -46,8 +46,8 @@ enum HomeCardPreviewFixtures {
         case .lifeMoment: copy = ("A day to remember", "Family picnic · 22 September", "View moment")
         case .nutritionSummary: copy = ("2 meals logged", "Today’s recorded meals", "View nutrition")
         case .recentMeal: copy = ("Lunch", "Vegetable soup · 12:30", "View meal")
-        case .logMeal: copy = ("What was on your plate?", "Add a meal when you are ready", "Log meal")
-        default: copy = ("Preview unavailable", "Open the card for details", "Open")
+        case .logMeal: copy = ("No meals logged", "Breakfast, lunch or dinner", "Log meal")
+        default: copy = ("No preview", "Open the card", "Open")
         }
         let actionTitle = HomeWidgetRouteResolver.target(for: kind, resolution: nil, daypart: .morning)?.actionTitle ?? copy.2
         let title = DefaultDashboardWidgetRegistry.shared.descriptor(for: kind)?.title ?? "LifeBoard"

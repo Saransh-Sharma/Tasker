@@ -195,7 +195,7 @@ struct EvaPlanResponseDelivery {
     static func textPayload(for plan: AssistantPlanResult) -> EvaPlanResponsePayload {
         let trimmedRationale = plan.rationale.trimmingCharacters(in: .whitespacesAndNewlines)
         return .text(
-            content: trimmedRationale.isEmpty ? "Tell me what you want to create, change, or review." : trimmedRationale,
+            content: trimmedRationale.isEmpty ? String(localized: "Tell me what to add, move, or review.") : trimmedRationale,
             sourceModelName: plan.modelName
         )
     }
@@ -825,7 +825,7 @@ final class AssistantPlannerService {
         )
         return AssistantPlanResult(
             envelope: envelope,
-            rationale: envelope.rationaleText ?? "Prepared proposed task updates.",
+            rationale: envelope.rationaleText ?? String(localized: "Suggested changes"),
             diffLines: AssistantDiffPreviewBuilder.build(
                 commands: envelope.commands,
                 taskTitleByID: taskTitleByID,
@@ -971,7 +971,13 @@ enum EvaTurnRouter {
         },
         Rule(name: "planning-coaching", route: .chatAnswer) { isPlanningCoachingPrompt($0.text) },
         Rule(name: "day-planning", route: .dayPlanning) { input in
-            ["help me plan my day", "plan my day", "plan today", "plan tomorrow", "review today"].contains { input.text.contains($0) }
+            let phrases = ["help me plan my day", "plan my day", "plan today", "plan tomorrow", "review today"]
+            guard let phrase = phrases.first(where: { input.text.contains($0) }) else { return false }
+            // "Help me plan my day. What are my tasks?" asks to see the day
+            // first. When a planning phrase is followed by its own read-only
+            // question, the question is what gets answered; the phrase alone
+            // still plans.
+            return asksReadOnlyQuestion(after: phrase, in: input) == false
         },
         Rule(name: "read-only-review", route: .readOnlyReview) { isReadOnlyReviewPrompt($0.text) },
         Rule(name: "task-update", route: .taskMutation) { input in
@@ -1039,6 +1045,13 @@ enum EvaTurnRouter {
     private static func mentionsDuration(_ text: String) -> Bool {
         let pattern = #"\b\d+\s*(minutes?|mins?|min|hours?|hrs?|hr)\b"#
         return text.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    private static func asksReadOnlyQuestion(after phrase: String, in input: Input) -> Bool {
+        guard input.isQuestion, let range = input.text.range(of: phrase) else { return false }
+        let remainder = input.text[range.upperBound...].trimmingCharacters(in: .whitespaces)
+        guard remainder.isEmpty == false else { return false }
+        return isReadOnlyReviewPrompt(remainder)
     }
 
     fileprivate static func isReadOnlyReviewPrompt(_ text: String) -> Bool {
@@ -1546,21 +1559,21 @@ struct AssistantDeterministicPlanner {
     }
 
     static func clarificationPlan(for prompt: String) -> Output {
-        let message = "Tell me the task title, and add a time if it belongs on your timeline."
+        let message = String(localized: "What’s the task? Add a time to schedule it.")
         let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
         return Output(
             envelope: envelope,
-            cards: [EvaProposalCardBuilder.noOpCard(title: "Needs more detail", subtitle: message)],
+            cards: [EvaProposalCardBuilder.noOpCard(title: String(localized: "Needs a title"), subtitle: message)],
             dayOverviewPayload: nil
         )
     }
 
     static func habitClarificationPlan(for prompt: String) -> Output {
-        let message = "I can review habits and include them in planning, but habit changes cannot be applied from this assistant card yet. Tell me if you want a task added to support that habit."
+        let message = String(localized: "Can’t change habits here yet. Add a task instead?")
         let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
         return Output(
             envelope: envelope,
-            cards: [EvaProposalCardBuilder.noOpCard(title: "Habit review only", subtitle: message)],
+            cards: [EvaProposalCardBuilder.noOpCard(title: String(localized: "Habits are read-only"), subtitle: message)],
             dayOverviewPayload: nil
         )
     }
@@ -1580,7 +1593,7 @@ struct AssistantDeterministicPlanner {
             return Output(
                 envelope: envelope,
                 cards: batch.commands.isEmpty
-                    ? [EvaProposalCardBuilder.noOpCard(title: batch.noOpTitle ?? "No matching tasks found", subtitle: batch.rationale)]
+                    ? [EvaProposalCardBuilder.noOpCard(title: batch.noOpTitle ?? String(localized: "No matching tasks"), subtitle: batch.rationale)]
                     : EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID),
                 dayOverviewPayload: nil
             )
@@ -1590,7 +1603,7 @@ struct AssistantDeterministicPlanner {
             let envelope = AssistantCommandEnvelope(
                 schemaVersion: 3,
                 commands: timed,
-                rationaleText: "Here's how your day is planned:"
+                rationaleText: String(localized: "Today’s plan")
             )
             return Output(
                 envelope: envelope,
@@ -1605,7 +1618,7 @@ struct AssistantDeterministicPlanner {
                 commands: inbox.map {
                     .createInboxTask(projectID: ProjectConstants.inboxProjectID, title: $0, estimatedDuration: nil, lifeAreaID: nil, priority: nil, category: nil, details: nil, tagIDs: [])
                 },
-                rationaleText: "Here's how your day is planned:"
+                rationaleText: String(localized: "Today’s plan")
             )
             return Output(
                 envelope: envelope,
@@ -1620,7 +1633,7 @@ struct AssistantDeterministicPlanner {
                 commands: untimed.map {
                     .createInboxTask(projectID: ProjectConstants.inboxProjectID, title: $0.title, estimatedDuration: $0.estimatedDuration, lifeAreaID: nil, priority: nil, category: nil, details: nil, tagIDs: [])
                 },
-                rationaleText: "I added this to your Inbox for review."
+                rationaleText: String(localized: "Ready to add to Inbox.")
             )
             return Output(
                 envelope: envelope,
@@ -1630,7 +1643,7 @@ struct AssistantDeterministicPlanner {
         }
 
         if let edit = editPlan(prompt: prompt, tasks: tasks, now: context.now) {
-            let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [edit], rationaleText: "Here's how your day is planned:")
+            let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [edit], rationaleText: String(localized: "Today’s plan"))
             return Output(
                 envelope: envelope,
                 cards: EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID),
@@ -1643,22 +1656,22 @@ struct AssistantDeterministicPlanner {
                 task.isCompleted == false && (task.scheduledStartAt ?? .distantPast) > context.now
             }
             if futureTasks.isEmpty {
-                let message = "I checked the rest of today and did not find uncompleted scheduled tasks to move."
+                let message = String(localized: "No scheduled tasks left to move today.")
                 let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
                 return Output(
                     envelope: envelope,
-                    cards: [EvaProposalCardBuilder.noOpCard(title: "No matching tasks found", subtitle: message)],
+                    cards: [EvaProposalCardBuilder.noOpCard(title: String(localized: "No matching tasks"), subtitle: message)],
                     dayOverviewPayload: nil
                 )
             }
         }
 
         if prompt.localizedCaseInsensitiveContains("help me plan") || prompt.localizedCaseInsensitiveContains("plan my day") {
-            let message = "Tell me your timed plans or add a list for Inbox, and your assistant will turn them into review cards."
+            let message = String(localized: "List your tasks, with times if you have them.")
             let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
             return Output(
                 envelope: envelope,
-                cards: [EvaProposalCardBuilder.noOpCard(title: "Tell me your plans", subtitle: message)],
+                cards: [EvaProposalCardBuilder.noOpCard(title: String(localized: "Add your plans"), subtitle: message)],
                 dayOverviewPayload: nil
             )
         }
@@ -1896,7 +1909,7 @@ struct AssistantDeterministicPlanner {
         guard candidates.isEmpty == false else {
             return BatchReschedulePlan(
                 commands: [],
-                rationale: "I checked the requested scope and did not find open tasks to reschedule.",
+                rationale: String(localized: "No open tasks to reschedule."),
                 noOpTitle: "No matching open tasks"
             )
         }
@@ -1904,8 +1917,8 @@ struct AssistantDeterministicPlanner {
         guard candidates.count <= maxCommands else {
             return BatchReschedulePlan(
                 commands: [],
-                rationale: "I found \(candidates.count) matching open tasks. Narrow the scope before applying a batch reschedule.",
-                noOpTitle: "Too many matching tasks"
+                rationale: String(localized: "\(candidates.count) tasks match. Narrow it to 20 or fewer."),
+                noOpTitle: String(localized: "Too many tasks")
             )
         }
 
@@ -1923,13 +1936,13 @@ struct AssistantDeterministicPlanner {
         guard commands.isEmpty == false else {
             return BatchReschedulePlan(
                 commands: [],
-                rationale: "I found matching tasks, but they need a date or time target before \(AssistantIdentityText.currentSnapshot().displayName) can reschedule them.",
-                noOpTitle: "Needs a target"
+                rationale: String(localized: "Add a day or time to move these."),
+                noOpTitle: String(localized: "Needs a day or time")
             )
         }
         return BatchReschedulePlan(
             commands: commands,
-            rationale: "I prepared \(commands.count) open task\(commands.count == 1 ? "" : "s") for review.",
+            rationale: commands.count == 1 ? String(localized: "1 task to review.") : String(localized: "\(commands.count) tasks to review."),
             noOpTitle: nil
         )
     }

@@ -46,13 +46,12 @@ struct FilterChip: View {
         .buttonStyle(.plain)
         .lifeboardPressFeedback()
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(isSelected ? "Selected" : "Double tap to apply")
         .accessibilityValue(isSelected ? "selected" : "unselected")
         .lifeboardAccessibilityIdentifier(accessibilityIdentifier)
     }
 
     private func handleTap() {
-        HapticFeedback.light()
+        Haptic.pick.play()
         action()
     }
 
@@ -131,7 +130,7 @@ struct FilterChip: View {
     private var accessibilityLabel: String {
         var parts = [title]
         if let count {
-            parts.append("\(count) items")
+            parts.append(count == 1 ? String(localized: "1 result") : String(localized: "\(count) results"))
         }
         if isDestructive {
             parts.append("destructive")
@@ -162,7 +161,6 @@ struct FilterRow: View {
         .buttonStyle(.plain)
         .lifeboardPressFeedback()
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(isSelected ? "Selected" : "Double tap to apply")
         .lifeboardAccessibilityIdentifier(accessibilityIdentifier)
     }
 
@@ -171,7 +169,7 @@ struct FilterRow: View {
             Image(systemName: selectionIcon)
                 .lifeboardFont(.body)
                 .foregroundStyle(isSelected ? rowAccent : Color.lifeboard.textTertiary)
-                .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isSelected)
+                .animation(MotionProfile.selection.animation(reduceMotion: reduceMotion), value: isSelected)
 
             if let systemImage {
                 Image(systemName: systemImage)
@@ -237,7 +235,7 @@ struct FilterRow: View {
     private var accessibilityLabel: String {
         var label = title
         if let count {
-            label += ", \(count) items"
+            label += count == 1 ? String(localized: ", 1 result") : String(localized: ", \(count) results")
         }
         if isSelected {
             label += ", selected"

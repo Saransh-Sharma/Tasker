@@ -1,0 +1,156 @@
+Attributes: Application, 0x1184f0f00, pid: 33543, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x1184f0f00, pid: 33543, label: 'LifeBoard'
+    Window (Main), 0x1184f1040, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x1184f1180, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x1184f12c0, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x1184f1400, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x1184f1540, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x1184f1680, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x1184f17c0, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x1184f1900, {{0.0, 0.0}, {402.0, 874.0}}
+                    Button, 0x1184f1a40, {{201.0, 451.0}, {0.0, 0.0}}
+                    Other, 0x1184f2800, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x1184f2940, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x1184f2a80, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x1184f2bc0, {{0.0, 0.0}, {402.0, 874.0}}
+                          Other, 0x1184f2d00, {{0.0, 0.0}, {402.0, 874.0}}
+                            Other, 0x1184f2e40, {{0.0, 0.0}, {402.0, 874.0}}
+                              Other, 0x1184f2f80, {{0.0, 0.0}, {402.0, 874.0}}
+                                Other, 0x1184f30c0, {{0.0, 62.0}, {402.0, 778.0}}
+                                Other, 0x1184f3200, {{0.0, 0.0}, {402.0, 874.0}}
+                                  Other, 0x1184f3340, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x1184f3480, {{0.0, 0.0}, {402.0, 874.0}}
+                                      Other, 0x1184f35c0, {{0.0, 0.0}, {402.0, 874.0}}
+                                        Other, 0x1184f3700, {{0.0, 0.0}, {402.0, 874.0}}
+                                          Image, 0x1184f3840, {{-45.0, 0.0}, {492.0, 874.0}}
+                                          Image, 0x1184f3980, {{248.2, 43.2}, {140.3, 140.3}}
+                                          Other, 0x1184f3ac0, {{201.0, 62.0}, {0.0, 0.0}}
+                                          Other, 0x1184f3c00, {{0.0, 142.5}, {402.0, 731.5}}, identifier: 'foundation.eva'
+                                            Other, 0x1184f3d40, {{0.0, 143.0}, {402.0, 389.3}}
+                                            Other, 0x1184f3e80, {{0.0, 207.0}, {402.0, 325.3}}, identifier: 'chat.emptyState.container'
+                                              Image, 0x1184b1680, {{20.0, 207.0}, {40.0, 40.0}}, label: 'Eva'
+                                              StaticText, 0x1184b17c0, {{68.0, 210.2}, {112.3, 33.7}}, label: 'Hi there!'
+                                              StaticText, 0x1184b1900, {{20.0, 251.0}, {264.0, 26.3}}, label: 'What do you need to plan?'
+                                              Button, 0x1184b1a40, {{20.0, 281.3}, {79.7, 44.0}}, identifier: 'eva.structured.help', label: 'Eva help'
+                                                Image, 0x1184b1b80, {{33.3, 296.0}, {12.0, 14.7}}, identifier: 'sparkles', label: 'Sparkle'
+                                                StaticText, 0x1184b1cc0, {{50.7, 295.5}, {37.0, 15.7}}, label: 'Guide'
+                                              ScrollView, 0x1184b1e00, {{0.0, 446.3}, {402.0, 86.0}}
+                                                Other, 0x1184b1f40, {{0.0, 446.3}, {4729.3, 86.0}}
+                                                  Button, 0x1184b2080, {{20.0, 446.3}, {243.0, 78.0}}, label: 'How is my day?, How is my day looking today?'
+                                                    Image, 0x1184b21c0, {{42.0, 475.7}, {12.0, 14.7}}, identifier: 'sparkles', label: 'Sparkle'
+                                                    StaticText, 0x1184f8000, {{72.0, 467.0}, {100.3, 17.0}}, label: 'How is my day?'
+                                                    StaticText, 0x1184f8140, {{72.0, 488.0}, {179.0, 15.7}}, label: 'How is my day looking today?'
+                                                  Button, 0x1184f8280, {{275.0, 446.3}, {320.0, 78.0}}, label: 'Plan today, Help me plan today around my existing tasks and habits.'
+                                                    Image, 0x1184f83c0, {{295.0, 468.7}, {16.0, 13.0}}, identifier: 'arrow.triangle.2.circlepath', label: 'Syncing'
+                                                    StaticText, 0x1184f8500, {{327.0, 459.2}, {68.0, 17.0}}, label: 'Plan today'
+                                                    StaticText, 0x1184f8640, {{327.0, 480.2}, {238.3, 31.3}}, label: 'Help me plan today around my existing tasks and habits.'
+                                                  Button, 0x1184f8780, {{607.0, 446.3}, {320.0, 78.0}}, label: 'Recover overdue, Show me what is overdue and what I should recover first.'
+                                                    Image, 0x1184f88c0, {{628.0, 468.3}, {14.0, 14.0}}, identifier: 'sun.max', label: 'Brightness Higher'
+                                                    StaticText, 0x1184f8a00, {{659.0, 459.2}, {108.3, 17.0}}, label: 'Recover overdue'
+                                                    StaticText, 0x1184f8b40, {{659.0, 480.2}, {223.7, 31.3}}, label: 'Show me what is overdue and what I should recover first.'
+                                                  Button, 0x1184f8c80, {{939.0, 446.3}, {313.0, 78.0}}, label: 'Carry today's overdues to tomorrow, Move today's overdue tasks to tomorrow.'
+                                                    Image, 0x1184f8dc0, {{960.7, 476.0}, {16.3, 14.0}}, identifier: 'calendar.badge.clock', label: 'Date And Time'
+                                                    StaticText, 0x1184f8f00, {{991.0, 467.0}, {232.3, 17.0}}, label: 'Carry today's overdues to tomorrow'
+                                                    StaticText, 0x1184f9040, {{991.0, 488.0}, {249.0, 15.7}}, label: 'Move today's overdue tasks to tomorrow.'
+                                                  Button, 0x1184f9180, {{1264.0, 446.3}, {320.0, 78.0}}, label: 'Overdue today first and then the rest, Plan today with overdue tasks first, then the rest.'
+                                                    Image, 0x1184f92c0, {{1285.7, 468.3}, {16.3, 14.0}}, identifier: 'calendar.badge.clock', label: 'Date And Time'
+                                                    StaticText, 0x1184f9400, {{1316.0, 459.2}, {238.0, 17.0}}, label: 'Overdue today first and then the rest'
+                                                    StaticText, 0x1184f9540, {{1316.0, 480.2}, {246.0, 31.3}}, label: 'Plan today with overdue tasks first, then the rest.'
+                                                  Button, 0x1184f9680, {{1596.0, 446.3}, {274.3, 78.0}}, label: 'Focus first, What should I focus on first today?'
+                                                    Image, 0x1184f97c0, {{1617.0, 476.0}, {14.0, 14.0}}, identifier: 'sun.max', label: 'Brightness Higher'
+                                                    StaticText, 0x1184f9900, {{1648.0, 467.0}, {68.0, 17.0}}, label: 'Focus first'
+                                                    StaticText, 0x1184f9a40, {{1648.0, 488.0}, {210.3, 15.7}}, label: 'What should I focus on first today?'
+                                                  Button, 0x1184f9b80, {{1882.3, 446.3}, {258.3, 78.0}}, label: 'Reschedule unfinished tasks, Reschedule my unfinished tasks'
+                                                    Image, 0x1184f9cc0, {{1904.0, 476.0}, {16.3, 14.0}}, identifier: 'calendar.badge.clock', label: 'Date And Time'
+                                                    StaticText, 0x1184f9e00, {{1934.3, 467.0}, {184.0, 17.0}}, label: 'Reschedule unfinished tasks'
+                                                    StaticText, 0x1184f9f40, {{1934.3, 488.0}, {194.3, 15.7}}, label: 'Reschedule my unfinished tasks'
+                                                  Button, 0x1184fa080, {{2152.7, 446.3}, {320.0, 78.0}}, label: 'Carry today to tomorrow, Move all my unfinished tasks from today to tomorrow'
+                                                    Image, 0x1184fa1c0, {{2174.3, 468.3}, {16.3, 14.0}}, identifier: 'calendar.badge.clock', label: 'Date And Time'
+                                                    StaticText, 0x1184fa300, {{2204.7, 459.2}, {158.0, 17.0}}, label: 'Carry today to tomorrow'
+                                                    StaticText, 0x1184fa440, {{2204.7, 480.2}, {246.3, 31.3}}, label: 'Move all my unfinished tasks from today to tomorrow'
+                                                  Button, 0x1184fa580, {{2484.7, 446.3}, {320.0, 78.0}}, label: 'Push by 20 minutes, Move all my unfinished tasks from today forward by 20 minutes'
+                                                    Image, 0x1184fa6c0, {{2506.3, 468.3}, {16.3, 14.0}}, identifier: 'calendar.badge.clock', label: 'Date And Time'
+                                                    StaticText, 0x1184fa800, {{2536.7, 459.2}, {127.3, 17.0}}, label: 'Push by 20 minutes'
+                                                    StaticText, 0x1184fa940, {{2536.7, 480.2}, {246.3, 31.3}}, label: 'Move all my unfinished tasks from today forward by 20 minutes'
+                                                  Button, 0x1184faa80, {{2816.7, 446.3}, {318.7, 78.0}}, label: 'Start tomorrow morning, Move my open tasks to tomorrow morning'
+                                                    Image, 0x1184fabc0, {{2838.3, 476.0}, {16.3, 14.0}}, identifier: 'calendar.badge.clock', label: 'Date And Time'
+                                                    StaticText, 0x1184fad00, {{2868.7, 467.0}, {154.3, 17.0}}, label: 'Start tomorrow morning'
+                                                    StaticText, 0x1184fae40, {{2868.7, 488.0}, {254.7, 15.7}}, label: 'Move my open tasks to tomorrow morning'
+                                                  Button, 0x1184faf80, {{3147.3, 446.3}, {238.0, 78.0}}, label: 'Overdue to today, Move overdue tasks to today'
+                                                    Image, 0x1184fb0c0, {{3169.0, 476.0}, {16.3, 14.0}}, identifier: 'calendar.badge.clock', label: 'Date And Time'
+                                                    StaticText, 0x1184fb200, {{3199.3, 467.0}, {111.7, 17.0}}, label: 'Overdue to today'
+                                                    StaticText, 0x1184fb340, {{3199.3, 488.0}, {174.0, 15.7}}, label: 'Move overdue tasks to today'
+                                                  Button, 0x1184fb480, {{3397.3, 446.3}, {320.0, 78.0}}, label: 'Break down priority, Help me break down my top priority into next steps.'
+                                                    Image, 0x1184fb5c0, {{3418.0, 468.7}, {14.3, 13.0}}, identifier: 'checklist', label: 'checklist'
+                                                    StaticText, 0x1184fb700, {{3449.3, 459.2}, {125.7, 17.0}}, label: 'Break down priority'
+                                                    StaticText, 0x1184fb840, {{3449.3, 480.2}, {246.0, 31.3}}, label: 'Help me break down my top priority into next steps.'
+                                                  Button, 0x1184fb980, {{3729.3, 446.3}, {236.0, 78.0}}, label: '/today, /today'
+                                                    Image, 0x1184fbac0, {{3751.3, 477.0}, {12.0, 12.0}}, identifier: 'command', label: 'Command'
+                                                    StaticText, 0x1184fbc00, {{3781.3, 467.0}, {40.3, 17.0}}, label: '/today'
+                                                    StaticText, 0x1184fbd40, {{3781.3, 488.0}, {38.0, 15.7}}, label: '/today'
+                                                  Button, 0x1184fbe80, {{3977.3, 446.3}, {236.0, 78.0}}, label: '/week, /week'
+                                                    Image, 0x1184fc000, {{3999.3, 477.0}, {12.0, 12.0}}, identifier: 'command', label: 'Command'
+                                                    StaticText, 0x1184fc140, {{4029.3, 467.0}, {38.0, 17.0}}, label: '/week'
+                                                    StaticText, 0x1184fc280, {{4029.3, 488.0}, {35.3, 15.7}}, label: '/week'
+                                                  Button, 0x1184fc3c0, {{4225.3, 446.3}, {236.0, 78.0}}, label: '/project Inbox, /project Inbox'
+                                                    Image, 0x1184fc500, {{4247.3, 477.0}, {12.0, 12.0}}, identifier: 'command', label: 'Command'
+                                                    StaticText, 0x1184fc640, {{4277.3, 467.0}, {88.7, 17.0}}, label: '/project Inbox'
+                                                    StaticText, 0x1184fc780, {{4277.3, 488.0}, {83.0, 15.7}}, label: '/project Inbox'
+                                                  Button, 0x1184fc8c0, {{4473.3, 446.3}, {236.0, 78.0}}, label: '/recent, /recent'
+                                                    Image, 0x1184fca00, {{4495.3, 477.0}, {12.0, 12.0}}, identifier: 'command', label: 'Command'
+                                                    StaticText, 0x1184fcb40, {{4525.3, 467.0}, {45.7, 17.0}}, label: '/recent'
+                                                    StaticText, 0x1184fcc80, {{4525.3, 488.0}, {42.7, 15.7}}, label: '/recent'
+                                            Other, 0x1184fcdc0, {{16.0, 552.3}, {370.0, 79.7}}, identifier: 'chat.cloudAccess.card'
+                                              Image, 0x1184fcf00, {{30.3, 565.3}, {20.0, 13.3}}, identifier: 'cloud', label: 'Mostly Cloudy'
+                                              StaticText, 0x1184fd040, {{60.0, 564.3}, {182.0, 20.3}}, label: 'Activating Cloud EVA…'
+                                              StaticText, 0x1184fd180, {{60.0, 588.7}, {230.7, 31.3}}, label: 'Your draft is safe. You can keep using LifeBoard while EVA connects.'
+                                              ActivityIndicator, 0x1184fd2c0, {{354.0, 564.3}, {20.0, 20.0}}, label: 'Activating Cloud EVA…', value: 1
+                                                ActivityIndicator, 0x1184fd400, {{354.0, 564.3}, {20.0, 20.0}}, value: 1
+                                            TextField, 0x1184fd540, {{28.0, 655.7}, {238.0, 21.0}}, identifier: 'eva.structured.composer', placeholderValue: 'Tell me your plans...'
+                                              Other, 0x1184fd680, {{28.0, 663.2}, {238.0, 10.5}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                                                Other, 0x1184fd7c0, {{31.0, 670.7}, {232.0, 3.0}}
+                                            Button, 0x1184fd900, {{282.0, 648.0}, {44.0, 44.0}}, identifier: 'eva.structured.dictation.mic.fill', label: 'Start dictation'
+                                            Button, 0x1184fda40, {{330.0, 644.0}, {44.0, 44.0}}, identifier: 'chat.send_button', label: 'Send', Disabled
+                                            Other, 0x1184fdb80, {{0.0, 696.0}, {402.0, 12.0}}
+                                            Button, 0x1184fdcc0, {{20.0, 143.0}, {40.0, 40.0}}, identifier: 'eva.privacy.badge', label: 'Private on-device context'
+                                          Other, 0x1184fde00, {{0.0, 772.0}, {402.0, 68.0}}
+                                          Other, 0x1184fdf40, {{20.0, 70.0}, {347.3, 65.0}}, identifier: 'eva.header'
+                                            Button, 0x1184fe080, {{20.0, 70.0}, {44.0, 44.0}}, identifier: 'eva.chat.back', label: 'Back to Home'
+                                            StaticText, 0x1184fe1c0, {{72.0, 78.8}, {37.3, 26.3}}, label: 'Eva'
+                                            StaticText, 0x1184fe300, {{72.0, 117.0}, {160.0, 18.0}}, label: 'Ask or use / commands'
+                                            Button, 0x1184fe440, {{286.0, 80.7}, {44.0, 44.0}}, identifier: 'foundation.more.eva', label: 'More'
+                                              Button, 0x1184fe580, {{286.0, 80.7}, {44.0, 44.0}}
+                                                Image, 0x1184fe6c0, {{300.3, 101.0}, {15.7, 3.3}}, identifier: 'ellipsis', label: 'More'
+                                            Button, 0x1184fe800, {{353.0, 95.7}, {14.3, 14.3}}, identifier: 'foundation.capture', label: 'Capture'
+                                  Other, 0x1184fe940, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x1184fea80, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x1184febc0, {{0.0, 791.0}, {402.0, 83.0}}
+                        Other, 0x1184fed00, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x1184fee40, {{0.0, 791.0}, {402.0, 83.0}}
+                    Other, 0x1184fef80, {{0.0, 744.0}, {402.0, 90.5}}, identifier: 'LifeBoardCompactChrome'
+                      Button, 0x1184ff0c0, {{20.0, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.home', label: 'Home', value: Root
+                        Image, 0x1184ff200, {{46.3, 783.0}, {20.0, 17.7}}, identifier: 'house', label: 'Home'
+                        StaticText, 0x1184ff340, {{40.7, 804.7}, {31.0, 13.3}}, label: 'Home'
+                      Button, 0x1184ff480, {{92.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.plan', label: 'Plan', value: Root
+                        Image, 0x1184ff5c0, {{120.3, 784.3}, {16.7, 15.3}}, identifier: 'calendar', label: 'Calendar'
+                        StaticText, 0x1184ff700, {{117.3, 803.5}, {22.7, 13.3}}, label: 'Plan'
+                      Button, 0x1184ff840, {{164.7, 774.0}, {72.7, 52.0}}, identifier: 'foundation.destination.track', label: 'Track', value: Root
+                        Image, 0x1184ff980, {{190.7, 784.0}, {21.0, 15.7}}, identifier: 'chart.bar.fill', label: 'Chart Column'
+                        StaticText, 0x1184ffac0, {{186.5, 803.7}, {29.0, 13.3}}, label: 'Track'
+                      Button, 0x1184ffc00, {{237.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.insights', label: 'Insights', value: Root
+                        Image, 0x1184ffd40, {{265.7, 782.3}, {15.7, 19.0}}, identifier: 'sparkles', label: 'Sparkle'
+                        StaticText, 0x1184ffe80, {{252.7, 805.3}, {41.3, 13.3}}, label: 'Insights'
+                      Button, 0x118504000, {{309.7, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.eva', label: 'Eva', value: Root, Selected
+                        Image, 0x118504140, {{333.3, 782.0}, {25.0, 19.7}}, identifier: 'bubble.left.and.bubble.right', label: 'Conversation'
+                        StaticText, 0x118504280, {{336.1, 806.0}, {19.3, 13.3}}, label: 'Eva'
+                    Other, 0x1185043c0, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.night', label: 'Celestial atmosphere: night'
+                    Button, 0x118504500, {{0.0, 62.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                    Other, 0x118504640, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x1184f0f00, pid: 33543, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x118504780, pid: 33543, label: 'LifeBoard'
+  }

@@ -43,7 +43,7 @@ extension SettingsPageViewController {
         let settingsTitle = UILabel()
         settingsTitle.frame = CGRect(x: 0, y: 10, width: bounds.width, height: bounds.height)
         settingsTitle.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        settingsTitle.text = "Settings"
+        settingsTitle.text = String(localized: "Settings")
         settingsTitle.textColor = UIColor.lifeboard.textPrimary
         settingsTitle.font = UIFont.lifeboard.font(for: .title1)
 

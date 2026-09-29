@@ -19,15 +19,15 @@ private func persistenceLogMessage(
 }
 
 func logDebug(_ message: String) {
-    persistenceLogger.debug("\(message, privacy: .public)")
+    persistenceLogger.debug("\(message, privacy: .private(mask: .hash))")
 }
 
 func logWarning(_ message: String) {
-    persistenceLogger.warning("\(message, privacy: .public)")
+    persistenceLogger.warning("\(message, privacy: .private(mask: .hash))")
 }
 
 func logError(_ message: String) {
-    persistenceLogger.error("\(message, privacy: .public)")
+    persistenceLogger.error("\(message, privacy: .private(mask: .hash))")
 }
 
 func logDebug(
@@ -37,7 +37,7 @@ func logDebug(
     fields: [String: String] = [:]
 ) {
     let rendered = persistenceLogMessage(event: event, message: message, component: component, fields: fields)
-    persistenceLogger.debug("\(rendered, privacy: .public)")
+    persistenceLogger.debug("\(rendered, privacy: .private(mask: .hash))")
 }
 
 func logInfo(
@@ -47,7 +47,7 @@ func logInfo(
     fields: [String: String] = [:]
 ) {
     let rendered = persistenceLogMessage(event: event, message: message, component: component, fields: fields)
-    persistenceLogger.info("\(rendered, privacy: .public)")
+    persistenceLogger.info("\(rendered, privacy: .private(mask: .hash))")
 }
 
 func logWarning(
@@ -57,7 +57,7 @@ func logWarning(
     fields: [String: String] = [:]
 ) {
     let rendered = persistenceLogMessage(event: event, message: message, component: component, fields: fields)
-    persistenceLogger.warning("\(rendered, privacy: .public)")
+    persistenceLogger.warning("\(rendered, privacy: .private(mask: .hash))")
 }
 
 func logError(
@@ -67,5 +67,5 @@ func logError(
     fields: [String: String] = [:]
 ) {
     let rendered = persistenceLogMessage(event: event, message: message, component: component, fields: fields)
-    persistenceLogger.error("\(rendered, privacy: .public)")
+    persistenceLogger.error("\(rendered, privacy: .private(mask: .hash))")
 }

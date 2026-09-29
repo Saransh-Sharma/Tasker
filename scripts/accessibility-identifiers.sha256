@@ -165,5 +165,211 @@
 # reveal's `onboarding.lifeWeave.eva.{disclosure,offline,grant.*}` went when
 # Cloud EVA moved out of the reveal, and nothing referenced them.
 
-count=921
-sha256=0368c1d0b43cc181ef42b53f2095dad61a7285f146dd29b74936b783ca666b50
+# 2026-09-17 — snapshot caught up after three weeks of drift: 921 -> 897
+# (99 removals, 75 additions). The gate had been red since the 2026-08-24
+# snapshot; every change below shipped without touching this file.
+#
+# Removals: the whole v5 Life Map flow (`LifeMapAccessibilityID.*`, replaced by
+# the four-screen Life Weave first run), the Power-Up receipt and invitation
+# (`onboarding.lifeweave.powerup.summary*`, `…reveal.powerUpInvitation`), the
+# deleted `ScheduleScreen` (`schedule.*`), the task editor's two Save buttons
+# (`task.editor.save*`, replaced by serialized autosave with a receipt), the
+# Sunrise Home care/routine widgets (`home.care.*`, `home.routine*`,
+# `home.widget.{care,routines}`), `plan.day.presentation`, `plan.inbox.retry`,
+# and the cloud-consent grant rows that moved behind `identifierPrefix`.
+#
+# Additions: the redesign's in-place surfaces — `home.habitsToday{,.board,
+# .tile.…}`, `habitBoard.day.{ring,log}.…`, `home.upNext.{empty,rescue}`,
+# `home.mode`, `home.context.suppressionReceipt`, `plan.day.*` (orientation bar
+# and canvas), `plan.capacity.*`, `journal.block.editor{,.save}`,
+# `insights.interpretation.{askEva,dismiss}`, `lifeThread.tokenSuggestions`,
+# `lifeThread.interpretation.accept`, `focus.surface.done`, the
+# `foundation.<root>.scroll` containers, and the Eva ritual/weekly-reset views.
+#
+# Nothing in this catch-up changed a runtime value that a live UI test asserts
+# — the Foundation suite's nine baseline failures predate it and are triaged in
+# docs/design/MILESTONE_ONE_TODO.md.
+
+# 2026-09-17 — Plan canvas overload band: 897 -> 898, one addition.
+#
+#   + "plan.canvas.overload"  the shaded band past the end of working hours
+#     that draws the orientation bar's "1h 20m over" where it would spill.
+#
+# The Home split that landed the same day (Foundation/Design/
+# LifeBoardFoundationGallery.swift -> Features/Home/Adaptive/*) moved 32
+# expressions between files and changed none of them; the digest is a sorted
+# set of expression text, so a pure move is invisible here by design.
+
+# 2026-09-17 — reflection at the end of a focus session: 898 -> 902.
+#
+#   + "focus.reflection"          the in-place reflection under the settled dial
+#   + "focus.reflection.note"     the one optional line
+#   + "focus.reflection.skip"     Skip
+#   + "focus.reflection.commit"   Done
+#
+# The energy rail reuses `OptionRail`'s "\(identifierPrefix).\(value)" with
+# prefix `focus.reflection.energy`, which is already in the set. Plan's
+# `plan.focus.reflection*` identifiers stay: that card is now the fallback for
+# sessions that end away from the surface.
+
+# 2026-09-17 — focus history route: 902 -> 911, nine additions.
+#
+#   focus.history{,.grid,.totals,.day,.topTasks,.previousMonth,.nextMonth}
+#   "focus.history.day.\(day number)"        one per grid cell
+#   "focus.history.session.\(session id)"   one per session in the day list
+#
+# 2026-09-17, Milestone 2 Focus C4: 911 -> 913. Two additions, zero removals:
+#   "plan.focus.setup.preset.\(preset.id)"  one chip per focus preset in the setup sheet
+#   "plan.focus.setup.presets"             the chip row container
+#
+# 2026-09-17, Milestone 2 Focus C5: 913 -> 912. One removal, zero additions:
+#   "focus.surface.commitment"   the standalone commitment section body was dead
+#                                (the hero renders the same copy); its statics remain
+#
+# 2026-09-17, Milestone 2 Habits B1: 912 -> 913. One addition, zero removals:
+#   "lifeboard.firstLight.fired"   the shell's "First one done." caption, the
+#                                  probe for the once-a-day first light
+#
+# 2026-09-17, Milestone 2 Habits B2/B3/B5: 913 -> 926. Thirteen additions, zero removals:
+#   "addHabit.templates", "addHabit.template.\(template.id)"   template chips in the composer
+#   "addHabit.preview.rhythm", "addHabit.target.unit"          target readback + unit field
+#   "habit.amount.entry", ".cancel", ".commit", ".preview"       the Enter amount sheet
+#   "habitBoard.day.card.\(row.habitID.uuidString)"              the Day lens card (label menu host)
+#   "habitDetail.weekday.bars", ".summary", ".\(weekday.weekday)" weekday bars + text equivalents
+#
+# 2026-09-17, Milestone 3 Journal D1: 926 -> 929. Three additions, zero removals:
+#   "journal.day.title"                          the day's name (persisted `summary`)
+#   "journal.day.entry.\(group.id.uuidString)"   a time header when a day has several sittings
+#   "journal.day.newEntry"                       the capture action that starts a new sitting
+#
+# 2026-09-17, Milestone 3 Journal D2/D3: 929 -> 942. Thirteen additions, zero removals:
+#   "journal.calendar.grid", ".previousMonth", ".nextMonth", ".day.\(dayNumber)"   the Calendar lens
+#   "journal.gallery", "journal.gallery.photo.\(item.id.uuidString)"                the Gallery lens
+#   "journal.onThisDay", "journal.onThisDay.\(match.day.id.uuidString)"            the memory row
+#   "journal.prompts.open", ".sheet", "journal.prompts.\(prompt.id)"               the prompt library
+#   "journal.mood.reason.\(reason.id)"                                              mood reason chips
+#
+# 2026-09-17, Milestone 3 Insights D4–D6: 942 -> 952. Additions, zero removals:
+#   "insights.series", "insights.series.\(series.metric.rawValue)"          per-domain charts on Trends
+#   "insights.correlations", ".\(result.id)", ".try.\(result.id)"           noticed-together rows + "Try for a week"
+#   "insights.review.weekly", ".weekly.open", "insights.review.monthly",
+#   ".monthly.shifts", "insights.review.experiment.\(verdict.rawValue)"      the Review lens, inline
+#
+# 2026-09-17, Milestone 4 Eva E1: 952 -> 954. Additions, zero removals:
+#   "eva.sheet", "eva.sheet.close"   Eva as a sheet over the current root
+#   "plan.header.askEva"             "Ask Eva about today" on the Plan orientation bar
+#
+# 2026-09-17, Milestone 4 Eva E2: 954 -> 960.
+#   "eva.proposal.not_now", ".not_now.receipt"   review-level Not now
+#   "eva.proposal.edit.\(card.id.uuidString)", ".edit.when", ".edit.title", ".edit.duration.\(Int(duration / 60))"   the inline line editor
+#
+# Phase E3-E6 (2026-09-17): edit-and-resend, search hits, applied history, rituals, persona disclosure: 960 -> 969.
+#   eva.message.user.<id>, eva.search.hit.<id>, eva.history.open/.sheet/.<runID>, eva.ritual.makeItFit/.friction/.friction.task.<id>, settings.chiefOfStaff.persona.disclosure
+#
+# Phase E3 (2026-09-17): Eva root More menu gains Chats: 969 -> 970.
+#   foundation.eva.chats
+
+# 2026-09-17, correctness/polish/Eva receipts pass: 970 -> 983.
+#   + "insights.overview.quietToday", "insights.review.verdict.receipt",
+#     "insights.review.experiment.failed", "insights.review.monthly.empty",
+#     "insights.correlations.progress"       Insights empty/receipt states
+#   + "track.goal.receipt"                  the goal receipt, now inline
+#   + "plan.day.receipt", "plan.canvas.openDay"   Plan's in-place receipt, empty canvas line
+#   + "journal.calendar.today", "journal.calendar.hint",
+#     the mood dial's Cancel/Back ternary    Journal browsing polish
+#   + "focus.history.empty"                 a month with no sessions
+#   + "eva.chat.receipt", "eva.proposal.bring_back"   Eva's receipt slot, Not now reversal
+#   - "lifeboard.snackbar.action.<title>"   the snackbar draws `ReceiptBar`; its Undo is
+#                                           "lifeboard.receipt.undo" (UI page object updated)
+#   - "track.header"                        Track's own greeting moved into the shared root
+#                                           header, which stamps "\(destination.rawValue).header"
+#                                           — the resolved runtime value is unchanged
+#
+# 2026-09-17, Home habits row redesign: 983 -> 988.
+#   + "home.habitsToday.card.<habitID>"   the habit card (was ".tile.<habitID>", referenced by no test)
+#   + "home.habitsToday.ring.<habitID>"   the card's ring
+#   + "home.habitsToday.row"              the horizontal row (scroll target in UI tests)
+#   + "home.habitsToday.allHabits"        the row's closing "All habits" card
+#   + "home.habitsToday.allHandled"       "All of today's habits are handled"
+#   + "home.habitsToday.slip.confirm"     the quit habit's slip confirmation
+#   - "home.habitsToday.tile.<habitID>"
+#
+# 2026-09-24, keyboard contract (DESIGN.md): 988 -> 987.
+#   + "lifeThread.composer.token.<name>"   the capture keyboard bar's # + @ keys
+#                                          (tag, project, context)
+#   - "chat.composer.dismiss_keyboard"     now passed to the shared `keyboardBar`
+#                                          (LifeBoardUI/KeyboardExits.swift) as its
+#                                          `doneIdentifier` — runtime value unchanged;
+#                                          `lifeThread.composer.dismissKeyboard` travels
+#                                          the same way. Only UI tests guard these two.
+#   - "focusNow.timer.customMinutes"       the Focus timer's custom length is a
+#                                          `ValueDrum`, which applies the same identifier
+#                                          through its `identifier:` parameter
+#
+# 2026-09-25, iPhone/iPad/Mac remediation: 987 -> 971.
+#   - "home.ipad.*" (17)                    the never-instantiated `SunriseiPadSplitShellView`
+#                                           (HomeiPadShell.swift) was deleted. Its identifiers
+#                                           were only asserted by the iPad NavigationTests, which
+#                                           therefore always skipped; they now drive the live
+#                                           switcher (`foundation.expanded.*`).
+#   ~ "LifeBoardCompactChrome" / "LifeBoardExpandedChrome"   one shell tree now picks the
+#                                           identifier by chrome style; runtime values unchanged
+#   + "track.routine.minimize", "track.routine.resume"        the routine runner's Minimize
+#                                           and the Track root's Resume banner
+#
+# 2026-09-25, remediation second pass: 971 -> 938.
+#   Removed with dead UI that no live view instantiated (the app builds without it):
+#   - "home.focus.*" (5)                    FocusZone
+#   - "search.*" (10), "home.searchButton"  SearchFaceView
+#   - "home.rescue.*" (5), "home.habits.*" (3), "home.view", "home.sunrise.chipRail",
+#     "home.sunrise.dayCompass*" (3), "home.sunrise.filter.*",
+#     "home.section.headerAction", and the filter/mode/side expressions
+#                                           LifeBoardDesign/HomeScreen.swift and its
+#                                           components, HomeQuickFilterDropdown, DaySwipeOverlay
+#   - "home.taskRow/taskTitle/taskCheckbox.*", "home.taskList.scrollView",
+#     "home.completedToggle.*", "home.resolvedToggle.*"
+#                                           TaskRowView / TaskListView / TaskSectionView
+#   UI tests that still wait on these (the HomePage page object, PerformanceTests,
+#   QuickFilterChromeTests and others) already could not find them in the live Home.
+#   + "fasting.editTimes.start", "fasting.editTimes.end"      Fasting "Edit times…" editor
+#   + "notes.pane.empty"                    Knowledge side-by-side pane
+#   + "plan.week.column.task.*", "plan.week.column.more.*"    Plan seven-column week
+#
+# 2026-09-25, UI tests repointed at the live Home: 938 -> 942. Additions only,
+# so XCUITest can reach controls the live app already draws:
+#   + "home.taskCheckbox.\(task.id.uuidString)"   the completion control on Home's
+#                                                  task card rows (HomeTasksCardContent)
+#   + "task.editor.actions", "task.editor.delete", "task.editor.delete.confirm"
+#                                                  the task screen's actions menu, its
+#                                                  Delete item and the confirmation
+#                                                  (TaskRouteView); deletion moved there
+#                                                  when Home rows lost swipe-to-delete
+#
+# 2026-09-28, pre-launch UI/UX polish (Iterations 0-12): 942 -> 991. Other
+# sessions also changed the tree since 09-25, so the delta is not all this pass.
+# Removals, both intentional and unused by any UI test:
+#   - "eva.chat.back"          the Eva root no longer shows a Back-to-Home arrow
+#   - "home.display.mode.*"    Home mode lives only in the date-line menu
+# Additions include "shell.receipt", "shell.readOnlyBanner", "eva.consent.*" /
+# "chat.cloudAccess.*" consent sheets, "habit.detail.restore", "plan.header.undo",
+# "home.tasks.mutationError", "settings.support.row", "settings.privacyPolicy.row",
+# "settings.terms.row" and the new Track "Your areas" tiles. Every identifier the
+# UI tests query still resolves (literally or through its interpolated prefix).
+#
+# 2026-09-29, app-wide copy rewrite (DESIGN.md "Voice and copy") alongside
+# the parallel UI/UX polish session: 991 -> 982. The copy rewrite changed text,
+# not identifiers; UI tests that matched visible text moved to identifiers or to
+# the new wording. What the set records:
+#   + "projectManagement.delete", "dayClose.reflection.journalFailed",
+#     "eva.{friction,makeItFit,weeklyReset}.back", "eva.weeklyReset.carryAll",
+#     "nutrition.recent.<id>", "settings.appVersionRow{,.copy}", "shell.readOnlyBanner"
+#   - "home.quietTracking.sheet*" (8), "home.reflectionChip"   deleted with dead
+#     views (no UI test referenced them)
+#   ~ `barButtonSystemItem: .done …` -> `localized: "Settings"` is a checker
+#     artifact, not an identifier: SettingsPageViewController assigns
+#     `view.accessibilityIdentifier = "settings.view"` with no parentheses, so the
+#     checker records the next call on the page, which is now
+#     `String(localized: "Settings")`. "settings.view" is unchanged.
+#
+count=982
+sha256=acf560e3add76ec8a967223ed574ddbf002cab71c40e688e2d5000374dd6a7cd

@@ -34,11 +34,11 @@ enum LifeManagementDestructiveFlowError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .lifeAreaDestinationMatchesSource:
-            return "Choose a different destination area before deleting this area."
+            return String(localized: "Pick another area to move its items to.")
         case .projectDestinationMatchesSource:
-            return "Choose a different destination project before deleting this project."
+            return String(localized: "Pick another project to move its tasks to.")
         case .rollbackFailed:
-            return "The delete flow failed and the rollback could not fully restore the previous state."
+            return String(localized: "Couldn’t delete. Some changes may not be undone.")
         }
     }
 }
@@ -262,7 +262,7 @@ public final class LifeManagementDestructiveFlowCoordinator: @unchecked Sendable
             throw NSError(
                 domain: "LifeManagementDestructiveFlowCoordinator",
                 code: 404,
-                userInfo: [NSLocalizedDescriptionKey: "The selected destination project no longer exists."]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "That project no longer exists.")]
             )
         }
         return project

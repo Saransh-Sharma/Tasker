@@ -37,7 +37,7 @@ struct AddTaskMetadataChip: View {
 
     var body: some View {
         Button {
-            HapticFeedback.selection()
+            Haptic.pick.play()
             action()
         } label: {
             HStack(spacing: 8) {

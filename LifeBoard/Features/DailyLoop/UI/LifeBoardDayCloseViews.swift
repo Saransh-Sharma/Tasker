@@ -16,16 +16,22 @@ public enum DayCloseMode: String, Sendable {
 /// Paging would make "I only wanted to write the line" into four taps.
 struct DayCloseRoute: View {
     let mode: DayCloseMode
-    @State private var store: DayCloseStore
+    @State var store: DayCloseStore
     private let reflections: (any ReflectionNoteRepositoryProtocol)?
-    private let onFinished: () -> Void
+    /// The journal the close is mirrored into (see `JournalDayCloseWriter`).
+    private let journal: (any PhaseIIRepository)?
+    let onFinished: () -> Void
 
-    @State private var energy = 3
+    /// Unset until the person picks one: a preset 3 was recorded as a real
+    /// rating for everyone who never touched it.
+    @State private var energy: Int?
     @State private var note = ""
+    /// The note saved but its journal copy did not; said once, in the card.
+    @State private var journalMirrorFailed = false
     @State private var reflectionPhase: AsyncActionPhase<UUID> = .idle
     @State private var closeTrigger = 0
     /// Advanced once when the morning commit lands, driving the light sweep.
-    @State private var firstLightTrigger = 0
+    @State var firstLightTrigger = 0
     @State private var releaseDissolve: Double = 0
     @Namespace private var anchorNamespace
 
@@ -35,12 +41,29 @@ struct DayCloseRoute: View {
         store: DayCloseStore,
         mode: DayCloseMode,
         reflections: (any ReflectionNoteRepositoryProtocol)?,
+        journal: (any PhaseIIRepository)? = nil,
         onFinished: @escaping () -> Void
     ) {
         _store = State(initialValue: store)
         self.mode = mode
         self.reflections = reflections
+        self.journal = journal
         self.onFinished = onFinished
+    }
+
+    /// Mirror the saved note into today's journal. The review keeps reading
+    /// `ReflectionNote`; the journal is where the words are read back later.
+    private func mirrorToJournal(_ saved: ReflectionNote) async {
+        guard let journal else { return }
+        do {
+            let existing = try await journal.fetchJournalDay(containing: Date()) ?? JournalDayValue(day: Date())
+            guard let merged = JournalDayCloseWriter.merged(day: existing, noteID: saved.id, text: note, energy: energy) else { return }
+            try await journal.saveJournalDay(merged)
+            journalMirrorFailed = false
+        } catch {
+            // The line itself is saved; only its copy in the journal is not.
+            journalMirrorFailed = true
+        }
     }
 
     private var reflectionSaved: Bool {
@@ -48,8 +71,16 @@ struct DayCloseRoute: View {
         return false
     }
 
-    private var hasUnsavedNote: Bool {
-        note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false && reflectionSaved == false
+    /// Something was written or rated and has not been saved yet. Closing
+    /// the day saves it first.
+    private var needsReflectionSave: Bool {
+        guard reflections != nil, reflectionSaved == false else { return false }
+        return note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false || energy != nil
+    }
+
+    private var reflectionFailureMessage: String? {
+        if case let .recoverableFailure(failure) = reflectionPhase { return failure.message }
+        return nil
     }
 
     var body: some View {
@@ -80,22 +111,14 @@ struct DayCloseRoute: View {
             .padding(.bottom, 40)
         }
         .background(alignment: .top) { backdrop }
-        .navigationTitle(mode == .close ? "Close the day" : "Today")
+        // One name for the morning ritual, the same one Home's row uses.
+        .navigationTitle(mode == .close ? "Close the day" : "Start the day")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("dayClose.root")
         .task { await store.load() }
         // The one-shot night handoff. Its documented role, and the reason no new
         // shader was needed for the closing moment.
         .lifeboardDaypartCrossDissolve(trigger: closeTrigger, daypart: .night)
-    }
-
-    // MARK: - Backdrop
-
-    private var backdrop: some View {
-        Color(SemanticColorTokens.foundationCanvas)
-            .lifeboardPaperGrain()
-            .ignoresSafeArea()
-            .accessibilityHidden(true)
     }
 
     // MARK: - Loading and failure
@@ -111,7 +134,7 @@ struct DayCloseRoute: View {
             }
         }
         .dayCloseCard()
-        .accessibilityLabel("Loading your day")
+        .accessibilityLabel("Loading…")
     }
 
     /// Deliberately unlike the empty state: a day we could not read must never
@@ -119,9 +142,9 @@ struct DayCloseRoute: View {
     private func failure(_ message: String) -> some View {
         StatusSurface(
             state: .recoverableError,
-            title: "The day's shape couldn't be loaded",
+            title: String(localized: "Couldn’t load your day"),
             message: message,
-            actionTitle: "Try again",
+            actionTitle: String(localized: "Try again"),
             action: { Task { await store.load() } }
         )
         .accessibilityIdentifier("dayClose.load.failed")
@@ -129,9 +152,27 @@ struct DayCloseRoute: View {
 
     // MARK: - Act 1 — the ribbon
 
+    /// Nothing planned, finished, or left open: a ring of zeros says nothing.
+    private func ribbonIsEmpty(_ ribbon: DayCloseRibbon) -> Bool {
+        ribbon.summary.completedCount == 0 && ribbon.summary.unfinishedCount == 0 && ribbon.segments.isEmpty
+    }
+
     @ViewBuilder
     private var ribbonAct: some View {
-        if let ribbon = store.ribbon {
+        if let ribbon = store.ribbon, ribbonIsEmpty(ribbon) {
+            // The morning drops an empty yesterday entirely; the evening says
+            // it in one line instead of "0 finished · 0 still open".
+            if mode == .close {
+                VStack(alignment: .leading, spacing: 8) {
+                    sectionHeader(DayCloseAct.ribbon.title)
+                    Text("Nothing planned today")
+                        .font(Typography.body())
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                }
+                .dayCloseCard()
+                .accessibilityIdentifier("dayClose.ribbon")
+            }
+        } else if let ribbon = store.ribbon {
             VStack(alignment: .leading, spacing: 16) {
                 sectionHeader(DayCloseAct.ribbon.title)
 
@@ -145,19 +186,19 @@ struct DayCloseRoute: View {
                         settledLevel: store.reconciliationProgress
                     )
                     VStack(alignment: .leading, spacing: 8) {
-                        factLine("\(ribbon.summary.completedCount) finished")
-                        factLine("\(ribbon.summary.unfinishedCount) still open")
+                        factLine(String(localized: "\(ribbon.summary.completedCount) done"))
+                        factLine(String(localized: "\(ribbon.summary.unfinishedCount) open"))
                         if ribbon.externalCalendarUnavailable {
                             // Absent data is never reported as a confident
                             // value: this says we did not look, not that the
                             // calendar was clear.
-                            factLine("External calendar isn't connected")
+                            factLine(String(localized: "Calendar not connected"))
                         }
                     }
                 }
 
                 if ribbon.segments.isEmpty {
-                    Text("Nothing was scheduled today.")
+                    Text("Nothing scheduled")
                         .font(Typography.body())
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 } else {
@@ -173,12 +214,6 @@ struct DayCloseRoute: View {
             .dayCloseCard()
             .accessibilityIdentifier("dayClose.ribbon")
         }
-    }
-
-    private func factLine(_ text: String) -> some View {
-        Text(text)
-            .font(Typography.metric())
-            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
     }
 
     // MARK: - Act 2 — reconcile
@@ -224,7 +259,7 @@ struct DayCloseRoute: View {
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Spacer()
                     if store.decisionOrder.isEmpty == false {
-                        Button("Bring back the last card") {
+                        Button("Undo last") {
                             store.bringBackLastCard()
                             Haptic.lift.play()
                         }
@@ -304,7 +339,7 @@ struct DayCloseRoute: View {
     private var everythingSettled: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(
-                store.decidedCount > 0 ? "Everything is settled." : "Everything you committed to is done.",
+                store.decidedCount > 0 ? "All sorted" : "All done",
                 systemImage: "checkmark.seal"
             )
             .font(Typography.sectionTitle())
@@ -323,7 +358,7 @@ struct DayCloseRoute: View {
 
     private var staleNotice: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Your plan changed while this was open.")
+            Text("Your plan changed.")
                 .font(Typography.metric())
             Button("Review again") { Task { await store.reviewAfterConflict() } }
                 .buttonStyle(.lifeBoardChip)
@@ -341,32 +376,50 @@ struct DayCloseRoute: View {
             // `OptionRail` keeps the semantics: one selection, per-value
             // accessibility identifiers, and reflow at accessibility text sizes.
             OptionRail(
-                "Energy at the end of the day",
-                selection: $energy,
+                "End-of-day energy",
+                // 0 matches no chip, so nothing reads as chosen until it is.
+                selection: Binding(get: { energy ?? 0 }, set: { energy = $0 }),
                 values: Array(1...5),
                 identifierPrefix: "dayClose.reflect.energy",
                 title: { "\($0)" }
             )
-            .accessibilityValue("\(energy) out of 5")
+            .accessibilityValue(energy.map { "\($0) out of 5" } ?? "Not chosen")
 
-            TextField("Anything worth remembering?", text: $note, axis: .vertical)
+            TextField("Note", text: $note, prompt: Text("Note").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                 .lineLimit(2...4)
                 .textFieldStyle(.plain)
                 .accessibilityIdentifier("dayClose.reflection.note")
 
-            CommitControl(
-                title: "Save this line",
-                runningTitle: "Saving…",
-                successTitle: "Saved",
-                phase: reflectionPhase
-            ) {
-                Task { await saveReflection() }
+            // Closing the day saves the line with it. A separate Save is only
+            // offered once the day is already closed, or after a save failed.
+            if store.alreadyClosed && needsReflectionSave || reflectionFailureMessage != nil {
+                CommitControl(
+                    title: String(localized: "Save note"),
+                    runningTitle: "Saving…",
+                    successTitle: "Saved",
+                    phase: reflectionPhase
+                ) {
+                    Task {
+                        await saveReflection()
+                        if reflectionSaved { Haptic.commit.play() }
+                    }
+                }
+                .accessibilityIdentifier("dayClose.reflection.commit")
+            } else if reflectionSaved {
+                Label("Note saved", systemImage: "checkmark")
+                    .font(Typography.metadata())
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
-            .accessibilityIdentifier("dayClose.reflection.commit")
-            .disabled(reflections == nil)
+
+            if journalMirrorFailed {
+                Text("Couldn’t add note to your journal.")
+                    .font(Typography.metadata())
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    .accessibilityIdentifier("dayClose.reflection.journalFailed")
+            }
 
             if reflections == nil {
-                Text("Notes can't be saved right now. The rest of the day still closes.")
+                Text("Couldn’t load notes. You can still close the day.")
                     .font(Typography.metadata())
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
@@ -394,8 +447,9 @@ struct DayCloseRoute: View {
         }
         switch result {
         case let .success(saved):
+            // No haptic here: closing the day plays the one commit for both.
             reflectionPhase = .success(receipt: saved.id)
-            Haptic.commit.play()
+            await mirrorToJournal(saved)
         case let .failure(error):
             // Keeps the text mounted. Losing what someone just wrote because a
             // save failed is the worst outcome available here.
@@ -413,8 +467,9 @@ struct DayCloseRoute: View {
             sectionHeader(DayCloseAct.anchor.title)
 
             if store.anchorCandidates.isEmpty {
-                // Not an error, not a nag.
-                Text("Nothing to anchor tomorrow yet.")
+                // Not an error, not a nag — and not a dead end: the morning
+                // asks again.
+                Text("Nothing open. Pick a first task in the morning.")
                     .font(Typography.body())
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
@@ -467,7 +522,7 @@ struct DayCloseRoute: View {
     private var closeAct: some View {
         VStack(alignment: .leading, spacing: 12) {
             if store.alreadyClosed, let closedAt = store.closedAt {
-                Text("You closed this day at \(closedAt.formatted(date: .omitted, time: .shortened)).")
+                Text("Day closed at \(closedAt.formatted(date: .omitted, time: .shortened))")
                     .font(Typography.body())
                 Button("Undo") {
                     Task {
@@ -513,8 +568,8 @@ struct DayCloseRoute: View {
                         )
                 }
 
-                if hasUnsavedNote {
-                    Text("Your line isn't saved yet. Save it, or close and keep just the plan changes.")
+                if needsReflectionSave {
+                    Text("Your note saves when you close the day.")
                         .font(Typography.metadata())
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .accessibilityIdentifier("dayClose.unsavedNote")
@@ -523,10 +578,20 @@ struct DayCloseRoute: View {
                 CommitControl(
                     title: "Close the day",
                     runningTitle: "Closing…",
-                    successTitle: "Closed",
+                    successTitle: String(localized: "Day closed"),
                     phase: store.applyPhase
                 ) {
                     Task {
+                        // Saving the line is part of closing. If it fails,
+                        // the day stays open and the reflection card says why,
+                        // with the words still in the field.
+                        if needsReflectionSave {
+                            await saveReflection()
+                            guard reflectionSaved else {
+                                Haptic.fail.play()
+                                return
+                            }
+                        }
                         await store.close()
                         if case .success = store.applyPhase {
                             closeTrigger += 1
@@ -542,437 +607,11 @@ struct DayCloseRoute: View {
         }
         .dayCloseCard()
     }
-
-    // MARK: - Morning variant
-
-    /// The morning's whole point: agree with a day that has already been
-    /// computed. Editing is available and secondary.
-    @ViewBuilder
-    private var commitAct: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Today")
-
-            if store.alreadyCommitted {
-                Label("Today is set.", systemImage: "checkmark.seal")
-                    .font(Typography.sectionTitle())
-                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                Button("Undo") { Task { await store.undoOpen() } }
-                    .buttonStyle(.lifeBoardChip)
-                    .accessibilityIdentifier("dayOpen.undo")
-            } else if store.openProposal.isEmpty {
-                Text("Nothing is waiting. Today is yours to shape.")
-                    .font(Typography.body())
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                CommitControl(
-                    title: "Start with a clear day",
-                    runningTitle: "Setting today…",
-                    successTitle: "Today is set",
-                    phase: store.openCommitPhase
-                ) {
-                    Task {
-                        await store.commitOpen()
-                        // The boundary: the sweep and the haptic wait for the
-                        // receipt, not for the tap.
-                        if store.alreadyCommitted {
-                            firstLightTrigger += 1
-                            Haptic.commit.play()
-                        }
-                    }
-                }
-                .accessibilityIdentifier("dayOpen.commit")
-            } else {
-                ForEach(Array(store.openProposal.enumerated()), id: \.element.id) { index, candidate in
-                    proposalRow(candidate)
-                        // Loose until committed, then square.
-                        //
-                        // The morning act is agreeing to a shape for the day, so
-                        // the proposal arrives as a set of loose possibilities
-                        // and settles into an ordered list at the moment you say
-                        // yes. Chaos to intention, which is what the act means.
-                        .offset(
-                            x: store.alreadyCommitted ? 0 : proposalLean(index),
-                            y: 0
-                        )
-                        .rotationEffect(
-                            .degrees(store.alreadyCommitted ? 0 : proposalLean(index) * 0.22)
-                        )
-                }
-                CommitControl(
-                    title: "Yes, start with this",
-                    runningTitle: "Setting today…",
-                    successTitle: "Today is set",
-                    phase: store.openCommitPhase
-                ) {
-                    Task {
-                        await store.commitOpen()
-                        // The boundary: the sweep and the haptic wait for the
-                        // receipt, not for the tap.
-                        if store.alreadyCommitted {
-                            firstLightTrigger += 1
-                            Haptic.commit.play()
-                        }
-                    }
-                }
-                .accessibilityIdentifier("dayOpen.commit")
-                Text("Tap any line to leave it out.")
-                    .font(Typography.metadata())
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            }
-        }
-        .dayCloseCard()
-        .lifeBoardMotion(.controlMorph, value: store.openSelection.count)
-        .lifeBoardMotion(.firstLight, value: store.alreadyCommitted)
-        // One warm sweep across the committed day. Fires on the persisted-state
-        // boundary — never on selection, which would promise something the
-        // ledger has not been told yet.
-        .lifeboardFirstLight(
-            trigger: firstLightTrigger,
-            tint: Color(SemanticColorTokens.foundationSunAccent)
-        )
-        .accessibilityIdentifier("dayOpen.commitAct")
-    }
-
-    /// Deterministic per-row lean, so the loose stack does not reshuffle itself
-    /// on every re-render. Small enough to read as "not yet filed" rather than
-    /// as a layout bug.
-    private func proposalLean(_ index: Int) -> CGFloat {
-        let magnitudes: [CGFloat] = [6, -4, 9, -7, 3]
-        return magnitudes[index % magnitudes.count]
-    }
-
-    private func proposalRow(_ candidate: DayOpenCandidate) -> some View {
-        let isSelected = store.openSelection.contains(candidate.id)
-        return Button {
-            store.toggleOpenSelection(candidate.id)
-            Haptic.pick.play()
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(
-                        isSelected
-                            ? Color(SemanticColorTokens.foundationSunAccent)
-                            : Color(SemanticColorTokens.inkTertiary)
-                    )
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(candidate.task.title)
-                        .font(Typography.body())
-                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                    if candidate.origin == .anchor {
-                        Text("You chose this last night")
-                            .font(Typography.metadata())
-                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .accessibilityIdentifier("dayOpen.proposal.\(candidate.id.uuidString)")
-    }
-
-    @ViewBuilder
-    private var carriedSummary: some View {
-        // The anchor first and named, because it is the one thing a person
-        // deliberately chose. Everything else is what merely survived.
-        if let anchor = store.carriedAnchor {
-            VStack(alignment: .leading, spacing: 8) {
-                sectionHeader("You said start here")
-                HStack(spacing: 12) {
-                    Image(systemName: "sunrise.fill")
-                        .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
-                    Text(anchor.title)
-                        .font(Typography.sectionTitle())
-                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                }
-                Text("Chosen when you closed yesterday.")
-                    .font(Typography.metadata())
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            }
-            .dayCloseCard()
-            .accessibilityIdentifier("dayOpen.anchor")
-        }
-
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("What carried")
-            if store.unfinished.isEmpty {
-                Text("Nothing carried over. Today starts clear.")
-                    .font(Typography.body())
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            } else if store.retrospectiveDayWasClosed == false {
-                // Honest about provenance: these are today's commitments, not
-                // the outcome of a close that never happened.
-                Text("Yesterday wasn't closed, so nothing was carried deliberately. Here's what's open today.")
-                    .font(Typography.metadata())
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            }
-            ForEach(store.unfinished) { task in
-                Text(task.title)
-                    .font(Typography.body())
-                    .foregroundStyle(
-                        task.id == store.carriedAnchorTaskID
-                            ? Color(SemanticColorTokens.inkTertiary)
-                            : Color(SemanticColorTokens.inkPrimary)
-                    )
-            }
-            Button("Open plan") { onFinished() }
-                .buttonStyle(.lifeBoardPrimary)
-        }
-        .dayCloseCard()
-        .accessibilityIdentifier("dayOpen.carried")
-    }
-
-    // MARK: - Shared
-
-    private func sectionHeader(_ title: String) -> some View {
-        // The shared header, so the loop's acts carry the same heading trait and
-        // accessibility-size stacking as every other section in the product.
-        SectionHeader(title)
-    }
-}
-
-// MARK: - Ribbon strip
-
-/// The day as a horizontal band: three stacked tracks, drawn in on appear.
-///
-/// Scrolls rather than compressing. A twelve-hour day squeezed into 350 points
-/// makes a twenty-minute block one pixel wide, which is a chart that cannot be
-/// read and therefore is not worth drawing.
-private struct DayCloseRibbonStrip: View {
-    let ribbon: DayCloseRibbon
-
-    @State private var reveal: Double = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private static let pointsPerHour: CGFloat = 64
-    private static let laneHeight: CGFloat = 22
-
-    private var width: CGFloat {
-        max(CGFloat(ribbon.duration / 3_600) * Self.pointsPerHour, 320)
-    }
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            ZStack(alignment: .topLeading) {
-                ForEach(ribbon.segments) { segment in
-                    segmentView(segment)
-                }
-                ForEach(ribbon.completionMarks) { mark in
-                    completionView(mark)
-                }
-            }
-            .frame(
-                width: width,
-                height: CGFloat(max(ribbon.laneCount, 1)) * (Self.laneHeight + 6) + 18,
-                alignment: .topLeading
-            )
-            .lifeboardChartRevealSweep(progress: reveal)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Your day, hour by hour")
-        .accessibilityValue(prose)
-        .onAppear {
-            guard reduceMotion == false else { return reveal = 1 }
-            withAnimation(.easeOut(duration: 0.55)) { reveal = 1 }
-        }
-    }
-
-    /// Charts always ship a prose equivalent.
-    private var prose: String {
-        let planned = ribbon.segments.count { $0.kind == .planned }
-        let focused = ribbon.segments.count { $0.kind == .focused }
-        return "\(planned) planned blocks, \(focused) focus sessions, \(ribbon.completionMarks.count) finished tasks."
-    }
-
-    private func segmentView(_ segment: DayCloseRibbonSegment) -> some View {
-        let start = ribbon.position(of: segment.startAt) ?? 0
-        let end = ribbon.position(of: segment.endAt) ?? start
-        return RoundedRectangle(cornerRadius: 5, style: .continuous)
-            .fill(fill(for: segment.kind))
-            .frame(
-                width: max(CGFloat(end - start) * width, 3),
-                height: Self.laneHeight
-            )
-            .offset(
-                x: CGFloat(start) * width,
-                y: CGFloat(segment.lane) * (Self.laneHeight + 6)
-            )
-    }
-
-    private func completionView(_ mark: DayCloseCompletionMark) -> some View {
-        Circle()
-            .fill(Color(SemanticColorTokens.foundationSunAccent))
-            .frame(width: 7, height: 7)
-            .offset(
-                x: CGFloat(ribbon.position(of: mark.completedAt) ?? 0) * width,
-                y: CGFloat(max(ribbon.laneCount, 1)) * (Self.laneHeight + 6) + 4
-            )
-    }
-
-    /// External commitments read differently from authored blocks — the ribbon
-    /// must never imply LifeBoard scheduled someone else's meeting.
-    private func fill(for kind: DayCloseRibbonSegment.Kind) -> Color {
-        switch kind {
-        case .planned: Color(SemanticColorTokens.foundationApricotAccent)
-        case .commitment: Color(SemanticColorTokens.foundationSageAccent)
-        case .focused: Color(SemanticColorTokens.foundationSunAccent)
-        }
-    }
-}
-
-// MARK: - Deck card
-
-private struct DayCloseCard: View {
-    let task: PlanningTaskSummary
-    let armedDirection: DeckDirection?
-
-    private var armed: DayCloseDirection? {
-        armedDirection.flatMap {
-            DeckPhysics.action(for: $0, candidates: DayCloseDirection.allCases)
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(task.title)
-                .font(Typography.sectionTitle())
-                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                .multilineTextAlignment(.leading)
-
-            if let estimate = task.estimatedDuration {
-                Text("\(Int(estimate / 60)) min planned")
-                    .font(Typography.metadata())
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            }
-
-            // The armed direction has to be visible before the finger lifts. A
-            // gesture that mutates the plan and cannot be seen resolving is a
-            // guess, not a decision.
-            Label(armed?.title ?? "Flick to decide", systemImage: armed?.symbolName ?? "hand.draw")
-                .font(Typography.metric())
-                .foregroundStyle(
-                    armed == nil
-                        ? Color(SemanticColorTokens.inkTertiary)
-                        : Color(SemanticColorTokens.inkPrimary)
-                )
-        }
-        .frame(maxWidth: .infinity, minHeight: 132, alignment: .leading)
-        .padding(18)
-        .lifeBoardClaySurface(armedDepth, cornerRadius: Radius.largeCard)
-        // Preview the consequence while the finger is still down.
-        //
-        // All four directions used to differ only by a label. Letting the card
-        // *behave* like the decision — receding when it is being put off,
-        // starting to erode when it is being let go — means you feel what you
-        // are choosing before you commit to it, and can back out by returning
-        // to centre. Nothing here is persisted; the deck still commits only on
-        // release, and success feedback still waits for the batch.
-        .scaleEffect(previewScale, anchor: .center)
-        .opacity(previewOpacity)
-        .lifeboardDissolveAway(progress: erosionPreview, tint: releaseTint)
-        .lifeBoardMotion(.deckSettle, value: armed)
-    }
-
-    /// Warm rather than alarming: releasing something is a legitimate outcome,
-    /// not a failure, and the anti-guilt law puts no punitive red on this path.
-    private var releaseTint: Color {
-        Color(SemanticColorTokens.foundationApricotAccent)
-    }
-
-    /// A hint of erosion, never enough to hide the title being decided about.
-    private var erosionPreview: Double {
-        armed == .release ? 0.22 : 0
-    }
-
-    private var previewScale: CGFloat {
-        switch armed {
-        // Being put off — the card steps back.
-        case .someday: 0.955
-        // Being carried forward — it leans in.
-        case .tomorrow: 1.012
-        default: 1
-        }
-    }
-
-    private var previewOpacity: Double {
-        armed == .someday ? 0.82 : 1
-    }
-
-    /// `.doneAnyway` was the one direction with no feeling, because it is the
-    /// one that is not a *change*: the work already happened and only the record
-    /// is catching up. Nothing should move, so instead of leaning, receding or
-    /// eroding, the card stops floating — the drop shadow shrinks from radius 10
-    /// to 4 and it settles onto the canvas, which reads as "already landed".
-    ///
-    /// Deliberately not `CompletionMark`: that is success feedback, and
-    /// DESIGN.md requires a persisted-state boundary before success. Arming is
-    /// not a persisted state — the deck still commits one batch at the end, and
-    /// returning to centre must be able to take this back.
-    private var armedDepth: ClayDepth {
-        armed == .doneAnyway ? .resting : .raised
-    }
-}
-
-// MARK: - Direction pad
-
-/// The four directions, always visible and always tappable.
-///
-/// The deck's flick is an accelerator. This is the equal path, and it is what
-/// makes the gesture legible in the first place — nobody discovers four
-/// directions by guessing.
-private struct DayCloseDirectionPad: View {
-    let armed: DayCloseDirection?
-    let onSelect: (DayCloseDirection) -> Void
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        // Four labelled chips in one row cannot hold their labels at
-        // accessibility sizes, and these buttons *are* the accessible path to
-        // the deck's gesture — so they fold into a 2×2 grid rather than
-        // truncating. `DESIGN.md`: collapse grids before truncating.
-        if dynamicTypeSize.isAccessibilitySize {
-            let pairs = stride(from: 0, to: DayCloseDirection.allCases.count, by: 2).map {
-                Array(DayCloseDirection.allCases[$0..<min($0 + 2, DayCloseDirection.allCases.count)])
-            }
-            VStack(spacing: 8) {
-                ForEach(Array(pairs.enumerated()), id: \.offset) { _, row in
-                    HStack(spacing: 8) {
-                        ForEach(row, id: \.self) { direction in
-                            directionButton(direction)
-                        }
-                    }
-                }
-            }
-        } else {
-            HStack(spacing: 8) {
-                ForEach(DayCloseDirection.allCases, id: \.self) { direction in
-                    directionButton(direction)
-                }
-            }
-        }
-    }
-
-    private func directionButton(_ direction: DayCloseDirection) -> some View {
-        Button { onSelect(direction) } label: {
-            VStack(spacing: 4) {
-                Image(systemName: direction.symbolName)
-                Text(direction.title)
-                    .font(Typography.metadata())
-            }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.lifeBoardChip)
-        .accessibilityIdentifier("dayClose.direction.\(direction.rawValue)")
-    }
 }
 
 // MARK: - SurfaceCard surface
 
-private extension View {
+extension View {
     /// Local twin of Plan's `foundationClayCard`, which is `fileprivate` to its
     /// own file. Same primitive, same radius, same padding — deliberately not a
     /// new shadow geometry, and not worth widening Plan's access just to share

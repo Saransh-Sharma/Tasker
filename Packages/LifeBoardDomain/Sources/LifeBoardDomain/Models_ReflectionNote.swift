@@ -14,6 +14,10 @@ public enum ReflectionNoteKind: String, Codable, CaseIterable, Hashable, Sendabl
     /// Additive and safe on older builds: `kind` is a free-form `String` column,
     /// so an older app degrades this to an untyped note rather than losing it.
     case dayClose
+    /// A "Try for a week" experiment started from an Insights correlation;
+    /// the note text is the JSON-encoded `InsightExperiment`. Additive and
+    /// safe on older builds for the same reason as `dayClose`.
+    case insightExperiment
     /// Text migrated from the retired Sunrise Daily Reflection store.
     ///
     /// The original reflection date is retained in `createdAt`, while `prompt`

@@ -9,6 +9,9 @@ struct SetupCenterHomeCard: View {
     @State private var providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
     @State private var isDismissed = SetupCenterHomeCardPreference.isDismissed
     @State private var interrupted = ConnectionResumeStore.pending
+    /// Read once per view identity, not on every body pass: the store decodes
+    /// JSON from defaults.
+    @State private var hasOptionalJourneyToResume = AppOnboardingStateStore.shared.load().hasOptionalJourneyToResume
 
     init(
         calendarIntegrationService: CalendarIntegrationService,
@@ -51,20 +54,16 @@ struct SetupCenterHomeCard: View {
 
     var body: some View {
         Group {
-        if (AppOnboardingStateStore.shared.load().hasOptionalJourneyToResume || !interrupted.isEmpty), !isDismissed, !status.allRowsHandled {
+        if (hasOptionalJourneyToResume || !interrupted.isEmpty), !isDismissed, !status.allRowsHandled {
             HStack(spacing: SwiftUITokens.spacing.s12) {
                 Button(action: onOpen) {
                     HStack(spacing: SwiftUITokens.spacing.s12) {
                         SettingsRowIcon(iconName: "slider.horizontal.3", tone: .accent)
 
                         VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s4) {
-                            Text("Resume connections")
+                            Text("Resume setup")
                                 .lifeboardFont(.bodyStrong)
                                 .foregroundStyle(Color.lifeboard(.textPrimary))
-                            Text("Pick up an interrupted connection whenever you’re ready.")
-                                .lifeboardFont(.caption2)
-                                .foregroundStyle(Color.lifeboard(.textSecondary))
-                                .multilineTextAlignment(.leading)
                         }
                         Spacer(minLength: 4)
                         Image(systemName: "chevron.right")
@@ -84,18 +83,17 @@ struct SetupCenterHomeCard: View {
                     Image(systemName: "xmark")
                         .lifeboardFont(.meta)
                         .foregroundStyle(Color.lifeboard(.textSecondary))
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Dismiss Resume connections")
+                .accessibilityLabel("Dismiss")
                 .accessibilityIdentifier("home.setupCenter.dismiss")
             }
             .padding(SwiftUITokens.spacing.s12)
             // Clay, never glass — this invitation sits on Home, which already
             // owns the screen's hero.
-            .lifeBoardClaySurface(.raised, cornerRadius: Radius.hero)
-            .padding(.horizontal, 20)
+            .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
             .padding(.vertical, 8)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.setupCenter.card")
@@ -112,6 +110,7 @@ struct SetupCenterHomeCard: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: ConnectionResumeStore.didChange)) { _ in
             interrupted = ConnectionResumeStore.pending
+            hasOptionalJourneyToResume = AppOnboardingStateStore.shared.load().hasOptionalJourneyToResume
         }
     }
 }
@@ -146,12 +145,26 @@ struct OnboardingFirstActionCard: View {
     let onCreateTask: () -> Void
     @AppStorage(OnboardingFirstAction.key) private var receipt = Data()
     @State private var spotlight = 0
+    /// Decoded once when the card is created rather than on every body pass.
+    @State private var decoded: OnboardingFirstAction?
+
+    init(onOpenTask: @escaping (UUID) -> Void, onCreateTask: @escaping () -> Void) {
+        self.onOpenTask = onOpenTask
+        self.onCreateTask = onCreateTask
+        let data = UserDefaults.standard.data(forKey: OnboardingFirstAction.key) ?? Data()
+        _decoded = State(initialValue: try? JSONDecoder().decode(OnboardingFirstAction.self, from: data))
+    }
+
+    private func clear() {
+        receipt = Data()
+        decoded = nil
+    }
 
     var body: some View {
-        if let action = try? JSONDecoder().decode(OnboardingFirstAction.self, from: receipt) {
+        if let action = decoded {
             HStack(spacing: 12) {
                 Button {
-                    receipt = Data()
+                    clear()
                     if let id = action.taskID { onOpenTask(id) } else { onCreateTask() }
                 } label: {
                     HStack(spacing: 12) {
@@ -160,7 +173,7 @@ struct OnboardingFirstActionCard: View {
                             .foregroundStyle(Color.lifeboard(.accentPrimary))
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(action.taskID == nil ? String(localized: "Start with one thing") : String(localized: "Your first task"))
+                            Text(action.taskID == nil ? String(localized: "Get started") : String(localized: "Your first task"))
                                 .lifeboardFont(.caption1)
                                 .foregroundStyle(Color.lifeboard(.textSecondary))
                             Text(action.title)
@@ -171,14 +184,13 @@ struct OnboardingFirstActionCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                Button { receipt = Data() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                Button { clear() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
                     .foregroundStyle(Color.lifeboard(.textTertiary))
                     .accessibilityLabel(String(localized: "Dismiss"))
             }
             .padding(16)
-            .lifeBoardClaySurface(.raised, cornerRadius: 16)
+            .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
             .lifeboardFirstLight(trigger: spotlight, tint: Color.lifeboard(.accentPrimary))
-            .padding(.horizontal, 20)
             .accessibilityIdentifier("home.onboarding.firstAction")
             .onAppear {
                 if OnboardingFirstActionSpotlight.consume() { spotlight &+= 1 }

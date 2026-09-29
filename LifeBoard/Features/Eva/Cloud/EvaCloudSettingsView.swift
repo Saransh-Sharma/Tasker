@@ -8,6 +8,8 @@ struct EvaCloudSettingsView: View {
     @State private var isWorking = false
     @State private var errorMessage: String?
     @State private var confirmsAccountDeletion = false
+    @State private var showsConsent = false
+    @StateObject private var access = EvaCloudAccessCoordinator.shared
 
     private var spacing: SemanticSpacingTokens { tokens.spacing }
 
@@ -15,9 +17,9 @@ struct EvaCloudSettingsView: View {
         ScrollView {
             VStack(spacing: 0) {
                 SettingsHeroCard(
-                    eyebrow: String(localized: "Cloud EVA"),
-                    title: account.isAuthenticated ? String(localized: "Connected to Luna") : String(localized: "Use EVA without a model download"),
-                    subtitle: String(localized: "Luna generates text in the cloud. Spoken output uses an AI-generated voice; dictation stays on Apple's stack."),
+                    eyebrow: String(localized: "Eva"),
+                    title: account.isAuthenticated ? String(localized: "Cloud is on") : String(localized: "Use Eva in the cloud"),
+                    subtitle: String(localized: "Spoken replies use an AI voice. Dictation stays on \(DeviceNoun.this)."),
                     statusItems: statusItems,
                     accessibilityIdentifier: "evaCloudSettings.hero"
                 )
@@ -25,19 +27,20 @@ struct EvaCloudSettingsView: View {
                 .padding(.top, spacing.s16)
 
                 SettingsSectionView(
-                    title: String(localized: "Provider"),
-                    subtitle: String(localized: "Cloud failures are shown directly. EVA never switches providers without your choice.")
+                    title: String(localized: "Where Eva runs"),
+                    subtitle: String(localized: "Eva won’t switch to \(DeviceNoun.this) without asking.")
                 ) {
                     SettingsFieldCard(
-                        title: String(localized: "Choose where EVA runs"),
-                        subtitle: String(localized: "A request keeps the same provider from start to finish. Offline EVA remains available when an MLX model is installed.")
+                        title: String(localized: "Eva runs on"),
+                        subtitle: String(localized: "This \(DeviceNoun.current) needs a downloaded model.")
                     ) {
+                        let onDeviceTitle = String(localized: "This \(DeviceNoun.current)")
                         // Was `.pickerStyle(.segmented)`, the stock grey segmented
                         // control. The selection is an `@AppStorage` `String`
                         // rawValue rather than the enum, so the rail carries the
                         // raw values and maps titles back through the case.
                         OptionRail(
-                            "EVA provider",
+                            String(localized: "Eva runs on"),
                             selection: $providerPreference,
                             values: [
                                 EvaProviderRouter.Preference.cloud.rawValue,
@@ -45,21 +48,23 @@ struct EvaCloudSettingsView: View {
                             ],
                             identifierPrefix: "eva.cloud.provider",
                             title: { raw in
-                                raw == EvaProviderRouter.Preference.cloud.rawValue ? "Cloud" : "Offline"
-                            }
+                                raw == EvaProviderRouter.Preference.cloud.rawValue ? String(localized: "Cloud") : onDeviceTitle
+                            },
+                            // The card title already reads "Eva runs on".
+                            showsLabel: false
                         )
                         .accessibilityIdentifier("evaCloudSettings.providerPicker")
                     }
                 }
 
                 SettingsSectionView(
-                    title: String(localized: "Cloud Account"),
-                    subtitle: String(localized: "Start with a pseudonymous guest session. Protect it with Apple later for cross-device access and reinstall recovery.")
+                    title: String(localized: "Account"),
+                    subtitle: String(localized: "Sign in with Apple to use it on other devices.")
                 ) {
                     SettingsFieldCard(
-                        title: account.isAuthenticated ? String(localized: "Cloud EVA is connected") : String(localized: "Cloud EVA is connecting"),
+                        title: account.isAuthenticated ? String(localized: "Connected") : String(localized: "Connecting\u{2026}"),
                         subtitle: accountSubtitle,
-                        footer: String(localized: "Prompts and authorized context are sent to OpenAI through LifeBoard's Cloudflare backend. No cloud chat or audio history is kept by LifeBoard.")
+                        footer: String(localized: "Sent to OpenAI through LifeBoard. Chats and audio aren’t kept.")
                     ) {
                         if isWorking {
                             ProgressView()
@@ -68,17 +73,17 @@ struct EvaCloudSettingsView: View {
                             VStack(spacing: spacing.s12) {
                               HStack {
                                 Label(
-                                    account.identityKind == .guest ? "Guest account · recovery not protected" : "Protected with Apple",
+                                    account.identityKind == .guest ? "Not signed in" : "Signed in with Apple",
                                     systemImage: account.identityKind == .guest ? "person.crop.circle.dashed" : "checkmark.shield.fill"
                                 )
                                     .font(.lifeboard(.caption1))
                                     .foregroundStyle(Color.lifeboard(.statusSuccess))
                                 Spacer()
                                 Button("Refresh") { run { await account.refresh() } }
-                                    .buttonStyle(.bordered)
+                                    .buttonStyle(.lifeBoardChip)
                               }
                               if account.identityKind == .guest {
-                                Button("Protect & sync EVA") {
+                                Button("Sign in with Apple") {
                                     run { try await account.protectWithApple() }
                                 }
                                 .buttonStyle(.lifeBoardPrimaryCompact)
@@ -87,11 +92,12 @@ struct EvaCloudSettingsView: View {
                             }
                         } else {
                             VStack(spacing: spacing.s12) {
-                              Text("EVA connects automatically. Manage the context it can use below.")
+                              Text(access.hasConfirmedCloudConsent
+                                   ? "Not connected."
+                                   : "Cloud is off.")
                                 .font(.lifeboard(.caption1))
-                              Button("Retry connection") {
-                                EvaCloudAccessCoordinator.shared.selectCloud()
-                                run { _ = await EvaCloudAccessCoordinator.shared.ensureActivated(source: .setupCenter) }
+                              Button(access.hasConfirmedCloudConsent ? "Reconnect" : "Turn on Eva") {
+                                turnOnCloud()
                               }
                               .buttonStyle(.lifeBoardPrimaryCompact)
                               .tint(Color.lifeboard(.accentPrimary))
@@ -103,7 +109,7 @@ struct EvaCloudSettingsView: View {
 
                 if account.isAuthenticated {
                     SettingsSectionView(
-                        title: String(localized: "Rolling answer allowance"),
+                        title: String(localized: "Answers"),
                         subtitle: quotaPolicyDescription
                     ) {
                         SettingsFieldCard(
@@ -116,62 +122,67 @@ struct EvaCloudSettingsView: View {
                                 total: Double(max(account.quota?.limit ?? 20, 1))
                             )
                             .tint(Color.lifeboard(.accentPrimary))
-                            .accessibilityLabel("Cloud EVA answers remaining")
+                            .accessibilityLabel("Answers left")
                             .accessibilityValue(quotaTitle)
                         }
                     }
 
                     SettingsSectionView(
-                        title: String(localized: "Sensitive Context"),
-                        subtitle: String(localized: "You control each category. Categories are enabled by default; changes apply account-wide before the next cloud request.")
+                        title: String(localized: "Eva can use"),
+                        subtitle: ""
                     ) {
                         SettingsFieldCard(
-                            title: String(localized: "Choose what may leave this device"),
-                            subtitle: String(localized: "Tasks, projects, habits, a read-only calendar projection, and bounded chat history are base cloud context.")
+                            title: String(localized: "Optional"),
+                            subtitle: String(localized: "Always included: tasks, projects, habits, calendar, and recent chat.")
                         ) {
                             VStack(spacing: spacing.s12) {
                                 if account.consent?.reviewRequired == true {
                                     VStack(alignment: .leading, spacing: spacing.s8) {
-                                        Label("Review required after Apple linking", systemImage: "exclamationmark.shield.fill")
+                                        Label("Check these choices", systemImage: "exclamationmark.shield.fill")
                                             .font(.lifeboard(.callout))
                                             .foregroundStyle(Color.lifeboard(.statusWarning))
-                                        Text("Linking uses the intersection of both accounts' grants. Confirm the current choices before Cloud EVA can use context again.")
+                                        Text("Only choices both accounts shared were kept.")
                                             .font(.lifeboard(.caption1))
                                             .foregroundStyle(Color.lifeboard(.textSecondary))
-                                        Button("Confirm current context") { confirmCurrentConsent() }
+                                        Button("Confirm choices") { confirmCurrentConsent() }
                                             .buttonStyle(.lifeBoardPrimaryCompact)
                                     }
                                 }
-                                consentToggle(.journal, title: String(localized: "Journal"), subtitle: String(localized: "Allow bounded journal context in Cloud EVA requests."), icon: "book.closed.fill")
-                                consentToggle(.health, title: String(localized: "Health"), subtitle: String(localized: "Allow bounded health context in Cloud EVA requests."), icon: "heart.text.square.fill")
-                                consentToggle(.lifeMoments, title: String(localized: "Life Moments"), subtitle: String(localized: "Allow bounded Life Moments context in Cloud EVA requests."), icon: "sparkles.rectangle.stack.fill")
-                                consentToggle(.personalMemory, title: String(localized: "Personal Memory"), subtitle: String(localized: "Allow bounded personal memory context in Cloud EVA requests."), icon: "person.text.rectangle.fill")
+                                consentToggle(.journal, title: grantTitle(.journal), subtitle: String(localized: "Short excerpts."), icon: "book.closed.fill")
+                                consentToggle(.health, title: grantTitle(.health), subtitle: String(localized: "Daily summaries only."), icon: "heart.text.square.fill")
+                                consentToggle(.lifeMoments, title: grantTitle(.lifeMoments), subtitle: String(localized: "Dates you’re counting down to."), icon: "sparkles.rectangle.stack.fill")
+                                consentToggle(.personalMemory, title: grantTitle(.personalMemory), subtitle: String(localized: "Working style, blockers, and goals."), icon: "person.text.rectangle.fill")
                             }
                         }
                     }
 
                     SettingsSectionView(
-                        title: String(localized: "Account Controls"),
-                        subtitle: String(localized: "Signing out keeps a protected account, but an unprotected guest may be unrecoverable. Deleting removes sessions, consent, device trust, and quota history.")
+                        title: String(localized: "Manage account"),
+                        subtitle: ""
                     ) {
                         VStack(spacing: spacing.s12) {
                             SettingsDangerZoneCard(
-                                title: String(localized: "Sign Out of Cloud EVA"),
-                                subtitle: String(localized: "Offline LifeBoard data and installed MLX models remain on this device."),
+                                title: String(localized: "Sign out of cloud"),
+                                subtitle: String(localized: "Your data stays on \(DeviceNoun.this)."),
                                 buttonTitle: String(localized: "Sign out"),
                                 buttonRole: nil,
-                                accessibilityIdentifier: "evaCloudSettings.signOutButton"
+                                accessibilityIdentifier: "evaCloudSettings.signOutButton",
+                                confirmationMessage: account.identityKind == .guest
+                                    ? String(localized: "Without Sign in with Apple, this account can’t be restored.")
+                                    : String(localized: "You can sign back in with Apple later.")
                             ) {
                                 run { await account.deactivateCloud() }
                             }
 
                             SettingsDangerZoneCard(
-                                title: String(localized: "Delete Cloud EVA Account"),
+                                title: String(localized: "Delete cloud account"),
                                 subtitle: account.identityKind == .apple
-                                    ? String(localized: "You will authenticate with Apple again before deletion. This does not delete local LifeBoard data.")
-                                    : String(localized: "Confirm using this active device session. This does not delete local LifeBoard data."),
+                                    ? String(localized: "You’ll confirm with Apple first. Data on \(DeviceNoun.this) stays.")
+                                    : String(localized: "Data on \(DeviceNoun.this) stays."),
                                 buttonTitle: String(localized: "Delete cloud account"),
-                                accessibilityIdentifier: "evaCloudSettings.deleteAccountButton"
+                                accessibilityIdentifier: "evaCloudSettings.deleteAccountButton",
+                                // Presents its own confirmation below.
+                                confirmsBeforeAction: false
                             ) {
                                 confirmsAccountDeletion = true
                             }
@@ -182,7 +193,7 @@ struct EvaCloudSettingsView: View {
             .padding(.bottom, spacing.s24)
         }
         .background(Color.lifeboard(.bgCanvas))
-        .navigationTitle("Cloud EVA")
+        .navigationTitle("Cloud")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference().rawValue
@@ -191,28 +202,34 @@ struct EvaCloudSettingsView: View {
         }
         .onChange(of: providerPreference) { _, value in
             if value == EvaProviderRouter.Preference.cloud.rawValue {
-                EvaCloudAccessCoordinator.shared.selectCloud()
-                Task { _ = await EvaCloudAccessCoordinator.shared.ensureActivated(source: .setupCenter) }
+                turnOnCloud()
             } else { EvaCloudAccessCoordinator.shared.selectOffline() }
+        }
+        .sheet(isPresented: $showsConsent) {
+            EvaCloudConsentSheet(access: access, source: .setupCenter, identifierPrefix: "evaCloudSettings.consent") { _ in
+                Task { await restoreState() }
+            }
         }
         .onChange(of: account.consent) { _, consent in
             selectedGrants = Set(consent?.grants ?? [])
         }
-        .alert("Cloud EVA", isPresented: errorPresented) {
+        .alert("Cloud", isPresented: errorPresented) {
             Button("OK", role: .cancel) { errorMessage = nil }
         } message: {
-            Text(errorMessage ?? "Something went wrong.")
+            Text(errorMessage ?? String(localized: "Couldn’t finish. Try again."))
         }
-        .alert("Delete Cloud EVA account?", isPresented: $confirmsAccountDeletion) {
+        .alert("Delete cloud account?", isPresented: $confirmsAccountDeletion) {
             Button("Cancel", role: .cancel) {}
-            Button(account.identityKind == .apple ? "Continue with Apple" : "Delete Cloud EVA Data", role: .destructive) {
+            Button(account.identityKind == .apple ? "Continue with Apple" : "Delete account", role: .destructive) {
                 run { try await account.deleteCloudAccount() }
             }
         } message: {
-            Text("This permanently removes your cloud account state. Your local LifeBoard data is not affected.")
+            Text("Your cloud account and settings are removed. Data on \(DeviceNoun.this) stays.")
         }
     }
+}
 
+extension EvaCloudSettingsView {
     private var statusItems: [SettingsStatusDescriptor] {
         [
             .init(
@@ -242,14 +259,14 @@ struct EvaCloudSettingsView: View {
     private var accountSubtitle: String {
         if let error = account.lastError, account.isAuthenticated { return error }
         return account.isAuthenticated
-            ? String(localized: "Your session, consent revision, and rolling quota are synchronized with the cloud account.")
-            : String(localized: "EVA connects automatically without your name or email.")
+            ? ""
+            : String(localized: "No name or email needed.")
     }
 
     private var quotaTitle: String {
-        guard let quota = account.quota else { return String(localized: "Answer quota unavailable") }
+        guard let quota = account.quota else { return String(localized: "Couldn’t load answers") }
         return String(
-            format: String(localized: "%1$lld of %2$lld answers remaining"),
+            format: String(localized: "%1$lld of %2$lld left"),
             locale: Locale.current,
             Int64(quota.remaining),
             Int64(quota.limit)
@@ -257,23 +274,12 @@ struct EvaCloudSettingsView: View {
     }
 
     private var quotaSubtitle: String {
-        guard let quota = account.quota else { return String(localized: "Refresh Cloud EVA to retrieve the rolling quota.") }
-        if quota.used == 0 {
-            return String(
-                format: String(localized: "All %lld answers are currently available."),
-                locale: Locale.current,
-                Int64(quota.limit)
-            )
-        }
-        guard let next = quota.nextAvailableAt else {
-            return String(
-                format: String(localized: "%lld answers are currently available."),
-                locale: Locale.current,
-                Int64(quota.remaining)
-            )
-        }
+        guard let quota = account.quota else { return String(localized: "Tap Refresh to update.") }
+        // The title already carries the count; the subtitle only adds when
+        // the next answer returns.
+        guard quota.used > 0, let next = quota.nextAvailableAt else { return "" }
         return String(
-            format: String(localized: "The next used slot expires: %@."),
+            format: String(localized: "Next answer: %@"),
             locale: Locale.current,
             next.formatted(date: .abbreviated, time: .shortened)
         )
@@ -283,7 +289,7 @@ struct EvaCloudSettingsView: View {
         let limit = account.quota?.limit ?? 20
         let hours = max(1, Int(round(Double(account.quota?.windowSeconds ?? 86_400) / 3_600)))
         return String(
-            format: String(localized: "Up to %1$lld successful billable answers during the preceding rolling %2$lld hours. Failed, cancelled, refused, and moderated requests do not count."),
+            format: String(localized: "%1$lld answers every %2$lld hours. Errors don’t count."),
             locale: Locale.current,
             Int64(limit),
             Int64(hours)
@@ -293,7 +299,7 @@ struct EvaCloudSettingsView: View {
     private var quotaFooter: String {
         let hours = max(1, Int(round(Double(account.quota?.windowSeconds ?? 86_400) / 3_600)))
         return String(
-            format: String(localized: "Each successful billable answer consumes one slot. Timestamps expire individually after %lld hours."),
+            format: String(localized: "Each answer returns %lld hours after use."),
             locale: Locale.current,
             Int64(hours)
         )
@@ -336,13 +342,24 @@ struct EvaCloudSettingsView: View {
         .accessibilityIdentifier("evaCloudSettings.activationConsent.\(grant.rawValue)")
     }
 
+    /// Short toggle labels under the "Eva can use" header.
     private func grantTitle(_ grant: EvaConsentPolicy.Grant) -> String {
         switch grant {
         case .journal: String(localized: "Journal")
         case .health: String(localized: "Health")
-        case .lifeMoments: String(localized: "Life Moments")
-        case .personalMemory: String(localized: "Personal Memory")
+        case .lifeMoments: String(localized: "Life moments")
+        case .personalMemory: String(localized: "Memories")
         }
+    }
+
+    /// Connecting the first time is the consent step; afterwards it just reconnects.
+    private func turnOnCloud() {
+        guard access.hasConfirmedCloudConsent else {
+            showsConsent = true
+            return
+        }
+        access.selectCloud()
+        run { _ = await access.ensureActivated(source: .setupCenter) }
     }
 
     private func restoreState() async {

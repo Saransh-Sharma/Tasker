@@ -107,8 +107,11 @@ struct TimelineTimeBlock: Equatable, Identifiable {
     }
 
     var countLabel: String {
-        let noun = items.allSatisfy { $0.source == .calendarEvent } ? "Events" : "Items"
-        return "\(items.count) \(noun)"
+        let count = items.count
+        if items.allSatisfy({ $0.source == .calendarEvent }) {
+            return count == 1 ? String(localized: "1 event") : String(localized: "\(count) events")
+        }
+        return String(localized: "\(count) scheduled")
     }
 
     static func make(

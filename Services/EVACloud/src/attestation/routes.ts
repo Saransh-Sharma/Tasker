@@ -7,6 +7,7 @@ import { readJson } from '../http/body.js'
 import { EvaHttpError } from '../http/errors.js'
 import { requireSession } from '../auth/middleware.js'
 import { validateAttestationRegistration, verifyRequestAttestation } from './app-attest.js'
+import { defaultTrustPolicy } from '../config/runtime-config.js'
 
 const RegistrationSchema = Type.Object({
   challenge: Type.String({ minLength: 20, maxLength: 256 }),
@@ -22,10 +23,7 @@ attestationRoutes.post('/challenge', async (context) => {
   if (principal.platform !== 'ios') {
     throw new EvaHttpError(409, 'attestation_required', 'App Attest is available only on iOS.')
   }
-  const authorization = await authorizeAccount(context.env, principal, {
-    requireAdult: false,
-    requireAttestation: false,
-  })
+  const authorization = await authorizeAccount(context.env, principal, defaultTrustPolicy)
   if (!authorization.authorized) {
     throw new EvaHttpError(401, 'session_expired', 'Your EVA session has expired.', { recoveryAction: 'signIn' })
   }
@@ -40,10 +38,7 @@ attestationRoutes.post('/register', async (context) => {
   if (principal.platform !== 'ios') {
     throw new EvaHttpError(409, 'attestation_required', 'App Attest is available only on iOS.')
   }
-  const authorization = await authorizeAccount(context.env, principal, {
-    requireAdult: false,
-    requireAttestation: false,
-  })
+  const authorization = await authorizeAccount(context.env, principal, defaultTrustPolicy)
   if (!authorization.authorized) {
     throw new EvaHttpError(401, 'session_expired', 'Your EVA session has expired.', { recoveryAction: 'signIn' })
   }

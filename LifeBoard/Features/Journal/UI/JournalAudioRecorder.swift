@@ -19,7 +19,7 @@ final class JournalAudioRecorder: NSObject, AVAudioRecorderDelegate {
         }
         await MainActor.run { PermissionPromptState.recordRequested(.microphone) }
         guard permitted else {
-            errorMessage = "Microphone is off. Turn it on in Settings to record."
+            errorMessage = String(localized: "Microphone is off. Turn it on in Settings.")
             return
         }
         do {

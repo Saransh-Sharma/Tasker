@@ -294,6 +294,11 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
                     projects: projects,
                     todayXPSoFar: todayXPSoFar,
                     isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
+                    frictionDependencies: TaskDetailFrictionDependencies(
+                        taskRepository: coordinator.taskDefinitionRepository,
+                        reflectionNoteRepository: coordinator.reflectionNoteRepository,
+                        frictionFindingRepository: coordinator.frictionFindingRepository
+                    ),
                     onUpdate: { [weak self] _, request, completion in
                     guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
                         completion(.failure(NSError(
@@ -441,8 +446,8 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
 
     private func showTaskDetailUnavailableAlert() {
         presentSunriseUnavailableSheet(
-            title: "Task details unavailable",
-            message: "Could not open task details from chat right now. Please try again from Home."
+            title: String(localized: "Couldn’t open task"),
+            message: String(localized: "Try again from Home.")
         )
     }
 
@@ -493,8 +498,8 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
 
     private func showHabitDetailUnavailableAlert() {
         presentSunriseUnavailableSheet(
-            title: "Habit details unavailable",
-            message: "Could not open habit details from chat right now. Please try again from Home."
+            title: String(localized: "Couldn’t open habit"),
+            message: String(localized: "Try again from Home.")
         )
     }
 
@@ -774,6 +779,16 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
         }
     }
 
+    deinit {
+        // Deinit is synchronous; these main-actor-owned UIKit subscriptions cannot be hopped.
+        MainActor.assumeIsolated {
+            themeCancellable?.cancel()
+            activationCoordinatorCancellable?.cancel()
+        }
+    }
+}
+
+extension ChatHostViewController {
     // MARK: - Theme Handling
 
     /// Executes applyTheme.
@@ -906,14 +921,6 @@ class ChatHostViewController: UIViewController, CompositionRootAware, UseCaseCoo
         let preferredWidth: CGFloat = currentLayoutClass.isPad ? 340 : 232
         return max(160, min(maxWidth, preferredWidth))
     }
-
-    deinit {
-        // Deinit is synchronous; these main-actor-owned UIKit subscriptions cannot be hopped.
-        MainActor.assumeIsolated {
-            themeCancellable?.cancel()
-            activationCoordinatorCancellable?.cancel()
-        }
-    }
 }
 
 private struct ChatUnavailableSheet: View {
@@ -980,6 +987,7 @@ private struct ChatUnavailableSheet: View {
                         dismiss()
                     }
                     .accessibilityIdentifier("chat.unavailable.close")
+                    .keyboardShortcut(.cancelAction)
                 }
             }
         }
@@ -1089,87 +1097,6 @@ private final class EvaActivationNavigationTitleView: UIView {
     }
 }
 
-struct LLMStoreUnavailableView: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle")
-                .lifeboardFont(.title1)
-                .foregroundColor(.lifeboard(.statusWarning))
-            Text("Assistant storage unavailable")
-                .font(.headline)
-                .foregroundColor(.lifeboard(.textPrimary))
-            Text("Restart the app to retry LLM storage initialization.")
-                .font(.subheadline)
-                .foregroundColor(.lifeboard(.textSecondary))
-                .multilineTextAlignment(.center)
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.lifeboard(.bgCanvas))
-    }
-}
-
-struct LLMStoreLoadingView: View {
-    var onAppear: (() -> Void)?
-
-    var body: some View {
-        VStack(spacing: 14) {
-            ProgressView()
-                .controlSize(.large)
-            Text("Preparing Eva")
-                .font(.headline)
-                .foregroundColor(.lifeboard(.textPrimary))
-            Text("Your private on-device conversation is loading.")
-                .font(.subheadline)
-                .foregroundColor(.lifeboard(.textSecondary))
-                .multilineTextAlignment(.center)
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.lifeboard(.bgCanvas))
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("eva.store.loading")
-        .onAppear { onAppear?() }
-    }
-}
-
-/// Reusable asynchronous boundary for every surface that embeds Eva.
-///
-/// The closure returns `AnyView` deliberately: callers cannot accidentally
-/// recreate a conditional type containing the loading, failure, and full chat
-/// hierarchies.
-struct LLMStoreContainerHost: View {
-    @StateObject private var bootstrap = LLMStoreBootstrap.shared
-    private let onLoadingAppear: (() -> Void)?
-    private let content: (ModelContainer) -> AnyView
-
-    init(
-        onLoadingAppear: (() -> Void)? = nil,
-        content: @escaping (ModelContainer) -> AnyView
-    ) {
-        self.onLoadingAppear = onLoadingAppear
-        self.content = content
-    }
-
-    var body: some View {
-        currentView
-            .task {
-                _ = await bootstrap.load()
-            }
-    }
-
-    private var currentView: AnyView {
-        switch bootstrap.state {
-        case .ready(let container), .degraded(let container?, _):
-            content(container)
-        case .degraded(nil, _):
-            AnyView(LLMStoreUnavailableView())
-        case .idle, .loading:
-            AnyView(LLMStoreLoadingView(onAppear: onLoadingAppear))
-        }
-    }
-}
-
 private final class EvaChatNavigationTitleView: UIView {
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
@@ -1254,7 +1181,6 @@ private final class EvaChatNavigationTitleView: UIView {
 struct ChatContainerView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(LLMEvaluator.self) var llm
-    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.modelContext) private var modelContext
 
     var presentationMode: ChatPresentationMode = .normal
@@ -1274,90 +1200,54 @@ struct ChatContainerView: View {
     @State private var showChats = false
     @State private var showSettings = false
 
-    private var useIPadSplitChatLayout: Bool {
-        if case .activation(let config) = presentationMode, config.hideUtilityActions {
-            return false
-        }
-        return V2FeatureFlags.iPadNativeShellEnabled
-            && (layoutClass == .padRegular || layoutClass == .padExpanded)
-    }
-
+    /// Chat history is one sheet at every width, over a single `ChatView`.
+    ///
+    /// This used to swap between a `NavigationSplitView` and a bare `ChatView`
+    /// behind an `if`, gated on a layout class that was never injected. Once the
+    /// shell did inject it, the split would have nested a second sidebar inside
+    /// the shell's own navigation, and a Split View or Mac window resize across
+    /// the breakpoint would have rebuilt `ChatView` and dropped the unsent draft.
+    ///
+    /// Not `.inspector`: it re-hosts the main content, which loses the shell's
+    /// custom environment — `evaComposerBottomClearance` fell to 0 and the
+    /// composer dropped onto the dock (and the layout class and tokens went with
+    /// it).
     var body: some View {
-        Group {
-            if useIPadSplitChatLayout {
-                NavigationSplitView {
-                    ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
-                        .environmentObject(appManager)
-                } detail: {
-                    ChatView(
-                        currentThread: $currentThread,
-                        isPromptFocused: $isPromptFocused,
-                        showChats: .constant(false),
-                        showSettings: $showSettings,
-                        presentationMode: presentationMode,
-                        onActivationChatEvent: onActivationChatEvent,
-                        onOpenTaskDetail: onOpenTaskDetail,
-                        onOpenHabitDetail: onOpenHabitDetail,
-                        onOpenRecordFromCard: onOpenRecordFromCard,
-                        onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
-                        onPerformDayTaskAction: onPerformDayTaskAction,
-                        onPerformDayHabitAction: onPerformDayHabitAction,
-                        showsHistoryAction: false,
-                        promptFocusRequestID: promptFocusRequestID,
-                        storageDegradedReason: LLMDataController.isDegradedModeActive
-                            ? LLMDataController.degradedModeReason ?? "unknown"
-                            : nil,
-                        onNavigationChromeChange: onNavigationChromeChange,
-                        onComposerFocusChange: onComposerFocusChange
-                    )
-                }
-                .navigationSplitViewStyle(.balanced)
-            } else {
-                ChatView(
-                    currentThread: $currentThread,
-                    isPromptFocused: $isPromptFocused,
-                    showChats: $showChats,
-                    showSettings: $showSettings,
-                    presentationMode: presentationMode,
-                    onActivationChatEvent: onActivationChatEvent,
-                    onOpenTaskDetail: onOpenTaskDetail,
-                    onOpenHabitDetail: onOpenHabitDetail,
-                    onOpenRecordFromCard: onOpenRecordFromCard,
-                    onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
-                    onPerformDayTaskAction: onPerformDayTaskAction,
-                    onPerformDayHabitAction: onPerformDayHabitAction,
-                    showsHistoryAction: true,
-                    promptFocusRequestID: promptFocusRequestID,
-                    storageDegradedReason: LLMDataController.isDegradedModeActive
-                        ? LLMDataController.degradedModeReason ?? "unknown"
-                        : nil,
-                    onNavigationChromeChange: onNavigationChromeChange,
-                    onComposerFocusChange: onComposerFocusChange
-                )
-            }
-        }
+        ChatView(
+            currentThread: $currentThread,
+            isPromptFocused: $isPromptFocused,
+            showChats: $showChats,
+            showSettings: $showSettings,
+            presentationMode: presentationMode,
+            onActivationChatEvent: onActivationChatEvent,
+            onOpenTaskDetail: onOpenTaskDetail,
+            onOpenHabitDetail: onOpenHabitDetail,
+            onOpenRecordFromCard: onOpenRecordFromCard,
+            onOpenNavigationTargetFromCard: onOpenNavigationTargetFromCard,
+            onPerformDayTaskAction: onPerformDayTaskAction,
+            onPerformDayHabitAction: onPerformDayHabitAction,
+            showsHistoryAction: true,
+            promptFocusRequestID: promptFocusRequestID,
+            storageDegradedReason: LLMDataController.isDegradedModeActive
+                ? LLMDataController.degradedModeReason ?? "unknown"
+                : nil,
+            onNavigationChromeChange: onNavigationChromeChange,
+            onComposerFocusChange: onComposerFocusChange
+        )
         .environmentObject(appManager)
         .environment(llm)
         .background(Color.lifeboard(.bgCanvas))
-        .if(useIPadSplitChatLayout) { base in
-            base.accessibilityIdentifier("home.ipad.detail.chat")
-        }
-        .if(useIPadSplitChatLayout == false) { base in
-            base.sheet(isPresented: $showChats) {
-                ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
-                    .environmentObject(appManager)
-                    #if os(iOS)
-                    .presentationDragIndicator(.hidden)
-                    .presentationDetents(layoutClass == .phone ? [.medium, .large] : [.large])
-                    .presentationBackground(Color.lifeboard(.bgElevated))
-                    .presentationCornerRadius(Theme.CornerRadius.modal)
-                    #endif
-            }
+        .sheet(isPresented: $showChats) {
+            ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
+                .environmentObject(appManager)
+                .presentationSizing(.form)
+                .presentationDragIndicator(.hidden)
+                .presentationDetents([.medium, .large])
+                .presentationBackground(Color.lifeboard(.bgElevated))
+                .presentationCornerRadius(Theme.CornerRadius.modal)
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleChatHistory)) { _ in
-            if useIPadSplitChatLayout == false {
-                showChats.toggle()
-            }
+            showChats.toggle()
         }
         .task {
             openReadmeScreenshotThreadIfNeeded()

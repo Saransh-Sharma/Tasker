@@ -2,7 +2,7 @@ import Foundation
 import Combine
 import SwiftUI
 
-public enum AddHabitKind: String, CaseIterable, Identifiable {
+public enum AddHabitKind: String, CaseIterable, Identifiable, Sendable {
     case positive
     case negative
 
@@ -10,8 +10,8 @@ public enum AddHabitKind: String, CaseIterable, Identifiable {
 
     public var displayName: String {
         switch self {
-        case .positive: return "Build"
-        case .negative: return "Quit"
+        case .positive: return String(localized: "Build")
+        case .negative: return String(localized: "Quit")
         }
     }
 
@@ -31,8 +31,8 @@ public enum AddHabitTrackingMode: String, CaseIterable, Identifiable {
 
     public var displayName: String {
         switch self {
-        case .dailyCheckIn: return "Daily check-in"
-        case .lapseOnly: return "Log lapse only"
+        case .dailyCheckIn: return String(localized: "Daily check-in")
+        case .lapseOnly: return String(localized: "Log slips only")
         }
     }
 }
@@ -48,6 +48,11 @@ public struct AddHabitPrefillTemplate: Equatable {
     public let iconSymbolName: String?
     public let reminderWindowStart: String?
     public let reminderWindowEnd: String?
+    /// A colour seed; `nil` keeps whatever the form has (or draws one).
+    public let colorHex: String?
+    /// The real target ("8 glasses", "20 min"); `nil` falls back to the
+    /// kind's default, a check-in for build habits and avoidance for quit ones.
+    public let target: HabitTarget?
 
     public init(
         title: String,
@@ -59,7 +64,9 @@ public struct AddHabitPrefillTemplate: Equatable {
         cadence: HabitCadenceDraft = .daily(),
         iconSymbolName: String? = nil,
         reminderWindowStart: String? = nil,
-        reminderWindowEnd: String? = nil
+        reminderWindowEnd: String? = nil,
+        colorHex: String? = nil,
+        target: HabitTarget? = nil
     ) {
         self.title = title
         self.notes = notes
@@ -68,6 +75,8 @@ public struct AddHabitPrefillTemplate: Equatable {
         self.kind = kind
         self.trackingMode = trackingMode
         self.cadence = cadence
+        self.colorHex = colorHex
+        self.target = target
         self.iconSymbolName = iconSymbolName
         self.reminderWindowStart = reminderWindowStart
         self.reminderWindowEnd = reminderWindowEnd
@@ -351,13 +360,13 @@ public final class AddHabitViewModel: ObservableObject {
         guard isSaving == false else { return }
         let trimmedName = habitName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedName.isEmpty == false else {
-            let error = validationError("Habit name cannot be empty.")
+            let error = validationError(String(localized: "Add a name."))
             errorMessage = error.localizedDescription
             completion(.failure(error))
             return
         }
         guard let lifeAreaID = selectedLifeAreaID else {
-            let error = validationError("Select a life area.")
+            let error = validationError(String(localized: "Choose an area."))
             errorMessage = error.localizedDescription
             completion(.failure(error))
             return
@@ -428,11 +437,11 @@ public final class AddHabitViewModel: ObservableObject {
         selectedCadence = template.cadence
         targetConfig = HabitTargetConfig(
             notes: template.notes,
-            target: template.kind == .negative ? .avoidance : .binary
+            target: template.target ?? (template.kind == .negative ? .avoidance : .binary)
         )
         reminderWindowStart = template.reminderWindowStart ?? ""
         reminderWindowEnd = template.reminderWindowEnd ?? ""
-        selectedColorHex = ""
+        selectedColorHex = template.colorHex ?? ""
         selectedIconSymbolName = nil
         if let iconSymbolName = template.iconSymbolName {
             selectedIconSymbolName = iconSymbolName
@@ -570,15 +579,15 @@ fileprivate func habitReminderWindowValidationError(start: String?, end: String?
     let normalizedStart = start?.normalizedHHmm
     let normalizedEnd = end?.normalizedHHmm
     if start != nil, normalizedStart == nil {
-        return "Reminder start must use HH:mm."
+        return String(localized: "Choose a start time.")
     }
     if end != nil, normalizedEnd == nil {
-        return "Reminder end must use HH:mm."
+        return String(localized: "Choose an end time.")
     }
     if let startMinutes = normalizedStart?.minutesSinceMidnight,
        let endMinutes = normalizedEnd?.minutesSinceMidnight,
        endMinutes <= startMinutes {
-        return "Reminder end must be after the start on the same day."
+        return String(localized: "End time must be after start.")
     }
     return nil
 }
@@ -881,377 +890,6 @@ public struct HabitDetailMutationFeedback: Equatable, Identifiable, Sendable {
     }
 }
 
-enum HabitDetailCalendarBuilder {
-    static let historyDayCount = 84
-
-    static func buildWeeks(
-        row: HabitLibraryRow,
-        marks: [HabitDayMark],
-        referenceDate: Date,
-        dayCount: Int = historyDayCount,
-        calendar: Calendar = .current
-    ) -> [HabitDetailCalendarWeek] {
-        let endDay = calendar.startOfDay(for: referenceDate)
-        let requestedStart = calendar.date(byAdding: .day, value: -(max(dayCount, 1) - 1), to: endDay) ?? endDay
-        let startDay = calendar.dateInterval(of: .weekOfYear, for: requestedStart)?.start ?? requestedStart
-        let endWeek = calendar.dateInterval(of: .weekOfYear, for: endDay)
-        let endGridDay = calendar.date(byAdding: .day, value: 6, to: endWeek?.start ?? endDay) ?? endDay
-        let totalDays = max(calendar.dateComponents([.day], from: startDay, to: endGridDay).day ?? 0, 0) + 1
-        let marksByDay = Dictionary(uniqueKeysWithValues: marks.map { mark in
-            (calendar.startOfDay(for: mark.date), mark)
-        })
-
-        let days = (0..<totalDays).compactMap { offset -> HabitDetailDayCell? in
-            guard let day = calendar.date(byAdding: .day, value: offset, to: startDay) else { return nil }
-            let dayStart = calendar.startOfDay(for: day)
-            let scheduled = occurs(on: dayStart, cadence: row.cadence, trackingMode: row.trackingMode, calendar: calendar)
-            let mark = marksByDay[dayStart]
-            let state = resolveState(
-                mark: mark,
-                day: dayStart,
-                referenceDay: endDay,
-                scheduled: scheduled
-            )
-
-            return HabitDetailDayCell(
-                date: dayStart,
-                state: state,
-                isToday: calendar.isDate(dayStart, inSameDayAs: endDay),
-                isInteractive: dayStart <= endDay && !row.isPaused && !row.isArchived
-            )
-        }
-
-        var previousMonthAnchor: Date?
-
-        return stride(from: 0, to: days.count, by: 7).compactMap { index in
-            let cells = Array(days[index..<min(index + 7, days.count)])
-            guard let firstDay = cells.first?.date else { return nil }
-            let monthAnchor = cells.first(where: {
-                calendar.component(.day, from: $0.date) == 1
-            })?.date ?? (index == 0 ? firstDay : nil)
-            let monthLabel: String?
-            if let monthAnchor {
-                if let previousMonthAnchor, calendar.isDate(monthAnchor, equalTo: previousMonthAnchor, toGranularity: .month) {
-                    monthLabel = nil
-                } else {
-                    monthLabel = monthAnchor.formatted(.dateTime.month(.wide).year())
-                    previousMonthAnchor = monthAnchor
-                }
-            } else {
-                monthLabel = nil
-            }
-
-            return HabitDetailCalendarWeek(
-                startDate: firstDay,
-                monthLabel: monthLabel,
-                cells: cells
-            )
-        }
-    }
-
-    static func buildViewState(
-        row: HabitLibraryRow,
-        marks: [HabitDayMark],
-        referenceDate: Date,
-        dayCount: Int = historyDayCount,
-        calendar: Calendar = .current
-    ) -> HabitDetailCalendarViewState {
-        let weeks = buildWeeks(
-            row: row,
-            marks: marks,
-            referenceDate: referenceDate,
-            dayCount: dayCount,
-            calendar: calendar
-        )
-        let flattenedCells = weeks.flatMap(\.cells)
-        let streakDepthByDate = streakDepthMap(for: flattenedCells, calendar: calendar)
-
-        return HabitDetailCalendarViewState(
-            helperText: helperText(for: row),
-            weeks: weeks.map { week in
-                HabitDetailCalendarWeekViewState(
-                    startDate: week.startDate,
-                    monthLabel: week.monthLabel,
-                    cells: week.cells.map { cell in
-                        let dayStart = calendar.startOfDay(for: cell.date)
-                        return HabitDetailCalendarCellViewState(
-                            cell: cell,
-                            streakDepth: streakDepthByDate[dayStart],
-                            dayNumber: String(calendar.component(.day, from: cell.date)),
-                            accessibilityLabel: fullDateFormatter.string(from: cell.date),
-                            accessibilityValue: accessibilityValue(for: cell, row: row),
-                            accessibilityHint: accessibilityHint(for: cell, row: row),
-                            accessibilityIdentifier: accessibilityIdentifier(for: cell.date)
-                        )
-                    }
-                )
-            },
-            summaryMetrics: summaryMetrics(
-                for: flattenedCells,
-                currentStreak: row.currentStreak,
-                bestStreak: row.bestStreak
-            )
-        )
-    }
-
-    static func helperText(for row: HabitLibraryRow) -> String {
-        if row.isArchived {
-            return "Archived habits are read-only."
-        }
-        if row.isPaused {
-            return "Resume this habit to update days."
-        }
-
-        switch (row.kind, row.trackingMode) {
-        case (.positive, .dailyCheckIn):
-            return "Tap a day to mark it done or skipped."
-        case (.negative, .dailyCheckIn):
-            return "Tap a day to mark stayed clean or lapsed."
-        case (.negative, .lapseOnly):
-            return "Tap a day to toggle clean or lapsed."
-        case (.positive, .lapseOnly):
-            return "Tap a day to update it."
-        }
-    }
-
-    static func accessibilityIdentifier(for date: Date) -> String {
-        "habitDetail.cell.\(accessibilityStampFormatter.string(from: date))"
-    }
-
-    static func nextMutation(
-        for row: HabitLibraryRow,
-        state: HabitDetailDayCellState
-    ) -> HabitDetailDayMutationRequest? {
-        guard !row.isPaused, !row.isArchived else { return nil }
-
-        switch (row.kind, row.trackingMode, state) {
-        case (_, _, .future):
-            return nil
-
-        case (.positive, .dailyCheckIn, .empty), (.positive, .dailyCheckIn, .notScheduled):
-            return .resolve(.complete)
-        case (.positive, .dailyCheckIn, .success):
-            return .resolve(.skip)
-        case (.positive, .dailyCheckIn, .skipped), (.positive, .dailyCheckIn, .lapsed):
-            return .reset
-
-        case (.negative, .dailyCheckIn, .empty), (.negative, .dailyCheckIn, .notScheduled):
-            return .resolve(.abstained)
-        case (.negative, .dailyCheckIn, .success):
-            return .resolve(.lapsed)
-        case (.negative, .dailyCheckIn, .skipped):
-            return .reset
-        case (.negative, .dailyCheckIn, .lapsed):
-            return .reset
-
-        case (.negative, .lapseOnly, .empty), (.negative, .lapseOnly, .notScheduled):
-            return .resolve(.lapsed)
-        case (.negative, .lapseOnly, .success):
-            return .resolve(.lapsed)
-        case (.negative, .lapseOnly, .lapsed):
-            return .resolve(.abstained)
-        case (.negative, .lapseOnly, .skipped):
-            return .reset
-
-        case (.positive, .lapseOnly, .empty), (.positive, .lapseOnly, .notScheduled):
-            return .resolve(.complete)
-        case (.positive, .lapseOnly, .success), (.positive, .lapseOnly, .skipped), (.positive, .lapseOnly, .lapsed):
-            return .reset
-        }
-    }
-
-    static func mutationFeedback(
-        for request: HabitDetailDayMutationRequest,
-        row: HabitLibraryRow,
-        date: Date,
-        calendar: Calendar = .current
-    ) -> HabitDetailMutationFeedback {
-        let stateLabel: String
-        let haptic: HabitDetailMutationFeedbackHaptic
-
-        switch request {
-        case .resolve(.complete):
-            stateLabel = "Marked complete"
-            haptic = .success
-        case .resolve(.skip):
-            stateLabel = "Marked skipped"
-            haptic = .selection
-        case .resolve(.abstained):
-            stateLabel = row.kind == .negative ? "Marked clean" : "Marked complete"
-            haptic = .success
-        case .resolve(.lapsed):
-            stateLabel = "Marked lapsed"
-            haptic = .warning
-        case .reset:
-            stateLabel = "Cleared to empty"
-            haptic = .selection
-        }
-
-        let dayLabel = calendar.startOfDay(for: date).formatted(.dateTime.month(.abbreviated).day())
-        return HabitDetailMutationFeedback(
-            message: "\(dayLabel): \(stateLabel)",
-            haptic: haptic
-        )
-    }
-
-    static func accessibilityValue(for cell: HabitDetailDayCell, row: HabitLibraryRow) -> String {
-        switch cell.state {
-        case .empty:
-            return row.kind == .negative && row.trackingMode == .dailyCheckIn ? "Open day" : "Empty"
-        case .success:
-            return row.kind == .negative ? "Stayed clean" : "Done"
-        case .skipped:
-            return "Skipped"
-        case .lapsed:
-            return row.kind == .negative ? "Lapsed" : "Missed"
-        case .notScheduled:
-            return "Not scheduled"
-        case .future:
-            return "Future day"
-        }
-    }
-
-    static func accessibilityHint(for cell: HabitDetailDayCell, row: HabitLibraryRow) -> String {
-        guard cell.isInteractive,
-              let mutation = nextMutation(for: row, state: cell.state) else { return "" }
-
-        switch mutation {
-        case .resolve(let action):
-            switch action {
-            case .complete:
-                return "Double-tap to mark done."
-            case .skip:
-                return "Double-tap to mark skipped."
-            case .abstained:
-                return "Double-tap to mark stayed clean."
-            case .lapsed:
-                return "Double-tap to mark lapsed."
-            }
-        case .reset:
-            return "Double-tap to clear this day."
-        }
-    }
-
-    private static func summaryMetrics(
-        for cells: [HabitDetailDayCell],
-        currentStreak: Int,
-        bestStreak: Int
-    ) -> HabitDetailCalendarSummaryMetrics {
-        let elapsedScheduledCells = cells.filter { cell in
-            switch cell.state {
-            case .future, .notScheduled:
-                return false
-            case .empty, .success, .skipped, .lapsed:
-                return true
-            }
-        }
-        let totalCount = elapsedScheduledCells.filter { $0.state == .success }.count
-        let scheduledElapsedCount = elapsedScheduledCells.count
-        let completionRate = scheduledElapsedCount > 0
-            ? Double(totalCount) / Double(scheduledElapsedCount)
-            : 0
-
-        return HabitDetailCalendarSummaryMetrics(
-            currentStreak: currentStreak,
-            bestStreak: bestStreak,
-            totalCount: totalCount,
-            scheduledElapsedCount: scheduledElapsedCount,
-            completionRate: completionRate
-        )
-    }
-
-    private static func resolveState(
-        mark: HabitDayMark?,
-        day: Date,
-        referenceDay: Date,
-        scheduled: Bool
-    ) -> HabitDetailDayCellState {
-        guard day <= referenceDay else { return .future }
-
-        if let mark {
-            switch mark.state {
-            case .success:
-                return .success
-            case .skipped:
-                return .skipped
-            case .failure:
-                return .lapsed
-            case .future:
-                return .future
-            case .none:
-                break
-            }
-        }
-
-        return scheduled ? .empty : .notScheduled
-    }
-
-    private static func occurs(
-        on date: Date,
-        cadence: HabitCadenceDraft,
-        trackingMode: HabitTrackingMode,
-        calendar: Calendar
-    ) -> Bool {
-        switch cadence {
-        case .daily:
-            return true
-        case .weekly(let daysOfWeek, _, _):
-            let weekday = calendar.component(.weekday, from: date)
-            if trackingMode == .lapseOnly && daysOfWeek.isEmpty {
-                return true
-            }
-            return daysOfWeek.contains(weekday)
-        case .interval(let days, _, _):
-            let epoch = calendar.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
-            let offset = calendar.dateComponents([.day], from: epoch, to: calendar.startOfDay(for: date)).day ?? 0
-            return offset.isMultiple(of: max(1, days))
-        }
-    }
-
-    private static func streakDepthMap(
-        for cells: [HabitDetailDayCell],
-        calendar: Calendar
-    ) -> [Date: Int] {
-        var streakDepthByDate: [Date: Int] = [:]
-        var streakDepth = 0
-
-        for cell in cells.sorted(by: { $0.date < $1.date }) {
-            switch cell.state {
-            case .success:
-                streakDepth = min(streakDepth + 1, 8)
-                streakDepthByDate[calendar.startOfDay(for: cell.date)] = streakDepth
-            case .skipped, .notScheduled:
-                continue
-            case .empty, .lapsed:
-                streakDepth = 0
-            case .future:
-                continue
-            }
-        }
-
-        return streakDepthByDate
-    }
-
-    private static let fullDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar.current
-        formatter.locale = Locale.current
-        formatter.timeZone = Calendar.current.timeZone
-        formatter.dateStyle = .full
-        formatter.timeStyle = .none
-        return formatter
-    }()
-
-    private static let accessibilityStampFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = Calendar.current.timeZone
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
-}
-
 @MainActor
 public final class HabitDetailViewModel: ObservableObject {
     private enum TestHooks {
@@ -1271,7 +909,7 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    private struct IconSearchCacheKey: Equatable {
+    struct IconSearchCacheKey: Equatable {
         let query: String
         let kind: AddHabitKind
         let lifeAreaID: UUID?
@@ -1298,14 +936,15 @@ public final class HabitDetailViewModel: ObservableObject {
     private let updateHabitUseCase: UpdateHabitUseCase
     private let pauseHabitUseCase: PauseHabitUseCase
     private let archiveHabitUseCase: ArchiveHabitUseCase
+    private let setHabitArchivedUseCase: SetHabitArchivedUseCase?
     private let resolveHabitOccurrenceUseCase: ResolveHabitOccurrenceUseCase
     private let resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase
     private let manageLifeAreasUseCase: ManageLifeAreasUseCase
     private let manageProjectsUseCase: ManageProjectsUseCase
-    private let iconCatalog: HabitIconCatalog
+    let iconCatalog: HabitIconCatalog
     private var hasLoadedOnce = false
     private var hasLoadedEditorSupport = false
-    private var iconOptionsCache: (key: IconSearchCacheKey, options: [HabitIconOption])?
+    var iconOptionsCache: (key: IconSearchCacheKey, options: [HabitIconOption])?
     private var pendingLoadIfNeededCompletions: [@MainActor @Sendable () -> Void] = []
     private var pendingEditorSupportCompletions: [(Bool) -> Void] = []
     private var autosaveWorkItem: DispatchWorkItem?
@@ -1324,6 +963,7 @@ public final class HabitDetailViewModel: ObservableObject {
         updateHabitUseCase: UpdateHabitUseCase,
         pauseHabitUseCase: PauseHabitUseCase,
         archiveHabitUseCase: ArchiveHabitUseCase,
+        setHabitArchivedUseCase: SetHabitArchivedUseCase? = nil,
         resolveHabitOccurrenceUseCase: ResolveHabitOccurrenceUseCase,
         resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase,
         manageLifeAreasUseCase: ManageLifeAreasUseCase,
@@ -1344,58 +984,13 @@ public final class HabitDetailViewModel: ObservableObject {
         self.updateHabitUseCase = updateHabitUseCase
         self.pauseHabitUseCase = pauseHabitUseCase
         self.archiveHabitUseCase = archiveHabitUseCase
+        self.setHabitArchivedUseCase = setHabitArchivedUseCase
         self.resolveHabitOccurrenceUseCase = resolveHabitOccurrenceUseCase
         self.resetHabitOccurrenceUseCase = resetHabitOccurrenceUseCase
         self.manageLifeAreasUseCase = manageLifeAreasUseCase
         self.manageProjectsUseCase = manageProjectsUseCase
         self.iconCatalog = iconCatalog
         PerformanceTrace.event("HabitDetailViewModelInit")
-    }
-
-    public var detailCalendarWeeks: [HabitDetailCalendarWeek] {
-        calendarViewState.weeks.map { week in
-            HabitDetailCalendarWeek(
-                startDate: week.startDate,
-                monthLabel: week.monthLabel,
-                cells: week.cells.map(\.cell)
-            )
-        }
-    }
-
-    public var detailCalendarHelperText: String {
-        calendarViewState.helperText
-    }
-
-    public var availableIconOptions: [HabitIconOption] {
-        let cacheKey = IconSearchCacheKey(
-            query: draft.iconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-            kind: draft.kind,
-            lifeAreaID: draft.lifeAreaID
-        )
-        if let iconOptionsCache, iconOptionsCache.key == cacheKey {
-            return iconOptionsCache.options
-        }
-
-        let preferredLifeAreaName = lifeAreas.first(where: { $0.id == draft.lifeAreaID })?.name
-        let options = iconCatalog.search(
-            query: draft.iconSearchQuery,
-            habitKind: draft.kind,
-            preferredLifeAreaName: preferredLifeAreaName
-        )
-        iconOptionsCache = (cacheKey, options)
-        return options
-    }
-
-    public var selectedIconOption: HabitIconOption? {
-        guard let selectedIconSymbolName = draft.selectedIconSymbolName else { return nil }
-        return iconCatalog.all.first(where: { $0.symbolName == selectedIconSymbolName })
-    }
-
-    public var canSave: Bool {
-        draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            && draft.lifeAreaID != nil
-            && editorReminderWindowValidationError == nil
-            && isSaving == false
     }
 
     public var editorReminderWindowValidationError: String? {
@@ -1590,7 +1185,7 @@ public final class HabitDetailViewModel: ObservableObject {
     public func saveChanges(completion: (@MainActor @Sendable () -> Void)? = nil) {
         normalizeDraftSelection()
         guard canSave else {
-            errorMessage = editorReminderWindowValidationError ?? "Fill in the required habit details."
+            errorMessage = editorReminderWindowValidationError ?? String(localized: "Add a name and area.")
             return
         }
 
@@ -1742,6 +1337,38 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
+    /// Whether an archived habit can be brought back from this screen.
+    public var canRestoreFromArchive: Bool {
+        row.isArchived && setHabitArchivedUseCase != nil
+    }
+
+    /// Brings an archived habit back as active; `SetHabitArchivedUseCase`
+    /// clears the pause that archiving applied.
+    public func restoreFromArchive(completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
+        guard let setHabitArchivedUseCase, isSaving == false else {
+            completion?(false)
+            return
+        }
+        isSaving = true
+        errorMessage = nil
+        setHabitArchivedUseCase.execute(id: row.habitID, isArchived: false) { [weak self] result in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                switch result {
+                case .success:
+                    self.refreshReadOnlyData {
+                        self.finishExplicitMutation()
+                        completion?(true)
+                    }
+                case .failure(let error):
+                    self.isSaving = false
+                    self.errorMessage = error.localizedDescription
+                    completion?(false)
+                }
+            }
+        }
+    }
+
     public func logLapse(completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
         guard row.trackingMode == .lapseOnly else {
             completion?(false)
@@ -1768,6 +1395,36 @@ public final class HabitDetailViewModel: ObservableObject {
             occurrenceID: nil,
             action: .lapsed,
             on: Date(),
+        ) { [weak self] result in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                switch result {
+                case .success:
+                    self.refreshReadOnlyData {
+                        self.finishExplicitMutation()
+                        completion?(true)
+                    }
+                case .failure(let error):
+                    self.isSaving = false
+                    self.errorMessage = error.localizedDescription
+                    completion?(false)
+                }
+            }
+        }
+    }
+
+    /// Undo for `logLapse`: today goes back to having no record.
+    public func undoTodayLapse(completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
+        guard isSaving == false else {
+            completion?(false)
+            return
+        }
+        isSaving = true
+        errorMessage = nil
+        resetHabitOccurrenceUseCase.execute(
+            habitID: row.habitID,
+            occurrenceID: nil,
+            on: Date()
         ) { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -1914,19 +1571,19 @@ public final class HabitDetailViewModel: ObservableObject {
         normalizeDraftSelection()
 
         guard draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
-            autosaveState = .failed("Habit title cannot be empty")
+            autosaveState = .failed(String(localized: "Add a name."))
             completeAutosaveFlushes(success: false)
             return
         }
 
         guard draft.lifeAreaID != nil else {
-            autosaveState = .failed("Select a life area")
+            autosaveState = .failed(String(localized: "Choose an area."))
             completeAutosaveFlushes(success: false)
             return
         }
 
         guard editorReminderWindowValidationError == nil else {
-            autosaveState = .failed("Fix reminder window to save")
+            autosaveState = .failed(String(localized: "Check the reminder time."))
             completeAutosaveFlushes(success: false)
             return
         }
@@ -1976,7 +1633,9 @@ public final class HabitDetailViewModel: ObservableObject {
         guard draftRevision > savedDraftRevision || autosaveRequestedAfterCurrentOperation else { return }
         performAutosave()
     }
+}
 
+extension HabitDetailViewModel {
     private func makeUpdateRequest() -> UpdateHabitRequest {
         var reviewedTargetConfig = draft.targetConfig
         reviewedTargetConfig.notes = draft.notes.nilIfBlank

@@ -168,7 +168,7 @@ public final class UniversalDictationController {
             } catch {
                 recovery = UniversalDictationRecovery(
                     phase: .failed,
-                    message: "Couldn’t finalize the last part of the transcript. What you saw is still in the composer."
+                    message: String(localized: "Couldn’t finish the transcript. Your text is kept.")
                 )
                 terminalPhase = .failed
             }
@@ -216,7 +216,7 @@ public final class UniversalDictationController {
             guard isCurrent(startGeneration) else { return }
             fail(
                 phase: .denied,
-                message: "Microphone access is off. Enable it in Settings to dictate."
+                message: String(localized: "Microphone access is off. Turn it on in Settings.")
             )
             return
         }
@@ -246,36 +246,36 @@ public final class UniversalDictationController {
                 case .localeUnsupported, .unsupportedOS:
                     fail(
                         phase: .unsupportedLocale,
-                        message: "Live transcription isn’t available for your language yet."
+                        message: String(localized: "Dictation isn’t available in your language yet.")
                     )
                 case .modelNotInstalled, .appleSpeechConsentRequired:
                     fail(
                         phase: .assetInstallFailed,
-                        message: "The on-device speech model couldn’t be installed. Try again later."
+                        message: String(localized: "Couldn’t download speech support. Try again later.")
                     )
                 default:
                     fail(
                         phase: .failed,
-                        message: "Couldn’t start dictation. Check your microphone and try again."
+                        message: String(localized: "Couldn’t start dictation. Check your microphone.")
                     )
                 }
             } catch {
                 guard isCurrent(startGeneration) else { return }
                 fail(
                     phase: .failed,
-                    message: "Couldn’t start dictation. Check your microphone and try again."
+                    message: String(localized: "Couldn’t start dictation. Check your microphone.")
                 )
             }
         } else {
             fail(
                 phase: .unsupportedLocale,
-                message: "Live voice transcription requires iOS 26."
+                message: String(localized: "Dictation needs iOS 26.")
             )
         }
         #else
         fail(
             phase: .unsupportedLocale,
-            message: "Live voice transcription isn’t available on this device."
+            message: String(localized: "Dictation isn’t available on this device.")
         )
         #endif
     }

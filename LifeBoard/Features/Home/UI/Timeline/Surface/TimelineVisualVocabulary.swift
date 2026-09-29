@@ -192,16 +192,9 @@ func timelineCapsuleHeight(for duration: TimeInterval?) -> CGFloat {
 
 enum TimelineFormatting {
     static func durationText(_ duration: TimeInterval) -> String {
+        // "45 min", "1 hr, 30 min": the app's one duration format.
         let totalMinutes = Int((duration / 60).rounded())
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        if hours > 0 && minutes > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        if hours > 0 {
-            return "\(hours)h"
-        }
-        return "\(max(minutes, 1))m"
+        return LifeBoardDuration.text(minutes: max(totalMinutes, 1))
     }
 
     static func timeRangeText(start: Date, end: Date) -> String {
@@ -305,7 +298,7 @@ func timelineMetaColor(for row: TimelineRenderableRow) -> Color {
 func timelineMetaText(for row: TimelineRenderableRow, item: TimelinePlanItem? = nil, anchor: TimelineAnchorItem? = nil) -> String {
     switch row.metadataMode {
     case .remainingTime(let minutes):
-        return "\(minutes)m remaining"
+        return String(localized: "\(minutes) min left")
     case .done:
         guard let item, let start = item.startDate, let end = item.endDate else { return "Done" }
         let durationText = TimelineFormatting.durationText(max(0, end.timeIntervalSince(start)))

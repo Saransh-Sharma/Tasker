@@ -5,6 +5,7 @@ struct LifeManagementAreaSwatchPicker: View {
     @Binding var selectedHex: String
 
     @Environment(\.lifeboardTokens) private var tokens
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var spacing: SemanticSpacingTokens { tokens.spacing }
 
@@ -18,7 +19,7 @@ struct LifeManagementAreaSwatchPicker: View {
                         systemImage: nil,
                         isSelected: lifeManagementNormalizedHex(selectedHex) == lifeManagementNormalizedHex(option.hex)
                     ) {
-                        withAnimation(LifeBoardAnimation.stateChange) {
+                        withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                             selectedHex = option.hex
                         }
                     }

@@ -14,7 +14,7 @@ extension JournalBlockValue {
     var journalBlockSnapshot: JournalBlockSnapshot {
         let kind: JournalBlockSnapshot.Kind
         switch self.kind {
-        case .text, .prompt: kind = .text
+        case .text, .prompt, .dayClose: kind = .text
         case .voice: kind = .voiceTranscript
         case .photo: kind = .photo
         case .audio: kind = .audio

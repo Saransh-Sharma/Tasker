@@ -299,7 +299,7 @@ struct TimelineCompactGapRow: View {
     var body: some View {
         Menu {
             Button(TimelineGapAction.addTask.title, action: onAddTask)
-            Button("Place inbox with Compass", action: onScheduleInbox)
+            Button("Place Inbox tasks", action: onScheduleInbox)
             Button(TimelineGapAction.dismiss.title, role: .destructive) {}
         } label: {
             HStack(alignment: .center, spacing: 0) {

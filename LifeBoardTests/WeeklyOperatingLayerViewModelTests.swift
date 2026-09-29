@@ -133,11 +133,11 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         ]
         waitForCondition("planner summary recomputed") {
             viewModel.plannerSteps.map(\.isComplete) == [true, true, true, true]
-                && viewModel.reviewSummary.compactSummary == "1 outcomes · 1 this week · 1 habits"
+                && viewModel.reviewSummary.compactSummary == "1 goal · 1 this week · 1 habit"
         }
 
         XCTAssertEqual(viewModel.plannerSteps.map(\.isComplete), [true, true, true, true])
-        XCTAssertEqual(viewModel.reviewSummary.compactSummary, "1 outcomes · 1 this week · 1 habits")
+        XCTAssertEqual(viewModel.reviewSummary.compactSummary, "1 goal · 1 this week · 1 habit")
     }
 
     @MainActor
@@ -434,7 +434,7 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             viewModel.completionSummaryText,
-            "1 done, 2 still needing a decision, 1 reflections captured."
+            "1 done · 2 to sort · 1 note"
         )
         XCTAssertEqual(viewModel.reviewSteps.map(\.isComplete), [true, true, true, false])
 
@@ -569,12 +569,12 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
             guard case .failure(let error) = result else {
                 return XCTFail("Expected missing plan failure")
             }
-            XCTAssertEqual(error.localizedDescription, "Create the weekly plan before reviewing it.")
+            XCTAssertEqual(error.localizedDescription, "Plan the week before reviewing it.")
         }
         wait(for: [completed], timeout: 1.0)
 
         XCTAssertFalse(viewModel.isSaving)
-        XCTAssertEqual(viewModel.errorMessage, "Create the weekly plan before reviewing it.")
+        XCTAssertEqual(viewModel.errorMessage, "Plan the week before reviewing it.")
     }
 
     @MainActor
@@ -623,7 +623,7 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
 
         let completed = expectation(description: "review completion finished")
         viewModel.completeReview { result in
-            XCTAssertEqual(try? result.get(), "Review saved. 1 stale item was skipped.")
+            XCTAssertEqual(try? result.get(), "Review saved. 1 change skipped.")
             completed.fulfill()
         }
         wait(for: [completed], timeout: 1.0)

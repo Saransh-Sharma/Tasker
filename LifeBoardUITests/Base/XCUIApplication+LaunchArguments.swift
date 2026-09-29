@@ -26,6 +26,9 @@ extension XCUIApplication {
         case testRoute = "-LIFEBOARD_TEST_ROUTE"
         case testDeepLink = "-LIFEBOARD_TEST_DEEP_LINK"
         case testSeedEstablishedWorkspace = "-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE"
+        /// Add Task gives a new task a deadline of today (it otherwise only
+        /// schedules), so it lands in Home's Tasks card. See AddTaskSheetView.
+        case testNewTasksDueToday = "-LIFEBOARD_TEST_NEW_TASKS_DUE_TODAY"
         case testSeedSearchWorkspace = "-LIFEBOARD_TEST_SEED_SEARCH_WORKSPACE"
         case testSeedRescueWorkspace = "-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE"
         case testSeedCompactRescueWorkspace = "-LIFEBOARD_TEST_SEED_COMPACT_RESCUE_WORKSPACE"
@@ -36,6 +39,12 @@ extension XCUIApplication {
         case testSeedHabitBoardWorkspace = "-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE"
         case testSeedQuietTrackingWorkspace = "-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE"
         case testSeedFullTimelineWorkspace = "-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE"
+        /// Two planned blocks that already ended, so Home's loop spine opens on
+        /// the Repair stage without waiting out the drift clock.
+        case testSeedDriftedPlan = "-LIFEBOARD_TEST_SEED_DRIFTED_PLAN"
+        /// DEBUG-only motion review: forces the comfort profile for this launch.
+        case comfortProfileCalm = "-LIFEBOARD_COMFORT_PROFILE=calm"
+        case comfortProfilePlayful = "-LIFEBOARD_COMFORT_PROFILE=playful"
         /// Stages the App Group pending-capture queue so the Inbox's commit and
         /// duplicate-merge paths are reachable. Pair with
         /// `testSeedEstablishedWorkspace`: one seeded capture deliberately

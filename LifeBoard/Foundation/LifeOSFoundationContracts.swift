@@ -10,7 +10,13 @@ public enum TrackLens: String, Codable, CaseIterable, Hashable, Identifiable, Se
     case history
 
     public var id: String { rawValue }
-    public var title: String { rawValue.capitalized }
+    public var title: String {
+        switch self {
+        case .today: String(localized: "Today")
+        case .areas: String(localized: "Areas")
+        case .history: String(localized: "History")
+        }
+    }
 }
 /// Insight is organized by the question a person is asking, not by database scope.
 public enum InsightsLens: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
@@ -20,7 +26,16 @@ public enum InsightsLens: String, Codable, CaseIterable, Hashable, Identifiable,
     case experience
 
     public var id: String { rawValue }
-    public var title: String { rawValue.capitalized }
+    /// "Experience" read as XP bookkeeping; the lens is the record of what got
+    /// done. The case name (and every identifier built from it) stays.
+    public var title: String {
+        switch self {
+        case .overview: String(localized: "Overview")
+        case .trends: String(localized: "Trends")
+        case .review: String(localized: "Review")
+        case .experience: String(localized: "Activity")
+        }
+    }
 }
 
 /// Presentation-neutral lifecycle shared by async controls and proposal cards.
@@ -116,11 +131,11 @@ public enum DaypartSelection: String, Codable, CaseIterable, Hashable, Sendable 
 
     public var title: String {
         switch self {
-        case .automatic: return "Auto"
-        case .morning: return "Morning"
-        case .afternoon: return "Afternoon"
-        case .evening: return "Evening"
-        case .night: return "Night"
+        case .automatic: return String(localized: "Auto")
+        case .morning: return String(localized: "Morning")
+        case .afternoon: return String(localized: "Afternoon")
+        case .evening: return String(localized: "Evening")
+        case .night: return String(localized: "Night")
         }
     }
 
@@ -148,7 +163,13 @@ public enum DashboardDensity: String, Codable, CaseIterable, Hashable, Identifia
     /// `Identifiable` for the same reason `InsightsLens` is: it feeds
     /// `LensPicker`, which is generic over identifiable values.
     public var id: String { rawValue }
-    public var title: String { rawValue.capitalized }
+    public var title: String {
+        switch self {
+        case .minimal: String(localized: "Minimal")
+        case .balanced: String(localized: "Balanced")
+        case .rich: String(localized: "Rich")
+        }
+    }
 }
 
 /// Life context a card's content belongs to. Mirrors planning's own context so
@@ -487,19 +508,19 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
     /// the thing it opens.
     public var actionTitle: String {
         switch route {
-        case .goal: "View goal"
-        case .goals: "View goals"
-        case .routine: "View routine"
-        case .routines: "View routines"
-        case .lifeMoments(.moment): "View moment"
-        case .lifeMoments(.add): "Add moment"
-        case .lifeMoments(.overview): "View moments"
-        case .nutrition(.logMeal): "Log meal"
-        case .weeklyPlanningWorkspace(.overdue): "Plan the overdue work"
-        case .weeklyPlanningWorkspace(.week): "Shape this week"
-        case .backlog: "Open the backlog"
-        case .planDay: "Open today's plan"
-        default: "Open \(destination.title)"
+        case .goal: String(localized: "View goal")
+        case .goals: String(localized: "View goals")
+        case .routine: String(localized: "View routine")
+        case .routines: String(localized: "View routines")
+        case .lifeMoments(.moment): String(localized: "View moment")
+        case .lifeMoments(.add): String(localized: "Add moment")
+        case .lifeMoments(.overview): String(localized: "View moments")
+        case .nutrition(.logMeal): String(localized: "Log meal")
+        case .weeklyPlanningWorkspace(.overdue): String(localized: "Plan earlier tasks")
+        case .weeklyPlanningWorkspace(.week): String(localized: "Plan week")
+        case .backlog: String(localized: "Open Backlog")
+        case .planDay: String(localized: "Open today’s plan")
+        default: String(localized: "Open \(destination.title)")
         }
     }
 
@@ -1151,9 +1172,9 @@ public enum UniversalInputSurfaceAction: String, Codable, Hashable, Sendable {
     /// Compact label for the interpretation chip row.
     public var interpretationLabel: String {
         switch self {
-        case .showTodaySchedule: return "Open · Meetings"
-        case .dayRescue: return "Open · Day Rescue"
-        case .overdueRescue: return "Open · Overdue Rescue"
+        case .showTodaySchedule: return String(localized: "Open · Meetings")
+        case .dayRescue: return String(localized: "Open · Day rescue")
+        case .overdueRescue: return String(localized: "Open · Rescue")
         }
     }
 
@@ -1344,6 +1365,9 @@ public final class LifeThreadComposerCoordinator {
     /// Tracks whether the last input came from typing or dictation so the
     /// intent resolver can use input source as a classification signal.
     public private(set) var lastInputSource: LifeThreadIntentInput.InputSource = .typed
+    /// A focus request waiting for the composer's field to be on screen. See
+    /// `requestFocus()`.
+    public private(set) var hasPendingFocusRequest = false
 
     public init(destination: Destination = .home) {
         self.destination = destination
@@ -1358,57 +1382,52 @@ public final class LifeThreadComposerCoordinator {
         self.destination = destination
     }
 
-    public func focus() { state = .focused }
-    public func showTools() { state = .tools }
-    public func beginRecording() { state = .recording }
-    public func beginScanning() { state = .scanning }
+    public func focus() { transition(to: .focused) }
+    /// Losing keyboard focus returns a plain focused composer to rest; tools,
+    /// review, working and dictation states own their own exits.
+    public func blur() { if state == .focused { transition(to: .resting) } }
+    public func showTools() { transition(to: .tools) }
+    public func beginRecording() { transition(to: .recording) }
+    public func beginScanning() { transition(to: .scanning) }
 
     public func beginDictating() {
         lastInputSource = .dictated
-        state = .dictating
+        transition(to: .dictating)
     }
 
     public func finishDictating(composedText: String) {
         draftText = composedText
         lastInputSource = .dictated
-        state = .focused
+        transition(to: .focused)
     }
 
     public func cancelDictating(restoringText: String) {
         draftText = restoringText
         lastInputSource = .typed
-        state = hasDraft ? .focused : .resting
-    }
-
-    public func beginWorking(_ truthfulLabel: String) {
-        recovery = nil
-        recoveryMessage = nil
-        interpretation = nil
-        clarification = nil
-        workingLabel = truthfulLabel
-        state = .working
+        returnToEditing()
     }
 
     public func offerRecovery(_ action: LifeThreadComposerRecovery, message: String) {
-        workingLabel = nil
         recovery = action
         recoveryMessage = message
-        state = hasDraft ? .focused : .resting
+        returnToEditing()
     }
 
     public func review(_ preview: TransactionPreview) {
         self.preview = preview
-        workingLabel = nil
-        state = .review
+        transition(to: .review)
     }
 
     // MARK: - Interpretation
 
+    /// A live preview of the draft. It never replaces work that is already
+    /// running: a preview that lands after Send would re-offer the draft that
+    /// is being saved, and re-enable the controls that prevent saving it twice.
     public func showInterpretation(_ interp: ComposerInterpretation) {
+        guard state != .working else { return }
         interpretation = interp
         clarification = nil
-        workingLabel = nil
-        state = .review
+        transition(to: .review)
     }
 
     public func showInterpretation(for draft: LifeThreadCaptureDraft) {
@@ -1426,7 +1445,7 @@ public final class LifeThreadComposerCoordinator {
         }
         // Name what Send will do: "Add task" saves in place, "Task" opens the editor.
         let label = draft.kind == .task && QuickCaptureSavePolicy.canSaveInPlace(draft.seed)
-            ? "Add task"
+            ? String(localized: "Add task")
             : draft.kind.title
         showInterpretation(.init(
             label: label,
@@ -1450,7 +1469,7 @@ public final class LifeThreadComposerCoordinator {
             chips.append(.init(label: routeLabel))
         }
         showInterpretation(.init(
-            label: "Open · \(label)",
+            label: String(localized: "Open · \(label)"),
             systemImage: "arrow.up.forward.app",
             chips: chips,
             resolution: .navigation(navigation)
@@ -1470,9 +1489,13 @@ public final class LifeThreadComposerCoordinator {
         ))
     }
 
+    /// Clears the preview row. While a submit is working the lock stays: every
+    /// draft edit calls this, and the Return key's own edit used to hand the
+    /// composer back mid-save.
     public func dismissInterpretation() {
         interpretation = nil
-        state = hasDraft ? .focused : .resting
+        guard state != .working else { return }
+        returnToEditing()
     }
 
     // MARK: - Clarification
@@ -1480,27 +1503,27 @@ public final class LifeThreadComposerCoordinator {
     public func showClarification(_ request: ClarificationRequest) {
         clarification = request
         interpretation = nil
-        workingLabel = nil
-        state = .review
+        transition(to: .review)
     }
 
+    /// Same lock rule as `dismissInterpretation()`.
     public func dismissClarification() {
         clarification = nil
-        state = hasDraft ? .focused : .resting
+        guard state != .working else { return }
+        returnToEditing()
     }
 
     public func settle() {
         preview = nil
-        workingLabel = nil
         recovery = nil
         recoveryMessage = nil
         interpretation = nil
         clarification = nil
-        state = .settling
+        transition(to: .settling)
     }
 
     public func finishSettling() {
-        state = hasDraft ? .focused : .resting
+        returnToEditing()
     }
 
     public func addAttachment(_ attachment: LifeThreadAttachmentDraft) {
@@ -1516,13 +1539,73 @@ public final class LifeThreadComposerCoordinator {
         draftText = ""
         attachments = []
         preview = nil
-        workingLabel = nil
         recovery = nil
         recoveryMessage = nil
         interpretation = nil
         clarification = nil
         lastInputSource = .typed
-        state = .resting
+        transition(to: .resting)
+    }
+}
+
+/// The submit lock, the ways out of each state, and the deferred focus
+/// request: the rules that keep the composer from stranding anyone.
+///
+/// An extension rather than more of the class body for the file-size gate's
+/// `largest` metric; `private` members here are still the class's own.
+extension LifeThreadComposerCoordinator {
+    /// The tray's own exit, and what a root change or push does to an open tray.
+    public func closeTools() { if state == .tools { returnToEditing() } }
+    /// A scan that was cancelled, failed, or handed its text over.
+    public func endScanning() { if state == .scanning { returnToEditing() } }
+
+    /// Back to the draft once an outcome has been handled: focused if there is
+    /// a draft to keep working on, otherwise at rest.
+    public func returnToEditing() { transition(to: hasDraft ? .focused : .resting) }
+
+    /// Asks the composer's field to take keyboard focus as soon as it is on
+    /// screen. SwiftUI drops a focus write made before the field exists — from
+    /// the orb, a Home card, or a sheet that is still dismissing — so the
+    /// request waits here until the field consumes it.
+    public func requestFocus() { hasPendingFocusRequest = true }
+
+    /// Returns whether a focus request was waiting, and clears it.
+    public func consumeFocusRequest() -> Bool {
+        guard hasPendingFocusRequest else { return false }
+        hasPendingFocusRequest = false
+        return true
+    }
+
+    /// Takes the submit lock. Returns false, changing nothing, while a submit
+    /// is already working: a second Send, a Return, or an accepted row must
+    /// never start the same work twice (`DESIGN.md`: running prevents
+    /// duplicate submission).
+    @discardableResult
+    public func beginWorking(_ truthfulLabel: String) -> Bool {
+        guard state != .working else { return false }
+        recovery = nil
+        recoveryMessage = nil
+        interpretation = nil
+        clarification = nil
+        workingLabel = truthfulLabel
+        transition(to: .working)
+        return true
+    }
+
+    /// Renames work that is already running, such as a submit that resolved
+    /// into a task being saved in place.
+    public func relabelWorking(_ truthfulLabel: String) {
+        guard state == .working else { return }
+        workingLabel = truthfulLabel
+    }
+
+    /// Every state change goes through here, so the working label cannot
+    /// outlive the work: it used to survive `focus()` and
+    /// `dismissInterpretation()` and left "Understanding what you need" on
+    /// screen after the composer had moved on.
+    private func transition(to next: LifeThreadComposerState) {
+        state = next
+        if next != .working { workingLabel = nil }
     }
 }
 
@@ -1581,7 +1664,11 @@ public struct InterpretationChip: Identifiable, Hashable, Sendable {
         }
         if let duration = parsed.duration {
             let minutes = max(1, Int((duration / 60).rounded()))
-            let label = minutes < 60 ? "\(minutes)m" : (minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(minutes % 60)m")
+            let label = minutes < 60
+                ? String(localized: "\(minutes) min")
+                : (minutes % 60 == 0
+                    ? String(localized: "\(minutes / 60) hr")
+                    : String(localized: "\(minutes / 60) hr \(minutes % 60) min"))
             chips.append(.init(label: label, systemImage: "timer", sourceTexts: texts(.duration)))
         }
         if let repeatPattern = parsed.repeatPattern {
@@ -1607,9 +1694,9 @@ public struct InterpretationChip: Identifiable, Hashable, Sendable {
     static func whenLabel(_ date: Date, isAllDay: Bool, now: Date, calendar: Calendar) -> String {
         let day: String
         if calendar.isDate(date, inSameDayAs: now) {
-            day = "Today"
+            day = String(localized: "Today")
         } else if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(date, inSameDayAs: tomorrow) {
-            day = "Tomorrow"
+            day = String(localized: "Tomorrow")
         } else if let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: date)).day, (0..<7).contains(days) {
             day = date.formatted(.dateTime.weekday(.abbreviated))
         } else {
@@ -1829,16 +1916,16 @@ public enum CaptureKind: String, Codable, CaseIterable, Hashable, Sendable {
 
     public var title: String {
         switch self {
-        case .task: return "Task"
-        case .habit: return "Habit"
-        case .journal: return "Journal"
-        case .note: return "Note"
-        case .trackerEntry: return "Tracker Entry"
-        case .mood: return "Mood + Energy"
-        case .hydration: return "Hydration"
-        case .medicationEvent: return "Medication Event"
-        case .routineRun: return "Routine Run"
-        case .timeBlock: return "Time Block"
+        case .task: return String(localized: "Task")
+        case .habit: return String(localized: "Habit")
+        case .journal: return String(localized: "Journal")
+        case .note: return String(localized: "Note")
+        case .trackerEntry: return String(localized: "Tracker entry")
+        case .mood: return String(localized: "Mood & energy")
+        case .hydration: return String(localized: "Water")
+        case .medicationEvent: return String(localized: "Medication")
+        case .routineRun: return String(localized: "Routine")
+        case .timeBlock: return String(localized: "Time block")
         }
     }
 
@@ -2161,6 +2248,9 @@ public enum FoundationPreferenceKey {
 @MainActor
 @Observable
 public final class PresentationPreferences {
+    /// `-LIFEBOARD_COMFORT_PROFILE=<calm|balanced|playful>`; DEBUG only.
+    public static let comfortProfileLaunchArgumentPrefix = "-LIFEBOARD_COMFORT_PROFILE="
+
     public var comfortProfile: ComfortProfile {
         didSet { defaults.set(comfortProfile.rawValue, forKey: FoundationPreferenceKey.comfortProfile) }
     }
@@ -2217,6 +2307,16 @@ public final class PresentationPreferences {
         // ever seen by someone who went looking for the setting.
         comfortProfile = resolvedDefaults.string(forKey: FoundationPreferenceKey.comfortProfile)
             .flatMap(ComfortProfile.init(rawValue:)) ?? .playful
+        #if DEBUG
+        // Review harness only: `-LIFEBOARD_COMFORT_PROFILE=calm|balanced|playful`
+        // sets the profile at launch so motion can be recorded per profile
+        // without touching Settings. Like `-LIFEBOARD_VISUAL_APPEARANCE=`, it
+        // is a fixture, so it wins over the stored preference for that launch.
+        if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(Self.comfortProfileLaunchArgumentPrefix) }),
+           let forced = ComfortProfile(rawValue: String(argument.dropFirst(Self.comfortProfileLaunchArgumentPrefix.count)).lowercased()) {
+            comfortProfile = forced
+        }
+        #endif
         daypartSelection = resolvedSelection
         renderingTier = resolvedDefaults.string(forKey: FoundationPreferenceKey.renderingTier)
             .flatMap(AmbientRenderingTier.init(rawValue:)) ?? .ambient2D
@@ -2648,7 +2748,7 @@ public extension HomeCardSource {
             return HomeCardSnapshot(
                 availability: .redacted,
                 title: definition.title,
-                detail: "Hidden until you allow this information on Home.",
+                detail: String(localized: "Hidden. Turn on in Home settings."),
                 updatedAt: context.date
             )
         }
@@ -2746,69 +2846,6 @@ public actor HomeCardProviderRegistry {
         let interval = PerformanceOperation.homeCardSnapshot.begin()
         defer { PerformanceOperation.homeCardSnapshot.end(interval) }
         return await provider.resolution(context: context)
-    }
-}
-
-
-public enum SmartPromotionKind: String, Codable, Sendable {
-    case safetySensitiveCare
-    case activeContext
-    case overdueOrSoon
-    case timedRoutine
-    case contextualSuggestion
-
-    public var priority: Int {
-        switch self {
-        case .safetySensitiveCare: return 500
-        case .activeContext: return 400
-        case .overdueOrSoon: return 300
-        case .timedRoutine: return 200
-        case .contextualSuggestion: return 100
-        }
-    }
-}
-
-public struct SmartPromotionCandidate: Codable, Hashable, Identifiable, Sendable {
-    public let id: UUID
-    public let kind: SmartPromotionKind
-    public let title: String
-    public let reason: String
-    public let isUserStartedActiveFocus: Bool
-    public let expiresAt: Date?
-
-    public init(
-        id: UUID,
-        kind: SmartPromotionKind,
-        title: String,
-        reason: String,
-        isUserStartedActiveFocus: Bool = false,
-        expiresAt: Date? = nil
-    ) {
-        self.id = id
-        self.kind = kind
-        self.title = title
-        self.reason = reason
-        self.isUserStartedActiveFocus = isUserStartedActiveFocus
-        self.expiresAt = expiresAt
-    }
-}
-
-public protocol SmartHomePolicy: Sendable {
-    func decide(candidates: [SmartPromotionCandidate], now: Date) -> SmartPromotionCandidate?
-}
-
-public struct DeterministicSmartHomePolicy: SmartHomePolicy {
-    public init() {}
-
-    public func decide(candidates: [SmartPromotionCandidate], now: Date) -> SmartPromotionCandidate? {
-        let available = candidates.filter { $0.expiresAt.map { $0 > now } ?? true }
-        if let activeFocus = available.first(where: \.isUserStartedActiveFocus) {
-            return activeFocus
-        }
-        return available.sorted {
-            if $0.kind.priority != $1.kind.priority { return $0.kind.priority > $1.kind.priority }
-            return $0.id.uuidString < $1.id.uuidString
-        }.first
     }
 }
 

@@ -76,3 +76,11 @@ screenshots/app-store-raw-*/
 *.njsproj
 *.sln
 *.sw?
+
+# LifeBoard teaser film renders
+marketing/teaser/out/
+marketing/teaser/node_modules/
+
+# SwiftPM resolution is canonical at LifeBoard.xcworkspace/xcshareddata/swiftpm.
+LifeBoard.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+marketing/assets/*/

@@ -17,15 +17,15 @@ struct PlanMinimumViableDayCard: View {
                     .font(.headline)
                 if let refresh = store.scenarioRefreshResult {
                     Label(
-                        "Plan changed · review this refreshed proposal",
+                        "Plan changed · Preview updated",
                         systemImage: "arrow.triangle.2.circlepath"
                     )
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                     .accessibilityIdentifier("plan.minimumViableDay.refreshed")
                     DisclosureGroup("What changed") {
                         ForEach(refresh.previousDiff) { change in
-                            Text("\(change.title): \(change.after ?? "No selection")")
+                            Text("\(change.title): \(change.after ?? String(localized: "None"))")
                                 .font(.caption)
                                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
@@ -52,17 +52,25 @@ struct PlanMinimumViableDayCard: View {
                         Haptic.pick.play()
                         store.dismissScenario()
                     }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         .accessibilityHint(
                             scenario.source == .minimumViableDay ? "Keeps the current day" : "Keeps the current plan"
                         )
                     Button(
-                        Self.applyTitle(scenario.source)
+                        store.isApplyingScenario ? "Applying…" : Self.applyTitle(scenario.source)
                     ) {
-                        Task { await store.applyPendingScenario() }
+                        Task {
+                            await store.applyPendingScenario()
+                            // Persistence first: the haptic follows a change
+                            // that actually landed.
+                            if store.pendingScenario == nil, store.errorMessage == nil {
+                                Haptic.commit.play()
+                            }
+                        }
                     }
                     .buttonStyle(.lifeBoardPrimaryCompact)
-                    .disabled(scenario.isReadyToApply == false)
+                    // Busy while applying, so a second tap cannot apply twice.
+                    .disabled(scenario.isReadyToApply == false || store.isApplyingScenario)
                 }
             }
             .foundationClayCard()
@@ -71,26 +79,26 @@ struct PlanMinimumViableDayCard: View {
             Button {
                 store.previewMinimumViableDay()
             } label: {
-                Label("Shape a Minimum Viable Day", systemImage: "leaf")
+                Label("Plan a lighter day", systemImage: "leaf")
                     .frame(minHeight: 44)
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            .accessibilityHint("Previews essential care, one achievable outcome, and protected rest before changing the plan")
+            .accessibilityHint("Shows a preview first")
             .accessibilityIdentifier("plan.minimumViableDay")
         }
     }
 
     private static func title(_ source: PlanningScenarioSource) -> String {
         switch source {
-        case .minimumViableDay: "Minimum Viable Day"
-        case .repair: "Plan repair preview"
-        case .multiItemReschedule: "Reschedule preview"
-        case .manual: "Plan preview"
+        case .minimumViableDay: String(localized: "Lighter day")
+        case .repair: String(localized: "Repair preview")
+        case .multiItemReschedule: String(localized: "Reschedule preview")
+        case .manual: String(localized: "Plan preview")
         // Plan can render a day-close scenario if one is ever handed to it, but
         // it never builds one — Close the Day owns that surface.
-        case .dayClose: "Close the day preview"
-        case .dayOpen: "Today's shape"
+        case .dayClose: String(localized: "Close the day")
+        case .dayOpen: String(localized: "Start the day")
         }
     }
 
@@ -107,12 +115,12 @@ struct PlanMinimumViableDayCard: View {
 
     private static func applyTitle(_ source: PlanningScenarioSource) -> String {
         switch source {
-        case .minimumViableDay: "Apply reduced day"
-        case .repair: "Apply repair"
-        case .multiItemReschedule: "Apply reschedule"
-        case .manual: "Apply changes"
-        case .dayClose: "Close the day"
-        case .dayOpen: "Start today"
+        case .minimumViableDay: String(localized: "Apply lighter day")
+        case .repair: String(localized: "Apply repair")
+        case .multiItemReschedule: String(localized: "Apply reschedule")
+        case .manual: String(localized: "Apply changes")
+        case .dayClose: String(localized: "Close the day")
+        case .dayOpen: String(localized: "Start the day")
         }
     }
 
@@ -120,7 +128,7 @@ struct PlanMinimumViableDayCard: View {
         let readyTasks = snapshot.unscheduledTasks.filter(\.dependenciesReady)
         let selected = store.minimumViableDaySelection
         return VStack(alignment: .leading, spacing: 8) {
-            Text("Complete the three-part day")
+            Text("Pick 3 parts")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             HStack(spacing: 8) {
@@ -136,10 +144,10 @@ struct PlanMinimumViableDayCard: View {
                         }
                     }
                 } label: {
-                    Label("Essential care", systemImage: "heart")
+                    Label("Care", systemImage: "heart")
                         .frame(minHeight: 44)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
 
                 Menu {
                     ForEach(readyTasks.filter { $0.id != selected.careTaskID }) { task in
@@ -150,10 +158,10 @@ struct PlanMinimumViableDayCard: View {
                         }
                     }
                 } label: {
-                    Label("One outcome", systemImage: "scope")
+                    Label("Outcome", systemImage: "scope")
                         .frame(minHeight: 44)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
             }
             Menu {
                 ForEach(snapshot.freeWindows.filter { $0.duration >= 15 * 60 }) { window in
@@ -164,10 +172,10 @@ struct PlanMinimumViableDayCard: View {
                     }
                 }
             } label: {
-                Label("Protected rest", systemImage: "moon.zzz")
+                Label("Rest", systemImage: "moon.zzz")
                     .frame(minHeight: 44)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.lifeBoardChip)
         }
         .accessibilityIdentifier("plan.minimumViableDay.chooser")
     }

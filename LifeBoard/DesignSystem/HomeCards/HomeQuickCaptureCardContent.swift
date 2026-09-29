@@ -8,7 +8,7 @@ struct HomeQuickCaptureCardContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HomeWidgetTitle("Capture", symbol: "plus", palette: palette)
+            HomeWidgetTitle(String(localized: "Capture"), symbol: "plus", palette: palette)
                 .accessibilityIdentifier("home.widget.quickCapture")
                 .homeCardEvidence("capture.title", role: "title", copy: "Capture", typography: .init(role: "headline", points: 17, weight: "semibold", alignment: "leading"))
             LazyVGrid(columns: columns, spacing: 8) {

@@ -21,10 +21,10 @@ public struct EncryptionService {
 
         public var errorDescription: String? {
             switch self {
-            case .invalidData: return "Data is invalid or corrupted."
-            case .invalidPassword: return "Incorrect password."
-            case .decryptionFailed: return "Failed to decrypt. Check your password."
-            case .invalidFileFormat: return "This file is not a valid encrypted journal backup."
+            case .invalidData: return String(localized: "Couldn’t read this backup.")
+            case .invalidPassword: return String(localized: "Wrong password.")
+            case .decryptionFailed: return String(localized: "Couldn’t unlock this backup. Check the password.")
+            case .invalidFileFormat: return String(localized: "This isn’t a journal backup.")
             }
         }
     }

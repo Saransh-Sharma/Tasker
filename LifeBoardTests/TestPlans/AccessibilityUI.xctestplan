@@ -1,0 +1,68 @@
+{
+  "configurations" : [
+    {
+      "id" : "2D715888-9542-4DB9-A649-152ED3402974",
+      "name" : "Default accessibility",
+      "options" : {
+        "environmentVariableEntries" : [
+          { "key" : "LIFEBOARD_ACCESSIBILITY_MATRIX", "value" : "default" }
+        ]
+      }
+    },
+    {
+      "id" : "4BF416EE-93D8-4C2E-8C59-92AB3C520A96",
+      "name" : "Accessibility XXXL",
+      "options" : {
+        "environmentVariableEntries" : [
+          { "key" : "LIFEBOARD_ACCESSIBILITY_MATRIX", "value" : "accessibilityXXXL" }
+        ]
+      }
+    },
+    {
+      "id" : "0B1A593D-8898-4292-BB81-A236F631B49A",
+      "name" : "Reduced motion and transparency",
+      "options" : {
+        "environmentVariableEntries" : [
+          { "key" : "LIFEBOARD_ACCESSIBILITY_MATRIX", "value" : "reducedMotionTransparency" }
+        ]
+      }
+    },
+    {
+      "id" : "B4CE9C2D-C77A-4E72-89DE-FD0067ABCA9F",
+      "name" : "Bold high contrast",
+      "options" : {
+        "environmentVariableEntries" : [
+          { "key" : "LIFEBOARD_ACCESSIBILITY_MATRIX", "value" : "boldHighContrast" }
+        ]
+      }
+    },
+    {
+      "id" : "32F6E778-A38B-431A-B439-7817A3C54153",
+      "name" : "VoiceOver and Voice Control",
+      "options" : {
+        "environmentVariableEntries" : [
+          { "key" : "LIFEBOARD_ACCESSIBILITY_MATRIX", "value" : "assistiveInteraction" }
+        ]
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:LifeBoard.xcodeproj",
+      "identifier" : "753EFC992445A24500A739E3",
+      "name" : "LifeBoard"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:LifeBoard.xcodeproj",
+        "identifier" : "753EFCBA2445A24800A739E3",
+        "name" : "LifeBoardUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

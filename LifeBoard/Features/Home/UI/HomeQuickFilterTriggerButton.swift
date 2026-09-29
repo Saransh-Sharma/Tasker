@@ -39,7 +39,7 @@ public struct HomeQuickFilterTriggerButton: View {
 
     public var body: some View {
         Button(action: {
-            HapticFeedback.light()
+            Haptic.pick.play()
             onTap()
         }) {
             HStack(spacing: spacing.s8) {
@@ -86,7 +86,6 @@ public struct HomeQuickFilterTriggerButton: View {
         }
         .lifeboardPressFeedback()
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(isOpen ? "Double tap to close filters" : "Double tap to open filters")
     }
 
     // MARK: - Private

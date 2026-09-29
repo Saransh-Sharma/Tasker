@@ -6,12 +6,12 @@ enum EvaChiefOfStaffGuideContent {
             EvaChiefOfStaffGuideSection(
                 id: "how_eva_helps",
                 icon: "sparkles",
-                title: "How \(identity.displayName) helps",
-                body: "\(identity.displayName) is your private, on-device chief of staff. They read your current task context, summarize what matters, help you decide what to do next, and propose changes before anything is applied.",
+                title: String(localized: "How \(identity.displayName) helps"),
+                body: String(localized: "Ask \(identity.displayName) to plan your day, break down a task, or move things around. \(identity.displayName) sees your tasks, habits, and calendar."),
                 prompts: [
                     guidePrompt(
                         id: "how_is_my_day",
-                        title: "How is my day?",
+                        title: String(localized: "How is my day?"),
                         submissionText: "How is my day looking today?"
                     )
                 ]
@@ -19,17 +19,17 @@ enum EvaChiefOfStaffGuideContent {
             EvaChiefOfStaffGuideSection(
                 id: "command_your_day",
                 icon: "sun.max",
-                title: "Command your day",
-                body: "\(identity.askAction) for a quick operating brief, a focus recommendation, or a recovery view when overdue work is crowding the day.",
+                title: String(localized: "Your day"),
+                body: String(localized: "\(identity.askAction) what to do first or what’s left from earlier."),
                 prompts: [
                     guidePrompt(
                         id: "focus_first",
-                        title: "Focus first",
+                        title: String(localized: "What’s first?"),
                         submissionText: "What should I focus on first today?"
                     ),
                     guidePrompt(
                         id: "recover_overdue",
-                        title: "Recover overdue",
+                        title: String(localized: "Review earlier tasks"),
                         submissionText: "Show me what is overdue and what I should recover first."
                     )
                 ]
@@ -37,12 +37,12 @@ enum EvaChiefOfStaffGuideContent {
             EvaChiefOfStaffGuideSection(
                 id: "plan_and_repair",
                 icon: "arrow.triangle.2.circlepath",
-                title: "Plan and repair",
-                body: "Use \(identity.displayName) when the day needs structure. They can turn your existing tasks and habits into a realistic plan, then explain what should move, wait, or stay protected.",
+                title: String(localized: "Plan your day"),
+                body: String(localized: "\(identity.displayName) builds a plan from your tasks and habits."),
                 prompts: [
                     guidePrompt(
                         id: "plan_today_existing",
-                        title: "Plan today",
+                        title: String(localized: "Plan today"),
                         submissionText: "Help me plan today around my existing tasks and habits."
                     )
                 ]
@@ -50,32 +50,32 @@ enum EvaChiefOfStaffGuideContent {
             EvaChiefOfStaffGuideSection(
                 id: "reschedule_open_tasks",
                 icon: "calendar.badge.clock",
-                title: "Reschedule open tasks",
-                body: "\(identity.askAction) to carry unfinished work to another day, shift scheduled tasks, or rebuild the order. \(identity.displayName) shows review cards before applying changes.",
+                title: String(localized: "Reschedule open tasks"),
+                body: String(localized: "Move unfinished tasks to another day. \(identity.displayName) shows review cards first."),
                 prompts: [
                     guidePrompt(
                         id: "reschedule_unfinished_tasks",
-                        title: "Reschedule unfinished tasks",
+                        title: String(localized: "Reschedule unfinished tasks"),
                         submissionText: "Reschedule my unfinished tasks"
                     ),
                     guidePrompt(
                         id: "carry_today_to_tomorrow",
-                        title: "Carry today to tomorrow",
+                        title: String(localized: "Move to Tomorrow"),
                         submissionText: "Move all my unfinished tasks from today to tomorrow"
                     ),
                     guidePrompt(
                         id: "push_by_20_minutes",
-                        title: "Push by 20 minutes",
+                        title: String(localized: "Delay 20 min"),
                         submissionText: "Move all my unfinished tasks from today forward by 20 minutes"
                     ),
                     guidePrompt(
                         id: "start_tomorrow_morning",
-                        title: "Start tomorrow morning",
+                        title: String(localized: "Start tomorrow morning"),
                         submissionText: "Move my open tasks to tomorrow morning"
                     ),
                     guidePrompt(
                         id: "overdue_to_today",
-                        title: "Overdue to today",
+                        title: String(localized: "Earlier tasks to Today"),
                         submissionText: "Move overdue tasks to today"
                     )
                 ]
@@ -83,12 +83,12 @@ enum EvaChiefOfStaffGuideContent {
             EvaChiefOfStaffGuideSection(
                 id: "break_work_down",
                 icon: "checklist",
-                title: "Break work down",
-                body: "Bring \(identity.displayName) a vague priority, messy note, or large task. Ask for next steps so the first action is obvious instead of another decision.",
+                title: String(localized: "Break work down"),
+                body: String(localized: "Give \(identity.displayName) a big task to turn into next steps."),
                 prompts: [
                     guidePrompt(
                         id: "break_top_priority",
-                        title: "Break down priority",
+                        title: String(localized: "Break down priority"),
                         submissionText: "Help me break down my top priority into next steps."
                     )
                 ]
@@ -96,8 +96,8 @@ enum EvaChiefOfStaffGuideContent {
             EvaChiefOfStaffGuideSection(
                 id: "structured_context",
                 icon: "command",
-                title: "Use structured context",
-                body: "Type commands when you want \(identity.displayName) to pull a specific slice of your system. Commands like /today, /week, /project, /area, /recent, and /overdue can also pin context into the current chat.",
+                title: String(localized: "Commands"),
+                body: String(localized: "Type / for commands like /today, /week, or /project."),
                 prompts: [
                     guidePrompt(id: "slash_today", title: "/today", submissionText: "/today", style: .slashCommand),
                     guidePrompt(id: "slash_week", title: "/week", submissionText: "/week", style: .slashCommand),
@@ -108,12 +108,12 @@ enum EvaChiefOfStaffGuideContent {
             EvaChiefOfStaffGuideSection(
                 id: "review_before_apply",
                 icon: "checkmark.shield",
-                title: "Review before apply",
-                body: "For task changes, \(identity.displayName) should show proposal cards first. You choose what to apply, use selected apply for safe batches, and undo where the applied action supports it.",
+                title: String(localized: "Review changes"),
+                body: String(localized: "\(identity.displayName) shows changes as cards first. Apply what you want."),
                 prompts: [
                     guidePrompt(
                         id: "plan_today_for_review",
-                        title: "Make a reviewable plan",
+                        title: String(localized: "Draft a plan"),
                         submissionText: "Help me plan today around my existing tasks and habits."
                     )
                 ]
@@ -143,31 +143,31 @@ enum EvaChiefOfStaffGuideContent {
             homePromptChip(
                 id: "home_how_is_my_day",
                 icon: "sparkles",
-                title: "How is my day?",
+                title: String(localized: "How is my day?"),
                 submissionText: "How is my day looking today?"
             ),
             homePromptChip(
                 id: "home_plan_today",
                 icon: "arrow.triangle.2.circlepath",
-                title: "Plan today",
+                title: String(localized: "Plan today"),
                 submissionText: "Help me plan today around my existing tasks and habits."
             ),
             homePromptChip(
                 id: "home_recover_overdue",
                 icon: "sun.max",
-                title: "Recover overdue",
+                title: String(localized: "Review earlier tasks"),
                 submissionText: "Show me what is overdue and what I should recover first."
             ),
             homePromptChip(
                 id: "home_carry_todays_overdues_to_tomorrow",
                 icon: "calendar.badge.clock",
-                title: "Carry today's overdues to tomorrow",
+                title: String(localized: "Earlier tasks to Tomorrow"),
                 submissionText: "Move today's overdue tasks to tomorrow."
             ),
             homePromptChip(
                 id: "home_overdue_today_first_then_rest",
                 icon: "calendar.badge.clock",
-                title: "Overdue today first and then the rest",
+                title: String(localized: "Earlier tasks first"),
                 submissionText: "Plan today with overdue tasks first, then the rest."
             )
         ]

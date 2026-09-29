@@ -181,7 +181,7 @@ final class EvaAppleIdentityService: NSObject {
         #if targetEnvironment(macCatalyst)
         let result = try await AppTransaction.shared
         guard case .verified = result else {
-            throw EvaProviderError.unavailable(String(localized: "This Mac's App Store transaction could not be verified."))
+            throw EvaProviderError.unavailable(String(localized: "Couldn’t verify this Mac’s App Store purchase."))
         }
         return result.jwsRepresentation
         #else
@@ -190,7 +190,7 @@ final class EvaAppleIdentityService: NSObject {
     }
 
     private func authorize(_ prepared: PreparedSignIn) async throws -> ASAuthorizationAppleIDCredential {
-        guard continuation == nil else { throw EvaProviderError.unavailable(String(localized: "Apple sign-in is already in progress.")) }
+        guard continuation == nil else { throw EvaProviderError.unavailable(String(localized: "Sign in with Apple is already open.")) }
         // Resolve the anchor before presenting rather than inside the delegate
         // callback: the protocol method cannot throw, and a missing window scene
         // is a recoverable condition, not grounds for trapping the process.

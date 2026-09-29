@@ -181,7 +181,7 @@ private struct SignalValue: View {
         case .unavailable:
             quiet("Unavailable")
         case .failed:
-            Text("Didn't load")
+            Text("Didn’t load")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
         }
@@ -222,7 +222,7 @@ private extension SignalReading {
         case .noRecord: "Nothing recorded"
         case .denied: "Not shared"
         case .unavailable: "Unavailable"
-        case .failed: "Didn't load"
+        case .failed: "Didn’t load"
         }
     }
 }

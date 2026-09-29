@@ -374,8 +374,8 @@ enum EvaSessionPersistenceError: Error, LocalizedError, CustomNSError, Equatable
 
     var errorDescription: String? {
         switch self {
-        case .corrupt: String(localized: "Cloud EVA’s saved session could not be read. Try again.")
-        case .unsupportedSchema: String(localized: "This Cloud EVA session needs a newer app version.")
+        case .corrupt: String(localized: "Couldn’t read the saved cloud session. Try again.")
+        case .unsupportedSchema: String(localized: "Update LifeBoard to use this cloud session.")
         }
     }
 
@@ -440,7 +440,7 @@ enum EvaSecureStorageOperation: String, CaseIterable, Equatable, Sendable {
 
 struct EvaSecureStorageError: Error, LocalizedError, CustomNSError, Equatable, Sendable {
     static let errorDomain = "app.getlifeboard.eva-cloud.secure-storage"
-    static let userFacingDescription = "Cloud EVA couldn’t access secure storage. Unlock this device and try again. Your saved session is retained."
+    static let userFacingDescription = String(localized: "Couldn’t open secure storage. Unlock this device and try again.")
 
     let operation: EvaSecureStorageOperation
     let status: OSStatus

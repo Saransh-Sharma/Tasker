@@ -98,7 +98,7 @@ public enum MinimumViableDayScenarioBuilder {
                 .saveTimeBlock(
                     before: nil,
                     after: InternalTimeBlock(
-                        title: "Protected rest",
+                        title: String(localized: "Rest"),
                         startAt: window.startAt,
                         endAt: window.startAt.addingTimeInterval(min(30 * 60, window.duration)),
                         planningContext: .personal,
@@ -129,23 +129,23 @@ public enum MinimumViableDayScenarioBuilder {
             proposedMutations: taskMutations + [restMutation].compactMap { $0 },
             diff: [
                 PlanningScenarioDiff(
-                    title: "Keep essential care",
-                    after: care?.title ?? "No care item was inferred"
+                    title: String(localized: "Care"),
+                    after: care?.title ?? String(localized: "None found")
                 ),
                 PlanningScenarioDiff(
-                    title: "Choose one achievable outcome",
-                    after: outcome?.title ?? "No short ready task was found"
+                    title: String(localized: "Outcome"),
+                    after: outcome?.title ?? String(localized: "None found")
                 ),
                 PlanningScenarioDiff(
-                    title: "Protect rest",
-                    after: restMutation == nil ? "No reliable opening was available" : "30 minutes or the available window"
+                    title: String(localized: "Rest"),
+                    after: restMutation == nil ? String(localized: "No free time") : String(localized: "Up to 30 min")
                 )
             ],
             preview: preview,
             validationIssues: [
-                care == nil ? "Choose one essential-care item." : nil,
-                outcome == nil ? "Choose one achievable outcome." : nil,
-                restMutation == nil ? "Choose a protected-rest window." : nil
+                care == nil ? String(localized: "Pick a care task.") : nil,
+                outcome == nil ? String(localized: "Pick an outcome.") : nil,
+                restMutation == nil ? String(localized: "Pick a rest time.") : nil
             ].compactMap { $0 },
             createdAt: now
         )
@@ -484,25 +484,25 @@ public struct DeterministicFocusRankingService: FocusRankingService {
     ) -> [FocusRankReason] {
         var reasons: [FocusRankReason] = []
         if candidate.commitmentLevel == .mustDo {
-            reasons.append(.init(component: .priority, text: "Marked Must Do for this plan."))
+            reasons.append(.init(component: .priority, text: String(localized: "Marked must do.")))
         }
         if (components[.urgency] ?? 0) >= 20 {
-            reasons.append(.init(component: .urgency, text: "Its deadline needs attention soon."))
+            reasons.append(.init(component: .urgency, text: String(localized: "Due soon.")))
         }
         if (components[.freeWindowFit] ?? 0) >= 15 {
-            reasons.append(.init(component: .freeWindowFit, text: "It fits the current free window."))
+            reasons.append(.init(component: .freeWindowFit, text: String(localized: "Fits your free time.")))
         }
         if (components[.energyFit] ?? 0) >= 10 {
-            reasons.append(.init(component: .energyFit, text: "It matches the available energy."))
+            reasons.append(.init(component: .energyFit, text: String(localized: "Matches your energy.")))
         }
         if candidate.alignsWithWeeklyOutcome {
-            reasons.append(.init(component: .weeklyOutcomeAlignment, text: "It advances a weekly outcome."))
+            reasons.append(.init(component: .weeklyOutcomeAlignment, text: String(localized: "Part of a weekly goal.")))
         }
         if estimateMissing {
-            reasons.append(.init(component: .durationFit, text: "Duration fit is neutral until an estimate is added."))
+            reasons.append(.init(component: .durationFit, text: String(localized: "No estimate yet.")))
         }
         if reasons.count < 2 {
-            reasons.append(.init(component: .dependencyReadiness, text: "Its dependencies are ready."))
+            reasons.append(.init(component: .dependencyReadiness, text: String(localized: "Ready to start.")))
         }
         return Array(reasons.prefix(3))
     }
@@ -564,7 +564,7 @@ public struct DeterministicPlanRepairService: PlanRepairService {
                 taskID: drifted.taskID,
                 timeBlockID: block.id,
                 actions: [.resume, .moveLaterToday, .moveToAnotherDay, .split, .`defer`, .leaveUnchanged, .askEva],
-                explanation: "This planned block has passed without a completion receipt.",
+                explanation: String(localized: "This time block has passed."),
                 createdAt: now
             ))
         }
@@ -575,7 +575,7 @@ public struct DeterministicPlanRepairService: PlanRepairService {
                 taskID: nil,
                 timeBlockID: nil,
                 actions: [.moveToAnotherDay, .split, .`defer`, .leaveUnchanged, .askEva],
-                explanation: "Known estimates exceed usable capacity.",
+                explanation: String(localized: "More planned than time."),
                 createdAt: now
             ))
         }
@@ -686,18 +686,27 @@ public actor FocusCompletionReceiptEventStream {
 /// synchronization. Callers can preserve legacy presentation models without
 /// preserving a legacy persistence writer.
 public actor FocusSessionCommands {
+    /// Names a session for the Dynamic Island and the notification fallback.
+    /// `nil` falls back to "Focus session". The activity's title is an
+    /// immutable attribute, so it has to be right the first time the activity
+    /// is requested, which happens here on `start`, not in the Plan store.
+    public typealias TitleResolver = @Sendable (FocusSessionV2) async -> String?
+
     private let repository: any FocusExecutionCoordinator
     private let companionStore: FocusSessionCompanionStore
+    private let titleResolver: TitleResolver?
     public let completionEvents: FocusCompletionReceiptEventStream
 
     public init(
         repository: any FocusExecutionCoordinator,
         companionStore: FocusSessionCompanionStore = .shared,
-        completionEvents: FocusCompletionReceiptEventStream = .init()
+        completionEvents: FocusCompletionReceiptEventStream = .init(),
+        titleResolver: TitleResolver? = nil
     ) {
         self.repository = repository
         self.companionStore = companionStore
         self.completionEvents = completionEvents
+        self.titleResolver = titleResolver
     }
 
     public func activeRecovery() async throws -> FocusSessionRecovery? {
@@ -874,67 +883,14 @@ public actor FocusSessionCommands {
         )
     }
 
-    private func receipt(for session: FocusSessionV2, id: UUID) throws -> FocusExecutionReceipt {
-        guard let endedAt = session.endedAt, let outcome = session.outcome else {
-            throw FocusSessionCommandError.sessionAlreadyEnded(session.id)
-        }
-        return .init(
-            id: id,
-            sessionID: session.id,
-            taskID: session.taskID,
-            timeBlockID: session.timeBlockID,
-            targetDuration: session.targetDuration,
-            actualFocusedDuration: session.focusedDuration(at: endedAt),
-            interruptionCount: session.interruptionCount,
-            outcome: outcome,
-            energyAfter: session.energyAfter,
-            reflection: session.reflection,
-            startedAt: session.startedAt,
-            endedAt: endedAt
-        )
-    }
-
     private func synchronizePresentation(_ session: FocusSessionV2) async {
-        let liveActivitiesAvailable = await FocusLiveActivityCoordinator.shared.synchronize(session: session)
+        let title = await Self.presentationTitle(for: session, companion: try? await companionStore.companion(sessionID: session.id), resolver: titleResolver)
+        let liveActivitiesAvailable = await FocusLiveActivityCoordinator.shared.synchronize(session: session, title: title)
         await FocusNotificationFallbackCoordinator.shared.synchronize(
             session: session,
-            title: "Focus session",
+            title: title,
             liveActivitiesAvailable: liveActivitiesAvailable
         )
-    }
-}
-
-/// XP is a downstream projection of a durable canonical completion receipt.
-/// Gamification's existing session-key idempotency makes replay safe.
-public final class FocusCompletionXPSubscriber: @unchecked Sendable {
-    private var observationTask: Task<Void, Never>?
-
-    public init(
-        events: FocusCompletionReceiptEventStream,
-        engine: GamificationService
-    ) {
-        observationTask = Task {
-            let stream = await events.stream()
-            for await receipt in stream {
-                let context = XPEventContext(
-                    category: .focus,
-                    source: .manual,
-                    taskID: receipt.taskID,
-                    sessionID: receipt.sessionID,
-                    completedAt: receipt.endedAt,
-                    focusDurationSeconds: Int(receipt.actualFocusedDuration.rounded())
-                )
-                _ = await withCheckedContinuation { continuation in
-                    engine.recordEvent(context: context) { result in
-                        continuation.resume(returning: result)
-                    }
-                }
-            }
-        }
-    }
-
-    deinit {
-        observationTask?.cancel()
     }
 }
 

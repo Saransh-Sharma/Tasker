@@ -49,18 +49,15 @@ public struct EventKitCalendarChooserSheet: View {
                 LazyVStack(alignment: .leading, spacing: spacing.s16) {
                     if service.snapshot.authorizationStatus.isAuthorizedForRead == false {
                         chooserStateCard(
-                            title: String(localized: "Calendar access required"),
-                            message: String(localized: "Grant calendar access before choosing sources for schedule insights.")
+                            title: String(localized: "Calendar access is off"),
+                            message: String(localized: "Allow access in Settings to choose calendars.")
                         )
                     } else if isInitialLoadingStateVisible {
-                        chooserStateCard(
-                            title: String(localized: "Loading calendars"),
-                            message: String(localized: "Fetching readable calendars for this workspace.")
-                        )
+                        chooserStateCard(title: String(localized: "Loading…"))
                     } else if sections.isEmpty {
                         chooserStateCard(
-                            title: String(localized: "No calendars available"),
-                            message: String(localized: "No readable calendars were found right now.")
+                            title: String(localized: "No calendars"),
+                            message: String(localized: "Add one in the Calendar app.")
                         )
                     } else {
                         ForEach(sections) { section in
@@ -77,7 +74,7 @@ public struct EventKitCalendarChooserSheet: View {
                             }
                         }
                         if requiresAtLeastOneSelection && selectedCalendarIDs.isEmpty {
-                            Text(String(localized: "Choose at least one calendar to continue."))
+                            Text(String(localized: "Choose at least one calendar."))
                                 .font(.lifeboard(.caption1))
                                 .foregroundStyle(Color.lifeboard.statusWarning)
                                 .accessibilityIdentifier("schedule.chooser.validation")
@@ -114,15 +111,17 @@ public struct EventKitCalendarChooserSheet: View {
         }
     }
 
-    private func chooserStateCard(title: String, message: String) -> some View {
+    private func chooserStateCard(title: String, message: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text(title)
                 .font(.lifeboard(.sectionTitle))
                 .foregroundStyle(Color.lifeboard.textPrimary)
 
-            Text(message)
-                .font(.lifeboard(.callout))
-                .foregroundStyle(Color.lifeboard.textSecondary)
+            if let message {
+                Text(message)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+            }
         }
         .padding(spacing.s12)
         .background(

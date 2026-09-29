@@ -14,19 +14,19 @@ struct TimeOfDayHeaderAsset: Equatable {
 
         var greeting: String {
             switch self {
-            case .morning: return "GOOD MORNING"
-            case .afternoon: return "GOOD AFTERNOON"
-            case .evening: return "GOOD EVENING"
-            case .night: return "TONIGHT"
+            case .morning: return String(localized: "Good morning")
+            case .afternoon: return String(localized: "Good afternoon")
+            case .evening: return String(localized: "Good evening")
+            case .night: return String(localized: "Tonight")
             }
         }
 
         var assistantTitle: String {
             switch self {
-            case .morning: return "Use this morning well"
-            case .afternoon: return "Protect the next block"
-            case .evening: return "Evening buffer"
-            case .night: return "Wind down gently"
+            case .morning: return String(localized: "This morning")
+            case .afternoon: return String(localized: "This afternoon")
+            case .evening: return String(localized: "This evening")
+            case .night: return String(localized: "Tonight")
             }
         }
 
@@ -162,12 +162,17 @@ struct HeaderTimeContext: Equatable {
         case navy
         case light
 
+        // The header art is the same picture in both appearances, so its ink is
+        // fixed too. `textInverse` flipped to dark cocoa in dark appearance and
+        // put dark titles, controls and glass on the dark sky art.
+        private static var scenicInk: Color { Color(SemanticColorTokens.foundationOnScenicDark) }
+
         var titleColor: Color {
             switch self {
             case .navy:
                 return Color(lifeboardHex: "#071B52")
             case .light:
-                return Color.lifeboard(.textInverse)
+                return Self.scenicInk
             }
         }
 
@@ -176,25 +181,25 @@ struct HeaderTimeContext: Equatable {
             case .navy:
                 return Color(lifeboardHex: "#071B52")
             case .light:
-                return Color.lifeboard(.textInverse)
+                return Self.scenicInk
             }
         }
 
         var glassFill: Color {
             switch self {
             case .navy:
-                return Color.lifeboard(.textInverse).opacity(0.58)
+                return Self.scenicInk.opacity(0.58)
             case .light:
-                return Color.lifeboard(.textInverse).opacity(0.20)
+                return Self.scenicInk.opacity(0.20)
             }
         }
 
         var glassStroke: Color {
             switch self {
             case .navy:
-                return Color.lifeboard(.textInverse).opacity(0.72)
+                return Self.scenicInk.opacity(0.72)
             case .light:
-                return Color.lifeboard(.textInverse).opacity(0.52)
+                return Self.scenicInk.opacity(0.52)
             }
         }
     }
@@ -238,13 +243,13 @@ struct HeaderTimeContext: Equatable {
         let dayDelta = calendar.dateComponents([.day], from: currentDay, to: selectedDay).day
 
         if dayDelta == 0 {
-            return "Today"
+            return String(localized: "Today")
         }
         if dayDelta == 1 {
-            return "Tomorrow"
+            return String(localized: "Tomorrow")
         }
         if dayDelta == -1 {
-            return "Yesterday"
+            return String(localized: "Yesterday")
         }
         let weekday = weekdayTitle(for: selectedDate, calendar: calendar)
         if calendar.component(.year, from: selectedDate) == calendar.component(.year, from: now) {
@@ -272,39 +277,25 @@ struct HeaderTimeContext: Equatable {
         now: Date = Date()
     ) -> (title: String, subtitle: String) {
         let title = period.assistantTitle
+        // No subtitle when there is no free time to report: the title stands
+        // alone rather than filling the line with advice.
         guard let gapStart else {
-            return (title, "Choose one light next step.")
+            return (title, "")
         }
         let targetEnd = gapEnd ?? gapStart
         let interval = max(0, targetEnd.timeIntervalSince(max(now, gapStart)))
         let duration = conciseDuration(for: interval)
         if duration.isEmpty {
-            return (title, "Choose one light next step.")
+            return (title, "")
         }
-        switch period {
-        case .morning:
-            return (title, "A \(duration) opening is ready.")
-        case .afternoon:
-            return (title, "Use the next \(duration) intentionally.")
-        case .evening:
-            return (title, "Keep the next \(duration) calm.")
-        case .night:
-            return (title, "Keep the next \(duration) quiet.")
-        }
+        return (title, String(localized: "\(duration) free"))
     }
 
+    /// "45 min", "1 hr, 30 min", or empty outside 15 min–4 hr.
     private static func conciseDuration(for interval: TimeInterval) -> String {
         let minutes = Int((interval / 60).rounded())
         guard minutes >= 15, minutes <= 240 else { return "" }
-        if minutes < 60 {
-            return "\(minutes)m"
-        }
-        let hours = minutes / 60
-        let remainder = minutes % 60
-        if remainder == 0 {
-            return "\(hours)h"
-        }
-        return "\(hours)h \(remainder)m"
+        return LifeBoardDuration.text(minutes: minutes)
     }
 
     private static func foregroundStyle(for asset: TimeOfDayHeaderAsset) -> ForegroundStyle {

@@ -1069,7 +1069,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertEqual(gaps.first?.headline, "Open time")
         XCTAssertEqual(gaps[1].emphasis, .prepWindow)
         XCTAssertEqual(gaps.last?.emphasis, .quietWindow)
-        XCTAssertEqual(gaps.last?.headline, "Evening buffer")
+        XCTAssertEqual(gaps.last?.headline, "Before bed")
     }
 
     func testHomeTimelineSnapshotRendersPreWakeItemsAsTimelineRowsAndSuppressesOvernightPrompts() {
@@ -1739,7 +1739,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let badges = CalendarPresentation.badges(for: event)
 
-        XCTAssertEqual(badges.map(\.title), ["All Day", "Declined", "Canceled"])
+        XCTAssertEqual(badges.map(\.title), ["All day", "Declined", "Canceled"])
     }
 
     private func makeHomeViewModel(

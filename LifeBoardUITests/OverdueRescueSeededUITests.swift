@@ -42,7 +42,7 @@ final class OverdueRescueSeededUITests: BaseUITest {
         XCTAssertTrue(rescuePage.card(id: Seed.moveID).waitForExistence(timeout: 6), "Move-later seed card should become active after first decision.")
         rescuePage.tap(rescuePage.moveLaterButton)
 
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Snackbar.action("undo")].waitForExistence(timeout: 5), "Move Later should expose snackbar Undo.")
+        XCTAssertTrue(rescuePage.snackbarUndoButton.waitForExistence(timeout: 5), "Move Later should expose snackbar Undo.")
         rescuePage.tap(rescuePage.snackbarUndoButton)
 
         XCTAssertTrue(rescuePage.card(id: Seed.moveID).waitForExistence(timeout: 6), "Undo should restore the moved rescue card.")

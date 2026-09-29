@@ -116,9 +116,9 @@ public extension GenerateProductivityReportUseCase {
         public var errorDescription: String? {
             switch self {
             case .dataError(let error):
-                return "Data error: \(error.localizedDescription)"
+                return String(localized: "Couldn’t load report. \(error.localizedDescription)")
             case .invalidPeriod:
-                return "Invalid report period"
+                return String(localized: "Couldn’t load report. Invalid dates.")
             }
         }
     }

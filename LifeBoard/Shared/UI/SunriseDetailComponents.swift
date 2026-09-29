@@ -44,16 +44,16 @@ struct AutosaveWhisper: View {
                 .accessibilityLabel(label)
             }
         }
-        .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange, value: visible)
+        .lifeBoardMotion(.localState, value: visible)
         .onChange(of: state) { _, newValue in handle(newValue) }
         .onAppear { handle(state) }
     }
 
     private var label: String {
         switch state {
-        case .idle, .debouncing, .saving: return "Saving…"
-        case .saved: return "Saved"
-        case .failed: return "Couldn't save"
+        case .idle, .debouncing, .saving: return String(localized: "Saving…")
+        case .saved: return String(localized: "Saved")
+        case .failed: return String(localized: "Couldn’t save")
         }
     }
 
@@ -177,7 +177,7 @@ struct DetailDisclosureCard<Content: View>: View {
             accentColor: isExpanded ? Color.lifeboard.accentPrimary : Color.lifeboard.accentSecondary,
             level: isExpanded ? .e1 : .e0
         )
-        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
+        .lifeBoardMotion(.localState, value: isExpanded)
     }
 }
 
@@ -213,7 +213,7 @@ struct DetailCapsuleButtonStyle: ButtonStyle {
             )
             .contentShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(LifeBoardAnimation.press, value: configuration.isPressed)
+            .lifeBoardMotion(.press, value: configuration.isPressed)
     }
 }
 
@@ -256,7 +256,7 @@ struct CalmSummaryChip: View {
 
     var body: some View {
         Button(action: {
-            HapticFeedback.selection()
+            Haptic.pick.play()
             action()
         }) {
             HStack(spacing: 8) {
@@ -281,7 +281,7 @@ struct CalmSummaryChip: View {
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(LifeBoardAnimation.stateChange, value: state)
+        .lifeBoardMotion(.localState, value: state)
         .accessibilityLabel("\(label)")
     }
 
@@ -366,7 +366,7 @@ struct CalmInlineReveal<Content: View>: View {
             RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous)
                 .stroke(ClayColorTokens.glassBorder, lineWidth: 1)
         )
-        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
+        .lifeBoardMotion(.localState, value: isExpanded)
     }
 }
 

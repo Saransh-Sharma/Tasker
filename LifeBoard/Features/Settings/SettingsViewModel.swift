@@ -156,7 +156,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     var notificationEnabledSummary: String {
-        "\(enabledNotificationCount) on"
+        String(localized: "\(enabledNotificationCount) on")
     }
 
     var notificationStatusLabel: String {
@@ -166,12 +166,12 @@ final class SettingsViewModel: ObservableObject, Sendable {
         case .notDetermined:
             return notificationEnabledSummary
         case .denied:
-            return "Off"
+            return String(localized: "Off")
         }
     }
 
     var notificationStatusDetail: String {
-        "Control reminders, summaries, and quiet hours."
+        String(localized: "Reminders and summaries")
     }
 
     var notificationTone: SettingsTone {
@@ -181,7 +181,8 @@ final class SettingsViewModel: ObservableObject, Sendable {
         case .notDetermined:
             return .warning
         case .denied:
-            return .danger
+            // Off is a choice the person made, not an error.
+            return .neutral
         }
     }
 
@@ -193,11 +194,11 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     var memorySummary: String {
-        memoryItemCount == 0 ? "Memory empty" : "\(memoryItemCount) saved"
+        memoryItemCount == 0 ? String(localized: "No memories") : String(localized: "\(memoryItemCount) saved")
     }
 
     var aiAssistantSummary: String {
-        currentModelDisplayName.isEmpty ? "No model" : currentModelDisplayName
+        currentModelDisplayName.isEmpty ? String(localized: "No model") : currentModelDisplayName
     }
 
     var selectedMascotID: AssistantMascotID {
@@ -213,45 +214,37 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     var modelsSummary: String {
-        currentModelDisplayName.isEmpty ? "System default" : currentModelDisplayName
+        currentModelDisplayName.isEmpty ? String(localized: "Default") : currentModelDisplayName
     }
 
     var aiAssistantDetail: String {
-        "Manage chat behavior, models, memory, and privacy."
+        String(localized: "Chat, models, memory and privacy")
     }
 
     var setupStatusLabel: String {
-        hasCustomizedAppearance ? "Customized" : "Default"
+        hasCustomizedAppearance ? String(localized: "Customized") : String(localized: "Default")
     }
 
     var setupStatusDetail: String {
         hasCustomizedAppearance
-            ? "Appearance effects are customized."
-            : "Using the default appearance settings."
+            ? String(localized: "Custom appearance")
+            : String(localized: "Default appearance")
     }
 
     var onboardingSummary: String {
-        "Replay onboarding any time."
+        String(localized: "Replay setup")
     }
 
     var dueSoonLeadTimeSummary: String {
         let minutes = preferences.dueSoonLeadMinutes
 
         switch minutes {
-        case 15:
-            return "15 min"
-        case 30:
-            return "30 min"
-        case 45:
-            return "45 min"
         case 60:
-            return "1 hr"
-        case 90:
-            return "1.5 hr"
+            return String(localized: "1 hr")
         case 120:
-            return "2 hr"
+            return String(localized: "2 hr")
         default:
-            return "\(minutes) min"
+            return String(localized: "\(minutes) min")
         }
     }
 
@@ -264,7 +257,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     var quietHoursSummary: String {
-        guard preferences.quietHoursEnabled else { return "Off" }
+        guard preferences.quietHoursEnabled else { return String(localized: "Off") }
         return "\(formattedTime(hour: preferences.quietHoursStartHour, minute: preferences.quietHoursStartMinute))–\(formattedTime(hour: preferences.quietHoursEndHour, minute: preferences.quietHoursEndMinute))"
     }
 
@@ -281,7 +274,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
             minute: workspacePreferences.timelineWindDownMinute
         )
         guard timelineWindDownOccursNextDay else { return time }
-        return "\(time) next day"
+        return String(localized: "\(time) next day")
     }
 
     var weekStartsOnSummary: String {
@@ -290,51 +283,51 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     var calendarStatusSummary: String {
         if calendarAuthorizationStatus.isAuthorizedForRead == false {
-            return String(localized: "Permission required")
+            return String(localized: "Off")
         }
         if selectedCalendarIDs.isEmpty {
-            return String(localized: "No calendars selected")
+            return String(localized: "None")
         }
         return String(localized: "\(selectedCalendarIDs.count) selected")
     }
 
     var calendarStatusDetail: String {
-        String(localized: "Read-only schedule context for Home and task fit hints.")
+        String(localized: "Read-only. Events show next to your tasks.")
     }
 
     var calendarAccessStatusLabel: String {
         let accessAction = calendarIntegrationService.accessAction(for: calendarAuthorizationStatus)
         switch calendarAuthorizationStatus {
         case .authorized:
-            return String(localized: "Connected")
+            return String(localized: "On")
         case .notDetermined:
-            return String(localized: "Not requested")
+            return String(localized: "Off")
         case .denied:
             switch accessAction {
             case .requestPermission:
-                return String(localized: "Needs access")
+                return String(localized: "Off")
             default:
-                return String(localized: "Denied")
+                return String(localized: "Open Settings")
             }
         case .restricted:
             return String(localized: "Restricted")
         case .writeOnly:
-            return String(localized: "Needs full access")
+            return String(localized: "Limited")
         }
     }
 
     var calendarAccessSubtitle: String {
         switch calendarAuthorizationStatus {
         case .authorized:
-            return String(localized: "LifeBoard can read your selected calendars.")
+            return ""
         case .notDetermined:
-            return String(localized: "Allow full calendar access to show schedule context in Home.")
+            return String(localized: "Shows events next to your tasks.")
         case .denied:
-            return String(localized: "Calendar access is denied by iOS. Enable LifeBoard in Settings > Privacy & Security > Calendars. If LifeBoard is missing, restart iPhone, reinstall LifeBoard, or reset Location & Privacy.")
+            return String(localized: "Calendar access is off. Turn it on in Settings.")
         case .restricted:
-            return String(localized: "Calendar access is restricted by system policy.")
+            return String(localized: "Blocked by a device restriction.")
         case .writeOnly:
-            return String(localized: "LifeBoard has write-only access. Tap to request full calendar access.")
+            return String(localized: "Needs full access to read events.")
         }
     }
 
@@ -380,26 +373,26 @@ final class SettingsViewModel: ObservableObject, Sendable {
     func togglePreference(_ keyPath: WritableKeyPath<NotificationPreferences, Bool>, value: Bool) {
         preferences[keyPath: keyPath] = value
         saveAndReconcile()
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     func updateDueSoonLeadMinutes(_ minutes: Int) {
         preferences.dueSoonLeadMinutes = minutes
         saveAndReconcile()
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     func updateWeekStartsOn(_ weekday: Weekday) {
         guard workspacePreferences.weekStartsOn != weekday else { return }
         workspacePreferences.weekStartsOn = weekday
         saveWorkspacePreferences()
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     func setDecorativeButtonEffectsEnabled(_ isEnabled: Bool) {
         decorativeButtonEffectsEnabled = isEnabled
         V2FeatureFlags.userDecorativeCTAEffectsEnabled = isEnabled
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     // MARK: - Permission
@@ -425,7 +418,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     func requestNotificationPermission() {
         guard let service = notificationService else { return }
-        HapticFeedback.medium()
+        Haptic.lift.play()
         switch permissionStatus {
         case .denied:
             guard let url = URL(string: UIApplication.openSettingsURLString),
@@ -457,7 +450,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     func restartOnboarding() {
-        HapticFeedback.medium()
+        Haptic.lift.play()
         if let onRestartOnboarding {
             onRestartOnboarding()
         } else {
@@ -475,7 +468,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     func requestCalendarPermission(completion: @escaping @MainActor @Sendable (Bool) -> Void) {
-        HapticFeedback.medium()
+        Haptic.lift.play()
         _ = calendarIntegrationService.performAccessAction(
             source: "settings",
             openSystemSettings: openSystemSettings
@@ -490,7 +483,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     #if DEBUG
     func copyCalendarDiagnostics() {
         UIPasteboard.general.string = CalendarDiagnosticsStore.shared.recentEntriesText(limit: 20)
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
     #endif
 
@@ -512,7 +505,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
             "generated_at=\(ISO8601DateFormatter().string(from: Date()))"
         ]
         UIPasteboard.general.string = lines.joined(separator: "\n")
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     func openCalendarChooser() {
@@ -552,14 +545,14 @@ final class SettingsViewModel: ObservableObject, Sendable {
         showCalendarEventsInTimeline = show
         workspacePreferences.showCalendarEventsInTimeline = show
         saveWorkspacePreferences()
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     func selectChiefOfStaffMascot(_ id: AssistantMascotID) {
         guard workspacePreferences.chiefOfStaffMascotID != id else { return }
         workspacePreferences.chiefOfStaffMascotID = id
         saveWorkspacePreferences()
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     func commitTimelineAnchorDraft(_ draft: TimelineAnchorDraft) {
@@ -618,30 +611,5 @@ final class SettingsViewModel: ObservableObject, Sendable {
         comps.hour = hour
         comps.minute = minute
         return Calendar.current.date(from: comps) ?? Date()
-    }
-
-    func formattedTime(hour: Int, minute: Int) -> String {
-        var comps = DateComponents()
-        comps.hour = hour
-        comps.minute = minute
-        let date = Calendar.current.date(from: comps) ?? Date()
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        return formatter.string(from: date)
-    }
-
-    private var timelineWindDownOccursNextDay: Bool {
-        minutesSinceMidnight(
-            hour: workspacePreferences.timelineWindDownHour,
-            minute: workspacePreferences.timelineWindDownMinute
-        ) <= minutesSinceMidnight(
-            hour: workspacePreferences.timelineRiseAndShineHour,
-            minute: workspacePreferences.timelineRiseAndShineMinute
-        )
-    }
-
-    private func minutesSinceMidnight(hour: Int, minute: Int) -> Int {
-        max(0, min(23, hour)) * 60 + max(0, min(59, minute))
     }
 }

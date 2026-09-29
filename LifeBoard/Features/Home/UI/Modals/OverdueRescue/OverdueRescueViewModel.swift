@@ -353,7 +353,7 @@ enum OverdueRescueMoveLaterResolver {
     ) -> String {
         guard let date else { return "Move later" }
         if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now) {
-            return "Move tomorrow"
+            return DecisionDestination.tomorrow.title
         }
         let today = calendar.startOfDay(for: now)
         let days = calendar.dateComponents([.day], from: today, to: calendar.startOfDay(for: date)).day ?? 0

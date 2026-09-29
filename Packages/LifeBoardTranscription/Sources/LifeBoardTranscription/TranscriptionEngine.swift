@@ -61,19 +61,19 @@ public enum TranscriptionError: LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .recognizerUnavailable:
-            return "On-device transcription is not available on this device."
+            return String(localized: "Transcription isn’t available on this device.")
         case .noFinalResult:
-            return "No final transcription result."
+            return String(localized: "Couldn’t transcribe the recording.")
         case .appleSpeechConsentRequired:
-            return "On-device transcription needs your consent. Your recording is saved, and you can type manually."
+            return String(localized: "Transcription needs permission. Your recording is saved.")
         case .modelNotInstalled:
-            return "The on-device speech model could not be installed. Your recording is saved—try transcription again later."
+            return String(localized: "Couldn’t download the speech model. Your recording is saved.")
         case .localeUnsupported:
-            return "Transcription isn't available for your language yet. Your recording is saved."
+            return String(localized: "Transcription doesn’t support your language. Your recording is saved.")
         case .unsupportedOS:
-            return "On-device transcription requires iOS 26 or later."
+            return String(localized: "Transcription needs iOS 26 or later.")
         case .audioConversionFailed:
-            return "The recording couldn't be converted for on-device transcription."
+            return String(localized: "Couldn’t read the recording for transcription.")
         }
     }
 }

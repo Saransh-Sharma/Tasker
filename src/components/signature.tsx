@@ -109,17 +109,17 @@ export function Signature({
   const [viewBox, setViewBox] = useState(DEFAULT_VIEWBOX);
   const [lengths, setLengths] = useState<number[]>([]);
   const [hasFallback, setHasFallback] = useState(false);
-  const [isVisible, setIsVisible] = useState(!inView);
+  const [isObservedVisible, setIsObservedVisible] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const pathRefs = useRef<Array<SVGPathElement | null>>([]);
   const maskId = `signature-reveal-${useId().replace(/:/g, '')}`;
 
   const horizontalPadding = fontSize * 0.18;
   const baseline = fontSize;
+  const isVisible = !inView || isObservedVisible;
 
   useEffect(() => {
     if (!inView) {
-      setIsVisible(true);
       return;
     }
 
@@ -131,7 +131,7 @@ export function Signature({
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setIsVisible(true);
+          setIsObservedVisible(true);
           if (once) {
             observer.disconnect();
           }
@@ -139,7 +139,7 @@ export function Signature({
         }
 
         if (!once) {
-          setIsVisible(false);
+          setIsObservedVisible(false);
         }
       },
       { threshold: 0.2 },

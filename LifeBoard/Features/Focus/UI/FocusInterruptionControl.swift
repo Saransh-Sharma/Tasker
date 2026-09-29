@@ -46,7 +46,7 @@ struct FocusInterruptionControl: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "bell.slash")
-                Text(isExpanded ? "Hide interruptions" : "Something interrupted me")
+                Text(isExpanded ? "Hide" : "Log interruption")
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.caption2.weight(.semibold))
@@ -62,7 +62,7 @@ struct FocusInterruptionControl: View {
         .buttonStyle(.plain)
         .lifeBoardMagneticToggle(
             threshold: 96,
-            actionLabel: "Record interruption: \(Self.reasons[0])"
+            actionLabel: String(localized: "Log interruption: \(Self.reasons[0])")
         ) {
             record(Self.reasons[0])
         }
@@ -75,7 +75,7 @@ struct FocusInterruptionControl: View {
                 Button(reason) { record(reason) }
                     .font(.subheadline)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                     .accessibilityIdentifier("focus.surface.interruption.reason")
             }
         }

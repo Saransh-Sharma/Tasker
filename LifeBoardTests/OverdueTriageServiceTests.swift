@@ -49,7 +49,7 @@ final class OverdueTriageServiceTests: XCTestCase {
         let summary = suggestion?.summaryLines.joined(separator: " | ") ?? ""
         XCTAssertTrue(summary.contains("next week"))
         XCTAssertTrue(summary.contains("tomorrow"))
-        XCTAssertTrue(summary.contains("today focus"))
+        XCTAssertTrue(summary.contains("tasks today") || summary.contains("task today"))
     }
 
     private func overdueTask(title: String, priority: TaskPriority) -> TaskDefinition {
@@ -1084,7 +1084,10 @@ final class TaskBreakdownServiceContractTests: XCTestCase {
     }
 
     func testRefineFallsBackToThreeToSixWhenNoModelInstalled() async {
-        let service = TaskBreakdownService(llm: LLMEvaluator())
+        let service = TaskBreakdownService(
+            llm: LLMEvaluator(),
+            resolveRoute: { .heuristicOnly }
+        )
         let result = await service.refine(
             taskTitle: "Plan quarterly review",
             taskDetails: nil,

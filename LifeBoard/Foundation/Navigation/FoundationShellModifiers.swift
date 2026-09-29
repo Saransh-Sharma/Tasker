@@ -33,8 +33,20 @@ struct ShellSheets: ViewModifier {
     @Binding var composerAudioStore: JournalStore?
     @Binding var showsDocumentScanner: Bool
     @Binding var scannedDraft: ScannedDraft?
-    var composerIsFocused: FocusState<Bool>.Binding
+    /// Builds the Eva root for the sheet; the shell owns the repositories.
+    var makeEvaSheet: (EvaSheetRequest) -> AnyView = { _ in AnyView(EmptyView()) }
     @State private var showsContextualHealth = false
+    @State private var focusesComposerAfterScan = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The Apple Health invitation belongs to the two roots that show health
+    /// data, and only at the root, never over a pushed screen.
+    private var showsHealthInvitation: Bool {
+        guard PermissionPrimingCoordinator.shared.healthInvitation != nil else { return false }
+        let root = router.selectedDestination
+        guard root == .home || root == .track else { return false }
+        return router.path(for: root).isEmpty
+    }
 
     func body(content: Content) -> some View {
         @Bindable var router = router
@@ -84,7 +96,7 @@ struct ShellSheets: ViewModifier {
                 }
             }
             .sheet(isPresented: $showsComposerAudioCapture, onDismiss: {
-                if lifeThreadComposer.state == .recording { lifeThreadComposer.focus() }
+                if lifeThreadComposer.state == .recording { lifeThreadComposer.returnToEditing() }
             }) {
                 PresentationScaffold(mode: .editor, readableWidth: 720) {
                     if let store = composerAudioStore {
@@ -120,7 +132,7 @@ struct ShellSheets: ViewModifier {
                         NavigationStack {
                             VStack(spacing: 12) {
                                 ProgressView()
-                                Text("Preparing voice capture…")
+                                Text("Loading…")
                                     .font(.subheadline)
                                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
@@ -130,6 +142,7 @@ struct ShellSheets: ViewModifier {
                             .toolbar {
                                 ToolbarItem(placement: .cancellationAction) {
                                     Button("Cancel") { showsComposerAudioCapture = false }
+                                        .keyboardShortcut(.cancelAction)
                                 }
                             }
                             .task {
@@ -138,7 +151,7 @@ struct ShellSheets: ViewModifier {
                             }
                         }
                         .presentationDetents([.medium, .large])
-                        .accessibilityLabel("Preparing voice capture")
+                        .accessibilityLabel("Loading…")
                     }
                 }
             }
@@ -149,25 +162,37 @@ struct ShellSheets: ViewModifier {
                         switch result {
                         case .success(let draft): scannedDraft = draft
                         case .failure(let error):
+                            lifeThreadComposer.endScanning()
                             router.activeAlert = .init(
                                 title: "Couldn’t read scan",
                                 message: error.localizedDescription
                             )
                         }
                     },
-                    cancellation: { showsDocumentScanner = false }
+                    cancellation: {
+                        showsDocumentScanner = false
+                        lifeThreadComposer.endScanning()
+                    }
                 )
                 .ignoresSafeArea()
             }
-            .sheet(item: $scannedDraft) { draft in
+            // Every way out of the review ends the scan. "Use" asks for the
+            // keyboard from `onDismiss`: a focus write while the sheet still
+            // covers the composer was dropped.
+            .sheet(item: $scannedDraft, onDismiss: {
+                lifeThreadComposer.endScanning()
+                if focusesComposerAfterScan {
+                    focusesComposerAfterScan = false
+                    lifeThreadComposer.requestFocus()
+                }
+            }) { draft in
                 PresentationScaffold(mode: .editor, readableWidth: 720) {
                     ScanReviewView(
                         draft: draft,
                         onUse: { text in
                             lifeThreadComposer.draftText = text
-                            lifeThreadComposer.focus()
+                            focusesComposerAfterScan = true
                             scannedDraft = nil
-                            composerIsFocused.wrappedValue = true
                         },
                         onCancel: { scannedDraft = nil }
                     )
@@ -185,33 +210,58 @@ struct ShellSheets: ViewModifier {
                     onDecline: { PermissionPrimingCoordinator.shared.decline() }
                 )
             }
+            // Only on the roots that show health data (Home and Track), not
+            // over every tab and pushed screen.
             .safeAreaInset(edge: .top) {
-                if PermissionPrimingCoordinator.shared.healthInvitation != nil {
+              VStack(spacing: 8) {
+                // Read-only mode is rare and important: the one banner that
+                // shows on every root, so no edit silently fails.
+                ReadOnlyModeBanner(onDetails: {
+                    router.push(.settingsDetail(.recovery), in: router.selectedDestination)
+                })
+                if showsHealthInvitation {
                     HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Bring Apple Health into your day").lifeboardFont(.bodyStrong)
-                            Text("Bring Apple Health into your day when you’re ready.").lifeboardFont(.caption1)
-                        }
+                        Label("Show Apple Health data", systemImage: "heart.text.square")
+                            .lifeboardFont(.bodyStrong)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         Button("Connect") {
                             PermissionPrimingCoordinator.shared.dismissHealthInvitation(declined: false)
                             showsContextualHealth = true
                         }
+                        .lifeboardFont(.buttonSmall)
+                        .frame(minHeight: 44)
                         Button {
                             PermissionPrimingCoordinator.shared.dismissHealthInvitation(declined: true)
                         } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
                         .accessibilityLabel("Not now")
                     }
-                    .padding(12)
-                    .lifeBoardClaySurface(.raised, cornerRadius: 16)
+                    .padding(.leading, 16)
+                    .padding(.vertical, 4)
+                    .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
                     .padding(.horizontal)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("health.contextual.invitation")
                 }
+              }
             }
+            .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: showsHealthInvitation)
             .sheet(isPresented: $showsContextualHealth) {
                 HealthConnectionSheet(context: .init(.health, from: .track))
             }
             .alert(item: $router.activeAlert) { alert in
                 Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
+            }
+            // Appended after every other presentation on purpose: modifier
+            // order decides which surface wins in the same runloop turn, and
+            // Eva must never pre-empt a capture or a scanner already opening.
+            .sheet(item: $router.evaSheetRequest) { request in
+                EvaSheetHost(
+                    request: request,
+                    onClose: { router.evaSheetRequest = nil },
+                    content: { makeEvaSheet(request) }
+                )
             }
     }
 }
@@ -224,6 +274,13 @@ struct ShellOverlays: ViewModifier {
     let visualFixture: VisualFixture?
     let onDismissRescue: () -> Void
     @Binding var homeCardReceipt: HomeCardPlacementReceipt?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private func dismissHomeCardReceipt() {
+        withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
+            homeCardReceipt = nil
+        }
+    }
 
     func body(content: Content) -> some View {
         content
@@ -239,14 +296,25 @@ struct ShellOverlays: ViewModifier {
                     HomeCardPlacementReceiptView(
                         receipt: receipt,
                         onView: {
-                            homeCardReceipt = nil
                             runtime.router.activateRoot(.home)
                         },
                         onUndo: {
-                            homeCardReceipt = nil
-                            Task { try? await dashboardLayoutRepository.saveHome(receipt.transaction.undoLayout) }
+                            Task { @MainActor in
+                                do {
+                                    try await dashboardLayoutRepository.saveHome(receipt.transaction.undoLayout)
+                                } catch {
+                                    // The card is still on Home; say so rather
+                                    // than letting the Undo look like it worked.
+                                    Haptic.fail.play()
+                                    runtime.router.activeAlert = .init(
+                                        title: "Couldn’t undo",
+                                        message: String(localized: "Remove the card from Edit Home.")
+                                    )
+                                }
+                            }
                         },
-                        onDismiss: { homeCardReceipt = nil }
+                        // `ReceiptBar` calls this after Undo and View too.
+                        onDismiss: dismissHomeCardReceipt
                     )
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -335,7 +403,7 @@ struct ComposerToolStagger: ViewModifier {
                     return
                 }
                 let delay = min(Double(index) * Self.perChipDelay, Self.maximumDelay)
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.78).delay(delay)) {
+                withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)?.delay(delay)) {
                     appeared = true
                 }
             }
@@ -399,9 +467,10 @@ struct DockLift: ViewModifier {
                     .offset(y: phase.offsetY)
             } animation: { phase in
                 switch phase {
-                case .rest: .easeOut(duration: 0.01)
-                case .lift: .spring(response: 0.22, dampingFraction: 0.55)
-                case .settle: .spring(response: 0.32, dampingFraction: 0.78)
+                // Only reached with motion on (see the guard above).
+                case .rest: MotionProfile.micro.animation(reduceMotion: false)
+                case .lift: MotionProfile.press.animation(reduceMotion: false)
+                case .settle: MotionProfile.selection.animation(reduceMotion: false)
                 }
             }
         }

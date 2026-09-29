@@ -129,21 +129,21 @@ public struct FocusDial<Content: View>: View {
                     .trim(from: 0, to: max(0.018, progress))
                     .stroke(
                         isPaused
-                            ? Color(SemanticColorTokens.foundationSageAccent)
-                            : Color(SemanticColorTokens.foundationApricotAccent),
+                            ? Color(SemanticColorTokens.foundationSageInk)
+                            : Color(SemanticColorTokens.foundationApricotInk),
                         style: StrokeStyle(lineWidth: 11, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
                     .modifier(FocusDialBreath(isActive: carriesAmbientMotion))
                     .animation(
-                        reduceMotion ? nil : .spring(response: 0.48, dampingFraction: 0.9),
+                        InteractionMotion.ringSettle(reduceMotion: reduceMotion),
                         value: progress
                     )
             } else {
                 Circle()
                     .trim(from: 0, to: 0.72)
                     .stroke(
-                        Color(SemanticColorTokens.foundationSageAccent),
+                        Color(SemanticColorTokens.foundationSageInk),
                         style: StrokeStyle(lineWidth: 11, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -293,26 +293,45 @@ public struct TrendChart: View {
     /// What the chart is *of*. "Trend chart" alone tells a VoiceOver user
     /// nothing about which reading they are hearing.
     private let accessibilityTitle: String
+    /// The interquartile "usual" band, drawn quietly behind the line. The
+    /// caller spells it out in prose; the band is never the only carrier.
+    private let band: ClosedRange<Double>?
+    /// Changing this redraws the sweep: `DESIGN.md` names `chartRevealSweep`
+    /// for when data first appears *or the range changes*.
+    private let revealID: AnyHashable?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealProgress: Double = 0
+    @State private var hasRevealed = false
 
     public init(
         points: [HomeSeriesPoint],
         tint: Color,
         unit: String? = nil,
         showsAxis: Bool = true,
-        accessibilityTitle: String = "Trend chart"
+        accessibilityTitle: String = "Trend chart",
+        band: ClosedRange<Double>? = nil,
+        revealID: AnyHashable? = nil
     ) {
         self.points = points
         self.tint = tint
         self.unit = unit
         self.showsAxis = showsAxis
         self.accessibilityTitle = accessibilityTitle
+        self.band = band
+        self.revealID = revealID
     }
 
     public var body: some View {
-        Chart(points) { point in
+        Chart {
+            if let band, band.upperBound > band.lowerBound {
+                RectangleMark(
+                    yStart: .value("Usual low", band.lowerBound),
+                    yEnd: .value("Usual high", band.upperBound)
+                )
+                .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceRecessed).opacity(0.7))
+            }
+            ForEach(points) { point in
             AreaMark(
                 x: .value("Date", point.date),
                 y: .value("Value", point.value)
@@ -333,6 +352,7 @@ public struct TrendChart: View {
             .foregroundStyle(tint)
             .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
             .interpolationMethod(.monotone)
+            }
         }
         .chartXAxis {
             if showsAxis {
@@ -351,44 +371,72 @@ public struct TrendChart: View {
             }
         }
         .lifeboardChartRevealSweep(progress: revealProgress)
-        // The sweep draws once, when data first appears — not on every appear,
-        // which re-announced "data arrived" every time a card scrolled back
-        // into view, and swept an empty chart besides.
-        .onAppear { revealProgress = points.isEmpty ? 0 : 1 }
+        // The sweep draws when data first appears in this chart and when its
+        // range changes — once each, never on an empty chart. A chart that
+        // loaded with data used to jump straight to drawn, so Trends never
+        // swept at all.
+        .onAppear {
+            guard points.isEmpty == false, hasRevealed == false else {
+                if points.isEmpty { revealProgress = 0 }
+                return
+            }
+            reveal()
+        }
         .onChange(of: points.count) { previous, updated in
             guard updated > 0 else {
                 revealProgress = 0
                 return
             }
             guard previous == 0 else { return }
-            guard reduceMotion == false else {
-                revealProgress = 1
-                return
-            }
-            revealProgress = 0
-            withAnimation(.easeOut(duration: 0.42)) { revealProgress = 1 }
+            reveal()
+        }
+        .onChange(of: revealID) { _, _ in
+            guard points.isEmpty == false else { return }
+            reveal()
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityTitle)
         .accessibilityValue(textEquivalent)
     }
 
+    private func reveal() {
+        hasRevealed = true
+        guard reduceMotion == false else {
+            revealProgress = 1
+            return
+        }
+        revealProgress = 0
+        withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) { revealProgress = 1 }
+    }
+
     /// Prose the chart can be read as. Charts must never be the only carrier.
     public var textEquivalent: String {
-        guard let first = points.first, let last = points.last else {
-            return "No readings yet."
+        Self.textEquivalent(for: points.map(\.value), unit: unit)
+    }
+
+    /// The latest reading and the span the readings covered.
+    ///
+    /// It used to compare only the first and last points ("up from"), which
+    /// read a noisy series as a trend and implied direction the data did not
+    /// support. `DESIGN.md`: never imply causation or value through trend
+    /// direction.
+    public static func textEquivalent(for values: [Double], unit: String?) -> String {
+        guard let last = values.last, let low = values.min(), let high = values.max() else {
+            return String(localized: "No readings yet.")
         }
         let unitSuffix = unit.map { " \($0)" } ?? ""
-        let start = first.value.formatted(.number.precision(.fractionLength(0...1)))
-        let end = last.value.formatted(.number.precision(.fractionLength(0...1)))
-        let direction: String = if last.value > first.value {
-            "up from"
-        } else if last.value < first.value {
-            "down from"
-        } else {
-            "unchanged from"
+        func format(_ value: Double) -> String {
+            value.formatted(.number.precision(.fractionLength(0...1)))
         }
-        return "\(points.count) readings, \(end)\(unitSuffix) \(direction) \(start)\(unitSuffix)."
+        let count = values.count
+        let latest = format(last) + unitSuffix
+        guard count > 1, high > low else {
+            return count == 1
+                ? String(localized: "1 reading, \(latest).")
+                : String(localized: "\(count) readings, \(latest).")
+        }
+        let lowText = format(low), highText = format(high) + unitSuffix
+        return String(localized: "\(count) readings, latest \(latest), between \(lowText) and \(highText).")
     }
 }
 
@@ -451,7 +499,7 @@ public struct ProgressRing: View {
             animatedFraction = target
             return
         }
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.72)) {
+        withAnimation(InteractionMotion.ringSettle(reduceMotion: reduceMotion)) {
             animatedFraction = target
         }
     }
@@ -485,10 +533,9 @@ public struct StreakGrid: View {
                     .opacity(appeared ? 1 : 0)
                     .scaleEffect(appeared ? 1 : 0.6)
                     .animation(
-                        reduceMotion
-                            ? nil
-                            : .spring(response: 0.3, dampingFraction: 0.75)
-                                .delay(min(Double(index) * 0.012, 0.32)),
+                        MotionProfile.contentInsertion
+                            .animation(reduceMotion: reduceMotion)?
+                            .delay(min(Double(index) * 0.012, 0.32)),
                         value: appeared
                     )
             }
@@ -521,8 +568,8 @@ public struct StreakGrid: View {
     private var summary: String {
         let complete = days.filter { $0.outcome == .complete }.count
         let counted = days.filter { $0.outcome != .future && $0.outcome != .offDay }.count
-        guard counted > 0 else { return "No days recorded yet." }
-        return "\(complete) of \(counted) days complete."
+        guard counted > 0 else { return String(localized: "No days recorded yet.") }
+        return String(localized: "\(complete) of \(counted) days complete.")
     }
 }
 

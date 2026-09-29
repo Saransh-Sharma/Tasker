@@ -309,7 +309,7 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
             date: day,
             calendar: Self.calendar
         )
-        XCTAssertTrue(lapsedFeedback.message.contains("Marked lapsed"))
+        XCTAssertTrue(lapsedFeedback.message.contains("Slip logged"))
         XCTAssertEqual(lapsedFeedback.haptic, .warning)
 
         let resetFeedback = HabitDetailCalendarBuilder.mutationFeedback(
@@ -318,7 +318,7 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
             date: day,
             calendar: Self.calendar
         )
-        XCTAssertTrue(resetFeedback.message.contains("Cleared to empty"))
+        XCTAssertTrue(resetFeedback.message.contains("Cleared"))
         XCTAssertEqual(resetFeedback.haptic, .selection)
     }
 
@@ -349,7 +349,7 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         XCTAssertEqual(viewState.helperText, "Tap a day to mark it done or skipped.")
         XCTAssertEqual(todayCell.dayNumber, "10")
         XCTAssertEqual(todayCell.accessibilityValue, "Done")
-        XCTAssertEqual(todayCell.accessibilityHint, "Double-tap to mark skipped.")
+        XCTAssertEqual(todayCell.accessibilityHint, "Marks skipped.")
         XCTAssertEqual(todayCell.accessibilityIdentifier, "habitDetail.cell.2026-04-10")
         XCTAssertTrue(todayCell.accessibilityLabel.contains("Friday"))
     }

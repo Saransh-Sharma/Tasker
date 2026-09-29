@@ -71,12 +71,12 @@ struct TimelineNormalItemCard: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(timelineAccessibilityLabel(for: row, item: item))
             .accessibilityValue(item.isComplete ? "Completed" : (row.temporalState == .currentTask ? "In progress" : item.source == .calendarEvent ? "Calendar event" : "Scheduled"))
-            .accessibilityHint("Opens the item details.")
+            .accessibilityHint("Opens details")
             .accessibilityIdentifier(timelineAccessibilityIdentifier(for: item))
             .accessibilityAction(named: Text("Open")) {
                 onTap()
             }
-            .accessibilityAction(named: Text(item.isComplete ? "Mark Incomplete" : "Mark Complete")) {
+            .accessibilityAction(named: Text(item.isComplete ? "Mark incomplete" : "Mark complete")) {
                 guard item.source == .task else { return }
                 onToggleComplete()
             }
@@ -96,7 +96,7 @@ struct TimelineNormalItemCard: View {
         .contextMenu {
             Button("Open", action: onTap)
             if item.source == .task {
-                Button(item.isComplete ? "Mark Incomplete" : "Mark Complete", action: onToggleComplete)
+                Button(item.isComplete ? "Mark incomplete" : "Mark complete", action: onToggleComplete)
             }
         }
     }
@@ -223,7 +223,7 @@ struct TimelineTaskBlockRow: View {
                 onTaskTap(item)
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("TASK")
+                    Text("Task")
                         .font(.lifeboard(.caption1).weight(.semibold))
                         .foregroundStyle(TimelineItemVisuals.accessoryColor(for: item, isActive: row.temporalState == .currentTask))
                         .lineLimit(1)
@@ -362,7 +362,7 @@ struct TimelineTaskMarkerRow: View {
         .contextMenu {
             Button("Open", action: onTap)
             if item.source == .task {
-                Button(item.isComplete ? "Mark Incomplete" : "Mark Complete", action: onToggleComplete)
+                Button(item.isComplete ? "Mark incomplete" : "Mark complete", action: onToggleComplete)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -372,7 +372,7 @@ struct TimelineTaskMarkerRow: View {
         .accessibilityAction(named: Text("Open")) {
             onTap()
         }
-        .accessibilityAction(named: Text(item.isComplete ? "Mark Incomplete" : "Mark Complete")) {
+        .accessibilityAction(named: Text(item.isComplete ? "Mark incomplete" : "Mark complete")) {
             guard item.source == .task else { return }
             onToggleComplete()
         }
@@ -421,7 +421,7 @@ struct TimelineTimeBlockCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
-                Text("Time Block Conflict: \(TimelineFormatting.timeRangeText(start: block.startDate, end: block.endDate))")
+                Text("Time block conflict: \(TimelineFormatting.timeRangeText(start: block.startDate, end: block.endDate))")
                     .font(.lifeboard(.support).weight(.semibold))
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .lineLimit(1)

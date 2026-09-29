@@ -159,9 +159,9 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 
     func testEventTitleSanitizerUsesFallbackForNilAndBlankTitles() {
-        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(nil), "Untitled Event")
-        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(""), "Untitled Event")
-        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle("   "), "Untitled Event")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(nil), "Untitled event")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(""), "Untitled event")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle("   "), "Untitled event")
         XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(" Focus Block "), "Focus Block")
     }
 

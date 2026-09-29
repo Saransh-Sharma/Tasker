@@ -16,12 +16,15 @@ struct PlanDayTimeCanvas: View {
     var changeDay: (Int) -> Void = { _ in }
     @State private var landingY: CGFloat?
     @State private var daySwipeOffset: CGFloat = 0
+    /// The canvas's own width. The swipe threshold is a fraction of it; the
+    /// screen's width was wrong in Split View, Stage Manager and on the Mac.
+    @State private var canvasWidth: CGFloat = 390
     @State private var lastSnappedLandingMinute: Int?
     @State private var landingTrigger = 0
     @State private var landingCenter: UnitPoint = .center
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var displayCommitments: [PlanningFixedCommitment] {
+    var displayCommitments: [PlanningFixedCommitment] {
         let linked = Set(snapshot.blocks.compactMap(\.taskID))
         return snapshot.commitments + snapshot.plannedTasks.compactMap { task in
             guard !linked.contains(task.id), let start = task.scheduledStartAt else { return nil }
@@ -30,18 +33,21 @@ struct PlanDayTimeCanvas: View {
         }
     }
 
-    private let hourHeight: CGFloat = 66
-    private let rulerWidth: CGFloat = 48
+    let hourHeight: CGFloat = 66
+    let rulerWidth: CGFloat = 48
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // The day is named and stepped by `PlanOrientationBar`; the canvas
             // only speaks up when something on it overlaps.
             if conflictCount > 0 {
-                Label("\(conflictCount) overlap\(conflictCount == 1 ? "" : "s")", systemImage: "square.stack")
+                Label(
+                    conflictCount == 1 ? String(localized: "1 overlap") : String(localized: "\(conflictCount) overlaps"),
+                    systemImage: "square.stack"
+                )
                     .lifeboardFont(.caption1)
-                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-                    .accessibilityHint("Overlapping commitments and LifeBoard blocks are highlighted in the timeline")
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
+                    .accessibilityHint("Highlighted in the timeline")
             }
 
             ScrollViewReader { reader in
@@ -49,6 +55,7 @@ struct PlanDayTimeCanvas: View {
             GeometryReader { proxy in
                 ZStack(alignment: .topLeading) {
                     nonworkingLayer(width: proxy.size.width)
+                    overloadLayer(width: proxy.size.width)
                     hourGrid(width: proxy.size.width)
                     // Laid out at its y, not `.offset` to it: `scrollTo` reads the
                     // layout frame, so an offset marker always scrolled to the top.
@@ -87,7 +94,7 @@ struct PlanDayTimeCanvas: View {
                         )
                         .overlay {
                             RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
-                                .stroke(Color(SemanticColorTokens.foundationApricotAccent), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                                .stroke(Color(SemanticColorTokens.foundationApricotInk), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
                         }
                         .offset(x: rulerWidth, y: yPosition(date))
                         .animation(InteractionMotion.dragRelease(reduceMotion: reduceMotion), value: date)
@@ -143,6 +150,7 @@ struct PlanDayTimeCanvas: View {
                     }
                 }
                 .simultaneousGesture(daySwipe)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { canvasWidth = $0 }
             }
         }
         .frame(maxHeight: .infinity)
@@ -163,7 +171,7 @@ struct PlanDayTimeCanvas: View {
                     ? PlanDaySwipe.dayDelta(
                         translation: value.translation,
                         predictedEndTranslation: value.predictedEndTranslation,
-                        width: UIScreen.main.bounds.width
+                        width: canvasWidth
                     )
                     : 0
                 if delta != 0 {
@@ -191,13 +199,53 @@ struct PlanDayTimeCanvas: View {
         }
     }
 
+    /// The planned time that does not fit the working window, drawn where it
+    /// would spill: a soft band past the end of the day, in the same attention
+    /// colour as the orientation bar's "over" reading, with the same words.
+    @ViewBuilder
+    private func overloadLayer(width: CGFloat) -> some View {
+        if let band = overloadBand {
+            let height = CGFloat(band.duration / 3_600) * hourHeight
+            ZStack(alignment: .topLeading) {
+                Rectangle()
+                    // 0.16, not the free windows' 0.12: the band sits on the
+                    // recessed non-working shade and at 0.10 it vanished into it.
+                    .fill(Color(SemanticColorTokens.foundationApricotAccent).opacity(0.16))
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: 0.5))
+                    path.addLine(to: CGPoint(x: max(1, width - rulerWidth), y: 0.5))
+                }
+                .stroke(Color(SemanticColorTokens.foundationApricotInk).opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                Text(PlanCapacityCopy.openLabel(snapshot.capacity))
+                    .lifeboardFont(.caption2)
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                    .padding(.horizontal, 8)
+                    .padding(.top, 4)
+            }
+            .frame(width: max(1, width - rulerWidth), height: max(12, height), alignment: .topLeading)
+            .offset(x: rulerWidth, y: yPosition(band.start))
+            .allowsHitTesting(false)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(PlanCapacityCopy.overloadAccessibilityLabel(snapshot.capacity))
+            .accessibilityIdentifier("plan.canvas.overload")
+        }
+    }
+
+    private var overloadBand: DateInterval? {
+        PlanCanvasGeometry.overloadBand(working: snapshot.workingIntervals, overload: snapshot.capacity.overloadDuration)
+    }
+
     private func hourGrid(width: CGFloat) -> some View {
         ForEach(0...hourSpan, id: \.self) { offset in
             let hour = startHour + offset
             HStack(spacing: 8) {
+                // The ruler sits straight on the daypart scene, not a card. The
+                // sky runs 0.3–0.8 luminance across phases; tertiary ink measured
+                // 1.9:1 at night and 3.2:1 at morning in light appearance, and
+                // only primary ink clears 4.5:1 across the whole range.
                 Text(hourLabel(hour))
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     .frame(width: rulerWidth - 8, alignment: .trailing)
                 Rectangle()
                     .fill(Color(SemanticColorTokens.foundationHairline).opacity(offset % 2 == 0 ? 0.72 : 0.42))
@@ -210,7 +258,7 @@ struct PlanDayTimeCanvas: View {
     private func freeWindowLayer(width: CGFloat) -> some View {
         ForEach(snapshot.freeWindows) { window in
             Button {
-                createBlock("Focus block", window.startAt, min(window.duration, 60 * 60), nil)
+                createBlock(String(localized: "Focus"), window.startAt, min(window.duration, 60 * 60), nil)
             } label: {
                 // Open time stays quiet: short gaps carry no words at all.
                 VStack(alignment: .leading, spacing: 4) {
@@ -218,227 +266,25 @@ struct PlanDayTimeCanvas: View {
                         Text("Open · \(durationLabel(window.duration))")
                             .lifeboardFont(.caption2)
                             .padding(.top, 4)
+                    } else if PlanCanvasGeometry.labelsOpenWindowBriefly(duration: window.duration) {
+                        Text(durationLabel(window.duration))
+                            .lifeboardFont(.caption2)
+                            .padding(.top, 4)
                     }
                 }
-                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                // A 12% sage wash over the scene is not a surface; see the ruler.
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .padding(.horizontal, 9)
                 .frame(width: max(1, width - rulerWidth - 8), height: blockHeight(from: window.startAt, to: window.endAt), alignment: .topLeading)
-                .background(Color(SemanticColorTokens.foundationSageAccent).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 10).stroke(Color(SemanticColorTokens.foundationSageAccent).opacity(0.34), style: StrokeStyle(lineWidth: 1, dash: [5, 4])) }
+                .background(Color(SemanticColorTokens.foundationSageAccent).opacity(0.12), in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: Radius.field, style: .continuous).stroke(Color(SemanticColorTokens.foundationSageInk).opacity(0.34), style: StrokeStyle(lineWidth: 1, dash: [5, 4])) }
             }
             .buttonStyle(.plain)
             .offset(x: rulerWidth, y: yPosition(window.startAt))
 
-            .accessibilityLabel("Open window, \(timeLabel(window.startAt)) to \(timeLabel(window.endAt))")
-            .accessibilityHint("Tap to reserve it as a focus block, or drop a task here.")
+            .accessibilityLabel("Free time, \(timeLabel(window.startAt)) to \(timeLabel(window.endAt))")
+            .accessibilityHint("Adds a time block")
             .accessibilityIdentifier("plan.canvas.freeWindow.\(window.id)")
-        }
-    }
-
-    /// Every scheduled thing on the spine, as intervals the lane resolver can
-    /// pack. Commitments and blocks share one lane space because they overlap
-    /// each other, not just their own kind.
-    private var lanePlacements: [String: PlanTimelineLaneResolver.Placement] {
-        let items = displayCommitments.map {
-            PlanTimelineLaneResolver.Item(id: "commitment:\($0.id)", start: $0.startAt, end: $0.endAt)
-        } + snapshot.blocks.map {
-            PlanTimelineLaneResolver.Item(id: "block:\($0.id.uuidString)", start: $0.startAt, end: $0.endAt)
-        }
-        return PlanTimelineLaneResolver.placements(for: items)
-    }
-
-    /// One horizontally scrollable strip per overlapping cluster.
-    ///
-    /// Concurrent items used to be drawn at the same x, so a busy hour rendered
-    /// as an unreadable pile. Each cluster now gets its own lane space: two
-    /// abreast share the width, and anything denser keeps a readable lane width
-    /// and scrolls sideways inside its own time band, so the vertical position
-    /// still tells the truth about when things happen.
-    private func clusterLayer(width: CGFloat) -> some View {
-        let placements = lanePlacements
-        let contentWidth = max(1, width - rulerWidth - 18)
-        let clusters = timelineClusters(placements: placements)
-        return ForEach(clusters) { cluster in
-            let metrics = PlanTimelineLaneResolver.laneMetrics(
-                laneCount: cluster.laneCount,
-                availableWidth: contentWidth,
-                spacing: laneSpacing
-            )
-            // Sizing happens inside `clusterBody`. A second frame out here used
-            // to wrap the scrolling case, and the pair of them left the
-            // ScrollView free to size itself to its content: nothing scrolled,
-            // and the lanes past the edge were merely clipped by the card.
-            clusterBody(cluster, metrics: metrics, contentWidth: contentWidth)
-                .offset(x: rulerWidth + 6, y: cluster.top)
-        }
-    }
-
-    @ViewBuilder
-    private func clusterBody(
-        _ cluster: TimelineCluster,
-        metrics: (laneWidth: CGFloat, scrolls: Bool),
-        contentWidth: CGFloat
-    ) -> some View {
-        if metrics.scrolls {
-            PlanClusterStrip(
-                contentWidth: contentWidth,
-                laneCount: cluster.laneCount,
-                laneWidth: metrics.laneWidth,
-                spacing: laneSpacing,
-                height: cluster.height
-            ) {
-                clusterLanes(cluster, laneWidth: metrics.laneWidth)
-            }
-            .accessibilityLabel("\(cluster.laneCount) overlapping items, swipe sideways to see the rest")
-        } else {
-            clusterLanes(cluster, laneWidth: metrics.laneWidth)
-                .frame(width: contentWidth, height: cluster.height, alignment: .topLeading)
-        }
-    }
-
-    private func clusterLanes(_ cluster: TimelineCluster, laneWidth: CGFloat) -> some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(cluster.commitments) { entry in
-                PlanCanvasCommitmentCard(
-                    commitment: entry.commitment,
-                    width: laneWidth,
-                    height: blockHeight(from: entry.commitment.startAt, to: entry.commitment.endAt),
-                    conflict: conflicts(
-                        start: entry.commitment.startAt,
-                        end: entry.commitment.endAt,
-                        excludingCommitmentID: entry.commitment.id,
-                        excludingBlockID: UUID(uuidString: entry.commitment.id)
-                    )
-                )
-                    .offset(
-                        x: CGFloat(entry.lane) * (laneWidth + laneSpacing),
-                        y: yPosition(entry.commitment.startAt) - cluster.top
-                    )
-            }
-            ForEach(cluster.blocks) { entry in
-                blockCard(entry.block, width: laneWidth)
-                    .offset(
-                        x: CGFloat(entry.lane) * (laneWidth + laneSpacing),
-                        y: yPosition(entry.block.startAt) - cluster.top
-                    )
-            }
-        }
-        .frame(
-            width: CGFloat(cluster.laneCount) * laneWidth + CGFloat(max(0, cluster.laneCount - 1)) * laneSpacing,
-            alignment: .topLeading
-        )
-    }
-
-    private func blockCard(_ block: InternalTimeBlock, width: CGFloat) -> some View {
-        PlanCanvasBlock(
-                block: block,
-                width: max(1, width),
-                height: blockHeight(from: block.startAt, to: block.endAt),
-                hourHeight: hourHeight,
-                hasConflict: conflicts(
-                    start: block.startAt,
-                    end: block.endAt,
-                    excludingCommitmentID: block.id.uuidString,
-                    excludingBlockID: block.id
-                ),
-                // Evaluated against the snapped candidate slot while dragging,
-                // so a conflict is shown on the spine before the drop rather
-                // than reported afterwards.
-                conflictAt: { minutesDelta in
-                    conflicts(
-                        start: block.startAt.addingTimeInterval(TimeInterval(minutesDelta * 60)),
-                        end: block.endAt.addingTimeInterval(TimeInterval(minutesDelta * 60)),
-                        excludingCommitmentID: block.id.uuidString,
-                        excludingBlockID: block.id
-                    )
-                },
-                minuteBounds: minuteBounds(for: block),
-                boundaryDates: boundaryDates(excluding: block.id),
-                move: { moveBlock(block, $0) },
-                resize: { resizeBlock(block, $0) },
-                resizeEdges: { resizeBlockEdges(block, $0, $1) },
-                split: { splitBlock(block) },
-                delete: { deleteBlock(block) },
-                focus: { startFocus(block) }
-        )
-    }
-
-    private func boundaryDates(excluding blockID: UUID) -> [Date] {
-        displayCommitments.flatMap { [$0.startAt, $0.endAt] }
-            + snapshot.blocks
-                .filter { $0.id != blockID }
-                .flatMap { [$0.startAt, $0.endAt] }
-    }
-
-    private var laneSpacing: CGFloat { 6 }
-
-    /// A group of items that overlap each other, positioned as one band.
-    struct TimelineCluster: Identifiable {
-        struct CommitmentEntry: Identifiable {
-            let commitment: PlanningFixedCommitment
-            let lane: Int
-            var id: String { commitment.id }
-        }
-
-        struct BlockEntry: Identifiable {
-            let block: InternalTimeBlock
-            let lane: Int
-            var id: UUID { block.id }
-        }
-
-        let id: Int
-        let laneCount: Int
-        let top: CGFloat
-        let height: CGFloat
-        let commitments: [CommitmentEntry]
-        let blocks: [BlockEntry]
-    }
-
-    private func timelineClusters(
-        placements: [String: PlanTimelineLaneResolver.Placement]
-    ) -> [TimelineCluster] {
-        var commitmentsByCluster: [Int: [TimelineCluster.CommitmentEntry]] = [:]
-        var blocksByCluster: [Int: [TimelineCluster.BlockEntry]] = [:]
-        var laneCounts: [Int: Int] = [:]
-        var spans: [Int: (top: CGFloat, bottom: CGFloat)] = [:]
-
-        func extend(_ clusterID: Int, start: Date, end: Date) {
-            let top = yPosition(start)
-            let bottom = top + blockHeight(from: start, to: end)
-            let current = spans[clusterID]
-            spans[clusterID] = (
-                min(current?.top ?? top, top),
-                max(current?.bottom ?? bottom, bottom)
-            )
-        }
-
-        for commitment in displayCommitments {
-            guard let placement = placements["commitment:\(commitment.id)"] else { continue }
-            commitmentsByCluster[placement.clusterID, default: []].append(
-                .init(commitment: commitment, lane: placement.lane)
-            )
-            laneCounts[placement.clusterID] = placement.laneCount
-            extend(placement.clusterID, start: commitment.startAt, end: commitment.endAt)
-        }
-        for block in snapshot.blocks {
-            guard let placement = placements["block:\(block.id.uuidString)"] else { continue }
-            blocksByCluster[placement.clusterID, default: []].append(
-                .init(block: block, lane: placement.lane)
-            )
-            laneCounts[placement.clusterID] = placement.laneCount
-            extend(placement.clusterID, start: block.startAt, end: block.endAt)
-        }
-
-        return laneCounts.keys.sorted().compactMap { clusterID in
-            guard let span = spans[clusterID] else { return nil }
-            return TimelineCluster(
-                id: clusterID,
-                laneCount: laneCounts[clusterID] ?? 1,
-                top: span.top,
-                height: max(1, span.bottom - span.top),
-                commitments: commitmentsByCluster[clusterID] ?? [],
-                blocks: blocksByCluster[clusterID] ?? []
-            )
         }
     }
 
@@ -454,40 +300,6 @@ struct PlanDayTimeCanvas: View {
     /// Today's canvas always reaches the present, so "now" is on it.
     private var nowAnchor: [Date] { isToday ? [Date()] : [] }
 
-    /// A hairline at the current minute, the one live element on the canvas.
-    private func nowLineLayer(width: CGFloat) -> some View {
-        TimelineView(.everyMinute) { context in
-            let y = yPosition(context.date)
-            if y > 0, y < timelineHeight {
-                HStack(spacing: 0) {
-                    // Hour and minute only: "7:19 PM" wraps inside the ruler, and
-                        // the ruler beside it already says which half of the day.
-                        Text(PlanCanvasGeometry.nowLabel(context.date))
-                        .lifeboardFont(.caption2)
-                        .fontWeight(.semibold)
-                        .monospacedDigit()
-                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                        .frame(width: rulerWidth - 4, alignment: .trailing)
-                        .padding(.trailing, 4)
-                    Circle()
-                        .fill(Color(SemanticColorTokens.foundationApricotAccent))
-                        .frame(width: 8, height: 8)
-                        // The one live element on the canvas breathes, inside the
-                        // ambient budget, so "now" reads as happening.
-                        .lifeBoardAmbientBreath(role: .liveIndicator)
-                    Rectangle()
-                        .fill(Color(SemanticColorTokens.foundationApricotAccent))
-                        .frame(width: max(0, width - rulerWidth - 7), height: 1.5)
-                }
-                .offset(y: y - 6)
-                .allowsHitTesting(false)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Now, \(context.date.formatted(date: .omitted, time: .shortened))")
-                .accessibilityIdentifier("plan.canvas.nowLine")
-            }
-        }
-    }
-
     private var startHour: Int {
         let dates = displayCommitments.map(\.startAt) + snapshot.blocks.map(\.startAt) + snapshot.freeWindows.map(\.startAt) + snapshot.workingIntervals.map(\.start) + nowAnchor
         guard let first = dates.min() else { return 8 }
@@ -496,18 +308,19 @@ struct PlanDayTimeCanvas: View {
 
     private var endHour: Int {
         let dates = displayCommitments.map(\.endAt) + snapshot.blocks.map(\.endAt) + snapshot.freeWindows.map(\.endAt) + snapshot.workingIntervals.map(\.end) + nowAnchor
+            + [overloadBand?.end].compactMap { $0 }
         guard let last = dates.max() else { return 18 }
         let components = Calendar.current.dateComponents([.hour, .minute], from: last)
         return min(24, max(startHour + 4, (components.hour ?? 17) + ((components.minute ?? 0) > 0 ? 2 : 1)))
     }
 
     private var hourSpan: Int { max(4, endHour - startHour) }
-    private var timelineHeight: CGFloat { CGFloat(hourSpan) * hourHeight + 1 }
+    var timelineHeight: CGFloat { CGFloat(hourSpan) * hourHeight + 1 }
 
     /// How far a block may travel, in minutes, before it would leave the drawn
     /// day. The drag rubber-bands past these rather than stopping dead, so the
     /// edge of the canvas is felt instead of just refusing to move.
-    private func minuteBounds(for block: InternalTimeBlock) -> ClosedRange<Int> {
+    func minuteBounds(for block: InternalTimeBlock) -> ClosedRange<Int> {
         let timelineEnd = timelineStart.addingTimeInterval(TimeInterval(hourSpan) * 3_600)
         let earliest = Int(timelineStart.timeIntervalSince(block.startAt) / 60)
         let latest = Int(timelineEnd.timeIntervalSince(block.endAt) / 60)
@@ -515,12 +328,14 @@ struct PlanDayTimeCanvas: View {
         return earliest...latest
     }
 
-    private func yPosition(_ date: Date) -> CGFloat {
-        max(0, CGFloat(date.timeIntervalSince(timelineStart) / 3_600) * hourHeight)
+    /// Positioned by wall-clock hour and minute, as the ruler is labelled.
+    func yPosition(_ date: Date) -> CGFloat {
+        max(0, CGFloat(PlanCanvasGeometry.wallClockHours(from: timelineStart, to: date)) * hourHeight)
     }
 
-    private func blockHeight(from start: Date, to end: Date) -> CGFloat {
-        max(30, CGFloat(max(0, end.timeIntervalSince(start)) / 3_600) * hourHeight - 3)
+    func blockHeight(from start: Date, to end: Date) -> CGFloat {
+        let hours = PlanCanvasGeometry.wallClockHours(from: start, to: end)
+        return max(30, CGFloat(max(0, hours)) * hourHeight - 3)
     }
 
     private var conflictCount: Int {
@@ -533,7 +348,7 @@ struct PlanDayTimeCanvas: View {
         return commitments + blocks
     }
 
-    private func conflicts(start: Date, end: Date, excludingCommitmentID: String?, excludingBlockID: UUID?) -> Bool {
+    func conflicts(start: Date, end: Date, excludingCommitmentID: String?, excludingBlockID: UUID?) -> Bool {
         let overlapsCommitment = displayCommitments.contains { value in
             value.id != excludingCommitmentID && value.startAt < end && value.endAt > start
         }
@@ -547,8 +362,7 @@ struct PlanDayTimeCanvas: View {
 
     private func timeLabel(_ date: Date) -> String { date.formatted(date: .omitted, time: .shortened) }
     private func durationLabel(_ interval: TimeInterval) -> String {
-        let minutes = max(0, Int((interval / 60).rounded()))
-        return minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h\(minutes % 60 == 0 ? "" : " \(minutes % 60)m")"
+        LifeBoardDuration.text(seconds: max(0, interval))
     }
 }
 
@@ -577,6 +391,7 @@ struct PlanClusterStrip<Content: View>: View {
     @ViewBuilder var content: Content
 
     @State private var committed: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @GestureState private var live: CGFloat = 0
 
     private var totalWidth: CGFloat {
@@ -610,7 +425,7 @@ struct PlanClusterStrip<Content: View>: View {
                         committed = clamp(committed + value.translation.width)
                     }
             )
-            .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.86), value: committed)
+            .animation(MotionProfile.directManipulation.animation(reduceMotion: reduceMotion), value: committed)
     }
 }
 
@@ -682,18 +497,20 @@ struct PlanCanvasBlock: View {
                 // The drag snaps to five minutes for small corrections, so the
                 // menu has to offer the same granularity or the pointer and
                 // keyboard paths cannot reach every slot the finger can.
-                Button("Move 5 minutes earlier", systemImage: "arrow.up") { move(-5) }
-                Button("Move 5 minutes later", systemImage: "arrow.down") { move(5) }
-                Button("Move 15 minutes earlier", systemImage: "arrow.up.to.line") { move(-15) }
-                Button("Move 15 minutes later", systemImage: "arrow.down.to.line") { move(15) }
-                Button("Add 15 minutes", systemImage: "plus") { resize(15) }
-                Button("Remove 15 minutes", systemImage: "minus") { resize(-15) }
+                Button("5 min earlier", systemImage: "arrow.up") { move(-5) }
+                Button("5 min later", systemImage: "arrow.down") { move(5) }
+                Button("15 min earlier", systemImage: "arrow.up.to.line") { move(-15) }
+                Button("15 min later", systemImage: "arrow.down.to.line") { move(15) }
+                Button("Add 15 min", systemImage: "plus") { resize(15) }
+                Button("Remove 15 min", systemImage: "minus") { resize(-15) }
                 Button("Split", systemImage: "rectangle.split.2x1", action: split)
                 Button("Remove", systemImage: "trash", role: .destructive, action: delete)
             } label: {
                 Image(systemName: "ellipsis")
                     .frame(width: isCompact ? 22 : 30, height: 30)
+                    .contentShape(Rectangle())
             }
+            .hoverEffect(.highlight)
         }
         .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
         .padding(.leading, isCompact ? 5 : 7)
@@ -713,7 +530,7 @@ struct PlanCanvasBlock: View {
             in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 11)
+            RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                 .stroke(
                     Color(SemanticColorTokens.foundationApricotAccent)
                         .opacity(isDragging ? 0.9 : 0.48),
@@ -773,6 +590,7 @@ struct PlanCanvasBlock: View {
         .overlay(alignment: .top) {
             resizeHandle(
                 label: "Resize start",
+                blockHeight: height,
                 identifier: "plan.canvas.block.\(block.id.uuidString).resizeStart"
             )
                 .gesture(
@@ -799,6 +617,7 @@ struct PlanCanvasBlock: View {
         .overlay(alignment: .bottom) {
             resizeHandle(
                 label: "Resize end",
+                blockHeight: height,
                 identifier: "plan.canvas.block.\(block.id.uuidString).resizeEnd"
             )
                 .gesture(
@@ -823,12 +642,12 @@ struct PlanCanvasBlock: View {
                 )
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(block.title), \(block.startAt.formatted(date: .omitted, time: .shortened)) to \(block.endAt.formatted(date: .omitted, time: .shortened))\(hasConflict ? ", conflicts with another item" : "")")
+        .accessibilityLabel("\(block.title), \(block.startAt.formatted(date: .omitted, time: .shortened)) to \(block.endAt.formatted(date: .omitted, time: .shortened))\(hasConflict ? ", overlaps another block" : "")")
         .accessibilityAdjustableAction { direction in move(direction == .increment ? 15 : -15) }
-        .accessibilityAction(named: "Move 5 minutes earlier") { move(-5) }
-        .accessibilityAction(named: "Move 5 minutes later") { move(5) }
-        .accessibilityAction(named: "Add 15 minutes") { resize(15) }
-        .accessibilityAction(named: "Remove 15 minutes") { resize(-15) }
+        .accessibilityAction(named: "5 min earlier") { move(-5) }
+        .accessibilityAction(named: "5 min later") { move(5) }
+        .accessibilityAction(named: "Add 15 min") { resize(15) }
+        .accessibilityAction(named: "Remove 15 min") { resize(-15) }
         .accessibilityAction(named: "Start focus", focus)
         .accessibilityIdentifier("plan.canvas.block.\(block.id.uuidString)")
     }
@@ -859,15 +678,23 @@ struct PlanCanvasBlock: View {
         )
     }
 
-    private func resizeHandle(label: String, identifier: String) -> some View {
+    /// A resize grip whose hit area never swallows the block.
+    ///
+    /// Each handle was a full-width, 44-point overlay. On a block under 88
+    /// points (anything shorter than about 80 minutes) the two covered the
+    /// whole block, so press-and-drag resized instead of moving, and the top
+    /// one sat on the "…" menu, which could not be tapped. The grip now takes
+    /// at most a quarter of the block's height and stops short of the menu.
+    private func resizeHandle(label: String, blockHeight: CGFloat, identifier: String) -> some View {
         Capsule()
             .fill(Color(SemanticColorTokens.foundationApricotAccent))
             .frame(width: 30, height: 4)
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .frame(height: min(44, max(12, blockHeight / 4)))
             .contentShape(Rectangle())
+            .padding(.trailing, 44)
             .accessibilityLabel(label)
-            .accessibilityHint("Drag, or use the duration actions in the menu")
+            .accessibilityHint("Drag to resize")
             .accessibilityIdentifier(identifier)
     }
 
@@ -876,22 +703,6 @@ struct PlanCanvasBlock: View {
     /// warning and dragging *into* one shows nothing until the drop.
     private var showsConflict: Bool {
         isDragging ? conflictAt(draggedMinutes) : hasConflict
-    }
-}
-
-/// Where a drop on the day canvas lands, in time.
-enum PlanCanvasDropResolver {
-    static let snapMinutes = 15
-
-    static func start(
-        forY y: CGFloat,
-        timelineStart: Date,
-        hourHeight: CGFloat,
-        snapMinutes: Int = snapMinutes
-    ) -> Date {
-        let minutes = max(0, Double(y / hourHeight) * 60)
-        let snapped = (minutes / Double(snapMinutes)).rounded() * Double(snapMinutes)
-        return timelineStart.addingTimeInterval(snapped * 60)
     }
 }
 
@@ -915,66 +726,3 @@ private struct PlanCanvasDropDelegate: DropDelegate {
     }
 }
 
-/// Pure geometry and wording for the day canvas, kept out of the view so the
-/// rules are testable.
-enum PlanCanvasGeometry {
-    /// "6 AM", "Noon", "6 PM": the ruler only needs the hour.
-    static func hourLabel(_ hour: Int) -> String {
-        switch hour % 24 {
-        case 0: return "12 AM"
-        case 12: return "Noon"
-        case let value where value < 12: return "\(value) AM"
-        case let value: return "\(value - 12) PM"
-        }
-    }
-
-    /// Today opens with now a third of the way down; other days open at their
-    /// first item, at the top.
-    static func initialAnchor(isToday: Bool) -> UnitPoint {
-        isToday ? UnitPoint(x: 0.5, y: 0.33) : .top
-    }
-
-    /// "7:25": no leading zero, no AM/PM (the ruler beside it already says).
-    static func nowLabel(_ date: Date, calendar: Calendar = .current) -> String {
-        let parts = calendar.dateComponents([.hour, .minute], from: date)
-        let hour = (parts.hour ?? 0) % 12 == 0 ? 12 : (parts.hour ?? 0) % 12
-        return String(format: "%d:%02d", hour, parts.minute ?? 0)
-    }
-
-    /// The parts of the drawn span outside working hours, to the minute. It
-    /// used to shade whole hours by testing each hour's start, and because
-    /// `DateInterval.contains` includes its end, 6 PM counted as working.
-    static func nonworkingIntervals(within span: DateInterval, working: [DateInterval]) -> [DateInterval] {
-        var gaps: [DateInterval] = []
-        var cursor = span.start
-        for interval in working.sorted(by: { $0.start < $1.start }) where interval.end > cursor && interval.start < span.end {
-            if interval.start > cursor { gaps.append(DateInterval(start: cursor, end: interval.start)) }
-            cursor = max(cursor, interval.end)
-        }
-        if cursor < span.end { gaps.append(DateInterval(start: cursor, end: span.end)) }
-        return gaps
-    }
-
-    static func labelsOpenWindow(duration: TimeInterval) -> Bool {
-        duration >= 45 * 60
-    }
-}
-
-/// When a sideways drag on the canvas becomes a day change.
-enum PlanDaySwipe {
-    static func isHorizontal(_ translation: CGSize) -> Bool {
-        abs(translation.width) > abs(translation.height) * 2
-    }
-
-    /// +1 for the next day (swipe left), -1 for the previous, 0 to spring back.
-    /// Commits past 30% of the width, or on a flick that would carry that far.
-    static func dayDelta(translation: CGSize, predictedEndTranslation: CGSize, width: CGFloat) -> Int {
-        guard width > 0, isHorizontal(translation), abs(translation.width) >= 24 else { return 0 }
-        let threshold = width * 0.3
-        let travel = abs(translation.width) >= threshold ? translation.width
-            : abs(predictedEndTranslation.width) >= threshold * 1.5 ? predictedEndTranslation.width
-            : 0
-        guard travel != 0, travel.sign == translation.width.sign else { return 0 }
-        return travel < 0 ? 1 : -1
-    }
-}

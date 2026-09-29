@@ -34,7 +34,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
             .deletingLastPathComponent()
         let url = repositoryRoot.appendingPathComponent("Services/EVACloud/eval/eva-turn-router-corpus.json")
         let examples = try JSONDecoder().decode([Example].self, from: Data(contentsOf: url))
-        XCTAssertEqual(examples.count, 120)
+        XCTAssertEqual(examples.count, 123)
         for example in examples {
             XCTAssertEqual(
                 EvaTurnRouter.route(for: example.utterance),
@@ -195,7 +195,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(evaluator.capturedRequestOptions?.chatMode, .answerOnly)
         XCTAssertEqual(evaluator.capturedRequestOptions?.effectiveModelType, .regular)
         XCTAssertFalse(evaluator.capturedRequestOptions?.allowThinking ?? true)
-        XCTAssertEqual(plan.proposalCards.first?.badgeText, "CREATE")
+        XCTAssertEqual(plan.proposalCards.first?.badgeText, "New")
         XCTAssertEqual(evaluator.capturedMessageCount, 1)
         XCTAssertTrue(evaluator.capturedUserPrompt?.contains("user_prompt:") ?? false)
         XCTAssertFalse(evaluator.capturedUserPrompt?.contains("EVA could not finish this plan.") ?? true)
@@ -314,7 +314,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         ))
 
         XCTAssertEqual(output?.envelope.commands.count, 2)
-        XCTAssertEqual(output?.cards.map(\.badgeText), ["CREATE", "CREATE"])
+        XCTAssertEqual(output?.cards.map(\.badgeText), ["New", "New"])
         guard case .createScheduledTask(_, let title, _, _, let duration, _, _, _, _, _, _, _) = output?.envelope.commands.first else {
             return XCTFail("Expected scheduled task")
         }
@@ -376,7 +376,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         }
         XCTAssertEqual(title, "go for a run")
         XCTAssertEqual(duration, 20 * 60)
-        XCTAssertEqual(output?.cards.first?.badgeText, "CREATE")
+        XCTAssertEqual(output?.cards.first?.badgeText, "New")
         XCTAssertEqual(output?.cards.first?.subtitle, "Inbox (20 min)")
     }
 
@@ -396,7 +396,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         }
         XCTAssertEqual(title, "go for run")
         XCTAssertNil(duration)
-        XCTAssertEqual(output?.cards.first?.badgeText, "CREATE")
+        XCTAssertEqual(output?.cards.first?.badgeText, "New")
         XCTAssertEqual(output?.cards.first?.subtitle, "Inbox")
     }
 
@@ -416,7 +416,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
             return XCTFail("Expected planner to produce proposal cards")
         }
         XCTAssertEqual(plan.envelope.commands.count, 1)
-        XCTAssertEqual(plan.proposalCards.first?.badgeText, "CREATE")
+        XCTAssertEqual(plan.proposalCards.first?.badgeText, "New")
         XCTAssertEqual(plan.generationSource, "deterministic_intent_gate")
         XCTAssertNil(evaluator.capturedModelName)
     }
@@ -518,7 +518,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         }
         XCTAssertEqual(plan.envelope.commands.count, 0)
         XCTAssertEqual(plan.dayOverviewPayload?.sections.first?.kind, .emptyState)
-        XCTAssertTrue(plan.dayOverviewPayload?.sections.first?.message?.contains("avoiding guesswork") ?? false)
+        XCTAssertTrue(plan.dayOverviewPayload?.sections.first?.message?.contains("Couldn’t load your day") ?? false)
         XCTAssertNil(evaluator.capturedModelName)
     }
 
@@ -556,7 +556,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         }
         XCTAssertEqual(plan.envelope.commands.count, 0)
         XCTAssertTrue(plan.rationale.contains("Ship EVA fix"))
-        XCTAssertFalse(plan.rationale.contains("couldn’t load a complete day view"))
+        XCTAssertFalse(plan.rationale.contains("Couldn’t load your day"))
         XCTAssertNil(evaluator.capturedModelName)
     }
 
@@ -760,7 +760,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(overview.sections.map(\.kind), [.todayTasks, .dueHabits])
         XCTAssertEqual(overview.sections.first?.taskCards.first?.title, "Ship EVA fix")
         XCTAssertEqual(overview.sections.last?.habitCards.first?.title, "Morning review")
-        XCTAssertTrue(overview.summaryMarkdown.contains("Next focus: **Ship EVA fix**"))
+        XCTAssertTrue(overview.summaryMarkdown.contains("Up next: **Ship EVA fix**"))
         XCTAssertNil(evaluator.capturedModelName)
     }
 
@@ -1521,7 +1521,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
             taskTitleByID: [taskID: "Deep work"]
         )
 
-        XCTAssertEqual(cards.map { $0.badgeText }, ["CREATE", "EDIT", "DROP"])
+        XCTAssertEqual(cards.map { $0.badgeText }, ["New", "Edit", "Off today"])
         XCTAssertTrue(cards[0].primaryAction == EvaProposalAction.add)
         XCTAssertTrue(cards[1].primaryAction == EvaProposalAction.save)
         XCTAssertTrue(cards[0].isSelectedByDefault)
@@ -1572,7 +1572,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
             .createInboxTask(projectID: UUID(), title: "Buy groceries", estimatedDuration: nil, lifeAreaID: nil, priority: nil, category: nil, details: nil, tagIDs: [])
         ])
 
-        XCTAssertEqual(EvaProposalApplyGate.validate(selectedCards: []), .blocked(message: "Select at least one card to apply."))
+        XCTAssertEqual(EvaProposalApplyGate.validate(selectedCards: []), .blocked(message: "Select a change to apply."))
         XCTAssertEqual(EvaProposalApplyGate.validate(selectedCards: safeCards), .allowed(appliedCount: 2))
 
         let largeSafeSelection = EvaProposalCardBuilder.build(commands: (0..<5).map { index in
@@ -1580,7 +1580,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         })
         XCTAssertEqual(
             EvaProposalApplyGate.validate(selectedCards: largeSafeSelection),
-            .blocked(message: "This plan changes 5 or more tasks. Apply a smaller selection first.")
+            .blocked(message: "Select up to 4 changes at a time.")
         )
     }
 
@@ -1609,8 +1609,8 @@ final class AssistantPlannerServiceTests: XCTestCase {
             "Habits: 201"
         ])
 
-        XCTAssertEqual(receipt.compactSourceText, "Today, overdue, upcoming, habits")
-        XCTAssertEqual(receipt.compactReviewText, "Review before applying • Context: Today, overdue, upcoming, habits")
+        XCTAssertEqual(receipt.compactSourceText, "Today, from earlier, upcoming, habits")
+        XCTAssertEqual(receipt.compactReviewText, "Based on: Today, from earlier, upcoming, habits")
     }
 
     func testEvaContextReceiptCompactReviewTextFallsBackWithoutVerboseReceiptCopy() {
@@ -1618,17 +1618,52 @@ final class AssistantPlannerServiceTests: XCTestCase {
             "A very long internal context source that should not be shown raw in the collapsed proposal UI"
         ])
 
-        XCTAssertEqual(EvaContextReceipt.empty.compactSourceText, "task context")
-        XCTAssertEqual(unknownReceipt.compactSourceText, "task context")
+        XCTAssertEqual(EvaContextReceipt.empty.compactSourceText, "your tasks")
+        XCTAssertEqual(unknownReceipt.compactSourceText, "your tasks")
         XCTAssertFalse(unknownReceipt.compactReviewText.contains("EVA used"))
         XCTAssertFalse(unknownReceipt.compactReviewText.contains("very long internal context source"))
     }
 
     func testEvaProposalActionLabelsStayCompactForActionChips() {
         XCTAssertEqual(
-            [EvaProposalAction.save, .show, .edit, .discard].map(\.rawValue),
-            ["Save", "Show", "Edit", "Discard"]
+            [EvaProposalAction.save, .show, .edit, .discard, .notNow].map(\.rawValue),
+            ["Save", "Show", "Edit", "Discard", "Not now"]
         )
+    }
+
+    func testProposalOverridesRewriteOnlyTheirOwnCommands() throws {
+        let taskA = UUID(), taskB = UUID()
+        let start = Date(timeIntervalSince1970: 1_758_110_400)
+        let envelope = AssistantCommandEnvelope(
+            schemaVersion: 1,
+            commands: [
+                .updateTaskSchedule(taskID: taskA, scheduledStartAt: start, scheduledEndAt: start.addingTimeInterval(1_800), estimatedDuration: 1_800, dueDate: nil),
+                .updateTaskSchedule(taskID: taskB, scheduledStartAt: start, scheduledEndAt: start.addingTimeInterval(1_800), estimatedDuration: 1_800, dueDate: nil),
+            ],
+            undoCommands: nil,
+            rationaleText: nil
+        )
+        var cardA = EvaProposalCardBuilder.noOpCard(title: "A", subtitle: "a")
+        cardA.commandIndexes = [0]
+        var cardB = EvaProposalCardBuilder.noOpCard(title: "B", subtitle: "b")
+        cardB.commandIndexes = [1]
+        let later = start.addingTimeInterval(3_600)
+        let rewritten = EvaProposalCardBuilder.selectedEnvelope(
+            from: envelope,
+            selectedCardIDs: [cardA.id, cardB.id],
+            cards: [cardA, cardB],
+            overrides: [cardA.id: EvaProposalCardOverride(cardID: cardA.id, scheduledStartAt: later, estimatedDuration: 2_700)]
+        )
+        XCTAssertEqual(rewritten.commands.count, 2)
+        if case let .updateTaskSchedule(id, newStart, newEnd, duration, _) = rewritten.commands[0] {
+            XCTAssertEqual(id, taskA)
+            XCTAssertEqual(newStart, later)
+            XCTAssertEqual(newEnd, later.addingTimeInterval(2_700))
+            XCTAssertEqual(duration, 2_700)
+        } else { XCTFail("A was not rewritten") }
+        XCTAssertEqual(rewritten.commands[1], envelope.commands[1], "B is untouched")
+        XCTAssertNil(EvaProposalCardOverride(cardID: cardA.id).badgeText)
+        XCTAssertEqual(EvaProposalCardOverride(cardID: cardA.id, estimatedDuration: 2_700).badgeText, "45 min")
     }
 
     func testEvaProposalApplyGateBlocksStrictRiskCards() {
@@ -1642,7 +1677,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
 
         XCTAssertEqual(
             EvaProposalApplyGate.validate(selectedCards: cards),
-            .blocked(message: "Drop and delete changes need a separate confirmation before Eva can apply them.")
+            .blocked(message: "Deletes can’t be applied here. Deselect them.")
         )
     }
 
@@ -1886,5 +1921,88 @@ private final class AssistantPlannerTaskReadRepositoryStub: TaskReadModelReposit
         completion: @escaping @Sendable (Result<[UUID: Int], Error>) -> Void
     ) {
         completion(.success([:]))
+    }
+}
+
+// MARK: - E3 chat tools
+
+final class ChatConversationToolsTests: XCTestCase {
+    private let base = ISO8601DateFormatter().date(from: "2026-09-17T09:00:00Z")!
+    private let thread = UUID()
+
+    private func message(_ role: ChatMessageSnapshot.Role, _ content: String, minute: Int) -> ChatMessageSnapshot {
+        ChatMessageSnapshot(id: UUID(), threadID: thread, role: role, content: content, timestamp: base.addingTimeInterval(Double(minute) * 60))
+    }
+
+    func testEditResendRemovesTheEditedMessageAndEverythingAfterIt() {
+        let first = message(.user, "Plan my day", minute: 0)
+        let reply = message(.assistant, "Here is a plan", minute: 1)
+        let second = message(.user, "Move dentist", minute: 2)
+        let reply2 = message(.assistant, "Moved", minute: 3)
+        let plan = ChatEditResendPolicy.plan(thread: [reply2, second, first, reply], editedID: second.id)
+        XCTAssertEqual(plan?.kept.map(\.id), [first.id, reply.id])
+        XCTAssertEqual(plan?.removed.map(\.id), [second.id, reply2.id])
+    }
+
+    func testEditResendRefusesAssistantMessages() {
+        let first = message(.user, "Plan my day", minute: 0)
+        let reply = message(.assistant, "Here is a plan", minute: 1)
+        XCTAssertNil(ChatEditResendPolicy.plan(thread: [first, reply], editedID: reply.id))
+        XCTAssertNil(ChatEditResendPolicy.plan(thread: [first, reply], editedID: UUID()))
+    }
+
+    func testSearchIsCaseInsensitiveNewestFirstWithSnippets() {
+        let old = message(.user, "Remind me about the DENTIST on Friday", minute: 0)
+        let new = message(.assistant, "Your dentist visit is booked.", minute: 5)
+        let other = message(.user, "Nothing here", minute: 3)
+        let hits = ChatSearchIndex.search("dentist", in: [old, other, new])
+        XCTAssertEqual(hits.map(\.messageID), [new.id, old.id])
+        XCTAssertEqual(hits.first?.snippet, "Your dentist visit is booked.")
+        XCTAssertTrue(ChatSearchIndex.search("   ", in: [old]).isEmpty)
+    }
+
+    func testSearchSnippetTrimsLongTextAroundTheMatch() {
+        let padding = String(repeating: "a", count: 100)
+        let long = message(.user, padding + " keyword " + padding, minute: 0)
+        let hit = ChatSearchIndex.search("keyword", in: [long]).first
+        XCTAssertNotNil(hit)
+        XCTAssertTrue(hit!.snippet.hasPrefix("…"))
+        XCTAssertTrue(hit!.snippet.hasSuffix("…"))
+        XCTAssertLessThan(hit!.snippet.count, 100)
+    }
+
+    func testExportSkipsSystemMessagesAndOrdersByTime() {
+        let system = message(.system, "instructions", minute: 0)
+        let user = message(.user, "Hello", minute: 1)
+        let reply = message(.assistant, "Hi there", minute: 2)
+        let markdown = ChatTranscriptExporter.markdown(title: nil, messages: [reply, system, user], now: base)
+        XCTAssertTrue(markdown.hasPrefix("# Chat with Eva"))
+        XCTAssertFalse(markdown.contains("instructions"))
+        XCTAssertLessThan(markdown.range(of: "Hello")!.lowerBound, markdown.range(of: "Hi there")!.lowerBound)
+        XCTAssertTrue(markdown.contains("**You**"))
+        XCTAssertTrue(markdown.contains("**Eva**"))
+    }
+}
+
+final class EvaRitualPhraseRouterTests: XCTestCase {
+    func testSlashCommandsRouteWithTheirArgument() {
+        XCTAssertEqual(EvaRitualPhraseRouter.match("/fit"), EvaRitualRequest(kind: .makeItFit, argument: nil))
+        XCTAssertEqual(EvaRitualPhraseRouter.match("/reset "), EvaRitualRequest(kind: .weeklyReset, argument: nil))
+        XCTAssertEqual(EvaRitualPhraseRouter.match("/friction dentist appointment"), EvaRitualRequest(kind: .frictionDetective, argument: "dentist appointment"))
+        XCTAssertNil(EvaRitualPhraseRouter.match("/fitness plan"))
+    }
+
+    func testPlainPhrasesRouteOnlyWhenShort() {
+        XCTAssertEqual(EvaRitualPhraseRouter.match("Can you make today fit?")?.kind, .makeItFit)
+        XCTAssertEqual(EvaRitualPhraseRouter.match("what keeps getting in the way of the report")?.kind, .frictionDetective)
+        XCTAssertEqual(EvaRitualPhraseRouter.match("Weekly reset please")?.kind, .weeklyReset)
+        let paragraph = "I was thinking about how to make today fit and also about " + String(repeating: "many other things ", count: 6)
+        XCTAssertNil(EvaRitualPhraseRouter.match(paragraph))
+    }
+
+    func testNormalChatIsNotARitual() {
+        XCTAssertNil(EvaRitualPhraseRouter.match("Can you explain why I keep overplanning?"))
+        XCTAssertNil(EvaRitualPhraseRouter.match("What are my tasks for today"))
+        XCTAssertNil(EvaRitualPhraseRouter.match(""))
     }
 }

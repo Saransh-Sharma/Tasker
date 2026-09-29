@@ -38,6 +38,13 @@
 #             onto the warm appearance-aware token; the UIColor constructors are
 #             Eva's UIKit navigation bar and `MoodDialTheme.neutral`, which were
 #             baked light-only values and are now `lifeboardDynamic` pairs.
-token_law_font_system	27
-token_law_shadow_usage	37
+# 2026-09-17  font 27 -> 21, shadow 37 -> 35 after the LifeBoard 5 extraction;
+#             UIColor stays at 19 after the capture highlighter was wired
+#             directly to UIColor-valued semantic tokens.
+# 2026-09-25  font 21 -> 19, shadow 35 -> 32. The dead Home generation was
+#             deleted (LifeBoardDesign/HomeScreen.swift, TaskRowView/ListView/
+#             SectionView and twelve LifeBoardDesign/Components files); no live
+#             view instantiated them, and they carried these five.
+token_law_font_system	19
+token_law_shadow_usage	32
 token_law_uicolor_constructor	19

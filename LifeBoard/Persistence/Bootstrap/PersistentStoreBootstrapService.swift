@@ -35,234 +35,6 @@ fileprivate enum SplitPersistentStore: CaseIterable {
     }
 }
 
-private struct PersistedOverdueRescueSession: Decodable {
-    let referenceDate: Date
-    let undoStack: [PersistedOverdueRescueUndoRecord]
-}
-
-private struct PersistedOverdueRescueUndoRecord: Decodable {
-    let taskID: UUID
-    let source: String
-    let action: String
-    let fullSnapshot: AssistantTaskSnapshot
-}
-
-public enum RescueScheduleRepairService {
-    public struct Report: Equatable {
-        public var scannedRuns = 0
-        public var scannedSessionRecords = 0
-        public var repairedTasks = 0
-
-        public init() {}
-    }
-    public static func repair(
-        container: NSPersistentContainer,
-        defaults: UserDefaults = .standard,
-        completion: (@Sendable (Report) -> Void)? = nil
-    ) {
-        let context = container.newBackgroundContext()
-        context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
-        let rescueSessionEntries = rescueSessionEntries(from: defaults)
-        context.perform {
-            do {
-                let report = try repair(in: context, rescueSessionEntries: rescueSessionEntries)
-                if context.hasChanges {
-                    try context.save()
-                }
-                DispatchQueue.main.async {
-                    if report.repairedTasks > 0 {
-                        NotificationCenter.default.post(
-                            name: .homeTaskMutation,
-                            object: nil,
-                            userInfo: HomeTaskMutationPayload(
-                                reason: .bulkChanged,
-                                source: "rescueScheduleRepair"
-                            ).userInfo
-                        )
-                    }
-                    completion?(report)
-                }
-            } catch {
-                logError(
-                    event: "rescue_schedule_repair_failed",
-                    message: "Failed to repair rescue schedule history",
-                    fields: ["error": error.localizedDescription]
-                )
-                DispatchQueue.main.async {
-                    completion?(Report())
-                }
-            }
-        }
-    }
-
-    @discardableResult
-    static func repair(
-        in context: NSManagedObjectContext,
-        defaults: UserDefaults = .standard,
-        rescueSessionEntries: [(key: String, data: Data)]? = nil,
-        now: Date = Date(),
-        calendar: Calendar = .current
-    ) throws -> Report {
-        var report = Report()
-        let runRequest = NSFetchRequest<NSManagedObject>(entityName: "AssistantActionRun")
-        runRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "threadID BEGINSWITH %@", "eva_rescue_"),
-            NSPredicate(format: "status == %@", AssistantActionStatus.applied.rawValue),
-            NSPredicate(format: "proposalData != nil")
-        ])
-        runRequest.sortDescriptors = [NSSortDescriptor(key: "appliedAt", ascending: false)]
-
-        for run in try context.fetch(runRequest) {
-            report.scannedRuns += 1
-            guard let data = run.value(forKey: "proposalData") as? Data,
-                  let envelope = try? JSONDecoder().decode(AssistantCommandEnvelope.self, from: data),
-                  let undoCommands = envelope.undoCommands else {
-                continue
-            }
-            let originals = Dictionary(
-                undoCommands.compactMap(snapshotPair),
-                uniquingKeysWith: { first, _ in first }
-            )
-            for command in envelope.commands {
-                guard case .restoreTaskSnapshot(let forward) = command,
-                      let original = originals[forward.id],
-                      originalHadAllDayIntent(original, calendar: calendar),
-                      forwardLooksLikeCorruptedTimedRescue(forward, calendar: calendar),
-                      let task = try fetchTask(id: forward.id, in: context),
-                      currentTask(task, matches: forward),
-                      isRepairEligible(task) else {
-                    continue
-                }
-                applyAllDayRepair(
-                    task,
-                    targetDate: forward.dueDate ?? forward.scheduledStartAt,
-                    now: now,
-                    calendar: calendar
-                )
-                report.repairedTasks += 1
-            }
-        }
-
-        for (_, data) in rescueSessionEntries ?? Self.rescueSessionEntries(from: defaults) {
-            guard let session = try? JSONDecoder().decode(PersistedOverdueRescueSession.self, from: data) else {
-                continue
-            }
-            for record in session.undoStack
-            where record.source == "bulk" && record.action == "keepToday" {
-                report.scannedSessionRecords += 1
-                guard originalHadAllDayIntent(record.fullSnapshot, calendar: calendar),
-                      let task = try fetchTask(id: record.taskID, in: context),
-                      currentTask(task, matches: record.fullSnapshot),
-                      isRepairEligible(task) else {
-                    continue
-                }
-                applyAllDayRepair(
-                    task,
-                    targetDate: session.referenceDate,
-                    now: now,
-                    calendar: calendar
-                )
-                report.repairedTasks += 1
-            }
-        }
-
-        if report.repairedTasks > 0 {
-            logWarning(
-                event: "rescue_schedule_repair_applied",
-                message: "Repaired all-day tasks using persisted rescue evidence",
-                fields: [
-                    "scanned_runs": String(report.scannedRuns),
-                    "scanned_session_records": String(report.scannedSessionRecords),
-                    "repaired_tasks": String(report.repairedTasks)
-                ]
-            )
-        }
-        return report
-    }
-
-    private static func rescueSessionEntries(from defaults: UserDefaults) -> [(key: String, data: Data)] {
-        defaults.dictionaryRepresentation().compactMap { key, value in
-            guard key.hasPrefix("overdueRescue.session.v1."),
-                  let data = value as? Data else {
-                return nil
-            }
-            return (key, data)
-        }
-    }
-
-    private static func snapshotPair(_ command: AssistantCommand) -> (UUID, AssistantTaskSnapshot)? {
-        guard case .restoreTaskSnapshot(let snapshot) = command else { return nil }
-        return (snapshot.id, snapshot)
-    }
-
-    private static func originalHadAllDayIntent(
-        _ snapshot: AssistantTaskSnapshot,
-        calendar: Calendar
-    ) -> Bool {
-        snapshot.isAllDay == true
-            || snapshot.dueDate.map { TaskScheduleNormalizer.isDateOnly($0, calendar: calendar) } == true
-    }
-
-    private static func forwardLooksLikeCorruptedTimedRescue(
-        _ snapshot: AssistantTaskSnapshot,
-        calendar: Calendar
-    ) -> Bool {
-        snapshot.isAllDay != true
-            && snapshot.scheduledStartAt != nil
-            && snapshot.dueDate.map { TaskScheduleNormalizer.isDateOnly($0, calendar: calendar) == false } == true
-    }
-
-    private static func fetchTask(
-        id: UUID,
-        in context: NSManagedObjectContext
-    ) throws -> NSManagedObject? {
-        let request = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
-        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
-        request.fetchLimit = 1
-        return try context.fetch(request).first
-    }
-
-    private static func isRepairEligible(_ task: NSManagedObject) -> Bool {
-        (task.value(forKey: "isComplete") as? Bool) != true
-            && task.value(forKey: "parentTaskID") == nil
-    }
-
-    private static func currentTask(
-        _ task: NSManagedObject,
-        matches snapshot: AssistantTaskSnapshot
-    ) -> Bool {
-        datesEqual(task.value(forKey: "dueDate") as? Date, snapshot.dueDate)
-            && datesEqual(task.value(forKey: "scheduledStartAt") as? Date, snapshot.scheduledStartAt)
-            && datesEqual(task.value(forKey: "scheduledEndAt") as? Date, snapshot.scheduledEndAt)
-            && ((task.value(forKey: "isAllDay") as? Bool) ?? false) == (snapshot.isAllDay ?? false)
-    }
-
-    private static func datesEqual(_ lhs: Date?, _ rhs: Date?) -> Bool {
-        switch (lhs, rhs) {
-        case (nil, nil):
-            return true
-        case let (lhs?, rhs?):
-            return abs(lhs.timeIntervalSince(rhs)) < 1
-        default:
-            return false
-        }
-    }
-
-    private static func applyAllDayRepair(
-        _ task: NSManagedObject,
-        targetDate: Date?,
-        now: Date,
-        calendar: Calendar
-    ) {
-        guard let targetDate else { return }
-        task.setValue(calendar.startOfDay(for: targetDate), forKey: "dueDate")
-        task.setValue(nil, forKey: "scheduledStartAt")
-        task.setValue(nil, forKey: "scheduledEndAt")
-        task.setValue(true, forKey: "isAllDay")
-        task.setValue(now, forKey: "updatedAt")
-    }
-}
-
 public struct PersistentStoreLocation: Equatable {
     public let canonicalDirectoryURL: URL
     public let legacyDirectoryURL: URL
@@ -370,6 +142,20 @@ public final class PersistentStoreLocationService {
             forFileName: store.fileName,
             in: location.canonicalDirectoryURL
         )
+    }
+
+    /// Moves aside only the iCloud-synced store.
+    ///
+    /// "Rebuild from iCloud" rebuilds what iCloud holds. The local-only store —
+    /// fasting, hydration, mood, medication, health sync state, drafts — never
+    /// reached iCloud, so moving it aside would lose it with nothing to restore.
+    public func quarantineCloudSyncStoreFiles(reason: String) throws -> URL? {
+        try quarantineActiveV3StoreFiles(for: .cloudSync, reason: reason)
+    }
+
+    /// Clears only the iCloud-synced store after `quarantineCloudSyncStoreFiles`.
+    public func clearCloudSyncStoreFiles() {
+        clearActiveV3StoreFiles(for: .cloudSync)
     }
 
     public func quarantineActiveV3StoreFiles(reason: String) throws -> URL? {
@@ -683,7 +469,12 @@ public struct PersistentRuntimeInitializer {
                 lifeArea = existing
             } else {
                 let created = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
-                let lifeAreaID = UUID()
+                // Fixed, like the Inbox project's. A random id per device meant
+                // a second device, launched before iCloud delivered the first
+                // one's data, made its own "General" whose tasks and projects
+                // pointed at an id no other device knew. With one id, the two
+                // rows still merge by name, and every reference survives.
+                let lifeAreaID = Self.defaultGeneralLifeAreaID
                 created.setValue(lifeAreaID, forKey: "id")
                 created.setValue("General", forKey: "name")
                 created.setValue(LifeAreaColorPalette.defaultHex(for: lifeAreaID), forKey: "color")
@@ -754,6 +545,10 @@ public struct PersistentRuntimeInitializer {
             )
         }
     }
+
+    /// The id a newly seeded "General" life area gets on every device.
+    /// Existing installs keep whatever id they already have.
+    public static let defaultGeneralLifeAreaID = UUID(uuidString: "00000000-0000-0000-0000-00000000A001")!
 
     private func fetchGeneralLifeArea(in context: NSManagedObjectContext) throws -> NSManagedObject? {
         let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
@@ -1447,10 +1242,15 @@ public final class PersistentStoreBootstrapService: @unchecked Sendable {
         }
 
         #if DEBUG
-            if context.arguments.contains("-LIFEBOARD_DISABLE_CLOUDKIT") {
+            if context.arguments.contains("-LIFEBOARD_DISABLE_CLOUDKIT") ||
+                context.arguments.contains("-DISABLE_CLOUD_SYNC") {
                 return .disabled(reason: "launch_arg_disable_cloudkit")
             }
         #endif
+
+        if !context.hasCloudKitEntitlement {
+            return .disabled(reason: "missing_cloudkit_entitlement")
+        }
 
         return .enabled
     }
@@ -1483,7 +1283,7 @@ public final class PersistentStoreBootstrapService: @unchecked Sendable {
                 ]
             )
             return PersistentStoreBootstrapResult(
-                state: .failed("LifeBoard could not prepare local storage. Please relaunch the app."),
+                state: .failed(String(localized: "Couldn’t open your data. Relaunch LifeBoard.")),
                 syncMode: .writeClosed(reason: "persistent_store_prepare_failed"),
                 syncModeSource: "bootstrap_prepare_failed",
                 shouldMarkStoreEpoch: false
@@ -1510,7 +1310,7 @@ public final class PersistentStoreBootstrapService: @unchecked Sendable {
             if Self.validateRuntimeSchema(in: initialContainer.managedObjectModel) != nil {
                 unloadPersistentStores(initialContainer)
                 return PersistentStoreBootstrapResult(
-                    state: .failed("LifeBoard's data model is out of date. Please reinstall or update the app."),
+                    state: .failed(String(localized: "Couldn’t open your data. Update LifeBoard.")),
                     syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
                     syncModeSource: "bootstrap_initial_schema_invalid",
                     shouldMarkStoreEpoch: false
@@ -1560,7 +1360,7 @@ public final class PersistentStoreBootstrapService: @unchecked Sendable {
             if Self.validateRuntimeSchema(in: writeClosedContainer.managedObjectModel) != nil {
                 unloadPersistentStores(writeClosedContainer)
                 return PersistentStoreBootstrapResult(
-                    state: .failed("LifeBoard's data model is out of date. Please reinstall or update the app."),
+                    state: .failed(String(localized: "Couldn’t open your data. Update LifeBoard.")),
                     syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
                     syncModeSource: "bootstrap_write_closed_schema_invalid",
                     shouldMarkStoreEpoch: false
@@ -1586,7 +1386,7 @@ public final class PersistentStoreBootstrapService: @unchecked Sendable {
             )
         }
 
-        let failureMessage = "LifeBoard could not initialize local storage. Please relaunch the app or recover from iCloud."
+        let failureMessage = String(localized: "Couldn’t open your data. Relaunch or rebuild from iCloud.")
         logError(
             event: "persistent_store_bootstrap_failed_unreadable",
             message: "Persistent store bootstrap failed for split and write-closed fallback topologies",
@@ -1630,12 +1430,35 @@ public final class PersistentStoreBootstrapService: @unchecked Sendable {
         guard case .enabled = cloudKitMode else {
             return false
         }
+        // The local-only store has no other copy anywhere, so this path must
+        // never touch it: it only runs when that store opened cleanly, and
+        // the rebuild quarantines the CloudSync files alone.
         guard hasLocalOnlyConfiguration(initialReport) else {
             return false
         }
-        return initialReport.errors.contains(where: isIncompatibleStoreError)
+        // Only when the synced store actually failed to open. A CloudSync
+        // store that loaded is readable, whatever else was reported, and
+        // quarantining it would throw away edits iCloud has not received yet.
+        guard initialReport.loadedConfigurations.contains(
+            SplitPersistentStore.cloudSync.configurationName
+        ) == false else {
+            return false
+        }
+        let incompatible = initialReport.errors.contains(where: isIncompatibleStoreError)
+        if incompatible {
+            logWarning(
+                event: "persistent_store_cloudsync_auto_rebuild_eligible",
+                message: "Synced store is unreadable with an incompatible-model error; rebuilding it from iCloud",
+                fields: [
+                    "errors": initialReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
+                ]
+            )
+        }
+        return incompatible
     }
+}
 
+extension PersistentStoreBootstrapService {
     private func attemptCloudSyncStoreRebuild() async -> PersistentStoreBootstrapResult? {
         do {
             let quarantineURL = try storeLocationService.quarantineActiveV3StoreFiles(
@@ -1674,7 +1497,7 @@ public final class PersistentStoreBootstrapService: @unchecked Sendable {
             if Self.validateRuntimeSchema(in: rebuiltContainer.managedObjectModel) != nil {
                 unloadPersistentStores(rebuiltContainer)
                 return PersistentStoreBootstrapResult(
-                    state: .failed("LifeBoard's data model is out of date. Please reinstall or update the app."),
+                    state: .failed(String(localized: "Couldn’t open your data. Update LifeBoard.")),
                     syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
                     syncModeSource: "bootstrap_cloudsync_auto_rebuild_schema_invalid",
                     shouldMarkStoreEpoch: false
@@ -1987,151 +1810,6 @@ public final class PersistentStoreBootstrapService: @unchecked Sendable {
         } catch {
             return "metadata_unavailable_\(error.localizedDescription)"
         }
-    }
-
-    public static func validateRuntimeSchema(in model: NSManagedObjectModel) -> NSError? {
-        if let habitSchemaError = CoreDataHabitRepository.schemaValidationError(in: model) {
-            logError(
-                event: "persistent_store_habit_schema_invalid",
-                message: "Loaded Core Data model is missing required habit runtime fields",
-                fields: [
-                    "error": habitSchemaError.localizedDescription,
-                    "missing_requirements": habitSchemaError.userInfo["missingRequirements"] as? String ?? "unknown"
-                ]
-            )
-            return habitSchemaError
-        }
-
-        if let weeklyPlanningSchemaError = weeklyPlanningSchemaValidationError(in: model) {
-            logError(
-                event: "persistent_store_weekly_planning_schema_invalid",
-                message: "Loaded Core Data model is missing required weekly planning fields",
-                fields: [
-                    "error": weeklyPlanningSchemaError.localizedDescription,
-                    "missing_requirements": weeklyPlanningSchemaError.userInfo["missingRequirements"] as? String ?? "unknown"
-                ]
-            )
-            return weeklyPlanningSchemaError
-        }
-
-        if let gamificationSchemaError = CoreDataGamificationRepository.schemaValidationError(in: model) {
-            logError(
-                event: "persistent_store_gamification_schema_invalid",
-                message: "Loaded Core Data model is missing required gamification fields",
-                fields: [
-                    "error": gamificationSchemaError.localizedDescription,
-                    "missing_requirements": gamificationSchemaError.userInfo["missingRequirements"] as? String ?? "unknown"
-                ]
-            )
-            return gamificationSchemaError
-        }
-
-        return nil
-    }
-
-    private static func weeklyPlanningSchemaValidationError(in model: NSManagedObjectModel) -> NSError? {
-        var missingRequirements: [String] = []
-
-        func requireAttributes(entityName: String, attributes: [String]) {
-            guard let entity = model.entitiesByName[entityName] else {
-                missingRequirements.append("entity:\(entityName)")
-                return
-            }
-
-            for attribute in attributes where entity.attributesByName[attribute] == nil {
-                missingRequirements.append("\(entityName).\(attribute)")
-            }
-        }
-
-        requireAttributes(
-            entityName: "TaskDefinition",
-            attributes: [
-                "iconSymbolName",
-                "planningBucketRaw",
-                "weeklyOutcomeID",
-                "deferredFromWeekStart",
-                "deferredCount",
-                "replanCount",
-                "scheduledStartAt",
-                "scheduledEndAt",
-                "isAllDay"
-            ]
-        )
-        requireAttributes(
-            entityName: "Project",
-            attributes: [
-                "motivationWhy",
-                "motivationSuccessLooksLike",
-                "motivationCostOfNeglect"
-            ]
-        )
-        requireAttributes(
-            entityName: "WeeklyPlan",
-            attributes: [
-                "id",
-                "weekStartDate",
-                "reviewStatus"
-            ]
-        )
-        requireAttributes(
-            entityName: "WeeklyOutcome",
-            attributes: [
-                "id",
-                "weeklyPlanID",
-                "title",
-                "status",
-                "orderIndex"
-            ]
-        )
-        requireAttributes(
-            entityName: "WeeklyReview",
-            attributes: [
-                "id",
-                "weeklyPlanID",
-                "completedAt"
-            ]
-        )
-        requireAttributes(
-            entityName: "ReflectionNote",
-            attributes: [
-                "id",
-                "kind",
-                "noteText",
-                "createdAt"
-            ]
-        )
-        requireAttributes(
-            entityName: "Occurrence",
-            attributes: [
-                "recordedValue",
-                "recordedValueUpdatedAt"
-            ]
-        )
-        requireAttributes(
-            entityName: "FrictionFinding",
-            attributes: [
-                "id",
-                "taskID",
-                "evidenceData",
-                "selectedReasonRaw",
-                "interventionRaw",
-                "reviewAfter",
-                "outcomeRaw"
-            ]
-        )
-
-        guard missingRequirements.isEmpty == false else {
-            return nil
-        }
-
-        return NSError(
-            domain: "LifeBoardPersistentStoreBootstrapService",
-            code: 301,
-            userInfo: [
-                NSLocalizedDescriptionKey: "The loaded Core Data model is missing required weekly planning schema.",
-                "missingRequirements": missingRequirements.sorted().joined(separator: ",")
-            ]
-        )
     }
 
     private func underlyingCoreDataErrorSummary(_ error: NSError) -> String {

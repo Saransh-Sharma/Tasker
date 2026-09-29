@@ -55,7 +55,7 @@ struct OverdueRescueCardModel: Identifiable, Equatable, Sendable {
             projectLabel: task.projectID == ProjectConstants.inboxProjectID
                 ? "No project"
                 : (projectsByID[task.projectID]?.name ?? task.projectName ?? "No project"),
-            confidenceLabel: confidence >= 0.75 ? "High confidence" : "Needs your call",
+            confidenceLabel: confidence >= 0.75 ? String(localized: "Suggested") : String(localized: "Your call"),
             reasonTitle: reason.title,
             reasonBody: reason.body,
             moveDate: moveDate,
@@ -69,7 +69,7 @@ struct OverdueRescueCardModel: Identifiable, Equatable, Sendable {
     }
 
     var overdueText: String {
-        overdueDays == 1 ? "Needs a decision for 1 day" : "Needs a decision for \(overdueDays) days"
+        overdueDays == 1 ? String(localized: "1 day old") : String(localized: "\(overdueDays) days old")
     }
 
     var isHighConfidence: Bool {
@@ -90,23 +90,23 @@ struct OverdueRescueCardModel: Identifiable, Equatable, Sendable {
 
             switch recommendation.action {
             case .doToday:
-                return ("Still relevant", joined.isEmpty ? "Relevant to current projects." : "\(joined).")
+                return (String(localized: "Still relevant"), joined.isEmpty ? String(localized: "In an active project.") : "\(joined).")
             case .move:
-                return ("Today looks full", "This can move out of today’s board without risk.")
+                return (String(localized: "Today is full"), String(localized: "Safe to move to another day."))
             case .split:
-                return ("Needs a smaller next step", joined.isEmpty ? "Break this down before it blocks the day." : "\(joined).")
+                return (String(localized: "Too big for today"), joined.isEmpty ? String(localized: "Break it into smaller steps.") : "\(joined).")
             case .dropCandidate:
-                return ("Looks stale", joined.isEmpty ? "This has not moved in a while." : "\(joined).")
+                return (String(localized: "Untouched for a while"), joined.isEmpty ? String(localized: "Keep, move or let it go.") : "\(joined).")
             }
         }
 
         if task.projectID != ProjectConstants.inboxProjectID {
-            return ("Still relevant", "Relevant to current projects.")
+            return (String(localized: "Still relevant"), String(localized: "In an active project."))
         }
         if overdueDays >= 14 {
-            return ("Looks stale", "This looks stale and has not moved in 2 weeks.")
+            return (String(localized: "Untouched for a while"), String(localized: "No changes in 2 weeks."))
         }
-        return ("Needs your call", "Not enough signal to suggest a safe change.")
+        return (String(localized: "Your call"), String(localized: "No clear suggestion."))
     }
 
     static func resolvedMoveDate(

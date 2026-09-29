@@ -53,7 +53,7 @@ struct EvidenceRow: View {
                 .foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 4) {
-                Text(event.kind.replacingOccurrences(of: "_", with: " ").capitalized)
+                Text(Self.kindTitle(event.kind))
                     .lifeboardFont(.headline)
                 Text(event.provenance)
                     .lifeboardFont(.caption1)
@@ -66,7 +66,7 @@ struct EvidenceRow: View {
                         ForEach(event.evidence, id: \.self) { evidence in
                             Button(evidence.display) { onOpenEvidence(evidence) }
                                 .lifeboardFont(.eyebrow)
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.lifeBoardChip)
                                 .controlSize(.small)
                         }
                     }
@@ -75,17 +75,24 @@ struct EvidenceRow: View {
             Spacer(minLength: 8)
             if let value = event.numericValue { Text(value.formatted()).font(.headline.monospacedDigit()) }
             Menu {
-                Button("Don't use this signal", systemImage: "eye.slash", role: .destructive) {
+                Button("Don’t use this", systemImage: "eye.slash", role: .destructive) {
                     onExclude()
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .frame(width: 32, height: 32)
             }
-            .accessibilityLabel("Evidence controls")
+            .accessibilityLabel("More")
         }
         .padding(.vertical, 12)
         .overlay(alignment: .bottom) { Divider().opacity(0.55) }
         .accessibilityElement(children: .contain)
+    }
+
+    /// Sentence case for a stored kind such as `hydration_log`; the stored
+    /// value itself is untouched.
+    static func kindTitle(_ kind: String) -> String {
+        let spaced = kind.replacingOccurrences(of: "_", with: " ")
+        return spaced.prefix(1).localizedCapitalized + spaced.dropFirst()
     }
 }

@@ -257,6 +257,14 @@ final class LLMStoreBootstrap: ObservableObject {
         return result.container
     }
 
+    /// Tries again after every fallback failed and no container exists, so
+    /// the unavailable screen can offer Retry instead of "restart the app".
+    func retryAfterFailure() async {
+        guard case .degraded(nil, _) = state else { return }
+        state = .idle
+        _ = await load()
+    }
+
     private func publish(_ result: LLMDataController.LoadResult) {
         guard case .loading = state else { return }
         loadingTask = nil

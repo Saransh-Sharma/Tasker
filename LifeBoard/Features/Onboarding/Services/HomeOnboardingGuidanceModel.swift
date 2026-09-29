@@ -34,7 +34,7 @@ final class HomeOnboardingGuidanceModel: ObservableObject {
         state = State(
             taskID: UUID(),
             title: String(localized: "Set up LifeBoard"),
-            message: String(localized: "Tell us what matters. Your data stays as is."),
+            message: String(localized: "Pick what matters. Your data stays as is."),
             isInvitation: true
         )
     }
@@ -42,16 +42,16 @@ final class HomeOnboardingGuidanceModel: ObservableObject {
     func showCompletionGuide(task: TaskDefinition) {
         state = State(
             taskID: task.id,
-            title: "Your first task is ready",
-            message: "Finish \"\(task.title)\" to complete setup."
+            title: String(localized: "First task ready"),
+            message: String(localized: "Finish “\(task.title)” to complete setup.")
         )
     }
 
     func showHabitGuide(habit: HabitDefinitionRecord) {
         state = State(
             taskID: habit.id,
-            title: "Your starter habit is ready",
-            message: "\"\(habit.title)\" will show up on Home so tomorrow feels easier to start."
+            title: String(localized: "Starter habit ready"),
+            message: String(localized: "“\(habit.title)” now shows on Home.")
         )
     }
 

@@ -7,8 +7,8 @@ struct ProductTelemetrySettingsCard: View {
         SettingsCard {
             SettingsToggleRow(
                 iconName: "chart.bar.xaxis",
-                title: "Product improvement events",
-                subtitle: "Share content-free flow events and error codes. Never includes titles, messages, memory, Health data, or record identifiers.",
+                title: "Share usage data",
+                subtitle: "Screens and error codes only. Never your content.",
                 isOn: Binding(
                     get: { isEnabled },
                     set: {

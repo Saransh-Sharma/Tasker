@@ -35,6 +35,18 @@ enum BacklogDurationFilter: String, CaseIterable, Identifiable {
     case long = "More than 60 minutes"
     case missing = "Estimate missing"
     var id: String { rawValue }
+
+    /// Display text. `rawValue` stays as the stable identity.
+    var title: String {
+        switch self {
+        case .all: String(localized: "All durations")
+        case .quick: String(localized: "15 min or less")
+        case .short: String(localized: "30 min or less")
+        case .hour: String(localized: "1 hr or less")
+        case .long: String(localized: "Over 1 hr")
+        case .missing: String(localized: "Estimate missing")
+        }
+    }
 }
 
 enum BacklogProjectFilter: String, CaseIterable, Identifiable {

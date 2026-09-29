@@ -38,6 +38,17 @@ struct LifeThreadComposerHost: View {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Namespace private var composerMorph
     @State private var presentation: ComposerPresentation = .capsule
+    /// Set when the microphone or speech permission is off: the alert offers
+    /// Settings, where it can be turned back on, instead of a dead-end OK.
+    @State private var dictationDeniedMessage: String?
+
+    /// The field goes quiet while a submit is working or dictation owns the text.
+    private var composerFieldIsEnabled: Bool {
+        composer.state != .working
+            && dictationController.phase != .preparing
+            && dictationController.phase != .recording
+            && dictationController.phase != .finalizing
+    }
 
     var body: some View {
         host(router: router)
@@ -71,13 +82,17 @@ extension LifeThreadComposerHost {
                 hasDraft: composer.hasDraft,
                 hasPreview: composer.preview != nil,
                 hasReceipt: lifeBoardActionReceipt != nil,
-                isKeyboardFocused: lifeThreadComposerIsFocused,
+                // A pending focus request restores the capsule so its field
+                // exists to take the keyboard.
+                isKeyboardFocused: lifeThreadComposerIsFocused || composer.hasPendingFocusRequest,
                 voiceOverEnabled: voiceOverEnabled
             ),
             current: presentation
         )
     }
+}
 
+extension LifeThreadComposerHost {
     /// The composer's whole surface. It lives in the extension rather than
     /// the struct for the same reason `resolvedPresentation` does: this one
     /// function is ~380 lines of conditional sections, and the file-size gate's
@@ -108,6 +123,30 @@ extension LifeThreadComposerHost {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
+            if let receipt = router.shellReceipt {
+                ReceiptBar(
+                    ActionReceiptPresentation(id: receipt.id, message: receipt.message, detail: receipt.detail),
+                    undo: receipt.undo.map { undo in
+                        {
+                            Task { @MainActor in
+                                if await undo() {
+                                    router.shellReceipt = nil
+                                } else {
+                                    Haptic.fail.play()
+                                    router.shellReceipt = ShellReceipt(
+                                        message: String(localized: "Couldn\u{2019}t undo that. Try again."),
+                                        undo: receipt.undo
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    onDismiss: { router.shellReceipt = nil }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .accessibilityIdentifier("shell.receipt")
+            }
+
             if let receipt = lifeBoardActionReceipt {
                 ComposerReceiptView(
                     receipt: receipt,
@@ -125,7 +164,9 @@ extension LifeThreadComposerHost {
                     clarification: clarification,
                     onDismiss: { composer.dismissClarification() },
                     onChoose: { option in
+                        lifeThreadComposerIsFocused = false
                         composer.dismissClarification()
+                        ComposerPlainPhraseChoice.didChoose(option)
                         handleLifeThreadResolution(option.resolution, router: router)
                     }
                 )
@@ -141,10 +182,12 @@ extension LifeThreadComposerHost {
                 }
             }
 
-            if let interpretation = composer.interpretation {
+            if let interpretation = composer.interpretation, showsInterpretationRow {
                 ComposerInterpretationRow(
                     interpretation: interpretation,
                     onAccept: {
+                        // Accepting the row is a send, and sending ends editing.
+                        lifeThreadComposerIsFocused = false
                         let resolution = interpretation.resolution
                         composer.dismissInterpretation()
                         handleLifeThreadResolution(resolution, router: router)
@@ -162,19 +205,22 @@ extension LifeThreadComposerHost {
                 HStack(spacing: 8) {
                     let phaseLabel: String = {
                         switch dictationController.phase {
-                        case .preparing: return "Preparing…"
-                        case .finalizing: return "Finalizing…"
-                        default: return "Recording"
+                        case .preparing: return String(localized: "Starting…")
+                        case .finalizing: return String(localized: "Finishing…")
+                        default: return String(localized: "Recording")
                         }
                     }()
+                    // The one ambient loop here, and it stops under Reduce
+                    // Motion, Calm, and Low Power (`breathingPulse`).
                     Circle()
                         .fill(dictationController.phase == .preparing || dictationController.phase == .finalizing
                               ? Color(SemanticColorTokens.inkSecondary)
                               : Color.lifeboard(.statusDanger))
                         .frame(width: 8, height: 8)
-                        .opacity(dictationController.phase == .recording ? (reduceMotion ? 1 : 0.55) : 1)
-                        .scaleEffect(dictationController.phase == .recording && !reduceMotion ? 1.1 : 1)
-                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: dictationController.isRecording)
+                        .breathingPulse(min: dictationController.phase == .recording ? 0.55 : 1, max: 1, duration: 0.8)
+                        // The pulse starts on appear; a new identity when
+                        // recording begins lets it start then.
+                        .id(dictationController.phase == .recording)
                     Text("\(phaseLabel) \(formatElapsedSeconds(dictationController.elapsedSeconds))")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -216,16 +262,16 @@ extension LifeThreadComposerHost {
 
             if let recovery = composer.recovery {
                 HStack(spacing: 12) {
-                    Text(composer.recoveryMessage ?? "Your draft is still here.")
+                    Text(composer.recoveryMessage ?? String(localized: "Your draft is still here."))
                         .font(.caption)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Spacer(minLength: 8)
-                    Button(recovery == .continue ? "Continue" : "Retry") {
+                    Button(recovery == .continue ? "Continue" : "Try again") {
                         submitLifeThreadComposer(router: router)
                     }
                     .buttonStyle(.lifeBoardPrimaryCompact)
                     .controlSize(.small)
-                    .accessibilityHint("Keeps the current draft and attachments")
+                    .accessibilityHint("Keeps your draft")
                 }
                 .padding(.horizontal, 12)
                 .accessibilityIdentifier("lifeThread.composer.recovery")
@@ -236,14 +282,13 @@ extension LifeThreadComposerHost {
                     // Tap always restores, whatever the scroll position —
                     // DESIGN.md: "it must restore at the top or on tap."
                     presentation = .capsule
-                    composer.focus()
-                    lifeThreadComposerIsFocused = true
+                    composer.requestFocus()
                 }
             } else {
             HStack(spacing: 8) {
                 Button {
                     withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
-                        composer.state == .tools ? composer.focus() : composer.showTools()
+                        composer.state == .tools ? composer.closeTools() : composer.showTools()
                     }
                     Haptic.pick.play()
                 } label: {
@@ -264,31 +309,74 @@ extension LifeThreadComposerHost {
                         || dictationController.phase == .recording
                         || dictationController.phase == .finalizing
                 )
-                .accessibilityLabel(composer.state == .tools ? "Close capture tools" : "Open capture tools")
+                .accessibilityLabel(composer.state == .tools ? "Close tools" : "Open tools")
                 .accessibilityIdentifier("lifeThread.composer.toolsToggle")
 
-                TextField(text: $composer.draftText, axis: .vertical) {
-                    Text(composerPlaceholder(for: composer.destination))
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                Group {
+                    if V2FeatureFlags.captureHighlightingV1Enabled {
+                        // Prototype path: the same draft binding, same submit,
+                        // with recognized tokens tinted in place. Off by default;
+                        // see `V2FeatureFlags.captureHighlightingV1Enabled`.
+                        HighlightingTextView(
+                            text: $composer.draftText,
+                            highlights: CaptureHighlightMapper.highlights(for: composer.draftText),
+                            placeholder: composerPlaceholder(for: composer.destination),
+                            palette: CaptureHighlightMapper.palette,
+                            isEditable: composerFieldIsEnabled,
+                            identifier: "home.lifeThread.composer",
+                            isFocused: Binding(
+                                get: { lifeThreadComposerIsFocused },
+                                set: { lifeThreadComposerIsFocused = $0 }
+                            ),
+                            onSubmit: { submitLifeThreadComposer(router: router) }
+                        )
+                    } else {
+                        TextField(text: $composer.draftText, axis: .vertical) {
+                            Text(composerPlaceholder(for: composer.destination))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        }
+                            .lineLimit(1...4)
+                            .focused($lifeThreadComposerIsFocused)
+                            // Always "send"; with nothing to send, Return just
+                            // closes the keyboard. A label that switched to
+                            // "done" on an empty draft never reached the key —
+                            // UIKit reads it once, as the keyboard comes up —
+                            // so the key said "done" and then sent.
+                            .submitLabel(.send)
+                            .onSubmit { submitLifeThreadComposer(router: router) }
+                    }
                 }
-                    .lineLimit(1...4)
-                    .disabled(
-                        composer.state == .working
-                            || dictationController.phase == .preparing
-                            || dictationController.phase == .recording
-                            || dictationController.phase == .finalizing
-                    )
-                    .focused($lifeThreadComposerIsFocused)
-                    .submitLabel(.send)
-                    .onSubmit { submitLifeThreadComposer(router: router) }
+                    .disabled(composerFieldIsEnabled == false)
+                    .keyboardBar(
+                        isFocused: $lifeThreadComposerIsFocused,
+                        doneIdentifier: "lifeThread.composer.dismissKeyboard"
+                    ) { composerTokenKeys }
+                    .onChange(of: composer.hasPendingFocusRequest, initial: true) { _, _ in
+                        consumeFocusRequestIfNeeded()
+                    }
                     .onChange(of: lifeThreadComposerIsFocused) { _, focused in
                         if focused {
                             composer.focus()
                             CaptureSuggestionCatalog.shared.refresh()
+                        } else {
+                            composer.blur()
                         }
                     }
-                    .onChange(of: composer.draftText) { _, _ in
-                        liveResolveComposerIntent(router: router)
+                    .onChange(of: composer.draftText) { oldValue, newValue in
+                        // A vertical-axis field spends Return on a newline and
+                        // never fires `onSubmit`. `ReturnKeyPolicy` tells a
+                        // typed Return — anywhere, autocorrected or not — from
+                        // a paste, which must never send itself.
+                        guard dictationController.isRecording == false else {
+                            return liveResolveComposerIntent(router: router)
+                        }
+                        switch ReturnKeyPolicy.classify(old: oldValue, new: newValue) {
+                        case .returnKey(let text):
+                            composer.draftText = text
+                            submitLifeThreadComposer(router: router)
+                        case .trimmed(let text): composer.draftText = text
+                        case .edit: liveResolveComposerIntent(router: router)
+                        }
                     }
                     .onChange(of: dictationController.draftText) { _, newValue in
                         // Pull the live transcript back into the composer's
@@ -304,9 +392,14 @@ extension LifeThreadComposerHost {
                     .onChange(of: dictationController.recovery) { _, recovery in
                         guard let recovery else { return }
                         switch recovery.phase {
-                        case .denied, .unsupportedLocale, .assetInstallFailed:
+                        case .denied:
+                            dictationDeniedMessage = recovery.message
+                            composer.cancelDictating(
+                                restoringText: dictationController.draftText.isEmpty ? composer.draftText : dictationController.draftText
+                            )
+                        case .unsupportedLocale, .assetInstallFailed:
                             runtime.router.activeAlert = .init(
-                                title: "Dictation isn't available",
+                                title: String(localized: "Couldn’t start dictation"),
                                 message: recovery.message
                             )
                             composer.cancelDictating(
@@ -321,6 +414,22 @@ extension LifeThreadComposerHost {
                         case .idle, .preparing, .recording, .finalizing:
                             break
                         }
+                    }
+                    .alert(
+                        "Dictation is off",
+                        isPresented: Binding(
+                            get: { dictationDeniedMessage != nil },
+                            set: { if $0 == false { dictationDeniedMessage = nil } }
+                        )
+                    ) {
+                        Button("Open Settings") {
+                            dictationDeniedMessage = nil
+                            guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                            UIApplication.shared.open(url)
+                        }
+                        Button("Not now", role: .cancel) { dictationDeniedMessage = nil }
+                    } message: {
+                        Text(dictationDeniedMessage ?? "")
                     }
                     .accessibilityIdentifier("home.lifeThread.composer")
 
@@ -362,7 +471,7 @@ extension LifeThreadComposerHost {
                             beginComposerAudioCapture()
                         }
                     } label: {
-                        Image(systemName: composer.hasDraft ? "arrow.up" : "waveform")
+                        Image(systemName: composer.hasDraft ? "arrow.up" : "mic")
                             .lifeboardFont(.headline)
                             .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                             .frame(width: 44, height: 44)
@@ -376,7 +485,7 @@ extension LifeThreadComposerHost {
                     .accessibilityLabel(
                         composer.hasDraft
                             ? "Send"
-                            : (V2FeatureFlags.universalInputDictationEnabled ? "Start dictation" : "Record journal audio")
+                            : (V2FeatureFlags.universalInputDictationEnabled ? "Dictate" : "Record a voice note")
                     )
                     .accessibilityIdentifier("lifeThread.composer.send")
                 }
@@ -385,10 +494,7 @@ extension LifeThreadComposerHost {
             // `Radius.dock` (30) is the token for dock and composer clusters;
             // 27 was off the shape vocabulary entirely.
             .lifeBoardGlassSurface(cornerRadius: Radius.dock, interactive: true)
-            .overlay {
-                RoundedRectangle(cornerRadius: Radius.dock, style: .continuous)
-                    .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
-            }
+            .overlay { composerBorder }
             .lifeboardElevation(.e3, cornerRadius: Radius.dock, includesBorder: false)
             // Shares its identity with the orb, so the two are one surface
             // changing shape rather than two views crossfading. Both sit inside
@@ -398,7 +504,7 @@ extension LifeThreadComposerHost {
             .lifeBoardGlassIdentity(.capture)
             }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.88), value: composer.state)
+        .animation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion), value: composer.state)
         .lifeBoardMotion(.controlMorph, value: presentation)
         .onChange(of: resolvedPresentation) { previous, next in
             guard previous != next else { return }

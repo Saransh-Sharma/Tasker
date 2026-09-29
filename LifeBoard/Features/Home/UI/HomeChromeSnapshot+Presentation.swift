@@ -145,7 +145,7 @@ extension HomeChromeSnapshot {
         case .upcoming:
             return quantified(quickViewCounts[.upcoming] ?? 0, singular: "upcoming task", plural: "upcoming tasks")
         case .overdue:
-            return quantified(tasks.overdueTasks.count, singular: "rescue task", plural: "rescue tasks")
+            return quantified(tasks.overdueTasks.count, singular: "task from earlier", plural: "tasks from earlier")
         case .done:
             return quantified(tasks.doneTimelineTasks.count, singular: "completed task", plural: "completed tasks")
         case .morning:
@@ -184,10 +184,10 @@ extension HomeChromeSnapshot {
         remainingCount: Int
     ) -> String {
         guard totalCount > 0 else {
-            return "Today progress, nothing due today"
+            return String(localized: "Today, nothing due")
         }
 
-        return "Today progress, \(completedCount) of \(totalCount) due items done, \(remainingCount) left"
+        return String(localized: "Today, \(completedCount) of \(totalCount) tasks done, \(remainingCount) left")
     }
 
     private func selectedDateStatusText(tasks: HomeTasksSnapshot) -> String {
@@ -218,33 +218,25 @@ extension HomeChromeSnapshot {
         )
     }
 
+    /// Sentence case, the same words VoiceOver reads (DESIGN.md: no
+    /// uppercase for hierarchy).
     private func relativeDateHeaderLabel(for dayOffset: Int) -> String {
-        switch dayOffset {
-        case ..<(-1):
-            return "\(-dayOffset) DAYS AGO"
-        case -1:
-            return "YESTERDAY"
-        case 0:
-            return "TODAY"
-        case 1:
-            return "TOMORROW"
-        default:
-            return "IN \(dayOffset) DAYS"
-        }
+        relativeDateAccessibilityLabel(for: dayOffset)
     }
 
     private func relativeDateAccessibilityLabel(for dayOffset: Int) -> String {
         switch dayOffset {
         case ..<(-1):
-            return "\(-dayOffset) days ago"
+            let days = -dayOffset
+            return String(localized: "\(days) days ago")
         case -1:
-            return "Yesterday"
+            return String(localized: "Yesterday")
         case 0:
-            return "Today"
+            return String(localized: "Today")
         case 1:
-            return "Tomorrow"
+            return String(localized: "Tomorrow")
         default:
-            return "In \(dayOffset) days"
+            return String(localized: "In \(dayOffset) days")
         }
     }
 

@@ -31,13 +31,13 @@ struct HomeProgressCardContent: View {
             .font(.caption.weight(.medium))
             Divider().overlay(Color(SemanticColorTokens.foundationHairline))
             Button {
-                // The label promises evidence, so open the evidence route with
+                // The label promises details, so open the evidence route with
                 // its disclosure already expanded rather than the Insights
                 // overview the user then has to dig through.
                 onOpen()
             } label: {
                 HStack {
-                    Label("See evidence behind today", systemImage: "chart.xyaxis.line")
+                    Label("View details", systemImage: "chart.xyaxis.line")
                     Spacer()
                     Image(systemName: "chevron.right")
                 }
@@ -45,7 +45,7 @@ struct HomeProgressCardContent: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("home.progress.openInsights")
-            .homeCardEvidence("progress.open", role: "control", copy: "See evidence behind today", typography: .init(role: "body", points: 17, weight: "regular", alignment: "leading"))
+            .homeCardEvidence("progress.open", role: "control", copy: "View details", typography: .init(role: "body", points: 17, weight: "regular", alignment: "leading"))
         }
         .padding(16)
     }

@@ -20,49 +20,38 @@ struct ReflectionNoteComposerView: View {
     var body: some View {
         NavigationStack {
             WeeklyRitualScaffold(
-                eyebrow: "Reflection",
+                eyebrow: String(localized: "Note"),
                 title: WeeklyCopy.reflectionTitle,
-                subtitle: "Capture one honest note while the signal is still clear.",
+                subtitle: subtitle,
                 weekRange: viewModel.title,
                 steps: [
-                    WeeklyRitualStep(id: 0, title: "Set the prompt", isComplete: viewModel.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
-                    WeeklyRitualStep(id: 1, title: "Write the reflection", isComplete: viewModel.noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
-                    WeeklyRitualStep(id: 2, title: "Save it", isComplete: false)
+                    WeeklyRitualStep(id: 0, title: String(localized: "Prompt"), isComplete: viewModel.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
+                    WeeklyRitualStep(id: 1, title: String(localized: "Note"), isComplete: viewModel.noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
+                    WeeklyRitualStep(id: 2, title: String(localized: "Save"), isComplete: false)
                 ],
                 message: viewModel.saveMessage,
                 messageTone: .accent
             ) {
-                WeeklySectionCard(
-                    title: "Set the prompt",
-                    detail: "A short prompt keeps the note easier to understand when you read it later."
-                ) {
+                WeeklySectionCard(title: String(localized: "Prompt")) {
                     reflectionField(
-                        title: "Prompt",
-                        helper: "Say what you are trying to notice or remember.",
+                        title: String(localized: "Optional"),
                         text: $viewModel.prompt,
                         lineLimit: 2...4
                     )
                 }
 
-                WeeklySectionCard(
-                    title: "Write the reflection",
-                    detail: "Keep it concrete. What changed, what mattered, or what should not be forgotten?"
-                ) {
+                WeeklySectionCard(title: String(localized: "Note")) {
                     reflectionField(
-                        title: "Reflection",
-                        helper: "Write what future-you would actually want to read.",
+                        title: String(localized: "Start writing…"),
                         text: $viewModel.noteText,
                         lineLimit: 4...8
                     )
                 }
 
-                WeeklySectionCard(
-                    title: "Add a quick signal",
-                    detail: "Use these only as a quick read on how the work felt."
-                ) {
+                WeeklySectionCard(title: String(localized: "Mood & energy")) {
                     VStack(alignment: .leading, spacing: spacing.s12) {
-                        signalSelector(title: "Mood", value: $viewModel.mood)
-                        signalSelector(title: "Energy", value: $viewModel.energy)
+                        signalSelector(title: String(localized: "Mood"), value: $viewModel.mood)
+                        signalSelector(title: String(localized: "Energy"), value: $viewModel.energy)
                     }
                 }
             } footer: {
@@ -70,9 +59,9 @@ struct ReflectionNoteComposerView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                 } trailing: {
-                    Button(viewModel.isSaving ? "Saving..." : "Save reflection") {
+                    Button(viewModel.isSaving ? "Saving…" : "Save note") {
                         viewModel.save { note in
                             onSaved?(note)
                             dismiss()
@@ -95,27 +84,28 @@ struct ReflectionNoteComposerView: View {
         }
     }
 
+    /// What the note is saved with. The old subtitle narrated the act of
+    /// writing; this states where the note goes.
+    private var subtitle: String {
+        switch viewModel.kind {
+        case .taskCompletion: String(localized: "Saved with this task.")
+        case .projectReflection: String(localized: "Saved with this project.")
+        case .weeklyReview: String(localized: "Saved with this week.")
+        case .habitRecovery: String(localized: "Saved with this habit.")
+        default: String(localized: "The prompt is optional.")
+        }
+    }
+
+    /// `title` is the field's placeholder; the card above it names the field.
     private func reflectionField(
         title: String,
-        helper: String,
         text: Binding<String>,
         lineLimit: ClosedRange<Int>
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.lifeboard(.caption1))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-
-            TextField(title, text: text, axis: .vertical)
-                .lineLimit(lineLimit)
-                .padding(12)
-                .lifeboardDenseSurface(cornerRadius: 16, fillColor: Color.lifeboard.surfaceSecondary)
-
-            Text(helper)
-                .font(.lifeboard(.caption2))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        TextField(title, text: text, axis: .vertical)
+            .lineLimit(lineLimit)
+            .padding(12)
+            .lifeboardDenseSurface(cornerRadius: 16, fillColor: Color.lifeboard.surfaceSecondary)
     }
 
     private func signalSelector(title: String, value: Binding<Int>) -> some View {

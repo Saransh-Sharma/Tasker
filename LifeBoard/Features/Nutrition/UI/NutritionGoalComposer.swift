@@ -39,17 +39,22 @@ struct NutritionGoalComposer: View {
                 }
 
                 Section {
-                    Text("Used to show progress. LifeBoard does not recommend targets.")
+                    Text("Used to show progress.")
                         .font(.footnote)
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
             }
+            // The warm canvas behind the grouped list, not the system's pure white
+            // (light) or pure black (dark) grouped background.
+            .scrollContentBackground(.hidden)
+            .background { GrainedCanvas() }
             .lifeBoardFormSurface()
-            .navigationTitle(existing == nil ? "Set a target" : "Edit target")
+            .navigationTitle(existing == nil ? String(localized: "Set target") : String(localized: "Edit target"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
@@ -64,13 +69,16 @@ struct NutritionGoalComposer: View {
             HStack {
                 Text(title)
                 Spacer()
-                Text("\(Int(value.wrappedValue)) \(unit)")
-                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                // A field as well as the stepper: reaching 2,000 kcal by
+                // stepping was forty clicks on a Mac, with no way to type it.
+                TextField(title, value: value, format: .number.precision(.fractionLength(0)))
+                    .multilineTextAlignment(.trailing)
                     .monospacedDigit()
-                    // The number rolls to its new value instead of snapping, so
-                    // holding the stepper reads as a dial rather than a redraw.
-                    .contentTransition(.numericText(value: value.wrappedValue))
-                    .lifeBoardMotion(.localState, value: value.wrappedValue)
+                    .fixedSize()
+                    .padKeyboard(.numberPad)
+                    .accessibilityLabel("\(title) in \(unit)")
+                Text(unit)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
             }
         }
         .sensoryFeedback(.selection, trigger: value.wrappedValue)

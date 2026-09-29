@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// A question the composer needs answered before it can act.
 ///
@@ -27,7 +28,7 @@ struct ComposerClarificationRow: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Dismiss clarification")
+                .accessibilityLabel("Dismiss")
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -125,7 +126,7 @@ struct ComposerInterpretationRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Dismiss interpretation")
+            .accessibilityLabel("Dismiss")
         }
         .padding(.horizontal, 4)
     }
@@ -151,7 +152,7 @@ private struct ComposerInterpretationChip: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Remove \(chip.label)")
-                .accessibilityHint("Takes these words out of the draft")
+                .accessibilityHint("Removes the words from the text")
             }
         }
         .lifeboardFont(.caption2)
@@ -243,7 +244,7 @@ struct ComposerTokenSuggestionRow: View {
                                 }
                             }
                             .buttonStyle(.lifeBoardChip)
-                            .accessibilityLabel(suggestion.isNew ? "Create tag \(suggestion.name)" : suggestion.name)
+                            .accessibilityLabel(suggestion.isNew ? "\(Self.createLabel(token.kind)) \(suggestion.name)" : suggestion.name)
                         }
                     }
                     .padding(.horizontal, 4)
@@ -251,6 +252,15 @@ struct ComposerTokenSuggestionRow: View {
                 .accessibilityIdentifier("lifeThread.tokenSuggestions")
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+        }
+    }
+
+    /// Every new token used to read "Create tag" to VoiceOver, even `+project`.
+    private static func createLabel(_ kind: CaptureTokenCompletion.Kind) -> String {
+        switch kind {
+        case .tag: "Create tag"
+        case .project: "Create project"
+        case .context: "Create context"
         }
     }
 
@@ -268,10 +278,65 @@ struct ComposerTokenSuggestionRow: View {
 enum ComposerTokenPalette {
     static func color(for kind: CaptureTokenCompletion.Kind) -> UIColor {
         switch kind {
-        case .tag: SemanticColorTokens.foundationSageAccent
+        case .tag: SemanticColorTokens.foundationSageInk
         case .project: SemanticColorTokens.foundationFocusRing
-        case .context: SemanticColorTokens.foundationApricotAccent
+        case .context: SemanticColorTokens.foundationApricotInk
         }
     }
 }
 
+// MARK: - Capture highlighting
+
+/// Turns the parser's recognized pieces into highlight ranges for the
+/// composer's text view. Pure, so the range contract is unit-tested without a
+/// text view: every highlight is one parser piece with a source range.
+enum CaptureHighlightMapper {
+    static func highlights(for text: String, now: Date = Date(), calendar: Calendar = .current) -> [CaptureHighlight] {
+        let pieces = TaskCaptureParser.pieces(text, now: now, calendar: calendar)
+        let raw = pieces.compactMap { piece -> CaptureHighlight? in
+            guard let range = piece.sourceRange else { return nil }
+            return CaptureHighlight(range: trimmed(range, in: text), kind: kind(for: piece.kind))
+        }
+        return CaptureHighlightRanges.sanitized(raw, in: text)
+    }
+
+    /// The parser's ranges can include the whitespace that separated a token
+    /// from the word before it; the tint should cover the token alone.
+    static func trimmed(_ range: NSRange, in text: String) -> NSRange {
+        let ns = text as NSString
+        guard range.location >= 0, NSMaxRange(range) <= ns.length else { return range }
+        var start = range.location
+        var end = NSMaxRange(range)
+        let whitespace = CharacterSet.whitespacesAndNewlines
+        while start < end, let scalar = Unicode.Scalar(ns.character(at: start)), whitespace.contains(scalar) { start += 1 }
+        while end > start, let scalar = Unicode.Scalar(ns.character(at: end - 1)), whitespace.contains(scalar) { end -= 1 }
+        return NSRange(location: start, length: end - start)
+    }
+
+    static func kind(for kind: CaptureTokenPiece.Kind) -> CaptureHighlight.Kind {
+        switch kind {
+        case .date: .date
+        case .time: .time
+        case .duration: .duration
+        case .repeatPattern: .repeatPattern
+        case .priority: .priority
+        case .project: .project
+        case .tag: .tag
+        case .context: .context
+        }
+    }
+
+    /// Token colours only: dates and times in the attention colour, projects,
+    /// tags and contexts in secondary ink on the selected surface.
+    @MainActor
+    static var palette: HighlightingTextPalette {
+        HighlightingTextPalette(
+            text: SemanticColorTokens.inkPrimary,
+            placeholder: SemanticColorTokens.inkSecondary,
+            caret: SemanticColorTokens.foundationApricotInk,
+            dateInk: SemanticColorTokens.foundationApricotInk,
+            tokenInk: SemanticColorTokens.inkSecondary,
+            tokenBackground: SemanticColorTokens.foundationSurfaceSelected
+        )
+    }
+}

@@ -17,24 +17,24 @@ struct ProjectTemplatePicker: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView("Finding project templates…")
+                    ProgressView("Loading…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if templates.isEmpty {
                     StatusSurface(
                         state: .empty,
                         title: "No project templates",
-                        message: "Archive a project marked as a template source, then return here to create a fresh copy."
+                        message: String(localized: "Archived template projects appear here.")
                     )
                 } else {
                     List {
-                        Section("Choose a template") {
+                        Section("Templates") {
                             ForEach(templates, id: \.id) { template in
                                 templateButton(template)
                             }
                         }
 
                         Section("New project") {
-                            TextField("Project name", text: $projectName)
+                            TextField("Project name", text: $projectName, prompt: Text("Project name").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                                 .textInputAutocapitalization(.words)
                                 .frame(minHeight: 44)
                                 .accessibilityIdentifier("plan.projectTemplates.name")
@@ -64,6 +64,10 @@ struct ProjectTemplatePicker: View {
                         }
                     }
                     .listStyle(.insetGrouped)
+                    // The warm canvas behind the grouped list, not the system's pure white
+                    // (light) or pure black (dark) grouped background.
+                    .scrollContentBackground(.hidden)
+                    .background { GrainedCanvas() }
                 }
             }
             .navigationTitle("Project template")
@@ -71,12 +75,14 @@ struct ProjectTemplatePicker: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
                 }
             }
         }
+        .escapeCancels { dismiss() }
         .task { await loadTemplates() }
         .alert(
-            "Template unavailable",
+            "Couldn’t use template",
             isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if $0 == false { errorMessage = nil } }
@@ -150,7 +156,7 @@ struct ProjectTemplatePicker: View {
         return HStack(spacing: 12) {
             Image(systemName: template.icon.rawValue)
                 .frame(width: 28)
-                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
             VStack(alignment: .leading, spacing: 3) {
                 Text(template.name)
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))

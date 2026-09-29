@@ -11,315 +11,62 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         // `ControlWidget` exists; every other surface is unaffected.
         if #available(iOS 18.0, *) {
             CaptureControl()
+            FocusControl()
         }
         FocusLiveActivityWidget()
         FastingLiveActivityWidget()
         RoutineLiveActivityWidget()
+
+        // The widget gallery is a curated set: Today, Next up, Top tasks,
+        // This week, Focus, Habits, Active days, Fasting, Journal, and four
+        // Lock Screen accessories. Fifty-odd near-identical task widgets
+        // ("Priority Matrix Lite", "Kanban Lite", "Rectangular Top 2 Tasks")
+        // made the gallery unreadable. The retired ones still compile — see
+        // `RetiredTaskWidgets` below; re-enabling one is moving its entry
+        // back into this body. Their kind strings are unchanged, so a widget
+        // someone already placed keeps its identity if it comes back.
         FocusSeedWidget()
-        JournalDomainWidget()
-        FastingDomainWidget()
-        NutritionDomainWidget()
-        WellnessDomainWidget()
-        LifeMomentsDomainWidget()
-        GoalsDomainWidget()
-        RoutinesDomainWidget()
+        HabitsTodayWidget()
         StreakResilienceWidget()
+        FastingDomainWidget()
+        JournalDomainWidget()
 
         TaskListStaticWidget(
+            kind: "HomeTimelineWidget",
+            displayName: "Today",
+            description: "Today’s tasks and schedule.",
+            families: [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge]
+        ) { entry in
+            HomeTimelineWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
             kind: "TopTaskNowWidget",
-            displayName: "Top Task Now",
-            description: "Focus on one next task and act quickly.",
+            displayName: "Next Task",
+            description: "Your next task.",
             families: [.systemSmall]
         ) { entry in
             TopTaskNowWidgetView(entry: entry)
         }
         TaskListStaticWidget(
-            kind: "TodayCounterNextWidget",
-            displayName: "Today Counter + Next",
-            description: "Open count plus the next actionable task.",
-            families: [.systemSmall]
-        ) { entry in
-            TodayCounterNextWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "OverdueRescueWidget",
-            displayName: "Rescue",
-            description: "Choose the next task worth saving.",
-            families: [.systemSmall]
-        ) { entry in
-            OverdueRescueWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "QuickWin15mWidget",
-            displayName: "Quick Win 15m",
-            description: "Grab a short high-impact task.",
-            families: [.systemSmall]
-        ) { entry in
-            QuickWin15mWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "MorningKickoffWidget",
-            displayName: "Morning Kickoff",
-            description: "Start the day with a clear first task.",
-            families: [.systemSmall]
-        ) { entry in
-            MorningKickoffWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "EveningWrapWidget",
-            displayName: "Evening Wrap",
-            description: "Check progress and prepare the next useful action.",
-            families: [.systemSmall]
-        ) { entry in
-            EveningWrapWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "WaitingOnWidget",
-            displayName: "Waiting On",
-            description: "Track blocked tasks with dependencies.",
-            families: [.systemSmall]
-        ) { entry in
-            WaitingOnWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "InboxTriageWidget",
-            displayName: "Inbox Triage",
-            description: "Process unassigned inbox tasks quickly.",
-            families: [.systemSmall]
-        ) { entry in
-            InboxTriageWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "DueSoonRadarWidget",
-            displayName: "Due Soon Radar",
-            description: "Surface upcoming deadlines before they slip.",
-            families: [.systemSmall]
-        ) { entry in
-            DueSoonRadarWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "EnergyMatchWidget",
-            displayName: "Energy Match",
-            description: "Pick tasks that match your current energy.",
-            families: [.systemSmall]
-        ) { entry in
-            EnergyMatchWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "ProjectSpotlightWidget",
-            displayName: "Project Spotlight",
-            description: "Stay on top of your busiest project.",
-            families: [.systemSmall]
-        ) { entry in
-            ProjectSpotlightWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "CalendarTaskBridgeWidget",
-            displayName: "Calendar-Task Bridge",
-            description: "Connect time-bound tasks with your day plan.",
-            families: [.systemSmall]
-        ) { entry in
-            CalendarTaskBridgeWidgetView(entry: entry)
-        }
-
-        TaskListStaticWidget(
             kind: "TodayTop3Widget",
-            displayName: "Today Top 3",
-            description: "See your top three tasks for today.",
+            displayName: "Top Tasks",
+            description: "Your top 3 tasks for today.",
             families: [.systemMedium]
         ) { entry in
             TodayTop3WidgetView(entry: entry)
         }
         TaskListStaticWidget(
-            kind: "NowLaneWidget",
-            displayName: "Now Lane",
-            description: "Bounded now-list for immediate execution.",
-            families: [.systemMedium]
-        ) { entry in
-            NowLaneWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "OverdueBoardWidget",
-            displayName: "Rescue Board",
-            description: "Review work that needs a calmer next decision.",
-            families: [.systemMedium]
-        ) { entry in
-            OverdueBoardWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "Upcoming48hWidget",
-            displayName: "Upcoming 48h",
-            description: "Preview the next deadlines in two days.",
-            families: [.systemMedium]
-        ) { entry in
-            Upcoming48hWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "MorningEveningPlanWidget",
-            displayName: "Morning vs Evening Plan",
-            description: "Split today into start and finish lanes.",
-            families: [.systemMedium]
-        ) { entry in
-            MorningEveningPlanWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "QuickViewSwitcherWidget",
-            displayName: "Quick View Switcher",
-            description: "Jump between Today, Upcoming, and Rescue.",
-            families: [.systemMedium]
-        ) { entry in
-            QuickViewSwitcherWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "ProjectSprintWidget",
-            displayName: "Project Sprint",
-            description: "See active projects and their task load.",
-            families: [.systemMedium]
-        ) { entry in
-            ProjectSprintWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "PriorityMatrixLiteWidget",
-            displayName: "Priority Matrix Lite",
-            description: "Quickly balance high and low priority work.",
-            families: [.systemMedium]
-        ) { entry in
-            PriorityMatrixLiteWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "ContextWidget",
-            displayName: "Context Widget",
-            description: "Filter momentum by @context buckets.",
-            families: [.systemMedium]
-        ) { entry in
-            ContextWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "FocusSessionQueueWidget",
-            displayName: "Focus Session Queue",
-            description: "Queue up focused work blocks.",
-            families: [.systemMedium]
-        ) { entry in
-            FocusSessionQueueWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "RecoveryWidget",
-            displayName: "Recovery Widget",
-            description: "Resume in-progress momentum after interruption.",
-            families: [.systemMedium]
-        ) { entry in
-            RecoveryWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "DoneReflectionWidget",
-            displayName: "Done Reflection",
-            description: "Reflect on wins and keep momentum.",
-            families: [.systemMedium]
-        ) { entry in
-            DoneReflectionWidgetView(entry: entry)
-        }
-
-        TaskListStaticWidget(
-            kind: "TodayPlannerBoardWidget",
-            displayName: "Today Planner Board",
-            description: "Plan across rescue, now, and next lanes.",
-            families: [.systemLarge]
-        ) { entry in
-            TodayPlannerBoardWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
             kind: "WeekTaskPlannerWidget",
-            displayName: "Week Task Planner",
-            description: "Map critical tasks across the next 7 days.",
+            displayName: "This Week",
+            description: "What’s due in the next 7 days.",
             families: [.systemLarge]
         ) { entry in
             WeekTaskPlannerWidgetView(entry: entry)
         }
         TaskListStaticWidget(
-            kind: "ProjectCockpitWidget",
-            displayName: "Project Cockpit",
-            description: "Top project slices with workload and risk.",
-            families: [.systemLarge]
-        ) { entry in
-            ProjectCockpitWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "BacklogHealthWidget",
-            displayName: "Backlog Health",
-            description: "Monitor rescue, blocked, and intake pressure.",
-            families: [.systemLarge]
-        ) { entry in
-            BacklogHealthWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "KanbanLiteWidget",
-            displayName: "Kanban Lite",
-            description: "Compact board for rescue, now, and blocked.",
-            families: [.systemLarge]
-        ) { entry in
-            KanbanLiteWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "DeadlineHeatmapWidget",
-            displayName: "Deadline Heatmap",
-            description: "Visualize due-date concentration this week.",
-            families: [.systemLarge]
-        ) { entry in
-            DeadlineHeatmapWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "ExecutionDashboardWidget",
-            displayName: "Execution Dashboard",
-            description: "At-a-glance execution and throughput status.",
-            families: [.systemLarge]
-        ) { entry in
-            ExecutionDashboardWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "DeepWorkAgendaWidget",
-            displayName: "Deep Work Agenda",
-            description: "High-focus queue for uninterrupted sessions.",
-            families: [.systemLarge]
-        ) { entry in
-            DeepWorkAgendaWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "AssistantPlanPreviewWidget",
-            displayName: "Assistant Plan Preview",
-            description: "Read-only preview of your next actions.",
-            families: [.systemLarge]
-        ) { entry in
-            AssistantPlanPreviewWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "LifeAreasBoardWidget",
-            displayName: "Life Areas Board",
-            description: "Balance your workload by project and energy.",
-            families: [.systemLarge]
-        ) { entry in
-            LifeAreasBoardWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "HomeCalendarWidget",
-            displayName: "Home Calendar",
-            description: "See today's calendar layer from your Home timeline.",
-            families: [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge]
-        ) { entry in
-            HomeCalendarWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
-            kind: "HomeTimelineWidget",
-            displayName: "Home Timeline",
-            description: "See your Home timeline with tasks, schedule, and quick capture.",
-            families: [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge]
-        ) { entry in
-            HomeTimelineWidgetView(entry: entry)
-        }
-
-        TaskListStaticWidget(
             kind: "InlineNextTaskWidget",
-            displayName: "Inline Next Task",
-            description: "Lock screen inline next task.",
+            displayName: "Next Task",
+            description: "Your next task, above the clock.",
             families: [.accessoryInline],
             usesContainerBackground: false
         ) { entry in
@@ -327,8 +74,8 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         }
         TaskListStaticWidget(
             kind: "CircularTodayProgressWidget",
-            displayName: "Circular Today Progress",
-            description: "Lock screen progress ring for today tasks.",
+            displayName: "Today’s Progress",
+            description: "How much of today is done.",
             families: [.accessoryCircular],
             usesContainerBackground: false
         ) { entry in
@@ -336,35 +83,311 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         }
         TaskListStaticWidget(
             kind: "RectangularTop2TasksWidget",
-            displayName: "Rectangular Top 2 Tasks",
-            description: "Lock screen top two priorities.",
+            displayName: "Up Next",
+            description: "Your next 2 tasks.",
             families: [.accessoryRectangular],
             usesContainerBackground: false
         ) { entry in
             RectangularTop2TasksWidgetView(entry: entry)
         }
         TaskListStaticWidget(
+            kind: "CircularQuickAddWidget",
+            displayName: "Add Task",
+            description: "Add a task from the Lock Screen.",
+            families: [.accessoryCircular],
+            usesContainerBackground: false
+        ) { entry in
+            CircularQuickAddWidgetView(entry: entry)
+        }
+    }
+}
+
+/// Widgets retired from the gallery on 2026-09-28 (pre-launch polish). Not
+/// listed in `LifeBoardWidgetBundle.body`, so they never appear in the widget
+/// gallery; kept compiling so re-enabling one is a one-line move.
+///
+/// Also retired from the body: `NutritionDomainWidget`, `WellnessDomainWidget`,
+/// `LifeMomentsDomainWidget`, `GoalsDomainWidget`, `RoutinesDomainWidget`.
+///
+/// Retired task widgets: TodayCounterNextWidget, OverdueRescueWidget, QuickWin15mWidget, MorningKickoffWidget, EveningWrapWidget, WaitingOnWidget, InboxTriageWidget, DueSoonRadarWidget, EnergyMatchWidget, ProjectSpotlightWidget, CalendarTaskBridgeWidget, NowLaneWidget, OverdueBoardWidget, Upcoming48hWidget, MorningEveningPlanWidget, QuickViewSwitcherWidget, ProjectSprintWidget, PriorityMatrixLiteWidget, ContextWidget, FocusSessionQueueWidget, RecoveryWidget, DoneReflectionWidget, TodayPlannerBoardWidget, ProjectCockpitWidget, BacklogHealthWidget, KanbanLiteWidget, DeadlineHeatmapWidget, ExecutionDashboardWidget, DeepWorkAgendaWidget, AssistantPlanPreviewWidget, LifeAreasBoardWidget, HomeCalendarWidget, RectangularOverdueAlertWidget, RectangularFocusNowWidget, InlineDueSoonWidget, RectangularWaitingOnWidget, DeskTodayBoardWidget, CountdownPanelWidget, FocusDockWidget, NightlyResetWidget, MorningBriefPanelWidget, ProjectPulseWidget.
+@MainActor
+enum RetiredTaskWidgets {
+    @WidgetBundleBuilder
+    static var widgets: some Widget {
+        NutritionDomainWidget()
+        WellnessDomainWidget()
+        LifeMomentsDomainWidget()
+        GoalsDomainWidget()
+        RoutinesDomainWidget()
+        TaskListStaticWidget(
+            kind: "TodayCounterNextWidget",
+            displayName: "Today Counter + Next",
+            description: "Open tasks and the next one.",
+            families: [.systemSmall]
+        ) { entry in
+            TodayCounterNextWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "OverdueRescueWidget",
+            displayName: "Rescue",
+            description: "Tasks from earlier.",
+            families: [.systemSmall]
+        ) { entry in
+            OverdueRescueWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "QuickWin15mWidget",
+            displayName: "Quick Task",
+            description: "A task under 15 min.",
+            families: [.systemSmall]
+        ) { entry in
+            QuickWin15mWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "MorningKickoffWidget",
+            displayName: "Morning Kickoff",
+            description: "Your first task today.",
+            families: [.systemSmall]
+        ) { entry in
+            MorningKickoffWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "EveningWrapWidget",
+            displayName: "Evening Wrap",
+            description: "What’s done today.",
+            families: [.systemSmall]
+        ) { entry in
+            EveningWrapWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "WaitingOnWidget",
+            displayName: "Waiting On",
+            description: "Blocked tasks.",
+            families: [.systemSmall]
+        ) { entry in
+            WaitingOnWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "InboxTriageWidget",
+            displayName: "Inbox",
+            description: "Tasks in your Inbox.",
+            families: [.systemSmall]
+        ) { entry in
+            InboxTriageWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "DueSoonRadarWidget",
+            displayName: "Due Soon",
+            description: "Tasks due in the next 2 days.",
+            families: [.systemSmall]
+        ) { entry in
+            DueSoonRadarWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "EnergyMatchWidget",
+            displayName: "Energy Match",
+            description: "Tasks by energy.",
+            families: [.systemSmall]
+        ) { entry in
+            EnergyMatchWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "ProjectSpotlightWidget",
+            displayName: "Project Spotlight",
+            description: "Your busiest project.",
+            families: [.systemSmall]
+        ) { entry in
+            ProjectSpotlightWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "CalendarTaskBridgeWidget",
+            displayName: "Scheduled Tasks",
+            description: "Tasks due today.",
+            families: [.systemSmall]
+        ) { entry in
+            CalendarTaskBridgeWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "NowLaneWidget",
+            displayName: "Now",
+            description: "What to do now.",
+            families: [.systemMedium]
+        ) { entry in
+            NowLaneWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "OverdueBoardWidget",
+            displayName: "Rescue",
+            description: "Tasks from earlier.",
+            families: [.systemMedium]
+        ) { entry in
+            OverdueBoardWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "Upcoming48hWidget",
+            displayName: "Next 48 Hours",
+            description: "What’s due in the next 2 days.",
+            families: [.systemMedium]
+        ) { entry in
+            Upcoming48hWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "MorningEveningPlanWidget",
+            displayName: "Morning and Evening",
+            description: "Today’s tasks by time of day.",
+            families: [.systemMedium]
+        ) { entry in
+            MorningEveningPlanWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "QuickViewSwitcherWidget",
+            displayName: "Task Lists",
+            description: "Open Today, Upcoming, or Rescue.",
+            families: [.systemMedium]
+        ) { entry in
+            QuickViewSwitcherWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "ProjectSprintWidget",
+            displayName: "Project Sprint",
+            description: "Active projects and open tasks.",
+            families: [.systemMedium]
+        ) { entry in
+            ProjectSprintWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "PriorityMatrixLiteWidget",
+            displayName: "Priorities",
+            description: "Open tasks by priority.",
+            families: [.systemMedium]
+        ) { entry in
+            PriorityMatrixLiteWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "ContextWidget",
+            displayName: "Contexts",
+            description: "Open tasks by context.",
+            families: [.systemMedium]
+        ) { entry in
+            ContextWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "FocusSessionQueueWidget",
+            displayName: "Focus Queue",
+            description: "Tasks lined up for focus.",
+            families: [.systemMedium]
+        ) { entry in
+            FocusSessionQueueWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "RecoveryWidget",
+            displayName: "Pick Up",
+            description: "Resume where you left off.",
+            families: [.systemMedium]
+        ) { entry in
+            RecoveryWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "DoneReflectionWidget",
+            displayName: "Done Today",
+            description: "Tasks done today.",
+            families: [.systemMedium]
+        ) { entry in
+            DoneReflectionWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "TodayPlannerBoardWidget",
+            displayName: "Today Plan",
+            description: "Now, later, and from earlier.",
+            families: [.systemLarge]
+        ) { entry in
+            TodayPlannerBoardWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "ProjectCockpitWidget",
+            displayName: "Projects",
+            description: "Your projects and open tasks.",
+            families: [.systemLarge]
+        ) { entry in
+            ProjectCockpitWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "BacklogHealthWidget",
+            displayName: "Backlog Health",
+            description: "From earlier, blocked, and Inbox counts.",
+            families: [.systemLarge]
+        ) { entry in
+            BacklogHealthWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "KanbanLiteWidget",
+            displayName: "Task Board",
+            description: "Now, from earlier, and blocked.",
+            families: [.systemLarge]
+        ) { entry in
+            KanbanLiteWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "DeadlineHeatmapWidget",
+            displayName: "Deadline Heatmap",
+            description: "Deadlines across the next 7 days.",
+            families: [.systemLarge]
+        ) { entry in
+            DeadlineHeatmapWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "ExecutionDashboardWidget",
+            displayName: "Overview",
+            description: "Today at a glance.",
+            families: [.systemLarge]
+        ) { entry in
+            ExecutionDashboardWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "DeepWorkAgendaWidget",
+            displayName: "Focus Agenda",
+            description: "Tasks lined up for focus.",
+            families: [.systemLarge]
+        ) { entry in
+            DeepWorkAgendaWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "AssistantPlanPreviewWidget",
+            displayName: "Eva Plan",
+            description: "Your next 3 tasks.",
+            families: [.systemLarge]
+        ) { entry in
+            AssistantPlanPreviewWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "LifeAreasBoardWidget",
+            displayName: "Life Areas",
+            description: "Open tasks by project and energy.",
+            families: [.systemLarge]
+        ) { entry in
+            LifeAreasBoardWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
+            kind: "HomeCalendarWidget",
+            displayName: "Home Calendar",
+            description: "Today’s calendar.",
+            families: [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge]
+        ) { entry in
+            HomeCalendarWidgetView(entry: entry)
+        }
+        TaskListStaticWidget(
             kind: "RectangularOverdueAlertWidget",
-            displayName: "Rectangular Rescue Cue",
-            description: "Lock screen rescue summary.",
+            displayName: "Rescue",
+            description: "Tasks from earlier.",
             families: [.accessoryRectangular],
             usesContainerBackground: false
         ) { entry in
             RectangularOverdueAlertWidgetView(entry: entry)
         }
         TaskListStaticWidget(
-            kind: "CircularQuickAddWidget",
-            displayName: "Circular Quick Add",
-            description: "One-tap capture from lock screen.",
-            families: [.accessoryCircular],
-            usesContainerBackground: false
-        ) { entry in
-            CircularQuickAddWidgetView(entry: entry)
-        }
-        TaskListStaticWidget(
             kind: "RectangularFocusNowWidget",
-            displayName: "Rectangular Focus Now",
-            description: "Current focus lane in lock screen format.",
+            displayName: "Focus Now",
+            description: "What to do now.",
             families: [.accessoryRectangular],
             usesContainerBackground: false
         ) { entry in
@@ -372,8 +395,8 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         }
         TaskListStaticWidget(
             kind: "InlineDueSoonWidget",
-            displayName: "Inline Due Soon",
-            description: "Inline next due task and timing.",
+            displayName: "Due Soon",
+            description: "Your next due task.",
             families: [.accessoryInline],
             usesContainerBackground: false
         ) { entry in
@@ -381,26 +404,25 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         }
         TaskListStaticWidget(
             kind: "RectangularWaitingOnWidget",
-            displayName: "Rectangular Waiting On",
-            description: "Blocked tasks in lock screen summary.",
+            displayName: "Waiting On",
+            description: "Blocked tasks.",
             families: [.accessoryRectangular],
             usesContainerBackground: false
         ) { entry in
             RectangularWaitingOnWidgetView(entry: entry)
         }
-
         TaskListStaticWidget(
             kind: "DeskTodayBoardWidget",
-            displayName: "Desk Today Board",
-            description: "StandBy-ready summary of today and recovery work.",
+            displayName: "Today Desk",
+            description: "Today at a glance.",
             families: [.systemMedium]
         ) { entry in
             DeskTodayBoardWidgetView(entry: entry)
         }
         TaskListStaticWidget(
             kind: "CountdownPanelWidget",
-            displayName: "Countdown Panel",
-            description: "Countdown to the next meaningful deadline.",
+            displayName: "Countdown",
+            description: "Time to your next deadline.",
             families: [.systemMedium]
         ) { entry in
             CountdownPanelWidgetView(entry: entry)
@@ -408,23 +430,23 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         TaskListStaticWidget(
             kind: "FocusDockWidget",
             displayName: "Focus Dock",
-            description: "Keep your current focus lane visible.",
+            description: "What to do now, and next.",
             families: [.systemMedium]
         ) { entry in
             FocusDockWidgetView(entry: entry)
         }
         TaskListStaticWidget(
             kind: "NightlyResetWidget",
-            displayName: "Nightly Reset",
-            description: "Close the day and queue tomorrow cleanly.",
+            displayName: "Close the Day",
+            description: "What’s done and what’s left.",
             families: [.systemMedium]
         ) { entry in
             NightlyResetWidgetView(entry: entry)
         }
         TaskListStaticWidget(
             kind: "MorningBriefPanelWidget",
-            displayName: "Morning Brief Panel",
-            description: "A compact morning launch briefing.",
+            displayName: "Morning Brief",
+            description: "Your first task today.",
             families: [.systemMedium]
         ) { entry in
             MorningBriefPanelWidgetView(entry: entry)
@@ -432,7 +454,7 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         TaskListStaticWidget(
             kind: "ProjectPulseWidget",
             displayName: "Project Pulse",
-            description: "Live pulse of project workload health.",
+            description: "Open tasks per project.",
             families: [.systemMedium]
         ) { entry in
             ProjectPulseWidgetView(entry: entry)
@@ -646,7 +668,7 @@ struct TaskListProvider: TimelineProvider {
                 endDate: focusEnd,
                 tintHex: "#2F7CF6",
                 systemImageName: "checklist",
-                accessoryText: "45m"
+                accessoryText: "45 min"
             ),
             TaskListWidgetTimelineItem(
                 id: "event:preview-review",
@@ -699,7 +721,7 @@ struct TaskListProvider: TimelineProvider {
                         startDate: wake,
                         endDate: focusStart,
                         suggestedTaskCount: 1,
-                        supportingText: "Open window before the first focus task."
+                        supportingText: "Free until the first task"
                     )
                 ],
                 currentItemID: timedItems.first?.id
@@ -891,14 +913,14 @@ extension TaskListWidgetSnapshot {
 
 extension TaskListWidgetTask {
     var dueLabel: String {
-        guard let dueDate else { return "No due" }
+        guard let dueDate else { return "No date" }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: dueDate, relativeTo: Date())
     }
 
     var shortDueLabel: String {
-        guard let dueDate else { return "No due" }
+        guard let dueDate else { return "No date" }
         let formatter = DateFormatter()
         formatter.dateFormat = "E HH:mm"
         return formatter.string(from: dueDate)
@@ -918,8 +940,8 @@ extension TaskListWidgetTask {
     }
 
     var estimateLabel: String {
-        guard let minutes = estimatedDurationMinutes else { return "--" }
-        return "\(minutes)m"
+        guard let minutes = estimatedDurationMinutes else { return "—" }
+        return "\(minutes) min"
     }
 
     var isMorningCandidate: Bool {
@@ -961,7 +983,7 @@ public enum TaskWidgetScope: String, AppEnum {
     case overdue
 
     public static var typeDisplayRepresentation: TypeDisplayRepresentation {
-        "Task Scope"
+        "Task List"
     }
 
     public static var caseDisplayRepresentations: [TaskWidgetScope: DisplayRepresentation] {
@@ -978,13 +1000,13 @@ public enum WidgetSnoozeMinutes: Int, AppEnum {
     case sixty = 60
 
     public static var typeDisplayRepresentation: TypeDisplayRepresentation {
-        "Snooze Duration"
+        "Snooze For"
     }
 
     public static var caseDisplayRepresentations: [WidgetSnoozeMinutes: DisplayRepresentation] {
         [
-            .fifteen: "15 minutes",
-            .sixty: "60 minutes"
+            .fifteen: "15 min",
+            .sixty: "1 hr"
         ]
     }
 
@@ -999,9 +1021,9 @@ public enum WidgetSnoozeMinutes: Int, AppEnum {
 }
 
 public struct OpenTaskScopeIntent: AppIntent {
-    public static let title: LocalizedStringResource = "Open Task Scope"
+    public static let title: LocalizedStringResource = "Open Task List"
 
-    @Parameter(title: "Scope")
+    @Parameter(title: "List")
     public var scope: TaskWidgetScope
 
     public init() {
@@ -1047,7 +1069,7 @@ public struct CompleteTaskFromWidgetIntent: AppIntent {
 }
 
 public struct DeferTaskFromWidgetIntent: AppIntent {
-    public static let title: LocalizedStringResource = "Defer Task"
+    public static let title: LocalizedStringResource = "Snooze Task"
 
     @Parameter(title: "Task ID")
     public var taskID: String
@@ -1079,13 +1101,78 @@ public struct DeferTaskFromWidgetIntent: AppIntent {
     }
 }
 
-public struct ResolveBehaviorOccurrenceIntent: AppIntent {
-    public static let title: LocalizedStringResource = "Complete Habit Occurrence"
+/// "+1" on an amount habit's ring. Queues a step; the app applies it through
+/// `LogHabitAmountUseCase` (so crossing the target completes the habit once)
+/// the next time it is active. Never opens the app.
+public struct LogHabitStepFromWidgetIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Log Habit Step"
+    public static let description = IntentDescription("Adds 1 to a habit for today.")
+    public static let openAppWhenRun = false
 
-    @Parameter(title: "Occurrence ID")
+    @Parameter(title: "Habit ID")
+    public var habitID: String
+
+    @Parameter(title: "Step")
+    public var step: Double
+
+    public init() {
+        habitID = ""
+        step = 1
+    }
+
+    public init(habitID: String, step: Double) {
+        self.habitID = habitID
+        self.step = step
+    }
+
+    public func perform() async throws -> some IntentResult {
+        if let habitID = UUID(uuidString: habitID), TaskWidgetFeatureGate.interactiveTaskWidgetsEnabled {
+            _ = HabitAmountActionCommand(habitID: habitID, kind: .step, delta: max(0, step)).savePending()
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result()
+    }
+}
+
+/// Hold-equivalent for a check-in habit on a widget: today done (or a clean
+/// day kept for a quit habit). Never opens the app.
+public struct CompleteHabitFromWidgetIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Complete Habit Today"
+    public static let description = IntentDescription("Marks a habit done for today.")
+    public static let openAppWhenRun = false
+
+    @Parameter(title: "Habit ID")
+    public var habitID: String
+
+    @Parameter(title: "Quit habit")
+    public var isQuitHabit: Bool
+
+    public init() {
+        habitID = ""
+        isQuitHabit = false
+    }
+
+    public init(habitID: String, isQuitHabit: Bool) {
+        self.habitID = habitID
+        self.isQuitHabit = isQuitHabit
+    }
+
+    public func perform() async throws -> some IntentResult {
+        if let habitID = UUID(uuidString: habitID), TaskWidgetFeatureGate.interactiveTaskWidgetsEnabled {
+            _ = HabitAmountActionCommand(habitID: habitID, kind: isQuitHabit ? .abstain : .complete).savePending()
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result()
+    }
+}
+
+public struct ResolveBehaviorOccurrenceIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Complete Habit Check-in"
+
+    @Parameter(title: "Check-in ID")
     public var occurrenceID: String
 
-    @Parameter(title: "Behavior ID")
+    @Parameter(title: "Habit ID")
     public var behaviorID: String
 
     public init() {
@@ -1111,7 +1198,7 @@ public struct ResolveBehaviorOccurrenceIntent: AppIntent {
             ).savePending()
         }
         return .result(
-            opensIntent: OpenURLIntent(URL(string: "lifeboard://habits/\(behaviorID.uuidString)")!)
+            opensIntent: OpenURLIntent(URL(string: "lifeboard://habits/habit/\(behaviorID.uuidString)")!)
         )
     }
 }

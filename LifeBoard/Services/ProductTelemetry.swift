@@ -83,6 +83,10 @@ actor ProductTelemetry {
     }
 
     private static let pendingStorageKey = "productTelemetry.pending.v1"
+    /// How many unsent events survive on disk. Was 32, and a failed send
+    /// re-queued only 32, so a few offline days silently lost most of the
+    /// onboarding funnel. Oldest events are dropped first.
+    static let maximumPendingEvents = 200
     private static let immediateFlushEvents: Set<ProductEventV1.Name> = [
         .evaActivationReviewConfirmed,
         .evaGuestBootstrapSucceeded,
@@ -98,11 +102,12 @@ actor ProductTelemetry {
     ]
 
     private var pending: [ProductEventV1]
+    private var isFlushing = false
 
     init(defaults: UserDefaults = .standard) {
         if let data = defaults.data(forKey: Self.pendingStorageKey),
            let restored = try? JSONDecoder().decode([ProductEventV1].self, from: data) {
-            pending = Array(restored.suffix(32))
+            pending = Array(restored.suffix(Self.maximumPendingEvents))
         } else {
             pending = []
         }
@@ -136,19 +141,26 @@ actor ProductTelemetry {
             count: count,
             durationBucket: durationBucket
         ))
+        if pending.count > Self.maximumPendingEvents {
+            pending.removeFirst(pending.count - Self.maximumPendingEvents)
+        }
         persistPending()
         if pending.count >= 8 || Self.immediateFlushEvents.contains(name) {
             Task { await self.flush() }
         }
     }
 
+    /// Sends what is queued. Events stay on disk until the server accepts
+    /// them: the old flush cleared the queue *before* sending, so a crash or
+    /// a kill mid-request lost the batch outright.
     func flush() async {
         guard Self.isEnabled,
               AppRuntimeConfigurationStore.current.productEventsEnabled,
+              isFlushing == false,
               pending.isEmpty == false else { return }
+        isFlushing = true
+        defer { isFlushing = false }
         let events = pending
-        pending.removeAll()
-        persistPending()
         do {
             let batch = Batch(installationId: Self.rotatingInstallationID(), events: events)
             _ = try await EvaCloudTransport.shared.send(
@@ -158,12 +170,21 @@ actor ProductTelemetry {
                 authenticated: false,
                 attested: false
             )
-        } catch {
-            if Self.isEnabled {
-                pending.insert(contentsOf: events.prefix(32), at: 0)
-                pending = Array(pending.prefix(32))
-                persistPending()
+            // Events recorded while the request was in flight were appended
+            // after `events`; only the sent prefix is removed. A consent
+            // withdrawal during the send has already emptied the queue.
+            if pending.count >= events.count {
+                pending.removeFirst(events.count)
+            } else {
+                pending.removeAll()
             }
+            persistPending()
+        } catch {
+            // Kept for the next flush, bounded, oldest dropped first.
+            if pending.count > Self.maximumPendingEvents {
+                pending = Array(pending.suffix(Self.maximumPendingEvents))
+            }
+            persistPending()
         }
     }
 
@@ -175,7 +196,7 @@ actor ProductTelemetry {
     private func persistPending(defaults: UserDefaults = .standard) {
         if pending.isEmpty {
             defaults.removeObject(forKey: Self.pendingStorageKey)
-        } else if let data = try? JSONEncoder().encode(Array(pending.suffix(32))) {
+        } else if let data = try? JSONEncoder().encode(Array(pending.suffix(Self.maximumPendingEvents))) {
             defaults.set(data, forKey: Self.pendingStorageKey)
         }
     }

@@ -628,9 +628,9 @@ public enum GetTasksError: LocalizedError, @unchecked Sendable {
     public var errorDescription: String? {
         switch self {
         case .repositoryError(let error):
-            return "Repository error: \(error.localizedDescription)"
+            return String(localized: "Couldn’t load tasks. \(error.localizedDescription)")
         case .invalidDateRange:
-            return "Invalid date range specified"
+            return String(localized: "Pick an end date after the start.")
         }
     }
 }

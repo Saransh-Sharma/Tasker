@@ -331,9 +331,9 @@ public extension ModelConfiguration {
             return ProductMetadata(
                 modelType: .reasoning,
                 displayName: "Qwen3 0.6B 4bit",
-                shortDescription: "Faster, lighter, default for all devices.",
+                shortDescription: String(localized: "Fast and light. The default."),
                 onboardingBadgeTitle: "Default",
-                onboardingSubtitle: "Fastest local model with the safest memory footprint.",
+                onboardingSubtitle: String(localized: "Fast and light. Works on every device."),
                 tier: .default,
                 approximateSizeGB: Decimal(string: "0.4") ?? 0.4,
                 tokenBudget: LLMTokenBudget(
@@ -367,9 +367,9 @@ public extension ModelConfiguration {
             return ProductMetadata(
                 modelType: .reasoning,
                 displayName: "Qwen3.5 0.8B OptiQ 4bit",
-                shortDescription: "Smarter, slightly heavier, better answers with more RAM cost.",
+                shortDescription: String(localized: "Better answers. Uses more memory."),
                 onboardingBadgeTitle: "Smarter",
-                onboardingSubtitle: "Higher quality responses with a modest local memory tradeoff.",
+                onboardingSubtitle: String(localized: "Better answers, a bit more memory."),
                 tier: .smarter,
                 approximateSizeGB: Decimal(string: "0.6") ?? 0.6,
                 tokenBudget: LLMTokenBudget(
@@ -403,9 +403,9 @@ public extension ModelConfiguration {
             return ProductMetadata(
                 modelType: .reasoning,
                 displayName: "Qwen3.5 0.8B NexVeridian 4bit",
-                shortDescription: "Alternative Qwen 3.5 text model with the same lightweight footprint.",
+                shortDescription: String(localized: "Same size, different style."),
                 onboardingBadgeTitle: "Experimental",
-                onboardingSubtitle: "Text-first Qwen 3.5 option for comparing quality and style.",
+                onboardingSubtitle: String(localized: "Same size, different style."),
                 tier: .experimental,
                 approximateSizeGB: Decimal(string: "0.6") ?? 0.6,
                 tokenBudget: LLMTokenBudget(
@@ -439,9 +439,9 @@ public extension ModelConfiguration {
             return ProductMetadata(
                 modelType: .reasoning,
                 displayName: "Qwen3.5 0.8B Claude 4.6 Distilled 4bit",
-                shortDescription: "Reasoning-distilled MLX equivalent of the requested Claude-style fine-tune.",
+                shortDescription: String(localized: "Tuned for step-by-step reasoning."),
                 onboardingBadgeTitle: "Experimental",
-                onboardingSubtitle: "Heavier reasoning style tuned from the requested distilled source model.",
+                onboardingSubtitle: String(localized: "Step-by-step reasoning. Slower."),
                 tier: .experimental,
                 approximateSizeGB: Decimal(string: "0.6") ?? 0.6,
                 tokenBudget: LLMTokenBudget(
@@ -475,9 +475,9 @@ public extension ModelConfiguration {
             return ProductMetadata(
                 modelType: .reasoning,
                 displayName: "Bonsai 1.7B 1-bit",
-                shortDescription: "Experimental 1-bit reasoning model with a very small local footprint.",
+                shortDescription: String(localized: "Smallest. Fast, basic answers."),
                 onboardingBadgeTitle: "Experimental",
-                onboardingSubtitle: "Tiny 1-bit MLX model for experimenting with Bonsai's local reasoning behavior.",
+                onboardingSubtitle: String(localized: "Smallest. Fast, basic answers."),
                 tier: .experimental,
                 approximateSizeGB: Decimal(string: "0.27") ?? 0.27,
                 tokenBudget: LLMTokenBudget(
@@ -583,16 +583,16 @@ struct LLMModelCompatibilityResult: Equatable {
         case .supported:
             return nil
         case .temporarilyUnavailable:
-            return "Unsupported"
+            return String(localized: "Unavailable")
         }
     }
 
     var prepareFailureMessage: String {
         switch availability {
         case .supported:
-            return "Model failed to prepare. Please switch models or retry."
+            return String(localized: "Couldn’t load model. Try again or pick another.")
         case .temporarilyUnavailable:
-            return statusReason ?? "This model is temporarily unavailable in the local AI runtime."
+            return statusReason ?? String(localized: "This model isn’t available.")
         }
     }
 }
@@ -604,7 +604,7 @@ enum LLMRuntimeSupportMatrix {
             return LLMModelCompatibilityResult(
                 modelName: model.name,
                 availability: .temporarilyUnavailable,
-                statusReason: "Local assistant models are not available in the iOS Simulator."
+                statusReason: String(localized: "Not available in the Simulator.")
             )
         }
         #endif
@@ -612,7 +612,7 @@ enum LLMRuntimeSupportMatrix {
             return LLMModelCompatibilityResult(
                 modelName: model.name,
                 availability: .temporarilyUnavailable,
-                statusReason: "Bonsai 1-bit requires Prism-specific MLX kernels and is disabled while the assistant uses the stable upstream Qwen runtime."
+                statusReason: String(localized: "Not supported in this version yet.")
             )
         }
         return LLMModelCompatibilityResult(

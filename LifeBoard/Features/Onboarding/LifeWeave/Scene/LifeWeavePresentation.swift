@@ -133,16 +133,15 @@ struct LifeWeavePresentation: Equatable {
     /// rather than exploding a dozen paths into the accessibility tree.
     var accessibilitySummary: String {
         guard areas.isEmpty == false else {
-            return "Your Life Map. No areas chosen yet."
+            return String(localized: "No areas chosen yet.")
         }
         let names = areas.map(\.title)
-        var sentence = "Your Life Map. "
-            + onboardingNaturalLanguageList(names, fallback: "no areas yet")
+        var sentence = onboardingNaturalLanguageList(names, fallback: String(localized: "No areas yet"))
         if let primary = areas.first(where: \.isPrimary) {
-            sentence += ". \(primary.title) is currently first"
+            sentence += String(localized: ". \(primary.title) is first")
         }
         if capturedObjectTitle != nil {
-            sentence += ". One thing has been captured"
+            sentence += String(localized: ". 1 thing added")
         }
         return sentence + "."
     }

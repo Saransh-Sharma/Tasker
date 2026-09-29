@@ -20,6 +20,14 @@ public struct ActionReceiptPresentation: Identifiable, Equatable, Sendable {
         self.message = message
         self.detail = detail
     }
+
+    /// What VoiceOver hears when a receipt is created. A receipt usually lands
+    /// after the keyboard or a sheet has taken focus away, so nothing moves
+    /// VoiceOver to it; whoever creates it posts this once. Posting from the bar
+    /// itself would repeat it every time a lazy list rebuilt the row.
+    public static func announcement(message: String, canUndo: Bool) -> String {
+        canUndo ? "\(message). Undo available." : message
+    }
 }
 
 /// The receipt that follows a consequential action.
@@ -147,7 +155,7 @@ public struct ReceiptBar: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Dismiss receipt")
+        .accessibilityLabel("Dismiss")
         .accessibilityIdentifier("lifeboard.receipt.dismiss")
     }
 }
@@ -160,6 +168,7 @@ public struct ReceiptBar: View {
 private struct ReceiptPresenter: ViewModifier {
     @Binding var presentation: ActionReceiptPresentation?
     let undo: ((ActionReceiptPresentation) -> Void)?
+    let destination: ReceiptBar.Destination?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -170,6 +179,7 @@ private struct ReceiptPresenter: ViewModifier {
                     ReceiptBar(
                         value,
                         undo: undo.map { action in { action(value) } },
+                        destination: destination,
                         onDismiss: { presentation = nil }
                     )
                     .padding(.horizontal, 16)
@@ -193,8 +203,11 @@ public extension View {
     /// to be exposed wherever reversal is supported.
     func lifeBoardReceipt(
         _ presentation: Binding<ActionReceiptPresentation?>,
-        undo: ((ActionReceiptPresentation) -> Void)? = nil
+        undo: ((ActionReceiptPresentation) -> Void)? = nil,
+        /// The receipt's "go look at it" action, when the record lives somewhere
+        /// worth opening — Focus's "Saved to your focus history" opens history.
+        destination: ReceiptBar.Destination? = nil
     ) -> some View {
-        modifier(ReceiptPresenter(presentation: presentation, undo: undo))
+        modifier(ReceiptPresenter(presentation: presentation, undo: undo, destination: destination))
     }
 }

@@ -16,16 +16,16 @@ struct JournalDayRouteView: View {
                 if let summary = day.summary, summary.isEmpty == false { Text(summary).font(.headline) }
                 ForEach(day.blocks) { block in
                     if let text = block.text, text.isEmpty == false { Text(text).font(.body) }
-                    if let mood = block.mood { Label(mood.title, systemImage: "face.smiling") }
+                    if let mood = block.mood { Label(mood.displayName, systemImage: "face.smiling") }
                 }
-                if day.media.isEmpty == false { Label("\(day.media.count) private attachments", systemImage: "paperclip") }
+                if day.media.isEmpty == false { Label(day.media.count == 1 ? "1 attachment" : "\(day.media.count) attachments", systemImage: "paperclip") }
             }
         }
         .task(id: id) { await load() }
     }
 
     private func load() async {
-        guard let repository else { state = .failed("Journal data is unavailable."); return }
+        guard let repository else { state = .failed(String(localized: "Couldn’t load journal.")); return }
         do { state = try await repository.fetchJournalDays(search: nil, starredOnly: false, mood: nil).first(where: { $0.id == id }).map(RouteLoadState.loaded) ?? .missing }
         catch { state = .failed(error.localizedDescription) }
     }
@@ -50,7 +50,7 @@ struct NoteRouteView: View {
     }
 
     private func load() async {
-        guard let repository else { state = .failed("Notes data is unavailable."); return }
+        guard let repository else { state = .failed(String(localized: "Couldn’t load note.")); return }
         do { state = try await repository.fetchKnowledgeNotes(search: nil, spaceID: nil).first(where: { $0.id == id }).map(RouteLoadState.loaded) ?? .missing }
         catch { state = .failed(error.localizedDescription) }
     }

@@ -24,6 +24,7 @@ struct FocusSurfaceDialSection: View {
     let completionTrigger: Int
     /// Non-nil once the ending is persisted; the clock freezes at that instant.
     var settledAt: Date? = nil
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     private var isStill: Bool { settledAt != nil || session.state == .paused }
 
@@ -36,7 +37,9 @@ struct FocusSurfaceDialSection: View {
                 at: date
             )
             FocusDial(
-                progress: FocusClock.progress(
+                // Persisted ending: the arc sweeps closed — the session is
+                // over — and the reflection below takes it from there.
+                progress: settledAt != nil ? 1 : FocusClock.progress(
                     session: session,
                     companion: store.focusCompanion,
                     at: date
@@ -47,7 +50,9 @@ struct FocusSurfaceDialSection: View {
                 dialCentre(display)
             }
         }
-        .frame(maxWidth: 300)
+        // The session's hero. 300 on a 13-inch iPad or a Mac window was a small
+        // ring in a large empty screen; pad widths get a dial sized for them.
+        .frame(maxWidth: layoutClass.isPad ? 440 : 300)
         .frame(maxWidth: .infinity)
         // A running session should read as running even between ticks. Only
         // while actually running: a paused dial that keeps breathing would be
@@ -77,7 +82,7 @@ struct FocusSurfaceDialSection: View {
                     .contentTransition(.numericText())
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             } else {
-                Text("Here with you")
+                Text("No timer")
                     .font(Typography.sectionTitle())
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
@@ -154,8 +159,8 @@ enum FocusClock {
             return FocusClockDisplay(
                 value: value,
                 label: value == 0
-                    ? "Time is up. Choose what happens next."
-                    : "\(PlanSectionCopy.duration(value)) remaining\(pausedSuffix(session))",
+                    ? String(localized: "Time’s up")
+                    : String(localized: "\(PlanSectionCopy.duration(value)) left") + pausedSuffix(session),
                 showsClock: true
             )
         case .pomodoro:
@@ -164,27 +169,27 @@ enum FocusClock {
             return FocusClockDisplay(
                 value: value,
                 label: value == 0
-                    ? "This phase is complete."
-                    : "\(PlanSectionCopy.duration(value)) in this phase\(pausedSuffix(session))",
+                    ? String(localized: "Phase done")
+                    : String(localized: "\(PlanSectionCopy.duration(value)) left in phase") + pausedSuffix(session),
                 showsClock: true
             )
         case .stopwatch, .none:
             let value = session.focusedDuration(at: date)
             return FocusClockDisplay(
                 value: value,
-                label: "\(PlanSectionCopy.duration(value)) elapsed\(pausedSuffix(session))",
+                label: String(localized: "\(PlanSectionCopy.duration(value)) elapsed") + pausedSuffix(session),
                 showsClock: true
             )
         case .openEnded:
             return FocusClockDisplay(
                 value: 0,
-                label: "Open-ended focus\(pausedSuffix(session))",
+                label: String(localized: "Open-ended focus") + pausedSuffix(session),
                 showsClock: false
             )
         }
     }
 
     private static func pausedSuffix(_ session: FocusSessionV2) -> String {
-        session.state == .paused ? ", paused" : ""
+        session.state == .paused ? String(localized: ", paused") : ""
     }
 }

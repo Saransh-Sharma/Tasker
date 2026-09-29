@@ -1,6 +1,7 @@
 import LifeBoardTokens
 import LifeBoardUI
 import SwiftUI
+import UserNotifications
 
 /// The receipt: facts only, and only facts that are true.
 ///
@@ -34,9 +35,9 @@ enum LifeWeaveRevealCopy {
             rows.append(.areas(LifeWeaveCopy.Ready.areas(primary: primary, others: names.count - 1)))
         }
 
-        let start = OnboardingDayShapeDraft.label(forMinute: draft.dayShape.weekdayStartMinute)
-        let end = OnboardingDayShapeDraft.label(forMinute: draft.dayShape.weekdayEndMinute)
-        rows.append(.hours(LifeWeaveCopy.Ready.hours(start: start, end: end)))
+        // Usual hours are not on the receipt. The flow never asks for them, so
+        // "Weekdays 9–5" read as something the person had said. They keep the
+        // default and change it in Settings when it matters.
         return rows
     }
 
@@ -210,6 +211,10 @@ struct LifeWeaveRevealStep: View {
                 }
             }
 
+            // Reminders are a system permission, not a connector with its own
+            // sheet, so the row asks in place.
+            LifeWeaveRemindersRow(requestAccess: model.powerUps.requestNotificationAccess)
+
             evaNotice
         }
     }
@@ -250,14 +255,14 @@ struct LifeWeaveRevealStep: View {
         case .calendar:
             let count = model.selectedCalendarCount
             guard count > 0 else { return LifeWeaveCopy.Connection.value(.calendar) }
-            return count == 1 ? String(localized: "1 calendar") : LifeWeaveCopy.Connection.calendars(count)
+            return LifeWeaveCopy.Connection.calendars(count)
         case .health:
             switch healthStore.presentation {
             case .ready: return LifeWeaveCopy.Connection.connected
             case .requesting, .syncing: return LifeWeaveCopy.Connection.connecting
             case .partial, .authorizationFailed, .protectedDataLocked: return LifeWeaveCopy.Connection.needsAttention
             case .reviewedNoDataYet: return String(localized: "Connected. No data yet.")
-            case .unavailable: return String(localized: "Not on this device")
+            case .unavailable: return String(localized: "Not available on \(DeviceNoun.this)")
             case .notRequested: return LifeWeaveCopy.Connection.value(.health)
             }
         case .eva:
@@ -311,6 +316,91 @@ private struct LifeWeaveReceiptCheck: View {
         } else {
             progress = 1
         }
+    }
+}
+
+/// Turns on reminders from Ready. Asks iOS in place; once iOS has recorded a
+/// refusal the only way back is Settings, so the row opens it.
+private struct LifeWeaveRemindersRow: View {
+    let requestAccess: () async -> Bool
+
+    @State private var status: UNAuthorizationStatus = .notDetermined
+    @State private var isRequesting = false
+
+    private var isOn: Bool {
+        status == .authorized || status == .provisional || status == .ephemeral
+    }
+
+    private var detail: String {
+        if isOn { return LifeWeaveCopy.Connection.remindersOn }
+        if status == .denied { return LifeWeaveCopy.Connection.remindersOff }
+        return LifeWeaveCopy.Connection.remindersValue
+    }
+
+    var body: some View {
+        Button(action: tap) {
+            HStack(spacing: Theme.Spacing.sm) {
+                Image(systemName: "bell.fill")
+                    .lifeboardFont(.headline)
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
+                    .frame(width: 36, height: 36)
+                    .background(Color.lifeboard(.accentWash), in: Circle())
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(LifeWeaveCopy.Connection.reminders)
+                        .lifeboardFont(.bodyStrong)
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                    Text(detail)
+                        .lifeboardFont(.caption1)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                        .contentTransition(.opacity)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: Theme.Spacing.xs)
+                if isRequesting {
+                    ProgressView()
+                } else {
+                    Image(systemName: isOn ? "checkmark.circle.fill" : "chevron.right")
+                        .lifeboardFont(isOn ? .title3 : .caption1)
+                        .foregroundStyle(Color.lifeboard(isOn ? .statusSuccess : .textTertiary))
+                        .contentTransition(.symbolEffect(.replace))
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
+            .frame(minHeight: 60)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lifeBoardClaySurface(.resting, cornerRadius: Radius.row)
+        }
+        .buttonStyle(LifeMapPressButtonStyle())
+        .disabled(isOn || isRequesting)
+        .lifeBoardMotion(.selection, value: isOn)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("onboarding.connection.reminders")
+        .task { await refreshStatus() }
+    }
+
+    private func tap() {
+        switch status {
+        case .denied:
+            PermissionRecoveryCard.openSystemSettings()
+        case .notDetermined:
+            isRequesting = true
+            Task { @MainActor in
+                let granted = await requestAccess()
+                await refreshStatus()
+                isRequesting = false
+                if granted { Haptic.commit.play() }
+            }
+        default:
+            break
+        }
+    }
+
+    @MainActor
+    private func refreshStatus() async {
+        status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
     }
 }
 

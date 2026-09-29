@@ -178,7 +178,7 @@ private enum EvaFeatureTextGenerator {
 
         let readiness = await EvaRuntimePreparation.ensureReady(runtime: runtime)
         guard readiness.ready else {
-            throw EvaProviderError.unavailable(String(localized: "Offline EVA is not ready on this device."))
+            throw EvaProviderError.unavailable(String(localized: "Eva isn’t ready on this device."))
         }
         let thread = Thread()
         thread.messages = [Message(role: .user, content: prompt, thread: thread)]

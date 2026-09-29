@@ -11,33 +11,36 @@ struct HomeWeeklySummaryCard: View {
     private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     private var titleText: String {
-        guard let summary else { return "Weekly planning" }
+        guard let summary else { return String(localized: "This week") }
         switch summary.plannerPresentation {
         case .thisWeek:
-            return "This week"
+            return String(localized: "This week")
         case .upcomingWeek:
-            return "Next week"
+            return String(localized: "Next week")
         }
     }
 
     private func actionTitle(for summary: HomeWeeklySummary) -> String {
         switch summary.ctaState {
         case .planThisWeek, .planUpcomingWeek:
-            return "Plan"
+            return String(localized: "Plan week")
         case .reviewWeek:
-            return "Review"
+            return String(localized: "Review week")
         }
     }
 
     private func statusText(for summary: HomeWeeklySummary) -> String {
         switch summary.ctaState {
         case .reviewWeek:
-            return "Ready to review"
+            return String(localized: "Ready to review")
         case .planThisWeek, .planUpcomingWeek:
             if summary.outcomeCount == 0 && summary.thisWeekTaskCount == 0 {
-                return "Not planned"
+                return String(localized: "Not planned")
             }
-            return "\(summary.outcomeCount) outcomes · \(summary.thisWeekTaskCount) tasks"
+            let outcomes = summary.outcomeCount, tasks = summary.thisWeekTaskCount
+            let outcomeText = outcomes == 1 ? String(localized: "1 outcome") : String(localized: "\(outcomes) outcomes")
+            let taskText = tasks == 1 ? String(localized: "1 task") : String(localized: "\(tasks) tasks")
+            return "\(outcomeText) · \(taskText)"
         }
     }
 
@@ -49,7 +52,7 @@ struct HomeWeeklySummaryCard: View {
                     .foregroundStyle(Color.lifeboard.textPrimary)
 
                 if isLoading {
-                    Text("Loading weekly summary…")
+                    Text("Loading…")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
@@ -64,7 +67,7 @@ struct HomeWeeklySummaryCard: View {
                         .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)
                 } else {
-                    Text("Start your weekly plan.")
+                    Text("Plan week")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard.textSecondary)
                         .lineLimit(1)

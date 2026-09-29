@@ -16,7 +16,7 @@ struct QuietHoursCard: View {
                         .foregroundColor(.lifeboard(.accentPrimary))
                         .frame(width: 24)
 
-                    Text("Quiet Hours")
+                    Text("Quiet hours")
                         .font(.lifeboard(.bodyStrong))
                         .foregroundColor(.lifeboard(.textPrimary))
 
@@ -78,14 +78,13 @@ struct QuietHoursCard: View {
 
                         // Scope chips
                         VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s8) {
-                            Text("APPLIES TO")
+                            Text("Applies to")
                                 .font(.lifeboard(.caption2))
                                 .foregroundColor(.lifeboard(.textTertiary))
-                                .tracking(0.5)
 
                             HStack(spacing: SwiftUITokens.spacing.s8) {
                                 Chip(
-                                    title: "Task Alerts",
+                                    title: "Task alerts",
                                     isSelected: viewModel.preferences.quietHoursAppliesToTaskAlerts,
                                     selectedStyle: .tinted,
                                     action: {
@@ -97,7 +96,7 @@ struct QuietHoursCard: View {
                                 )
 
                                 Chip(
-                                    title: "Daily Summaries",
+                                    title: "Daily summaries",
                                     isSelected: viewModel.preferences.quietHoursAppliesToDailySummaries,
                                     selectedStyle: .tinted,
                                     action: {
@@ -114,7 +113,7 @@ struct QuietHoursCard: View {
                 }
             }
             .opacity(disabled ? 0.5 : 1.0)
-            .animation(LifeBoardAnimation.heroReveal, value: isEnabled)
+            .lifeBoardMotion(.contentInsertion, value: isEnabled)
         }
     }
 }

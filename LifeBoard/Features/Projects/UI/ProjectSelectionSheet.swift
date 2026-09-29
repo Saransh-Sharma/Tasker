@@ -46,7 +46,7 @@ struct ProjectSelectionSheet: View {
         NavigationStack {
             ZStack {
                 if viewModel.isLoading {
-                    ProgressView("Loading projects...")
+                    ProgressView("Loading…")
                         .scaleEffect(1.2)
                 } else if viewModel.availableProjects.isEmpty {
                     emptyStateView
@@ -55,7 +55,7 @@ struct ProjectSelectionSheet: View {
                 }
             }
             .lifeboardReadableContent(maxWidth: 760, alignment: .center)
-            .navigationTitle("Select Projects")
+            .navigationTitle("Pin projects")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -99,6 +99,10 @@ struct ProjectSelectionSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
+            // The warm canvas behind the grouped list, not the system's pure white
+            // (light) or pure black (dark) grouped background.
+            .scrollContentBackground(.hidden)
+            .background { GrainedCanvas() }
         }
     }
 
@@ -138,7 +142,7 @@ struct ProjectSelectionSheet: View {
                 Image(systemName: "pin.fill")
                     .foregroundColor(colors.accentPrimary)
 
-                Text("Pin up to \(maxSelections) projects for radar chart")
+                Text("Pin up to \(maxSelections) projects")
                     .font(.lifeboard(.callout))
                     .foregroundColor(colors.textSecondary)
 
@@ -152,12 +156,12 @@ struct ProjectSelectionSheet: View {
             }
 
             if validPinnedCount >= maxSelections {
-                Text("Maximum pins reached")
+                Text("Pin limit reached")
                     .font(.lifeboard(.caption1))
                     .foregroundColor(colors.statusDanger)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if pinnedProjects.isEmpty {
-                Text("Tap pin icon to select projects for radar chart")
+                Text("Nothing pinned")
                     .font(.lifeboard(.caption1))
                     .foregroundColor(colors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -166,13 +170,13 @@ struct ProjectSelectionSheet: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(colors.statusWarning)
                         .font(.lifeboard(.caption1))
-                    Text("Cleaning up invalid project pins...")
+                    Text("Removing old pins…")
                         .font(.lifeboard(.caption1))
                         .foregroundColor(colors.statusWarning)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Text("\(validPinnedCount) project\(validPinnedCount == 1 ? "" : "s") pinned")
+                Text(validPinnedCount == 1 ? "1 project pinned" : "\(validPinnedCount) projects pinned")
                     .font(.lifeboard(.caption1))
                     .foregroundColor(colors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -191,21 +195,17 @@ struct ProjectSelectionSheet: View {
                 .foregroundColor(colors.textTertiary.opacity(0.5))
 
             VStack(spacing: 8) {
-                Text("No Custom Projects")
+                Text("No projects yet")
                     .font(.lifeboard(.headline))
                     .foregroundColor(colors.textPrimary)
 
-                Text("Create custom projects to see them here")
-                    .font(.lifeboard(.callout))
-                    .foregroundColor(colors.textSecondary)
-                    .multilineTextAlignment(.center)
             }
 
             Button(action: {
                 dismiss()
                 onCreateProject()
             }) {
-                Text("Create Project")
+                Text("New project")
                     .font(.lifeboard(.bodyEmphasis))
                     .fontWeight(.semibold)
                     .foregroundColor(colors.accentOnPrimary)
@@ -296,7 +296,7 @@ struct ProjectRow: View {
                         }
                     }
 
-                    Text("\(project.taskCount) tasks")
+                    Text(project.taskCount == 1 ? "1 task" : "\(project.taskCount) tasks")
                         .font(.lifeboard(.caption1))
                         .foregroundColor(colors.textSecondary)
                 }

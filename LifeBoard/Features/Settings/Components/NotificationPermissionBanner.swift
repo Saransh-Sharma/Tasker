@@ -50,15 +50,15 @@ struct NotificationPermissionBanner: View {
     }
 
     private var titleText: String {
-        status == .denied ? "Notifications Disabled" : "Enable Notifications"
+        status == .denied ? String(localized: "Notifications are off") : String(localized: "Turn on notifications")
     }
 
     private var subtitleText: String {
-        status == .denied ? "Open Settings to re-enable" : "Stay on top of your tasks"
+        status == .denied ? String(localized: "Turn them on in Settings.") : String(localized: "Get task reminders.")
     }
 
     private var buttonText: String {
-        status == .denied ? "Open Settings" : "Enable"
+        status == .denied ? String(localized: "Open Settings") : String(localized: "Turn on")
     }
 
     private var buttonBackground: Color {

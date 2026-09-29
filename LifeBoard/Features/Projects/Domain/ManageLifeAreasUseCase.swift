@@ -36,7 +36,7 @@ public final class ManageLifeAreasUseCase: @unchecked Sendable {
                     completion(.failure(NSError(
                         domain: "ManageLifeAreasUseCase",
                         code: 409,
-                        userInfo: [NSLocalizedDescriptionKey: "Life area '\(normalizedDisplayName)' already exists."]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "‘\(normalizedDisplayName)’ already exists.")]
                     )))
                     return
                 }
@@ -84,7 +84,7 @@ public final class ManageLifeAreasUseCase: @unchecked Sendable {
                     completion(.failure(NSError(
                         domain: "ManageLifeAreasUseCase",
                         code: 409,
-                        userInfo: [NSLocalizedDescriptionKey: "Life area '\(normalizedDisplayName)' already exists."]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "‘\(normalizedDisplayName)’ already exists.")]
                     )))
                     return
                 }

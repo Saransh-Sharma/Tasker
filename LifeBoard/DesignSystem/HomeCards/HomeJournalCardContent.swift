@@ -9,14 +9,14 @@ struct HomeJournalCardContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
-            HomeWidgetTitle("Journal", symbol: "book.closed", palette: palette)
+            HomeWidgetTitle(String(localized: "Journal"), symbol: "book.closed", palette: palette)
                 .accessibilityIdentifier("home.widget.journal")
                 .homeCardEvidence("journal.title", role: "title", copy: "Journal", typography: .init(role: "headline", points: 17, weight: "semibold"))
-            Text("Keep one honest moment from today—words, photos, or audio.")
+            Text("Write about today")
                 .font(.subheadline)
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
                 .fixedSize(horizontal: false, vertical: true)
-                .homeCardEvidence("journal.body", role: "text", copy: "Keep one honest moment from today—words, photos, or audio.", typography: .init(role: "subheadline", points: 15, weight: "regular"))
+                .homeCardEvidence("journal.body", role: "text", copy: "Write about today", typography: .init(role: "subheadline", points: 15, weight: "regular"))
             // In a half-width card these two buttons get about 63pt each, which
             // is narrower than "Search" plus its symbol. Laid out in a fixed
             // HStack the labels wrapped to one character per line and the
@@ -36,7 +36,7 @@ struct HomeJournalCardContent: View {
                 onReflection()
             } label: {
                 HStack {
-                    Label("Weekly reflection", systemImage: "sparkles.rectangle.stack")
+                    Label("Review week", systemImage: "sparkles.rectangle.stack")
                     Spacer()
                     Image(systemName: "chevron.right")
                 }
@@ -46,7 +46,7 @@ struct HomeJournalCardContent: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("home.journal.weeklyReflection")
-            .homeCardEvidence("journal.reflection", role: "control", copy: "Weekly reflection", typography: .init(role: "subheadline", points: 15, weight: "semibold"))
+            .homeCardEvidence("journal.reflection", role: "control", copy: "Review week", typography: .init(role: "subheadline", points: 15, weight: "semibold"))
         }
         .padding(16)
     }
@@ -71,7 +71,7 @@ struct HomeJournalCardContent: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, minHeight: 44)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.lifeBoardChip)
         .accessibilityIdentifier("home.journal.search")
         .homeCardEvidence("journal.search", role: "control", copy: "Search", typography: .init(role: "body", points: 17, weight: "regular", alignment: "center"))
     }

@@ -45,7 +45,7 @@ struct LifeMapManagementView: View {
                 )
             },
             capacityFraction: capacityFraction ?? 0,
-            centerPromise: LifeMapDesiredChange(rawValue: profile?.desiredChangeID ?? "")?.title ?? "Daily Loop",
+            centerPromise: LifeMapDesiredChange(rawValue: profile?.desiredChangeID ?? "")?.title ?? String(localized: "Your day"),
             captureTitle: nil
         )
     }
@@ -58,7 +58,7 @@ struct LifeMapManagementView: View {
                 header
                 canvas
                 actions
-                Text("Permissions and unfinished EVA setup can be resumed from here. Nothing already saved changes unless you approve it.")
+                Text("Rerun setup to finish permissions or Eva.")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textTertiary))
                     .fixedSize(horizontal: false, vertical: true)
@@ -68,7 +68,7 @@ struct LifeMapManagementView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Color.lifeboard(.bgCanvas))
-        .navigationTitle("Life Map")
+        .navigationTitle("Life map")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             profile = LifeMapProfileStore.shared.load()
@@ -80,12 +80,12 @@ struct LifeMapManagementView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(hasBuiltMap ? "Your life, connected" : "Build your Life Map")
+            Text(hasBuiltMap ? "Your life areas" : "Build your life map")
                 .font(.lifeboard(.title1))
                 .foregroundStyle(Color.lifeboard(.textPrimary))
             Text(hasBuiltMap
-                ? "This map follows your life areas and their order. Edit the records in Life Management and the map changes with them."
-                : "A few minutes to shape LifeBoard around what you're actually carrying. Your existing areas and records are preserved.")
+                ? String(localized: "Edit your areas in Settings to change it.")
+                : String(localized: "Takes a few minutes. Your existing data stays."))
                 .font(.lifeboard(.support))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
@@ -109,7 +109,7 @@ struct LifeMapManagementView: View {
             NotificationCenter.default.post(name: .lifeboardStartOnboardingRequested, object: nil)
         } label: {
             Label(
-                hasBuiltMap ? "Refresh my map" : "Build my Life Map",
+                hasBuiltMap ? String(localized: "Update map") : String(localized: "Build map"),
                 systemImage: hasBuiltMap ? "arrow.triangle.2.circlepath" : "sparkles"
             )
         }

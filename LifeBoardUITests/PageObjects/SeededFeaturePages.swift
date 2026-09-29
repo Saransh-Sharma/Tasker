@@ -31,11 +31,19 @@ final class OverdueRescuePage {
     }
 
     var snackbarUndoButton: XCUIElement {
-        app.buttons[AccessibilityIdentifiers.Snackbar.action("undo")]
+        // The snackbar draws the shared receipt bar, whose Undo is this.
+        app.buttons["lifeboard.receipt.undo"]
     }
 
     func card(id: String) -> XCUIElement {
         app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueCard(id)]
+    }
+
+    /// Plan's day decision line (or its empty-day card) is the live entry to
+    /// the Overdue Rescue deck; Home's "Needs you" row opens Plan's overdue
+    /// week instead.
+    var planRescueEntry: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Plan.openRescue]
     }
 
     @discardableResult
@@ -44,14 +52,13 @@ final class OverdueRescuePage {
             return true
         }
 
+        homePage.openRoot("plan")
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if homePage.rescueStartButton.exists {
-                tap(homePage.rescueStartButton)
-            } else if homePage.rescueOpenButton.exists {
-                tap(homePage.rescueOpenButton)
+            if planRescueEntry.exists, planRescueEntry.isHittable {
+                tap(planRescueEntry)
             } else {
-                scrollHome()
+                app.swipeUp()
             }
 
             if sheet.waitForExistence(timeout: 2), card(id: cardID).waitForExistence(timeout: 4) {
@@ -59,93 +66,6 @@ final class OverdueRescuePage {
             }
         }
         return false
-    }
-
-    func tap(_ element: XCUIElement) {
-        if element.isHittable {
-            element.tap()
-        } else {
-            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        }
-    }
-
-    private func scrollHome() {
-        let taskList = app.scrollViews[AccessibilityIdentifiers.Home.taskListScrollView]
-        if taskList.exists {
-            taskList.swipeUp()
-        } else {
-            app.scrollViews.firstMatch.swipeUp()
-        }
-    }
-}
-
-@MainActor
-final class FocusNowPage {
-    private let app: XCUIApplication
-    private let homePage: HomePage
-
-    init(app: XCUIApplication, homePage: HomePage) {
-        self.app = app
-        self.homePage = homePage
-    }
-
-    var detailSheet: XCUIElement {
-        app.descendants(matching: .other)[AccessibilityIdentifiers.FocusNow.detailSheet]
-    }
-
-    var detailReady: XCUIElement {
-        app.descendants(matching: .other)[AccessibilityIdentifiers.FocusNow.detailSheet]
-    }
-
-    var deck: XCUIElement {
-        app.descendants(matching: .any)[AccessibilityIdentifiers.FocusNow.deck]
-    }
-
-    var toast: XCUIElement {
-        app.buttons[AccessibilityIdentifiers.FocusNow.toast]
-    }
-
-    func waitForHomeStrip(timeout: TimeInterval = 8) -> Bool {
-        if homePage.focusStrip.waitForExistence(timeout: min(2, timeout)) {
-            return true
-        }
-
-        let scrollView = app.scrollViews.firstMatch
-        guard scrollView.exists else {
-            return false
-        }
-
-        for _ in 0..<4 {
-            scrollView.swipeUp()
-            if homePage.focusStrip.waitForExistence(timeout: 1) {
-                return true
-            }
-        }
-
-        return false
-    }
-
-    func openDetail(timeout: TimeInterval = 8) -> Bool {
-        if detailSheet.exists {
-            return true
-        }
-        guard waitForHomeStrip(timeout: timeout) else { return false }
-        let title = homePage.focusTitleTap
-        guard title.waitForExistence(timeout: timeout) else { return false }
-        tap(title)
-        return detailReady.waitForExistence(timeout: timeout)
-    }
-
-    func card(index: Int) -> XCUIElement {
-        app.descendants(matching: .any)[AccessibilityIdentifiers.FocusNow.card(index)]
-    }
-
-    func candidateSwap(id: String) -> XCUIElement {
-        app.buttons[AccessibilityIdentifiers.FocusNow.candidateSwap(id)]
-    }
-
-    func refineRow(id: String) -> XCUIElement {
-        app.buttons[AccessibilityIdentifiers.FocusNow.refineRow(id)]
     }
 
     func tap(_ element: XCUIElement) {

@@ -13,7 +13,7 @@ struct PlanCapacityCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(capacity.overloadDuration > 0 ? "Over capacity" : "Room in the day")
+                    Text(capacity.overloadDuration > 0 ? "Over capacity" : "Open time")
                         .font(.headline)
                     Text(PlanSectionCopy.loadLabel(capacity))
                         .font(.caption)
@@ -23,12 +23,12 @@ struct PlanCapacityCard: View {
                 NumericRoll(
                     value: capacity.usableDuration / 3_600,
                     fractionDigits: capacity.usableDuration.truncatingRemainder(dividingBy: 3_600) == 0 ? 0 : 1,
-                    unit: "hours"
+                    unit: String(localized: "hr")
                 )
                     .accessibilityLabel("\(PlanSectionCopy.duration(capacity.usableDuration)) usable")
                 Button { showsWorkingHours = true } label: { Image(systemName: "slider.horizontal.3") }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Edit working hours and buffer")
+                    .accessibilityLabel("Working hours")
             }
             ProgressView(value: PlanSectionCopy.loadFraction(capacity))
                 .tint(PlanSectionCopy.loadColor(capacity))
@@ -44,9 +44,14 @@ struct PlanCapacityCard: View {
                 )
                 Spacer()
                 if capacity.isEstimateIncomplete {
-                    Label("\(capacity.missingEstimateCount) estimates missing", systemImage: "questionmark.circle")
+                    Label(
+                        capacity.missingEstimateCount == 1
+                            ? String(localized: "1 task not estimated")
+                            : String(localized: "\(capacity.missingEstimateCount) tasks not estimated"),
+                        systemImage: "questionmark.circle"
+                    )
                 } else {
-                    Label("High confidence", systemImage: "checkmark.shield")
+                    Label("All estimated", systemImage: "checkmark.shield")
                 }
             }
             .font(.caption)
@@ -54,14 +59,14 @@ struct PlanCapacityCard: View {
             if V2FeatureFlags.evaMakeItFitTodayV1Enabled, let onMakeItFit {
                 Button(action: onMakeItFit) {
                     Label(
-                        capacity.overloadDuration > 0 ? "Make it fit" : "Renegotiate today",
+                        capacity.overloadDuration > 0 ? "Make it fit" : "Adjust today",
                         systemImage: "arrow.left.and.right.circle.fill"
                     )
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 46)
                 }
                 .buttonStyle(.borderedProminent)
-                .accessibilityHint("Opens EVA's capacity decision ritual without changing deadlines")
+                .accessibilityHint("Deadlines don\u{2019}t change")
                 .accessibilityIdentifier("plan.capacity.makeItFit")
             }
         }

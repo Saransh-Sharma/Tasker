@@ -327,7 +327,7 @@ final class EvaActivationTests: XCTestCase {
                 previousIdentityKind: nil,
                 nextAvailableAt: nil
             ),
-            .temporarilyUnavailable("EVA could not connect. Please try again.")
+            .temporarilyUnavailable("Eva couldn’t connect. Try again.")
         )
     }
 
@@ -743,10 +743,10 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertEqual(section.prompts.map(\.style), Array(repeating: .naturalLanguage, count: 5))
         XCTAssertEqual(section.prompts.map(\.title), [
             "Reschedule unfinished tasks",
-            "Carry today to tomorrow",
-            "Push by 20 minutes",
+            "Move to Tomorrow",
+            "Delay 20 min",
             "Start tomorrow morning",
-            "Overdue to today"
+            "Earlier tasks to Today"
         ])
         XCTAssertEqual(section.prompts.map(\.submissionText), [
             "Reschedule my unfinished tasks",
@@ -763,9 +763,9 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertEqual(chips.prefix(5).map(\.prompt.title), [
             "How is my day?",
             "Plan today",
-            "Recover overdue",
-            "Carry today's overdues to tomorrow",
-            "Overdue today first and then the rest"
+            "Review earlier tasks",
+            "Earlier tasks to Tomorrow",
+            "Earlier tasks first"
         ])
         XCTAssertEqual(chips.prefix(5).map(\.prompt.submissionText), [
             "How is my day looking today?",
@@ -775,7 +775,7 @@ final class EvaActivationTests: XCTestCase {
             "Plan today with overdue tasks first, then the rest."
         ])
 
-        XCTAssertEqual(chips[5].prompt.title, "Focus first")
+        XCTAssertEqual(chips[5].prompt.title, "What’s first?")
         XCTAssertEqual(chips[6].prompt.title, "Reschedule unfinished tasks")
     }
 

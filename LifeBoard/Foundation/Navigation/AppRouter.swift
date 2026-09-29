@@ -2,17 +2,6 @@ import Foundation
 import LifeBoardDomain
 import Observation
 
-public enum RoutineCollectionFocus: Codable, Hashable, Sendable {
-    case daypart(ResolvedDaypart)
-    case library
-}
-
-public enum LifeMomentsFocus: Codable, Hashable, Sendable {
-    case overview
-    case moment(UUID)
-    case add
-}
-
 public enum AppRoute: Codable, Hashable, Sendable {
     case taskDetail(UUID)
     case habitBoard
@@ -37,6 +26,9 @@ public enum AppRoute: Codable, Hashable, Sendable {
     case planWeek
     case backlog
     case focusSession(UUID?)
+    /// A month of ended sessions: grid, totals, top tasks. Reached from the
+    /// settled session's receipt and the "session ended" state.
+    case focusHistory
     /// The end-of-day ritual for a given day. Carries the day rather than
     /// defaulting to "now" so a notification tapped after midnight still closes
     /// the day it was written about.
@@ -108,6 +100,11 @@ public enum AppRoute: Codable, Hashable, Sendable {
         switch self {
         case .settings, .settingsDetail, .tokenGallery, .referenceDashboard:
             .utility
+        case .weeklyReview:
+            // The ritual brings its own footer actions. As a pushed detail the
+            // shell's composer and dock covered them, and the violet commit
+            // button smeared through the dock glass.
+            .utility
         case .taskDetail, .note, .journalDay:
             .editor
         case .weeklyPlanningWorkspace, .weeklyPlanner:
@@ -124,12 +121,24 @@ public enum AppRoute: Codable, Hashable, Sendable {
             .detail
         }
     }
-}
 
-public struct ResolvedRecordRoute: Equatable, Sendable {
-    public let destination: Destination
-    public let route: AppRoute
-    public let requiresProtectedJournalOpen: Bool
+    /// A readable width that replaces the mode's default, for routes that lay
+    /// out their own columns.
+    ///
+    /// The mode caps (680 for editor and utility routes) are right for a form
+    /// and wrong for a multi-pane surface: the Weekly workspace's side-by-side
+    /// tray and wide board, Settings' sidebar and detail, and the Notes split
+    /// would all be squeezed into 680 points. `.infinity` means uncapped.
+    public var readableWidthOverride: CGFloat? {
+        switch self {
+        case .weeklyPlanningWorkspace, .weeklyPlanner, .settings, .settingsDetail:
+            .infinity
+        case .note:
+            1080
+        default:
+            nil
+        }
+    }
 }
 
 /// The single translation boundary from durable domain references to UI routes.
@@ -203,313 +212,12 @@ public enum RecordRouteResolver {
     }
 }
 
-public struct ResolvedEvaNavigationTarget: Equatable, Sendable {
-    public let destination: Destination
-    public let route: AppRoute?
-    public let requiresProtectedJournalOpen: Bool
-}
-
-public enum EvaNavigationTargetResolver {
-    public static func resolve(_ target: EvaNavigationTarget) -> ResolvedEvaNavigationTarget {
-        switch target {
-        case .home, .today: .init(destination: .home, route: nil, requiresProtectedJournalOpen: false)
-        case .dayPlan: .init(destination: .plan, route: .planDay, requiresProtectedJournalOpen: false)
-        case .weekPlan: .init(destination: .plan, route: .planWeek, requiresProtectedJournalOpen: false)
-        case .weeklyReview: .init(destination: .plan, route: .weeklyReview, requiresProtectedJournalOpen: false)
-        case .backlog: .init(destination: .plan, route: .backlog, requiresProtectedJournalOpen: false)
-        case .focus: .init(destination: .plan, route: .focusSession(nil), requiresProtectedJournalOpen: false)
-        case .habits: .init(destination: .track, route: .habitBoard, requiresProtectedJournalOpen: false)
-        case .trackers: .init(destination: .track, route: .careLibrary, requiresProtectedJournalOpen: false)
-        case .journal: .init(destination: .track, route: .journalSearch, requiresProtectedJournalOpen: true)
-        case .notes: .init(destination: .track, route: .notesLibrary(.collection(.all)), requiresProtectedJournalOpen: false)
-        case .goals: .init(destination: .track, route: .goals, requiresProtectedJournalOpen: false)
-        case .routines: .init(destination: .track, route: .routines(.library), requiresProtectedJournalOpen: false)
-        case .lifeMoments: .init(destination: .track, route: .lifeMoments(.overview), requiresProtectedJournalOpen: false)
-        case .wellness: .init(destination: .track, route: .wellness(.bodyMetric(.bodyMass)), requiresProtectedJournalOpen: false)
-        case .nutrition: .init(destination: .track, route: .nutrition(.dailySummary), requiresProtectedJournalOpen: false)
-        case .fasting: .init(destination: .track, route: .fasting, requiresProtectedJournalOpen: false)
-        case .insights: .init(destination: .insights, route: nil, requiresProtectedJournalOpen: false)
-        case .settings: .init(destination: .eva, route: .settings, requiresProtectedJournalOpen: false)
-        case .eva: .init(destination: .eva, route: nil, requiresProtectedJournalOpen: false)
-        }
-    }
-
-    @MainActor
-    public static func open(_ target: EvaNavigationTarget, with router: AppRouter) {
-        let resolved = resolve(target)
-        guard let route = resolved.route else {
-            router.activateRoot(resolved.destination)
-            return
-        }
-        if resolved.requiresProtectedJournalOpen {
-            router.openProtectedJournalRoute(route, in: resolved.destination)
-        } else {
-            router.openLeaf(route, in: resolved.destination)
-        }
-    }
-}
-
-public struct AppAlertState: Identifiable, Codable, Hashable, Sendable {
-    public let id: UUID
-    public let title: String
-    public let message: String
-
-    public init(id: UUID = UUID(), title: String, message: String) {
-        self.id = id
-        self.title = title
-        self.message = message
-    }
-}
-
-public struct CaptureRequest: Identifiable, Codable, Hashable, Sendable {
-    public enum Source: String, Codable, Sendable {
-        case shell
-        case widget
-        case appIntent
-        case spotlight
-        case shareExtension
-        case deepLink
-    }
-
-    public let id: UUID
-    public let kind: CaptureKind
-    public let source: Source
-    public let draftID: UUID?
-    public let presentationContext: CapturePresentationContext?
-    /// Seed text for the editor, used when reviewing an already-captured item.
-    ///
-    /// Carries the *raw* capture, not the parser's rewritten title: review means
-    /// the user sees exactly what they said and decides what it becomes. Decoded
-    /// with `decodeIfPresent` so previously persisted requests keep restoring.
-    public let prefilledText: String?
-    /// Structured capture metadata including proposals from universal input.
-    public let captureSeed: CaptureSeed?
-
-    public init(
-        id: UUID = UUID(),
-        kind: CaptureKind,
-        source: Source,
-        draftID: UUID? = nil,
-        presentationContext: CapturePresentationContext? = nil,
-        prefilledText: String? = nil,
-        captureSeed: CaptureSeed? = nil
-    ) {
-        self.id = id
-        self.kind = kind
-        self.source = source
-        self.draftID = draftID
-        self.presentationContext = presentationContext
-        self.prefilledText = prefilledText
-        self.captureSeed = captureSeed
-    }
-
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        kind = try container.decode(CaptureKind.self, forKey: .kind)
-        source = try container.decode(Source.self, forKey: .source)
-        draftID = try container.decodeIfPresent(UUID.self, forKey: .draftID)
-        presentationContext = try container.decodeIfPresent(
-            CapturePresentationContext.self,
-            forKey: .presentationContext
-        )
-        prefilledText = try container.decodeIfPresent(String.self, forKey: .prefilledText)
-        captureSeed = try container.decodeIfPresent(CaptureSeed.self, forKey: .captureSeed)
-    }
-}
-
-@MainActor
-@Observable
-public final class CaptureRouter {
-    public private(set) var activeRequest: CaptureRequest?
-    public private(set) var pendingRequests: [CaptureRequest] = []
-    public private(set) var recoverableDraftID: UUID?
-
-    @ObservationIgnored var onStateChange: (@MainActor () -> Void)?
-
-    public init() {}
-
-    @discardableResult
-    public func request(_ request: CaptureRequest) -> Bool {
-        if activeRequest.map({ isSameLogicalRequest($0, request) }) == true
-            || pendingRequests.contains(where: { isSameLogicalRequest($0, request) }) {
-            return false
-        }
-        if activeRequest == nil {
-            activeRequest = request
-        } else {
-            pendingRequests.append(request)
-        }
-        refreshRecoverableDraftID()
-        onStateChange?()
-        return true
-    }
-
-    public func request(
-        kind: CaptureKind,
-        source: CaptureRequest.Source,
-        draftID: UUID? = nil,
-        presentationContext: CapturePresentationContext? = nil
-    ) {
-        _ = request(CaptureRequest(
-            kind: kind,
-            source: source,
-            draftID: draftID,
-            presentationContext: presentationContext
-        ))
-    }
-
-    /// Universal-input convenience: requests a capture while passing
-    /// through the prefilled raw text and the structured `CaptureSeed`
-    /// (parsed task proposals + input source) so editors can prefill
-    /// and present correctable chips. The convenience keeps existing
-    /// callers source-compatible.
-    public func request(
-        kind: CaptureKind,
-        source: CaptureRequest.Source,
-        prefilledText: String? = nil,
-        captureSeed: CaptureSeed? = nil,
-        draftID: UUID? = nil,
-        presentationContext: CapturePresentationContext? = nil
-    ) {
-        _ = request(CaptureRequest(
-            kind: kind,
-            source: source,
-            draftID: draftID,
-            presentationContext: presentationContext,
-            prefilledText: prefilledText,
-            captureSeed: captureSeed
-        ))
-    }
-
-    public func completeActiveRequest() {
-        activeRequest = pendingRequests.isEmpty ? nil : pendingRequests.removeFirst()
-        refreshRecoverableDraftID()
-        onStateChange?()
-    }
-
-    public func cancelActiveRequest() {
-        completeActiveRequest()
-    }
-
-    public func restoreRecoverableDraftID(_ draftID: UUID?) {
-        recoverableDraftID = draftID
-    }
-
-    private func isSameLogicalRequest(_ lhs: CaptureRequest, _ rhs: CaptureRequest) -> Bool {
-        lhs.kind == rhs.kind && lhs.draftID == rhs.draftID
-    }
-
-    private func refreshRecoverableDraftID() {
-        recoverableDraftID = activeRequest?.draftID
-            ?? pendingRequests.lazy.compactMap(\.draftID).first
-    }
-}
-
-public struct RestorationState: Codable, Equatable, Sendable {
-    public var selectedDestination: Destination
-    public var paths: [Destination: [AppRoute]]
-    public var dashboardMode: DashboardMode
-    public var daypartSelection: DaypartSelection
-    public var recoverableCaptureDraftID: UUID?
-
-    public init(
-        selectedDestination: Destination = .home,
-        paths: [Destination: [AppRoute]] = [:],
-        dashboardMode: DashboardMode = .smart,
-        daypartSelection: DaypartSelection = .automatic,
-        recoverableCaptureDraftID: UUID? = nil
-    ) {
-        self.selectedDestination = selectedDestination
-        self.paths = paths
-        self.dashboardMode = dashboardMode
-        self.daypartSelection = daypartSelection
-        self.recoverableCaptureDraftID = recoverableCaptureDraftID
-    }
-}
-
-/// Serializes and coalesces restoration writes away from navigation's main-
-/// actor interaction path. A generation check prevents an older delayed write
-/// from overwriting a newer selection or navigation path.
-struct RestorationEnvelope: Sendable {
-    let sequence: UInt64
-    let state: RestorationState
-}
-
-actor RestorationWriter {
-    struct ThreadSafeDefaults: @unchecked Sendable {
-        let value: UserDefaults
-    }
-
-    private let defaults: UserDefaults
-    private let encoder = JSONEncoder()
-    private var generation = 0
-    private var latestSequence: UInt64 = 0
-    private var pendingTask: Task<Void, Never>?
-
-    init(defaults: ThreadSafeDefaults) {
-        self.defaults = defaults.value
-    }
-
-    func enqueue(_ envelope: RestorationEnvelope) {
-        guard envelope.sequence > latestSequence else { return }
-        latestSequence = envelope.sequence
-        let state = envelope.state
-        generation &+= 1
-        let candidateGeneration = generation
-        pendingTask?.cancel()
-        pendingTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(200))
-            guard Task.isCancelled == false else { return }
-            await self?.commit(state, generation: candidateGeneration)
-        }
-    }
-
-    func flush(_ envelope: RestorationEnvelope) {
-        guard envelope.sequence > latestSequence else { return }
-        latestSequence = envelope.sequence
-        let state = envelope.state
-        generation &+= 1
-        pendingTask?.cancel()
-        pendingTask = nil
-        write(state)
-    }
-
-    private func commit(_ state: RestorationState, generation candidate: Int) {
-        guard candidate == generation else { return }
-        pendingTask = nil
-        write(state)
-    }
-
-    private func write(_ state: RestorationState) {
-        guard let data = try? encoder.encode(state) else { return }
-        defaults.set(data, forKey: FoundationPreferenceKey.restorationState)
-    }
-}
-
-public struct DeferredProtectedRoute: Equatable, Sendable {
-    public let route: AppRoute
-    public let destination: Destination
-
-    public init(route: AppRoute, destination: Destination) {
-        self.route = route
-        self.destination = destination
-    }
-}
-
-public struct PendingRouteRequest: Equatable, Sendable {
-    public let id: UUID
-    public let destination: Destination
-    public let route: AppRoute
-
-    public init(id: UUID = UUID(), destination: Destination, route: AppRoute) {
-        (self.id, self.destination, self.route) = (id, destination, route)
-    }
-}
-
 @MainActor
 @Observable
 public final class AppRouter {
+    /// The one receipt the shell shows above the composer. See `ShellReceipt`.
+    public var shellReceipt: ShellReceipt?
+
     public var selectedDestination: Destination {
         willSet {
             guard newValue != selectedDestination, !isRestoring else { return }
@@ -542,6 +250,12 @@ public final class AppRouter {
         didSet { persist() }
     }
     public var activeAlert: AppAlertState?
+    /// Eva presented over the current root. Set by `presentEva`, cleared by the sheet.
+    var evaSheetRequest: EvaSheetRequest?
+    /// Asks the shell to open the Overdue Rescue deck — the same one Plan's
+    /// and Home's Rescue rows open. Set by a rescue notification; the shell
+    /// presents the deck and clears it.
+    public var overdueRescueRequest: Date?
     public private(set) var deferredProtectedRoute: DeferredProtectedRoute?
     public private(set) var pendingRouteRequest: PendingRouteRequest?
     public private(set) var isJournalAccessUnlocked: Bool
@@ -602,32 +316,6 @@ public final class AppRouter {
         }
     }
 
-    public func select(_ destination: Destination) {
-        selectedDestination = destination
-    }
-
-    /// Activates a root, popping it when it is already selected.
-    public func activateRoot(_ destination: Destination) {
-        if selectedDestination == destination {
-            popToRoot(in: destination)
-        } else {
-            select(destination)
-        }
-    }
-
-    public func path(for destination: Destination) -> [AppRoute] {
-        paths[destination] ?? []
-    }
-
-    public func setPath(_ path: [AppRoute], for destination: Destination) {
-        if let pendingRouteRequest,
-           pendingRouteRequest.destination == destination,
-           path != [pendingRouteRequest.route] {
-            return
-        }
-        paths[destination] = path
-    }
-
     public func acknowledgeRouteAppearance(_ route: AppRoute, in destination: Destination) {
         guard let pendingRouteRequest,
               pendingRouteRequest.destination == destination,
@@ -657,42 +345,6 @@ public final class AppRouter {
             return
         }
         append(route, in: target)
-    }
-
-    /// Performs an interactive cross-root transition without racing SwiftUI's
-    /// current TabView selection write-back. Boundary routing and restoration
-    /// continue to use synchronous `push`; views use this method when a tap
-    /// changes both the primary destination and its typed leaf.
-    @discardableResult
-    public func navigate(
-        _ route: AppRoute,
-        in destination: Destination
-    ) -> _Concurrency.Task<Void, Never> {
-        if selectedDestination != destination { select(destination) }
-        return Task { @MainActor [weak self] in
-            // Let TabView/NavigationStack finish writing the interaction that
-            // exposed this root before appending its next typed leaf. Without
-            // this boundary, a rapid root-pop followed by a new action can let
-            // SwiftUI write the just-popped empty path over the new route.
-            await Task.yield()
-            guard let self, self.selectedDestination == destination else { return }
-            self.push(route, in: destination)
-        }
-    }
-
-    /// Opens a typed leaf as a deterministic cross-root deep link.
-    ///
-    /// Unlike `navigate`, this replaces any stale path owned by the target
-    /// root. A Home health card therefore always lands on exactly one useful
-    /// screen, and Back returns to Track rather than walking through whatever
-    /// the person last viewed there.
-    @discardableResult
-    public func navigateReplacingPath(
-        _ route: AppRoute,
-        in destination: Destination
-    ) -> _Concurrency.Task<Void, Never> {
-        openLeaf(route, in: destination)
-        return Task { @MainActor in }
     }
 
     public func openLeaf(_ route: AppRoute, in destination: Destination) {
@@ -821,6 +473,20 @@ public final class AppRouter {
             select(.plan)
             push(.backlog, in: .plan)
         case "focus":
+            // `lifeboard://focus/start?preset=<id>` is Control Center's way in:
+            // the widget target cannot reach the handoff store, so the link
+            // becomes the same pending action Siri submits and the Home
+            // adapter starts the session from the person's preset.
+            if segments.first?.lowercased() == "start" {
+                let presetID = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                    .queryItems?.first(where: { $0.name == "preset" })?.value
+                try? PendingShortcutLaunchActionStore.shared.submit(
+                    PendingShortcutLaunchAction(kind: .startFocus, presetID: presetID)
+                )
+                select(.home)
+                NotificationCenter.default.post(name: .lifeboardPendingShortcutHandoff, object: nil)
+                return true
+            }
             let sessionID = segments.first.flatMap(UUID.init(uuidString:))
             select(.plan)
             push(.focusSession(sessionID), in: .plan)
@@ -832,16 +498,20 @@ public final class AppRouter {
                 push(.habitLibrary, in: .track)
             case "habit":
                 guard segments.count > 1, let id = UUID(uuidString: segments[1]) else {
-                    restoreFallbackToHome(message: "That habit link is incomplete or no longer available.")
+                    restoreFallbackToHome(message: String(localized: "Couldn’t open that habit."))
                     return true
                 }
                 RecordRouteResolver.open(.init(kind: .habit, recordID: id, title: "Habit"), with: self)
+            case let segment? where UUID(uuidString: segment) != nil:
+                // Widgets built before the `habits/habit/<id>` form sent a
+                // bare id; installed widgets keep that URL until they refresh.
+                RecordRouteResolver.open(.init(kind: .habit, recordID: UUID(uuidString: segment)!, title: "Habit"), with: self)
             default:
-                restoreFallbackToHome(message: "That habit destination is unavailable. Opened Home instead.")
+                restoreFallbackToHome(message: String(localized: "Couldn’t open that habit."))
             }
         case "habit":
             guard let rawID = segments.first, let id = UUID(uuidString: rawID) else {
-                restoreFallbackToHome(message: "That habit link is incomplete or no longer available.")
+                restoreFallbackToHome(message: String(localized: "Couldn’t open that habit."))
                 return true
             }
             RecordRouteResolver.open(.init(kind: .habit, recordID: id, title: "Habit"), with: self)
@@ -887,7 +557,7 @@ public final class AppRouter {
                 focus = nil
             }
             guard let focus else {
-                restoreFallbackToHome(message: "That wellness destination is unavailable. Opened Home instead.")
+                restoreFallbackToHome(message: String(localized: "Couldn’t open that page."))
                 return true
             }
             openLeaf(.wellness(focus), in: .track)
@@ -900,7 +570,7 @@ public final class AppRouter {
             default: focus = nil
             }
             guard let focus else {
-                restoreFallbackToHome(message: "That nutrition destination is unavailable. Opened Home instead.")
+                restoreFallbackToHome(message: String(localized: "Couldn’t open that page."))
                 return true
             }
             openLeaf(.nutrition(focus), in: .track)
@@ -978,7 +648,7 @@ public final class AppRouter {
             captureRouter.request(kind: .task, source: .deepLink)
         case "task":
             guard let rawID = segments.first, let id = UUID(uuidString: rawID) else {
-                restoreFallbackToHome(message: "That task link is incomplete or no longer available.")
+                restoreFallbackToHome(message: String(localized: "Couldn’t open that task."))
                 return true
             }
             RecordRouteResolver.open(.init(kind: .task, recordID: id, title: "Task"), with: self)
@@ -992,61 +662,21 @@ public final class AppRouter {
                 push(.backlog, in: .plan)
             case "project":
                 guard segments.count > 1, let id = UUID(uuidString: segments[1]) else {
-                    restoreFallbackToHome(message: "That project link is incomplete or no longer available.")
+                    restoreFallbackToHome(message: String(localized: "Couldn’t open that project."))
                     return true
                 }
                 push(.project(id), in: .plan)
             default:
-                restoreFallbackToHome(message: "That task destination is unavailable. Opened Home instead.")
+                restoreFallbackToHome(message: String(localized: "Couldn’t open that task."))
             }
         default:
             return false
         }
         return true
     }
+}
 
-    public func handle(notificationRoute: NotificationRoute) {
-        switch notificationRoute {
-        case .homeToday(let taskID):
-            if let taskID { push(.taskDetail(taskID), in: .home) }
-            else { select(.home) }
-        case .taskDetail(let taskID):
-            push(.taskDetail(taskID), in: .home)
-        case .weeklyPlanner:
-            push(.weeklyPlanner, in: .plan)
-        case .weeklyReview:
-            push(.weeklyReview, in: .plan)
-        case .homeDone:
-            select(.insights)
-        case .dayCompass(let flow, let dateStamp):
-            // The stamp was already parsed off the payload and then discarded,
-            // so a notification tapped after midnight opened whatever "today"
-            // had become. Resolving it means the 21:00 nudge still closes the
-            // day it was written about.
-            let day = Self.notificationDate(from: dateStamp)
-            switch flow {
-            case .morningPlan:
-                push(.dayOpen(day), in: .home)
-            case .replan, .rescue, .inbox:
-                push(.backlog, in: .plan)
-            case .eveningReview:
-                // Was `.insights`, which meant the evening notification and the
-                // Home row led to two different places for the same ritual.
-                push(.dayClose(day), in: .home)
-            case .resumeTask:
-                select(.home)
-            }
-        case .dailySummary(let kind, let dateStamp):
-            let day = Self.notificationDate(from: dateStamp)
-            switch kind {
-            case .morning:
-                select(.home)
-            case .nightly:
-                push(.dayClose(day), in: .home)
-            }
-        }
-    }
-
+extension AppRouter {
     /// Resolves a `yyyyMMdd` notification stamp to a date, falling back to now.
     ///
     /// Parsed at local midnight so `PlanningDay(date:)` lands on the intended
@@ -1191,6 +821,25 @@ public final class FoundationCoordinator {
         // lets the Foundation shell reach its first frame without making the
         // first Eva tap perform synchronous disk work.
         LLMStoreBootstrap.shared.start()
+    }
+
+    /// A coordinator for a second window (iPad Stage Manager / Split View,
+    /// or another Mac window).
+    ///
+    /// Each window needs its own navigation — one shared router made every
+    /// window follow the others' taps — and its own restoration record, so it
+    /// reads and writes a suite named for its scene session. Preferences
+    /// (appearance, comfort, daypart) stay shared: they are the person's, not
+    /// the window's.
+    public init(secondaryWindowFor sceneIdentifier: String, sharing base: FoundationCoordinator) {
+        preferences = base.preferences
+        let captureRouter = CaptureRouter()
+        self.captureRouter = captureRouter
+        router = AppRouter(
+            defaults: UserDefaults(suiteName: "lifeboard.window.\(sceneIdentifier)"),
+            preferences: base.preferences,
+            captureRouter: captureRouter
+        )
     }
 
     @discardableResult

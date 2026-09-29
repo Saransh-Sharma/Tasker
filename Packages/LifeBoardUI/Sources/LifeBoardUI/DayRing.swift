@@ -154,11 +154,11 @@ public struct DayRing: View {
             }
 
             arcPair(extent: plannedExtent, inset: 0, lineWidth: 7)
-                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
 
             if let focusExtent {
                 arcPair(extent: focusExtent, inset: 18, lineWidth: 7)
-                    .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSunInk))
             }
 
             if closedProgress > 0 {

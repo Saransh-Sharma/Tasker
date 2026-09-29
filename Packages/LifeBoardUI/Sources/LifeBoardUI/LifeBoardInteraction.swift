@@ -156,13 +156,15 @@ private struct PressResponseModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.lifeBoardMotionContext) private var motionContext
     @State private var isPressed = false
 
     private var policy: MotionPolicy {
         MotionPolicy.resolve(
             reduceMotion: reduceMotion,
             reduceTransparency: reduceTransparency,
-            sceneIsActive: scenePhase == .active
+            sceneIsActive: scenePhase == .active,
+            comfortProfile: motionContext.comfortProfile
         )
     }
 
@@ -171,7 +173,8 @@ private struct PressResponseModifier: ViewModifier {
         // Reduce Motion keeps the tonal response and drops the geometry: the
         // control must still confirm the touch, it just must not move.
         let active = isPressed && isEnabled
-        let allowsScale = resolved.allowsSpatialMotion
+        // Calm is "crossfades only": the tonal response stays, the give does not.
+        let allowsScale = resolved.allowsSpatialMotion && resolved.comfortProfile != .calm
 
         content
             .scaleEffect(
@@ -318,13 +321,15 @@ private struct AmbientBreath: ViewModifier {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.lifeBoardMotionContext) private var motionContext
     @State private var isBreathing = false
 
     private var policy: MotionPolicy {
         MotionPolicy.resolve(
             reduceMotion: reduceMotion,
             reduceTransparency: false,
-            sceneIsActive: scenePhase == .active
+            sceneIsActive: scenePhase == .active,
+            comfortProfile: motionContext.comfortProfile
         )
     }
 

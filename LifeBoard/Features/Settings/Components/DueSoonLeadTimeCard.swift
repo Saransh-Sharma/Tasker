@@ -4,12 +4,12 @@ struct DueSoonLeadTimeCard: View {
     @ObservedObject var viewModel: SettingsViewModel
 
     private let options: [(minutes: Int, label: String)] = [
-        (15, "15m"),
-        (30, "30m"),
-        (45, "45m"),
-        (60, "1h"),
-        (90, "1.5h"),
-        (120, "2h"),
+        (15, String(localized: "15 min")),
+        (30, String(localized: "30 min")),
+        (45, String(localized: "45 min")),
+        (60, String(localized: "1 hr")),
+        (90, String(localized: "90 min")),
+        (120, String(localized: "2 hr")),
     ]
 
     private var disabled: Bool {
@@ -19,10 +19,9 @@ struct DueSoonLeadTimeCard: View {
     var body: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s12) {
-                Text("DUE SOON LEAD TIME")
+                Text("Lead time")
                     .font(.lifeboard(.caption2))
                     .foregroundColor(.lifeboard(.textTertiary))
-                    .tracking(0.5)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: SwiftUITokens.spacing.s8) {

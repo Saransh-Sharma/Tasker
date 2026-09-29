@@ -45,7 +45,11 @@ enum ClayColorTokens {
     static let navy = adaptive(light: "#2B2118", dark: "#F4EBDD", darkHighContrast: "#FFFFFF")
     static let navySoft = adaptive(light: "#4A3A2A", dark: "#E7DFD1", darkHighContrast: "#FFFFFF")
     static let navyMuted = adaptive(light: "#746757", dark: "#C6BBA8", darkHighContrast: "#E8E0D2")
-    static let textTertiary = adaptive(light: "#9B8F7E", dark: "#96907F", darkHighContrast: "#C9C2B2")
+    // #9B8F7E measured 2.7–2.95:1 on the clay canvases (below the 3:1 floor);
+    // this is the value `SemanticColorTokens.inkTertiary` was already darkened to.
+    // The routine/task/personal `deep` inks below were darkened for the same
+    // reason: they are label text on their own `softSurface` (2.6, 3.6, 4.4:1).
+    static let textTertiary = adaptive(light: "#8D806E", dark: "#96907F", darkHighContrast: "#C9C2B2")
     static let canvas = adaptive(light: "#FFF7D8", dark: "#0E1220", darkHighContrast: "#080B15")
     static let warmCanvas = adaptive(light: "#FAF2DA", dark: "#111624", darkHighContrast: "#0A0E1A")
     static let coolCanvas = adaptive(light: "#F5ECC9", dark: "#0E1220", darkHighContrast: "#080B15")
@@ -77,15 +81,15 @@ enum ClayColorTokens {
     static func role(_ role: ClayRole) -> RoleStyle {
         switch role {
         case .routine:
-            return RoleStyle(base: sunriseGold, deep: adaptive(light: "#D88900", dark: "#FFD36A"), softSurface: amberSoft, border: adaptive(light: "#F6DE9A", dark: "#7E6425"), symbolName: "sun.max")
+            return RoleStyle(base: sunriseGold, deep: adaptive(light: "#9A6100", dark: "#FFD36A"), softSurface: amberSoft, border: adaptive(light: "#F6DE9A", dark: "#7E6425"), symbolName: "sun.max")
         case .windDown:
             return RoleStyle(base: adaptive(light: "#E7A900", dark: "#F0C96A"), deep: adaptive(light: "#8F6500", dark: "#F7DD97"), softSurface: adaptive(light: "#FFF9EC", dark: "#292414"), border: adaptive(light: "#F4E0B8", dark: "#69572D"), symbolName: "moon.stars.fill")
         case .task:
-            return RoleStyle(base: leaf, deep: adaptive(light: "#15952B", dark: "#8AF09A"), softSurface: adaptive(light: "#EFF9EC", dark: "#152819"), border: adaptive(light: "#D6EFD3", dark: "#315F38"), symbolName: "checkmark.square")
+            return RoleStyle(base: leaf, deep: adaptive(light: "#1E7F33", dark: "#8AF09A"), softSurface: adaptive(light: "#EFF9EC", dark: "#152819"), border: adaptive(light: "#D6EFD3", dark: "#315F38"), symbolName: "checkmark.square")
         case .meeting:
             return RoleStyle(base: violet, deep: adaptive(light: "#5230F3", dark: "#C7B9FF"), softSurface: adaptive(light: "#F4F0FF", dark: "#211B38"), border: adaptive(light: "#E2D8FF", dark: "#4C3D76"), symbolName: "calendar")
         case .personal:
-            return RoleStyle(base: coral, deep: adaptive(light: "#C74716", dark: "#FFB494"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#7A442F"), symbolName: "figure.walk")
+            return RoleStyle(base: coral, deep: adaptive(light: "#B04014", dark: "#FFB494"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#7A442F"), symbolName: "figure.walk")
         case .focus:
             return RoleStyle(base: sky, deep: adaptive(light: "#1266D6", dark: "#A8D0FF"), softSurface: adaptive(light: "#EAF6FF", dark: "#11283C"), border: adaptive(light: "#CFE9FF", dark: "#315F86"), symbolName: "sparkles")
         case .meal:
@@ -98,38 +102,6 @@ enum ClayColorTokens {
             return RoleStyle(base: coral, deep: adaptive(light: "#A83A32", dark: "#FFB7AD"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#80463F"), symbolName: "exclamationmark.circle")
         case .neutral:
             return RoleStyle(base: textTertiary, deep: navyMuted, softSurface: adaptive(light: "#F8FAFF", dark: "#171C2B"), border: hairline, symbolName: "minus")
-        }
-    }
-
-    static func actionGradient(for role: ClayRole) -> [Color] {
-        switch role {
-        case .routine, .windDown, .warning:
-            return [
-                adaptive(light: "#B87300", dark: "#D58A00"),
-                adaptive(light: "#8C5400", dark: "#9E6400")
-            ]
-        case .task:
-            return [
-                adaptive(light: "#15952B", dark: "#218A38"),
-                adaptive(light: "#0B6F1D", dark: "#11692A")
-            ]
-        case .meeting, .assistant:
-            return [violetFill, violetFillDeep]
-        case .personal, .meal, .error:
-            return [
-                adaptive(light: "#C74716", dark: "#C85B32"),
-                adaptive(light: "#A83A32", dark: "#96372F")
-            ]
-        case .focus:
-            return [
-                adaptive(light: "#1266D6", dark: "#1F6ECB"),
-                adaptive(light: "#0B4FA8", dark: "#134C95")
-            ]
-        case .neutral:
-            return [
-                adaptive(light: "#48607F", dark: "#3A4258"),
-                adaptive(light: "#203765", dark: "#252D40")
-            ]
         }
     }
 
@@ -178,11 +150,6 @@ enum MaterialTokens {
     static let dimmingOverlay = ClayColorTokens.glassDimmingOverlay
 }
 
-enum MotionTokens {
-    static let responsive = Animation.spring(response: 0.38, dampingFraction: 0.86)
-    static let gentle = Animation.easeInOut(duration: 0.22)
-}
-
 enum HabitTokens {
     static let completed = ClayColorTokens.leaf
     static let dueToday = ClayColorTokens.violet
@@ -206,65 +173,6 @@ struct GlassButton: View {
 
     var body: some View {
         PrimaryButton(title: title, systemImage: systemImage, action: action)
-    }
-}
-
-struct InlineBanner: View {
-    let title: String
-    let message: String
-    var role: ClayRole = .assistant
-
-    var body: some View {
-        let style = ClayColorTokens.role(role)
-        HStack(alignment: .top, spacing: ClayLayoutMetrics.sm) {
-            Image(systemName: style.symbolName)
-                .font(.headline)
-                .foregroundStyle(style.deep)
-                .frame(width: 32, height: 32)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(ClayTypography.cardTitle)
-                    .foregroundStyle(ClayColorTokens.navy)
-                Text(message)
-                    .font(ClayTypography.body)
-                    .foregroundStyle(ClayColorTokens.navyMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(ClayLayoutMetrics.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(style.softSurface.opacity(0.74), in: RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous)
-                .stroke(style.border, lineWidth: 1)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-struct UndoSnackbar: View {
-    let message: String
-    let undoTitle: String
-    let undo: () -> Void
-
-    var body: some View {
-        HStack(spacing: ClayLayoutMetrics.sm) {
-            Text(message)
-                .font(ClayTypography.body)
-                .foregroundStyle(ClayColorTokens.navy)
-                .lineLimit(2)
-            Spacer(minLength: ClayLayoutMetrics.xs)
-            Button(undoTitle, action: undo)
-                .font(ClayTypography.chip)
-                .foregroundStyle(ClayColorTokens.violetDeep)
-                .frame(minHeight: 44)
-        }
-        .padding(.horizontal, ClayLayoutMetrics.md)
-        .padding(.vertical, ClayLayoutMetrics.sm)
-        .background(ClayColorTokens.glassStrong, in: Capsule())
-        .overlay(Capsule().stroke(ClayColorTokens.glassBorder, lineWidth: 1))
-        .shadow(color: ClayColorTokens.elevationShadow, radius: 14, y: 7)
     }
 }
 

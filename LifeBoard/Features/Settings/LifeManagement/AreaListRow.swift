@@ -21,7 +21,7 @@ struct AreaListRow: View {
                     }
                 }
 
-                Text("\(row.projectCount) projects · \(row.habitCount) habits")
+                Text("^[\(row.projectCount) project](inflect: true) · ^[\(row.habitCount) habit](inflect: true)")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             }

@@ -16,10 +16,6 @@ class SettingsPage {
 
     // MARK: - Elements
 
-    var view: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Settings.view]
-    }
-
     var navigationBar: XCUIElement {
         return app.navigationBars[AccessibilityIdentifiers.Settings.navigationBar]
     }
@@ -30,10 +26,6 @@ class SettingsPage {
 
     var lifeManagementRow: XCUIElement {
         return app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.lifeManagementRow]
-    }
-
-    var projectsRow: XCUIElement {
-        return app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.projectsRow]
     }
 
     var aiAssistantRow: XCUIElement {
@@ -56,11 +48,43 @@ class SettingsPage {
 
     // MARK: - Actions
 
-    /// Tap done button to dismiss settings
+    /// Leave Settings. It is pushed onto the root's stack, so it has a back
+    /// button rather than a Done button; Done is kept for sheet presentations.
     @discardableResult
     func tapDone() -> HomePage {
-        doneButton.tap()
+        if doneButton.exists {
+            doneButton.tap()
+        } else if navigationBar.exists {
+            navigationBar.buttons.element(boundBy: 0).tap()
+        }
         return HomePage(app: app)
+    }
+
+    /// Open a Settings category from the hub (`settings.category.<route>`):
+    /// the hub lists categories, and rows such as the calendar controls live
+    /// inside "Calendar & Health".
+    @discardableResult
+    func openCategory(_ route: String, timeout: TimeInterval = 5) -> Bool {
+        let category = app.descendants(matching: .any)["settings.category.\(route)"]
+        guard category.exists || category.waitForExistence(timeout: timeout) else { return false }
+        category.tap()
+        return true
+    }
+
+    /// Back out of a Settings category to the hub. Rows such as Life
+    /// Management sit inside a category, so Back from them lands on the
+    /// category page first.
+    @discardableResult
+    func returnToHub(timeout: TimeInterval = 5) -> Bool {
+        for _ in 0..<3 {
+            if navigationBar.waitForExistence(timeout: 1) {
+                return true
+            }
+            let back = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
+            guard back.exists else { break }
+            back.tap()
+        }
+        return navigationBar.waitForExistence(timeout: timeout)
     }
 
     /// Navigate to Life Management
@@ -76,10 +100,13 @@ class SettingsPage {
     /// Backward-compatible alias for older tests.
     @discardableResult
     func navigateToProjectManagement() -> ProjectManagementPage {
-        if lifeManagementRow.waitForExistence(timeout: 2) {
+        // Life Management lives in the Workspace section of the "Plan &
+        // Organize" category; the hub lists categories, not the rows in them.
+        if lifeManagementRow.waitForExistence(timeout: 1) == false {
+            openCategory("planAndOrganize", timeout: 3)
+        }
+        if lifeManagementRow.waitForExistence(timeout: 3) {
             lifeManagementRow.tap()
-        } else if projectsRow.waitForExistence(timeout: 2) {
-            projectsRow.tap()
         }
         return ProjectManagementPage(app: app)
     }
@@ -114,7 +141,7 @@ class SettingsPage {
 
     /// Backward-compatible alias for older tests.
     func verifyProjectManagementRowExists() -> Bool {
-        return lifeManagementRow.exists || projectsRow.exists
+        return lifeManagementRow.exists
     }
 
     /// Backward-compatible alias for older tests.

@@ -54,7 +54,7 @@ struct PlanActiveFocusCard: View {
                             Task { await store.advancePomodoro() }
                         }
                     }
-                    Menu("Record interruption", systemImage: "bell.slash") {
+                    Menu("Log interruption", systemImage: "bell.slash") {
                         Button("Call or message") {
                             Task { await store.recordInterruption(reason: "Call or message") }
                         }
@@ -93,8 +93,8 @@ struct PlanActiveFocusCard: View {
                     }
                     CommitControl(
                         title: endTitle(outcome),
-                        runningTitle: "Ending focus",
-                        successTitle: "Focus saved",
+                        runningTitle: String(localized: "Ending…"),
+                        successTitle: String(localized: "Saved"),
                         phase: store.focusCommitPhase
                     ) {
                         Task { await store.endFocus(outcome: outcome) }
@@ -102,7 +102,7 @@ struct PlanActiveFocusCard: View {
                     .accessibilityIdentifier("plan.focus.commit")
                 }
                 .padding(12)
-                .lifeBoardClaySurface(.well, cornerRadius: 16)
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.row)
                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
             }
         }
@@ -128,7 +128,7 @@ struct PlanActiveFocusCard: View {
             ) {
                 VStack(spacing: 5) {
                     if case .openEnded? = store.focusCompanion?.mode {
-                        Text("Here with you")
+                        Text("No timer")
                             .font(.headline)
                             .multilineTextAlignment(.center)
                     } else {
@@ -172,7 +172,7 @@ struct PlanActiveFocusCard: View {
             let value = max(0, session.targetDuration - session.focusedDuration(at: date))
             return (
                 value,
-                value == 0 ? "Time is up. Choose what happens next." : "\(PlanSectionCopy.duration(value)) remaining"
+                value == 0 ? String(localized: "Time’s up") : String(localized: "\(PlanSectionCopy.duration(value)) left")
             )
         case .pomodoro:
             let value = max(
@@ -181,40 +181,40 @@ struct PlanActiveFocusCard: View {
             )
             return (
                 value,
-                value == 0 ? "This phase is complete." : "\(PlanSectionCopy.duration(value)) in this phase"
+                value == 0 ? String(localized: "Phase done") : String(localized: "\(PlanSectionCopy.duration(value)) left in phase")
             )
         case .stopwatch, .none:
             let value = session.focusedDuration(at: date)
-            return (value, "\(PlanSectionCopy.duration(value)) elapsed")
+            return (value, String(localized: "\(PlanSectionCopy.duration(value)) elapsed"))
         case .openEnded:
-            return (0, "Open-ended focus")
+            return (0, String(localized: "Open-ended focus"))
         }
     }
 
     private func endTitle(_ outcome: FocusCompletionOutcome) -> String {
         switch outcome {
-        case .completed: "Finish focus"
-        case .continueLater, .intentionallyDeferred: "Save for later"
-        case .abandoned: "Abandon focus"
-        case .stopped, .interrupted: "End focus"
+        case .completed: String(localized: "Finish focus")
+        case .continueLater, .intentionallyDeferred: String(localized: "Save for later")
+        case .abandoned: String(localized: "Abandon focus")
+        case .stopped, .interrupted: String(localized: "End focus")
         }
     }
 
     private func endPrompt(_ outcome: FocusCompletionOutcome) -> String {
         switch outcome {
-        case .completed: "Save this session as complete?"
-        case .continueLater, .intentionallyDeferred: "Keep the context so it is easy to return?"
-        case .abandoned: "End this session without marking it complete?"
-        case .stopped, .interrupted: "End and keep the time already focused?"
+        case .completed: String(localized: "Finish this session?")
+        case .continueLater, .intentionallyDeferred: String(localized: "Save to continue later?")
+        case .abandoned: String(localized: "End without finishing?")
+        case .stopped, .interrupted: String(localized: "End and keep the time?")
         }
     }
 
     private func modeLabel(_ mode: FocusMode) -> String {
         switch mode {
-        case .countdown: "Countdown"
-        case .stopwatch: "Stopwatch"
-        case let .pomodoro(_, _, rounds): "Pomodoro · \(rounds) rounds"
-        case .openEnded: "Open-ended focus"
+        case .countdown: String(localized: "Countdown")
+        case .stopwatch: String(localized: "Stopwatch")
+        case let .pomodoro(_, _, rounds): String(localized: "Pomodoro · \(rounds) rounds")
+        case .openEnded: String(localized: "Open-ended focus")
         }
     }
 }

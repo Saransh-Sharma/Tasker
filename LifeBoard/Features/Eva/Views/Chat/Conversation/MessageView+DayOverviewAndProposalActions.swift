@@ -13,7 +13,7 @@ extension MessageView {
             return
         }
         guard let onPerformDayHabitAction else {
-            appendDayOverviewNotice("Habit actions are unavailable right now.")
+            appendDayOverviewNotice(String(localized: "Couldn’t update habit."))
             return
         }
 
@@ -35,7 +35,7 @@ extension MessageView {
                         text: habitResolvedChipTitle(action),
                         tone: action == .lapsed || action == .logLapse ? "warning" : "accent"
                     )]
-                    appendDayOverviewNotice("\(habitActionSuccessMessage(action)) \(card.title).")
+                    appendDayOverviewNotice(String(localized: "\(card.title) · \(habitActionSuccessMessage(action))"))
                 case .failure(let error):
                     resolved.statusMessage = error.localizedDescription
                 }
@@ -62,9 +62,9 @@ extension MessageView {
         switch action {
         case .done: return "Done"
         case .skip: return "Skip"
-        case .stayedClean: return "Stayed Clean"
-        case .lapsed: return "Lapsed"
-        case .logLapse: return "Log Lapse"
+        case .stayedClean: return String(localized: "Stayed clean")
+        case .lapsed: return String(localized: "Slipped")
+        case .logLapse: return String(localized: "Log slip")
         case .open: return "Open"
         }
     }
@@ -74,19 +74,19 @@ extension MessageView {
         case .done: return "Done"
         case .skip: return "Skipped"
         case .stayedClean: return "Stayed clean"
-        case .lapsed, .logLapse: return "Lapsed"
+        case .lapsed, .logLapse: return String(localized: "Slip logged")
         case .open: return "Open"
         }
     }
 
     func habitActionSuccessMessage(_ action: EvaDayHabitAction) -> String {
         switch action {
-        case .done: return "Logged completion for"
-        case .skip: return "Skipped"
-        case .stayedClean: return "Logged stayed clean for"
-        case .lapsed: return "Logged a lapse for"
-        case .logLapse: return "Logged a lapse for"
-        case .open: return "Opened"
+        case .done: return String(localized: "Logged")
+        case .skip: return String(localized: "Skipped")
+        case .stayedClean: return String(localized: "Clean day logged")
+        case .lapsed: return String(localized: "Slip logged")
+        case .logLapse: return String(localized: "Slip logged")
+        case .open: return String(localized: "Opened")
         }
     }
 
@@ -155,7 +155,7 @@ extension MessageView {
                         Spacer(minLength: Theme.Spacing.sm)
 
                         VStack(alignment: .trailing, spacing: Theme.Spacing.xs) {
-                            Text(card.badgeText)
+                            Text(evaCardOverrides[card.id]?.badgeText.map { String(localized: "Edited · \($0)") } ?? card.badgeText)
                                 .font(.lifeboard(.caption2))
                                 .fontWeight(.semibold)
                                 .foregroundStyle(toneColor(card.tone))
@@ -180,6 +180,11 @@ extension MessageView {
                 }
                 .buttonStyle(.plain)
 
+                if isExpanded, editingEvaCardID == card.id {
+                    evaCardInlineEditor(card)
+                        .padding(Theme.Spacing.sm)
+                        .background(Color.lifeboard(.surfaceSecondary).opacity(0.72))
+                }
                 if isExpanded {
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: 104), spacing: Theme.Spacing.sm)],
@@ -211,10 +216,19 @@ extension MessageView {
             case .discard:
                 selectedEvaCardIDs.remove(card.id)
                 expandedEvaCardID = nil
+            case .notNow:
+                // Set aside, not judged: it leaves the selection and is
+                // counted with the discarded cards in the run's history.
+                selectedEvaCardIDs.remove(card.id)
+                notNowEvaCardIDs.insert(card.id)
+                expandedEvaCardID = nil
             case .show:
                 openEvaProposalCard(card)
             case .edit:
-                openEvaProposalCard(card)
+                // Edit in place: the line's when, duration and title, not the
+                // whole task editor.
+                editingEvaCardID = editingEvaCardID == card.id ? nil : card.id
+                selectedEvaCardIDs.insert(card.id)
             case .add, .save:
                 selectedEvaCardIDs.insert(card.id)
             }
@@ -239,15 +253,73 @@ extension MessageView {
         var actions = [card.primaryAction]
         for action in card.secondaryActions where actions.contains(action) == false {
             switch action {
-            case .show, .edit:
+            case .show:
                 if evaTaskDefinition(for: card) != nil, onOpenTaskFromCard != nil {
                     actions.append(action)
                 }
-            case .discard, .add, .save:
+            case .edit:
+                // Editable in place whenever the card carries a schedulable line.
+                if card.after != nil || card.kind != .noOp {
+                    actions.append(action)
+                }
+            case .discard, .add, .save, .notNow:
                 actions.append(action)
             }
         }
+        if actions.contains(.notNow) == false, card.commandIndexes.isEmpty == false {
+            actions.append(.notNow)
+        }
         return actions
+    }
+
+    /// The inline mini-editor: when and how long, plus the title for a new
+    /// task. Writes an override; the envelope is rewritten at apply time.
+    func evaCardInlineEditor(_ card: EvaProposalCard) -> some View {
+        let binding = Binding<EvaProposalCardOverride>(
+            get: { evaCardOverrides[card.id] ?? EvaProposalCardOverride(cardID: card.id) },
+            set: { evaCardOverrides[card.id] = $0.isEmpty ? nil : $0 }
+        )
+        let start = binding.wrappedValue.scheduledStartAt ?? card.after?.scheduledStartAt ?? card.before?.scheduledStartAt ?? Date()
+        let durations: [TimeInterval] = [15, 30, 45, 60, 90].map { $0 * 60 }
+        return VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            DatePicker(
+                "When",
+                selection: Binding(get: { start }, set: { binding.wrappedValue.scheduledStartAt = $0 }),
+                displayedComponents: [.date, .hourAndMinute]
+            )
+            .datePickerStyle(.compact)
+            .font(.lifeboard(.caption1))
+            .accessibilityIdentifier("eva.proposal.edit.when")
+            HStack(spacing: Theme.Spacing.xs) {
+                ForEach(durations, id: \.self) { duration in
+                    let isOn = (binding.wrappedValue.estimatedDuration ?? card.after?.estimatedDuration) == duration
+                    Button("\(Int(duration / 60)) min") {
+                        binding.wrappedValue.estimatedDuration = isOn ? nil : duration
+                    }
+                    .buttonStyle(.lifeBoardChip)
+                    .foregroundStyle(isOn ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textSecondary))
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("eva.proposal.edit.duration.\(Int(duration / 60))")
+                }
+            }
+            if card.kind == .create {
+                TextField("Title", text: Binding(get: { binding.wrappedValue.title ?? card.title }, set: { binding.wrappedValue.title = $0 }), prompt: Text("Title").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
+                    .textFieldStyle(.plain)
+                    // Clay well, not the system rounded border: that drew a pure white
+                    // box on warm paper and a pure black one in dark appearance.
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
+                    .accessibilityIdentifier("eva.proposal.edit.title")
+            }
+            if evaCardOverrides[card.id] != nil {
+                Button("Reset") { evaCardOverrides[card.id] = nil }
+                    .font(.lifeboard(.caption1))
+                    .frame(minHeight: 44)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("eva.proposal.edit.\(card.id.uuidString)")
     }
 
     func openEvaProposalCard(_ card: EvaProposalCard) {
@@ -288,183 +360,5 @@ extension MessageView {
             selectedEvaCardIDs.insert(card.id)
         }
         pendingEvaApplyConfirmationIDs = nil
-    }
-
-    func prepareEvaProposalConfirmation(proposal: EvaProposalReviewPayload) {
-        let selectedCards = proposal.cards.filter { selectedEvaCardIDs.contains($0.id) }
-        let gate = EvaProposalApplyGate.validate(selectedCards: selectedCards)
-        guard case .allowed = gate else {
-            if case .blocked(let message) = gate {
-                evaApplyMessage = message
-            }
-            return
-        }
-        pendingEvaApplyConfirmationIDs = selectedEvaCardIDs
-        evaApplyMessage = "Review the selected changes, then confirm to apply."
-    }
-
-    func applyEvaProposal(payload: AssistantCardPayload, proposal: EvaProposalReviewPayload) {
-        guard let runID = payload.runID, let pipeline = LLMAssistantPipelineFactory.pipeline else {
-            evaApplyMessage = "\(AssistantIdentityText.currentSnapshot().displayName) cannot apply this plan right now."
-            return
-        }
-        guard pendingEvaApplyConfirmationIDs == selectedEvaCardIDs else {
-            prepareEvaProposalConfirmation(proposal: proposal)
-            return
-        }
-        let selectedCards = proposal.cards.filter { selectedEvaCardIDs.contains($0.id) }
-        let gate = EvaProposalApplyGate.validate(selectedCards: selectedCards)
-        guard case .allowed(let appliedCount) = gate else {
-            if case .blocked(let message) = gate {
-                evaApplyMessage = message
-            }
-            return
-        }
-        isApplyingEvaProposal = true
-        evaApplyMessage = "Applying selected changes..."
-
-        pipeline.fetchRun(id: runID) { fetchResult in
-            Task { @MainActor in
-                switch fetchResult {
-                case .failure(let error):
-                    finishEvaApply(message: error.localizedDescription)
-                case .success(let run):
-                    guard
-                        let run,
-                        let data = run.proposalData,
-                        let envelope = try? JSONDecoder().decode(AssistantCommandEnvelope.self, from: data)
-                    else {
-                        finishEvaApply(message: "\(AssistantIdentityText.currentSnapshot().displayName) could not read this proposal.")
-                        return
-                    }
-
-                    let selectedEnvelope = EvaProposalCardBuilder.selectedEnvelope(
-                        from: envelope,
-                        selectedCardIDs: selectedEvaCardIDs,
-                        cards: proposal.cards
-                    )
-                    if selectedEnvelope.commands.count == envelope.commands.count {
-                        confirmAndApply(
-                            pipeline: pipeline,
-                            runID: runID,
-                            appliedCount: appliedCount,
-                            payload: payload,
-                            proposal: proposal,
-                            selectedCards: selectedCards,
-                            payloadRunID: runID
-                        )
-                    } else {
-                        pipeline.propose(threadID: run.threadID ?? "eva-selected-\(UUID().uuidString)", envelope: selectedEnvelope) { proposeResult in
-                            Task { @MainActor in
-                                switch proposeResult {
-                                case .failure(let error):
-                                    finishEvaApply(message: error.localizedDescription)
-                                case .success(let selectedRun):
-                                    confirmAndApply(
-                                        pipeline: pipeline,
-                                        runID: selectedRun.id,
-                                        appliedCount: appliedCount,
-                                        payload: payload,
-                                        proposal: proposal,
-                                        selectedCards: selectedCards,
-                                        payloadRunID: runID
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    func confirmAndApply(
-        pipeline: AssistantActionPipelineUseCase,
-        runID: UUID,
-        appliedCount: Int,
-        payload: AssistantCardPayload,
-        proposal: EvaProposalReviewPayload,
-        selectedCards: [EvaProposalCard],
-        payloadRunID: UUID
-    ) {
-        pipeline.confirm(runID: runID) { confirmResult in
-            Task { @MainActor in
-                switch confirmResult {
-                case .failure(let error):
-                    finishEvaApply(message: error.localizedDescription)
-                case .success:
-                    pipeline.applyConfirmedRun(id: runID) { applyResult in
-                        Task { @MainActor in
-                            switch applyResult {
-                            case .failure(let error):
-                                finishEvaApply(message: error.localizedDescription)
-                            case .success(let appliedRun):
-                                persistAppliedProposalReferences(
-                                    appliedRun: appliedRun,
-                                    payload: payload,
-                                    proposal: proposal,
-                                    selectedCards: selectedCards
-                                )
-                                recordEvaAppliedRunHistory(
-                                    runID: runID,
-                                    payload: payload,
-                                    proposal: proposal,
-                                    selectedCards: selectedCards
-                                )
-                                finishEvaApply(
-                                    message: "\(AssistantIdentityText.currentSnapshot().displayName) updated \(appliedCount) tasks. Undo for 30 min.",
-                                    appliedRunID: runID,
-                                    payloadRunID: payloadRunID
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    @MainActor
-    func persistAppliedProposalReferences(
-        appliedRun: AssistantActionRunDefinition,
-        payload: AssistantCardPayload,
-        proposal: EvaProposalReviewPayload,
-        selectedCards: [EvaProposalCard]
-    ) {
-        guard let traceData = appliedRun.executionTraceData,
-              let trace = try? JSONDecoder().decode(AssistantExecutionTrace.self, from: traceData),
-              trace.createdReferences.isEmpty == false else { return }
-
-        let createCards = selectedCards.filter { $0.kind == .create }
-        for (card, reference) in zip(createCards, trace.createdReferences) where reference.kind == .task {
-            createdTaskReferencesByCardID[card.id] = reference
-        }
-
-        var updatedPayload = payload
-        updatedPayload.status = .applied
-        var updatedProposal = proposal
-        updatedProposal.appliedCardIDs = selectedCards.map(\.id)
-        var references = trace.createdReferences.makeIterator()
-        updatedProposal.cards = proposal.cards.map { card in
-            guard selectedCards.contains(where: { $0.id == card.id }), card.kind == .create,
-                  let reference = references.next(), reference.kind == .task else { return card }
-            var updated = card
-            if var after = updated.after {
-                after.taskID = reference.recordID
-                updated.after = after
-            }
-            return updated
-        }
-        updatedPayload.evaProposal = updatedProposal
-
-        let messageID = renderModel.id
-        var descriptor = FetchDescriptor<Message>(predicate: #Predicate<Message> { message in
-            message.id == messageID
-        })
-        descriptor.fetchLimit = 1
-        if let message = try? modelContext.fetch(descriptor).first {
-            message.content = AssistantCardCodec.encode(updatedPayload)
-            try? modelContext.save()
-        }
     }
 }

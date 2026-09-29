@@ -177,7 +177,10 @@ public struct CommitControl<Receipt: Equatable & Sendable>: View {
         case .recoverableFailure:
             Color.lifeboard(.statusWarning)
         case .idle, .running, .cancelled:
-            Color(SemanticColorTokens.inkPrimary)
+            // The primary *action* colour, not primary ink: identical cocoa in
+            // light, but in dark ink is near-white, so every commit rendered as
+            // a stark white pill beside the gold primary buttons around it.
+            Color.lifeboard(.actionPrimary)
         }
     }
 

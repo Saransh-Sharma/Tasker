@@ -101,7 +101,7 @@ final class LLMModelRegistryTests: XCTestCase {
         let bonsaiCompatibility = LLMRuntimeSupportMatrix.compatibility(for: try XCTUnwrap(ModelConfiguration.getModelByName(bonsaiName)))
         XCTAssertEqual(bonsaiCompatibility.availability, .temporarilyUnavailable)
         XCTAssertFalse(bonsaiCompatibility.canActivate)
-        XCTAssertTrue(bonsaiCompatibility.prepareFailureMessage.contains("Prism-specific MLX kernels"))
+        XCTAssertEqual(bonsaiCompatibility.prepareFailureMessage, "Not supported in this version yet.")
     }
 
     func testPreferredActiveModelNamePrefersDefaultModelWhenBothAreInstalled() {
@@ -173,7 +173,7 @@ final class LLMModelRegistryTests: XCTestCase {
 
         XCTAssertNil(route.selectedModelName)
         XCTAssertFalse(route.shouldPromptDownload)
-        XCTAssertEqual(route.bannerMessage, "Installed models are unavailable on this device.")
+        XCTAssertEqual(route.bannerMessage, "Downloaded models don’t run on this device.")
     }
 
     func testAIChatModeRouterUsesGenericInstallBannerWhenNoModelsAreInstalled() {
@@ -188,7 +188,7 @@ final class LLMModelRegistryTests: XCTestCase {
         )
 
         XCTAssertTrue(route.shouldPromptDownload)
-        XCTAssertEqual(route.bannerMessage, "Install a local model to use AI features.")
+        XCTAssertEqual(route.bannerMessage, "Download a model to use Eva offline.")
     }
 
     func testAIChatModeRouterDisplayNameStripsProviderPrefixesCaseInsensitively() {

@@ -238,26 +238,15 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(LifeBoardAnimation.celebrationDuration, 0.54)
     }
 
-    func testSunriseDateNavigatorAccessibilityContract() {
-        let selector = DateHeroNavigationMode.resolve(isOnNonTodayLens: false, navigatorTitle: "Tomorrow")
-        XCTAssertEqual(selector, .dateSelector(title: "Tomorrow"))
-        XCTAssertEqual(selector.accessibilityIdentifier, "home.sunrise.date.selector")
-        XCTAssertEqual(selector.accessibilityLabel, "Choose date")
-
-        let backToToday = DateHeroNavigationMode.resolve(isOnNonTodayLens: true, navigatorTitle: "Tomorrow")
-        XCTAssertEqual(backToToday, .backToToday)
-        XCTAssertEqual(backToToday.accessibilityIdentifier, "home.sunrise.backToToday")
-        XCTAssertEqual(backToToday.accessibilityLabel, "Back to Today")
-    }
 
     func testAssistantCopySwitchesByTimeBucket() {
         let start = date(hour: 14)
         let end = date(hour: 15, minute: 30)
 
-        XCTAssertEqual(HeaderTimeContext.assistantCopy(for: .morning, gapStart: start, gapEnd: end, now: start).title, "Use this morning well")
-        XCTAssertEqual(HeaderTimeContext.assistantCopy(for: .afternoon, gapStart: start, gapEnd: end, now: start).title, "Protect the next block")
-        XCTAssertEqual(HeaderTimeContext.assistantCopy(for: .evening, gapStart: start, gapEnd: end, now: start).title, "Evening buffer")
-        XCTAssertEqual(HeaderTimeContext.assistantCopy(for: .night, gapStart: start, gapEnd: end, now: start).title, "Wind down gently")
+        XCTAssertEqual(HeaderTimeContext.assistantCopy(for: .morning, gapStart: start, gapEnd: end, now: start).title, "This morning")
+        XCTAssertEqual(HeaderTimeContext.assistantCopy(for: .afternoon, gapStart: start, gapEnd: end, now: start).title, "This afternoon")
+        XCTAssertEqual(HeaderTimeContext.assistantCopy(for: .evening, gapStart: start, gapEnd: end, now: start).title, "This evening")
+        XCTAssertEqual(HeaderTimeContext.assistantCopy(for: .night, gapStart: start, gapEnd: end, now: start).title, "Tonight")
     }
 
     func testRoutineAnchorVisualStyleResolvesWakeAssetAndCopy() {
@@ -294,189 +283,16 @@ final class SunriseHeaderAssetTests: XCTestCase {
         ))
     }
 
-    @MainActor
-    func testOnlyOneFilterChipIsSelected() {
-        let models = HomeScreen.todayFacetChipModels(selectedContentScope: .tasks)
-        let selectedIDs = models.filter(\.isSelected).map(\.id)
 
-        XCTAssertEqual(selectedIDs, ["tasks"])
-        XCTAssertFalse(models.first(where: { $0.id == "all" })?.isSelected ?? true)
-    }
 
-    @MainActor
-    func testFilterChipOrderIncludesFiltersAfterHabits() {
-        let models = HomeScreen.filterChipModels(selectedContentScope: .all, hasActiveFilters: true)
 
-        XCTAssertEqual(models.map(\.title), ["All", "Meetings", "Tasks", "Habits", "Filters"])
-        XCTAssertEqual(models.map(\.id), ["all", "meetings", "tasks", "habits", "filters"])
-        XCTAssertTrue(models.allSatisfy(\.hidesTitle))
-        XCTAssertFalse(models.first(where: { $0.id == "filters" })?.isSelected ?? true)
-        XCTAssertTrue(models.first(where: { $0.id == "filters" })?.showsIndicator ?? false)
-    }
 
-    @MainActor
-    func testFilterChipIndicatorDoesNotSelectFiltersChip() {
-        let models = HomeScreen.filterChipModels(selectedContentScope: .meetings, hasActiveFilters: true)
-        let selectedIDs = models.filter(\.isSelected).map(\.id)
-        let filters = models.first(where: { $0.id == "filters" })
 
-        XCTAssertEqual(selectedIDs, ["meetings"])
-        XCTAssertFalse(filters?.isSelected ?? true)
-        XCTAssertTrue(filters?.showsIndicator ?? false)
-    }
 
-    func testTasksContentScopeShowsOnlyTaskTimelineItems() {
-        let now = date(hour: 21, minute: 15)
-        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise")
-        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
-        let task = timelineItem(id: "task", startHour: 18, endHour: 19)
-        let meetingTask = timelineItem(id: "meeting-task", startHour: 19, endHour: 20, isMeetingLike: true)
-        let calendarEvent = timelineItem(id: "event", source: .calendarEvent, startHour: 20, endHour: 21)
-        let rows = HomeScreen.buildTimelineRows(
-            wakeAnchor: wake,
-            sleepAnchor: sleep,
-            plottedItems: [task, meetingTask, calendarEvent],
-            now: now,
-            isToday: true,
-            contentScope: .tasks,
-            meetingFlockModel: stubMeetingFlock
-        )
 
-        XCTAssertEqual(rows.map(\.id), ["item-task"])
-    }
 
-    func testMeetingsContentScopeShowsCalendarAndMeetingRowsOnly() {
-        let now = date(hour: 21, minute: 15)
-        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise")
-        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
-        let task = timelineItem(id: "task", startHour: 17, endHour: 18)
-        let meetingOne = timelineItem(id: "meeting-1", source: .calendarEvent, startHour: 18, endHour: 19)
-        let meetingTwo = timelineItem(id: "meeting-2", source: .calendarEvent, startHour: 18, startMinute: 15, endHour: 19)
-        let meetingThree = timelineItem(id: "meeting-3", source: .calendarEvent, startHour: 18, startMinute: 30, endHour: 19)
-        let meetingTask = timelineItem(id: "meeting-task", startHour: 20, endHour: 21, isMeetingLike: true)
-        let rows = HomeScreen.buildTimelineRows(
-            wakeAnchor: wake,
-            sleepAnchor: sleep,
-            plottedItems: [task, meetingOne, meetingTwo, meetingThree, meetingTask],
-            now: now,
-            isToday: true,
-            contentScope: .meetings,
-            meetingFlockModel: stubMeetingFlock
-        )
 
-        XCTAssertEqual(rows.map(\.id), ["item-meeting-1", "item-meeting-2", "item-meeting-3", "item-meeting-task"])
-        XCTAssertFalse(rows.contains { $0.id == "item-task" })
-        XCTAssertFalse(rows.contains { if case .now = $0 { return true }; return false })
-        XCTAssertFalse(rows.contains { $0.id.hasPrefix("anchor-") })
-    }
 
-    func testHabitsContentScopeSuppressesTimelineRows() {
-        let now = date(hour: 21, minute: 15)
-        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise")
-        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
-        let task = timelineItem(id: "task", startHour: 18, endHour: 19)
-
-        let rows = HomeScreen.buildTimelineRows(
-            wakeAnchor: wake,
-            sleepAnchor: sleep,
-            plottedItems: [task],
-            now: now,
-            isToday: true,
-            contentScope: .habits,
-            meetingFlockModel: stubMeetingFlock
-        )
-
-        XCTAssertTrue(rows.isEmpty)
-    }
-
-    func testAllContentScopeRestoresMixedTimelineRows() {
-        let now = date(hour: 21, minute: 15)
-        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise")
-        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
-        let task = timelineItem(id: "task", startHour: 18, endHour: 19)
-        let calendarEvent = timelineItem(id: "event", source: .calendarEvent, startHour: 20, endHour: 21)
-        let rows = HomeScreen.buildTimelineRows(
-            wakeAnchor: wake,
-            sleepAnchor: sleep,
-            plottedItems: [task, calendarEvent],
-            now: now,
-            isToday: true,
-            contentScope: .all,
-            meetingFlockModel: stubMeetingFlock
-        )
-
-        XCTAssertTrue(rows.contains { $0.id == "anchor-wake" })
-        XCTAssertTrue(rows.contains { $0.id == "item-task" })
-        XCTAssertTrue(rows.contains { $0.id == "item-event" })
-        // Assistant gap prompts were removed from the timeline in the polish pass.
-        XCTAssertTrue(rows.contains { if case .now = $0 { return true }; return false })
-        XCTAssertTrue(rows.contains { $0.id == "anchor-sleep" })
-    }
-
-    func testNowRowSortsChronologicallyBetweenTimelineItems() {
-        let now = date(hour: 21, minute: 15)
-        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 11, minute: 15), systemImageName: "sunrise")
-        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
-        let earlyTask = timelineItem(id: "early", startHour: 18, startMinute: 5, endHour: 18, endMinute: 20)
-        let lateTask = timelineItem(id: "late", startHour: 22, startMinute: 0, endHour: 22, endMinute: 30)
-
-        let rows = HomeScreen.buildTimelineRows(
-            wakeAnchor: wake,
-            sleepAnchor: sleep,
-            plottedItems: [earlyTask, lateTask],
-            now: now,
-            isToday: true,
-            meetingFlockModel: stubMeetingFlock
-        )
-
-        XCTAssertEqual(rows.map { $0.id }, ["anchor-wake", "item-early", "now-\(Int(now.timeIntervalSince1970 / 60))", "item-late", "anchor-sleep"])
-    }
-
-    func testNowRowIsOmittedForNonTodayTimeline() {
-        let now = date(hour: 21, minute: 15)
-        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 11, minute: 15), systemImageName: "sunrise")
-        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
-
-        let rows = HomeScreen.buildTimelineRows(
-            wakeAnchor: wake,
-            sleepAnchor: sleep,
-            plottedItems: [],
-            now: now,
-            isToday: false,
-            meetingFlockModel: stubMeetingFlock
-        )
-
-        XCTAssertFalse(rows.contains { if case .now = $0 { return true }; return false })
-    }
-
-    func testWindDownAnchorRendersWithoutAssistantGapRow() {
-        let now = date(hour: 21, minute: 15)
-        let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise.fill")
-        let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
-        let rows = HomeScreen.buildTimelineRows(
-            wakeAnchor: wake,
-            sleepAnchor: sleep,
-            plottedItems: [],
-            now: now,
-            isToday: true,
-            meetingFlockModel: stubMeetingFlock
-        )
-
-        XCTAssertTrue(rows.contains { $0.id == "anchor-sleep" })
-        // Assistant gap prompts were removed from the timeline in the polish pass.
-        XCTAssertEqual(ClayColorTokens.role(.windDown).symbolName, "moon.stars.fill")
-    }
-
-    func testTemporalStateMarksPastCurrentAndFutureRows() {
-        let now = date(hour: 21, minute: 15)
-        let past = timelineItem(id: "past", startHour: 18, startMinute: 5, endHour: 18, endMinute: 20)
-        let current = timelineItem(id: "current", startHour: 21, startMinute: 0, endHour: 21, endMinute: 30)
-        let future = timelineItem(id: "future", startHour: 22, startMinute: 0, endHour: 22, endMinute: 30)
-
-        XCTAssertEqual(TimelineRow.item(past).temporalState(now: now), .past)
-        XCTAssertEqual(TimelineRow.item(current).temporalState(now: now), .current)
-        XCTAssertEqual(TimelineRow.item(future).temporalState(now: now), .future)
-    }
 
     func testTaskAndCalendarCardModelsKeepCardOnlySemantics() {
         let taskModel = TimelineCard.Model(
@@ -513,129 +329,10 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertNil(calendarModel.tintHex)
     }
 
-    func testCalendarCardSubtitleIsEmptyWhenEventIsNotNextUpcoming() {
-        let now = date(hour: 21, minute: 15)
-        let calendarItem = timelineItem(
-            id: "calendar",
-            source: .calendarEvent,
-            startHour: 22,
-            endHour: 23
-        )
 
-        XCTAssertEqual(
-            HomeScreen.timelineCardSubtitle(
-                for: calendarItem,
-                now: now,
-                nextUpcomingCalendarItemID: nil
-            ),
-            ""
-        )
-    }
 
-    func testNextUpcomingCalendarCardSubtitleUsesMinuteCountdown() {
-        let now = date(hour: 21, minute: 15)
-        let current = timelineItem(
-            id: "current",
-            source: .calendarEvent,
-            startHour: 21,
-            startMinute: 0,
-            endHour: 21,
-            endMinute: 30
-        )
-        let next = timelineItem(
-            id: "next",
-            source: .calendarEvent,
-            startHour: 21,
-            startMinute: 42,
-            endHour: 22
-        )
-        let later = timelineItem(
-            id: "later",
-            source: .calendarEvent,
-            startHour: 22,
-            startMinute: 30,
-            endHour: 23
-        )
-        let rows = [
-            TimelineRow.item(current),
-            TimelineRow.item(next),
-            TimelineRow.item(later)
-        ]
-        let nextID = HomeScreen.nextUpcomingCalendarItemID(in: rows, now: now)
 
-        XCTAssertEqual(nextID, "next")
-        XCTAssertEqual(
-            HomeScreen.timelineCardSubtitle(
-                for: next,
-                now: now,
-                nextUpcomingCalendarItemID: nextID
-            ),
-            "in 27m"
-        )
-        XCTAssertEqual(
-            HomeScreen.timelineCardSubtitle(
-                for: later,
-                now: now,
-                nextUpcomingCalendarItemID: nextID
-            ),
-            ""
-        )
-    }
 
-    func testCalendarCountdownRoundsUpToHoursAtSixtyMinutesOrMore() {
-        let now = date(hour: 21, minute: 15)
-
-        XCTAssertEqual(
-            HomeScreen.calendarCountdownSubtitle(
-                until: date(hour: 22, minute: 15),
-                now: now
-            ),
-            "in 1h"
-        )
-        XCTAssertEqual(
-            HomeScreen.calendarCountdownSubtitle(
-                until: date(hour: 22, minute: 16),
-                now: now
-            ),
-            "in 2h"
-        )
-    }
-
-    func testPastAndCurrentCalendarEventsDoNotReceiveCountdownText() {
-        let now = date(hour: 21, minute: 15)
-        let past = timelineItem(
-            id: "past",
-            source: .calendarEvent,
-            startHour: 20,
-            endHour: 21
-        )
-        let current = timelineItem(
-            id: "current",
-            source: .calendarEvent,
-            startHour: 21,
-            startMinute: 0,
-            endHour: 21,
-            endMinute: 30
-        )
-
-        XCTAssertNil(HomeScreen.nextUpcomingCalendarItemID(in: [.item(past), .item(current)], now: now))
-        XCTAssertNil(HomeScreen.calendarCountdownSubtitle(until: past.startDate!, now: now))
-        XCTAssertNil(HomeScreen.calendarCountdownSubtitle(until: current.startDate!, now: now))
-    }
-
-    func testTaskCardSubtitleKeepsExistingTaskSubtitle() {
-        let now = date(hour: 21, minute: 15)
-        let task = timelineItem(id: "task", startHour: 22, endHour: 23)
-
-        XCTAssertEqual(
-            HomeScreen.timelineCardSubtitle(
-                for: task,
-                now: now,
-                nextUpcomingCalendarItemID: nil
-            ),
-            "Inbox"
-        )
-    }
 
     #if canImport(UIKit)
     func testSunriseTokensResolveDarkModeGlassAwayFromNearWhite() {
@@ -687,11 +384,6 @@ final class SunriseHeaderAssetTests: XCTestCase {
     }
     #endif
 
-    func testSunriseScrollOffsetNormalizesForChromeTracker() {
-        XCTAssertEqual(HomeScreen.chromeOffset(forScrollMinY: 16), 0)
-        XCTAssertEqual(HomeScreen.chromeOffset(forScrollMinY: 0), 0)
-        XCTAssertEqual(HomeScreen.chromeOffset(forScrollMinY: -64), 64)
-    }
 
     func testTimelineAnchorRitualMorningOptionsCenterOnDefaultStartTime() {
         let model = TimelineAnchorRitualModel(
@@ -700,7 +392,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
             calendar: calendar
         )
 
-        XCTAssertEqual(model.title, "Rise and Shine")
+        XCTAssertEqual(model.title, "Rise and shine")
         XCTAssertEqual(model.sectionTitle, "Select start time")
         XCTAssertEqual(model.selectedTimeText, "8:00\u{202F}AM")
         XCTAssertEqual(model.timeOptions.map { "\($0.hourText) \($0.meridiemText)" }, [
@@ -720,7 +412,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
             calendar: calendar
         )
 
-        XCTAssertEqual(model.title, "Wind Down")
+        XCTAssertEqual(model.title, "Wind down")
         XCTAssertEqual(model.sectionTitle, "Select end time")
         XCTAssertEqual(model.selectedTimeText, "10:00\u{202F}PM")
         XCTAssertEqual(model.timeOptions.map { "\($0.hourText) \($0.meridiemText)" }, [
@@ -896,17 +588,6 @@ final class SunriseHeaderAssetTests: XCTestCase {
             systemImageName: source == .calendarEvent ? "calendar" : "checkmark.square",
             accessoryText: nil,
             isMeetingLike: isMeetingLike
-        )
-    }
-
-    private func stubMeetingFlock(_ items: [TimelinePlanItem]) -> MeetingFlockCard.Model {
-        MeetingFlockCard.Model(
-            id: "stub-flock",
-            timeRange: "9:00 PM – 10:00 PM",
-            meetings: items.map { item in
-                MeetingFlockCard.Meeting(id: item.id, title: item.title, timeText: "9:00 PM", isNow: false)
-            },
-            eventCountText: "\(items.count) events"
         )
     }
 

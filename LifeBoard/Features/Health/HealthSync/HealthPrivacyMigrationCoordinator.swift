@@ -7,7 +7,7 @@ public enum HealthPrivacyMigrationAccess {
         case writeClosed
 
         public var errorDescription: String? {
-            "Health and wellness records are temporarily read-only while their private local copy is validated."
+            String(localized: "Health records are updating. Try again shortly.")
         }
     }
 

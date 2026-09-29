@@ -17,9 +17,12 @@ struct PlanRepairDeck: View {
     /// spine titles the stage "Worth a look" and a second header under it would
     /// name the same thing twice.
     var header: String?
-    /// Used when a proposal carries no explanation of its own, and to let a
-    /// host reframe one that reads too much like a system message.
-    var fallbackExplanation: String
+    /// A host's own framing, which wins over the proposal's explanation.
+    ///
+    /// This was `proposal?.explanation ?? fallbackExplanation`, but a proposal's
+    /// explanation is never nil, so a host's gentler line only ever showed on an
+    /// empty deck. Home's "This one didn't get its window today." never rendered.
+    var explanationOverride: String?
     let onAction: (PlanRepairAction, PlanRepairProposal?) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -34,12 +37,12 @@ struct PlanRepairDeck: View {
     init(
         proposals: [PlanRepairProposal],
         header: String? = "Plan repair",
-        fallbackExplanation: String = "Your day has changed. Choose what should move; nothing changes automatically.",
+        explanationOverride: String? = nil,
         onAction: @escaping (PlanRepairAction, PlanRepairProposal?) -> Void
     ) {
         self.proposals = proposals
         self.header = header
-        self.fallbackExplanation = fallbackExplanation
+        self.explanationOverride = explanationOverride
         self.onAction = onAction
     }
 
@@ -61,7 +64,7 @@ struct PlanRepairDeck: View {
             if let header {
                 SectionHeader(header, symbol: "wand.and.stars")
             }
-            Text(proposal?.explanation ?? fallbackExplanation)
+            Text(Self.explanation(override: explanationOverride, proposal: proposal))
                 .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             if candidates.isEmpty == false {
                 repairDirectionPad(candidates)
@@ -72,7 +75,7 @@ struct PlanRepairDeck: View {
                         Button(Self.actionTitle(action), systemImage: Self.actionSymbol(action)) {
                             onAction(action, proposal)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                     }
                 }
             }
@@ -109,6 +112,9 @@ struct PlanRepairDeck: View {
                 perform: { onAction($0, proposal) }
             )
         )
+        // A container first: a bare identifier here was stamped onto every
+        // child and hid the buttons' own names from UI tests.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("plan.repair")
     }
 
@@ -164,7 +170,7 @@ struct PlanRepairDeck: View {
                     predictedEndTranslation: value.predictedEndTranslation,
                     candidates: candidates
                 )
-                if candidate != nil, snapAction == nil { HapticFeedback.selection() }
+                if candidate != nil, snapAction == nil { Haptic.threshold.play() }
                 snapAction = candidate
             }
             .onEnded { value in
@@ -207,27 +213,21 @@ struct PlanRepairDeck: View {
 
     // MARK: - Naming
 
+    static let emptyDeckExplanation = String(localized: "Your day changed. Pick what moves.")
+
+    static func explanation(override: String?, proposal: PlanRepairProposal?) -> String {
+        override ?? proposal?.explanation ?? emptyDeckExplanation
+    }
+
     static func actionTitle(_ action: PlanRepairAction) -> String {
-        switch action {
-        case .resume: "Resume"
-        case .moveLaterToday: "Later today"
-        case .moveToAnotherDay: "Another day"
-        case .split: "Split"
-        case .defer: "Defer"
-        // Not "Leave unchanged": the exit from a repair deck should sound like
-        // a decision someone made, not like declining to fix something.
-        // Deliberately not "Leave *today* as it is" — Plan can show this deck
-        // for a day the person has scrolled back to, and it would be wrong there.
-        case .leaveUnchanged: "Leave it as it is"
-        case .askEva: "Ask Eva"
-        }
+        PlanRepairCopy.title(action)
     }
 
     static func actionSymbol(_ action: PlanRepairAction) -> String {
         switch action {
         case .resume: "play.fill"
-        case .moveLaterToday: "clock.arrow.circlepath"
-        case .moveToAnotherDay: "calendar.badge.plus"
+        case .moveLaterToday: DecisionDestination.laterToday.systemImage
+        case .moveToAnotherDay: DecisionDestination.tomorrow.systemImage
         case .split: "rectangle.split.2x1"
         case .defer: "tray"
         case .leaveUnchanged: "minus.circle"

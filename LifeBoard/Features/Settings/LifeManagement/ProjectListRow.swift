@@ -38,7 +38,7 @@ struct ProjectListRow: View {
                     onEdit()
                 }
                 if let onMove {
-                    Button("Move Project", systemImage: "arrow.left.arrow.right") {
+                    Button("Move project", systemImage: "arrow.left.arrow.right") {
                         onMove()
                     }
                 }
@@ -64,9 +64,10 @@ struct ProjectListRow: View {
 
     var projectSubtitle: String {
         if row.taskCount == 0 {
-            return "Empty"
+            return String(localized: "No tasks")
         }
-        let owner = row.lifeArea?.name ?? "No Area"
-        return "\(owner) · \(row.taskCount) open tasks"
+        let owner = row.lifeArea?.name ?? String(localized: "No area")
+        let tasks = row.taskCount == 1 ? String(localized: "1 open task") : String(localized: "\(row.taskCount) open tasks")
+        return "\(owner) · \(tasks)"
     }
 }

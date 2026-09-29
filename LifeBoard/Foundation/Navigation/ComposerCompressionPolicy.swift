@@ -84,9 +84,16 @@ public enum ComposerCompressionPolicy {
 
     /// The never-collapse list, as a predicate.
     ///
-    /// Only `.resting` and `.settling` survive. `.settling` is included because
-    /// it is the tail of a completed capture — the work is already committed, so
-    /// compressing during it cannot lose anything.
+    /// `.resting`, `.settling` and a keyboard-less, draftless `.focused`
+    /// survive. `.settling` is the tail of a completed capture — the work is
+    /// already committed, so compressing during it cannot lose anything.
+    ///
+    /// `.focused` is also where the coordinator parks a composer that has come
+    /// back from an outcome, a closed tools tray or finished dictation with the
+    /// keyboard down, and nothing ever moved it on: the composer then refused
+    /// to compress until the next focus-and-blur. "Editing" is already covered
+    /// above — keyboard focus and a draft each suppress on their own — so a
+    /// `.focused` that reaches the switch is a composer at rest.
     public static func isCompressible(_ input: ComposerCompressionInput) -> Bool {
         if input.hasDraft || input.hasPreview || input.hasReceipt { return false }
         if input.isKeyboardFocused { return false }
@@ -95,9 +102,9 @@ public enum ComposerCompressionPolicy {
         // for. The composer simply never compresses under VoiceOver.
         if input.voiceOverEnabled { return false }
         switch input.composerState {
-        case .resting, .settling:
+        case .resting, .settling, .focused:
             return true
-        case .focused, .tools, .recording, .scanning, .working, .review, .dictating:
+        case .tools, .recording, .scanning, .working, .review, .dictating:
             return false
         }
     }

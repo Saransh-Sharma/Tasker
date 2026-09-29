@@ -292,7 +292,7 @@ extension DailyTimelineCanvas {
     func metaText(for row: TimelineRenderableRow, item: TimelinePlanItem? = nil, anchor: TimelineAnchorItem? = nil) -> String {
         switch row.metadataMode {
         case .remainingTime(let minutes):
-            return "\(minutes)m remaining"
+            return String(localized: "\(minutes) min left")
         case .done:
             guard let item, let start = item.startDate, let end = item.endDate else { return "Done" }
             let durationText = TimelineFormatting.durationText(max(0, end.timeIntervalSince(start)))

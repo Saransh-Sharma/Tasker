@@ -51,31 +51,33 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>LifeBoard uses Reminders access to sync your tasks with Apple Reminders lists.</string>
+	<string>LifeBoard syncs your tasks with the Reminders lists you choose.</string>
 	<key>NSRemindersUsageDescription</key>
-	<string>LifeBoard uses Reminders access to sync your tasks with Apple Reminders lists.</string>
+	<string>LifeBoard syncs your tasks with the Reminders lists you choose.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>LifeBoard uses Calendar access to show read-only schedule context for task planning and fit hints.</string>
+	<string>LifeBoard shows your events next to your tasks to help you plan your day.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>LifeBoard uses Calendar access to show read-only schedule context for task planning and fit hints.</string>
+	<string>LifeBoard shows your events next to your tasks to help you plan your day.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>LifeBoard uses Face ID to unlock your journal and locked notes.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>LifeBoard reads the health categories you choose—such as movement, body measurements, workouts, and sleep—to show private wellness context.</string>
+	<string>LifeBoard shows the Health data you choose, like sleep, steps, and workouts, alongside your day.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>LifeBoard writes the water, nutrition, weight, and workouts you log so Apple Health stays in sync. You choose which categories to share, and you can turn any of them off at any time.</string>
+	<string>LifeBoard saves the water, meals, body measurements, and workouts you log to Apple Health.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>LifeBoard uses the microphone only while you record a private journal audio block.</string>
+	<string>LifeBoard uses the microphone when you dictate or record audio in your journal.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>LifeBoard uses the camera only when you choose to scan a document or barcode for a reviewable local capture.</string>
+	<string>LifeBoard uses the camera to scan documents and food barcodes.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>LifeBoard lets you choose photos to attach privately to a journal day or note.</string>
+	<string>LifeBoard adds the photos you choose to journal entries and notes.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>LifeBoard transcribes journal audio only after you review and accept the speech-processing disclosure.</string>
+	<string>LifeBoard turns your voice into text when you dictate or transcribe a recording.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
-		<false/>
+		<true/>
 		<key>UISceneConfigurations</key>
 		<dict>
 			<key>UIWindowSceneSessionRoleApplication</key>

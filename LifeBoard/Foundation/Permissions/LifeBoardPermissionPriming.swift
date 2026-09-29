@@ -23,24 +23,24 @@ public enum PermissionKind: String, CaseIterable, Sendable, Identifiable {
 
     public var title: String {
         switch self {
-        case .notifications: "Turn on reminders"
-        case .calendar: "Connect your calendar"
-        case .appleHealth: "Connect Apple Health"
-        case .microphone: "Microphone is off"
-        case .speech: "Transcription is off"
-        case .camera: "Camera is off"
+        case .notifications: String(localized: "Turn on reminders")
+        case .calendar: String(localized: "Connect your calendar")
+        case .appleHealth: String(localized: "Connect Apple Health")
+        case .microphone: String(localized: "Microphone is off")
+        case .speech: String(localized: "Transcription is off")
+        case .camera: String(localized: "Camera is off")
         }
     }
 
     /// One line. What the user gets — not how the feature works.
     public var blurb: String {
         switch self {
-        case .notifications: "A nudge when something is due."
-        case .calendar: "See your real day, not a guess."
-        case .appleHealth: "Sync what you log. Nothing leaves your device."
-        case .microphone: "Needed to record an audio entry."
-        case .speech: "Needed to turn recordings into text."
-        case .camera: "Needed to scan a document or barcode."
+        case .notifications: String(localized: "A reminder when a task is due.")
+        case .calendar: String(localized: "See your events next to your tasks.")
+        case .appleHealth: String(localized: "Syncs what you log. Stays on this device unless you let Eva use it.")
+        case .microphone: String(localized: "Needed to dictate or record audio.")
+        case .speech: String(localized: "Needed to turn speech into text.")
+        case .camera: String(localized: "Needed to scan a document or barcode.")
         }
     }
 
@@ -58,8 +58,8 @@ public enum PermissionKind: String, CaseIterable, Sendable, Identifiable {
 
     public var allowTitle: String {
         switch self {
-        case .appleHealth: "Connect"
-        default: "Allow"
+        case .appleHealth: String(localized: "Connect")
+        default: String(localized: "Allow")
         }
     }
 

@@ -13,6 +13,8 @@ struct AddTaskCreateButton: View {
     let successFlash: Bool
     let showAddAnother: Bool
     let buttonTitle: String
+    /// ⌘Return submits, for a sheet whose bar has no Done of its own.
+    var submitsWithCommandReturn: Bool = false
     let onCreateAction: () -> Void
     let onAddAnotherAction: () -> Void
 
@@ -26,7 +28,8 @@ struct AddTaskCreateButton: View {
         VStack(spacing: spacing.s8) {
             Button {
                 if isEnabled && !isLoading {
-                    HapticFeedback.light()
+                    // A press; the commit haptic follows the save itself.
+                    Haptic.pick.play()
                     onCreateAction()
                 }
             } label: {
@@ -74,17 +77,18 @@ struct AddTaskCreateButton: View {
             .scaleOnPress()
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("addTask.createButton")
+            .keyboardShortcut(submitsWithCommandReturn ? KeyboardShortcut(.return, modifiers: .command) : nil)
             .disabled(!isEnabled || isLoading)
-            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isEnabled)
-            .animation(reduceMotion ? nil : LifeBoardAnimation.ctaConfirmation, value: successFlash)
-            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isLoading)
+            .animation(MotionProfile.press.animation(reduceMotion: reduceMotion), value: isEnabled)
+            .animation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion), value: successFlash)
+            .animation(MotionProfile.press.animation(reduceMotion: reduceMotion), value: isLoading)
 
             if showAddAnother {
                 Button {
-                    HapticFeedback.selection()
+                    Haptic.pick.play()
                     onAddAnotherAction()
                 } label: {
-                    Text("Add Another")
+                    Text("Add another")
                         .font(.lifeboard(.callout))
                         .foregroundColor(Color.lifeboard.accentPrimary)
                 }
@@ -92,6 +96,6 @@ struct AddTaskCreateButton: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: showAddAnother)
+        .animation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion), value: showAddAnother)
     }
 }

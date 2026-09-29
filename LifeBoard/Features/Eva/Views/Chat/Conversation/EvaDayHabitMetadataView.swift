@@ -19,7 +19,7 @@ struct EvaDayHabitMetadataView: View {
                     .foregroundStyle(Color.lifeboard(.textTertiary))
             }
             if card.currentStreak > 0 {
-                Text("\(card.currentStreak) day streak")
+                Text("\(card.currentStreak)-day streak")
                     .font(.lifeboard(.caption1))
                     .foregroundStyle(Color.lifeboard(.textTertiary))
             }

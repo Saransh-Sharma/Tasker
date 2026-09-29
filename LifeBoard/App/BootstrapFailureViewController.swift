@@ -16,7 +16,7 @@ final class BootstrapFailureViewController: UIViewController {
     private lazy var titleLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.text = "LifeBoard Could Not Start"
+        label.text = String(localized: "Couldn’t open LifeBoard")
         label.font = UIKitTokens.typography.screenTitle
         label.textColor = UIKitTokens.color.textPrimary
         label.adjustsFontForContentSizeCategory = true
@@ -40,7 +40,7 @@ final class BootstrapFailureViewController: UIViewController {
     private lazy var hintLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.text = "Retry sync or recover this device from iCloud."
+        label.text = String(localized: "Try again, or rebuild from iCloud.")
         label.font = UIKitTokens.typography.callout
         label.textColor = UIKitTokens.color.textSecondary
         label.adjustsFontForContentSizeCategory = true
@@ -53,7 +53,7 @@ final class BootstrapFailureViewController: UIViewController {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
         var configuration = UIButton.Configuration.filled()
-        configuration.title = "Retry Sync"
+        configuration.title = String(localized: "Try again")
         configuration.baseBackgroundColor = UIKitTokens.color.actionPrimary
         configuration.baseForegroundColor = UIKitTokens.color.accentOnPrimary
         configuration.cornerStyle = .capsule
@@ -69,7 +69,7 @@ final class BootstrapFailureViewController: UIViewController {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
         var configuration = UIButton.Configuration.tinted()
-        configuration.title = "Recover from iCloud"
+        configuration.title = String(localized: "Rebuild from iCloud")
         configuration.baseBackgroundColor = UIKitTokens.color.surfaceSecondary
         configuration.baseForegroundColor = UIKitTokens.color.accentPrimary
         configuration.cornerStyle = .capsule
@@ -122,7 +122,7 @@ final class BootstrapFailureViewController: UIViewController {
         icon.tintColor = UIKitTokens.color.statusWarning
         icon.contentMode = .scaleAspectFit
         icon.setContentHuggingPriority(.required, for: .vertical)
-        icon.accessibilityLabel = "Startup warning"
+        icon.accessibilityLabel = String(localized: "Warning")
 
         let actionStack = UIStackView(arrangedSubviews: [retryButton, recoverButton])
         actionStack.translatesAutoresizingMaskIntoConstraints = false
@@ -184,14 +184,26 @@ final class BootstrapFailureViewController: UIViewController {
 
     @objc private func retryTapped() {
         guard isWorking == false else { return }
-        setWorking(true, hint: "Retrying sync bootstrap...")
+        setWorking(true, hint: String(localized: "Trying again\u{2026}"))
         onRetrySync?()
     }
 
+    /// Rebuilding from iCloud discards anything on this device that iCloud
+    /// doesn't have yet, so it is confirmed first and says exactly that.
     @objc private func recoverTapped() {
         guard isWorking == false else { return }
-        setWorking(true, hint: "Recovering local cache from iCloud...")
-        onRecoverFromICloud?()
+        let alert = UIAlertController(
+            title: String(localized: "Rebuild from iCloud?"),
+            message: String(localized: "Unsynced changes will be lost. Health, mood and water logs stay."),
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel))
+        alert.addAction(UIAlertAction(title: String(localized: "Rebuild"), style: .destructive) { [weak self] _ in
+            guard let self, self.isWorking == false else { return }
+            self.setWorking(true, hint: String(localized: "Downloading from iCloud\u{2026}"))
+            self.onRecoverFromICloud?()
+        })
+        present(alert, animated: true)
     }
 }
 

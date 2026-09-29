@@ -75,7 +75,6 @@ final class HomeFaceCoordinator: ObservableObject {
     @Published private(set) var analyticsSurfaceState: HomeAnalyticsSurfaceState = .idle
     @Published private(set) var searchSurfaceState: HomeSearchSurfaceState = .idle
     @Published private(set) var chatPromptFocusRequestID: UInt64 = 0
-    @Published var insightsViewModel: InsightsViewModel?
     private var faceBeforeSearch: HomeSunriseFace?
 
     let bottomBarState = HomeBottomBarState()

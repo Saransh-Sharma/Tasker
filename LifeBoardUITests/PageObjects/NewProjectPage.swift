@@ -77,8 +77,8 @@ class NewProjectPage {
             return composerButton
         }
 
-        if app.buttons["Add Project"].exists {
-            return app.buttons["Add Project"]
+        if app.buttons["Add project"].exists {
+            return app.buttons["Add project"]
         }
 
         if app.buttons["Save Project"].exists {
@@ -343,11 +343,11 @@ class NewProjectPage {
 
     private func resolveSaveButton(timeout: TimeInterval) -> XCUIElement? {
         let saveCandidates: [XCUIElement] = [
-            view.buttons["Add Project"],
+            view.buttons["Add project"],
             view.buttons["Save Project"],
             view.buttons["Create"],
             view.buttons["Save"],
-            app.buttons["Add Project"],
+            app.buttons["Add project"],
             app.buttons["Save Project"],
             app.buttons["Create"],
             app.buttons["Save"]

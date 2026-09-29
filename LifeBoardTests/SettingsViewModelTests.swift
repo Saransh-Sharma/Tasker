@@ -295,7 +295,7 @@ final class SettingsViewModelTests: XCTestCase {
             recoveryHealth: .healthy
         )
 
-        XCTAssertEqual(status.title, "Everything’s ready")
+        XCTAssertEqual(status.title, "All set")
         XCTAssertEqual(status.visibleItems.count, 1)
         XCTAssertEqual(status.visibleItems.first?.state, .healthy)
     }
@@ -310,7 +310,7 @@ final class SettingsViewModelTests: XCTestCase {
             recoveryHealth: .unavailable
         )
 
-        XCTAssertEqual(status.title, "A couple things need a look")
+        XCTAssertEqual(status.title, "Check 2 settings")
         XCTAssertEqual(status.visibleItems.map(\.id), ["reminders", "recovery"])
         XCTAssertTrue(status.visibleItems.allSatisfy { $0.state == .attention })
     }

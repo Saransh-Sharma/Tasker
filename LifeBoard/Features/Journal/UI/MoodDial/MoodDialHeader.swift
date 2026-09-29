@@ -1,3 +1,4 @@
+import LifeBoardTokens
 import SwiftUI
 import LifeBoardUI
 
@@ -60,7 +61,10 @@ public struct MoodDialSelectedMoodView: View {
     let isInteractionActive: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.moodDialTheme) private var theme
+    @Environment(\.lifeBoardMotionContext) private var motionContext
     @State private var chevronPulse = false
+    /// The hint has done its job once the dial has been turned.
+    @State private var hasInteracted = false
 
     public init(mood: Mood, layoutScale: CGFloat, isInteractionActive: Bool) {
         self.mood = mood
@@ -70,7 +74,7 @@ public struct MoodDialSelectedMoodView: View {
 
     public var body: some View {
         VStack(spacing: 12 * layoutScale) {
-            Text(mood.moodSentence)
+            Text(mood.displayName)
                 .font(theme.labelFont)
                 .foregroundStyle(theme.textSecondary)
                 .contentTransition(.opacity)
@@ -111,27 +115,39 @@ public struct MoodDialSelectedMoodView: View {
             }
             .frame(width: 220 * layoutScale, height: 176 * layoutScale)
 
-            Text(mood.supportiveCopy)
-                .font(theme.captionFont)
-                .foregroundStyle(theme.textTertiary)
-                .multilineTextAlignment(.center)
-                .contentTransition(.opacity)
-
             Image(systemName: "chevron.compact.down")
                 .lifeboardCompatibilitySystemFont(size: 40 * layoutScale, weight: .heavy)
                 .foregroundStyle(theme.textTertiary.opacity(0.70))
-                .offset(y: reduceMotion ? 0 : (chevronPulse ? 5 : 0))
+                .offset(y: chevronLoops && chevronPulse ? 5 : 0)
+                // The screen's one ambient loop: it runs only while idle
+                // motion is allowed (not Reduce Motion, Calm, Low Power, or a
+                // hot device) and settles for good after the first turn.
                 .animation(
-                    reduceMotion ? nil : .easeInOut(duration: 1.05).repeatForever(autoreverses: true),
+                    chevronLoops ? MotionProfile.ambient.animation(reduceMotion: reduceMotion)?.repeatForever(autoreverses: true) : nil,
                     value: chevronPulse
                 )
                 .accessibilityHidden(true)
         }
         .animation(selectedMoodAnimation, value: mood)
         .onAppear {
-            guard !reduceMotion else { return }
+            guard chevronLoops else { return }
             chevronPulse = true
         }
+        .onChange(of: isInteractionActive) { _, active in
+            guard active, hasInteracted == false else { return }
+            hasInteracted = true
+            chevronPulse = false
+        }
+        .onChange(of: chevronLoops) { _, loops in
+            chevronPulse = loops
+        }
+    }
+
+    private var chevronLoops: Bool {
+        reduceMotion == false
+            && hasInteracted == false
+            && motionContext.allowsSpatialMotion
+            && motionContext.comfortProfile != .calm
     }
 
     private var selectedMoodAnimation: Animation? {
@@ -143,6 +159,6 @@ public struct MoodDialSelectedMoodView: View {
             return nil
         }
 
-        return .spring(response: 0.28, dampingFraction: 0.72)
+        return MotionProfile.selection.animation(reduceMotion: reduceMotion)
     }
 }

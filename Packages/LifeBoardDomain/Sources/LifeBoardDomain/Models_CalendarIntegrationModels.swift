@@ -336,7 +336,7 @@ public struct TaskFitHintResult: Equatable, Sendable {
 
     public static let unknown = TaskFitHintResult(
         classification: .unknown,
-        message: "Add a due time and duration to evaluate fit."
+        message: String(localized: "Add a due time and duration.")
     )
 }
 
@@ -492,9 +492,9 @@ public enum CalendarPresentation {
     public static func timeRangeText(for event: CalendarEventSnapshot, includeDate: Bool = false) -> String {
         if event.isAllDay {
             if includeDate {
-                return event.startDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()) + " · All day"
+                return event.startDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()) + " · " + String(localized: "All day")
             }
-            return "All day"
+            return String(localized: "All day")
         }
 
         let start = includeDate
@@ -504,7 +504,7 @@ public enum CalendarPresentation {
             ? event.endDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute())
             : event.endDate.formatted(date: .omitted, time: .shortened)
 
-        return "\(start) - \(end)"
+        return "\(start) – \(end)"
     }
 
     public static func scheduleDateText(for date: Date) -> String {
@@ -519,24 +519,24 @@ public enum CalendarPresentation {
         var badges: [CalendarEventBadge] = []
 
         if event.isAllDay {
-            badges.append(CalendarEventBadge(title: "All Day", systemImage: "sun.max", tone: .neutral))
+            badges.append(CalendarEventBadge(title: String(localized: "All day"), systemImage: "sun.max", tone: .neutral))
         }
 
         switch event.participationStatus {
         case .declined:
-            badges.append(CalendarEventBadge(title: "Declined", systemImage: "person.crop.circle.badge.xmark", tone: .danger))
+            badges.append(CalendarEventBadge(title: String(localized: "Declined"), systemImage: "person.crop.circle.badge.xmark", tone: .danger))
         case .tentative:
-            badges.append(CalendarEventBadge(title: "Tentative", systemImage: "questionmark.circle", tone: .warning))
+            badges.append(CalendarEventBadge(title: String(localized: "Tentative"), systemImage: "questionmark.circle", tone: .warning))
         default:
             break
         }
 
         if event.isCanceled {
-            badges.append(CalendarEventBadge(title: "Canceled", systemImage: "nosign", tone: .danger))
+            badges.append(CalendarEventBadge(title: String(localized: "Canceled"), systemImage: "nosign", tone: .danger))
         }
 
         if event.availability == .free {
-            badges.append(CalendarEventBadge(title: "Free", systemImage: "circle.dotted", tone: .accent))
+            badges.append(CalendarEventBadge(title: String(localized: "Free"), systemImage: "circle.dotted", tone: .accent))
         }
 
         return badges

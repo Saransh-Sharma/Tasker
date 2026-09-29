@@ -2,13 +2,21 @@
 //  TaskCompletionTests.swift
 //  LifeBoardUITests
 //
-//  Critical Tests: Task Completion (7 tests)
-//  Tests the core functionality of completing tasks and score updates
+//  Critical Tests: Task Completion
+//  Completing a task from Home's tasks card removes it from the card and
+//  leaves a receipt whose Undo reopens it. Home has no score or streak label;
+//  the completion receipt is what a completion shows.
 //
 
 import XCTest
 
 class TaskCompletionTests: BaseUITest {
+
+    /// New tasks are due today, so they appear in Home's Tasks card, which is
+    /// where this suite completes, undoes and deletes them.
+    override var additionalLaunchArguments: [String] {
+        [XCUIApplication.LaunchArgumentKey.testNewTasksDueToday.rawValue]
+    }
 
     var homePage: HomePage!
 
@@ -24,19 +32,15 @@ class TaskCompletionTests: BaseUITest {
 
     /// Create test tasks with various priorities
     private func createTestTasks() {
-        // Create P0 task (7 points)
         let addTaskPage1 = homePage.tapAddTask()
         addTaskPage1.createTask(title: "P0 Task", priority: .max, taskType: .morning)
 
-        // Create P1 task (5 points)
         let addTaskPage2 = homePage.tapAddTask()
         addTaskPage2.createTask(title: "P1 Task", priority: .high, taskType: .morning)
 
-        // Create P2 task (3 points)
         let addTaskPage3 = homePage.tapAddTask()
         addTaskPage3.createTask(title: "P2 Task", priority: .medium, taskType: .morning)
 
-        // Create P3 task (2 points)
         let addTaskPage4 = homePage.tapAddTask()
         addTaskPage4.createTask(title: "P3 Task", priority: .low, taskType: .evening)
 
@@ -44,143 +48,71 @@ class TaskCompletionTests: BaseUITest {
         XCTAssertTrue(homePage.waitForTaskCount(4, timeout: 10), "All 4 test tasks should be created")
     }
 
-    private func assertScoreLabelVisible(file: StaticString = #filePath, line: UInt = #line) {
+    /// A Home completion takes the row out of the card and offers Undo.
+    private func assertCompleted(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(
-            homePage.dailyScoreLabel.waitForExistence(timeout: 5),
-            "Daily score label should exist",
+            homePage.waitForTaskToDisappear(withTitle: title, timeout: 5),
+            "Completed task '\(title)' should leave Home's open tasks",
             file: file,
             line: line
         )
-        XCTAssertFalse(
-            homePage.dailyScoreLabel.label.isEmpty,
-            "Daily score label should not be empty",
+        XCTAssertTrue(
+            homePage.undoCompletionButton.waitForExistence(timeout: 5),
+            "Completing a task should leave a receipt with Undo",
             file: file,
             line: line
         )
     }
 
-    // MARK: - Test 9: Complete Task Updates Score - P0
+    // MARK: - Complete Task
 
-    func testCompleteTaskUpdatesScore_P0() throws {
-        // GIVEN: A P0 (Max priority) task exists in the list
+    func testCompleteTaskShowsUndoReceipt_P0() throws {
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "P0 Task"), "P0 task should exist")
 
-        // Get initial score
-        // Note: We expect fresh state, so initial score should be 0
-
-        // WHEN: User completes the P0 task
         homePage.completeTask(containingTitle: "P0 Task")
 
-        // Wait for score update
-        waitForAnimations(duration: 1.0)
-
-        // THEN: Score label should remain visible after completion interaction.
-        assertScoreLabelVisible()
-
-        takeScreenshot(named: "complete_p0_task_score_7")
+        assertCompleted("P0 Task")
+        takeScreenshot(named: "complete_p0_task_receipt")
     }
 
-    // MARK: - Test 10: Complete Task Updates Score - P1
-
-    func testCompleteTaskUpdatesScore_P1() throws {
-        // GIVEN: A P1 (High priority) task exists
+    func testCompleteTaskShowsUndoReceipt_P1() throws {
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "P1 Task"), "P1 task should exist")
 
-        // WHEN: User completes the P1 task
         homePage.completeTask(containingTitle: "P1 Task")
 
-        waitForAnimations(duration: 1.0)
-
-        // THEN: Score label should remain visible after completion interaction.
-        assertScoreLabelVisible()
-
-        takeScreenshot(named: "complete_p1_task_score")
+        assertCompleted("P1 Task")
+        takeScreenshot(named: "complete_p1_task_receipt")
     }
 
-    // MARK: - Test 11: Complete Multiple Tasks Accumulates Score
-
-    func testCompleteMultipleTasksAccumulatesScore() throws {
-        // GIVEN: Multiple tasks with different priorities exist
+    func testCompleteMultipleTasksRemovesEachFromHome() throws {
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "P0 Task"), "P0 task exists")
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "P1 Task"), "P1 task exists")
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "P2 Task"), "P2 task exists")
 
-        // WHEN: User completes 3 tasks (P0: 7, P1: 5, P2: 3)
         homePage.completeTask(containingTitle: "P0 Task")
-        waitForAnimations(duration: 0.5)
+        assertCompleted("P0 Task")
 
         homePage.completeTask(containingTitle: "P1 Task")
-        waitForAnimations(duration: 0.5)
+        assertCompleted("P1 Task")
 
         homePage.completeTask(containingTitle: "P2 Task")
-        waitForAnimations(duration: 1.0)
+        assertCompleted("P2 Task")
 
-        // THEN: Score label should remain visible after multiple completion interactions.
-        assertScoreLabelVisible()
-
-        takeScreenshot(named: "complete_multiple_tasks_score_15")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "P3 Task"), "The untouched task should stay on Home")
+        takeScreenshot(named: "complete_multiple_tasks")
     }
 
-    // MARK: - Test 12: Uncomplete Task Reduces Score
+    // MARK: - Reopen
 
-    func testUncompleteTaskReducesScore() throws {
-        // GIVEN: A task is completed and score is updated
+    func testUndoReopensCompletedTask() throws {
         homePage.completeTask(containingTitle: "P0 Task")
-        waitForAnimations(duration: 1.0)
+        assertCompleted("P0 Task")
 
-        assertScoreLabelVisible()
+        homePage.uncompleteLastCompletedTask()
 
-        // WHEN: User uncompletes the task (taps checkbox again)
-        homePage.uncompleteTask(containingTitle: "P0 Task")
-        waitForAnimations(duration: 1.0)
-
-        // THEN: Score label should still be visible after reopening the task.
-        assertScoreLabelVisible()
-
-        takeScreenshot(named: "uncomplete_task_reduces_score")
+        XCTAssertTrue(homePage.waitForTask(withTitle: "P0 Task", timeout: 5), "Undo should put the task back on Home")
+        takeScreenshot(named: "undo_reopens_task")
     }
-
-    // MARK: - Test 13: Complete Task Updates Streak
-
-    func testCompleteTaskUpdatesStreak() throws {
-        // GIVEN: User has no current streak (fresh state)
-        // Initial streak should be 0
-
-        // WHEN: User completes a task today
-        homePage.completeTask(containingTitle: "P0 Task")
-        waitForAnimations(duration: 1.0)
-
-        // THEN: Streak should increment to 1
-        // Note: Streak logic may vary - it might only increment after completing tasks on consecutive days
-        // For now, we verify that streak updates when a task is completed
-
-        let streakUpdated = homePage.waitForStreak(1, timeout: 5)
-        if !streakUpdated {
-            // Streak might not update immediately or might have different logic
-            print("⚠️ Streak did not update to 1 immediately - may require consecutive day completion")
-        }
-
-        takeScreenshot(named: "complete_task_updates_streak")
-    }
-
-    // MARK: - Test 14: Complete Task via BEMCheckbox
-
-    func testCompleteTaskViaBEMCheckbox() throws {
-        // GIVEN: A task exists with a BEMCheckbox
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "P0 Task"), "Task should exist")
-
-        // WHEN: User taps the inline checkbox to complete the task
-        homePage.completeTask(containingTitle: "P0 Task")
-
-        waitForAnimations(duration: 1.0)
-
-        // THEN: Score label should remain visible after checkbox interaction.
-        assertScoreLabelVisible()
-
-        takeScreenshot(named: "complete_via_checkbox")
-    }
-
-    // MARK: - Open/Done/Open Immediate Rendering
 
     func testTaskOpenDoneOpenUpdatesInlineRowStateWithoutRelaunch() throws {
         let taskTitle = "P0 Task"
@@ -189,105 +121,37 @@ class TaskCompletionTests: BaseUITest {
         let initialRow = homePage.taskRow(containingTitle: taskTitle)
         XCTAssertTrue(initialRow.waitForExistence(timeout: 5), "Task row should be visible")
         let completeCheckbox = homePage.taskCheckbox(containingTitle: taskTitle)
-        XCTAssertTrue(completeCheckbox.waitForExistence(timeout: 5), "Task checkbox should exist")
+        XCTAssertTrue(completeCheckbox.waitForExistence(timeout: 5), "Task completion control should exist")
+        XCTAssertEqual(completeCheckbox.value as? String, "Not complete", "An open task's control should read Not complete")
         completeCheckbox.tap()
 
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: taskTitle), "Completed task should remain inline in Today view")
+        assertCompleted(taskTitle)
 
-        let reopenCheckbox = homePage.taskCheckbox(containingTitle: taskTitle)
-        XCTAssertTrue(reopenCheckbox.waitForExistence(timeout: 5), "Task checkbox should still exist for reopen")
-        reopenCheckbox.tap()
+        homePage.undoCompletionButton.tap()
 
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: taskTitle), "Task should remain visible after reopen")
+        XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should return after Undo without a relaunch")
+        XCTAssertTrue(
+            homePage.taskCheckbox(containingTitle: taskTitle).waitForExistence(timeout: 5),
+            "The reopened task should offer completion again"
+        )
 
         takeScreenshot(named: "task_open_done_open_state_transition")
     }
 
-    // MARK: - Test 15: Completed Task Shows Strikethrough
-
-    func testCompletedTaskShowsStrikethrough() throws {
-        // GIVEN: A task exists
-        let taskTitle = "P0 Task"
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: taskTitle), "Task should exist")
-
-        // WHEN: User completes the task
-        homePage.completeTask(containingTitle: taskTitle)
-        waitForAnimations(duration: 1.0)
-
-        // THEN: Task should show visual strikethrough
-        // Note: Visual strikethrough is difficult to verify in UI tests without accessibility
-        // We can verify the task still exists and score updated
-
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: taskTitle), "Completed task should still be visible")
-        assertScoreLabelVisible()
-
-        // Take screenshot to visually verify strikethrough
-        takeScreenshot(named: "completed_task_strikethrough")
-
-        // Optional: Check if task cell has different attributes when completed
-        let row = homePage.taskRow(containingTitle: taskTitle)
-        XCTAssertTrue(row.exists, "Task row should exist")
-    }
-
-    // MARK: - Helper Methods
-
-    /// Find task index by title
-    private func findTaskIndex(withTitle title: String) -> Int {
-        let taskRows = app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
-        )
-        for index in 0..<taskRows.count {
-            let row = taskRows.element(boundBy: index)
-            if row.label.localizedCaseInsensitiveContains(title) || row.staticTexts[title].exists {
-                return index
-            }
-        }
-
-        let cells = app.tables.cells
-        for index in 0..<cells.count {
-            let cell = cells.element(boundBy: index)
-            if cell.staticTexts[title].exists {
-                return index
-            }
-        }
-        return 0 // Default to first task
-    }
-
-    /// Wait for score to update (custom wait helper)
-    private func waitForStreak(_ expectedStreak: Int, timeout: TimeInterval) -> Bool {
-        return homePage.waitForStreak(expectedStreak, timeout: timeout)
-    }
-
-    // MARK: - Performance Test (Bonus)
+    // MARK: - Performance
 
     func testTaskCompletionPerformance() throws {
-        // Measure the time it takes to complete a task
+        // Find the control first: the measured block is the completion itself,
+        // not XCUITest locating and scrolling to the row.
+        let checkbox = homePage.taskCheckbox(containingTitle: "P0 Task")
+        XCTAssertTrue(checkbox.waitForExistence(timeout: 5), "Task completion control should exist")
         PerformanceMetrics.measureAndAssert(
             named: "Task Completion",
             threshold: PerformanceMetrics.Thresholds.taskCompletionTime,
             testCase: self
         ) {
-            homePage.completeTask(containingTitle: "P0 Task")
+            checkbox.tap()
         }
-    }
-}
-
-// MARK: - HomePage Extension for Streak Verification
-
-extension HomePage {
-    /// Wait for streak to update to expected value
-    func waitForStreak(_ expectedStreak: Int, timeout: TimeInterval) -> Bool {
-        let predicate = NSPredicate { _, _ in
-            guard self.streakLabel.exists else {
-                return false
-            }
-            let streakText = self.streakLabel.label
-            return streakText.contains("\(expectedStreak)")
-        }
-
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
-        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-
-        return result == .completed
+        assertCompleted("P0 Task")
     }
 }

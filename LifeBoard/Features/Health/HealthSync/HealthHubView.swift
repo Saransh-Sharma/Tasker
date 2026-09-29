@@ -10,10 +10,18 @@ struct HealthHubView: View {
     @State private var latestLocalMealAt: Date?
     @State private var healthSyncPulseTrigger = 0
     @State private var vitalOrbWarpTrigger = 0
+    /// The Track water target, read so the hub's progress and its goal
+    /// celebration measure against the person's own number, not 2,000 mL.
+    @State private var hydrationTargetMilliliters: Double?
+    /// Set only by something the person did — logging water here or Sync Now —
+    /// so a background sync crossing the goal never buzzes on its own.
+    @State private var celebrationArmed = false
+    @Environment(\.lifeBoardShellBottomClearance) private var shellBottomClearance
     @AppStorage("healthPrivacyLocalOnlyNoticeAcknowledged") private var didAcknowledgeHealthPrivacyNotice = false
     @State private var showsHealthPrivacyNotice = false
     @Environment(PresentationPreferences.self) private var preferences
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     private let trackRepository: CoreDataTrackFoundationRepository
     private let wellnessRepository: any WellnessRepository
     private let nutritionRepository: any NutritionRepository
@@ -41,34 +49,32 @@ struct HealthHubView: View {
                     onLogWater: { showsWaterLog = true },
                     pulseTrigger: healthSyncPulseTrigger
                 )
-                HealthHubMovementSection(store: store, warpTrigger: 0)
-                HealthHubHydrationSection(
-                    store: store,
-                    warpTrigger: vitalOrbWarpTrigger,
-                    onLogWater: { showsWaterLog = true }
-                )
-                HealthHubNutritionSection(store: store)
-                HealthHubFastingSection(suggestion: fastingSuggestionDate, source: fastingSuggestionSource)
-                HealthHubValuesSection(store: store)
-                HealthHubConnectionsSection(
-                    store: store,
-                    onEducate: { educationDomain = $0 },
-                    onLogWeight: { showsWeightLog = true }
-                )
+                // On iPad and Mac a single column stretched the 92pt hydration
+                // well and the 150pt chart across the whole 1080pt canvas, so
+                // the evidence read as thin slabs. The hero stays full width
+                // above; the clay cards pair up beneath it.
+                if layoutClass.isPad {
+                    LazyVGrid(columns: padColumns, spacing: 16) {
+                        sectionCards
+                    }
+                } else {
+                    sectionCards
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
-            // Measured clearance for the floating dock and composer.
-            .padding(.bottom, ClayLayoutMetrics.bottomDockClearance)
+            // The shell's measured clearance for the floating dock and
+            // composer — zero where there is no dock — plus breathing room.
+            .padding(.bottom, shellBottomClearance + 24)
         }
         .navigationTitle("Health")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    Task { await store.syncNow() }
+                    Task { await userInitiatedSync() }
                 } label: {
-                    Label("Sync Now", systemImage: "arrow.triangle.2.circlepath")
+                    Label("Sync now", systemImage: "arrow.triangle.2.circlepath")
                 }
                 .disabled(store.isRefreshing)
                 .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
@@ -77,19 +83,28 @@ struct HealthHubView: View {
         .task {
             showsHealthPrivacyNotice = UserDefaults.standard.bool(forKey: "healthPrivacyMigrationAffectedUser") && !didAcknowledgeHealthPrivacyNotice
             latestLocalMealAt = try? await nutritionRepository.logs(from: nil, to: nil).first?.loggedAt
+            hydrationTargetMilliliters = (try? await trackRepository.fetchHydrationTarget())
+                .map { HydrationMeasurementService.milliliters($0.amount, unit: $0.unit) }
             await store.refreshAuthorization()
             if store.statuses.values.contains(where: { $0.readRequestState != .neverRequested }) {
                 await store.syncNow()
             }
         }
-        .refreshable { await store.syncNow() }
+        .refreshable { await userInitiatedSync() }
         .onChange(of: store.lastSuccessfulSync) { oldValue, newValue in
             guard newValue != nil, newValue != oldValue else { return }
+            // Visual only. This also fires for the on-appear sync, foreground
+            // syncs and background observer deliveries, and a haptic for work
+            // the person did not start is a buzz with no cause they can see.
+            // The haptic lives in `userInitiatedSync()`.
             healthSyncPulseTrigger &+= 1
-            Haptic.commit.play()
         }
         .onChange(of: store.aggregates[.water]?.value) { _, newValue in
-            guard let newValue, newValue >= 2_000,
+            // Only after the person logged water or asked for a sync: a
+            // background delivery crossing the goal is not their action.
+            guard celebrationArmed else { return }
+            celebrationArmed = false
+            guard let newValue, let target = hydrationTargetMilliliters, target > 0, newValue >= target,
                   HealthGoalCelebrationGate.claim(metric: .water, day: Date()) else {
                 return
             }
@@ -99,17 +114,57 @@ struct HealthHubView: View {
         .sheet(item: $educationDomain) { domain in
             HealthConnectionSheet(context: .init(.health, from: .health))
         }
-        .sheet(isPresented: $showsWaterLog) {
+        .sheet(isPresented: $showsWaterLog, onDismiss: {
+            celebrationArmed = true
+            Task { await store.syncNow() }
+        }) {
             HealthWaterLogSheet(repository: trackRepository)
         }
         .sheet(isPresented: $showsWeightLog) {
             HealthWeightLogSheet(repository: wellnessRepository)
         }
-        .alert("Health data now stays on this device", isPresented: $showsHealthPrivacyNotice) {
+        .alert("Health data stays on \(DeviceNoun.this)", isPresented: $showsHealthPrivacyNotice) {
             Button("Got it") { didAcknowledgeHealthPrivacyNotice = true }
         } message: {
-            Text("LifeBoard wellness records are local-only and are never placed in analytics or logs.")
+            Text("Not included in analytics or logs.")
         }
+    }
+
+    /// Two columns once each can hold a card at a readable width; a narrow
+    /// iPad split falls back to one column on its own.
+    private var padColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 340), spacing: 16, alignment: .top)]
+    }
+
+    /// The clay evidence cards, shared by the phone stack and the iPad grid so
+    /// the two layouts cannot drift apart in order or content.
+    @ViewBuilder
+    private var sectionCards: some View {
+        HealthHubMovementSection(store: store, warpTrigger: 0)
+        HealthHubHydrationSection(
+            store: store,
+            targetMilliliters: hydrationTargetMilliliters,
+            warpTrigger: vitalOrbWarpTrigger,
+            onLogWater: { showsWaterLog = true }
+        )
+        HealthHubNutritionSection(store: store)
+        HealthHubFastingSection(suggestion: fastingSuggestionDate, source: fastingSuggestionSource)
+        HealthHubValuesSection(store: store)
+        HealthHubConnectionsSection(
+            store: store,
+            onEducate: { educationDomain = $0 },
+            onLogWeight: { showsWeightLog = true }
+        )
+    }
+
+    /// Sync Now and pull-to-refresh. Only these confirm with a haptic, and
+    /// only when the sync actually brought something back.
+    private func userInitiatedSync() async {
+        let before = store.lastSuccessfulSync
+        celebrationArmed = true
+        await store.syncNow()
+        guard let after = store.lastSuccessfulSync, after != before else { return }
+        Haptic.commit.play()
     }
 
     /// Connected once any domain has actually been asked for. Apple never
@@ -131,8 +186,8 @@ struct HealthHubView: View {
 
     private var fastingSuggestionSource: String {
         guard let latest = fastingSuggestionDate else { return "" }
-        if latest == latestLocalMealAt { return "Based on your latest LifeBoard meal." }
-        return "Based on the latest external dietary-energy timestamp in Apple Health."
+        if latest == latestLocalMealAt { return String(localized: "From your last meal") }
+        return String(localized: "From your last meal in Apple Health")
     }
 }
 
@@ -177,10 +232,10 @@ struct HealthConnectPromptSheet: View {
                     HealthSyncBridgeHero(pulseTrigger: pulseTrigger)
                         .padding(.top, 4)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Save LifeBoard logs to Apple Health")
+                        Text("Save to Apple Health")
                             .font(.title2.bold())
                             .foregroundStyle(Color.lifeboard(.textPrimary))
-                        Text("Choose the categories LifeBoard may add to Apple Health. New choices start off.")
+                        Text("Pick what LifeBoard saves to Health.")
                             .font(.body)
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
@@ -195,22 +250,10 @@ struct HealthConnectPromptSheet: View {
         .background(Color.lifeboard(.bgCanvas).ignoresSafeArea())
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        // No haptic on appear: a sheet arriving is not something the person
+        // did, and a buzz with no cause reads as an error.
         .onAppear {
-            HapticFeedback.light()
             if reduceMotion == false { pulseTrigger &+= 1 }
-        }
-    }
-
-    private var headline: String {
-        switch leadDomain {
-        case .hydration: "Keep your hydration in sync"
-        case .nutrition: "Keep your nutrition in sync"
-        case .body: "Your weight, in sync both ways"
-        case .workouts: "Your workouts, in sync both ways"
-        case .activity: "Bring your activity into LifeBoard"
-        case .energy: "Bring your energy into LifeBoard"
-        case .sleep: "Bring your sleep into LifeBoard"
-        case .fasting: "Smarter fasting with Apple Health"
         }
     }
 
@@ -219,7 +262,7 @@ struct HealthConnectPromptSheet: View {
             Image(systemName: "lock.fill")
                 .font(.footnote)
                 .foregroundStyle(Color.lifeboard(.accentPrimary))
-            Text("Choose which LifeBoard logs to save to Apple Health. Your Cloud EVA context choices are managed separately.")
+            Text("What \(AssistantIdentitySnapshot.current.displayName) can see is set in Settings.")
                 .font(.caption)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
         }
@@ -230,10 +273,10 @@ struct HealthConnectPromptSheet: View {
     private var shareDisclosure: some View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
-                withAnimation(.snappy) { showsShareOptions.toggle() }
+                withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) { showsShareOptions.toggle() }
             } label: {
                 HStack {
-                    Text("Choose what to share")
+                    Text("What to save")
                         .font(.subheadline.weight(.semibold))
                     Spacer()
                     Image(systemName: showsShareOptions ? "chevron.up" : "chevron.down")
@@ -255,7 +298,7 @@ struct HealthConnectPromptSheet: View {
                     }
                     .tint(Color.lifeboard(.accentPrimary))
                 }
-                Text("These switches control writing only. Review read access separately in Apple Health.")
+                Text("Reading is managed in the Health app.")
                     .font(.caption2)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
             }
@@ -267,10 +310,12 @@ struct HealthConnectPromptSheet: View {
     private var actions: some View {
         VStack(spacing: 12) {
             Button {
-                HapticFeedback.success()
+                // No success haptic here: the connection has not happened yet.
+                // The result, not the tap, earns the confirmation.
+                Haptic.pick.play()
                 onConnect(requestsWriteBack ? selectedWritableDomains : [])
             } label: {
-                Text(requestsWriteBack ? "Save sharing choices" : "Connect Apple Health")
+                Text(requestsWriteBack ? String(localized: "Save choices") : String(localized: "Connect Apple Health"))
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 50)
             }
@@ -333,7 +378,7 @@ private struct HealthSyncBridgeHero: View {
         .frame(height: 150)
         .lifeboardHealthSyncPulse(trigger: pulseTrigger)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("LifeBoard and Apple Health, syncing both ways")
+        .accessibilityLabel("Two-way sync with Apple Health")
     }
 
     private func node(symbol: String, title: String) -> some View {

@@ -26,7 +26,7 @@ struct AddTaskProjectBar: View {
                 HStack(spacing: spacing.chipSpacing) {
                     // Add project button
                     Button {
-                        HapticFeedback.selection()
+                        Haptic.pick.play()
                         withAnimation(LifeBoardAnimation.stateChange) {
                             showInlineCreator = true
                         }
@@ -34,7 +34,7 @@ struct AddTaskProjectBar: View {
                         HStack(spacing: 4) {
                             Image(systemName: "plus")
                                 .lifeboardFont(.caption2)
-                            Text("Add Project")
+                            Text("Add project")
                                 .font(.lifeboard(.caption1))
                         }
                         .foregroundColor(Color.lifeboard.textSecondary)

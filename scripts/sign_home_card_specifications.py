@@ -7,8 +7,9 @@ base=ROOT/'docs/design/home-cards/native-specifications'
 # Run immediately after the explicit capture, never as part of ordinary tests.
 sources=sorted((ROOT/'LifeBoard/DesignSystem/HomeCards').glob('*.swift'))
 sources += [ROOT/'LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift',
+            ROOT/'LifeBoard/DesignSystem/LifeBoardHomeCardBodies+SizeResolution.swift',
             ROOT/'LifeBoard/DesignSystem/LifeBoardCardPrimitives.swift',
-            ROOT/'LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift',
+            *sorted((ROOT/'LifeBoard/Features/Home/Adaptive').glob('*.swift')),  # the live Home, formerly Foundation/Design/LifeBoardFoundationGallery.swift
             ROOT/'Packages/LifeBoardTokens/Sources/LifeBoardTokens/SemanticTypographyTokens.swift',
             ROOT/'Packages/LifeBoardUI/Sources/LifeBoardUI/NumericRoll.swift']
 source_hashes={str(p.relative_to(ROOT)):digest(p) for p in sources}

@@ -12,7 +12,7 @@ struct DailyRitualsCard: View {
                 ritualSection(
                     icon: "sunrise.fill",
                     iconColor: .lifeboard(.statusWarning),
-                    title: "Morning Agenda",
+                    title: String(localized: "Morning agenda"),
                     isEnabled: Binding(
                         get: { viewModel.preferences.morningAgendaEnabled },
                         set: { viewModel.togglePreference(\.morningAgendaEnabled, value: $0) }
@@ -34,7 +34,7 @@ struct DailyRitualsCard: View {
                 ritualSection(
                     icon: "moon.stars.fill",
                     iconColor: .lifeboard(.accentSecondary),
-                    title: "Nightly Retrospective",
+                    title: String(localized: "Close the day"),
                     isEnabled: Binding(
                         get: { viewModel.preferences.nightlyRetrospectiveEnabled },
                         set: { viewModel.togglePreference(\.nightlyRetrospectiveEnabled, value: $0) }
@@ -85,7 +85,7 @@ struct DailyRitualsCard: View {
             // Inline time picker (shown when enabled)
             if isEnabled.wrappedValue {
                 HStack {
-                    Text("Scheduled at")
+                    Text("Time")
                         .font(.lifeboard(.callout))
                         .foregroundColor(.lifeboard(.textSecondary))
 
@@ -101,6 +101,6 @@ struct DailyRitualsCard: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(LifeBoardAnimation.heroReveal, value: isEnabled.wrappedValue)
+        .lifeBoardMotion(.contentInsertion, value: isEnabled.wrappedValue)
     }
 }

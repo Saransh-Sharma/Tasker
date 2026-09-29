@@ -31,34 +31,63 @@ private enum WatchStyle {
     static let lavender = Color(red: 0.73, green: 0.62, blue: 0.96)
 }
 
+/// The sections a complication or deep link can land on. The watch app is a
+/// single scrolling page, so "opening" a section scrolls it into view.
+private enum WatchHomeSection: Hashable {
+    case today, fasting, routine, journal
+
+    /// Maps the `lifeboard://` links the watch complications use (the same
+    /// hosts the phone understands) to a section on this page.
+    init?(url: URL) {
+        guard ["lifeboard", "tasker"].contains(url.scheme?.lowercased() ?? "") else { return nil }
+        switch url.host?.lowercased() {
+        case "tasks", "calendar", "day", "home", "habits", "habit", "focus": self = .today
+        case "fasting": self = .fasting
+        case "routine", "routines": self = .routine
+        case "journal", "note": self = .journal
+        default: return nil
+        }
+    }
+}
+
 private struct WatchHomeView: View {
     @ObservedObject var store: WatchJournalCaptureStore
     @State private var snapshot = TaskListWidgetSnapshot.load()
+    @State private var confirmingCancelFast: FastingSessionSurfaceSnapshot?
+    @State private var confirmingStopRoutine: RoutineRunSurfaceSnapshot?
+    /// Shown under the card whose command could not be handed to the phone,
+    /// so a failed tap never looks like it worked.
+    @State private var commandFailure: (section: WatchHomeSection, message: String)?
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     header
                     todayCard
+                        .id(WatchHomeSection.today)
                     if let fast = snapshot.activeFastingSession {
                         fastingCard(fast)
+                            .id(WatchHomeSection.fasting)
                     }
                     if let run = snapshot.activeRoutineRun {
                         routineCard(run)
+                            .id(WatchHomeSection.routine)
                     }
 
                     Text("Journal")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(WatchStyle.secondary)
                         .accessibilityAddTraits(.isHeader)
+                        .id(WatchHomeSection.journal)
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                         NavigationLink { WatchMoodCaptureView(store: store) } label: {
                             WatchActionTile(title: "Mood", symbol: "face.smiling.fill", tint: WatchStyle.sun)
                         }
                         NavigationLink { WatchTextCaptureView(store: store) } label: {
-                            WatchActionTile(title: "Speak", symbol: "text.bubble.fill", tint: WatchStyle.sky)
+                            WatchActionTile(title: "Capture", symbol: "text.bubble.fill", tint: WatchStyle.sky)
                         }
                         NavigationLink { WatchRecordCaptureView(store: store) } label: {
                             WatchActionTile(title: "Record", symbol: "waveform", tint: WatchStyle.coral)
@@ -88,6 +117,56 @@ private struct WatchHomeView: View {
             .onReceive(NotificationCenter.default.publisher(for: .lifeboardWatchSnapshotUpdated)) { _ in
                 snapshot = TaskListWidgetSnapshot.load()
             }
+            // Complications link with `lifeboard://…`; without a handler the
+            // app just opened wherever it was. Land on the matching section.
+            .onOpenURL { url in
+                snapshot = TaskListWidgetSnapshot.load()
+                guard let section = WatchHomeSection(url: url) else { return }
+                proxy.scrollTo(section, anchor: .top)
+            }
+            }
+            .confirmationDialog(
+                "Cancel this fast?",
+                isPresented: Binding(
+                    get: { confirmingCancelFast != nil },
+                    set: { if $0 == false { confirmingCancelFast = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: confirmingCancelFast
+            ) { fast in
+                Button("Cancel fast", role: .destructive) {
+                    sendFasting(.cancel, session: fast)
+                }
+                Button("Keep fasting", role: .cancel) {}
+            } message: { _ in
+                Text("It won’t be saved. To keep it, choose Finish.")
+            }
+            .confirmationDialog(
+                "Stop this routine?",
+                isPresented: Binding(
+                    get: { confirmingStopRoutine != nil },
+                    set: { if $0 == false { confirmingStopRoutine = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: confirmingStopRoutine
+            ) { run in
+                Button("Stop routine", role: .destructive) {
+                    sendRoutine(.stop, run: run)
+                }
+                Button("Keep going", role: .cancel) {}
+            } message: { run in
+                Text("\(run.title) ends here.")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func failureText(for section: WatchHomeSection) -> some View {
+        if let commandFailure, commandFailure.section == section {
+            Label(commandFailure.message, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption2)
+                .foregroundStyle(WatchStyle.coral)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -126,46 +205,64 @@ private struct WatchHomeView: View {
                         .foregroundStyle(WatchStyle.secondary)
                 }
             } else {
-                Label("Your day is clear", systemImage: "sparkles")
+                Label("Nothing planned", systemImage: "sparkles")
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(WatchStyle.primary)
             }
 
             if let habit = snapshot.habit.primaryHabit {
                 Divider().overlay(WatchStyle.separator)
-                Label("\(habit.title) · \(habit.currentStreak) day rhythm", systemImage: habit.iconSymbolName)
+                Label(
+                    habit.currentStreak == 1 ? "\(habit.title) · 1 active day" : "\(habit.title) · \(habit.currentStreak) active days",
+                    systemImage: habit.iconSymbolName
+                )
                     .font(.caption2)
                     .foregroundStyle(WatchStyle.secondary)
                     .lineLimit(1)
-            }
-            if let occurrence = actionableBehaviorOccurrence {
-                Divider().overlay(WatchStyle.separator)
-                Button {
-                    let command = BehaviorOccurrenceActionCommand(
-                        occurrenceID: occurrence.occurrenceID,
-                        behaviorID: occurrence.behaviorID,
-                        action: .complete
-                    )
-                    try? WatchSnapshotReceiver.shared.transferBehaviorOccurrence(command)
-                    snapshot.behaviorOccurrences = snapshot.behaviorOccurrences.map {
-                        guard $0.occurrenceID == occurrence.occurrenceID else { return $0 }
-                        var updated = $0
-                        updated.result = .completed
-                        return updated
+                // The button logs the habit named on the line above — not
+                // whichever habit happened to be first in the list.
+                if let occurrence = actionableOccurrence(for: habit) {
+                    Button {
+                        logHabit(occurrence)
+                    } label: {
+                        Label("Log \(habit.title)", systemImage: "checkmark.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                     }
-                } label: {
-                    Label("Mark habit done", systemImage: "checkmark.circle.fill")
-                        .font(.caption.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                    .buttonStyle(WatchPressStyle())
+                    .accessibilityHint("Marks it done for today")
                 }
-                .buttonStyle(WatchPressStyle())
-                .accessibilityHint("Sends one idempotent completion to your iPhone")
             }
+            failureText(for: .today)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(11)
         .background(WatchStyle.paperStrong, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func logHabit(_ occurrence: BehaviorOccurrenceSurfaceSnapshot) {
+        let command = BehaviorOccurrenceActionCommand(
+            occurrenceID: occurrence.occurrenceID,
+            behaviorID: occurrence.behaviorID,
+            action: .complete
+        )
+        do {
+            try WatchSnapshotReceiver.shared.transferBehaviorOccurrence(command)
+        } catch {
+            WatchHaptics.failure()
+            commandFailure = (.today, "Couldn’t send that to your iPhone. Try again.")
+            return
+        }
+        commandFailure = nil
+        WatchHaptics.success()
+        snapshot.behaviorOccurrences = snapshot.behaviorOccurrences.map {
+            guard $0.occurrenceID == occurrence.occurrenceID else { return $0 }
+            var updated = $0
+            updated.result = .completed
+            return updated
+        }
     }
 
     private var currentTimelineItem: TaskListWidgetTimelineItem? {
@@ -174,9 +271,9 @@ private struct WatchHomeView: View {
             ?? items.filter { ($0.startDate ?? .distantFuture) >= Date() }.min { ($0.startDate ?? .distantFuture) < ($1.startDate ?? .distantFuture) }
     }
 
-    private var actionableBehaviorOccurrence: BehaviorOccurrenceSurfaceSnapshot? {
+    private func actionableOccurrence(for habit: TaskListWidgetHabitPrimary) -> BehaviorOccurrenceSurfaceSnapshot? {
         snapshot.behaviorOccurrences.first {
-            $0.domain == .habit && $0.result == .unresolved
+            $0.domain == .habit && $0.behaviorID == habit.habitID && $0.result == .unresolved
         }
     }
 
@@ -185,29 +282,32 @@ private struct WatchHomeView: View {
             Label("Fasting", systemImage: "timer")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(WatchStyle.mint)
+            // Counts up: a countdown stopped at 0:00 at the target while the
+            // fast carried on. The goal is shown as a time of day instead.
+            Text(timerInterval: fast.startedAt...Date.distantFuture, countsDown: false)
+                .font(.title3.monospacedDigit().weight(.semibold))
+                .foregroundStyle(WatchStyle.primary)
+                .accessibilityLabel("Time fasted")
             if let targetEnd = fast.targetEndAt {
-                Text(timerInterval: Date()...max(Date(), targetEnd), countsDown: true)
-                    .font(.title3.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(WatchStyle.primary)
-                    .accessibilityLabel("Time remaining")
-            } else {
-                Text(timerInterval: fast.startedAt...Date.distantFuture, countsDown: false)
-                    .font(.title3.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(WatchStyle.primary)
-                    .accessibilityLabel("Elapsed fasting time")
+                Text("Goal \(targetEnd.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundStyle(WatchStyle.secondary)
             }
             HStack(spacing: 8) {
-                Button("End") {
+                // Finish keeps the fast; it runs at once.
+                Button("Finish") {
                     sendFasting(.finish, session: fast)
                 }
                 .buttonStyle(WatchCapsuleButtonStyle(tint: WatchStyle.mint))
                 .frame(minHeight: 44)
+                // Cancel discards it, so it asks first.
                 Button("Cancel") {
-                    sendFasting(.cancel, session: fast)
+                    confirmingCancelFast = fast
                 }
                 .buttonStyle(WatchCapsuleButtonStyle(tint: WatchStyle.coral))
                 .frame(minHeight: 44)
             }
+            failureText(for: .fasting)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(11)
@@ -221,11 +321,11 @@ private struct WatchHomeView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(WatchStyle.lavender)
                 .lineLimit(1)
-            Text(run.currentStepTitle ?? "Ready for the next step")
+            Text(run.currentStepTitle ?? "Next step")
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(WatchStyle.primary)
                 .lineLimit(2)
-            Text("\(run.completedStepCount) of \(run.totalStepCount) complete")
+            Text("\(run.completedStepCount) of \(run.totalStepCount) done")
                 .font(.caption2)
                 .foregroundStyle(WatchStyle.secondary)
             HStack(spacing: 8) {
@@ -235,11 +335,12 @@ private struct WatchHomeView: View {
                 .buttonStyle(WatchCapsuleButtonStyle(tint: WatchStyle.lavender))
                 .frame(minHeight: 44)
                 Button("Stop") {
-                    sendRoutine(.stop, run: run)
+                    confirmingStopRoutine = run
                 }
                 .buttonStyle(WatchCapsuleButtonStyle(tint: WatchStyle.coral))
                 .frame(minHeight: 44)
             }
+            failureText(for: .routine)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(11)
@@ -251,9 +352,17 @@ private struct WatchHomeView: View {
         _ action: FastingWatchAction,
         session: FastingSessionSurfaceSnapshot
     ) {
-        try? WatchSnapshotReceiver.shared.transferFasting(
-            FastingWatchCommand(sessionID: session.sessionID, action: action)
-        )
+        do {
+            try WatchSnapshotReceiver.shared.transferFasting(
+                FastingWatchCommand(sessionID: session.sessionID, action: action)
+            )
+        } catch {
+            WatchHaptics.failure()
+            commandFailure = (.fasting, "Couldn’t send that to your iPhone. Try again.")
+            return
+        }
+        commandFailure = nil
+        WatchHaptics.success()
         snapshot.activeFastingSession = nil
     }
 
@@ -261,9 +370,17 @@ private struct WatchHomeView: View {
         _ action: RoutineWatchAction,
         run: RoutineRunSurfaceSnapshot
     ) {
-        try? WatchSnapshotReceiver.shared.transferRoutine(
-            RoutineWatchCommand(runID: run.runID, action: action)
-        )
+        do {
+            try WatchSnapshotReceiver.shared.transferRoutine(
+                RoutineWatchCommand(runID: run.runID, action: action)
+            )
+        } catch {
+            WatchHaptics.failure()
+            commandFailure = (.routine, "Couldn’t send that to your iPhone. Try again.")
+            return
+        }
+        commandFailure = nil
+        WatchHaptics.success()
         switch action {
         case .pause:
             snapshot.activeRoutineRun?.status = .paused
@@ -377,7 +494,7 @@ private struct WatchMoodCaptureView: View {
         .animation(reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.78), value: mood)
         .accessibilityElement(children: .contain)
         .accessibilityValue(mood.title)
-        .accessibilityHint("Turn the Digital Crown to choose a mood")
+        .accessibilityHint("Use the Digital Crown to choose")
     }
 }
 
@@ -388,13 +505,13 @@ private struct WatchTextCaptureView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("A quick thought", systemImage: "text.bubble.fill")
+            Label("Capture", systemImage: "text.bubble.fill")
                 .font(.headline)
                 .foregroundStyle(WatchStyle.sky)
-            TextField("What’s on your mind?", text: $text, axis: .vertical)
+            TextField("Thought", text: $text, axis: .vertical)
                 .lineLimit(3...5)
                 .textInputAutocapitalization(.sentences)
-            Text("Saved privately. Dictation stays editable before you send it.")
+            Text("Saved to your journal.")
                 .font(.caption2)
                 .foregroundStyle(WatchStyle.secondary)
             Button("Save thought") {
@@ -418,7 +535,7 @@ private struct WatchRecordCaptureView: View {
 
     var body: some View {
         VStack(spacing: 9) {
-            Text(recorder.isRecording ? "Listening" : pending == nil ? "Voice moment" : "Ready to save")
+            Text(recorder.isRecording ? "Listening" : pending == nil ? "Voice note" : "Ready to save")
                 .font(.headline)
                 .foregroundStyle(WatchStyle.primary)
             waveform
@@ -490,7 +607,7 @@ private struct WatchRecentCapturesView: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(WatchStyle.sun)
-                        .accessibilityLabel("Retry all pending captures")
+                        .accessibilityLabel("Retry all")
                     }
                 }
 
@@ -499,7 +616,7 @@ private struct WatchRecentCapturesView: View {
                     .tint(WatchStyle.sun)
 
                 if store.recent.isEmpty {
-                    ContentUnavailableView("Nothing held", systemImage: "checkmark.circle", description: Text("New captures stay here until iPhone confirms them."))
+                    ContentUnavailableView("Nothing waiting", systemImage: "checkmark.circle", description: Text("Captures wait here until they reach iPhone."))
                         .foregroundStyle(WatchStyle.primary)
                 } else {
                     ForEach(store.recent) { item in
@@ -534,7 +651,7 @@ private struct WatchRecentCapturesView: View {
                         .buttonStyle(WatchPressStyle())
                         .disabled(item.audioFileMissing)
                         .accessibilityLabel("\(store.preview(for: item)), \(item.statusText)")
-                        .accessibilityHint(item.syncState == .synced ? "" : "Double tap to retry")
+                        .accessibilityHint(item.syncState == .synced ? "" : "Retries sending")
                     }
                 }
             }

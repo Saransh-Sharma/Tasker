@@ -12,8 +12,10 @@ extension TimeInterval {
         let seconds = totalSeconds % 60
 
         if minutes > 0 {
-            return seconds > 0 ? "\(minutes)m \(seconds)s" : "\(minutes)m"
+            return seconds > 0
+                ? String(localized: "\(minutes) min \(seconds) sec")
+                : String(localized: "\(minutes) min")
         }
-        return "\(seconds)s"
+        return String(localized: "\(seconds) sec")
     }
 }

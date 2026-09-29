@@ -33,6 +33,11 @@ class AddTaskPage {
             ).firstMatch
         }
 
+        // The remaining fallbacks match any text field, so they only run while
+        // the sheet is up. Once it closes they would find Home's composer and
+        // report the sheet as still open (or type Return into the composer).
+        guard isPresented else { return field }
+
         // Last fallback: prefer a non-description text field.
         if !field.exists {
             field = app.textFields.matching(
@@ -45,34 +50,6 @@ class AddTaskPage {
         }
 
         return field
-    }
-
-    var iconButton: XCUIElement {
-        app.buttons[AccessibilityIdentifiers.AddTask.iconButton]
-    }
-
-    var iconPickerSheet: XCUIElement {
-        app.otherElements[AccessibilityIdentifiers.AddTask.iconPickerSheet]
-    }
-
-    var iconSearchField: XCUIElement {
-        app.textFields[AccessibilityIdentifiers.AddTask.iconSearchField]
-    }
-
-    var iconResetButton: XCUIElement {
-        app.buttons[AccessibilityIdentifiers.AddTask.iconResetButton]
-    }
-
-    var modePicker: XCUIElement {
-        app.otherElements[AccessibilityIdentifiers.AddTask.modePicker]
-    }
-
-    var taskModeButton: XCUIElement {
-        app.buttons[AccessibilityIdentifiers.AddTask.modeTask]
-    }
-
-    var habitModeButton: XCUIElement {
-        app.buttons[AccessibilityIdentifiers.AddTask.modeHabit]
     }
 
     var descriptionField: XCUIElement {
@@ -104,10 +81,6 @@ class AddTaskPage {
         app.otherElements[AccessibilityIdentifiers.AddTask.lifeAreaSelector]
     }
 
-    var projectSelector: XCUIElement {
-        app.otherElements[AccessibilityIdentifiers.AddTask.projectSelector]
-    }
-
     var scheduleEditor: XCUIElement {
         app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.scheduleEditor]
     }
@@ -126,18 +99,6 @@ class AddTaskPage {
 
     var scheduleTimePickerConfirmButton: XCUIElement {
         app.buttons[AccessibilityIdentifiers.AddTask.scheduleTimePickerConfirm]
-    }
-
-    var prioritySegmentedControl: XCUIElement {
-        return app.segmentedControls[AccessibilityIdentifiers.AddTask.prioritySegmentedControl]
-    }
-
-    var dueDateButton: XCUIElement {
-        return app.buttons[AccessibilityIdentifiers.AddTask.dueDateButton]
-    }
-
-    var dueDatePicker: XCUIElement {
-        return app.datePickers[AccessibilityIdentifiers.AddTask.dueDatePicker]
     }
 
     var customDateChip: XCUIElement {
@@ -169,30 +130,6 @@ class AddTaskPage {
 
     var customDateConfirmButton: XCUIElement {
         return app.buttons[AccessibilityIdentifiers.DatePickerSheet.confirmButton]
-    }
-
-    var taskTypeSelector: XCUIElement {
-        return app.segmentedControls[AccessibilityIdentifiers.AddTask.taskTypeSelector]
-    }
-
-    var morningButton: XCUIElement {
-        return app.buttons[AccessibilityIdentifiers.AddTask.morningButton]
-    }
-
-    var eveningButton: XCUIElement {
-        return app.buttons[AccessibilityIdentifiers.AddTask.eveningButton]
-    }
-
-    var upcomingButton: XCUIElement {
-        return app.buttons[AccessibilityIdentifiers.AddTask.upcomingButton]
-    }
-
-    var reminderToggle: XCUIElement {
-        return app.switches[AccessibilityIdentifiers.AddTask.reminderToggle]
-    }
-
-    var reminderTimePicker: XCUIElement {
-        return app.datePickers[AccessibilityIdentifiers.AddTask.reminderTimePicker]
     }
 
     var saveButton: XCUIElement {
@@ -248,14 +185,6 @@ class AddTaskPage {
     }
 
     // Validation error labels
-    var titleError: XCUIElement {
-        return app.staticTexts[AccessibilityIdentifiers.AddTask.titleError]
-    }
-
-    var descriptionError: XCUIElement {
-        return app.staticTexts[AccessibilityIdentifiers.AddTask.descriptionError]
-    }
-
     // MARK: - Initialization
 
     init(app: XCUIApplication) {
@@ -267,7 +196,7 @@ class AddTaskPage {
     /// Enter task title
     func enterTitle(_ title: String) {
         let primaryTitleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField]
-        if primaryTitleField.waitForExistence(timeout: 8) {
+        if primaryTitleField.exists || primaryTitleField.waitForExistence(timeout: 8) {
             primaryTitleField.tap()
             primaryTitleField.typeText(title)
             return
@@ -307,38 +236,6 @@ class AddTaskPage {
         }
 
         XCTFail("Add Task title field should exist")
-    }
-
-    func switchToHabitMode() {
-        let button = habitModeButton
-        if button.waitForExistence(timeout: 3) {
-            button.tap()
-        }
-    }
-
-    func openIconPicker() {
-        let button = iconButton
-        if button.waitForExistence(timeout: 3) {
-            button.tap()
-        }
-    }
-
-    func iconOption(_ symbolName: String) -> XCUIElement {
-        app.buttons[AccessibilityIdentifiers.AddTask.iconOption(symbolName)]
-    }
-
-    func selectTaskIcon(_ symbolName: String) {
-        let option = iconOption(symbolName)
-        if option.waitForExistence(timeout: 3) {
-            option.tap()
-        }
-    }
-
-    @discardableResult
-    func waitForIconButtonLabel(containing value: String, timeout: TimeInterval = 2) -> Bool {
-        let predicate = NSPredicate(format: "label CONTAINS[c] %@", value)
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: iconButton)
-        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     func openScheduleTimePicker() {
@@ -417,68 +314,12 @@ class AddTaskPage {
             priorityName = "Low"  // Medium no longer exists, map to Low
         }
 
-        let fallbackIndex: Int = {
-            switch priority {
-            case .none:
-                return 0
-            case .low, .medium:
-                return 1
-            case .high:
-                return 2
-            case .max:
-                return 3
-            }
-        }()
-
-        if prioritySegmentedControl.waitForExistence(timeout: 1.5) {
-            let button = prioritySegmentedControl.buttons[priorityName]
-            if button.exists {
-                button.tap()
-                return
-            }
-
-            let indexedButton = prioritySegmentedControl.buttons.element(boundBy: fallbackIndex)
-            if indexedButton.exists {
-                indexedButton.tap()
-            } else {
-                print("⚠️ Warning: Priority '\(priorityName)' not found in segmented control")
-            }
+        // The Add Task sheet shows priority as labelled pills, not a segmented control.
+        let priorityButton = app.buttons[priorityName]
+        if priorityButton.waitForExistence(timeout: 1.5) {
+            priorityButton.tap()
         } else {
-            // Fallback: try to find priority buttons directly
-            let priorityButton = app.buttons[priorityName]
-            if priorityButton.exists {
-                priorityButton.tap()
-            } else {
-                print("⚠️ Warning: Priority '\(priorityName)' button not found")
-            }
-        }
-    }
-
-    /// Select task type
-    func selectTaskType(_ taskType: TestDataFactory.TaskType) {
-        expandDetailsIfNeeded()
-        switch taskType {
-        case .morning:
-            if morningButton.exists {
-                morningButton.tap()
-            } else if taskTypeSelector.exists {
-                taskTypeSelector.buttons["Morning"].tap()
-            }
-        case .evening:
-            if eveningButton.exists {
-                eveningButton.tap()
-            } else if taskTypeSelector.exists {
-                taskTypeSelector.buttons["Evening"].tap()
-            }
-        case .upcoming:
-            if upcomingButton.exists {
-                upcomingButton.tap()
-            } else if taskTypeSelector.exists {
-                taskTypeSelector.buttons["Upcoming"].tap()
-            }
-        case .inbox:
-            // Inbox is typically default, no specific button
-            break
+            print("⚠️ Warning: Priority '\(priorityName)' button not found")
         }
     }
 
@@ -531,18 +372,6 @@ class AddTaskPage {
         // Pills may not be exposed as standard buttons in accessibility hierarchy
 
         // Method 1: Try direct button access
-        let scopedProjectButton = projectSelector.buttons[projectName]
-        if scopedProjectButton.exists {
-            scopedProjectButton.tap()
-            return
-        }
-
-        let scopedProjectLabel = projectSelector.staticTexts[projectName]
-        if scopedProjectLabel.exists {
-            scopedProjectLabel.tap()
-            return
-        }
-
         let projectButton = app.buttons[projectName]
         if projectButton.exists {
             projectButton.tap()
@@ -598,32 +427,18 @@ class AddTaskPage {
         print("⚠️ Warning: Could not find life area named '\(lifeAreaName)' - life area selection skipped")
     }
 
-    /// Enable reminder
-    func enableReminder() {
-        if reminderToggle.exists && reminderToggle.value as? String != "1" {
-            reminderToggle.tap()
-        }
-    }
-
-    /// Disable reminder
-    func disableReminder() {
-        if reminderToggle.exists && reminderToggle.value as? String == "1" {
-            reminderToggle.tap()
-        }
-    }
-
-    /// Set reminder time
-    func setReminderTime(_ date: Date) {
-        enableReminder()
-
-        if reminderTimePicker.waitForExistence(timeout: 2) {
-            reminderTimePicker.adjust(toPickerWheelValue: TestDataFactory.formatDateTimeForDisplay(date))
-        }
-    }
-
     /// Tap save button
     @discardableResult
     func tapSave() -> HomePage {
+        // Fast path: the sheet's own Done. The fallbacks below each spend a
+        // fixed dismissal wait, which made a plain save take several seconds.
+        if saveButton.exists || saveButton.waitForExistence(timeout: 2), saveButton.isEnabled {
+            saveButton.tap()
+            if waitForDismissal(timeout: 5) {
+                return HomePage(app: app)
+            }
+        }
+
         let addTaskContainer = view
         let navBar = app.navigationBars.firstMatch
         let toolbar = app.toolbars.firstMatch
@@ -739,7 +554,7 @@ class AddTaskPage {
         }
 
         let fallbackTitleField = app.textFields.firstMatch
-        if focusAndSubmitReturn(fallbackTitleField) {
+        if isPresented, focusAndSubmitReturn(fallbackTitleField) {
             waitForSubmitActionToBecomeEnabled(candidates: candidates, timeout: 1.0)
             if didDismiss() {
                 return HomePage(app: app)
@@ -861,6 +676,9 @@ class AddTaskPage {
                 }
             }
 
+            // The chips scroll horizontally inside the sheet; without the
+            // sheet container there is nothing to swipe.
+            guard view.exists else { return false }
             view.swipeLeft()
             _ = waitUntil(timeout: 1) { candidate.exists && candidate.isHittable }
         }
@@ -882,8 +700,33 @@ class AddTaskPage {
 
     /// Tap cancel button
     @discardableResult
+    /// Tap Done without expecting the sheet to close — for tests that check
+    /// saving is blocked (an empty title leaves Done disabled). `tapSave()`
+    /// fails the test when nothing saves, which is the point here.
+    func attemptSave() {
+        if saveButton.waitForExistence(timeout: 2) {
+            saveButton.tap()
+        }
+    }
+
+    /// Cancel the sheet. With anything typed, the sheet first asks
+    /// "Discard changes?"; this confirms Discard, as a person meaning to
+    /// cancel would.
+    @discardableResult
     func tapCancel() -> HomePage {
         cancelButton.tap()
+        // Only an edited sheet asks; a clean one just closes. Poll briefly for
+        // either rather than always waiting on a prompt that may never come.
+        let discard = app.buttons["Discard"]
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline {
+            if discard.exists {
+                discard.tap()
+                break
+            }
+            if isPresented == false { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
         return HomePage(app: app)
     }
 
@@ -918,11 +761,13 @@ class AddTaskPage {
     }
 
     /// Submit the add-task form via keyboard Done from title field.
+    /// Press Return `times` times in one burst. One `typeText` call, because
+    /// the first Return submits and closes the sheet: separate calls would find
+    /// no title field for the rest, which is not the double-submit being tested.
     func submitTitleWithKeyboardDone(times: Int = 1) {
-        titleField.tap()
-        for _ in 0..<max(1, times) {
-            titleField.typeText("\n")
-        }
+        let field = titleField
+        field.tap()
+        field.typeText(String(repeating: "\n", count: max(1, times)))
     }
 
     @discardableResult
@@ -936,7 +781,11 @@ class AddTaskPage {
 
     // MARK: - Complex Actions
 
-    /// Create task with all details (builder-style helper)
+    /// Create task with all details (builder-style helper).
+    ///
+    /// `taskType` and `hasReminder` are accepted for `TestDataFactory`
+    /// compatibility but no longer act: the Add Task sheet has no
+    /// morning/evening type and no inline reminder toggle.
     @discardableResult
     func createTask(
         title: String,
@@ -958,9 +807,6 @@ class AddTaskPage {
         // Select priority
         selectPriority(priority)
 
-        // Select task type
-        selectTaskType(taskType)
-
         // Set due date if provided
         if let dueDate = dueDate {
             setDueDate(dueDate)
@@ -969,11 +815,6 @@ class AddTaskPage {
         // Select project if provided
         if let project = project {
             selectProject(named: project)
-        }
-
-        // Enable reminder if needed
-        if hasReminder {
-            enableReminder()
         }
 
         // Dismiss keyboard before saving
@@ -1005,15 +846,14 @@ class AddTaskPage {
     @discardableResult
     func verifyIsDisplayed(timeout: TimeInterval = 5) -> Bool {
         // Require Add Task-specific affordances; a generic navigation bar is not sufficient.
-        if titleField.waitForExistence(timeout: timeout) {
+        let field = titleField
+        if field.exists || field.waitForExistence(timeout: timeout) {
             return true
         }
 
         let addTaskSignals: [XCUIElement] = [
             app.otherElements[AccessibilityIdentifiers.AddTask.view],
-            app.otherElements[AccessibilityIdentifiers.AddTask.modePicker],
             app.otherElements[AccessibilityIdentifiers.AddTask.lifeAreaSelector],
-            app.otherElements[AccessibilityIdentifiers.AddTask.projectSelector],
             app.buttons[AccessibilityIdentifiers.AddTask.detailsDisclosure],
             app.buttons[AccessibilityIdentifiers.AddTask.saveButton]
         ]
@@ -1023,17 +863,9 @@ class AddTaskPage {
 
     /// Verify validation error is shown
     func verifyValidationError(forField field: String, expectedMessage: String? = nil) -> Bool {
-        var errorElement: XCUIElement
-
-        switch field.lowercased() {
-        case "title":
-            errorElement = titleError
-        case "description":
-            errorElement = descriptionError
-        default:
-            errorElement = app.staticTexts[field]
-        }
-
+        // The sheet has no per-field error labels; a named field falls back to
+        // any error-like copy on screen.
+        let errorElement = app.staticTexts[field]
         // Check if error exists
         if !errorElement.exists {
             // Try to find any error message
@@ -1074,10 +906,22 @@ class AddTaskPage {
     /// Wait for screen to be dismissed
     @discardableResult
     func waitForDismissal(timeout: TimeInterval = 5) -> Bool {
-        let predicate = NSPredicate(format: "exists == false")
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: titleField)
+        // The sheet's own controls, not "a text field": Home has a composer
+        // field of its own, which kept this waiting after the sheet had closed.
+        // A short manual poll: an XCTNSPredicateExpectation checks on a
+        // one-second poll, so a sheet that closes in 0.3s still cost a second.
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if isPresented == false { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        return isPresented == false
+    }
 
-        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-        return result == .completed
+    /// Whether the Add Task sheet is on screen, judged by its own controls.
+    var isPresented: Bool {
+        app.buttons[AccessibilityIdentifiers.AddTask.cancelButton].exists
+            || app.buttons[AccessibilityIdentifiers.AddTask.saveButton].exists
+            || view.exists
     }
 }

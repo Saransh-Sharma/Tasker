@@ -4,6 +4,8 @@ struct WeeklyReviewView: View {
     @ObservedObject var viewModel: WeeklyReviewViewModel
     let onClose: () -> Void
     let onCompleted: (String) -> Void
+    /// False when pushed onto an existing stack; see `OptionalNavigationStack`.
+    let embedsInNavigationStack: Bool
 
     @Environment(\.lifeboardTokens) private var tokens
     @State private var showingReflectionComposer = false
@@ -14,17 +16,19 @@ struct WeeklyReviewView: View {
     init(
         viewModel: WeeklyReviewViewModel,
         onClose: @escaping () -> Void,
-        onCompleted: @escaping (String) -> Void = { _ in }
+        onCompleted: @escaping (String) -> Void = { _ in },
+        embedsInNavigationStack: Bool = true
     ) {
         self.viewModel = viewModel
         self.onClose = onClose
         self.onCompleted = onCompleted
+        self.embedsInNavigationStack = embedsInNavigationStack
     }
 
     var body: some View {
         let renderedSnapshot = viewModel.reviewSnapshot
 
-        return NavigationStack {
+        return OptionalNavigationStack(isEnabled: embedsInNavigationStack) {
             WeeklyRitualScaffold(
                 eyebrow: "Weekly review",
                 title: WeeklyCopy.reviewTitle,
@@ -38,8 +42,8 @@ struct WeeklyReviewView: View {
                 if viewModel.hasLoadedInitialData == false {
                     if viewModel.isLoading {
                         WeeklyReviewBlockingStateCard(
-                            title: "Loading weekly review…",
-                            message: "Pulling outcomes, unfinished tasks, and reflections.",
+                            title: "Loading…",
+                            message: "",
                             showsProgress: true,
                             primaryActionTitle: nil,
                             onPrimaryAction: nil
@@ -49,13 +53,13 @@ struct WeeklyReviewView: View {
                             title: WeeklyCopy.reviewErrorTitle,
                             message: errorMessage,
                             showsProgress: false,
-                            primaryActionTitle: "Retry",
+                            primaryActionTitle: "Try again",
                             onPrimaryAction: { viewModel.load() }
                         )
                     } else {
                         WeeklyReviewBlockingStateCard(
-                            title: "Loading weekly review…",
-                            message: "Preparing your review.",
+                            title: "Loading…",
+                            message: "",
                             showsProgress: true,
                             primaryActionTitle: nil,
                             onPrimaryAction: nil
@@ -109,8 +113,8 @@ struct WeeklyReviewView: View {
                     // a commit.
                     AsyncActionControl(
                         title: WeeklyCopy.finishReview,
-                        runningTitle: "Finishing review",
-                        successTitle: "Review saved",
+                        runningTitle: "Saving…",
+                        successTitle: WeeklyCopy.reviewSaveSuccess,
                         phase: finishPhase
                     ) {
                         guard viewModel.isSaving == false else { return }
@@ -134,10 +138,13 @@ struct WeeklyReviewView: View {
             .navigationTitle(WeeklyCopy.reviewTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", action: onClose)
-                        .accessibilityLabel("Close weekly review")
-                        .accessibilityHint("Dismiss the weekly review and return to Home.")
+                // Pushed, Back already leaves; see `EvaRitualShell`.
+                if embedsInNavigationStack {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close", action: onClose)
+                            .accessibilityLabel("Close weekly review")
+                            .keyboardShortcut(.cancelAction)
+                    }
                 }
             }
             .task {
@@ -160,7 +167,7 @@ struct WeeklyReviewView: View {
                             title: WeeklyCopy.reflectionTitle,
                             kind: .weeklyReview,
                             linkedWeeklyPlanID: linkedWeeklyPlanID,
-                            prompt: "What should next week's version of you remember from this one?",
+                            prompt: String(localized: "What to remember next week?"),
                             saveNoteHandler: { note, completion in
                                 viewModel.saveReflectionNote(note, completion: completion)
                             }
@@ -215,27 +222,26 @@ private struct WeeklyReviewRealityStep: View {
 
     var body: some View {
         WeeklySectionCard(
-            title: WeeklyCopy.reviewSteps[0],
-            detail: "Start with the facts before deciding what the week means."
+            title: WeeklyCopy.reviewSteps[0]
         ) {
             VStack(alignment: .leading, spacing: spacing.s16) {
                 HStack(spacing: spacing.s8) {
                     metricPill(value: "\(completedTasks.count)", label: "Done")
-                    metricPill(value: "\(unfinishedTasks.count)", label: "To resolve")
-                    metricPill(value: "\(reflectionCount)", label: "Reflections")
+                    metricPill(value: "\(unfinishedTasks.count)", label: "To sort")
+                    metricPill(value: "\(reflectionCount)", label: "Notes")
                 }
 
                 VStack(alignment: .leading, spacing: spacing.s8) {
-                    Text("Check habits")
+                    Text("Habits")
                         .font(.lifeboard(.headline))
                         .foregroundStyle(Color.lifeboard.textPrimary)
 
                     if selectedHabitIDs.isEmpty {
-                        Text("No habits were intentionally carried into this week.")
+                        Text("No habits this week")
                             .font(.lifeboard(.support))
                             .foregroundStyle(Color.lifeboard.textSecondary)
                     } else if selectedHabits.isEmpty {
-                        Text("Habit details will appear here after the review reloads current rhythm.")
+                        Text("Loading…")
                             .font(.lifeboard(.support))
                             .foregroundStyle(Color.lifeboard.textSecondary)
                     } else {
@@ -253,7 +259,9 @@ private struct WeeklyReviewRealityStep: View {
                                 Spacer()
 
                                 StatusPill(
-                                    text: "\(habit.currentStreak)d active",
+                                    text: habit.currentStreak == 1
+                                        ? String(localized: "1-day streak")
+                                        : String(localized: "\(habit.currentStreak)-day streak"),
                                     systemImage: "leaf.fill",
                                     tone: .accent
                                 )
@@ -290,8 +298,7 @@ private struct WeeklyReviewOutcomesStep: View {
 
     var body: some View {
         WeeklySectionCard(
-            title: WeeklyCopy.reviewSteps[1],
-            detail: "Check outcomes before deciding what unfinished work should mean."
+            title: WeeklyCopy.reviewSteps[1]
         ) {
             if outcomeSnapshots.isEmpty {
                 Text(WeeklyCopy.noOutcomes)
@@ -323,32 +330,31 @@ private struct WeeklyReviewCleanupStep: View {
 
     var body: some View {
         WeeklySectionCard(
-            title: WeeklyCopy.reviewSteps[2],
-            detail: "Give every unfinished task a clear next home."
+            title: WeeklyCopy.reviewSteps[2]
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    bulkDecisionButton(title: "Carry all", disposition: .carry)
-                    bulkDecisionButton(title: "Move all later", disposition: .later)
+                    bulkDecisionButton(title: String(localized: "Keep all"), disposition: .carry)
+                    bulkDecisionButton(title: String(localized: "All to Later"), disposition: .later)
                     // Dropping every unfinished task at once is the one bulk
                     // decision that throws work away, so it says so first.
                     // `DESIGN.md`: explain consequences before a consequential
                     // action.
-                    bulkDecisionButton(title: "Drop all", disposition: .drop) {
+                    bulkDecisionButton(title: String(localized: "All to Someday"), disposition: .drop) {
                         confirmsDropAll = true
                     }
                 }
                 .confirmationDialog(
-                    "Drop every unfinished task?",
+                    "Move all to Someday?",
                     isPresented: $confirmsDropAll,
                     titleVisibility: .visible
                 ) {
-                    Button("Drop all \(unfinishedTasks.count)", role: .destructive) {
+                    Button("Move all \(unfinishedTasks.count)", role: .destructive) {
                         onApplyToAll(.drop)
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("These tasks leave your plan. You can still set each one individually instead.")
+                    Text("They leave this week’s plan.")
                 }
 
                 if unfinishedTasks.isEmpty {
@@ -401,28 +407,27 @@ private struct WeeklyReviewReflectionStep: View {
 
     var body: some View {
         WeeklySectionCard(
-            title: WeeklyCopy.reviewSteps[3],
-            detail: "Capture only the signals that will help next week start sharper."
+            title: WeeklyCopy.reviewSteps[3]
         ) {
             VStack(alignment: .leading, spacing: spacing.s16) {
                 reflectionField(
-                    title: "What got done",
-                    helper: "Name the few things that genuinely moved forward.",
+                    title: String(localized: "What got done"),
+                    helper: "",
                     text: $wins
                 )
                 reflectionField(
-                    title: "What got in the way",
-                    helper: "Keep it factual so you can act on it later.",
+                    title: String(localized: "Blockers"),
+                    helper: "",
                     text: $blockers
                 )
                 reflectionField(
-                    title: "What should you repeat or change",
-                    helper: "One clear lesson is more useful than a long retrospective.",
+                    title: String(localized: "Lessons"),
+                    helper: "",
                     text: $lessons
                 )
                 reflectionField(
-                    title: "Set up next week",
-                    helper: "Leave a short note that makes Monday easier to start.",
+                    title: String(localized: "Next week"),
+                    helper: "",
                     text: $nextWeekPrepNotes
                 )
 
@@ -471,10 +476,12 @@ private struct WeeklyReviewReflectionStep: View {
                 .padding(12)
                 .lifeboardDenseSurface(cornerRadius: 16, fillColor: Color.lifeboard.surfaceSecondary)
 
-            Text(helper)
-                .font(.lifeboard(.caption2))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if helper.isEmpty == false {
+                Text(helper)
+                    .font(.lifeboard(.caption2))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }
@@ -485,14 +492,13 @@ private struct WeeklyReviewNotesStep: View {
 
     var body: some View {
         WeeklySectionCard(
-            title: "Weekly reflections",
-            detail: "These notes help later reviews stay grounded in what actually happened."
+            title: "Notes"
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 Button(WeeklyCopy.addReflection) {
                     onAddReflection()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
 
                 if reflectionNotes.isEmpty {
                     Text(WeeklyCopy.noWeeklyNotes)
@@ -546,7 +552,9 @@ private struct WeeklyOutcomeReviewRow: View {
                     }
 
                     if outcomeSnapshot.linkedTaskCount > 0 {
-                        Text("\(outcomeSnapshot.linkedTaskCount) linked task\(outcomeSnapshot.linkedTaskCount == 1 ? "" : "s")")
+                        Text(outcomeSnapshot.linkedTaskCount == 1
+                            ? String(localized: "1 linked task")
+                            : String(localized: "\(outcomeSnapshot.linkedTaskCount) linked tasks"))
                             .font(.lifeboard(.caption2))
                             .foregroundStyle(Color.lifeboard.textSecondary)
                     }

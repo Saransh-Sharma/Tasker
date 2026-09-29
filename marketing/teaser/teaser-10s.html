@@ -1,0 +1,32 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  body{margin:0;background:#111;color:#ccc;font:13px/1.4 ui-monospace,Menlo,monospace;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px}
+  canvas#c{width:min(92vw,720px);height:auto;background:#000;box-shadow:0 0 0 1px #333}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
+  button{background:#222;color:#ddd;border:1px solid #444;padding:4px 10px;cursor:pointer;font:inherit}
+  input[type=range]{width:320px}
+</style>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="core.js"></script>
+<script src="lifeboard-scenes.js"></script>
+<title>LifeBoard teaser (9.5 s)</title>
+<script>
+'use strict';
+// BRIEF: the hook. Scraps of a life boil, fold into one place, a day passes over the board, the sun lands as the eye. 9.5 s.
+// t     dur   scene    look              label
+// 0.00  2.25  scatter  ink morning boil  A real day has a lot in it.
+// 2.25  0.50  blot     night             -
+// 2.75  2.00  fold     ink morning       One place.
+// 4.75  2.00  day      afternoon/dusk    for the life you actually have
+// 6.75  2.75  print    riso              (sign-off)
+const TIMELINE = [
+  { name: 'scatter', dur: 2.25, fn: sceneScatter(2.25) },
+  { name: 'blot',    dur: 0.5,  fn: sceneBlot(0.5) },
+  { name: 'fold',    dur: 2.0,  fn: sceneFold(2.0) },
+  { name: 'day',     dur: 2.0,  fn: sceneDay(2.0) },
+  { name: 'print',   dur: 2.75, fn: scenePrint(2.75, { from: () => LAYOUT().sunPos(.9) }) },
+];
+function score(ac, t0, dest) { scoreFromTimeline(ac, t0, dest, TIMELINE); }
+defineFilm({ palette: lbMorning, timeline: TIMELINE, score, format: { ar: '9:16', width: 1080 } });
+</script>

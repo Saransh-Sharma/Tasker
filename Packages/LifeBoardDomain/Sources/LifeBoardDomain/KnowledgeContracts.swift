@@ -508,13 +508,13 @@ public struct KnowledgeNoteTemplate: Identifiable, Hashable, Sendable {
     public var blocks: [Block]
 
     public static let library: [KnowledgeNoteTemplate] = [
-        .init(id: "blank", title: "Blank", subtitle: "A quiet page", symbol: "doc", blocks: [.init(.paragraph, "")]),
-        .init(id: "meeting", title: "Meeting", subtitle: "Decisions and next steps", symbol: "person.2", blocks: [.init(.heading2, "Context"), .init(.paragraph, ""), .init(.heading2, "Decisions"), .init(.bulletedList, ""), .init(.heading2, "Next steps"), .init(.checklist, "")]),
-        .init(id: "project", title: "Project brief", subtitle: "Shape an idea into a plan", symbol: "square.stack.3d.up", blocks: [.init(.heading2, "Outcome"), .init(.paragraph, ""), .init(.heading2, "Why it matters"), .init(.paragraph, ""), .init(.heading2, "Next actions"), .init(.checklist, "")]),
-        .init(id: "idea", title: "Idea", subtitle: "Capture the spark", symbol: "lightbulb", blocks: [.init(.callout, "The idea"), .init(.paragraph, ""), .init(.heading2, "What makes it interesting?"), .init(.paragraph, "")]),
-        .init(id: "checklist", title: "Checklist", subtitle: "A focused list", symbol: "checklist", blocks: [.init(.checklist, ""), .init(.checklist, ""), .init(.checklist, "")]),
-        .init(id: "research", title: "Research", subtitle: "Sources, findings, questions", symbol: "books.vertical", blocks: [.init(.heading2, "Question"), .init(.paragraph, ""), .init(.heading2, "Findings"), .init(.bulletedList, ""), .init(.heading2, "Sources"), .init(.bookmark, "")]),
-        .init(id: "daily", title: "Daily notes", subtitle: "A practical day page", symbol: "sun.max", blocks: [.init(.heading2, "Today"), .init(.paragraph, ""), .init(.heading2, "To do"), .init(.checklist, ""), .init(.heading2, "Keep"), .init(.paragraph, "")])
+        .init(id: "blank", title: String(localized: "Blank"), subtitle: String(localized: "Empty note"), symbol: "doc", blocks: [.init(.paragraph, "")]),
+        .init(id: "meeting", title: String(localized: "Meeting"), subtitle: String(localized: "Decisions and next steps"), symbol: "person.2", blocks: [.init(.heading2, "Context"), .init(.paragraph, ""), .init(.heading2, "Decisions"), .init(.bulletedList, ""), .init(.heading2, "Next steps"), .init(.checklist, "")]),
+        .init(id: "project", title: String(localized: "Project brief"), subtitle: String(localized: "Outcome and next steps"), symbol: "square.stack.3d.up", blocks: [.init(.heading2, "Outcome"), .init(.paragraph, ""), .init(.heading2, "Why it matters"), .init(.paragraph, ""), .init(.heading2, "Next actions"), .init(.checklist, "")]),
+        .init(id: "idea", title: String(localized: "Idea"), subtitle: String(localized: "The idea and why it’s interesting"), symbol: "lightbulb", blocks: [.init(.callout, "The idea"), .init(.paragraph, ""), .init(.heading2, "What makes it interesting?"), .init(.paragraph, "")]),
+        .init(id: "checklist", title: String(localized: "Checklist"), subtitle: String(localized: "A list to check off"), symbol: "checklist", blocks: [.init(.checklist, ""), .init(.checklist, ""), .init(.checklist, "")]),
+        .init(id: "research", title: String(localized: "Research"), subtitle: String(localized: "Question, findings, sources"), symbol: "books.vertical", blocks: [.init(.heading2, "Question"), .init(.paragraph, ""), .init(.heading2, "Findings"), .init(.bulletedList, ""), .init(.heading2, "Sources"), .init(.bookmark, "")]),
+        .init(id: "daily", title: String(localized: "Daily notes"), subtitle: String(localized: "One note per day"), symbol: "sun.max", blocks: [.init(.heading2, "Today"), .init(.paragraph, ""), .init(.heading2, "To do"), .init(.checklist, ""), .init(.heading2, "Keep"), .init(.paragraph, "")])
     ]
 }
 
@@ -799,9 +799,9 @@ public struct KnowledgeNoteValue: Identifiable, Codable, Hashable, Sendable {
     }
 
     public var displayTitle: String {
-        if resolvedLockPolicy != .unlocked { return "Locked note" }
+        if resolvedLockPolicy != .unlocked { return String(localized: "Locked note") }
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Untitled" : trimmed
+        return trimmed.isEmpty ? String(localized: "Untitled") : trimmed
     }
 
     public var resolvedState: KnowledgeNoteState { state ?? .active }

@@ -8,5 +8,13 @@ public enum ComfortProfile: String, Codable, CaseIterable, Hashable, Sendable {
     case balanced
     case playful
 
-    public var title: String { rawValue.capitalized }
+    /// Display name. Matches the Look & feel motion option labels in
+    /// Settings; the raw values stay the persisted keys.
+    public var title: String {
+        switch self {
+        case .calm: String(localized: "Subtle")
+        case .balanced: String(localized: "Balanced")
+        case .playful: String(localized: "Playful")
+        }
+    }
 }

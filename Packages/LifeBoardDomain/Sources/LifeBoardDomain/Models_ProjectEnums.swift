@@ -21,7 +21,18 @@ public enum ProjectColor: String, CaseIterable, Codable, Sendable {
     case teal = "teal"
 
     public var displayName: String {
-        return rawValue.capitalized
+        switch self {
+        case .red: return String(localized: "Red")
+        case .orange: return String(localized: "Orange")
+        case .yellow: return String(localized: "Yellow")
+        case .green: return String(localized: "Green")
+        case .blue: return String(localized: "Blue")
+        case .purple: return String(localized: "Purple")
+        case .pink: return String(localized: "Pink")
+        case .gray: return String(localized: "Gray")
+        case .brown: return String(localized: "Brown")
+        case .teal: return String(localized: "Teal")
+        }
     }
 
     /// Hex color string for UI representation (platform-agnostic)
@@ -66,26 +77,26 @@ public enum ProjectIcon: String, CaseIterable, Codable, Sendable {
     
     public var displayName: String {
         switch self {
-        case .folder: return "Folder"
-        case .inbox: return "Inbox"
-        case .work: return "Work"
-        case .personal: return "Personal"
-        case .health: return "Health"
-        case .learning: return "Learning"
-        case .creative: return "Creative"
-        case .social: return "Social"
-        case .shopping: return "Shopping"
-        case .finance: return "Finance"
-        case .travel: return "Travel"
-        case .home: return "Home"
-        case .car: return "Car"
-        case .sports: return "Sports"
-        case .music: return "Music"
-        case .camera: return "Camera"
-        case .gamecontroller: return "Games"
-        case .star: return "Star"
-        case .heartIcon: return "Heart"
-        case .flag: return "Flag"
+        case .folder: return String(localized: "Folder")
+        case .inbox: return String(localized: "Inbox")
+        case .work: return String(localized: "Work")
+        case .personal: return String(localized: "Personal")
+        case .health: return String(localized: "Health")
+        case .learning: return String(localized: "Learning")
+        case .creative: return String(localized: "Creative")
+        case .social: return String(localized: "Social")
+        case .shopping: return String(localized: "Shopping")
+        case .finance: return String(localized: "Finance")
+        case .travel: return String(localized: "Travel")
+        case .home: return String(localized: "Home")
+        case .car: return String(localized: "Car")
+        case .sports: return String(localized: "Sports")
+        case .music: return String(localized: "Music")
+        case .camera: return String(localized: "Camera")
+        case .gamecontroller: return String(localized: "Games")
+        case .star: return String(localized: "Star")
+        case .heartIcon: return String(localized: "Heart")
+        case .flag: return String(localized: "Flag")
         }
     }
     
@@ -104,11 +115,11 @@ public enum ProjectStatus: String, CaseIterable, Codable, Sendable {
     
     public var displayName: String {
         switch self {
-        case .planning: return "Planning"
-        case .active: return "Active"
-        case .onHold: return "On Hold"
-        case .completed: return "Completed"
-        case .cancelled: return "Cancelled"
+        case .planning: return String(localized: "Planning")
+        case .active: return String(localized: "Active")
+        case .onHold: return String(localized: "On hold")
+        case .completed: return String(localized: "Completed")
+        case .cancelled: return String(localized: "Cancelled")
         }
     }
     
@@ -136,10 +147,10 @@ public enum ProjectPriority: Int, CaseIterable, Codable, Sendable {
     
     public var displayName: String {
         switch self {
-        case .low: return "Low"
-        case .medium: return "Medium"
-        case .high: return "High"
-        case .critical: return "Critical"
+        case .low: return String(localized: "Low")
+        case .medium: return String(localized: "Medium")
+        case .high: return String(localized: "High")
+        case .critical: return String(localized: "Critical")
         }
     }
     
@@ -167,11 +178,11 @@ public enum ProjectHealth: String, CaseIterable, Codable, Sendable {
     
     public var displayName: String {
         switch self {
-        case .excellent: return "Excellent"
-        case .good: return "Good"
-        case .warning: return "Warning"
-        case .critical: return "Critical"
-        case .unknown: return "Unknown"
+        case .excellent: return String(localized: "Excellent")
+        case .good: return String(localized: "Good")
+        case .warning: return String(localized: "Warning")
+        case .critical: return String(localized: "Critical")
+        case .unknown: return String(localized: "Unknown")
         }
     }
     
@@ -279,11 +290,11 @@ public enum ProjectSortOrder: String, CaseIterable, Codable, Sendable {
     
     public var displayName: String {
         switch self {
-        case .name: return "Name"
-        case .priority: return "Priority"
-        case .dueDate: return "Due Date"
-        case .createdDate: return "Created Date"
-        case .taskCount: return "Task Count"
+        case .name: return String(localized: "Name")
+        case .priority: return String(localized: "Priority")
+        case .dueDate: return String(localized: "Due date")
+        case .createdDate: return String(localized: "Date created")
+        case .taskCount: return String(localized: "Task count")
         }
     }
 }

@@ -152,7 +152,12 @@ private struct ConfettiView: UIViewRepresentable {
 // MARK: - Animated Sheen
 
 /// A slow, ambient diagonal light sweep for primary CTAs. Far subtler than
-/// a loading shimmer: one pass every few seconds, masked to the content.
+/// a loading shimmer, masked to the content.
+///
+/// It sweeps twice after the button appears and then settles: `DESIGN.md`
+/// launch contract 7 says an ambient loop stops when nobody is interacting,
+/// and a sheen that ran forever kept the sheet's render loop awake for as
+/// long as the form was open. It never runs in Low Power Mode.
 private struct AnimatedSheen: ViewModifier {
     let isEnabled: Bool
     @State private var phase: CGFloat = -1
@@ -160,7 +165,10 @@ private struct AnimatedSheen: ViewModifier {
     @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimized
 
     func body(content: Content) -> some View {
-        if isEnabled == false || LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) || scrollOptimized {
+        if isEnabled == false
+            || LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion)
+            || scrollOptimized
+            || ProcessInfo.processInfo.isLowPowerModeEnabled {
             content
         } else {
             content
@@ -182,7 +190,7 @@ private struct AnimatedSheen: ViewModifier {
                     .allowsHitTesting(false)
                 )
                 .onAppear {
-                    withAnimation(.linear(duration: 3.0).repeatForever(autoreverses: false)) {
+                    withAnimation(.linear(duration: 3.0).repeatCount(2, autoreverses: false)) {
                         phase = 1
                     }
                 }

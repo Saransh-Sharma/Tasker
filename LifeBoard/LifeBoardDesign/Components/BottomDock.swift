@@ -13,6 +13,7 @@ struct BottomDock: View {
 
     @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var items: [DockItem] {
         return [
@@ -94,8 +95,8 @@ struct BottomDock: View {
     }
 
     private func handleTap(_ item: HomeBottomBarItem) {
-        HapticFeedback.selection()
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+        Haptic.pick.play()
+        withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
             state.select(item)
         }
         DispatchQueue.main.async {
@@ -117,8 +118,8 @@ struct BottomDock: View {
     }
 
     private func handleCreate() {
-        HapticFeedback.medium()
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+        Haptic.lift.play()
+        withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
             state.selectMomentaryCreate()
         }
         DispatchQueue.main.async {
@@ -127,7 +128,7 @@ struct BottomDock: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
             Task { @MainActor in
                 guard state.selectedItem == .create else { return }
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+                withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
                     state.restoreAfterMomentaryCreate()
                 }
             }

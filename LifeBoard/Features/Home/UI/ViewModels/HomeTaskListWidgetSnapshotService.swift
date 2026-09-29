@@ -418,11 +418,9 @@ enum TaskListWidgetTimelineProjection {
         into gaps: inout [TaskListWidgetTimelineGap]
     ) {
         guard end.timeIntervalSince(start) >= 30 * 60 else { return }
-        let headline = start <= now && end > now ? "Open now" : "Open time"
+        let headline = start <= now && end > now ? String(localized: "Free now") : String(localized: "Open time")
         let minutes = Int(end.timeIntervalSince(start) / 60)
-        let supporting = inboxCount > 0
-            ? "\(minutes)m available. Place an Inbox task here."
-            : "\(minutes)m available. Add a task for this window."
+        let supporting = String(localized: "\(LifeBoardDuration.text(minutes: minutes)) free")
         gaps.append(TaskListWidgetTimelineGap(
             startDate: start,
             endDate: end,
@@ -717,7 +715,7 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
                     )
                     let workspacePreferences = WorkspacePreferencesStore.shared.load()
                     let now = Date()
-                    self.loadHabitRows(coordinator: coordinator, on: now) { [weak self] habitRows in
+                    self.loadHabitRows(coordinator: coordinator, on: now) { [weak self] habitRows, habitAmounts in
                         guard let self else { return }
                         self.loadBehaviorOccurrenceSnapshots(on: now) { [weak self] behaviorOccurrences in
                             guard let self else { return }
@@ -727,6 +725,7 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
                                     tasks: tasks,
                                     now: now,
                                     habitRows: habitRows,
+                                    habitAmounts: habitAmounts,
                                     behaviorOccurrences: behaviorOccurrences,
                                     activeSessions: activeSessions,
                                     calendarSnapshot: calendarSnapshot,
@@ -762,6 +761,7 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
         tasks: [TaskDefinition],
         now: Date = Date(),
         habitRows: [HomeHabitRow] = [],
+        habitAmounts: [UUID: HomeHabitWidgetAmount] = [:],
         behaviorOccurrences: [BehaviorOccurrenceSurfaceSnapshot] = [],
         activeSessions: ActiveSessionSurfaces = .empty,
         calendarSnapshot: TaskListWidgetCalendarSnapshot = .empty,
@@ -849,6 +849,7 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
         )
         let habitSnapshot = taskListWidgetHabitSnapshot(
             from: habitRows,
+            amounts: habitAmounts,
             now: now,
             calendar: calendar
         )
@@ -1002,7 +1003,7 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
     func loadHabitRows(
         coordinator: UseCaseCoordinator,
         on date: Date,
-        completion: @escaping ([HomeHabitRow]) -> Void
+        completion: @escaping ([HomeHabitRow], [UUID: HomeHabitWidgetAmount]) -> Void
     ) {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
@@ -1030,6 +1031,33 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
             guard libraryRows.isEmpty == false else {
                 group.leave()
                 return
+            }
+
+            // Amount habits: today's recorded value, so a widget ring can
+            // show and log it. The use case is async; the group waits.
+            let amountRows = libraryRows.compactMap { row -> (UUID, HabitTarget, Double)? in
+                guard row.isArchived == false, row.isPaused == false,
+                      let target = row.targetConfig?.effectiveTarget,
+                      let goal = HabitAmountRule.target(for: target) else { return nil }
+                return (row.habitID, target, goal)
+            }
+            if amountRows.isEmpty == false {
+                group.enter()
+                Task {
+                    var amounts: [UUID: HomeHabitWidgetAmount] = [:]
+                    for (habitID, target, goal) in amountRows {
+                        let current = await coordinator.logHabitAmount.currentAmount(habitID: habitID, on: day)
+                        let unit: String = { if case let .quantitative(_, unit) = target { return unit }; return "" }()
+                        let isTimed: Bool = { if case .timed = target { return true }; return false }()
+                        amounts[habitID] = HomeHabitWidgetAmount(
+                            current: current, target: goal, unit: unit, isTimed: isTimed,
+                            step: HabitAmountRule.step(for: target)
+                        )
+                    }
+                    let resolved = amounts
+                    state.update { $0.amounts = resolved }
+                    group.leave()
+                }
             }
 
             group.enter()
@@ -1063,7 +1091,7 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
                 agenda: resolvedState.agendaRows,
                 tracking: resolvedState.trackingRows
             )
-            completion(mergedRows)
+            completion(mergedRows, resolvedState.amounts)
         }
     }
 
@@ -1157,10 +1185,31 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
 
     func taskListWidgetHabitSnapshot(
         from rows: [HomeHabitRow],
+        amounts: [UUID: HomeHabitWidgetAmount] = [:],
         now: Date,
         calendar: Calendar
     ) -> TaskListWidgetHabitSnapshot {
         let day = calendar.startOfDay(for: now)
+        func primary(for row: HomeHabitRow) -> TaskListWidgetHabitPrimary {
+            let amount = amounts[row.habitID]
+            return TaskListWidgetHabitPrimary(
+                habitID: row.habitID,
+                title: row.title,
+                iconSymbolName: row.iconSymbolName,
+                accentHex: row.accentHex,
+                currentStreak: row.currentStreak,
+                bestStreak: row.bestStreak,
+                todayState: taskListWidgetHabitTodayState(row.state),
+                dueAt: row.dueAt,
+                week: taskListWidgetHabitWeek(from: row.last14Days, endingOn: day, calendar: calendar),
+                currentAmount: amount?.current,
+                targetValue: amount?.target,
+                targetUnit: amount?.unit,
+                targetIsTimed: amount?.isTimed,
+                stepValue: amount?.step,
+                isQuitHabit: row.kind == .negative
+            )
+        }
         let activeRows = rows.filter { row in
             switch row.state {
             case .due, .overdue, .completedToday, .lapsedToday, .skippedToday, .tracking:
@@ -1182,19 +1231,18 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
                 return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
             }
             .first
-            .map { row in
-                TaskListWidgetHabitPrimary(
-                    habitID: row.habitID,
-                    title: row.title,
-                    iconSymbolName: row.iconSymbolName,
-                    accentHex: row.accentHex,
-                    currentStreak: row.currentStreak,
-                    bestStreak: row.bestStreak,
-                    todayState: taskListWidgetHabitTodayState(row.state),
-                    dueAt: row.dueAt,
-                    week: taskListWidgetHabitWeek(from: row.last14Days, endingOn: day, calendar: calendar)
-                )
+            .map(primary(for:))
+        // The medium widget shows what is still open first, then what is done.
+        let today = activeRows
+            .filter { $0.state == .due || $0.state == .overdue || $0.state == .completedToday || $0.state == .tracking }
+            .sorted { lhs, rhs in
+                let lhsDone = lhs.state == .completedToday
+                let rhsDone = rhs.state == .completedToday
+                if lhsDone != rhsDone { return rhsDone }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
             }
+            .prefix(8)
+            .map(primary(for:))
 
         return TaskListWidgetHabitSnapshot(
             date: day,
@@ -1202,7 +1250,8 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
             primaryHabit: primary,
             dueCount: dueCount,
             completedTodayCount: completedCount,
-            atRiskCount: atRiskCount
+            atRiskCount: atRiskCount,
+            today: Array(today)
         )
     }
 
@@ -1284,98 +1333,5 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
     func taskListWidgetHabitDayKey(_ date: Date, calendar: Calendar) -> String {
         let components = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
-    }
-
-    func widgetTask(from task: TaskDefinition) -> TaskListWidgetTask {
-        TaskListWidgetTask(
-            id: task.id,
-            title: task.title,
-            projectID: task.projectID,
-            projectName: task.projectName,
-            priorityCode: task.priority.code,
-            dueDate: task.dueDate,
-            isOverdue: task.isOverdue,
-            estimatedDurationMinutes: task.estimatedDuration.map { max(1, Int($0 / 60)) },
-            energy: task.energy.rawValue,
-            context: task.context.rawValue,
-            isComplete: task.isComplete,
-            hasDependencies: !task.dependencies.isEmpty
-        )
-    }
-
-    func sortByPriorityThenDue(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
-        if lhs.priority.scorePoints != rhs.priority.scorePoints {
-            return lhs.priority.scorePoints > rhs.priority.scorePoints
-        }
-        let lhsDate = lhs.dueDate ?? Date.distantFuture
-        let rhsDate = rhs.dueDate ?? Date.distantFuture
-        if lhsDate != rhsDate {
-            return lhsDate < rhsDate
-        }
-        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-    }
-
-    func sortCompletedDescending(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
-        let lhsDate = lhs.dateCompleted ?? Date.distantPast
-        let rhsDate = rhs.dateCompleted ?? Date.distantPast
-        if lhsDate != rhsDate {
-            return lhsDate > rhsDate
-        }
-        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-    }
-
-    func persistIfChanged(snapshot: TaskListWidgetSnapshot, reason: String) {
-        let current = TaskListWidgetSnapshot.load()
-        if Self.normalizedForReloadComparison(snapshot) == Self.normalizedForReloadComparison(current) {
-            return
-        }
-        snapshot.save()
-        WatchWidgetSnapshotSync.shared.sendTaskListSnapshot(snapshot)
-        reloadTaskListTimelines()
-        logDebug("TASK_WIDGET_SNAPSHOT refreshed reason=\(reason)")
-    }
-
-    static func normalizedForReloadComparison(_ snapshot: TaskListWidgetSnapshot) -> TaskListWidgetSnapshot {
-        var value = snapshot
-        value.updatedAt = Date(timeIntervalSince1970: 0)
-        value.snapshotHealth.generatedAt = Date(timeIntervalSince1970: 0)
-        value.snapshotHealth.hasCorruptionFallback = false
-        value.calendar.updatedAt = Date(timeIntervalSince1970: 0)
-        value.timeline.updatedAt = Date(timeIntervalSince1970: 0)
-        value.timeline.day.currentTime = Date(timeIntervalSince1970: 0)
-        value.habit.updatedAt = Date(timeIntervalSince1970: 0)
-        return value
-    }
-
-    func reloadTaskListTimelines() {
-        #if canImport(WidgetKit)
-        let kinds = [
-            "TopTaskNowWidget", "TodayCounterNextWidget", "OverdueRescueWidget", "QuickWin15mWidget",
-            "MorningKickoffWidget", "EveningWrapWidget", "WaitingOnWidget", "InboxTriageWidget",
-            "DueSoonRadarWidget", "EnergyMatchWidget", "ProjectSpotlightWidget", "CalendarTaskBridgeWidget",
-            "TodayTop3Widget", "NowLaneWidget", "OverdueBoardWidget", "Upcoming48hWidget",
-            "MorningEveningPlanWidget", "QuickViewSwitcherWidget", "ProjectSprintWidget",
-            "PriorityMatrixLiteWidget", "ContextWidget", "FocusSessionQueueWidget",
-            "RecoveryWidget", "DoneReflectionWidget",
-            "TodayPlannerBoardWidget", "WeekTaskPlannerWidget", "ProjectCockpitWidget",
-            "BacklogHealthWidget", "KanbanLiteWidget", "DeadlineHeatmapWidget",
-            "ExecutionDashboardWidget", "DeepWorkAgendaWidget", "AssistantPlanPreviewWidget",
-            "LifeAreasBoardWidget",
-            "HomeCalendarWidget", "HomeTimelineWidget",
-            "WatchTimelineComplication", "WatchMeetingScheduleComplication", "WatchHabitStreakComplication",
-            "InlineNextTaskWidget", "InlineDueSoonWidget",
-            "CircularTodayProgressWidget", "CircularQuickAddWidget",
-            "RectangularTop2TasksWidget", "RectangularOverdueAlertWidget",
-            "RectangularFocusNowWidget", "RectangularWaitingOnWidget",
-            "DeskTodayBoardWidget", "CountdownPanelWidget", "NightlyResetWidget",
-            "MorningBriefPanelWidget", "ProjectPulseWidget", "FocusDockWidget"
-        ]
-        Task { @MainActor in
-            let center = WidgetCenter.shared
-            for kind in kinds {
-                center.reloadTimelines(ofKind: kind)
-            }
-        }
-        #endif
     }
 }

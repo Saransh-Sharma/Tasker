@@ -124,8 +124,10 @@ struct TaskWidgetViewContext {
     }
 
     var leadRatio: CGFloat {
+        // Was 0.68: the support panel of a StandBy-style medium widget got
+        // ~68pt of text width and broke "PORTFOLIO" mid-word.
         if isStandByLike {
-            return 0.68
+            return 0.55
         }
 
         switch family {
@@ -262,8 +264,8 @@ struct TaskWidgetContainerBackgroundModifier: ViewModifier {
                         .overlay {
                             LinearGradient(
                                 colors: [
-                                    WidgetBrand.sunriseGold.opacity(0.20),
-                                    WidgetBrand.violet.opacity(0.08),
+                                    WidgetBrand.sunriseGold.opacity(0.14),
+                                    WidgetBrand.canvasWarm.opacity(0.08),
                                     .clear
                                 ],
                                 startPoint: .bottomLeading,
@@ -433,6 +435,7 @@ struct TaskWidgetSectionHeader: View {
             VStack(alignment: .leading, spacing: 2) {
                 if let eyebrow {
                     Text(eyebrow.uppercased())
+                        .lineLimit(1) // an eyebrow never breaks mid-word
                         .font(TaskWidgetTypography.eyebrow)
                         .foregroundStyle(WidgetBrand.textSecondary)
                 }
@@ -445,11 +448,11 @@ struct TaskWidgetSectionHeader: View {
             if let detail {
                 Text(detail)
                     .font(TaskWidgetTypography.meta)
-                    .foregroundStyle(WidgetBrand.violetDeep)
+                    .foregroundStyle(WidgetBrand.textPrimary)
                     .lineLimit(1)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(WidgetBrand.violetSoft, in: Capsule())
+                    .background(WidgetBrand.accentWash, in: Capsule())
             }
         }
         .accessibilityElement(children: .combine)
@@ -479,6 +482,9 @@ struct TaskWidgetHeroMetric: View {
                 .font(TaskWidgetTypography.support)
                 .foregroundStyle(WidgetBrand.textSecondary)
                 .lineLimit(2)
+                // Without this the two-line limit never engaged and medium
+                // widgets cut the line short ("No active projec…").
+                .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel([eyebrow, value, supporting].joined(separator: ". "))
@@ -508,13 +514,23 @@ struct TaskWidgetSummaryPill: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        // Tint as a dot beside the label, the number in primary ink: pills
+        // pass fill colours (gold, green, orange) that sat at 1.8–2.8:1 as
+        // text on the light panel.
         VStack(alignment: .leading, spacing: 2) {
-            Text(title.uppercased())
-                .font(TaskWidgetTypography.eyebrow)
-                .foregroundStyle(WidgetBrand.textSecondary)
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(tint)
+                    .frame(width: 6, height: 6)
+                    .widgetAccentable()
+                Text(title.uppercased())
+                    .font(TaskWidgetTypography.eyebrow)
+                    .foregroundStyle(WidgetBrand.textSecondary)
+                    .lineLimit(1)
+            }
             Text(value)
                 .font(TaskWidgetTypography.metric)
-                .foregroundStyle(tint)
+                .foregroundStyle(WidgetBrand.textPrimary)
                 .taskWidgetNumericTransition(numericValue, reduceMotion: reduceMotion)
                 .taskWidgetAccentable(if: numericValue != nil)
         }
@@ -534,21 +550,54 @@ struct TaskWidgetStatItem: Identifiable {
 struct TaskWidgetStatStrip: View {
     let items: [TaskWidgetStatItem]
 
+    // A row when every label fits on one line, otherwise a column of
+    // label–value rows. As a fixed row in a narrow support panel each label
+    // broke mid-word ("DO/NE", "RES/CU/E", "NE/XT").
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            ForEach(items) { item in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.title.uppercased())
-                        .font(TaskWidgetTypography.eyebrow)
-                        .foregroundStyle(WidgetBrand.textSecondary)
-                    Text(item.value)
-                        .font(TaskWidgetTypography.bodyStrong)
-                        .foregroundStyle(item.tint)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(items) { item in
+                    VStack(alignment: .leading, spacing: 2) {
+                        label(item)
+                        value(item)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(items) { item in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        label(item)
+                        Spacer(minLength: 4)
+                        value(item)
+                    }
+                }
             }
         }
         .accessibilityElement(children: .combine)
+    }
+
+    // The tint marks *which* stat with a dot; the number itself is primary
+    // ink. As tinted text the light-appearance gold, green and orange values
+    // sat at 1.8–2.8:1 on the white panel.
+    private func label(_ item: TaskWidgetStatItem) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(item.tint)
+                .frame(width: 6, height: 6)
+                .widgetAccentable()
+            Text(item.title.uppercased())
+                .font(TaskWidgetTypography.eyebrow)
+                .foregroundStyle(WidgetBrand.textSecondary)
+                .lineLimit(1)
+        }
+        .fixedSize()
+    }
+
+    private func value(_ item: TaskWidgetStatItem) -> some View {
+        Text(item.value)
+            .font(TaskWidgetTypography.bodyStrong)
+            .foregroundStyle(WidgetBrand.textPrimary)
+            .lineLimit(1)
     }
 }
 
@@ -592,6 +641,8 @@ struct TaskWidgetActionBandLabel: View {
             Text(title)
                 .font(TaskWidgetTypography.bodyStrong)
                 .foregroundStyle(WidgetBrand.textInverse)
+                // One line: in a small widget the band clipped a wrapped label.
+                .lineLimit(1)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, minHeight: 40)
@@ -600,7 +651,7 @@ struct TaskWidgetActionBandLabel: View {
             shape
                 .fill(
                     LinearGradient(
-                        colors: reduceTransparency ? [accent, accent] : [accent, WidgetBrand.violetDeep],
+                        colors: reduceTransparency ? [accent, accent] : [accent, WidgetBrand.actionPrimaryPressed],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -860,7 +911,11 @@ struct TaskWidgetTwoZone<Leading: View, Trailing: View>: View {
     var leadingWeight: CGFloat = 0.6
     var trailingWeight: CGFloat = 0.4
     var stackedSpacing: CGFloat? = nil
-    var compactWidthThreshold: CGFloat = 310
+    /// Below this the zones stack. It was 310, just above a medium widget's
+    /// content width on current iPhones, so every two-zone medium widget
+    /// stacked and pushed its second panel off the bottom ("DONE / RESCUE /
+    /// NEXT", "PORTFOLIO" cut in half). Small widgets (~140pt) still stack.
+    var compactWidthThreshold: CGFloat = 260
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 

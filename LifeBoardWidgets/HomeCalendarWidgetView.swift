@@ -174,42 +174,42 @@ private struct HomeCalendarStatusSummary: View {
 
     private var title: String {
         if isStale {
-            return "Schedule may be stale"
+            return "Not up to date"
         }
 
         switch calendar.status {
         case .permissionRequired:
-            return "Connect Calendar"
+            return "Connect calendar"
         case .noCalendarsSelected:
-            return "No Calendars"
+            return "No calendars"
         case .empty:
-            return "Clear Window"
+            return "No events"
         case .allDayOnly:
-            return "All-Day Only"
+            return "All-day only"
         case .error:
-            return "Calendar Needs Attention"
+            return "Couldn’t load calendar"
         case .active:
-            return calendar.nextMeeting?.event.title ?? "Schedule Ready"
+            return calendar.nextMeeting?.event.title ?? "Today"
         }
     }
 
     private var detail: String {
         if isStale {
-            return "Open LifeBoard to refresh schedule context."
+            return "Open LifeBoard to refresh."
         }
 
         switch calendar.status {
         case .permissionRequired:
             return "Allow full calendar access in LifeBoard."
         case .noCalendarsSelected:
-            return "Choose at least one calendar for schedule insights."
+            return "Choose a calendar in LifeBoard."
         case .empty:
             if let freeUntil = calendar.freeUntil {
                 return "Free until \(HomeCalendarWidgetFormatter.timeText(freeUntil))."
             }
-            return "No events are scheduled. Use this open window for focused work."
+            return "Free all day"
         case .allDayOnly:
-            return "Only all-day events are scheduled today."
+            return "No timed events"
         case .error:
             if let errorMessage = calendar.errorMessage, errorMessage.isEmpty == false {
                 return errorMessage
@@ -247,7 +247,7 @@ private struct HomeCalendarNextMeetingSummary: View {
 
     var body: some View {
         TaskWidgetPanel(accent: WidgetBrand.role(.meeting).base, style: .accentWash, padding: 10) {
-            Text(nextMeeting.isInProgress ? "Now" : "Next Up")
+            Text(nextMeeting.isInProgress ? "Now" : "Next")
                 .font(TaskWidgetTypography.eyebrow)
                 .foregroundStyle(WidgetBrand.textSecondary)
             Text(nextMeeting.event.title)
@@ -358,7 +358,7 @@ private struct HomeCalendarAllDayStrip: View {
 
     var body: some View {
             HStack(spacing: 6) {
-                Label("All Day", systemImage: "sun.max")
+                Label("All day", systemImage: "sun.max")
                     .font(TaskWidgetTypography.captionStrong)
                     .foregroundStyle(WidgetBrand.sunriseGoldDeep)
                     .lineLimit(1)
@@ -462,7 +462,7 @@ private struct HomeCalendarWeekAgendaDay: View {
         if let first = day.allDayEvents.first {
             return "All day \(first.title)"
         }
-        return "Clear"
+        return "No events"
     }
 }
 
@@ -474,9 +474,9 @@ private struct HomeCalendarWidgetFooter: View {
         HStack(spacing: 6) {
             Image(systemName: isStale ? "arrow.clockwise.circle" : "arrow.up.right")
                 .font(TaskWidgetTypography.caption)
-                .foregroundStyle(isStale ? WidgetBrand.sunriseGoldDeep : WidgetBrand.violet)
+                .foregroundStyle(isStale ? WidgetBrand.sunriseGoldDeep : WidgetBrand.actionPrimary)
                 .accessibilityHidden(true)
-            Text(isStale ? "Refresh day" : "Open schedule")
+            Text(isStale ? "Refresh" : "Open schedule")
                 .font(TaskWidgetTypography.captionStrong)
                 .foregroundStyle(WidgetBrand.textSecondary)
                 .lineLimit(1)
@@ -516,7 +516,7 @@ private enum HomeCalendarWidgetFormatter {
         if event.isAllDay {
             return "All day"
         }
-        return "\(timeText(event.startDate)) - \(timeText(event.endDate))"
+        return "\(timeText(event.startDate)) – \(timeText(event.endDate))"
     }
 
     static func nextMeetingDetail(
@@ -524,13 +524,13 @@ private enum HomeCalendarWidgetFormatter {
         freeUntil: Date?
     ) -> String {
         if nextMeeting.isInProgress {
-            return "In progress until \(timeText(nextMeeting.event.endDate))"
+            return "Until \(timeText(nextMeeting.event.endDate))"
         }
         if nextMeeting.minutesUntilStart <= 0 {
             return eventTimeText(nextMeeting.event)
         }
         if nextMeeting.minutesUntilStart < 60 {
-            return "Starts in \(nextMeeting.minutesUntilStart)m"
+            return "Starts in \(nextMeeting.minutesUntilStart) min"
         }
         if let freeUntil {
             return "Free until \(timeText(freeUntil))"
@@ -586,10 +586,10 @@ private enum HomeCalendarWidgetFormatter {
         isStale: Bool
     ) -> String {
         if isStale {
-            return "Calendar schedule may be stale. Open LifeBoard to refresh."
+            return "Calendar not up to date. Open LifeBoard to refresh."
         }
         if let nextMeeting = calendar.nextMeeting, calendar.status == .active {
-            return "Calendar, \(dateText(calendar.date)), next up \(nextMeeting.event.title), \(nextMeetingDetail(nextMeeting, freeUntil: calendar.freeUntil))."
+            return "Calendar, \(dateText(calendar.date)), next: \(nextMeeting.event.title), \(nextMeetingDetail(nextMeeting, freeUntil: calendar.freeUntil))."
         }
         return "Calendar, \(dateText(calendar.date)), \(countText(calendar.eventsTodayCount))."
     }

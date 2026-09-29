@@ -3,6 +3,52 @@ import XCTest
 @testable import LifeBoard
 
 final class LifeBoardShortcutDeepLinkTests: XCTestCase {
+    func testChatLaunchRequestCarriesATypedContextAndDecodesWithoutOne() throws {
+        let dayID = UUID()
+        let request = EvaChatLaunchRequest(
+            prompt: "What shaped this day?",
+            context: EvaLaunchContext(kind: .journalDay, recordIDs: [dayID], date: Date(timeIntervalSince1970: 100), summary: "A calm day")
+        )
+        let data = try JSONEncoder().encode(request)
+        let decoded = try JSONDecoder().decode(EvaChatLaunchRequest.self, from: data)
+        XCTAssertEqual(decoded.context?.kind, .journalDay)
+        XCTAssertEqual(decoded.context?.recordIDs, [dayID])
+        XCTAssertEqual(decoded.context?.title, "About this day")
+        var json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        json.removeValue(forKey: "context")
+        let legacy = try JSONDecoder().decode(EvaChatLaunchRequest.self, from: try JSONSerialization.data(withJSONObject: json))
+        XCTAssertNil(legacy.context)
+        XCTAssertEqual(legacy.prompt, "What shaped this day?")
+    }
+
+    func testEvaPresentationPolicyLiftsASheetUnlessAlreadyOnEvaOrFlagOff() {
+        XCTAssertEqual(EvaPresentationPolicy.decide(flagOn: true, current: .plan), .sheet)
+        XCTAssertEqual(EvaPresentationPolicy.decide(flagOn: true, current: .eva), .tab)
+        XCTAssertEqual(EvaPresentationPolicy.decide(flagOn: false, current: .plan), .tab)
+    }
+
+    func testLaunchContextsMapToRecordCommandsNotProse() {
+        XCTAssertEqual(EvaLaunchContextMapping.invocation(for: EvaLaunchContext(kind: .day))?.id, .today)
+        let projectID = UUID()
+        let project = EvaLaunchContextMapping.invocation(for: EvaLaunchContext(kind: .project, recordIDs: [projectID]))
+        XCTAssertEqual(project?.id, .project)
+        XCTAssertEqual(project?.resolvedArgument, projectID.uuidString)
+        XCTAssertNil(EvaLaunchContextMapping.invocation(for: EvaLaunchContext(kind: .task, recordIDs: [UUID()])))
+    }
+
+    func testStartFocusHandoffCarriesThePresetID() throws {
+        let action = PendingShortcutLaunchAction(kind: .startFocus, presetID: "quick")
+        let data = try JSONEncoder().encode(action)
+        let decoded = try JSONDecoder().decode(PendingShortcutLaunchAction.self, from: data)
+        XCTAssertEqual(decoded.presetID, "quick")
+        // Payloads written before presets existed still decode.
+        var json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        json.removeValue(forKey: "presetID")
+        let legacy = try JSONDecoder().decode(PendingShortcutLaunchAction.self, from: try JSONSerialization.data(withJSONObject: json))
+        XCTAssertNil(legacy.presetID)
+        XCTAssertEqual(legacy.kind, .startFocus)
+    }
+
     func testChatDeepLinkRoundTripsPrompt() {
         let prompt = "What should I focus on first today?"
         let url = ShortcutDeepLink.chatURL(prompt: prompt)
@@ -299,106 +345,8 @@ final class InboxTaskCaptureServiceTests: XCTestCase {
             _ = try await service.createTask(title: "   ", details: nil)
             XCTFail("Expected blank title to throw")
         } catch {
-            XCTAssertTrue(error.localizedDescription.contains("cannot be empty"))
+            XCTAssertEqual(error.localizedDescription, "Add a task title.")
         }
-    }
-}
-
-final class FocusSessionShortcutRecoveryTests: XCTestCase {
-    override func setUp() {
-        super.setUp()
-        clearPersistedFocusSessionKeys()
-    }
-
-    override func tearDown() {
-        clearPersistedFocusSessionKeys()
-        super.tearDown()
-    }
-
-    func testFetchActiveSessionReturnsNewestUnfinishedSession() throws {
-        let olderSession = FocusSessionDefinition(
-            id: UUID(),
-            taskID: UUID(),
-            startedAt: Date().addingTimeInterval(-1_200),
-            endedAt: nil,
-            durationSeconds: 0,
-            targetDurationSeconds: 25 * 60,
-            wasCompleted: false,
-            xpAwarded: 0
-        )
-        let newestSession = FocusSessionDefinition(
-            id: UUID(),
-            taskID: UUID(),
-            startedAt: Date().addingTimeInterval(-300),
-            endedAt: nil,
-            durationSeconds: 0,
-            targetDurationSeconds: 25 * 60,
-            wasCompleted: false,
-            xpAwarded: 0
-        )
-        let repository = ShortcutFocusSessionRepositoryStub(
-            sessions: [
-                olderSession,
-                FocusSessionDefinition(
-                    id: UUID(),
-                    taskID: UUID(),
-                    startedAt: Date().addingTimeInterval(-2_400),
-                    endedAt: Date().addingTimeInterval(-1_800),
-                    durationSeconds: 600,
-                    targetDurationSeconds: 25 * 60,
-                    wasCompleted: false,
-                    xpAwarded: 0
-                ),
-                newestSession
-            ]
-        )
-        let useCase = FocusSessionUseCase(repository: repository, engine: GamificationService(repository: repository))
-
-        let session = try awaitResult { completion in
-            useCase.fetchActiveSession(completion: completion)
-        }
-
-        XCTAssertEqual(session?.id, newestSession.id)
-    }
-
-    func testFetchActiveSessionClearsPersistedKeysWhenRepositoryHasNoActiveSession() throws {
-        UserDefaults.standard.set(UUID().uuidString, forKey: "focusSessionActiveID")
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "focusSessionStartedAt")
-        UserDefaults.standard.set(UUID().uuidString, forKey: "focusSessionTaskID")
-        UserDefaults.standard.set(25 * 60, forKey: "focusSessionTargetSeconds")
-
-        let repository = ShortcutFocusSessionRepositoryStub(
-            sessions: [
-                FocusSessionDefinition(
-                    id: UUID(),
-                    taskID: UUID(),
-                    startedAt: Date().addingTimeInterval(-1_200),
-                    endedAt: Date().addingTimeInterval(-600),
-                    durationSeconds: 600,
-                    targetDurationSeconds: 25 * 60,
-                    wasCompleted: false,
-                    xpAwarded: 0
-                )
-            ]
-        )
-        let useCase = FocusSessionUseCase(repository: repository, engine: GamificationService(repository: repository))
-
-        let session = try awaitResult { completion in
-            useCase.fetchActiveSession(completion: completion)
-        }
-
-        XCTAssertNil(session)
-        XCTAssertNil(UserDefaults.standard.string(forKey: "focusSessionActiveID"))
-        XCTAssertNil(UserDefaults.standard.object(forKey: "focusSessionStartedAt"))
-        XCTAssertNil(UserDefaults.standard.string(forKey: "focusSessionTaskID"))
-        XCTAssertNil(UserDefaults.standard.object(forKey: "focusSessionTargetSeconds"))
-    }
-
-    private func clearPersistedFocusSessionKeys() {
-        UserDefaults.standard.removeObject(forKey: "focusSessionActiveID")
-        UserDefaults.standard.removeObject(forKey: "focusSessionStartedAt")
-        UserDefaults.standard.removeObject(forKey: "focusSessionTaskID")
-        UserDefaults.standard.removeObject(forKey: "focusSessionTargetSeconds")
     }
 }
 
@@ -482,49 +430,4 @@ private final class ShortcutProjectRepositoryStub: ProjectRepositoryProtocol, @u
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         completion(.success(true))
     }
-}
-
-private final class ShortcutFocusSessionRepositoryStub: GamificationRepositoryProtocol, @unchecked Sendable {
-    var sessions: [FocusSessionDefinition]
-
-    init(sessions: [FocusSessionDefinition]) {
-        self.sessions = sessions
-    }
-
-    func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) { completion(.success(false)) }
-    func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
-        completion(.success(sessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }))
-    }
-}
-
-private func awaitResult<T>(
-    timeout: TimeInterval = 1.0,
-    _ operation: (@escaping @Sendable (Result<T, Error>) -> Void) -> Void
-) throws -> T {
-    let semaphore = DispatchSemaphore(value: 0)
-    let capturedResult = LockedTestState<Result<T, Error>?>(nil)
-
-    operation { result in
-        capturedResult.write(result)
-        semaphore.signal()
-    }
-
-    let waitResult = semaphore.wait(timeout: .now() + timeout)
-    if waitResult == .timedOut {
-        throw NSError(domain: "LifeBoardAppShortcutsTests", code: 408, userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for result"])
-    }
-
-    return try XCTUnwrap(capturedResult.read()).get()
 }

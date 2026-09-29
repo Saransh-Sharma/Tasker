@@ -20,7 +20,7 @@ extension ChatScaffoldView {
     var navigationChromeState: EvaChatNavigationChromeState {
         EvaChatNavigationChromeState(
             title: assistantIdentity.snapshot.displayName,
-            subtitle: currentThread == nil ? "Ask or use / commands" : chatTitle,
+            subtitle: currentThread == nil ? String(localized: "New chat") : chatTitle,
             showsUtilityActions: activationConfiguration?.hideUtilityActions != true,
             showsHistoryAction: showsHistoryAction && isActivationPresentation == false,
             showsNewChatAction: currentThread != nil && isActivationPresentation == false

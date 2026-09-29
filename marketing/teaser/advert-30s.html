@@ -1,0 +1,53 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>LifeBoard: a real day, drawn (30 s)</title>
+<style>
+  body{margin:0;background:#111;color:#ccc;font:13px/1.4 ui-monospace,Menlo,monospace;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px}
+  canvas#c{width:min(92vw,720px);height:auto;background:#000;box-shadow:0 0 0 1px #333}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
+  button{background:#222;color:#ddd;border:1px solid #444;padding:4px 10px;cursor:pointer;font:inherit}
+  input[type=range]{width:320px}
+</style>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="core.js"></script>
+<script src="lifeboard-scenes.js"></script>
+<script>
+'use strict';
+// BRIEF
+// Subject: a real day, drawn. Scraps of a life fold into one calm place; the app asks its five questions;
+//          the plan breaks and EVA helps recover without a score; the sun that rose lands as the icon's eye.
+// Format: 9:16 default (also 16:9 and 1:1 at render time), drawn 12 fps, output 24 fps, 30 s.
+// Look: mixed, ink-led. Ink on LifeBoard's warm paper by daypart; blueprint chalk on indigo; riso plates for the icon.
+// Anchor: the sun dot.
+// t     dur   scene      look              what happens                                                     label
+// 0.0   2.0   sunrise    ink morning       dunes, the sun rises with a hatch bloom, push-in                  Good morning.
+// 2.0   2.5   scatter    ink morning boil  the scraps of a life boil; ticks in the score                     A real day has a lot in it.
+// 4.5   0.5   blot       night             ink blot to blueprint; the operating loop draws itself            -
+// 5.0   2.0   fold       ink morning       scraps gather, fold, become the board; boil stops                 One place.
+// 7.0   2.5   home       ink morning       Home: hero card lifts, honest rings, two checks burst             What matters now?
+// 9.5   2.5   plan       ink afternoon     blocks slide onto the time canvas; the last goes to tomorrow      When should it happen?
+// 12.0  2.0   focus      ink afternoon     the dial draws itself around the sun; everything else fades       What am I doing now?
+// 14.0  2.5   track      ink afternoon     hex cells fill one per drawn frame, bursts; one ring stays empty  What needs sustaining?
+// 16.5  3.0   recover    ink evening       a block overruns, splat + flash, EVA runs the cards to tomorrow   Plans break. You don't.
+// 19.5  2.5   insights   night             iris opens; cells light where habits happened; chart self-draws  What changed?
+// 22.0  3.0   eva        night (+duotone)  EVA through an ink blot, proposal, receipt stamp, undo, a jump    Ask. Review. Undo.
+// 25.0  1.5   gallery    riso              feature badges collapse into the sun dot                          -
+// 26.5  3.5   print      riso              the dot drops into the eye, plates print, sign-off + sting        (sign-off)
+const TIMELINE = [
+  { name: 'sunrise',  dur: 2.0, fn: sceneSunrise(2.0) },
+  { name: 'scatter',  dur: 2.5, fn: sceneScatter(2.5) },
+  { name: 'blot',     dur: 0.5, fn: sceneBlot(0.5) },
+  { name: 'fold',     dur: 2.0, fn: sceneFold(2.0) },
+  { name: 'home',     dur: 2.5, fn: sceneHome(2.5) },
+  { name: 'plan',     dur: 2.5, fn: scenePlan(2.5) },
+  { name: 'focus',    dur: 2.0, fn: sceneFocus(2.0) },
+  { name: 'track',    dur: 2.5, fn: sceneTrack(2.5) },
+  { name: 'recover',  dur: 3.0, fn: sceneRecover(3.0) },
+  { name: 'insights', dur: 2.5, fn: sceneInsights(2.5) },
+  { name: 'eva',      dur: 3.0, fn: sceneEva(3.0) },
+  { name: 'gallery',  dur: 1.5, fn: sceneGallery(1.5) },
+  { name: 'print',    dur: 3.5, fn: scenePrint(3.5) },
+];
+function score(ac, t0, dest) { scoreFromTimeline(ac, t0, dest, TIMELINE); }
+defineFilm({ palette: lbMorning, timeline: TIMELINE, score, format: { ar: '9:16', width: 1080 } });
+</script>

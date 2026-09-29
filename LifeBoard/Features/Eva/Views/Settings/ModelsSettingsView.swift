@@ -23,21 +23,21 @@ struct ModelsSettingsView: View {
         [
             SettingsStatusDescriptor(
                 id: "active",
-                title: "Active",
+                title: String(localized: "Active"),
                 value: activeModelName,
                 systemImage: "brain.head.profile",
                 tone: .accent
             ),
             SettingsStatusDescriptor(
                 id: "installed",
-                title: "Installed",
-                value: "\(catalog.installedEntries.count) local",
+                title: String(localized: "Installed"),
+                value: "\(catalog.installedEntries.count)",
                 systemImage: "arrow.down.circle.fill",
                 tone: catalog.installedEntries.isEmpty ? .warning : .success
             ),
             SettingsStatusDescriptor(
                 id: "device",
-                title: "Device",
+                title: String(localized: "Device"),
                 value: deviceCompatibilitySummary,
                 systemImage: "checkmark.shield.fill",
                 tone: deviceCompatibilitySummary == "Compatible" ? .success : .warning
@@ -49,9 +49,9 @@ struct ModelsSettingsView: View {
         ScrollView {
             VStack(spacing: 0) {
                 SettingsHeroCard(
-                    eyebrow: "Models",
-                    title: "Choose \(assistantIdentity.snapshot.displayName)’s model",
-                    subtitle: "Keep the default model fast, or install stronger local models when needed.",
+                    eyebrow: String(localized: "Models"),
+                    title: String(localized: "\(assistantIdentity.snapshot.displayName)’s model"),
+                    subtitle: "",
                     statusItems: heroItems
                 )
                 .padding(.horizontal, spacing.screenHorizontal)
@@ -59,8 +59,8 @@ struct ModelsSettingsView: View {
 
                 if catalog.installedEntries.isEmpty == false {
                     section(
-                        title: "Installed",
-                        subtitle: "Ready to use now.",
+                        title: String(localized: "Installed"),
+                        subtitle: "",
                         entries: catalog.installedEntries,
                         baseIndex: 1
                     )
@@ -91,6 +91,7 @@ struct ModelsSettingsView: View {
                         #if os(iOS) || os(visionOS)
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Done") { showOnboardingInstallModelView = false }
+                                .keyboardShortcut(.cancelAction)
                         }
                         #elseif os(macOS)
                         ToolbarItem(placement: .confirmationAction) {
@@ -181,7 +182,7 @@ struct ModelsSettingsView: View {
                         .tint(Color.lifeboard(.accentPrimary))
                         .accessibilityIdentifier("llmSettings.installModelButton")
                     } else if isInstalled && isActive == false && compatibility.canActivate {
-                        Button("Set Active") {
+                        Button("Use model") {
                             Task {
                                 await switchModel(model.name)
                             }
@@ -225,11 +226,11 @@ struct ModelsSettingsView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: spacing.s8) {
                 if isActive {
-                    modelBadge("Active", tone: .accent)
+                    modelBadge(String(localized: "Active"), tone: .accent)
                 }
 
                 if isInstalled {
-                    modelBadge("Installed", tone: .success)
+                    modelBadge(String(localized: "Installed"), tone: .success)
                 }
 
                 if let statusBadgeTitle {
@@ -281,7 +282,7 @@ struct ModelsSettingsView: View {
 
     private var activeModelName: String {
         guard let current = appManager.currentModelName, !current.isEmpty else {
-            return "No active model"
+            return String(localized: "No active model")
         }
         return appManager.compactModelDisplayName(current)
     }
@@ -297,33 +298,33 @@ struct ModelsSettingsView: View {
     private func sectionTitle(for kind: LLMCatalogSectionKind) -> String {
         switch kind {
         case .availableNow:
-            return "Available"
+            return String(localized: "Available")
         case .additionalTextModels:
-            return "Alternatives"
+            return String(localized: "Alternatives")
         }
     }
 
     private func sectionSubtitle(for kind: LLMCatalogSectionKind) -> String {
         switch kind {
         case .availableNow:
-            return "Install another local model."
+            return ""
         case .additionalTextModels:
-            return "Alternative and experimental local models."
+            return String(localized: "Experimental models.")
         }
     }
 
     private func modelCardDescription(for model: ModelConfiguration) -> String {
         switch model {
         case .qwen_3_0_6b_4bit:
-            return "Fastest and lightest. Best default for all devices."
+            return String(localized: "Fastest. Works on all devices.")
         case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit:
-            return "Stronger reasoning model. Slightly slower and uses more memory."
+            return String(localized: "Better reasoning. Slower, uses more memory.")
         case .qwen_3_5_0_8b_optiq_4bit:
-            return "More capable, slightly slower, and uses more RAM."
+            return String(localized: "More capable. Uses more memory.")
         case .qwen_3_5_0_8b_nexveridian_4bit:
-            return "Lightweight alternative with a different response style."
+            return String(localized: "Light, with a different style.")
         case .bonsai_1_7b_mlx_1bit:
-            return "Experimental 1-bit model with a tiny download and visible reasoning."
+            return String(localized: "Experimental. Small download, shows its reasoning.")
         default:
             return model.shortDescription
         }

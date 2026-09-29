@@ -148,21 +148,24 @@ public enum InboxTriageMutation: Equatable, Sendable {
     public var summary: String {
         switch self {
         case let .schedule(_, _, after):
-            guard let date = after.startDate() else { return "Scheduled" }
-            if Calendar.current.isDateInToday(date) { return "Planned for today" }
-            if Calendar.current.isDateInTomorrow(date) { return "Planned for tomorrow" }
-            return "Planned for \(date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))"
-        case .moveToProject: return "Moved to project"
+            guard let date = after.startDate() else { return String(localized: "Scheduled") }
+            if Calendar.current.isDateInToday(date) { return String(localized: "Planned for today") }
+            if Calendar.current.isDateInTomorrow(date) { return String(localized: "Planned for tomorrow") }
+            return String(localized: "Planned for \(date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))")
+        case .moveToProject: return String(localized: "Moved to project")
         case let .setDisposition(_, _, after):
             switch after {
-            case .someday: return "Moved to Someday"
-            case .reference: return "Kept as reference"
-            case .deleted: return "Deleted"
-            case .archived: return "Archived"
-            case .inbox: return "Returned to Inbox"
+            case .someday: return String(localized: "Moved to Someday")
+            case .reference: return String(localized: "Moved to Reference")
+            case .deleted: return String(localized: "Deleted")
+            case .archived: return String(localized: "Archived")
+            case .inbox: return String(localized: "Moved to Inbox")
             }
-        case .commitCapture: return "Added to your tasks"
-        case let .batch(mutations): return "\(mutations.count) items triaged"
+        case .commitCapture: return String(localized: "Added to tasks")
+        case let .batch(mutations):
+            return mutations.count == 1
+                ? String(localized: "Sorted 1 task")
+                : String(localized: "Sorted \(mutations.count) tasks")
         }
     }
 }

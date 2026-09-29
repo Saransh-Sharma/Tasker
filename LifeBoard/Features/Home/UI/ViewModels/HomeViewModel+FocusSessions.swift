@@ -14,6 +14,22 @@ import UIKit
 import WidgetKit
 #endif
 
+/// The canonical focus command state machine is the only writer. The legacy
+/// `FocusSessionUseCase` (UserDefaults-backed timer, gamification writes on
+/// end) was deleted once `phase1ExecutionFlagshipEnabled` was promoted; these
+/// wrappers keep the presentation model Home's older callers still read.
+public struct FocusSessionResult: Sendable {
+    public let session: FocusSessionDefinition
+    public let xpResult: XPEventResult?
+}
+
+public enum FocusSessionError: Error, Sendable {
+    case sessionNotFound
+    case alreadyActive
+    /// The composition root has not installed `FocusSessionCommands` yet.
+    case commandsUnavailable
+}
+
 extension HomeViewModel {
     public func configureCanonicalFocusCommands(_ commands: FocusSessionCommands) {
         canonicalFocusCommands = commands
@@ -25,74 +41,61 @@ extension HomeViewModel {
         completion: @escaping @Sendable (Result<FocusSessionDefinition, Error>) -> Void
     ) {
         HomeSessionContextStore.recordFocusStart(taskID: taskID)
-        if V2FeatureFlags.phase1ExecutionFlagshipEnabled, let canonicalFocusCommands {
-            Task {
-                do {
-                    let recovery = try await canonicalFocusCommands.start(.init(
-                        taskID: taskID,
-                        mode: .countdown(duration: TimeInterval(targetDurationSeconds))
-                    ))
-                    completion(.success(Self.legacyFocusSession(from: recovery.session)))
-                } catch FocusSessionCommandError.alreadyActive {
-                    completion(.failure(FocusSessionError.alreadyActive))
-                } catch {
-                    completion(.failure(error))
-                }
+        Task {
+            do {
+                guard let canonicalFocusCommands else { throw FocusSessionError.commandsUnavailable }
+                let recovery = try await canonicalFocusCommands.start(.init(
+                    taskID: taskID,
+                    mode: .countdown(duration: TimeInterval(targetDurationSeconds))
+                ))
+                completion(.success(Self.legacyFocusSession(from: recovery.session)))
+            } catch FocusSessionCommandError.alreadyActive {
+                completion(.failure(FocusSessionError.alreadyActive))
+            } catch {
+                completion(.failure(error))
             }
-            return
         }
-        useCaseCoordinator.focusSession.startSession(
-            taskID: taskID,
-            targetDurationSeconds: targetDurationSeconds,
-            completion: { result in
-                Task { @MainActor in
-                    completion(result)
-                }
-            }
-        )
+    }
+
+    /// Starts focus in any mode — a Pomodoro preset, not only a countdown —
+    /// and returns the canonical session id. Presets from Siri and Control
+    /// Center arrive here.
+    public func startFocusSession(mode: FocusMode, taskID: UUID? = nil) async throws -> UUID {
+        HomeSessionContextStore.recordFocusStart(taskID: taskID)
+        guard let canonicalFocusCommands else { throw FocusSessionError.commandsUnavailable }
+        do {
+            let recovery = try await canonicalFocusCommands.start(.init(taskID: taskID, mode: mode))
+            return recovery.session.id
+        } catch FocusSessionCommandError.alreadyActive {
+            throw FocusSessionError.alreadyActive
+        }
     }
 
     public func endFocusSession(
         sessionID: UUID,
         completion: @escaping @Sendable (Result<FocusSessionResult, Error>) -> Void
     ) {
-        if V2FeatureFlags.phase1ExecutionFlagshipEnabled, let canonicalFocusCommands {
-            Task {
-                do {
-                    let receipt = try await canonicalFocusCommands.end(
-                        sessionID: sessionID,
-                        outcome: .completed
-                    )
-                    let session = FocusSessionDefinition(
-                        id: receipt.sessionID,
-                        taskID: receipt.taskID,
-                        startedAt: receipt.startedAt,
-                        endedAt: receipt.endedAt,
-                        durationSeconds: Int(receipt.actualFocusedDuration.rounded()),
-                        targetDurationSeconds: Int(receipt.targetDuration.rounded()),
-                        wasCompleted: receipt.outcome == .completed,
-                        xpAwarded: 0
-                    )
-                    loadDailyAnalytics(includeGamificationRefresh: false)
-                    completion(.success(.init(session: session, xpResult: nil)))
-                } catch {
-                    completion(.failure(error))
-                }
-            }
-            return
-        }
-        useCaseCoordinator.focusSession.endSession(sessionID: sessionID) { [weak self] result in
-            Task { @MainActor in
-                switch result {
-                case .success(let focusResult):
-                    if focusResult.xpResult?.awardedXP ?? 0 > 0 {
-                        self?.scheduleLedgerMutationWatchdog(trigger: "focus_session_end")
-                    }
-                    self?.loadDailyAnalytics(includeGamificationRefresh: false)
-                    completion(.success(focusResult))
-                case .failure(let error):
-                    completion(.failure(error))
-                }
+        Task {
+            do {
+                guard let canonicalFocusCommands else { throw FocusSessionError.commandsUnavailable }
+                let receipt = try await canonicalFocusCommands.end(
+                    sessionID: sessionID,
+                    outcome: .completed
+                )
+                let session = FocusSessionDefinition(
+                    id: receipt.sessionID,
+                    taskID: receipt.taskID,
+                    startedAt: receipt.startedAt,
+                    endedAt: receipt.endedAt,
+                    durationSeconds: Int(receipt.actualFocusedDuration.rounded()),
+                    targetDurationSeconds: Int(receipt.targetDuration.rounded()),
+                    wasCompleted: receipt.outcome == .completed,
+                    xpAwarded: 0
+                )
+                loadDailyAnalytics(includeGamificationRefresh: false)
+                completion(.success(.init(session: session, xpResult: nil)))
+            } catch {
+                completion(.failure(error))
             }
         }
     }
@@ -100,20 +103,13 @@ extension HomeViewModel {
     public func fetchActiveFocusSession(
         completion: @escaping @Sendable (Result<FocusSessionDefinition?, Error>) -> Void
     ) {
-        if V2FeatureFlags.phase1ExecutionFlagshipEnabled, let canonicalFocusCommands {
-            Task {
-                do {
-                    let recovery = try await canonicalFocusCommands.activeRecovery()
-                    completion(.success(recovery.map { Self.legacyFocusSession(from: $0.session) }))
-                } catch {
-                    completion(.failure(error))
-                }
-            }
-            return
-        }
-        useCaseCoordinator.focusSession.fetchActiveSession { result in
-            Task { @MainActor in
-                completion(result)
+        Task {
+            do {
+                guard let canonicalFocusCommands else { throw FocusSessionError.commandsUnavailable }
+                let recovery = try await canonicalFocusCommands.activeRecovery()
+                completion(.success(recovery.map { Self.legacyFocusSession(from: $0.session) }))
+            } catch {
+                completion(.failure(error))
             }
         }
     }
@@ -131,5 +127,4 @@ extension HomeViewModel {
             xpAwarded: 0
         )
     }
-
 }

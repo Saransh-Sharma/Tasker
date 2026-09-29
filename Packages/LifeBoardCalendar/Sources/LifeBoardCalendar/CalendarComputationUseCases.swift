@@ -152,7 +152,7 @@ public struct ComputeTaskFitHintUseCase {
         guard duration > 0 else {
             return TaskFitHintResult(
                 classification: .unknown,
-                message: "Set an estimated duration to evaluate fit."
+                message: String(localized: "Add a duration.")
             )
         }
 
@@ -161,7 +161,7 @@ public struct ComputeTaskFitHintUseCase {
         guard end > start else {
             return TaskFitHintResult(
                 classification: .unknown,
-                message: "Due time has already passed."
+                message: String(localized: "Due time has passed.")
             )
         }
 
@@ -174,7 +174,7 @@ public struct ComputeTaskFitHintUseCase {
         guard let freeWindow else {
             return TaskFitHintResult(
                 classification: .conflict,
-                message: "No free window before due time.",
+                message: String(localized: "No free time before it’s due."),
                 freeWindowStart: nil,
                 freeWindowEnd: nil
             )
@@ -186,7 +186,7 @@ public struct ComputeTaskFitHintUseCase {
         if freeDuration >= durationWithBuffer {
             return TaskFitHintResult(
                 classification: .fit,
-                message: "Good fit before your next calendar block.",
+                message: String(localized: "Fits before your next event."),
                 freeWindowStart: freeWindow.0,
                 freeWindowEnd: freeWindow.1
             )
@@ -195,7 +195,7 @@ public struct ComputeTaskFitHintUseCase {
         if freeDuration >= duration {
             return TaskFitHintResult(
                 classification: .tight,
-                message: "This fits, but your buffer is tight.",
+                message: String(localized: "Fits, with little time to spare."),
                 freeWindowStart: freeWindow.0,
                 freeWindowEnd: freeWindow.1
             )
@@ -203,7 +203,7 @@ public struct ComputeTaskFitHintUseCase {
 
         return TaskFitHintResult(
             classification: .conflict,
-            message: "Likely conflict with calendar commitments.",
+            message: String(localized: "Overlaps your calendar."),
             freeWindowStart: freeWindow.0,
             freeWindowEnd: freeWindow.1
         )

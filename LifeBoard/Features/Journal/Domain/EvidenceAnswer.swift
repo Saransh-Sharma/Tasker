@@ -103,7 +103,7 @@ public enum DeterministicEvidenceAnswerBuilder {
         }
         let confidence = min(0.72, 0.3 + Double(evidence.count) * 0.07)
         return EvidenceBackedAnswer(
-            summary: persona.noticed("\(evidence.count == 1 ? "one entry relates" : "\(evidence.count) entries relate") to this."),
+            summary: persona.noticed("\(evidence.count == 1 ? "1 entry relates" : "\(evidence.count) entries relate") to this."),
             observations: observations,
             evidence: top,
             confidence: confidence,

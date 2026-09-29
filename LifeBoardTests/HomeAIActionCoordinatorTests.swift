@@ -41,8 +41,8 @@ final class HomeAIActionCoordinatorTests: XCTestCase {
                 XCTAssertNil(preview.run)
                 XCTAssertEqual(preview.commands.count, 1)
                 XCTAssertEqual(preview.affectedTaskCount, 1)
-                XCTAssertTrue(preview.diffLines.contains(where: { $0.text == "Move 'Draft launch note' to This Week" }))
-                XCTAssertTrue(preview.diffLines.contains(where: { $0.text == "Link 'Draft launch note' to outcome 'Ship launch prep'" }))
+                XCTAssertTrue(preview.diffLines.contains(where: { $0.text == "Move ‘Draft launch note’ to This week" }))
+                XCTAssertTrue(preview.diffLines.contains(where: { $0.text == "Link ‘Draft launch note’ to ‘Ship launch prep’" }))
 
                 guard case .restoreTaskSnapshot(let snapshot) = preview.commands[0] else {
                     return XCTFail("Expected restoreTaskSnapshot command")

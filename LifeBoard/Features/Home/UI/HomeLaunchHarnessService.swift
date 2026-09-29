@@ -9,6 +9,8 @@ struct HomeLaunchHarnessWorkspaceSeeders {
     let habitBoardSeed: (@escaping () -> Void) -> Void
     let quietTrackingSeed: (@escaping () -> Void) -> Void
     let fullTimelineSeed: (@escaping () -> Void) -> Void
+    let driftedPlanSeed: (@escaping () -> Void) -> Void
+    let insightsHistorySeed: (@escaping () -> Void) -> Void
     let appStoreScreenshotSeed: (@escaping () -> Void) -> Void
 
     init(
@@ -19,6 +21,8 @@ struct HomeLaunchHarnessWorkspaceSeeders {
         habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
         quietTrackingSeed: @escaping (@escaping () -> Void) -> Void,
         fullTimelineSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
+        driftedPlanSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
+        insightsHistorySeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         appStoreScreenshotSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() }
     ) {
         self.establishedSeed = establishedSeed
@@ -28,6 +32,8 @@ struct HomeLaunchHarnessWorkspaceSeeders {
         self.habitBoardSeed = habitBoardSeed
         self.quietTrackingSeed = quietTrackingSeed
         self.fullTimelineSeed = fullTimelineSeed
+        self.driftedPlanSeed = driftedPlanSeed
+        self.insightsHistorySeed = insightsHistorySeed
         self.appStoreScreenshotSeed = appStoreScreenshotSeed
     }
 }
@@ -48,8 +54,12 @@ final class UITestWorkspaceSeeder {
                         self.seeders.habitBoardSeed {
                             self.seeders.quietTrackingSeed {
                                 self.seeders.fullTimelineSeed {
-                                    self.seeders.appStoreScreenshotSeed {
-                                        completion()
+                                    self.seeders.driftedPlanSeed {
+                                        self.seeders.insightsHistorySeed {
+                                            self.seeders.appStoreScreenshotSeed {
+                                                completion()
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -228,6 +238,18 @@ final class LaunchCoordinator {
                     workspaceSeeder.seedUITestFullTimelineWorkspaceIfNeeded(
                         presentationDependencyContainer: dependencies,
                         viewModel: viewModel,
+                        completion: done
+                    )
+                },
+                driftedPlanSeed: { [workspaceSeeder] done in
+                    workspaceSeeder.seedUITestDriftedPlanIfNeeded(
+                        presentationDependencyContainer: dependencies,
+                        completion: done
+                    )
+                },
+                insightsHistorySeed: { [workspaceSeeder] done in
+                    workspaceSeeder.seedUITestInsightsHistoryIfNeeded(
+                        presentationDependencyContainer: dependencies,
                         completion: done
                     )
                 },

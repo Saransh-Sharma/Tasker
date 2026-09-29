@@ -4,6 +4,7 @@ import { decodeAllSync } from 'cbor'
 import { verifyAssertion, verifyAttestation } from 'node-app-attest'
 import type { Env, SessionPrincipal } from '../environment.js'
 import { accountStub, authorizeAccount } from '../durable-objects/account-client.js'
+import { defaultTrustPolicy, type EvaTrustPolicy } from '../config/runtime-config.js'
 import { durableJson } from '../durable-objects/helpers.js'
 import { EvaHttpError } from '../http/errors.js'
 import { sha256 } from '../security/crypto.js'
@@ -80,13 +81,9 @@ export async function verifyRequestAttestation(
   env: Env,
   principal: SessionPrincipal,
   request: Request,
-  options: { allowAgeManagement?: boolean } = {},
+  trustPolicy: EvaTrustPolicy = defaultTrustPolicy,
 ): Promise<void> {
-  const authorization = await authorizeAccount(env, principal, {
-    requireAdult: false,
-    requireAttestation: true,
-    allowAgeManagement: options.allowAgeManagement ?? false,
-  })
+  const authorization = await authorizeAccount(env, principal, trustPolicy)
   if (!authorization.authorized) {
     throw new EvaHttpError(401, 'attestation_required', 'Verify this device to use Cloud EVA.', {
       recoveryAction: 'signIn',
@@ -130,6 +127,39 @@ export async function verifyRequestAttestation(
       recoveryAction: 'signIn',
     })
   }
+}
+
+/**
+ * Applies the request-proof portion of the runtime trust policy. Optional mode
+ * permits an absent proof, but never treats a malformed or rejected proof as if
+ * none had been supplied. Required mode demands a fresh assertion on every
+ * protected iOS request. Catalyst trust is established by its signed app
+ * transaction during account authorization rather than by App Attest headers.
+ */
+export async function enforceRequestTrust(
+  env: Env,
+  principal: SessionPrincipal,
+  request: Request,
+  trustPolicy: EvaTrustPolicy,
+): Promise<void> {
+  if (principal.platform !== 'ios') return
+
+  const challenge = request.headers.get('X-EVA-Attest-Challenge')
+  const assertion = request.headers.get('X-EVA-Attest-Assertion')
+  if (!challenge && !assertion) {
+    if (trustPolicy.attestationMode === 'required') {
+      throw new EvaHttpError(401, 'attestation_required', 'A fresh device assertion is required.', {
+        recoveryAction: 'signIn',
+      })
+    }
+    return
+  }
+  if (!challenge || !assertion) {
+    throw new EvaHttpError(401, 'attestation_required', 'The device assertion is incomplete.', {
+      recoveryAction: 'signIn',
+    })
+  }
+  await verifyRequestAttestation(env, principal, request, trustPolicy)
 }
 
 export async function appAttestRequestPayload(request: Request, challenge: string): Promise<string> {

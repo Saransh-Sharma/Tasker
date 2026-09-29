@@ -72,97 +72,97 @@ struct AssistantDiffPreviewBuilder {
     ) -> AssistantDiffLine {
         switch command {
         case let .createTask(_, title):
-            return AssistantDiffLine(text: "Add: \(title)", isDestructive: false)
+            return AssistantDiffLine(text: String(localized: "Add ‘\(title)’"), isDestructive: false)
         case let .restoreTask(taskID, _, title, _, _, _):
             return AssistantDiffLine(
-                text: "Restore task '\(taskTitleByID[taskID] ?? title)'",
+                text: String(localized: "Restore ‘\(taskTitleByID[taskID] ?? title)’"),
                 isDestructive: false
             )
         case let .restoreTaskSnapshot(snapshot):
-            return AssistantDiffLine(text: "Restore task '\(snapshot.title)'", isDestructive: false)
+            return AssistantDiffLine(text: String(localized: "Restore ‘\(snapshot.title)’"), isDestructive: false)
         case let .deleteTask(taskID):
             return AssistantDiffLine(
-                text: "Delete: '\(displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID))'",
+                text: String(localized: "Delete ‘\(displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID))’"),
                 isDestructive: true
             )
         case let .updateTask(taskID, title, dueDate):
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
             if let dueDate {
                 return AssistantDiffLine(
-                    text: "Reschedule '\(baseTitle)' to \(format(date: dueDate))",
+                    text: String(localized: "Move ‘\(baseTitle)’ to \(format(date: dueDate))"),
                     isDestructive: false
                 )
             }
             if let title {
                 return AssistantDiffLine(
-                    text: "Rename '\(baseTitle)' to '\(title)'",
+                    text: String(localized: "Rename ‘\(baseTitle)’ to ‘\(title)’"),
                     isDestructive: false
                 )
             }
-            return AssistantDiffLine(text: "Update '\(baseTitle)'", isDestructive: false)
+            return AssistantDiffLine(text: String(localized: "Edit ‘\(baseTitle)’"), isDestructive: false)
         case let .setTaskCompletion(taskID, isComplete, _):
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
             return AssistantDiffLine(
-                text: "\(isComplete ? "Complete" : "Reopen"): '\(baseTitle)'",
+                text: isComplete ? String(localized: "Complete ‘\(baseTitle)’") : String(localized: "Reopen ‘\(baseTitle)’"),
                 isDestructive: false
             )
         case let .completeTask(taskID):
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            return AssistantDiffLine(text: "Complete: '\(baseTitle)'", isDestructive: false)
+            return AssistantDiffLine(text: String(localized: "Complete ‘\(baseTitle)’"), isDestructive: false)
         case let .moveTask(taskID, targetProjectID):
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            let targetName = projectNameByID[targetProjectID] ?? "selected project"
-            return AssistantDiffLine(text: "Move '\(baseTitle)' to '\(targetName)'", isDestructive: true)
+            let targetName = projectNameByID[targetProjectID] ?? String(localized: "selected project")
+            return AssistantDiffLine(text: String(localized: "Move ‘\(baseTitle)’ to ‘\(targetName)’"), isDestructive: true)
         case let .createScheduledTask(_, title, start, end, _, _, _, _, _, _, _, _):
             return AssistantDiffLine(
-                text: "Create: \(title) at \(format(time: start))-\(format(time: end))",
+                text: String(localized: "Add ‘\(title)’ at \(format(time: start))–\(format(time: end))"),
                 isDestructive: false
             )
         case let .createInboxTask(_, title, _, _, _, _, _, _):
-            return AssistantDiffLine(text: "Create inbox: \(title)", isDestructive: false)
+            return AssistantDiffLine(text: String(localized: "Add ‘\(title)’ to Inbox"), isDestructive: false)
         case let .updateTaskSchedule(taskID, start, end, _, dueDate):
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
             if let start, let end {
                 return AssistantDiffLine(
-                    text: "Edit '\(baseTitle)' to \(format(time: start))-\(format(time: end))",
+                    text: String(localized: "Move ‘\(baseTitle)’ to \(format(time: start))–\(format(time: end))"),
                     isDestructive: false
                 )
             }
             if let start {
                 return AssistantDiffLine(
-                    text: "Move '\(baseTitle)' start to \(format(time: start))",
+                    text: String(localized: "Start ‘\(baseTitle)’ at \(format(time: start))"),
                     isDestructive: false
                 )
             }
             if let end {
                 return AssistantDiffLine(
-                    text: "Move '\(baseTitle)' end to \(format(time: end))",
+                    text: String(localized: "End ‘\(baseTitle)’ at \(format(time: end))"),
                     isDestructive: false
                 )
             }
             if let dueDate {
                 return AssistantDiffLine(
-                    text: "Reschedule '\(baseTitle)' to \(format(date: dueDate))",
+                    text: String(localized: "Move ‘\(baseTitle)’ to \(format(date: dueDate))"),
                     isDestructive: false
                 )
             }
-            return AssistantDiffLine(text: "Update schedule for '\(baseTitle)'", isDestructive: false)
+            return AssistantDiffLine(text: String(localized: "Reschedule ‘\(baseTitle)’"), isDestructive: false)
         case let .updateTaskFields(taskID, title, _, _, _, _, _, _, _):
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
             if let title = title.setValue {
-                return AssistantDiffLine(text: "Rename '\(baseTitle)' to '\(title)'", isDestructive: false)
+                return AssistantDiffLine(text: String(localized: "Rename ‘\(baseTitle)’ to ‘\(title)’"), isDestructive: false)
             }
-            return AssistantDiffLine(text: "Edit fields for '\(baseTitle)'", isDestructive: false)
+            return AssistantDiffLine(text: String(localized: "Edit ‘\(baseTitle)’"), isDestructive: false)
         case let .deferTask(taskID, targetDate, _):
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
             return AssistantDiffLine(
-                text: "Defer '\(baseTitle)' to \(format(date: targetDate))",
+                text: String(localized: "Move ‘\(baseTitle)’ to \(format(date: targetDate))"),
                 isDestructive: true
             )
         case let .dropTaskFromToday(taskID, destination, _):
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
             return AssistantDiffLine(
-                text: "Drop '\(baseTitle)' from today to \(destination.displayLabel)",
+                text: String(localized: "Move ‘\(baseTitle)’ to \(destination.displayLabel)"),
                 isDestructive: true
             )
         }

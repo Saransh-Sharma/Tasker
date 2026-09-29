@@ -125,6 +125,8 @@ public struct SemanticTypographyTokens: TokenGroup {
         case .title2:
             return Spec(textStyle: .title2, pointSize: scaled(18), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
         case .title3:
+            // Alias: resolves to exactly the same spec as `.headline`. Kept so
+            // existing call sites compile; new code should say `.headline`.
             // Raised with body: an emphasis role must not end up smaller than
             // the body text it emphasises.
             return Spec(textStyle: .headline, pointSize: scaled(17), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
@@ -134,7 +136,9 @@ public struct SemanticTypographyTokens: TokenGroup {
             // DESIGN.md body: 17/400. The whole body tier shipped a point short.
             return Spec(textStyle: .body, pointSize: scaled(17), weight: .regular, maximumPointSize: nil, rounded: false, monospaced: false)
         case .bodyStrong:
-            // DESIGN.md body-strong: 17/600.
+            // DESIGN.md body-strong: 17/600. Same spec as `.button`: use
+            // `.bodyStrong` for emphasised text, `.button` for control labels,
+            // so the two can diverge later without a sweep.
             return Spec(textStyle: .body, pointSize: scaled(17), weight: .semibold, maximumPointSize: nil, rounded: false, monospaced: false)
         case .bodyEmphasis:
             return Spec(textStyle: .body, pointSize: scaled(17), weight: .medium, maximumPointSize: nil, rounded: false, monospaced: false)
@@ -143,6 +147,10 @@ public struct SemanticTypographyTokens: TokenGroup {
         case .meta:
             return Spec(textStyle: .footnote, pointSize: scaled(13), weight: .medium, maximumPointSize: nil, rounded: false, monospaced: false)
         case .callout:
+            // Known inversion: 14pt, one point *smaller* than `.support`
+            // (15pt) although it reads as the more prominent role. Raising it
+            // reflows every card that uses it, so it is documented rather than
+            // changed. Prefer `.support` for secondary text in new code.
             return Spec(textStyle: .callout, pointSize: scaled(14), weight: .regular, maximumPointSize: nil, rounded: false, monospaced: false)
         case .metric:
             // DESIGN.md metric: 28/700 SF Pro Rounded. A screen's largest number

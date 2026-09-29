@@ -19,12 +19,12 @@ public enum HomeQuickView: String, CaseIterable, Codable, Sendable {
 
     public var title: String {
         switch self {
-        case .today: return "Today"
-        case .upcoming: return "Upcoming"
-        case .overdue: return "Overdue"
-        case .done: return "Done"
-        case .morning: return "Morning"
-        case .evening: return "Evening"
+        case .today: return String(localized: "Today")
+        case .upcoming: return String(localized: "Upcoming")
+        case .overdue: return String(localized: "From earlier")
+        case .done: return String(localized: "Done")
+        case .morning: return String(localized: "Morning")
+        case .evening: return String(localized: "Evening")
         }
     }
 

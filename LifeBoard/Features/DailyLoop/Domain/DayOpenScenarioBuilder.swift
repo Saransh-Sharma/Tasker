@@ -161,11 +161,11 @@ public enum DayOpenScenarioBuilder {
 
     private static func diff(for tasks: [PlanningTaskSummary]) -> [PlanningScenarioDiff] {
         guard tasks.isEmpty == false else {
-            return [PlanningScenarioDiff(title: "Today stays open", after: "Nothing committed")]
+            return [PlanningScenarioDiff(title: String(localized: "Today stays open"), after: String(localized: "No tasks"))]
         }
         return [
             PlanningScenarioDiff(
-                title: tasks.count == 1 ? "1 thing for today" : "\(tasks.count) things for today",
+                title: tasks.count == 1 ? String(localized: "1 task for today") : String(localized: "\(tasks.count) tasks for today"),
                 after: tasks.map(\.title).joined(separator: ", ")
             )
         ]

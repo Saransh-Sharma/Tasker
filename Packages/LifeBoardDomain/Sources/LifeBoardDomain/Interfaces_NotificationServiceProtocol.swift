@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import UserNotifications
 
 /// Protocol for handling task notifications and reminders
 public protocol NotificationServiceProtocol {
@@ -52,40 +51,11 @@ public protocol NotificationServiceProtocol {
     /// Inspect pending notification requests.
     func pendingRequests(completion: @escaping @Sendable ([PendingNotificationRequest]) -> Void)
 
-    /// Register local notification action categories.
-    func registerCategories(_ categories: Set<UNNotificationCategory>)
-
-    /// Set notification center delegate.
-    func setDelegate(_ delegate: UNUserNotificationCenterDelegate?)
-
     /// Fetch fine-grained authorization status.
     func fetchAuthorizationStatus(completion: @escaping @Sendable (NotificationAuthorizationStatus) -> Void)
 }
 
 public extension NotificationServiceProtocol {
-    func schedule(request: LocalNotificationRequest) {
-        _ = request
-        fatalError("NotificationServiceProtocol.schedule(request:) must be implemented by concrete notification services.")
-    }
-
-    func cancel(ids: [String]) {
-        _ = ids
-        fatalError("NotificationServiceProtocol.cancel(ids:) must be implemented by concrete notification services.")
-    }
-
-    func pendingRequests(completion: @escaping @Sendable ([PendingNotificationRequest]) -> Void) {
-        _ = completion
-        fatalError("NotificationServiceProtocol.pendingRequests(completion:) should be implemented for typed notification reconciliation.")
-    }
-
-    func registerCategories(_ categories: Set<UNNotificationCategory>) {
-        _ = categories
-    }
-
-    func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {
-        _ = delegate
-    }
-
     func fetchAuthorizationStatus(completion: @escaping @Sendable (NotificationAuthorizationStatus) -> Void) {
         checkAuthorizationStatus { authorized in
             completion(authorized ? .authorized : .denied)
@@ -489,6 +459,10 @@ public struct WorkspacePreferences: Codable, Equatable, Sendable {
     public var timelineWindDownHour: Int
     public var timelineWindDownMinute: Int
     public var chiefOfStaffMascotID: AssistantMascotID
+    /// Named ways to start focus; see `FocusPreset`. Never empty — decoding an
+    /// empty or missing list restores the defaults, so a Shortcut can always
+    /// resolve a preset.
+    public var focusPresets: [FocusPreset]
 
     public init(
         weekStartsOn: Weekday = .monday,
@@ -502,7 +476,8 @@ public struct WorkspacePreferences: Codable, Equatable, Sendable {
         timelineRiseAndShineMinute: Int = 0,
         timelineWindDownHour: Int = 22,
         timelineWindDownMinute: Int = 0,
-        chiefOfStaffMascotID: AssistantMascotID = .eva
+        chiefOfStaffMascotID: AssistantMascotID = .eva,
+        focusPresets: [FocusPreset] = FocusPreset.defaults
     ) {
         self.weekStartsOn = weekStartsOn
         self.selectedCalendarIDs = Self.normalizeSelectedCalendarIDs(selectedCalendarIDs)
@@ -516,6 +491,7 @@ public struct WorkspacePreferences: Codable, Equatable, Sendable {
         self.timelineWindDownHour = Self.clampedHour(timelineWindDownHour)
         self.timelineWindDownMinute = Self.clampedMinute(timelineWindDownMinute)
         self.chiefOfStaffMascotID = chiefOfStaffMascotID
+        self.focusPresets = focusPresets.isEmpty ? FocusPreset.defaults : focusPresets
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -531,6 +507,7 @@ public struct WorkspacePreferences: Codable, Equatable, Sendable {
         case timelineWindDownHour
         case timelineWindDownMinute
         case chiefOfStaffMascotID
+        case focusPresets
     }
 
     public init(from decoder: Decoder) throws {
@@ -549,6 +526,8 @@ public struct WorkspacePreferences: Codable, Equatable, Sendable {
         timelineWindDownHour = Self.clampedHour(try container.decodeIfPresent(Int.self, forKey: .timelineWindDownHour) ?? 22)
         timelineWindDownMinute = Self.clampedMinute(try container.decodeIfPresent(Int.self, forKey: .timelineWindDownMinute) ?? 0)
         chiefOfStaffMascotID = try container.decodeIfPresent(AssistantMascotID.self, forKey: .chiefOfStaffMascotID) ?? .eva
+        let presets = try container.decodeIfPresent([FocusPreset].self, forKey: .focusPresets) ?? []
+        focusPresets = presets.isEmpty ? FocusPreset.defaults : presets
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -565,6 +544,7 @@ public struct WorkspacePreferences: Codable, Equatable, Sendable {
         try container.encode(timelineWindDownHour, forKey: .timelineWindDownHour)
         try container.encode(timelineWindDownMinute, forKey: .timelineWindDownMinute)
         try container.encode(chiefOfStaffMascotID, forKey: .chiefOfStaffMascotID)
+        try container.encode(focusPresets, forKey: .focusPresets)
     }
 
     public func normalizedForPersistence() -> WorkspacePreferences {

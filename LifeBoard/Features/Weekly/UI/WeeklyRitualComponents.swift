@@ -1,102 +1,105 @@
 import SwiftUI
 
 enum WeeklyCopy {
-    static let plannerSubtitle = "Set direction, choose a few real outcomes, and place work where it belongs."
-    static let reviewTitle = "Review this week"
-    static let reviewSubtitle = "Look at what happened, resolve unfinished work, and capture what future-you should remember."
-    static let reflectionTitle = "Add reflection"
+    static let plannerSubtitle = String(localized: "Pick goals and place tasks.")
+    static let reviewTitle = String(localized: "Review week")
+    static let reviewSubtitle = String(localized: "See what got done and sort what’s left.")
+    static let reflectionTitle = String(localized: "Add note")
 
-    static let reviewErrorTitle = "We couldn't load this review"
-    static let reflectionErrorTitle = "We couldn't save that reflection"
+    static let reviewErrorTitle = String(localized: "Couldn’t load review.")
+    static let reflectionErrorTitle = String(localized: "Couldn’t save note.")
 
-    static let plannerSaveSuccess = "Plan saved"
-    static let reviewSaveSuccess = "Review saved"
-    static let reflectionSaveSuccess = "Reflection added"
-    static let evaApplySuccess = "AI suggestion added to your plan"
+    static let plannerSaveSuccess = String(localized: "Plan saved")
+    static let reviewSaveSuccess = String(localized: "Review saved")
+    static let reflectionSaveSuccess = String(localized: "Note added")
+    static let evaApplySuccess = String(localized: "Suggestion added to plan")
 
-    static let planningPlacementLabel = "When should you do this?"
-    static let weeklyOutcomeLabel = "Weekly outcome"
-    static let intentionalWeekLabel = "Keep this week intentionally light"
-    static let getAISuggestion = "Get AI suggestion"
-    static let addReflection = "Add reflection"
-    static let savePlan = "Save plan"
-    static let finishReview = "Finish review"
-    static let back = "Back"
-    static let edit = "Edit"
-    static let editHabits = "Edit habits"
-    static let continueToOutcomes = "Continue to outcomes"
-    static let continueToTasks = "Continue to tasks"
-    static let reviewPlan = "Review plan"
-    static let chooseTasks = "Choose tasks"
-    static let findMoreTasks = "Find more tasks"
-    static let addTaskToReview = "Add to review"
-    static let addedToReview = "Added"
-    static let attachOutcomeQuestion = "Attach to a weekly outcome?"
-    static let noOutcome = "No outcome"
-    static let tasksCompleteTitle = "Task decisions are done"
-    static let tasksCompleteSubtitle = "You can review the week, or bring more tasks into the queue."
-    static let includedThisWeek = "Included this week"
-    static let weeklyCandidates = "Weekly candidates"
-    static let suggestedTasks = "Suggested"
-    static let allOpenTasks = "All open"
-    static let directionPrompt = "What is this week really about?"
-    static let outcomesPrompt = "Choose up to three results worth protecting this week."
-    static let tasksPrompt = "Decide where each task belongs. Keep This Week believable."
-    static let reviewPrompt = "Check that this week matches what you actually want to carry."
-    static let reviewDirectionFallback = "No direction written yet"
-    static let noTasksQueuedForReview = "No tasks are waiting for a decision. Bring in more work only if it still deserves attention."
-    static let noTasksInPlan = "Nothing is placed here yet."
-    static let reviewDirectionTitle = "Direction"
-    static let reviewHabitsTitle = "Habits included"
-    static let reviewPlacedWorkTitle = "Planned work"
-    static let currentlyPlacedIn = "Currently in"
+    static let planningPlacementLabel = String(localized: "When")
+    static let weeklyOutcomeLabel = String(localized: "Weekly goal")
+    static let intentionalWeekLabel = String(localized: "Light week")
+    static let getAISuggestion = String(localized: "Get suggestion")
+    static let addReflection = String(localized: "Add note")
+    static let savePlan = String(localized: "Save plan")
+    static let finishReview = String(localized: "Finish review")
+    static let back = String(localized: "Back")
+    static let edit = String(localized: "Edit")
+    static let editHabits = String(localized: "Edit habits")
+    static let continueToOutcomes = String(localized: "Continue to goals")
+    static let continueToTasks = String(localized: "Continue to tasks")
+    static let reviewPlan = String(localized: "Review plan")
+    static let chooseTasks = String(localized: "Choose tasks")
+    static let findMoreTasks = String(localized: "Find more tasks")
+    static let addTaskToReview = String(localized: "Add to review")
+    static let addedToReview = String(localized: "Added")
+    static let attachOutcomeQuestion = String(localized: "Link to a goal?")
+    static let noOutcome = String(localized: "No goal")
+    static let tasksCompleteTitle = String(localized: "All tasks placed")
+    /// Empty on purpose: the finished state needs no subtitle.
+    static let tasksCompleteSubtitle = ""
+    static let includedThisWeek = String(localized: "Habits")
+    static let weeklyCandidates = String(localized: "Weekly candidates")
+    static let suggestedTasks = String(localized: "Suggested")
+    static let allOpenTasks = String(localized: "All open")
+    static let directionPrompt = String(localized: "Focus this week")
+    static let outcomesPrompt = String(localized: "Pick up to 3 goals")
+    static let tasksPrompt = String(localized: "Place each task")
+    static let reviewPrompt = String(localized: "Check the plan")
+    static let reviewDirectionFallback = String(localized: "No focus set")
+    static let noTasksQueuedForReview = String(localized: "All sorted")
+    static let noTasksInPlan = String(localized: "No tasks")
+    static let reviewDirectionTitle = String(localized: "Focus")
+    static let reviewHabitsTitle = String(localized: "Habits")
+    static let reviewPlacedWorkTitle = String(localized: "Planned tasks")
+    static let currentlyPlacedIn = String(localized: "Currently in")
 
-    static let noHabits = "No active habits are available right now. You can still plan the week without them."
-    static let noTasksInLane = "Nothing is placed here yet."
-    static let noOutcomes = "No weekly outcomes are saved yet."
-    static let noCompletedWork = "Nothing from This Week is marked done yet."
-    static let noUnfinishedWork = "Everything in This Week is already resolved."
-    static let noWeeklyNotes = "Add a short reflection so this review is easier to trust later."
-    static let noProjectTasks = "Tasks in this project will show up here when they can be moved into the weekly flow."
+    static let noHabits = String(localized: "No active habits")
+    static let noTasksInLane = String(localized: "No tasks")
+    static let noOutcomes = String(localized: "No goals yet")
+    static let noCompletedWork = String(localized: "Nothing done yet")
+    static let noUnfinishedWork = String(localized: "Nothing left")
+    static let noWeeklyNotes = String(localized: "No notes yet")
+    static let noProjectTasks = String(localized: "No open tasks")
 
-    static let thisWeek = "This Week"
-    static let nextWeek = "Next Week"
-    static let later = "Later"
+    static let thisWeek = String(localized: "This week")
+    static let nextWeek = String(localized: "Next week")
+    static let later = String(localized: "Later")
 
-    static let keepInThisWeek = "Keep in This Week"
-    static let moveToNextWeek = "Move to Next Week"
-    static let moveToLater = "Move to Later"
-    static let removeFromThisWeek = "Remove from This Week"
+    static let keepInThisWeek = String(localized: "Keep this week")
+    static let moveToNextWeek = String(localized: "Move to next week")
+    static let moveToLater = String(localized: "Move to Later")
+    static let removeFromThisWeek = String(localized: "Remove from week")
 
     static let plannerSteps = [
-        "Set direction",
-        "Choose weekly outcomes",
-        "Place work",
-        "Review plan"
+        String(localized: "Set focus"),
+        String(localized: "Choose goals"),
+        String(localized: "Place tasks"),
+        String(localized: "Review plan")
     ]
 
     static let reviewSteps = [
-        "See how the week went",
-        "Update outcomes",
-        "Resolve unfinished work",
-        "Capture what to carry forward"
+        String(localized: "Look back"),
+        String(localized: "Update goals"),
+        String(localized: "Sort what’s left"),
+        String(localized: "Add notes")
     ]
+}
 
+extension WeeklyCopy {
     static func plannerTitle(for presentation: WeeklyPlannerPresentationMode) -> String {
         switch presentation {
         case .thisWeek:
-            return "Plan this week"
+            return String(localized: "Plan this week")
         case .upcomingWeek:
-            return "Plan upcoming week"
+            return String(localized: "Plan next week")
         }
     }
 
     static func plannerErrorTitle(for presentation: WeeklyPlannerPresentationMode) -> String {
         switch presentation {
         case .thisWeek:
-            return "We couldn't load this week"
+            return String(localized: "Couldn’t load this week.")
         case .upcomingWeek:
-            return "We couldn't load the upcoming week"
+            return String(localized: "Couldn’t load next week.")
         }
     }
 
@@ -105,19 +108,19 @@ enum WeeklyCopy {
         case (.direction, .thisWeek):
             return directionPrompt
         case (.direction, .upcomingWeek):
-            return "What should next week really be about?"
+            return String(localized: "Focus next week")
         case (.outcomes, .thisWeek):
             return outcomesPrompt
         case (.outcomes, .upcomingWeek):
-            return "Choose up to three results worth protecting next week."
+            return String(localized: "Pick up to 3 goals for next week")
         case (.tasks, .thisWeek):
             return tasksPrompt
         case (.tasks, .upcomingWeek):
-            return "Decide where each task belongs so next week starts clear."
+            return String(localized: "Place each task for next week")
         case (.review, .thisWeek):
             return reviewPrompt
         case (.review, .upcomingWeek):
-            return "Check that next week matches what you actually want to carry."
+            return String(localized: "Check next week’s plan")
         }
     }
 
@@ -133,28 +136,28 @@ enum WeeklyCopy {
 
     static func capacityHelper(target: Int, estimate: Int) -> String {
         if target < estimate {
-            return "You are planning lighter than your usual pace. Good for a constrained week."
+            return String(localized: "Lighter than your usual week.")
         } else if target > estimate {
-            return "This is above your recent pace. Keep only work you would still choose midweek."
+            return String(localized: "More than your usual week.")
         } else {
-            return "This matches your recent pace. Keep This Week focused enough to stay believable."
+            return String(localized: "About your usual week.")
         }
     }
 
     static func overloadHelper(count: Int) -> String {
         count == 1
-            ? "One task is still stretching this week past the pace you set."
-            : "\(count) tasks are still stretching this week past the pace you set."
+            ? String(localized: "1 task over your pace")
+            : String(localized: "\(count) tasks over your pace")
     }
 
     static func cleanupHelper(for disposition: WeeklyReviewTaskDisposition) -> String {
         switch disposition {
         case .carry:
-            return "Keep it active in This Week if it still deserves immediate attention."
+            return String(localized: "Stays this week")
         case .later:
-            return "Move it out of the active week without losing it."
+            return String(localized: "Moves to Later")
         case .drop:
-            return "Use this when the work should stop creating pressure."
+            return String(localized: "Moves to Someday")
         }
     }
 }
@@ -240,7 +243,7 @@ private struct WeeklyWizardHeader: View {
                         Label(WeeklyCopy.back, systemImage: "chevron.left")
                             .font(.lifeboard(.buttonSmall))
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                 }
 
                 Spacer()
@@ -575,7 +578,7 @@ struct WeeklyCapacityCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Planned pace")
+                    Text("Planned")
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(Color.lifeboard.textSecondary)
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -586,9 +589,6 @@ struct WeeklyCapacityCard: View {
                             .font(.lifeboard(.caption1))
                             .foregroundStyle(Color.lifeboard.textSecondary)
                     }
-                    Text("Keep only work you would still choose midweek.")
-                        .font(.lifeboard(.caption2))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
                 }
 
                 Spacer()
@@ -602,8 +602,7 @@ struct WeeklyCapacityCard: View {
                     }
                     .buttonStyle(.plain)
                     .lifeboardDenseSurface(cornerRadius: Radius.field, fillColor: Color.lifeboard.surfaceSecondary)
-                    .accessibilityLabel("Decrease planned pace")
-                    .accessibilityHint("Reduces planned weekly tasks by one.")
+                    .accessibilityLabel("Decrease pace")
 
                     Button {
                         targetCapacity = min(30, targetCapacity + 1)
@@ -613,8 +612,7 @@ struct WeeklyCapacityCard: View {
                     }
                     .buttonStyle(.plain)
                     .lifeboardDenseSurface(cornerRadius: Radius.field, fillColor: Color.lifeboard.surfaceSecondary)
-                    .accessibilityLabel("Increase planned pace")
-                    .accessibilityHint("Increases planned weekly tasks by one.")
+                    .accessibilityLabel("Increase pace")
                 }
             }
 
@@ -638,7 +636,7 @@ extension TaskPlanningBucket {
     var conciseDisplayTitle: String {
         switch self {
         case .today:
-            return "Today"
+            return String(localized: "Today")
         case .thisWeek:
             return WeeklyCopy.thisWeek
         case .nextWeek:
@@ -646,7 +644,7 @@ extension TaskPlanningBucket {
         case .later:
             return WeeklyCopy.later
         case .someday:
-            return "Someday"
+            return String(localized: "Someday")
         }
     }
 }
@@ -662,9 +660,9 @@ private extension TaskPlanningBucket {
         case .later:
             return WeeklyCopy.moveToLater
         case .today:
-            return "Move to Today"
+            return String(localized: "Move to Today")
         case .someday:
-            return "Move to Someday"
+            return String(localized: "Move to Someday")
         }
     }
 
@@ -769,26 +767,17 @@ private struct WeeklyTaskPlannerRow: View {
                     Image(systemName: "ellipsis.circle")
                         .lifeboardFont(.title2)
                         .foregroundStyle(Color.lifeboard.textSecondary)
+                        .minimumHitTarget()
                 }
                 .accessibilityLabel("Move \(task.title)")
             }
         }
         .padding(14)
         .lifeboardDenseSurface(cornerRadius: Radius.card, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            ForEach(trailingMoves, id: \.self) { move in
-                Button(move.copyLabel) {
-                    onMove(task.id, move)
-                }
-                .tint(move.tintColor)
-            }
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: false) {
-            ForEach(leadingMoves, id: \.self) { move in
-                Button(move.copyLabel) {
-                    onMove(task.id, move)
-                }
-                .tint(move.tintColor)
+        // The same moves on a right-click or long-press anywhere on the row.
+        .contextMenu {
+            ForEach(plannerMoves, id: \.self) { move in
+                Button(move.copyLabel) { onMove(task.id, move) }
             }
         }
         .accessibilityAction(named: Text(WeeklyCopy.keepInThisWeek)) {
@@ -804,32 +793,6 @@ private struct WeeklyTaskPlannerRow: View {
 
     private var plannerMoves: [TaskPlanningBucket] {
         [.thisWeek, .nextWeek, .later].filter { $0 != sourceBucket }
-    }
-
-    private var leadingMoves: [TaskPlanningBucket] {
-        switch sourceBucket {
-        case .thisWeek:
-            return []
-        case .nextWeek:
-            return [.thisWeek]
-        case .later:
-            return [.thisWeek, .nextWeek]
-        default:
-            return []
-        }
-    }
-
-    private var trailingMoves: [TaskPlanningBucket] {
-        switch sourceBucket {
-        case .thisWeek:
-            return [.nextWeek, .later]
-        case .nextWeek:
-            return [.later]
-        case .later:
-            return []
-        default:
-            return []
-        }
     }
 }
 
@@ -871,10 +834,6 @@ struct WeeklyPlanningPlacementSection: View {
                             Text(selectedOutcomeTitle)
                                 .font(.lifeboard(.callout))
                                 .foregroundStyle(Color.lifeboard.textPrimary)
-                            Text("Choose the outcome this work supports. Outcome links stay active only in This Week.")
-                                .font(.lifeboard(.caption2))
-                                .foregroundStyle(Color.lifeboard.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
                         }
 
                         Spacer()
@@ -894,9 +853,9 @@ struct WeeklyPlanningPlacementSection: View {
 
     private var selectedOutcomeTitle: String {
         guard let selectedWeeklyOutcomeID else {
-            return availableWeeklyOutcomes.isEmpty ? "No weekly outcomes yet" : "No weekly outcome"
+            return availableWeeklyOutcomes.isEmpty ? String(localized: "No goals yet") : WeeklyCopy.noOutcome
         }
-        return availableWeeklyOutcomes.first(where: { $0.id == selectedWeeklyOutcomeID })?.title ?? "No weekly outcome"
+        return availableWeeklyOutcomes.first(where: { $0.id == selectedWeeklyOutcomeID })?.title ?? WeeklyCopy.noOutcome
     }
 }
 
@@ -951,11 +910,11 @@ extension WeeklyReviewTaskDisposition {
     var displayTitle: String {
         switch self {
         case .carry:
-            return "Carry"
+            return String(localized: "Keep")
         case .later:
-            return "Move later"
+            return String(localized: "Later")
         case .drop:
-            return "Release"
+            return String(localized: "Someday")
         }
     }
 
@@ -976,13 +935,13 @@ extension WeeklyOutcomeStatus {
     var displayTitle: String {
         switch self {
         case .planned:
-            return "Planned"
+            return String(localized: "Planned")
         case .inProgress:
-            return "In progress"
+            return String(localized: "In progress")
         case .completed:
-            return "Completed"
+            return String(localized: "Done")
         case .dropped:
-            return "Dropped"
+            return String(localized: "Let go")
         }
     }
 

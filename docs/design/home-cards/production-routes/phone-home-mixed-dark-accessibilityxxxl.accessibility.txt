@@ -1,0 +1,79 @@
+Attributes: Application, 0x115e8a940, pid: 94855, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x115e8a940, pid: 94855, label: 'LifeBoard'
+    Window (Main), 0x115e8aa80, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x115e8abc0, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x115e8ad00, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x116d02e40, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x116d02f80, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x116d030c0, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x116d03200, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x116d03340, {{0.0, 0.0}, {402.0, 874.0}}
+                    Button, 0x116d03480, {{201.0, 451.0}, {0.0, 0.0}}
+                    Other, 0x116d035c0, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x116d03700, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x116d03840, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x116d03980, {{0.0, 0.0}, {402.0, 874.0}}
+                          Other, 0x116d14000, {{0.0, 0.0}, {402.0, 874.0}}
+                            Other, 0x116d14140, {{0.0, 0.0}, {402.0, 874.0}}
+                              Other, 0x116d14280, {{0.0, 0.0}, {402.0, 874.0}}
+                                Other, 0x116d143c0, {{0.0, 62.0}, {402.0, 704.0}}
+                                Other, 0x116d14500, {{0.0, 0.0}, {402.0, 874.0}}
+                                  Other, 0x116d14640, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x116d14780, {{0.0, 0.0}, {402.0, 874.0}}
+                                      Other, 0x116d148c0, {{0.0, 0.0}, {402.0, 874.0}}
+                                        Other, 0x116d14a00, {{0.0, 0.0}, {402.0, 874.0}}
+                                          Image, 0x116d14b40, {{-45.0, 0.0}, {492.0, 874.0}}
+                                          Image, 0x116d14c80, {{212.8, 19.4}, {166.8, 166.8}}
+                                          Other, 0x116d14dc0, {{201.0, 62.0}, {0.0, 0.0}}
+                                          ScrollView, 0x116d14f00, {{0.0, 451.0}, {402.0, 423.0}}, identifier: 'foundation.home.scroll'
+                                            Other, 0x116d15040, {{0.0, 451.0}, {402.0, 4289.0}}
+                                              Other, 0x116d15180, {{20.0, 463.0}, {362.0, 1183.0}}
+                                                StaticText, 0x116d152c0, {{20.0, 463.0}, {114.3, 67.0}}, identifier: 'home.hero', label: 'Now'
+                                                Other, 0x116d15400, {{20.0, 542.0}, {362.0, 322.7}}, identifier: 'home.hero', label: 'Draft update'
+                                                  Image, 0x116d15540, {{27.7, 549.7}, {50.7, 50.7}}, identifier: 'scope', label: 'scope'
+                                                  StaticText, 0x116d15680, {{82.0, 558.0}, {151.7, 114.7}}, label: 'Draft update'
+                                                  StaticText, 0x116d157c0, {{82.0, 675.7}, {216.0, 102.3}}, label: 'Its deadline needs attention soon.'
+                                                  Button, 0x116d15900, {{322.0, 558.0}, {44.0, 44.0}}, label: 'Options for Draft update'
+                                                    Button, 0x116d15a40, {{322.0, 558.0}, {44.0, 44.0}}
+                                                      Image, 0x116d15b80, {{322.0, 558.0}, {44.0, 44.0}}, identifier: 'ellipsis', label: 'More'
+                                                  Button, 0x116d15cc0, {{36.0, 790.0}, {324.0, 58.7}}, label: 'Open Plan'
+                                                    StaticText, 0x116d15e00, {{36.0, 790.0}, {225.7, 58.7}}, label: 'Open Plan'
+                                                    Image, 0x116d15f40, {{322.7, 801.0}, {37.3, 37.0}}, identifier: 'arrow.up.right', label: 'arrow.up.right'
+                                                StaticText, 0x116d16080, {{20.0, 884.7}, {193.3, 67.0}}, identifier: 'home.todayStory', label: 'Up next'
+                                                Button, 0x116d161c0, {{36.0, 963.7}, {330.0, 682.3}}, identifier: 'home.todayStory', label: 'Nothing else is scheduled today, Open time is fine. Add a task if something is on your mind.'
+                                                  Image, 0x116d16300, {{40.3, 1278.3}, {53.3, 53.3}}, identifier: 'sun.max', label: 'Brightness Higher'
+                                                  StaticText, 0x116d16440, {{106.0, 975.7}, {167.3, 262.7}}, label: 'Nothing else is scheduled today'
+                                                  StaticText, 0x116d16580, {{106.0, 1242.3}, {162.3, 391.7}}, label: 'Open time is fine. Add a task if something is on your mind.'
+                                                  Image, 0x116d166c0, {{312.7, 1280.3}, {49.0, 49.0}}, identifier: 'plus.circle', label: 'Add'
+                                          Other, 0x116d16800, {{20.0, 6.0}, {354.3, 486.3}}, identifier: 'home.header'
+                                            StaticText, 0x116d16940, {{20.0, 6.0}, {228.0, 130.7}}, label: 'Good morning!'
+                                            StaticText, 0x116d16a80, {{20.0, 139.7}, {171.0, 311.3}}, label: 'Thursday, September 17'
+                                            Button, 0x116d16bc0, {{199.0, 152.7}, {175.3, 46.7}}, identifier: 'home.mode', label: 'Home mode, Smart'
+                                              Button, 0x116d16d00, {{199.0, 152.7}, {175.3, 46.7}}
+                                                StaticText, 0x116d16e40, {{199.0, 152.0}, {9.7, 48.0}}, label: '·'
+                                                StaticText, 0x116d16f80, {{199.0, 152.7}, {175.3, 46.7}}, label: 'Smart'
+                                                Image, 0x116d170c0, {{331.7, 165.3}, {37.3, 21.3}}, identifier: 'chevron.down', label: 'Go Down'
+                                            Button, 0x116d17200, {{284.0, 480.0}, {48.3, 10.0}}, identifier: 'foundation.more.home', label: 'More'
+                                            Button, 0x116d17340, {{353.0, 478.0}, {14.3, 14.3}}, identifier: 'foundation.capture', label: 'Capture'
+                                  Other, 0x116d17480, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x116d175c0, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x116d17700, {{0.0, 791.0}, {402.0, 83.0}}
+                        Other, 0x116d17840, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x116d17980, {{0.0, 791.0}, {402.0, 83.0}}
+                    Other, 0x116d17ac0, {{0.0, 744.0}, {402.0, 90.5}}, identifier: 'LifeBoardCompactChrome'
+                      Button, 0x116d17c00, {{20.0, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.home', label: 'Home', value: Root, Selected
+                      Button, 0x116d17d40, {{92.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.plan', label: 'Plan', value: Root
+                      Button, 0x116d17e80, {{164.7, 774.0}, {72.7, 52.0}}, identifier: 'foundation.destination.track', label: 'Track', value: Root
+                      Button, 0x116d20000, {{237.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.insights', label: 'Insights', value: Root
+                      Button, 0x116d20140, {{309.7, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.eva', label: 'Eva', value: Root
+                    Other, 0x116d20280, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.morning', label: 'Celestial atmosphere: morning'
+                    Button, 0x116d203c0, {{0.0, 62.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                    Other, 0x116d20500, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x115e8a940, pid: 94855, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x116d20640, pid: 94855, label: 'LifeBoard'
+  }

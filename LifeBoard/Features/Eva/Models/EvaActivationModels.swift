@@ -30,14 +30,14 @@ enum EvaActivationInstallETAState: Equatable {
     var text: String {
         switch self {
         case .calculating:
-            return "Calculating time remaining..."
+            return String(localized: "Calculating…")
         case .ready(let secondsRemaining):
             if secondsRemaining < 60 {
-                return "About \(max(1, secondsRemaining)) sec remaining"
+                return String(localized: "About \(max(1, secondsRemaining)) sec left")
             }
 
             let minutes = Int(ceil(Double(secondsRemaining) / 60.0))
-            return "About \(minutes) min remaining"
+            return String(localized: "About \(minutes) min left")
         }
     }
 }
@@ -109,7 +109,7 @@ struct EvaStarterPrompt: Identifiable, Equatable {
 
     static let dayOverviewPrompt = EvaStarterPrompt(
         id: "day_overview",
-        title: "How is my day?",
+        title: String(localized: "How is my day?"),
         submissionText: "How is my day looking today?",
         style: .naturalLanguage,
         isRecommended: true
@@ -119,21 +119,21 @@ struct EvaStarterPrompt: Identifiable, Equatable {
         dayOverviewPrompt,
         EvaStarterPrompt(
             id: "plan_today",
-            title: "Help me plan today",
+            title: String(localized: "Plan today"),
             submissionText: "Help me plan today.",
             style: .naturalLanguage,
             isRecommended: false
         ),
         EvaStarterPrompt(
             id: "focus_first",
-            title: "What should I focus on first?",
+            title: String(localized: "What’s first?"),
             submissionText: "What should I focus on first today?",
             style: .naturalLanguage,
             isRecommended: false
         ),
         EvaStarterPrompt(
             id: "break_top_priority",
-            title: "Break down my top priority",
+            title: String(localized: "Break down priority"),
             submissionText: "Help me break down my top priority into next steps.",
             style: .naturalLanguage,
             isRecommended: false

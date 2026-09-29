@@ -122,16 +122,16 @@ extension LifeManagementView {
 
             if isSearching && hasTreeContent == false {
                 emptyStateCard(
-                    title: "No matches",
-                    body: "Try a different search across areas, projects, and habits.",
+                    title: "No results",
+                    body: "Try a different search.",
                     actionTitle: nil,
                     action: nil
                 )
             } else if hasTreeContent == false && viewModel.isLoading == false {
                 emptyStateCard(
-                    title: "Start with a life area",
-                    body: "Create an area first, then place projects and habits inside it.",
-                    actionTitle: "Add Area",
+                    title: "No areas yet",
+                    body: "Areas hold your projects and habits.",
+                    actionTitle: "Add area",
                     action: {
                         viewModel.beginCreateLifeArea()
                     }
@@ -157,10 +157,10 @@ extension LifeManagementView {
                 .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
-                    Text("Life Map")
+                    Text("Life map")
                         .font(.lifeboard(.headline))
                         .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text("See how your areas, capacity, and LifeBoard roots connect.")
+                    Text("How your areas connect.")
                         .font(.lifeboard(.callout))
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
@@ -184,21 +184,16 @@ extension LifeManagementView {
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: spacing.s4) {
-                        Text("Life Areas")
+                        Text("Areas")
                             .font(.lifeboard(.headline))
                             .foregroundStyle(Color.lifeboard(.textPrimary))
-
-                        Text("Create a new area to organize related projects and habits.")
-                            .font(.lifeboard(.callout))
-                            .foregroundStyle(Color.lifeboard(.textSecondary))
-                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
                 Button {
                     viewModel.beginCreateLifeArea()
                 } label: {
-                    Label("Add Area", systemImage: "plus.circle.fill")
+                    Label("Add area", systemImage: "plus.circle.fill")
                 }
                 .buttonStyle(.lifeBoardPrimaryCompact)
                 .disabled(viewModel.isMutating)
@@ -267,11 +262,12 @@ extension LifeManagementView {
                                 .lifeboardFont(.eyebrow)
                                 .foregroundStyle(Color.lifeboard(.textTertiary))
                                 .frame(width: 24, height: 24)
+                                .minimumHitTarget()
                         }
                         .buttonStyle(.plain)
                     } else {
                         Color.clear
-                            .frame(width: 24, height: 24)
+                            .frame(width: 44, height: 44)
                     }
 
                     primaryNodeControl(node, interactionMode: interactionMode)
@@ -374,16 +370,16 @@ extension LifeManagementView {
     func nodeBadgeTitle(_ node: LifeManagementTreeNode) -> String? {
         switch node.payload {
         case .area(let row):
-            if row.lifeArea.isArchived || node.isArchived { return "Archived" }
-            if row.isGeneral { return "Pinned" }
+            if row.lifeArea.isArchived || node.isArchived { return String(localized: "Archived") }
+            if row.isGeneral { return String(localized: "Pinned") }
             return nil
         case .project(let row):
-            if row.project.isArchived || node.isArchived { return "Archived" }
-            if row.isInbox { return "Inbox" }
+            if row.project.isArchived || node.isArchived { return String(localized: "Archived") }
+            if row.isInbox { return String(localized: "Inbox") }
             return nil
         case .habit(let row):
-            if row.row.isArchived || node.isArchived { return "Archived" }
-            if row.row.isPaused { return "Paused" }
+            if row.row.isArchived || node.isArchived { return String(localized: "Archived") }
+            if row.row.isPaused { return String(localized: "Paused") }
             return nil
         }
     }

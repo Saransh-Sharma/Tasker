@@ -65,13 +65,13 @@ public struct CommandIntentAdapter: LifeThreadIntentAdapter {
         CommandDefinition(patterns: ["start planning", "plan my day", "day plan", "start the day", "/today", "/plan"]) { _, _ in
             return .navigation(LifeThreadNavigationRequest(
                 destination: .plan, sourceReference: nil,
-                route: .planDay, routeLabel: "Day Plan"
+                route: .planDay, routeLabel: String(localized: "Day plan")
             ))
         },
         CommandDefinition(patterns: ["weekly plan", "plan my week", "weekly planner", "plan my week", "/week"]) { _, _ in
             return .navigation(LifeThreadNavigationRequest(
                 destination: .plan, sourceReference: nil,
-                route: .weeklyPlanner, routeLabel: "Weekly Planner"
+                route: .weeklyPlanner, routeLabel: String(localized: "Plan week")
             ))
         },
         CommandDefinition(patterns: ["day rescue", "rescue my day", "rescue the day"]) { _, _ in
@@ -83,13 +83,13 @@ public struct CommandIntentAdapter: LifeThreadIntentAdapter {
         CommandDefinition(patterns: ["weekly review", "review my week"]) { _, _ in
             return .navigation(LifeThreadNavigationRequest(
                 destination: .plan, sourceReference: nil,
-                route: .weeklyReview, routeLabel: "Weekly Review"
+                route: .weeklyReview, routeLabel: String(localized: "Review week")
             ))
         },
         CommandDefinition(patterns: ["backlog", "show backlog", "open backlog"]) { _, _ in
             return .navigation(LifeThreadNavigationRequest(
                 destination: .plan, sourceReference: nil,
-                route: .backlog, routeLabel: "Backlog"
+                route: .backlog, routeLabel: String(localized: "Backlog")
             ))
         }
     ]
@@ -174,6 +174,17 @@ public enum QuickCaptureSavePolicy {
     public static func looksLikeProse(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return proseOpeners.contains(where: { trimmed.hasPrefix($0) })
+    }
+
+    /// A few words with no verb, no structure, and no question ("Dentist",
+    /// "milk"). It could be a task or something to ask the assistant, so the
+    /// composer asks instead of guessing. It used to fall through to a chat
+    /// and switch tabs, which lost the capture.
+    public static func isPlainPhrase(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false, trimmed.count <= 60 else { return false }
+        guard looksLikeQuestion(trimmed) == false, looksLikeProse(trimmed) == false else { return false }
+        return trimmed.split(whereSeparator: \.isWhitespace).count <= 4
     }
 
     /// Structure without a verb is enough to call it a task.
@@ -331,7 +342,7 @@ public struct CaptureLanguageIntentAdapter: LifeThreadIntentAdapter {
                 ))
             )
             return .clarification(ClarificationRequest(
-                question: "Did you mean to create a note or schedule a task?",
+                question: String(localized: "Note or task?"),
                 options: [noteOption, taskOption],
                 originalText: input.text
             ))

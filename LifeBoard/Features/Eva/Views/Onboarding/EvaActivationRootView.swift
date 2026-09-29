@@ -119,13 +119,13 @@ struct EvaActivationRootView: View {
                         config: EvaActivationChatConfiguration(
                             starterPrompts: EvaStarterPrompt.activationDefaults,
                             showsCompletionObserver: true,
-                            progressTitle: "First Win",
+                            progressTitle: String(localized: "First chat"),
                             progressStep: 5,
                             totalSteps: 5,
                             hideUtilityActions: true,
                             recommendedStarterID: EvaStarterPrompt.activationDefaults.first(where: \.isRecommended)?.id,
                             visibleStarterLimit: 4,
-                            helperCopy: "Type / for structured help like today, week, or project.",
+                            helperCopy: String(localized: "Type / to see commands."),
                             collapsesCoachingAfterFirstAssistantReply: true
                         )
                     ),

@@ -27,13 +27,13 @@ extension LLMEvaluator {
         startTime = Date()
         runtimePhase = .answering
         isThinking = false
-        modelInfo = "Cloud EVA · Luna"
+        modelInfo = "Cloud Eva"
         let cancellationToken = LLMGenerationCancellationToken()
         generationCancellationToken = cancellationToken
         guard let consentRevision = runtime.consentRevision else {
             runtimePhase = .failed
             lastTerminationReason = "cloud_runtime_missing_consent"
-            return "Failed: Cloud EVA consent is not ready."
+            return "Failed: " + String(localized: "Turn on cloud access first.")
         }
         let request: EvaInferenceRequest
         do {
@@ -47,7 +47,7 @@ extension LLMEvaluator {
         } catch {
             runtimePhase = .failed
             lastTerminationReason = "cloud_request_creation_failed"
-            output = "Failed: (error.localizedDescription)"
+            output = "Failed: \(error.localizedDescription)"
             return output
         }
         var emittedFirstToken = false

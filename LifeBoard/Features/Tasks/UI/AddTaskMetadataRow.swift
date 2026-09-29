@@ -16,6 +16,7 @@ struct AddTaskReminderChip: View {
 
     @State private var showTimePicker = false
     @State private var bellTrigger = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 8) {
@@ -26,10 +27,10 @@ struct AddTaskReminderChip: View {
                 isActive: hasReminder
             ) {
                 if hasReminder {
-                    withAnimation(LifeBoardAnimation.feedbackFast) {
+                    withAnimation(MotionProfile.press.animation(reduceMotion: reduceMotion)) {
                         hasReminder = false
                     }
-                    HapticFeedback.light()
+                    Haptic.pick.play()
                 } else {
                     showTimePicker = true
                 }
@@ -53,11 +54,9 @@ struct AddTaskReminderChip: View {
         }
     }
 
-    /// Executes formatTime.
+    /// The person's own clock: "3:00 PM" or "15:00".
     private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: date)
+        date.formatted(date: .omitted, time: .shortened)
     }
 }
 
@@ -82,7 +81,7 @@ struct AddTaskTimePickerSheet: View {
                 HStack(spacing: spacing.s8) {
                     ForEach(ReminderPreset.allCases, id: \.self) { preset in
                         Button {
-                            HapticFeedback.selection()
+                            Haptic.pick.play()
                             selectedTime = preset.date
                         } label: {
                             Text(preset.label)
@@ -102,7 +101,7 @@ struct AddTaskTimePickerSheet: View {
                 .padding(.horizontal, spacing.s16)
 
                 DatePicker(
-                    "Reminder Time",
+                    "Reminder time",
                     selection: $selectedTime,
                     displayedComponents: .hourAndMinute
                 )
@@ -112,10 +111,10 @@ struct AddTaskTimePickerSheet: View {
                 Button {
                     reminderTime = selectedTime
                     hasReminder = true
-                    HapticFeedback.success()
+                    Haptic.pick.play()
                     isPresented = false
                 } label: {
-                    Text("Set Reminder")
+                    Text("Set reminder")
                         .font(.lifeboard(.button))
                         .foregroundColor(Color.lifeboard.accentOnPrimary)
                         .frame(maxWidth: .infinity)
@@ -129,17 +128,19 @@ struct AddTaskTimePickerSheet: View {
                 .padding(.horizontal, spacing.s16)
             }
             .lifeboardReadableContent(maxWidth: 460, alignment: .center)
-            .navigationTitle("Set Reminder")
+            .navigationTitle("Set reminder")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         isPresented = false
                     }
+                    .keyboardShortcut(.cancelAction)
                 }
             }
         }
-        .presentationDetents(layoutClass.isPad ? [.medium, .large] : [.height(400)])
+        // Not a fixed height: at large text the wheel and presets clipped.
+        .presentationDetents([.medium, .large])
         .onAppear {
             selectedTime = reminderTime
         }
@@ -151,13 +152,9 @@ struct AddTaskTimePickerSheet: View {
 enum ReminderPreset: CaseIterable {
     case morning, noon, afternoon, evening
 
+    /// "9 AM" or "09", in the person's 12- or 24-hour setting.
     var label: String {
-        switch self {
-        case .morning: return "9 AM"
-        case .noon: return "12 PM"
-        case .afternoon: return "3 PM"
-        case .evening: return "6 PM"
-        }
+        date.formatted(.dateTime.hour())
     }
 
     var date: Date {

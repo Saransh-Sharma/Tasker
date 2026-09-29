@@ -13,7 +13,7 @@ public enum LLMChatContextStrategy: String, CaseIterable {
 }
 
 public enum V2FeatureFlags {
-    private static var defaults: UserDefaults { .standard }
+    static var defaults: UserDefaults { .standard }
     private static var sharedDefaults: UserDefaults? { UserDefaults(suiteName: AppGroupConstants.suiteName) }
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
     private static let decorativeCTAEffectsUserKey = "feature.ui.decorative_cta_effects.user_enabled"
@@ -211,6 +211,13 @@ public enum V2FeatureFlags {
     /// Presentation-only: the spine reorders and reframes surfaces that already
     /// exist and writes nothing of its own. Off restores the previous section
     /// order exactly, including "Close the loop" as its own rendered section.
+    /// Eva presented as a sheet over the current root, carrying what the root
+    /// was looking at. Off keeps today's behaviour: switch to the Eva tab.
+    public static var evaContextSheetV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.eva_context_sheet_v1", argument: "EVA_CONTEXT_SHEET_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.eva_context_sheet_v1") }
+    }
+
     public static var homeLoopSpineV1Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.home_loop_spine_v1", argument: "HOME_LOOP_SPINE_V1") }
         set { setStagedFeature(newValue, key: "feature.life_os.home_loop_spine_v1") }
@@ -366,6 +373,7 @@ public enum V2FeatureFlags {
         "feature.life_os.day_open_commit_v1": true,
         // Home as the loop spine over a pinned dashboard. Presentation only.
         "feature.life_os.home_loop_spine_v1": true,
+        "feature.life_os.eva_context_sheet_v1": true,
         // EVA decision loops. Each remains independently suppressible through
         // signed app-runtime policy while local/offline behavior defaults on.
         "feature.eva.make_it_fit_today_v1": true,
@@ -387,6 +395,22 @@ public enum V2FeatureFlags {
         "feature.onboarding.life_weave_v6": true,
         "feature.onboarding.power_ups": true
     ]
+
+    /// Prototype: tints recognized capture tokens inside the composer field.
+    ///
+    /// Off everywhere — including Debug, unlike the staged flags — until the
+    /// UITextView path has proven it keeps every keystroke under fast typing
+    /// and Return still saves. The UI suite types into `textFields`, and a text
+    /// view is not one, so a Debug default of "on" would break that contract.
+    /// Opt in with `-LIFEBOARD_ENABLE_CAPTURE_HIGHLIGHTING_V1` or the stored key.
+    public static var captureHighlightingV1Enabled: Bool {
+        #if DEBUG
+        if launchArguments.contains("-LIFEBOARD_ENABLE_CAPTURE_HIGHLIGHTING_V1") { return true }
+        if launchArguments.contains("-LIFEBOARD_DISABLE_CAPTURE_HIGHLIGHTING_V1") { return false }
+        #endif
+        let key = "feature.capture.highlighting_v1"
+        return (sharedDefaults?.object(forKey: key) as? Bool ?? defaults.object(forKey: key) as? Bool) ?? false
+    }
 
     private static func stagedFeatureEnabled(key: String, argument: String) -> Bool {
         #if DEBUG
@@ -439,7 +463,6 @@ public enum V2FeatureFlags {
         get { defaults.object(forKey: "feature.tasks.auto_icons") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.tasks.auto_icons") }
     }
-
 
     /// Every bounded signature Metal effect. Enabled by default; callers still
     /// gate on Reduce Motion / Low Power / thermal / GPU support.
@@ -589,106 +612,6 @@ public enum V2FeatureFlags {
             defaults.set(newValue, forKey: "debug.llm.runtime_smoke")
             #endif
         }
-    }
-
-    public static var evaFocusEnabled: Bool {
-        get { defaults.object(forKey: "feature.eva.focus") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.eva.focus") }
-    }
-
-    public static var evaTriageEnabled: Bool {
-        get { defaults.object(forKey: "feature.eva.triage") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.eva.triage") }
-    }
-
-    public static var evaRescueEnabled: Bool {
-        get { defaults.object(forKey: "feature.eva.rescue") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.eva.rescue") }
-    }
-
-    public static var evaPlanWithText: Bool {
-        get { defaults.object(forKey: "feature.eva.plan_with_text") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.eva.plan_with_text") }
-    }
-
-    public static var evaStructuredComposer: Bool {
-        get { defaults.object(forKey: "feature.eva.structured_composer") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.eva.structured_composer") }
-    }
-
-    public static var evaProposalReviewCards: Bool {
-        get { defaults.object(forKey: "feature.eva.proposal_review_cards") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.eva.proposal_review_cards") }
-    }
-
-    public static var evaTimelineInlineDiff: Bool {
-        get { defaults.object(forKey: "feature.eva.timeline_inline_diff") as? Bool ?? false }
-        set { defaults.set(newValue, forKey: "feature.eva.timeline_inline_diff") }
-    }
-
-    public static var evaAppliedRunHistory: Bool {
-        get { defaults.object(forKey: "feature.eva.applied_run_history") as? Bool ?? false }
-        set { defaults.set(newValue, forKey: "feature.eva.applied_run_history") }
-    }
-
-    public static var evaVoiceDeferred: Bool {
-        get { defaults.object(forKey: "feature.eva.voice_deferred") as? Bool ?? false }
-        set { defaults.set(newValue, forKey: "feature.eva.voice_deferred") }
-    }
-
-    public static var evaScanDeferred: Bool {
-        get { defaults.object(forKey: "feature.eva.scan_deferred") as? Bool ?? false }
-        set { defaults.set(newValue, forKey: "feature.eva.scan_deferred") }
-    }
-
-    public static var iPadNativeShellEnabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.native_shell") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.ipad.native_shell") }
-    }
-
-    public static var iPadPerfBottomBarSchedulerV2Enabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.perf.bottomBar_scheduler_v2") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.ipad.perf.bottomBar_scheduler_v2") }
-    }
-
-    public static var iPadPerfSearchCoalescingV2Enabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.perf.search_coalescing_v2") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.ipad.perf.search_coalescing_v2") }
-    }
-
-    public static var iPadPerfThemeTokenCacheV2Enabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.perf.theme_token_cache_v2") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.ipad.perf.theme_token_cache_v2") }
-    }
-
-    public static var iPadPerfDeferLLMPrewarmV2Enabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.perf.defer_llm_prewarm_v2") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.ipad.perf.defer_llm_prewarm_v2") }
-    }
-
-    public static var iPadPerfPrimarySurfacePersistenceV3Enabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.perf.primary_surface_persistence_v3") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.ipad.perf.primary_surface_persistence_v3") }
-    }
-
-    public static var iPadPerfSearchFocusStabilizationV3Enabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.perf.search_focus_stabilization_v3") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.ipad.perf.search_focus_stabilization_v3") }
-    }
-
-    public static var iPadPerfHomeAnimationTrimV3Enabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.perf.home_animation_trim_v3") as? Bool ?? false }
-        set { defaults.set(newValue, forKey: "feature.ipad.perf.home_animation_trim_v3") }
-    }
-
-    public static var iPadPerfTaskRenderMemoizationV3Enabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.perf.task_render_memoization_v3") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.ipad.perf.task_render_memoization_v3") }
-    }
-
-    public static var iPadPerfCoreDataMappingSnapshotV3Enabled: Bool {
-        get { CoreDataTaskMappingConfiguration.isSnapshotMappingEnabled }
-        set { CoreDataTaskMappingConfiguration.isSnapshotMappingEnabled = newValue }
     }
 
     // MARK: - Gamification v2

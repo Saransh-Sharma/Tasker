@@ -158,7 +158,7 @@ struct WeekdayPickerRow: View {
         HStack(spacing: spacing.s4) {
             ForEach(weekdays) { item in
                 Button {
-                    HapticFeedback.selection()
+                    Haptic.pick.play()
                     withAnimation(LifeBoardAnimation.stateChange) {
                         if selectedDays.contains(item.day) {
                             selectedDays.remove(item.day)

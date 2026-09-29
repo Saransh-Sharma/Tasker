@@ -5,7 +5,7 @@ struct ChatStorageDegradedBanner: View {
 
     var body: some View {
         Label {
-            Text("Chat history is temporarily limited.")
+            Text("New messages may not save. Restart LifeBoard.")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .lineLimit(2)
@@ -26,7 +26,7 @@ struct ChatStorageDegradedBanner: View {
             RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
                 .stroke(ClayColorTokens.role(.warning).border.opacity(0.76), lineWidth: 1)
         )
-        .accessibilityLabel("Chat history is temporarily limited")
-        .accessibilityHint("Storage fallback reason: \(reason)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("New messages may not save. Restart LifeBoard.")
     }
 }

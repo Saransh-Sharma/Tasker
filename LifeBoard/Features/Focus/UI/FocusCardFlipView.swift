@@ -70,21 +70,19 @@ struct FocusCardFlipView<Front: View, Back: View>: View {
         reduceMotion && !isFlipped ? 0 : 1
     }
 
-    private var frontAnimation: Animation {
-        if reduceMotion {
-            return .easeInOut(duration: 0.16)
-        }
-        return isFlipped
-            ? .easeIn(duration: halfDuration)
-            : .easeOut(duration: halfDuration).delay(halfDuration)
+    // Each face turns through its own half of the flip: the outgoing face
+    // leaves first, the incoming one follows after half the duration. The
+    // curve comes from the motion roles; Reduce Motion keeps a plain
+    // crossfade (no rotation, see above) through the same role.
+    private var frontAnimation: Animation? {
+        guard let turn = MotionProfile.controlMorph.animation(reduceMotion: false) else { return nil }
+        if reduceMotion { return MotionProfile.localState.animation(reduceMotion: false) }
+        return isFlipped ? turn : turn.delay(halfDuration)
     }
 
-    private var backAnimation: Animation {
-        if reduceMotion {
-            return .easeInOut(duration: 0.16)
-        }
-        return isFlipped
-            ? .easeOut(duration: halfDuration).delay(halfDuration)
-            : .easeIn(duration: halfDuration)
+    private var backAnimation: Animation? {
+        guard let turn = MotionProfile.controlMorph.animation(reduceMotion: false) else { return nil }
+        if reduceMotion { return MotionProfile.localState.animation(reduceMotion: false) }
+        return isFlipped ? turn.delay(halfDuration) : turn
     }
 }

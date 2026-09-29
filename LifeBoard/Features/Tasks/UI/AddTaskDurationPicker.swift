@@ -11,6 +11,7 @@ import SwiftUI
 
 struct AddTaskDurationPicker: View {
     @Environment(\.lifeboardTokens) private var tokens
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var duration: TimeInterval?
 
     @State private var showCustom = false
@@ -19,17 +20,13 @@ struct AddTaskDurationPicker: View {
     private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
-    private let presets: [(label: String, seconds: TimeInterval)] = [
-        ("15m", 15 * 60),
-        ("30m", 30 * 60),
-        ("1h", 60 * 60),
-        ("2h", 2 * 60 * 60),
-        ("4h", 4 * 60 * 60),
-    ]
+    private let presets: [(label: String, seconds: TimeInterval)] = [15, 30, 60, 120, 240].map {
+        (LifeBoardDuration.text(minutes: $0), TimeInterval($0 * 60))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
-            Text("Estimated Duration")
+            Text("Estimate")
                 .font(.lifeboard(.caption1))
                 .foregroundColor(Color.lifeboard.textTertiary)
 
@@ -41,7 +38,7 @@ struct AddTaskDurationPicker: View {
                         text: "None",
                         isActive: duration == nil && !showCustom
                     ) {
-                        withAnimation(LifeBoardAnimation.stateChange) {
+                        withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                             duration = nil
                             showCustom = false
                         }
@@ -54,7 +51,7 @@ struct AddTaskDurationPicker: View {
                             text: preset.label,
                             isActive: duration == preset.seconds
                         ) {
-                            withAnimation(LifeBoardAnimation.stateChange) {
+                            withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                                 duration = preset.seconds
                                 showCustom = false
                             }
@@ -64,10 +61,10 @@ struct AddTaskDurationPicker: View {
                     // Custom button
                     AddTaskMetadataChip(
                         icon: "pencil",
-                        text: showCustom ? "\(customMinutes)m" : "Custom",
+                        text: showCustom ? (Int(customMinutes).map { LifeBoardDuration.text(minutes: $0) } ?? "Custom") : "Custom",
                         isActive: showCustom
                     ) {
-                        withAnimation(LifeBoardAnimation.stateChange) {
+                        withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                             showCustom.toggle()
                         }
                     }
@@ -77,9 +74,9 @@ struct AddTaskDurationPicker: View {
             // Custom input
             if showCustom {
                 HStack(spacing: spacing.s8) {
-                    TextField("Minutes", text: $customMinutes)
+                    TextField("Minutes", text: $customMinutes, prompt: Text("Minutes").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                         .font(.lifeboard(.callout))
-                        .keyboardType(.numberPad)
+                        .padKeyboard(.numberPad)
                         .foregroundColor(Color.lifeboard.textPrimary)
                         .padding(.horizontal, spacing.s12)
                         .padding(.vertical, spacing.s8)
@@ -110,6 +107,6 @@ struct AddTaskDurationPicker: View {
                 ))
             }
         }
-        .animation(LifeBoardAnimation.stateChange, value: showCustom)
+        .animation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion), value: showCustom)
     }
 }

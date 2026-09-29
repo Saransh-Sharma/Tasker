@@ -208,7 +208,7 @@ public struct ArcDial: View {
         let radius = side / 2 - side * 0.05
         return Circle()
             .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
-            .overlay { Circle().stroke(Color(SemanticColorTokens.foundationApricotAccent), lineWidth: 2) }
+            .overlay { Circle().stroke(Color(SemanticColorTokens.foundationApricotInk), lineWidth: 2) }
             .frame(width: side * 0.14, height: side * 0.14)
             .offset(x: radius * cos(angle.radians), y: radius * sin(angle.radians))
             .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: progress)

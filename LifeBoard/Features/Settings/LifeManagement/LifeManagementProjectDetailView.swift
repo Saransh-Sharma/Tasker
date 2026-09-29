@@ -30,25 +30,25 @@ struct LifeManagementProjectDetailView: View {
                                 Text("\(row.project.color.displayName) · \(row.project.icon.displayName)")
                                     .font(.lifeboard(.caption1))
                                     .foregroundStyle(Color.lifeboard(.textSecondary))
-                                Text(row.project.projectDescription?.lifeManagementNilIfBlank ?? "No project description yet.")
+                                Text(row.project.projectDescription?.lifeManagementNilIfBlank ?? String(localized: "No description"))
                                     .font(.lifeboard(.callout))
                                     .foregroundStyle(Color.lifeboard(.textSecondary))
                                 if row.project.isArchived == false {
-                                    Button("Edit Project") {
+                                    Button("Edit project") {
                                         onEditProject(row.id)
                                     }
-                                    .buttonStyle(.bordered)
+                                    .buttonStyle(.lifeBoardChip)
                                 }
                             }
                         }
 
                         SettingsCard {
                             VStack(alignment: .leading, spacing: spacing.s12) {
-                                Text("Structure")
+                                Text("Details")
                                     .font(.lifeboard(.headline))
                                     .foregroundStyle(Color.lifeboard(.textPrimary))
 
-                                detailLine(title: "Area", value: row.lifeArea?.name ?? "No Area")
+                                detailLine(title: "Area", value: row.lifeArea?.name ?? String(localized: "No area"))
                                 detailLine(title: "Open tasks", value: "\(row.taskCount)")
                                 detailLine(title: "Linked habits", value: "\(snapshot.linkedHabits.count)")
                             }
@@ -62,7 +62,7 @@ struct LifeManagementProjectDetailView: View {
                                             .font(.lifeboard(.headline))
                                             .foregroundStyle(Color.lifeboard(.textPrimary))
                                         Spacer()
-                                        Button("Add Habit") {
+                                        Button("Add habit") {
                                             onCreateHabit(
                                                 AddHabitPrefillTemplate(
                                                     title: "",
@@ -71,7 +71,7 @@ struct LifeManagementProjectDetailView: View {
                                                 )
                                             )
                                         }
-                                        .buttonStyle(.bordered)
+                                        .buttonStyle(.lifeBoardChip)
                                         .disabled(canAddLinkedHabits == false)
                                     }
 
@@ -79,7 +79,7 @@ struct LifeManagementProjectDetailView: View {
                                         Text("Linked habits")
                                             .font(.lifeboard(.headline))
                                             .foregroundStyle(Color.lifeboard(.textPrimary))
-                                        Button("Add Habit") {
+                                        Button("Add habit") {
                                             onCreateHabit(
                                                 AddHabitPrefillTemplate(
                                                     title: "",
@@ -88,14 +88,14 @@ struct LifeManagementProjectDetailView: View {
                                                 )
                                             )
                                         }
-                                        .buttonStyle(.bordered)
+                                        .buttonStyle(.lifeBoardChip)
                                         .disabled(canAddLinkedHabits == false)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
 
                                 if snapshot.linkedHabits.isEmpty {
-                                    Text("No habits are linked to this project.")
+                                    Text("No linked habits")
                                         .font(.lifeboard(.callout))
                                         .foregroundStyle(Color.lifeboard(.textSecondary))
                                 } else {
@@ -139,7 +139,7 @@ struct LifeManagementProjectDetailView: View {
             } else {
                 Color.lifeboard(.bgCanvas)
                     .overlay {
-                        Text("This project is no longer available.")
+                        Text("This project isn’t available.")
                             .font(.lifeboard(.body))
                             .foregroundStyle(Color.lifeboard(.textSecondary))
                     }
@@ -162,10 +162,10 @@ struct LifeManagementProjectDetailView: View {
     @ViewBuilder
     func projectActionButtons(row: LifeManagementProjectRow) -> some View {
         if row.isMoveLocked == false {
-            Button("Move Project") {
+            Button("Move project") {
                 onBeginMoveProject(row.id)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.lifeBoardChip)
         }
 
         if row.project.isArchived {
@@ -174,14 +174,14 @@ struct LifeManagementProjectDetailView: View {
             }
             .buttonStyle(.lifeBoardPrimaryCompact)
         } else if row.isInbox == false {
-            Button("Archive Project") {
+            Button("Archive project") {
                 onArchiveProject(row.id)
             }
             .buttonStyle(.bordered)
         }
 
         if row.project.isDefault == false {
-            Button("Delete Project", role: .destructive) {
+            Button("Delete project", role: .destructive) {
                 onDeleteProject(row.id)
             }
             .buttonStyle(.bordered)

@@ -28,7 +28,7 @@ final class AddTaskSuggestionFlowTests: BaseUITest {
         XCTAssertTrue(addTaskPage.verifyIsDisplayed(timeout: 8))
         XCTAssertTrue(addTaskPage.titleField.exists)
 
-        let dismiss = app.buttons["foundation.capture.dismiss"]
+        let dismiss = app.buttons["addTask.cancelButton"]
         XCTAssertTrue(dismiss.waitForExistence(timeout: 3))
         dismiss.tap()
 

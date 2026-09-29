@@ -11,6 +11,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 public struct KnowledgeModuleView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var store: KnowledgeStore
     @State private var editingNote: KnowledgeNoteValue?
     @State private var confirmsDelete: KnowledgeNoteValue?
@@ -23,8 +24,15 @@ public struct KnowledgeModuleView: View {
     @State private var isSelecting = false
     @State private var selectedNoteIDs: Set<UUID> = []
     @State private var pinnedDropTargetID: UUID?
+    // The module's own width, not the window's: the capture sheet hosts this
+    // view in a form-sized sheet on a wide iPad, where the environment still
+    // says `.padExpanded` but there is no room for a second pane.
+    @State private var availableWidth: CGFloat = 0
     @Namespace private var noteTransition
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    // Light-only `palette(for:)` painted light-appearance ink (#6F6252)
+    // on the dark canvas; the palette has to follow the appearance.
+    @Environment(\.colorScheme) private var colorScheme
 
     private let initialNoteID: UUID?
     private let initialDestination: NotesLibraryDestination?
@@ -63,17 +71,34 @@ public struct KnowledgeModuleView: View {
     }
 
     public var body: some View {
+        // No NavigationSplitView: every host (the shell's routes, Track, the
+        // capture sheet) already pushes this inside a NavigationStack, and a
+        // split nested in a stack showed the list twice and still opened notes
+        // in a sheet. Wide layouts get a plain two-pane HStack instead.
         Group {
-            if horizontalSizeClass == .regular {
-                NavigationSplitView {
-                    notesSidebar
-                        .navigationTitle("Notes")
-                } detail: {
+            if usesNotePane {
+                HStack(spacing: 0) {
                     notesWorkspace
+                        .frame(width: libraryPaneWidth)
+                    Divider()
+                        .ignoresSafeArea(edges: .bottom)
+                    notePane
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
                 notesWorkspace
             }
+        }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { width in
+            availableWidth = width
+        }
+        .onChange(of: isSelecting) { _, selecting in
+            // Batch actions save whole notes; closing the pane first lets its
+            // editor flush before a batch can overwrite (or be overwritten by)
+            // the same note.
+            if selecting, paneNote != nil { editingNote = nil }
         }
         .task {
             await store.load()
@@ -83,10 +108,13 @@ public struct KnowledgeModuleView: View {
             openInitialNoteIfNeeded()
         }
         .onChange(of: store.selectedSpaceID) { _, _ in Task { await store.load() } }
-        .sheet(item: $editingNote) { note in
+        .sheet(item: sheetNote) { note in
             noteEditor(note)
                 .navigationTransition(.zoom(sourceID: note.id, in: noteTransition))
                 .presentationDetents([.large])
+                // A writing surface, not a form: on iPad `.large` alone gave a
+                // form-width card; `.page` gives the editor a page's width.
+                .presentationSizing(.page)
                 .presentationDragIndicator(.hidden)
         }
         .sheet(isPresented: $showsTemplates) {
@@ -106,33 +134,27 @@ public struct KnowledgeModuleView: View {
                 onCancel: { showsSmartCollectionBuilder = false }
             )
         }
-        .alert("New Space", isPresented: $showsNewSpace, actions: newSpaceActions)
-        .alert("New Folder", isPresented: $showsNewFolder, actions: newFolderActions)
+        .alert("New space", isPresented: $showsNewSpace, actions: newSpaceActions)
+        .alert("New folder", isPresented: $showsNewFolder, actions: newFolderActions)
+        // Only a permanent delete asks first. Moving to Trash is reversible,
+        // so it runs at once and the receipt below offers Undo.
         .alert(
-            store.selectedCollection == .trash ? "Delete permanently?" : "Move to Trash?",
+            "Delete permanently?",
             isPresented: Binding(
                 get: { confirmsDelete != nil },
                 set: { if !$0 { confirmsDelete = nil } }
             )
         ) {
-            Button(store.selectedCollection == .trash ? "Delete Permanently" : "Move to Trash", role: .destructive) {
+            Button("Delete permanently", role: .destructive) {
                 guard let note = confirmsDelete else { return }
-                Task {
-                    if store.selectedCollection == .trash {
-                        await store.deletePermanently(note)
-                    } else {
-                        await store.moveToTrash(note)
-                    }
-                }
+                Task { await store.deletePermanently(note) }
                 confirmsDelete = nil
             }
             Button("Cancel", role: .cancel) { confirmsDelete = nil }
         } message: {
-            Text(store.selectedCollection == .trash
-                 ? "This cannot be undone."
-                 : "The note stays in Trash for 30 days and can be restored.")
+            Text("“\(confirmsDelete?.displayTitle ?? "This note")” and its attachments are deleted for good. This can’t be undone.")
         }
-        .alert("Notes are unavailable", isPresented: Binding(
+        .alert("Couldn’t finish that", isPresented: Binding(
             get: { store.errorMessage != nil },
             set: { if !$0 { store.errorMessage = nil } }
         )) { Button("OK", role: .cancel) {} } message: { Text(store.errorMessage ?? "") }
@@ -152,17 +174,19 @@ public struct KnowledgeModuleView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(minHeight: 52)
-                .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
+                // Clay's transient-overlay depth: DESIGN.md allows one glass
+                // hero per screen, and here that is the batch action bar.
+                .lifeBoardClaySurface(.floating, cornerRadius: Radius.pill)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 8)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(LifeBoardAnimation.selection, value: store.undoMessage)
+        .lifeBoardMotion(.selection, value: store.undoMessage)
     }
 
     private var notesWorkspace: some View {
-        let palette = DaypartTokens.palette(for: resolveDaypart())
+        let palette = DaypartTokens.appearancePalette(for: resolveDaypart(), colorScheme: colorScheme)
         return VStack(spacing: 0) {
             notesHeader(palette: palette)
             if store.selectedCollection == .connections {
@@ -187,16 +211,18 @@ public struct KnowledgeModuleView: View {
                     Text(collectionTitle)
                         .lifeboardFont(.heroDisplay)
                         .foregroundStyle(palette.color(for: .foreground))
-                    Text(collectionSubtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                    if let collectionSubtitle {
+                        Text(collectionSubtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(palette.color(for: .foregroundSecondary))
+                    }
                 }
                 Spacer()
                 Menu {
                     Button("New note", systemImage: "square.and.pencil") {
                         editingNote = store.createNote(folderID: store.selectedFolderID)
                     }
-                    Button("Start with a template", systemImage: "rectangle.stack.badge.plus") {
+                    Button("Use a template", systemImage: "rectangle.stack.badge.plus") {
                         showsTemplates = true
                     }
                     Button("New folder", systemImage: "folder.badge.plus") {
@@ -216,18 +242,24 @@ public struct KnowledgeModuleView: View {
                         .lifeboardFont(.title2)
                         .frame(width: 46, height: 46)
                 }
-                .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
-                .accessibilityLabel("Create a note or folder")
+                // Ink on a solid clay disc: it sits on the celestial disc, where
+                // the amber tint read poorly on the gold sun and a second glass
+                // control would break the one-hero rule.
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                .lifeBoardClaySurface(.raised, cornerRadius: Radius.pill)
+                .accessibilityLabel("New")
                 .accessibilityIdentifier("notes.create")
                 if !store.visibleNotes.isEmpty {
                     Button(isSelecting ? "Done" : "Select") {
-                        withAnimation(LifeBoardAnimation.selection) {
+                        withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                             isSelecting.toggle()
                             if !isSelecting { selectedNoteIDs.removeAll() }
                         }
                     }
-                    .font(.subheadline.weight(.semibold))
-                    .frame(minHeight: 44)
+                    // On its own surface: as bare tinted text it sat on the
+                    // celestial disc, amber on gold in dark appearance.
+                    .buttonStyle(.lifeBoardChip)
+                    .fixedSize()
                     .accessibilityIdentifier("notes.select")
                 }
             }
@@ -236,7 +268,7 @@ public struct KnowledgeModuleView: View {
                 HStack(spacing: 9) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
-                    TextField("Search titles, text, tags, and attachments", text: $store.searchText)
+                    TextField("Search notes", text: $store.searchText, prompt: Text("Search notes").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                         .textFieldStyle(.plain)
                         .submitLabel(.search)
                         .accessibilityIdentifier("notes.search")
@@ -254,7 +286,8 @@ public struct KnowledgeModuleView: View {
                 }
                 .padding(.horizontal, 14)
                 .frame(minHeight: 46)
-                .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
+                // An input is carved into the page, like the graph's search.
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
 
                 Menu {
                     Picker("Sort notes", selection: $store.sort) {
@@ -267,17 +300,18 @@ public struct KnowledgeModuleView: View {
                         Label("List", systemImage: "list.bullet").tag(KnowledgeStore.Layout.list)
                         Label("Grid", systemImage: "square.grid.2x2").tag(KnowledgeStore.Layout.grid)
                     }
+                    if layoutClass.isPad {
+                        browseSections
+                    }
                 } label: {
                     Image(systemName: store.layout == .list ? "line.3.horizontal.decrease" : "square.grid.2x2")
                         .frame(width: 46, height: 46)
                 }
-                .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
-                .accessibilityLabel("Sort and view options")
+                .lifeBoardClaySurface(.raised, cornerRadius: Radius.pill)
+                .accessibilityLabel("Sort and view")
             }
 
-            if horizontalSizeClass != .regular {
-                collectionRail
-            }
+            collectionRail
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -287,9 +321,9 @@ public struct KnowledgeModuleView: View {
     private var collectionRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(primaryCollections) { collection in
+                ForEach(railCollections) { collection in
                     Button {
-                        withAnimation(LifeBoardAnimation.selection) {
+                        withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                             store.selectedCollection = collection
                             store.selectedFolderID = nil
                             store.selectedTagIDs = []
@@ -318,15 +352,71 @@ public struct KnowledgeModuleView: View {
         }
     }
 
-    private var notesSidebar: some View {
-        List {
-            Section("Library") {
-                ForEach(primaryCollections) { collection in
-                    sidebarButton(collection)
+    // MARK: Two-pane layout
+
+    /// Whether the module has room for the editor beside the library. Both
+    /// must hold: a pad-class window, and a module at least as wide as the
+    /// pad-regular floor (see `availableWidth`).
+    private var usesNotePane: Bool {
+        layoutClass.isPad && availableWidth >= LayoutResolver.padCompactUpperBound
+    }
+
+    /// Wide enough for the grid's two columns, narrow enough that the editor
+    /// keeps the larger share of a pad-regular window.
+    private var libraryPaneWidth: CGFloat {
+        min(420, max(320, availableWidth * 0.38))
+    }
+
+    /// The note the trailing pane shows. Locked notes stay in a sheet: their
+    /// editor owns a privacy shield and an authentication flow that assume a
+    /// presentation of their own.
+    private var paneNote: KnowledgeNoteValue? {
+        guard usesNotePane, let note = editingNote,
+              note.resolvedLockPolicy != .deviceAuthentication else { return nil }
+        return note
+    }
+
+    /// `editingNote` stays the one record of "the open note", so every opener
+    /// (rows, templates, the graph, the initial route) works at any width; this
+    /// only decides whether that note is presented as a sheet.
+    private var sheetNote: Binding<KnowledgeNoteValue?> {
+        Binding(
+            get: { paneNote == nil ? editingNote : nil },
+            set: { editingNote = $0 }
+        )
+    }
+
+    @ViewBuilder
+    private var notePane: some View {
+        if let note = paneNote {
+            noteEditor(note, hosting: .pane(onClose: { editingNote = nil }))
+                // A fresh identity per note, so the draft, autosave and
+                // attachments restart instead of carrying over from the last.
+                .id(note.id)
+        } else {
+            ContentUnavailableView {
+                Label("No note open", systemImage: "note.text")
+            } description: {
+                Text("Pick a note from the list.")
+            } actions: {
+                Button("New note") {
+                    editingNote = store.createNote(folderID: store.selectedFolderID)
                 }
+                .buttonStyle(.lifeBoardPrimaryCompact)
             }
-            Section("Organize") {
-                sidebarButton(.connections)
+            .accessibilityIdentifier("notes.pane.empty")
+        }
+    }
+
+    /// What the removed sidebar held beyond the rail: smart collections and
+    /// tags. Pad-only, so the phone menu is unchanged.
+    @ViewBuilder
+    private var browseSections: some View {
+        if !store.smartCollections.isEmpty || !store.tags.isEmpty {
+            Divider()
+        }
+        if !store.smartCollections.isEmpty {
+            Menu("Smart collections", systemImage: "sparkle.magnifyingglass") {
                 ForEach(store.smartCollections) { collection in
                     Button {
                         store.restore(.library(collection.query))
@@ -335,65 +425,18 @@ public struct KnowledgeModuleView: View {
                     }
                 }
             }
-            if !store.folders.isEmpty {
-                Section("Folders") {
+        }
+        if !store.tags.isEmpty {
+            Menu("Tags", systemImage: "number") {
+                ForEach(store.tags.prefix(12)) { tag in
                     Button {
-                        store.selectedFolderID = nil
-                        store.selectedTagIDs = []
-                        store.selectedCollection = .all
+                        store.restore(.tag(tag.id))
                     } label: {
-                        Label("All folders", systemImage: "folder")
+                        Label(tag.name, systemImage: store.selectedTagIDs.contains(tag.id) ? "checkmark" : "number")
                     }
-                    ForEach(store.folders.filter { $0.parentFolderID == nil }) { folder in
-                        Button {
-                            store.selectedFolderID = folder.id
-                            store.selectedTagIDs = []
-                            store.selectedCollection = .all
-                        } label: {
-                            Label(folder.title, systemImage: "folder.fill")
-                        }
-                    }
-                }
-            }
-            if !store.tags.isEmpty {
-                Section("Tags") {
-                    ForEach(store.tags.prefix(12)) { tag in
-                        Button {
-                            store.restore(.tag(tag.id))
-                        } label: {
-                            Label(tag.name, systemImage: "number")
-                        }
-                        .accessibilityAddTraits(
-                            store.selectedTagIDs.contains(tag.id) ? .isSelected : []
-                        )
-                    }
-                }
-            }
-            Section {
-                sidebarButton(.archived)
-                sidebarButton(.trash)
-            }
-        }
-        .listStyle(.sidebar)
-    }
-
-    private func sidebarButton(_ collection: KnowledgeNoteCollection) -> some View {
-        Button {
-            store.selectedCollection = collection
-            store.selectedFolderID = nil
-            store.selectedTagIDs = []
-        } label: {
-            HStack {
-                Label(collection.label, systemImage: collection.symbol)
-                Spacer()
-                if collection != .connections {
-                    Text("\(count(for: collection))")
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
-                        .monospacedDigit()
                 }
             }
         }
-        .accessibilityAddTraits(store.selectedCollection == collection ? .isSelected : [])
     }
 
     private func library(palette: DaypartPalette) -> some View {
@@ -440,7 +483,7 @@ public struct KnowledgeModuleView: View {
                         HStack(spacing: 12) {
                             ForEach(visibleFolders) { folder in
                                 Button {
-                                    withAnimation(LifeBoardAnimation.selection) {
+                                    withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                                         store.selectedFolderID = folder.id
                                     }
                                 } label: {
@@ -450,7 +493,7 @@ public struct KnowledgeModuleView: View {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(folder.title)
                                                 .font(.subheadline.weight(.semibold))
-                                            Text("\(store.notes.filter { $0.folderID == folder.id && $0.resolvedState == .active }.count) notes")
+                                            Text("^[\(store.notes.filter { $0.folderID == folder.id && $0.resolvedState == .active }.count) note](inflect: true)")
                                                 .font(.caption2)
                                                 .foregroundStyle(Color.lifeboard(.textSecondary))
                                         }
@@ -485,7 +528,7 @@ public struct KnowledgeModuleView: View {
                                 Task { await store.reorderPinned(noteID: sourceID, before: note.id) }
                                 return true
                             } isTargeted: { targeted in
-                                withAnimation(LifeBoardAnimation.cardReflow) {
+                                withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
                                     pinnedDropTargetID = targeted ? note.id : nil
                                 }
                             }
@@ -609,13 +652,18 @@ public struct KnowledgeModuleView: View {
                 .foregroundStyle(.tint)
             Text(emptyTitle)
                 .lifeboardFont(.sectionTitle)
-            Text(emptyMessage)
-                .font(.subheadline)
-                .foregroundStyle(Color.lifeboard(.textSecondary))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 330)
+            if let emptyMessage {
+                Text(emptyMessage)
+                    .font(.subheadline)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 330)
+            }
             if store.selectedCollection != .trash && store.selectedCollection != .archived {
-                Button("Create a note") { showsTemplates = true }
+                // A blank note, straight away; templates stay in the + menu.
+                Button("New note") {
+                    editingNote = store.createNote(folderID: store.selectedFolderID)
+                }
                     .buttonStyle(.lifeBoardPrimaryCompact)
                     .controlSize(.large)
             }
@@ -661,18 +709,22 @@ public struct KnowledgeModuleView: View {
                 }
                 .padding(20)
             }
-            .navigationTitle("Begin with a shape")
+            .navigationTitle("Choose a template")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { showsTemplates = false }
+                    .keyboardShortcut(.cancelAction)
                 }
             }
         }
     }
 
     @ViewBuilder
-    private func noteEditor(_ note: KnowledgeNoteValue) -> some View {
+    private func noteEditor(
+        _ note: KnowledgeNoteValue,
+        hosting: KnowledgeNoteEditor.Hosting = .sheet
+    ) -> some View {
         if note.resolvedLockPolicy == .deviceAuthentication {
             LockedKnowledgeNoteEditor(
                 placeholder: note,
@@ -702,41 +754,56 @@ public struct KnowledgeModuleView: View {
                         contentType: contentType,
                         sourceKind: sourceKind
                     )
-                }
+                },
+                hosting: hosting
             )
         }
     }
 
     @ViewBuilder
     private func noteActions(_ note: KnowledgeNoteValue) -> some View {
+        // The pane's editor autosaves its whole draft, so a list-side change
+        // to the note it has open would be overwritten by the next autosave
+        // (an archived note would come back active). A sheet covered the list,
+        // so this only arises beside the pane; close the note to change it.
+        let isOpenInPane = paneNote?.id == note.id
         if store.selectedCollection == .trash {
-            Button("Restore", systemImage: "arrow.uturn.backward") { Task { await store.restore(note) } }
-            Button("Delete permanently", systemImage: "trash.slash", role: .destructive) { confirmsDelete = note }
+            Group {
+                Button("Restore", systemImage: "arrow.uturn.backward") { Task { await store.restore(note) } }
+                Button("Delete permanently", systemImage: "trash.slash", role: .destructive) { confirmsDelete = note }
+            }
+            .disabled(isOpenInPane)
         } else {
-            Button(note.isPinned ? "Unpin" : "Pin", systemImage: note.isPinned ? "pin.slash" : "pin") {
-                var updated = note
-                updated.isPinned.toggle()
-                updated.updatedAt = Date()
-                Task { await store.save(updated) }
+            Group {
+                Button(note.isPinned ? "Unpin" : "Pin", systemImage: note.isPinned ? "pin.slash" : "pin") {
+                    var updated = note
+                    updated.isPinned.toggle()
+                    updated.updatedAt = Date()
+                    Task { await store.save(updated) }
+                }
+                Button(note.isFavorite ? "Remove favorite" : "Favorite", systemImage: note.isFavorite ? "star.slash" : "star") {
+                    var updated = note
+                    updated.isFavorite.toggle()
+                    updated.updatedAt = Date()
+                    Task { await store.save(updated) }
+                }
+                if note.resolvedLockPolicy == .unlocked, KnowledgeFeatureFlags.securityEnabled {
+                    Button("Lock note", systemImage: "lock") { Task { await store.lock(note) } }
+                }
             }
-            Button(note.isFavorite ? "Remove favorite" : "Favorite", systemImage: note.isFavorite ? "star.slash" : "star") {
-                var updated = note
-                updated.isFavorite.toggle()
-                updated.updatedAt = Date()
-                Task { await store.save(updated) }
-            }
-            if note.resolvedLockPolicy == .unlocked, KnowledgeFeatureFlags.securityEnabled {
-                Button("Lock note", systemImage: "lock") { Task { await store.lock(note) } }
-            }
+            .disabled(isOpenInPane)
             Button("Duplicate", systemImage: "plus.square.on.square") { Task { await store.duplicate(note) } }
-            noteMoveMenu(note)
-            Button("Archive", systemImage: "archivebox") { Task { await store.archive(note) } }
-            Button("Move to Trash", systemImage: "trash", role: .destructive) { confirmsDelete = note }
+            Group {
+                noteMoveMenu(note)
+                Button("Archive", systemImage: "archivebox") { Task { await store.archive(note) } }
+                Button("Move to Trash", systemImage: "trash", role: .destructive) { Task { await store.moveToTrash(note) } }
+            }
+            .disabled(isOpenInPane)
         }
     }
 
     @ViewBuilder private func newSpaceActions() -> some View {
-        TextField("Name", text: $draftName)
+        TextField("Name", text: $draftName, prompt: Text("Name").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
         Button("Save") {
             let name = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
             Task { await store.createSpace(title: name) }
@@ -747,7 +814,7 @@ public struct KnowledgeModuleView: View {
     }
 
     @ViewBuilder private func newFolderActions() -> some View {
-        TextField("Name", text: $draftName)
+        TextField("Name", text: $draftName, prompt: Text("Name").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
         Button("Save") {
             let name = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
             Task { await store.createFolder(title: name, parentID: store.selectedFolderID) }
@@ -791,17 +858,15 @@ public struct KnowledgeModuleView: View {
         }
     }
 
-    private func count(for collection: KnowledgeNoteCollection) -> Int {
-        KnowledgeNoteQuery(collection: collection, spaceID: store.selectedSpaceID)
-            .apply(
-                to: store.notes,
-                linkedNoteIDs: Set(store.links.flatMap { [$0.sourceNoteID, $0.destinationNoteID] })
-            )
-            .count
-    }
-
     private var primaryCollections: [KnowledgeNoteCollection] {
         [.all, .pinned, .favorites, .recent, .unfiled, .checklists, .attachments, .linked]
+    }
+
+    /// The pad rail also carries the destinations the removed sidebar held, so
+    /// Connections, Archive and Trash stay one tap away. The phone rail is
+    /// unchanged.
+    private var railCollections: [KnowledgeNoteCollection] {
+        layoutClass.isPad ? primaryCollections + [.connections, .archived, .trash] : primaryCollections
     }
 
     private var collectionTitle: String {
@@ -816,35 +881,35 @@ public struct KnowledgeModuleView: View {
         return store.selectedCollection.label
     }
 
-    private var collectionSubtitle: String {
-        if !store.searchText.isEmpty { return "\(store.visibleNotes.count) matching notes" }
+    /// A fact the title doesn't already say, or nothing.
+    private var collectionSubtitle: String? {
+        if !store.searchText.isEmpty {
+            let count = store.visibleNotes.count
+            return count == 1 ? String(localized: "1 result") : String(localized: "\(count) results")
+        }
         return switch store.selectedCollection {
-        case .all: "Ideas, references, and things worth keeping"
-        case .pinned: "The notes you want close"
-        case .favorites: "Notes that matter a little more"
-        case .recent: "Your last two weeks of thinking"
-        case .unfiled: "Loose notes, ready to find a home"
-        case .checklists: "Plans with something to complete"
-        case .attachments: "Notes carrying files, scans, and images"
-        case .linked: "Thoughts connected to other thoughts"
-        case .archived: "Quietly kept out of the way"
-        case .trash: "Recoverable for 30 days"
-        case .connections: "A map of how your notes relate"
+        case .recent: String(localized: "Edited in the last 14 days")
+        case .unfiled: String(localized: "Unfiled notes")
+        case .checklists: String(localized: "Notes with checklists")
+        case .attachments: String(localized: "Notes with files or images")
+        case .linked: String(localized: "Notes with links")
+        case .trash: String(localized: "Deleted after 30 days")
+        case .all, .pinned, .favorites, .archived, .connections: nil
         }
     }
 
     private var emptyTitle: String {
         return switch store.selectedCollection {
-        case .trash: "Trash is empty"
-        case .archived: "Nothing archived"
-        default: store.searchText.isEmpty ? "A fresh page awaits" : "No notes found"
+        case .trash: String(localized: "Trash is empty")
+        case .archived: String(localized: "Nothing archived")
+        default: store.searchText.isEmpty ? String(localized: "No notes yet") : String(localized: "No results")
         }
     }
 
-    private var emptyMessage: String {
-        if !store.searchText.isEmpty { return "Try another phrase, folder, or collection." }
-        if store.selectedCollection == .trash { return "Notes moved here remain recoverable for 30 days." }
-        return "Capture an idea in a few words. You can shape it as you go."
+    private var emptyMessage: String? {
+        if !store.searchText.isEmpty { return String(localized: "Try another search.") }
+        if store.selectedCollection == .trash { return String(localized: "Deleted notes stay here for 30 days.") }
+        return nil
     }
 }
 
@@ -869,14 +934,14 @@ private extension KnowledgeModuleView {
                     if note.isFavorite {
                         Image(systemName: "star.fill")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color(SemanticColorTokens.foundationSunInk))
                     }
                 }
                 Text(note.displayTitle)
                     .lifeboardFont(.headline)
                     .foregroundStyle(palette.color(for: .foreground))
                     .lineLimit(2)
-                Text(note.plainText.isEmpty ? "A quiet page, ready when you are." : note.plainText)
+                Text(note.plainText.isEmpty ? String(localized: "Empty note") : note.plainText)
                     .font(.subheadline)
                     .foregroundStyle(palette.color(for: .foregroundSecondary))
                     .lineLimit(compact ? 3 : 4)
@@ -893,6 +958,14 @@ private extension KnowledgeModuleView {
             .frame(maxWidth: .infinity, minHeight: compact ? 154 : 176, alignment: .topLeading)
             .padding(16)
             .lifeBoardPaperCard()
+            .overlay {
+                // Beside the pane, the list is the only place that says which
+                // note the editor is showing.
+                if paneNote?.id == note.id {
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                        .strokeBorder(Color.lifeboard(.accentPrimary), lineWidth: 2)
+                }
+            }
             .overlay(alignment: .topTrailing) {
                 if isSelecting {
                     selectionMark(for: note)
@@ -906,6 +979,7 @@ private extension KnowledgeModuleView {
         .contextMenu { noteActions(note) }
         .accessibilityIdentifier("notes.note.\(note.id.uuidString)")
         .accessibilityLabel("\(note.displayTitle), edited \(note.updatedAt.formatted(.relative(presentation: .named)))")
+        .accessibilityAddTraits(paneNote?.id == note.id ? .isSelected : [])
     }
 
     func noteRow(
@@ -928,15 +1002,15 @@ private extension KnowledgeModuleView {
                             .font(.headline)
                             .foregroundStyle(palette.color(for: .foreground))
                             .lineLimit(1)
-                        if note.isFavorite { Image(systemName: "star.fill").font(.caption2).foregroundStyle(.orange) }
+                        if note.isFavorite { Image(systemName: "star.fill").font(.caption2).foregroundStyle(Color(SemanticColorTokens.foundationSunInk)) }
                     }
-                    Text(note.plainText.isEmpty ? "A quiet page, ready when you are." : note.plainText)
+                    Text(note.plainText.isEmpty ? String(localized: "Empty note") : note.plainText)
                         .font(.subheadline)
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                         .lineLimit(1)
                     HStack(spacing: 8) {
                         Text(note.updatedAt.formatted(.relative(presentation: .named)))
-                        if !note.tagIDs.isEmpty { Text("•  \(note.tagIDs.count) tags") }
+                        if !note.tagIDs.isEmpty { Text("•  ^[\(note.tagIDs.count) tag](inflect: true)") }
                     }
                     .font(.caption2)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
@@ -948,10 +1022,18 @@ private extension KnowledgeModuleView {
             }
             .padding(.horizontal, 14)
             .frame(minHeight: 82)
+            // `Radius.row` rather than 19, which is off DESIGN.md's shape
+            // vocabulary; the open-note ring below has to trace the same shape.
             .background(
-                RoundedRectangle(cornerRadius: 19, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.row, style: .continuous)
                     .fill(Color.lifeboard(.surfaceSecondary).opacity(0.84))
             )
+            .overlay {
+                if paneNote?.id == note.id {
+                    RoundedRectangle(cornerRadius: Radius.row, style: .continuous)
+                        .strokeBorder(Color.lifeboard(.accentPrimary), lineWidth: 2)
+                }
+            }
             .overlay(alignment: .trailing) {
                 if isSelecting {
                     selectionMark(for: note)
@@ -965,6 +1047,7 @@ private extension KnowledgeModuleView {
         .contextMenu { noteActions(note) }
         .accessibilityIdentifier("notes.note.\(note.id.uuidString)")
         .accessibilityLabel("\(note.displayTitle), edited \(note.updatedAt.formatted(.relative(presentation: .named)))")
+        .accessibilityAddTraits(paneNote?.id == note.id ? .isSelected : [])
     }
 
     func openOrSelect(_ note: KnowledgeNoteValue) {
@@ -981,7 +1064,7 @@ private extension KnowledgeModuleView {
 private extension KnowledgeNoteCollection {
     var label: String {
         switch self {
-        case .all: "All Notes"
+        case .all: "All notes"
         case .pinned: "Pinned"
         case .favorites: "Favorites"
         case .recent: "Recent"
@@ -1012,7 +1095,16 @@ private extension KnowledgeNoteCollection {
     }
 }
 
-private struct KnowledgeNoteEditor: View {
+struct KnowledgeNoteEditor: View {
+    /// Where the editor lives. A sheet owns its NavigationStack and dismisses
+    /// itself. A pane sits beside the library inside the shell's stack, so it
+    /// must not nest a second stack, its controls cannot go in the shell's
+    /// toolbar, and `dismiss()` there would pop the whole Notes screen.
+    enum Hosting {
+        case sheet
+        case pane(onClose: () -> Void)
+    }
+
     private enum SaveState: Equatable {
         case idle
         case saving
@@ -1031,6 +1123,10 @@ private struct KnowledgeNoteEditor: View {
     @State private var isLoadingAttachments = false
     @State private var previewAttachmentURL: URL?
     @State private var attachmentFailures: Set<UUID> = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Deleting an attachment removes the file for good, so it asks first.
+    @State private var attachmentPendingDeletion: KnowledgeAttachmentValue?
+    @State private var attachmentDeleteFailed = false
     @State private var saveState: SaveState = .idle
     @State private var autosaveTask: Task<Void, Never>?
     @State private var didWriteRevision = false
@@ -1057,6 +1153,7 @@ private struct KnowledgeNoteEditor: View {
     let onDisconnect: (KnowledgeLinkValue) -> Void
     let onAttach: (URL) async -> KnowledgeAttachmentValue?
     let onAttachData: (Data, String, String?, String) async -> KnowledgeAttachmentValue?
+    let hosting: Hosting
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
@@ -1072,7 +1169,8 @@ private struct KnowledgeNoteEditor: View {
         onConnect: @escaping (UUID) -> Void,
         onDisconnect: @escaping (KnowledgeLinkValue) -> Void,
         onAttach: @escaping (URL) async -> KnowledgeAttachmentValue?,
-        onAttachData: @escaping (Data, String, String?, String) async -> KnowledgeAttachmentValue?
+        onAttachData: @escaping (Data, String, String?, String) async -> KnowledgeAttachmentValue?,
+        hosting: Hosting = .sheet
     ) {
         _draft = State(initialValue: note)
         _originalSnapshot = State(initialValue: try? JSONEncoder().encode(note))
@@ -1087,236 +1185,301 @@ private struct KnowledgeNoteEditor: View {
         self.onDisconnect = onDisconnect
         self.onAttach = onAttach
         self.onAttachData = onAttachData
+        self.hosting = hosting
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    TextField("Note title", text: $draft.title)
-                        .lifeboardFont(.heroDisplay)
-                        .textFieldStyle(.plain)
-                        .focused($titleIsFocused)
-                        .accessibilityLabel("Note title")
-                        .accessibilityIdentifier("notes.editor.title")
-                    Text(noteDateLine)
-                        .font(.caption)
-                        .foregroundStyle(Color.lifeboard(.textSecondary))
-                    tagRail
-                    if KnowledgeFeatureFlags.textKitEditorEnabled {
-                        UnifiedNoteEditor(
-                            note: $draft,
-                            selection: $richSelection,
-                            isFocused: $richEditorIsFocused,
-                            command: richEditorCommand,
-                            onSlashCommand: {
-                                showsSlashCommands = true
-                            },
-                            onWikiLink: { query in
-                                wikiLinkQuery = query
-                                showsLinkPicker = true
-                            }
+        switch hosting {
+        case .sheet:
+            NavigationStack {
+                editorSurface
+                    .navigationTitle("")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            closeButton(side: 36)
+                                .keyboardShortcut(.cancelAction)
+                        }
+                        ToolbarItem(placement: .principal) {
+                            saveStatus
+                        }
+                        ToolbarItemGroup(placement: .confirmationAction) {
+                            pinButton()
+                            favoriteButton()
+                            moreMenu()
+                        }
+                    }
+            }
+            .escapeCancels { Task { await flushAndClose() } }
+            .modifier(attachmentDeletionConfirmation)
+        case .pane:
+            VStack(spacing: 0) {
+                paneHeader
+                Divider()
+                editorSurface
+            }
+            .modifier(attachmentDeletionConfirmation)
+        }
+    }
+
+    private var attachmentDeletionConfirmation: KnowledgeAttachmentDeletionConfirmation {
+        KnowledgeAttachmentDeletionConfirmation(
+            pending: $attachmentPendingDeletion,
+            failed: $attachmentDeleteFailed,
+            onDelete: { attachment in Task { await deleteAttachment(attachment) } }
+        )
+    }
+
+    /// The sheet's toolbar, as a row: the pane has no navigation bar of its own.
+    private var paneHeader: some View {
+        HStack(spacing: 8) {
+            closeButton(side: 44)
+            saveStatus
+            Spacer(minLength: 0)
+            pinButton(side: 44)
+            favoriteButton(side: 44)
+            moreMenu(side: 44)
+        }
+        .padding(.horizontal, 8)
+        .background { GrainedCanvas() }
+    }
+
+    private func closeButton(side: CGFloat) -> some View {
+        Button {
+            Task {
+                await flushAndClose()
+            }
+        } label: {
+            Image(systemName: "xmark")
+                .frame(width: side, height: side)
+        }
+        .accessibilityLabel("Close note")
+    }
+
+    // `side` is nil in the sheet's toolbar, which sizes its own items; the
+    // pane's header row needs the 44pt hit target set explicitly.
+    private func pinButton(side: CGFloat? = nil) -> some View {
+        Button {
+            draft.isPinned.toggle()
+        } label: {
+            Image(systemName: draft.isPinned ? "pin.fill" : "pin")
+                .frame(width: side, height: side)
+        }
+        .accessibilityLabel(draft.isPinned ? "Unpin note" : "Pin note")
+    }
+
+    private func favoriteButton(side: CGFloat? = nil) -> some View {
+        Button {
+            draft.isFavorite.toggle()
+        } label: {
+            Image(systemName: draft.isFavorite ? "star.fill" : "star")
+                .frame(width: side, height: side)
+        }
+        .accessibilityLabel(draft.isFavorite ? "Remove favorite" : "Favorite note")
+    }
+
+    private func moreMenu(side: CGFloat? = nil) -> some View {
+        Menu {
+            Button("Link another note", systemImage: "link.badge.plus") { showsLinkPicker = true }
+            PhotosPicker(
+                selection: $photoSelection,
+                matching: .images,
+                preferredItemEncoding: .current
+            ) {
+                Label("Choose a photo", systemImage: "photo")
+            }
+            Button("Attach a file", systemImage: "paperclip") { showsFileImporter = true }
+            Button("Version history", systemImage: "clock.arrow.circlepath") { showsHistory = true }
+            if KnowledgeFeatureFlags.evaEnabled {
+                Menu("Ask Eva", systemImage: "sparkles") {
+                    ForEach(NoteAIAction.allCases, id: \.self) { action in
+                        Button(aiActionTitle(action), systemImage: aiActionSymbol(action)) {
+                            Task { await requestAIProposal(action) }
+                        }
+                    }
+                }
+            }
+            ShareLink(item: markdownExport) {
+                Label("Share as Markdown", systemImage: "square.and.arrow.up")
+            }
+            Divider()
+            Button("Close", systemImage: "checkmark") { Task { await flushAndClose() } }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .frame(width: side, height: side)
+        }
+    }
+
+    private var editorSurface: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                TextField("Note title", text: $draft.title, prompt: Text("Note title").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
+                    .lifeboardFont(.heroDisplay)
+                    .textFieldStyle(.plain)
+                    .focused($titleIsFocused)
+                    .accessibilityLabel("Note title")
+                    .accessibilityIdentifier("notes.editor.title")
+                Text(noteDateLine)
+                    .font(.caption)
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                tagRail
+                if KnowledgeFeatureFlags.textKitEditorEnabled {
+                    UnifiedNoteEditor(
+                        note: $draft,
+                        selection: $richSelection,
+                        isFocused: $richEditorIsFocused,
+                        command: richEditorCommand,
+                        onSlashCommand: {
+                            showsSlashCommands = true
+                        },
+                        onWikiLink: { query in
+                            wikiLinkQuery = query
+                            showsLinkPicker = true
+                        }
+                    )
+                    .frame(minHeight: 280)
+                    .accessibilityIdentifier("notes.editor.textkit2")
+                } else {
+                    ForEach($draft.blocks) { $block in
+                        KnowledgeBlockEditor(
+                            block: $block,
+                            allNotes: allNotes.filter { $0.id != draft.id },
+                            attachments: attachments,
+                            onMoveUp: { moveBlock(block.id, offset: -1) },
+                            onMoveDown: { moveBlock(block.id, offset: 1) },
+                            onDelete: { deleteBlock(block) }
                         )
-                        .frame(minHeight: 280)
-                        .accessibilityIdentifier("notes.editor.textkit2")
-                    } else {
-                        ForEach($draft.blocks) { $block in
-                            KnowledgeBlockEditor(
-                                block: $block,
-                                allNotes: allNotes.filter { $0.id != draft.id },
-                                attachments: attachments,
-                                onMoveUp: { moveBlock(block.id, offset: -1) },
-                                onMoveDown: { moveBlock(block.id, offset: 1) },
-                                onDelete: { deleteBlock(block) }
-                            )
-                        }
-                    }
-                    if !linksForDraft.isEmpty || !attachments.isEmpty {
-                        Divider().padding(.vertical, 4)
-                    }
-                    if !linksForDraft.isEmpty { relationships }
-                    if !attachments.isEmpty { attachmentsSection }
-                }
-                .frame(maxWidth: 760, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.top, 26)
-                .padding(.bottom, 110)
-                .frame(maxWidth: .infinity)
-            }
-            .background {
-                GrainedCanvas()
-            }
-            .accessibilityIdentifier("notes.editor")
-            .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        Task {
-                            await flushAndClose()
-                        }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .frame(width: 36, height: 36)
-                    }
-                    .accessibilityLabel("Close note")
-                }
-                ToolbarItem(placement: .principal) {
-                    saveStatus
-                }
-                ToolbarItemGroup(placement: .confirmationAction) {
-                    Button {
-                        draft.isPinned.toggle()
-                    } label: {
-                        Image(systemName: draft.isPinned ? "pin.fill" : "pin")
-                    }
-                    .accessibilityLabel(draft.isPinned ? "Unpin note" : "Pin note")
-                    Button {
-                        draft.isFavorite.toggle()
-                    } label: {
-                        Image(systemName: draft.isFavorite ? "star.fill" : "star")
-                    }
-                    .accessibilityLabel(draft.isFavorite ? "Remove favorite" : "Favorite note")
-                    Menu {
-                        Button("Link another note", systemImage: "link.badge.plus") { showsLinkPicker = true }
-                        PhotosPicker(
-                            selection: $photoSelection,
-                            matching: .images,
-                            preferredItemEncoding: .current
-                        ) {
-                            Label("Choose a photo", systemImage: "photo")
-                        }
-                        Button("Attach a file", systemImage: "paperclip") { showsFileImporter = true }
-                        Button("Version history", systemImage: "clock.arrow.circlepath") { showsHistory = true }
-                        if KnowledgeFeatureFlags.evaEnabled {
-                            Menu("Ask EVA", systemImage: "sparkles") {
-                                ForEach(NoteAIAction.allCases, id: \.self) { action in
-                                    Button(aiActionTitle(action), systemImage: aiActionSymbol(action)) {
-                                        Task { await requestAIProposal(action) }
-                                    }
-                                }
-                            }
-                        }
-                        ShareLink(item: markdownExport) {
-                            Label("Share as Markdown", systemImage: "square.and.arrow.up")
-                        }
-                        Divider()
-                        Button("Close", systemImage: "checkmark") { Task { await flushAndClose() } }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
                     }
                 }
-            }
-            .safeAreaInset(edge: .bottom) {
-                editorCommandBar
-            }
-            .fileImporter(isPresented: $showsFileImporter, allowedContentTypes: [.data, .image, .pdf, .plainText], allowsMultipleSelection: false) { result in
-                if let url = try? result.get().first {
-                    Task {
-                        let textExtensions = Set(["txt", "md", "markdown"])
-                        if textExtensions.contains(url.pathExtension.lowercased()) {
-                            await importText(from: url)
-                        } else {
-                            if let attachment = await onAttach(url) {
-                                addAttachmentBlock(attachment)
-                            }
-                            await loadAttachments()
-                        }
-                    }
+                if !linksForDraft.isEmpty || !attachments.isEmpty {
+                    Divider().padding(.vertical, 4)
                 }
+                if !linksForDraft.isEmpty { relationships }
+                if !attachments.isEmpty { attachmentsSection }
             }
-            .quickLookPreview($previewAttachmentURL)
-            .sheet(isPresented: $showsLinkPicker, onDismiss: { wikiLinkQuery = nil }) {
-                NavigationStack {
-                    List(linkPickerNotes) { note in
-                        Button(note.title.isEmpty ? "Untitled" : note.title) {
-                            if wikiLinkQuery != nil {
-                                richEditorCommand = .init(command: .insertWikiLink(noteID: note.id, title: note.displayTitle))
-                            }
-                            onConnect(note.id)
-                            wikiLinkQuery = nil
-                            showsLinkPicker = false
-                        }
-                    }
-                    .navigationTitle(wikiLinkQuery == nil ? "Link a Note" : "Mention a Note")
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showsLinkPicker = false } } }
-                }
-            }
-            .confirmationDialog("Insert a block", isPresented: $showsSlashCommands, titleVisibility: .visible) {
-                ForEach(KnowledgeBlockKind.allCases, id: \.self) { kind in
-                    Button(kindTitle(kind), systemImage: kindSymbol(kind)) {
-                        richEditorCommand = .init(command: .block(kind))
-                    }
-                }
-            }
-            .sheet(isPresented: $showsHistory) {
-                NoteHistoryView(
-                    revisions: revisions,
-                    onRestore: restoreRevision,
-                    onDismiss: { showsHistory = false }
-                )
-            }
-            .sheet(item: $aiProposal) { proposal in
-                NoteAIProposalReview(
-                    proposal: proposal,
-                    currentContentVersion: draft.contentVersion ?? 1,
-                    onApply: { editedPreview in
-                        await applyAIProposal(proposal, editedPreview: editedPreview)
-                    },
-                    onDiscard: { aiProposal = nil }
-                )
-            }
-            .overlay {
-                if aiIsPreparing {
-                    ZStack {
-                        Color.black.opacity(0.08).ignoresSafeArea()
-                        VStack(spacing: 12) {
-                            ProgressView()
-                            Text("EVA is preparing a private proposal…")
-                                .font(.subheadline.weight(.semibold))
-                        }
-                        .padding(22)
-                        .lifeBoardSystemGlass(.regular, in: RoundedRectangle(cornerRadius: 22), interactive: false)
-                    }
-                    .transition(.opacity)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("EVA is preparing a proposal")
-                }
-            }
-            .alert("EVA couldn’t prepare that", isPresented: Binding(
-                get: { aiErrorMessage != nil },
-                set: { if !$0 { aiErrorMessage = nil } }
-            )) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(aiErrorMessage ?? "")
-            }
-            .task {
-                await restoreDraftIfNeeded()
-                await loadAttachments()
-                revisions = (try? await repository.fetchKnowledgeRevisions(noteID: draft.id)) ?? []
-                if !draft.isMeaningful { titleIsFocused = true }
-            }
-            .onChange(of: photoSelection) { _, item in
-                guard let item else { return }
-                Task { await importPhoto(item) }
-            }
-            .onChange(of: draft) { _, _ in scheduleAutosave() }
-            .onChange(of: scenePhase) { _, phase in
-                guard phase != .active else { return }
-                autosaveTask?.cancel()
-                let value = preparedDraft()
-                Task { await persist(value) }
-            }
-            .onDisappear {
-                autosaveTask?.cancel()
-                guard draft.isMeaningful else { return }
-                let value = preparedDraft()
+            // DESIGN.md's prose cap: past ~680pt a line of body text gets
+            // too long to track back to its start.
+            .frame(maxWidth: 680, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.top, 26)
+            .padding(.bottom, 110)
+            .frame(maxWidth: .infinity)
+        }
+        .background {
+            GrainedCanvas()
+        }
+        .accessibilityIdentifier("notes.editor")
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom) {
+            editorCommandBar
+        }
+        .fileImporter(isPresented: $showsFileImporter, allowedContentTypes: [.data, .image, .pdf, .plainText], allowsMultipleSelection: false) { result in
+            if let url = try? result.get().first {
                 Task {
-                    await onSave(value)
-                    try? await repository.deleteKnowledgeDraft(noteID: value.id)
+                    let textExtensions = Set(["txt", "md", "markdown"])
+                    if textExtensions.contains(url.pathExtension.lowercased()) {
+                        await importText(from: url)
+                    } else {
+                        if let attachment = await onAttach(url) {
+                            addAttachmentBlock(attachment)
+                        }
+                        await loadAttachments()
+                    }
                 }
+            }
+        }
+        .quickLookPreview($previewAttachmentURL)
+        .sheet(isPresented: $showsLinkPicker, onDismiss: { wikiLinkQuery = nil }) {
+            NavigationStack {
+                List(linkPickerNotes) { note in
+                    Button(note.title.isEmpty ? "Untitled" : note.title) {
+                        if wikiLinkQuery != nil {
+                            richEditorCommand = .init(command: .insertWikiLink(noteID: note.id, title: note.displayTitle))
+                        }
+                        onConnect(note.id)
+                        wikiLinkQuery = nil
+                        showsLinkPicker = false
+                    }
+                }
+                .navigationTitle(wikiLinkQuery == nil ? "Link a note" : "Mention a note")
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showsLinkPicker = false }.keyboardShortcut(.cancelAction) } }
+            }
+        }
+        .confirmationDialog("Insert a block", isPresented: $showsSlashCommands, titleVisibility: .visible) {
+            ForEach(KnowledgeBlockKind.allCases, id: \.self) { kind in
+                Button(kindTitle(kind), systemImage: kindSymbol(kind)) {
+                    richEditorCommand = .init(command: .block(kind))
+                }
+            }
+        }
+        .sheet(isPresented: $showsHistory) {
+            NoteHistoryView(
+                revisions: revisions,
+                onRestore: restoreRevision,
+                onDismiss: { showsHistory = false }
+            )
+        }
+        .sheet(item: $aiProposal) { proposal in
+            NoteAIProposalReview(
+                proposal: proposal,
+                currentContentVersion: draft.contentVersion ?? 1,
+                onApply: { editedPreview in
+                    await applyAIProposal(proposal, editedPreview: editedPreview)
+                },
+                onDiscard: { aiProposal = nil }
+            )
+        }
+        .overlay {
+            if aiIsPreparing {
+                ZStack {
+                    Color.lifeboard(.overlayScrim).opacity(0.25).ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Eva is thinking…")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .padding(22)
+                    // Clay's transient-overlay depth: the command bar is this
+                    // screen's one glass control.
+                    .lifeBoardClaySurface(.floating)
+                }
+                .transition(.opacity)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Eva is thinking")
+            }
+        }
+        .alert("Couldn’t finish that", isPresented: Binding(
+            get: { aiErrorMessage != nil },
+            set: { if !$0 { aiErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(aiErrorMessage ?? "")
+        }
+        .task {
+            await restoreDraftIfNeeded()
+            await loadAttachments()
+            revisions = (try? await repository.fetchKnowledgeRevisions(noteID: draft.id)) ?? []
+            if !draft.isMeaningful { titleIsFocused = true }
+        }
+        .onChange(of: photoSelection) { _, item in
+            guard let item else { return }
+            Task { await importPhoto(item) }
+        }
+        .onChange(of: draft) { _, _ in scheduleAutosave() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase != .active else { return }
+            autosaveTask?.cancel()
+            let value = preparedDraft()
+            Task { await persist(value) }
+        }
+        .onDisappear {
+            autosaveTask?.cancel()
+            guard draft.isMeaningful else { return }
+            let value = preparedDraft()
+            Task {
+                await onSave(value)
+                try? await repository.deleteKnowledgeDraft(noteID: value.id)
             }
         }
     }
@@ -1332,12 +1495,12 @@ private struct KnowledgeNoteEditor: View {
                 Text("Saving")
             case .saved:
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.lifeboard(.statusSuccess))
                     .contentTransition(.symbolEffect(.replace))
                 Text("Saved")
             case .failed:
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.lifeboard(.statusWarning))
                 Text("Not saved")
             }
         }
@@ -1357,7 +1520,9 @@ private struct KnowledgeNoteEditor: View {
                         .padding(.horizontal, 14)
                         .frame(minHeight: 46)
                 }
-                .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
+                // Clay, not glass: the command bar it stands in for is this
+                // screen's one glass control.
+                .buttonStyle(.lifeBoardClay(.floating, cornerRadius: Radius.pill))
                 .padding(.vertical, 8)
                 .transition(.scale(scale: 0.92).combined(with: .opacity))
             } else {
@@ -1417,21 +1582,11 @@ private struct KnowledgeNoteEditor: View {
             .padding(.vertical, 8)
             }
         }
-        .animation(LifeBoardAnimation.selection, value: richEditorIsFocused)
+        .lifeBoardMotion(.selection, value: richEditorIsFocused)
     }
+}
 
-    private func commandButton(
-        _ label: String,
-        symbol: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .frame(width: 42, height: 42)
-        }
-        .accessibilityLabel(label)
-    }
-
+extension KnowledgeNoteEditor {
     private var linksForDraft: [KnowledgeLinkValue] {
         links.filter { $0.sourceNoteID == draft.id || $0.destinationNoteID == draft.id }
     }
@@ -1453,7 +1608,7 @@ private struct KnowledgeNoteEditor: View {
     private var noteDateLine: String {
         let date = draft.updatedAt.formatted(date: .abbreviated, time: .shortened)
         let count = draft.plainText.split(whereSeparator: \.isWhitespace).count
-        return count == 0 ? "Edited \(date)" : "\(count) words  •  Edited \(date)"
+        return count == 0 ? String(localized: "Edited \(date)") : (count == 1 ? String(localized: "1 word  •  Edited \(date)") : String(localized: "\(count) words  •  Edited \(date)"))
     }
 
     private var markdownExport: String {
@@ -1488,7 +1643,7 @@ private struct KnowledgeNoteEditor: View {
             addAttachmentBlock(attachment)
             await loadAttachments()
         } catch {
-            aiErrorMessage = "That photo couldn’t be imported. The note was not changed."
+            aiErrorMessage = String(localized: "Couldn’t import photo. The note is unchanged.")
         }
     }
 
@@ -1520,12 +1675,12 @@ private struct KnowledgeNoteEditor: View {
     private func applyAIProposal(_ proposal: NoteAIProposal, editedPreview: String) async {
         guard !proposal.isStale(for: draft) else {
             aiProposal = nil
-            aiErrorMessage = "This note changed while the proposal was open. Ask EVA again to avoid overwriting newer work."
+            aiErrorMessage = String(localized: "The note changed. Ask Eva again.")
             return
         }
         let preview = editedPreview.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !preview.isEmpty else {
-            aiErrorMessage = "Keep at least one line in the proposal before applying it."
+            aiErrorMessage = String(localized: "Keep at least 1 line to apply it.")
             return
         }
         if let snapshot = try? JSONEncoder().encode(draft) {
@@ -1533,7 +1688,7 @@ private struct KnowledgeNoteEditor: View {
                 .init(
                     noteID: draft.id,
                     snapshot: snapshot,
-                    reason: "Before applying an EVA proposal",
+                    reason: "Before applying a suggestion from Eva",
                     baseContentVersion: draft.contentVersion,
                     contentVersion: draft.contentVersion,
                     changeKind: "eva"
@@ -1575,38 +1730,6 @@ private struct KnowledgeNoteEditor: View {
         draft.contentVersion = max(1, draft.contentVersion ?? 1) + 1
         aiProposal = nil
         await persist(preparedDraft())
-    }
-
-    private func aiProposalLines(_ value: String) -> [String] {
-        value
-            .split(whereSeparator: \.isNewline)
-            .map {
-                String($0)
-                    .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "-•0123456789.[]")))
-            }
-            .filter { !$0.isEmpty }
-    }
-
-    private func aiActionTitle(_ action: NoteAIAction) -> String {
-        switch action {
-        case .summarize: "Summarize"
-        case .cleanUp: "Clean up writing"
-        case .continueWriting: "Continue writing"
-        case .extractTasks: "Extract checklists"
-        case .suggestTags: "Suggest tags"
-        case .suggestLinks: "Suggest links"
-        }
-    }
-
-    private func aiActionSymbol(_ action: NoteAIAction) -> String {
-        switch action {
-        case .summarize: "text.badge.star"
-        case .cleanUp: "wand.and.sparkles"
-        case .continueWriting: "text.append"
-        case .extractTasks: "checklist"
-        case .suggestTags: "tag"
-        case .suggestLinks: "link"
-        }
     }
 
     private func scheduleAutosave() {
@@ -1682,7 +1805,10 @@ private struct KnowledgeNoteEditor: View {
             try? await repository.deleteKnowledgeDraft(noteID: value.id)
             try? await repository.deleteKnowledgeNote(id: value.id)
         }
-        dismiss()
+        switch hosting {
+        case .sheet: dismiss()
+        case .pane(let onClose): onClose()
+        }
     }
 
     private var tagRail: some View {
@@ -1697,7 +1823,7 @@ private struct KnowledgeNoteEditor: View {
                         .toggleStyle(.button)
                     }
                     Button {
-                        withAnimation(LifeBoardAnimation.selection) {
+                        withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                             showsTagComposer.toggle()
                         }
                     } label: {
@@ -1709,7 +1835,7 @@ private struct KnowledgeNoteEditor: View {
             }
             if showsTagComposer {
                 HStack {
-                    TextField("Tag name", text: $newTag)
+                    TextField("Tag name", text: $newTag, prompt: Text("Tag name").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                         .textFieldStyle(.plain)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 42)
@@ -1734,7 +1860,7 @@ private struct KnowledgeNoteEditor: View {
     private var relationships: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Links & backlinks").font(.headline)
+                Text("Links").font(.headline)
                 Spacer()
                 Button("Connect", systemImage: "link.badge.plus") { showsLinkPicker = true }
             }
@@ -1744,10 +1870,13 @@ private struct KnowledgeNoteEditor: View {
                 let otherID = link.sourceNoteID == draft.id ? link.destinationNoteID : link.sourceNoteID
                 HStack {
                     Image(systemName: link.sourceNoteID == draft.id ? "arrow.up.right" : "arrow.down.left")
-                    Text(allNotes.first(where: { $0.id == otherID })?.title ?? "Unavailable note")
+                    Text(allNotes.first(where: { $0.id == otherID })?.title ?? String(localized: "Missing note"))
                     Spacer()
-                    Button(role: .destructive) { onDisconnect(link) } label: { Image(systemName: "xmark.circle") }
-                        .accessibilityLabel("Disconnect note")
+                    Button(role: .destructive) { onDisconnect(link) } label: {
+                        Image(systemName: "xmark.circle")
+                            .minimumHitTarget()
+                    }
+                    .accessibilityLabel("Disconnect note")
                 }
             }
         }
@@ -1781,7 +1910,7 @@ private struct KnowledgeNoteEditor: View {
                         .accessibilityLabel("Retry opening \(attachment.fileName)")
                     }
                     Button(role: .destructive) {
-                        Task { await deleteAttachment(attachment) }
+                        attachmentPendingDeletion = attachment
                     } label: {
                         Image(systemName: "trash")
                             .frame(width: 44, height: 44)
@@ -1815,7 +1944,7 @@ private struct KnowledgeNoteEditor: View {
         guard draft.blocks.count > 1 else { return }
         if let attachmentID = KnowledgeBlockPayload.decode(from: block).attachment?.attachmentID,
            let attachment = attachments.first(where: { $0.id == attachmentID }) {
-            Task { await deleteAttachment(attachment) }
+            attachmentPendingDeletion = attachment
             return
         }
         draft.blocks.removeAll { $0.id == block.id }
@@ -1826,7 +1955,7 @@ private struct KnowledgeNoteEditor: View {
         guard let source = draft.blocks.firstIndex(where: { $0.id == id }) else { return }
         let destination = source + offset
         guard draft.blocks.indices.contains(destination) else { return }
-        withAnimation(LifeBoardAnimation.cardReflow) {
+        withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
             draft.blocks.swapAt(source, destination)
             normalizeOrdinals()
         }
@@ -1917,7 +2046,10 @@ private struct KnowledgeNoteEditor: View {
             normalizeOrdinals()
             await loadAttachments()
         } catch {
-            // Keep the attachment visible so the user can retry instead of pretending deletion succeeded.
+            // Keep the attachment visible so the user can retry instead of
+            // pretending deletion succeeded, and say so.
+            Haptic.fail.play()
+            attachmentDeleteFailed = true
         }
     }
 
@@ -1927,37 +2059,6 @@ private struct KnowledgeNoteEditor: View {
             attachmentFailures.remove(attachment.id)
         } catch {
             attachmentFailures.insert(attachment.id)
-        }
-    }
-
-    private func kindTitle(_ kind: KnowledgeBlockKind) -> String {
-        switch kind {
-        case .heading1: "Heading 1"
-        case .heading2: "Heading 2"
-        case .bulletedList: "Bulleted List"
-        case .numberedList: "Numbered List"
-        case .noteLink: "Note Link"
-        default: kind.rawValue.capitalized
-        }
-    }
-
-    private func kindSymbol(_ kind: KnowledgeBlockKind) -> String {
-        switch kind {
-        case .paragraph: "text.alignleft"
-        case .heading1, .heading2: "textformat.size"
-        case .bulletedList: "list.bullet"
-        case .numberedList: "list.number"
-        case .checklist: "checklist"
-        case .quote: "quote.opening"
-        case .callout: "exclamationmark.bubble"
-        case .code: "chevron.left.forwardslash.chevron.right"
-        case .divider: "minus"
-        case .table: "tablecells"
-        case .collapsible: "chevron.down.square"
-        case .image: "photo"
-        case .file: "doc"
-        case .bookmark: "bookmark"
-        case .noteLink: "link"
         }
     }
 }
@@ -1988,7 +2089,7 @@ private struct NoteAIProposalReview: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Label("Review before anything changes", systemImage: "checkmark.shield")
+                    Label("Review before applying", systemImage: "checkmark.shield")
                         .font(.headline)
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                     Text(proposal.explanation)
@@ -2007,17 +2108,17 @@ private struct NoteAIProposalReview: View {
                             RoundedRectangle(cornerRadius: 20, style: .continuous)
                                 .stroke(Color.lifeboard(.textPrimary).opacity(0.07), lineWidth: 1)
                         }
-                        .accessibilityLabel("Editable EVA proposal")
+                        .accessibilityLabel("Eva suggestion")
                     if isStale {
                         Label(
-                            "This proposal is stale because the note changed. Discard it and ask again.",
+                            "The note changed. Discard this and ask again.",
                             systemImage: "exclamationmark.triangle.fill"
                         )
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.lifeboard(.statusWarning))
                     } else {
                         Label(
-                            "Only the text shown here will be applied. You can edit it first.",
+                            "Only this text is applied. You can edit it.",
                             systemImage: "hand.raised"
                         )
                         .font(.footnote)
@@ -2029,11 +2130,12 @@ private struct NoteAIProposalReview: View {
                 .frame(maxWidth: .infinity)
             }
             .background(Color(SemanticColorTokens.foundationCanvas))
-            .navigationTitle("EVA Proposal")
+            .navigationTitle("Eva suggestion")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Discard", role: .destructive, action: onDiscard)
+                    .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -2078,7 +2180,7 @@ private struct NoteHistoryView: View {
                     ContentUnavailableView(
                         "No earlier versions",
                         systemImage: "clock.arrow.circlepath",
-                        description: Text("LifeBoard keeps meaningful editing checkpoints here.")
+                        description: Text("Versions appear as you edit.").foregroundColor(Color(SemanticColorTokens.inkSecondary))
                     )
                 } else {
                     List(revisions) { revision in
@@ -2096,11 +2198,12 @@ private struct NoteHistoryView: View {
                     .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("Version History")
+            .navigationTitle("Version history")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done", action: onDismiss)
+                    .keyboardShortcut(.cancelAction)
                 }
             }
         }
@@ -2149,9 +2252,10 @@ private struct LockedKnowledgeNoteEditor: View {
                         Task { await saveAndDismiss() }
                     } label: {
                         Image(systemName: "xmark")
-                            .frame(width: 36, height: 36)
+                            .minimumHitTarget()
                     }
-                    .accessibilityLabel("Close locked note")
+                    .accessibilityLabel("Close")
+                    .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .principal) {
                     Label("Locked", systemImage: "lock.fill")
@@ -2168,7 +2272,7 @@ private struct LockedKnowledgeNoteEditor: View {
                 saveTask?.cancel()
                 Task { await saveCurrentSession() }
             }
-            .alert("Locked note unavailable", isPresented: Binding(
+            .alert("Couldn’t open note", isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
             )) {
@@ -2183,16 +2287,16 @@ private struct LockedKnowledgeNoteEditor: View {
         VStack(spacing: 18) {
             ZStack {
                 Circle()
-                    .fill(Color.orange.opacity(0.12))
+                    .fill(Color(SemanticColorTokens.foundationApricotAccent).opacity(0.24))
                     .frame(width: 88, height: 88)
                 Image(systemName: "lock.fill")
                     .lifeboardFont(.heroDisplay)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                     .symbolEffect(.breathe, options: .nonRepeating)
             }
-            Text("A private page")
+            Text("Locked note")
                 .lifeboardFont(.screenTitle)
-            Text("Authenticate to read or edit this note. Its title, text, links, and attachments stay out of search and previews.")
+            Text("Locked notes stay out of search and previews.")
                 .font(.body)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .multilineTextAlignment(.center)
@@ -2202,14 +2306,16 @@ private struct LockedKnowledgeNoteEditor: View {
             } label: {
                 HStack(spacing: 12) {
                     if isUnlocking { ProgressView().controlSize(.small) }
-                    Label(isUnlocking ? "Unlocking" : "Unlock note", systemImage: "faceid")
+                    Label(isUnlocking ? "Unlocking…" : "Unlock note", systemImage: "faceid")
                         .fontWeight(.semibold)
                 }
                 .padding(.horizontal, 20)
                 .frame(minHeight: 50)
             }
             .disabled(isUnlocking)
-            .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
+            // A content action, so clay: glass is for chrome, and the unlocked
+            // state's formatting bar is this screen's one glass control.
+            .buttonStyle(.lifeBoardClay(.raised, cornerRadius: Radius.pill))
             .accessibilityIdentifier("notes.locked.unlock")
         }
         .padding(30)
@@ -2224,7 +2330,7 @@ private struct LockedKnowledgeNoteEditor: View {
                         session?.note.title = value
                         scheduleSave()
                     }
-                ))
+                ), prompt: Text("Note title").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                 .lifeboardFont(.heroDisplay)
                 .textFieldStyle(.plain)
                 .accessibilityLabel("Note title")
@@ -2247,7 +2353,7 @@ private struct LockedKnowledgeNoteEditor: View {
 
                 if !current.attachments.isEmpty {
                     Divider().padding(.vertical, 8)
-                    Text("Encrypted attachments")
+                    Text("Attachments")
                         .font(.headline)
                     ForEach(current.attachments) { attachment in
                         Label(attachment.fileName, systemImage: "lock.doc")
@@ -2256,7 +2362,8 @@ private struct LockedKnowledgeNoteEditor: View {
                     }
                 }
             }
-            .frame(maxWidth: 760, alignment: .leading)
+            // The same prose cap as the unlocked editor.
+            .frame(maxWidth: 680, alignment: .leading)
             .padding(.horizontal, 24)
             .padding(.vertical, 26)
             .frame(maxWidth: .infinity)
@@ -2272,8 +2379,8 @@ private struct LockedKnowledgeNoteEditor: View {
                 Spacer()
                 switch saveState {
                 case .saving: ProgressView().controlSize(.small)
-                case .saved: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                case .saved: Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.lifeboard(.statusSuccess))
+                case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.lifeboard(.statusWarning))
                 default: EmptyView()
                 }
             }
@@ -2293,7 +2400,7 @@ private struct LockedKnowledgeNoteEditor: View {
             command = .init(command: editorCommand)
             isFocused = true
         } label: {
-            Image(systemName: symbol).frame(width: 40, height: 40)
+            Image(systemName: symbol).minimumHitTarget()
         }
         .accessibilityLabel(label)
     }
@@ -2398,6 +2505,7 @@ private struct KnowledgeBlockEditor: View {
     let onMoveUp: () -> Void
     let onMoveDown: () -> Void
     let onDelete: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expanded = true
     @State private var bookmarkIsLoading = false
     @State private var bookmarkError: String?
@@ -2411,7 +2519,7 @@ private struct KnowledgeBlockEditor: View {
                 Spacer()
                 Menu {
                     ForEach(KnowledgeBlockKind.allCases, id: \.self) { kind in
-                        Button(kind.rawValue.capitalized) { block.kind = kind }
+                        Button(kind.displayTitle) { block.kind = kind }
                     }
                     Divider()
                     Button("Move up", systemImage: "arrow.up", action: onMoveUp)
@@ -2420,7 +2528,7 @@ private struct KnowledgeBlockEditor: View {
                     Button("Delete block", systemImage: "trash", role: .destructive, action: onDelete)
                 } label: {
                     Image(systemName: "ellipsis")
-                        .frame(width: 36, height: 30)
+                        .minimumHitTarget()
                 }
                 .accessibilityLabel("Block options")
             }
@@ -2430,7 +2538,7 @@ private struct KnowledgeBlockEditor: View {
             case .checklist:
                 HStack(alignment: .top) {
                     Button {
-                        withAnimation(LifeBoardAnimation.roleLocalState) {
+                        withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
                             block.isChecked.toggle()
                         }
                     } label: {
@@ -2438,12 +2546,12 @@ private struct KnowledgeBlockEditor: View {
                             .font(.title3)
                             .foregroundStyle(block.isChecked ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textSecondary))
                             .contentTransition(.symbolEffect(.replace))
-                            .frame(width: 32, height: 32)
+                            .minimumHitTarget()
                     }
                     .buttonStyle(.plain)
                     .sensoryFeedback(.success, trigger: block.isChecked)
                     .accessibilityLabel(block.isChecked ? "Mark incomplete" : "Mark complete")
-                    TextField("Checklist item", text: $block.text, axis: .vertical)
+                    TextField("Checklist item", text: $block.text, prompt: Text("Checklist item").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                         .strikethrough(block.isChecked, color: .secondary)
                         .foregroundStyle(block.isChecked ? Color.lifeboard(.textSecondary) : Color.lifeboard(.textPrimary))
                 }
@@ -2452,16 +2560,16 @@ private struct KnowledgeBlockEditor: View {
                     TextEditor(text: $block.text).frame(minHeight: 80)
                 } label: { Text(block.text.split(separator: "\n").first.map(String.init) ?? "Collapsible section") }
             case .heading1:
-                TextField("Heading", text: $block.text, axis: .vertical).font(.title2.weight(.semibold))
+                TextField("Heading", text: $block.text, prompt: Text("Heading").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical).font(.title2.weight(.semibold))
             case .heading2:
-                TextField("Heading", text: $block.text, axis: .vertical).font(.title3.weight(.semibold))
+                TextField("Heading", text: $block.text, prompt: Text("Heading").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical).font(.title3.weight(.semibold))
             case .code:
                 TextEditor(text: $block.text).font(.system(.body, design: .monospaced)).frame(minHeight: 100)
             case .table:
                 KnowledgeTableEditor(block: $block)
             case .bookmark:
                 VStack(alignment: .leading, spacing: 8) {
-                    TextField("https://example.com", text: $block.text)
+                    TextField("https://example.com", text: $block.text, prompt: Text("https://example.com").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                         .textInputAutocapitalization(.never)
                         .keyboardType(.URL)
                         .onChange(of: block.text) { _, value in
@@ -2481,7 +2589,7 @@ private struct KnowledgeBlockEditor: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         }
-                        if bookmarkIsLoading { ProgressView("Loading preview") }
+                        if bookmarkIsLoading { ProgressView("Loading…") }
                         if bookmarkError != nil {
                             Button("Retry preview", systemImage: "arrow.clockwise") { Task { await refreshBookmark() } }
                                 .font(.caption.weight(.semibold))
@@ -2505,7 +2613,7 @@ private struct KnowledgeBlockEditor: View {
                         .clipShape(RoundedRectangle(cornerRadius: Radius.field))
                         .accessibilityLabel(attachment.fileName)
                 } else {
-                    Label(block.text.isEmpty ? "Unavailable image" : block.text, systemImage: "photo.badge.exclamationmark")
+                    Label(block.text.isEmpty ? "Image unavailable" : block.text, systemImage: "photo.badge.exclamationmark")
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                 }
             case .file:
@@ -2541,7 +2649,7 @@ private struct KnowledgeBlockEditor: View {
         case .bulletedList: "Bulleted list"
         case .numberedList: "Numbered list"
         case .noteLink: "Linked note"
-        default: block.kind.rawValue.capitalized
+        default: block.kind.displayTitle
         }
     }
 
@@ -2571,7 +2679,7 @@ private struct KnowledgeBlockEditor: View {
         case .callout: "Callout"
         case .bookmark: "Paste a URL"
         case .noteLink: "Linked note"
-        default: "Write something"
+        default: "Start writing…"
         }
     }
 
@@ -2654,7 +2762,7 @@ private struct KnowledgeTableEditor: View {
             .controlSize(.small)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Editable table")
+        .accessibilityLabel("Table")
     }
 
     private func cellBinding(row: Int, column: Int) -> Binding<String> {
@@ -2698,350 +2806,36 @@ private struct KnowledgeTableEditor: View {
 }
 
 
-/// Wraps the shared page container so the builder keeps its host navigation
-/// chrome (title, Cancel, Save) exactly as the Notes module supplies it.
-private struct ComposerScaffoldShim<Content: View>: View {
-    @ViewBuilder let content: Content
+/// The confirmation before an attachment's file is deleted for good, and the
+/// alert when that delete fails.
+private struct KnowledgeAttachmentDeletionConfirmation: ViewModifier {
+    @Binding var pending: KnowledgeAttachmentValue?
+    @Binding var failed: Bool
+    let onDelete: (KnowledgeAttachmentValue) -> Void
 
-    var body: some View {
-        ComposerPage(
-            subtitle: "Saved collections update automatically as your notes change.",
-            identifier: "notes.smartCollection"
-        ) {
-            content
-        } commit: {
-            EmptyView()
-        }
-    }
-}
-
-private struct SmartCollectionIdentitySection: View {
-    @Binding var name: String
-    @Binding var terms: String
-
-    var body: some View {
-        ComposerSection("Collection") {
-            ComposerField(
-                "Name",
-                prompt: "What to call it",
-                text: $name,
-                showsLabel: false,
-                identifier: "notes.smartCollection.name"
-            )
-            ComposerField("Words or phrase", prompt: "Optional", text: $terms)
-        }
-    }
-}
-
-private struct SmartCollectionLocationSection: View {
-    @Binding var folderID: UUID?
-    let folders: [KnowledgeFolderValue]
-    let tags: [KnowledgeTagValue]
-    @Binding var selectedTagIDs: Set<UUID>
-
-    var body: some View {
-        ComposerSection("Location") {
-            MenuRow(
-                "Folder",
-                selection: $folderID,
-                values: [UUID?.none] + folders.map { UUID?.some($0.id) },
-                title: { id in
-                    guard let id else { return "Any folder" }
-                    return folders.first { $0.id == id }?.title ?? "Any folder"
-                },
-                identifier: "notes.smartCollection.folder"
-            )
-            if tags.isEmpty == false {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(selectedTagIDs.isEmpty ? "Tags" : "Tags · \(selectedTagIDs.count)")
-                        .font(.lifeboard(.meta))
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    OptionFlow(spacing: 8) {
-                        ForEach(tags) { tag in
-                            let isOn = selectedTagIDs.contains(tag.id)
-                            Button {
-                                Haptic.pick.play()
-                                if isOn { selectedTagIDs.remove(tag.id) } else { selectedTagIDs.insert(tag.id) }
-                            } label: {
-                                Text(tag.name)
-                                    .font(.lifeboard(isOn ? .bodyStrong : .body))
-                                    .foregroundStyle(Color(isOn
-                                        ? SemanticColorTokens.inkPrimary
-                                        : SemanticColorTokens.inkSecondary))
-                                    .padding(.horizontal, 14)
-                                    .frame(minHeight: 44)
-                                    .lifeBoardClaySurface(
-                                        isOn ? .raised : .well,
-                                        cornerRadius: Radius.pill
-                                    )
-                                    .contentShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
-                        }
-                    }
+    func body(content: Content) -> some View {
+        content
+            .confirmationDialog(
+                "Delete this attachment?",
+                isPresented: Binding(
+                    get: { pending != nil },
+                    set: { if $0 == false { pending = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: pending
+            ) { attachment in
+                Button("Delete attachment", role: .destructive) {
+                    pending = nil
+                    onDelete(attachment)
                 }
+                Button("Cancel", role: .cancel) { pending = nil }
+            } message: { attachment in
+                Text("It’s deleted from this device. This can’t be undone.")
             }
-        }
-    }
-}
-
-private struct SmartCollectionContentSection: View {
-    @Binding var requiresAttachments: Bool
-    @Binding var checklist: KnowledgeChecklistFilter
-    @Binding var linkFilter: KnowledgeLinkFilter
-
-    var body: some View {
-        ComposerSection("Content") {
-            Toggle("Has attachments", isOn: $requiresAttachments)
-                .toggleStyle(.lifeBoardClay)
-            OptionRail(
-                "Checklists",
-                selection: $checklist,
-                values: [.any, .incomplete, .completed],
-                identifierPrefix: "notes.smartCollection.checklist",
-                title: {
-                    switch $0 {
-                    case .incomplete: "Has incomplete items"
-                    case .completed: "All completed"
-                    default: "Any"
-                    }
-                }
-            )
-            OptionRail(
-                "Connections",
-                selection: $linkFilter,
-                values: [.any, .incoming, .outgoing, .unlinked],
-                identifierPrefix: "notes.smartCollection.links",
-                title: {
-                    switch $0 {
-                    case .incoming: "Incoming links"
-                    case .outgoing: "Outgoing links"
-                    case .unlinked: "Unlinked"
-                    default: "Any"
-                    }
-                }
-            )
-        }
-    }
-}
-
-private struct SmartCollectionRefineSection: View {
-    @Binding var favoritesOnly: Bool
-    @Binding var pinnedOnly: Bool
-    @Binding var modifiedRecently: Bool
-
-    var body: some View {
-        ComposerSection("Refine") {
-            Toggle("Favorites only", isOn: $favoritesOnly)
-                .toggleStyle(.lifeBoardClay)
-            Toggle("Pinned only", isOn: $pinnedOnly)
-                .toggleStyle(.lifeBoardClay)
-            Toggle("Edited in the last 30 days", isOn: $modifiedRecently)
-                .toggleStyle(.lifeBoardClay)
-        }
-    }
-}
-
-private struct SmartCollectionBuilder: View {
-    let spaceID: UUID?
-    let folders: [KnowledgeFolderValue]
-    let tags: [KnowledgeTagValue]
-    let onSave: (String, KnowledgeNoteQuery) async -> Void
-    let onCancel: () -> Void
-
-    @State private var name = ""
-    @State private var terms = ""
-    @State private var folderID: UUID?
-    @State private var selectedTagIDs: Set<UUID> = []
-    @State private var requiresAttachments = false
-    @State private var checklist: KnowledgeChecklistFilter = .any
-    @State private var linkFilter: KnowledgeLinkFilter = .any
-    @State private var favoritesOnly = false
-    @State private var pinnedOnly = false
-    @State private var modifiedRecently = false
-    @State private var isSaving = false
-
-    var body: some View {
-        NavigationStack {
-            ComposerScaffoldShim {
-                SmartCollectionIdentitySection(name: $name, terms: $terms)
-                SmartCollectionLocationSection(
-                    folderID: $folderID,
-                    folders: folders,
-                    tags: tags,
-                    selectedTagIDs: $selectedTagIDs
-                )
-                SmartCollectionContentSection(
-                    requiresAttachments: $requiresAttachments,
-                    checklist: $checklist,
-                    linkFilter: $linkFilter
-                )
-                SmartCollectionRefineSection(
-                    favoritesOnly: $favoritesOnly,
-                    pinnedOnly: $pinnedOnly,
-                    modifiedRecently: $modifiedRecently
-                )
+            .alert("Couldn’t delete attachment", isPresented: $failed) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("It’s still in this note. Try again.")
             }
-            .navigationTitle("Smart Collection")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        isSaving = true
-                        let query = KnowledgeNoteQuery(
-                            collection: .all,
-                            spaceID: spaceID,
-                            folderID: folderID,
-                            tagIDs: selectedTagIDs,
-                            searchText: terms,
-                            modifiedAfter: modifiedRecently
-                                ? Calendar.current.date(byAdding: .day, value: -30, to: Date())
-                                : nil,
-                            requiresAttachments: requiresAttachments ? true : nil,
-                            checklist: checklist == .any ? nil : checklist,
-                            links: linkFilter == .any ? nil : linkFilter,
-                            pinned: pinnedOnly ? true : nil,
-                            favorite: favoritesOnly ? true : nil
-                        )
-                        Task {
-                            await onSave(name, query)
-                            isSaving = false
-                        }
-                    } label: {
-                        if isSaving { ProgressView().controlSize(.small) }
-                        else { Text("Save").fontWeight(.semibold) }
-                    }
-                    .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }
-        .interactiveDismissDisabled(isSaving)
-    }
-}
-
-private struct KnowledgeGraphView: View {
-    let notes: [KnowledgeNoteValue]
-    let links: [KnowledgeLinkValue]
-    let folders: [KnowledgeFolderValue]
-    let tags: [KnowledgeTagValue]
-    let onOpen: (KnowledgeNoteValue) -> Void
-    @State private var scale = 1.0
-    @State private var offset = CGSize.zero
-    @State private var searchText = ""
-    @State private var selectedFolderID: UUID?
-    @State private var selectedTagID: UUID?
-    @State private var prefersList = false
-    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
-
-    private var filteredNotes: [KnowledgeNoteValue] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return notes.filter { note in
-            (query.isEmpty || note.title.lowercased().contains(query) || note.plainText.lowercased().contains(query))
-                && (selectedFolderID == nil || note.folderID == selectedFolderID)
-                && (selectedTagID.map { note.tagIDs.contains($0) } ?? true)
-        }
-    }
-
-    private var filteredLinks: [KnowledgeLinkValue] {
-        let ids = Set(filteredNotes.map(\.id))
-        return links.filter { ids.contains($0.sourceNoteID) && ids.contains($0.destinationNoteID) }
-    }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            TextField("Search graph", text: $searchText)
-                .textFieldStyle(.roundedBorder)
-                .padding(.horizontal, 20)
-            HStack {
-                filterMenu(title: "Folder", selection: $selectedFolderID, values: folders.map { ($0.id, $0.title) })
-                filterMenu(title: "Tag", selection: $selectedTagID, values: tags.map { ($0.id, $0.name) })
-                Spacer()
-                Button(prefersList ? "Graph" : "List", systemImage: prefersList ? "point.3.connected.trianglepath.dotted" : "list.bullet") {
-                    prefersList.toggle()
-                }
-            }
-            .padding(.horizontal, 20)
-            if prefersList || voiceOverEnabled {
-                List(filteredNotes) { note in
-                    Button { onOpen(note) } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(note.title.isEmpty ? "Untitled" : note.title).font(.headline)
-                            Text(note.plainText).font(.caption).foregroundStyle(Color.lifeboard(.textSecondary)).lineLimit(2)
-                        }
-                    }
-                }
-                .listStyle(.plain)
-            } else {
-                graph
-            }
-        }
-    }
-
-    private var graph: some View {
-        GeometryReader { proxy in
-            if filteredNotes.isEmpty {
-                ContentUnavailableView("No graph yet", systemImage: "point.3.connected.trianglepath.dotted", description: Text("Create and connect notes to form a graph."))
-            } else {
-                let positions = graphPositions(for: filteredNotes, in: proxy.size)
-                ZStack {
-                    Canvas { context, _ in
-                        for link in filteredLinks {
-                            guard let start = positions[link.sourceNoteID], let end = positions[link.destinationNoteID] else { continue }
-                            var path = Path(); path.move(to: start); path.addLine(to: end)
-                            context.stroke(path, with: .color(Color.lifeboard(.textPrimary).opacity(0.24)), lineWidth: 1.5)
-                        }
-                    }
-                    ForEach(filteredNotes) { note in
-                        if let position = positions[note.id] {
-                            Button { onOpen(note) } label: {
-                                VStack(spacing: 4) {
-                                    Circle().fill(.tint).frame(width: note.isPinned ? 34 : 26, height: note.isPinned ? 34 : 26)
-                                    Text(note.title.isEmpty ? "Untitled" : note.title).font(.caption2).lineLimit(1).frame(width: 88)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .position(position)
-                        }
-                    }
-                }
-                .scaleEffect(scale)
-                .offset(offset)
-                .gesture(MagnifyGesture().onChanged { scale = min(2.5, max(0.6, $0.magnification)) })
-                .simultaneousGesture(DragGesture().onChanged { offset = $0.translation })
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Knowledge graph with \(filteredNotes.count) notes and \(filteredLinks.count) links")
-            }
-        }
-        .padding(12)
-    }
-
-    private func graphPositions(for notes: [KnowledgeNoteValue], in size: CGSize) -> [UUID: CGPoint] {
-        let radius = max(70, min(size.width, size.height) * 0.34)
-        let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        return Dictionary(uniqueKeysWithValues: notes.enumerated().map { index, note in
-            let angle = (Double(index) / Double(max(1, notes.count))) * .pi * 2 - .pi / 2
-            let ring = index < 12 ? radius * 0.62 : radius
-            return (note.id, CGPoint(x: center.x + cos(angle) * ring, y: center.y + sin(angle) * ring))
-        })
-    }
-
-    private func filterMenu(
-        title: String,
-        selection: Binding<UUID?>,
-        values: [(id: UUID, title: String)]
-    ) -> some View {
-        Menu {
-            Button("All") { selection.wrappedValue = nil }
-            ForEach(values, id: \.id) { value in
-                Button(value.title) { selection.wrappedValue = value.id }
-            }
-        } label: {
-            Label(title, systemImage: selection.wrappedValue == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-        }
-        .buttonStyle(.lifeBoardChip)
     }
 }

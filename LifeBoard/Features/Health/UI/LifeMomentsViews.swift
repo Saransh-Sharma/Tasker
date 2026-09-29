@@ -16,12 +16,84 @@ final class LifeMomentsStore {
             moments = try await repository.moments(includeArchived: false)
             errorMessage = nil
         } catch {
-            errorMessage = "Moments are unavailable right now."
+            errorMessage = String(localized: "Couldn’t load moments")
         }
     }
-    func save(_ value: LifeMoment) async { do { try await repository.save(value); await load(); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = error.localizedDescription } }
-    func archive(_ value: LifeMoment) async { do { try await repository.archive(id: value.id, at: Date()); await load(); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = error.localizedDescription } }
-    func delete(_ value: LifeMoment) async { do { try await repository.delete(id: value.id); await load(); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = error.localizedDescription } }
+    /// The last archive, with the moment as it was so Undo can put it back.
+    private(set) var archiveReceipt: LifeMomentArchiveReceipt?
+
+    func save(_ value: LifeMoment) async {
+        do {
+            try await repository.save(value)
+            await load()
+            SystemSurfaceRefresher.requestRefreshSoon()
+        } catch {
+            Haptic.fail.play()
+            errorMessage = String(localized: "Couldn’t save moment")
+        }
+    }
+
+    /// Archiving is reversible, so it runs at once and offers Undo.
+    @discardableResult
+    func archive(_ value: LifeMoment) async -> Bool {
+        do {
+            try await repository.archive(id: value.id, at: Date())
+            Haptic.commit.play()
+            archiveReceipt = LifeMomentArchiveReceipt(original: value)
+            await load()
+            SystemSurfaceRefresher.requestRefreshSoon()
+            return true
+        } catch {
+            Haptic.fail.play()
+            errorMessage = String(localized: "Couldn’t archive moment")
+            return false
+        }
+    }
+
+    func undoArchive() async {
+        guard let receipt = archiveReceipt else { return }
+        var restored = receipt.original
+        restored.isArchived = false
+        restored.updatedAt = max(Date(), restored.updatedAt)
+        do {
+            try await repository.save(restored)
+            archiveReceipt = nil
+            Haptic.pick.play()
+            await load()
+            SystemSurfaceRefresher.requestRefreshSoon()
+        } catch {
+            Haptic.fail.play()
+            errorMessage = String(localized: "Couldn’t restore moment")
+        }
+    }
+
+    func dismissArchiveReceipt() { archiveReceipt = nil }
+
+    /// Deletes without reloading, so the card can dissolve over a write that
+    /// already succeeded; the caller reloads once the dissolve has played.
+    @discardableResult
+    func delete(_ value: LifeMoment, reloads: Bool = true) async -> Bool {
+        do {
+            try await repository.delete(id: value.id)
+            Haptic.commit.play()
+            if reloads { await load() }
+            SystemSurfaceRefresher.requestRefreshSoon()
+            return true
+        } catch {
+            Haptic.fail.play()
+            errorMessage = String(localized: "Couldn’t delete moment")
+            return false
+        }
+    }
+}
+
+struct LifeMomentArchiveReceipt: Identifiable {
+    let id = UUID()
+    let original: LifeMoment
+
+    var presentation: ActionReceiptPresentation {
+        ActionReceiptPresentation(id: id, message: "Archived \u{201C}\(original.title)\u{201D}")
+    }
 }
 
 struct LifeMomentsView: View {
@@ -75,24 +147,41 @@ struct LifeMomentsView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
+                if let receipt = store.archiveReceipt {
+                    ReceiptBar(
+                        receipt.presentation,
+                        undo: { Task { await store.undoArchive() } },
+                        onDismiss: { store.dismissArchiveReceipt() }
+                    )
+                    .accessibilityIdentifier("lifeMoments.archive.receipt")
+                }
                 if store.isLoading, store.moments.isEmpty {
-                    ProgressView("Loading moments")
+                    ProgressView("Loading…")
                         .frame(maxWidth: .infinity, minHeight: 180)
                 } else if let error = store.errorMessage, store.moments.isEmpty {
                     StatusSurface(
                         state: .recoverableError,
-                        title: "Moments are unavailable",
-                        message: error
+                        title: error,
+                        message: ""
                     )
                     Button("Try again") { Task { await store.load() } }
                         .buttonStyle(.lifeBoardPrimaryCompact)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 } else if case .moment(let id) = focus,
                           let moment = store.moments.first(where: { $0.id == id }) {
-                    LifeMomentFocusedDetail(moment: moment) {
-                        editing = moment
-                        showsComposer = true
-                    }
+                    LifeMomentFocusedDetail(
+                        moment: moment,
+                        edit: {
+                            editing = moment
+                            showsComposer = true
+                        },
+                        archive: {
+                            Task { if await store.archive(moment) { focus = .overview } }
+                        },
+                        delete: {
+                            Task { if await store.delete(moment) { focus = .overview } }
+                        }
+                    )
                     momentsList(omitting: id)
                 } else if case .moment = focus {
                     // `.unavailable` rather than `.recoverableError`: an archived
@@ -100,8 +189,8 @@ struct LifeMomentsView: View {
                     // and DESIGN.md says an unavailable state never offers one.
                     StatusSurface(
                         state: .unavailable,
-                        title: "Moment unavailable",
-                        message: "It may have been archived or removed."
+                        title: String(localized: "Moment not found"),
+                        message: String(localized: "It may have been archived or deleted.")
                     )
                     Button("View all moments") { focus = .overview }
                         .buttonStyle(.lifeBoardPrimaryCompact)
@@ -109,8 +198,8 @@ struct LifeMomentsView: View {
                 } else if store.moments.isEmpty {
                     StatusSurface(
                         state: .empty,
-                        title: "Keep a meaningful date close",
-                        message: "Countdowns and anniversaries stay private unless you allow Home display."
+                        title: String(localized: "No moments yet"),
+                        message: String(localized: "Private unless you show them on Home.")
                     )
                     .padding(.top, 40)
                     Button("Add moment") { editing = nil; showsComposer = true }
@@ -128,12 +217,12 @@ struct LifeMomentsView: View {
         .background {
             GrainedCanvas()
         }
-        .navigationTitle("Life Moments")
+        .navigationTitle("Life moments")
         .searchable(text: $searchText, prompt: "Search moments")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 if store.moments.isEmpty == false {
-                    ShareLink(item: exportPayload, preview: SharePreview("Life Moments export")) {
+                    ShareLink(item: exportPayload, preview: SharePreview("Life moments")) {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }
                 }
@@ -150,11 +239,17 @@ struct LifeMomentsView: View {
             }
         }
         .sheet(isPresented: $showsComposer) { LifeMomentComposer(existing: editing) { value in Task { await store.save(value) } } }
+        .alert(store.errorMessage ?? String(localized: "Couldn’t update moments"), isPresented: Binding(
+            get: { store.errorMessage != nil && store.moments.isEmpty == false },
+            set: { if $0 == false { store.errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { store.errorMessage = nil }
+        }
     }
 
     @ViewBuilder
     private func momentsList(omitting omittedID: UUID?) -> some View {
-        Text("Meaningful moments")
+        Text("Moments")
             .font(Typography.sectionTitle())
             .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             .padding(.horizontal, 4)
@@ -164,7 +259,9 @@ struct LifeMomentsView: View {
             } archive: {
                 Task { await store.archive(moment) }
             } delete: {
-                Task { await store.delete(moment) }
+                await store.delete(moment, reloads: false)
+            } didDissolve: {
+                Task { await store.load() }
             }
         }
     }
@@ -173,6 +270,9 @@ struct LifeMomentsView: View {
 private struct LifeMomentFocusedDetail: View {
     let moment: LifeMoment
     let edit: () -> Void
+    let archive: () -> Void
+    let delete: () -> Void
+    @State private var confirmsDelete = false
 
     private var countdown: String {
         guard let days = moment.calendarDaysUntilNextOccurrence(from: Date()) else { return "Past" }
@@ -189,7 +289,7 @@ private struct LifeMomentFocusedDetail: View {
                 .font(Typography.sectionTitle())
             LabeledContent("Date", value: moment.eventDate.formatted(date: .long, time: .omitted))
             LabeledContent("Repeats", value: recurrenceTitle)
-            LabeledContent("Home", value: moment.permitsHomeDisplay ? "Allowed" : "Hidden")
+            LabeledContent("Home", value: moment.permitsHomeDisplay ? String(localized: "Shown") : String(localized: "Hidden"))
             if let note = moment.note, note.isEmpty == false {
                 Text(note)
                     .font(.body)
@@ -199,6 +299,28 @@ private struct LifeMomentFocusedDetail: View {
                 .buttonStyle(.lifeBoardPrimaryCompact)
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .accessibilityIdentifier("lifeMoment.edit")
+            // Archive and Delete were reachable only from a card's context
+            // menu, which the focused detail omits.
+            HStack(spacing: 12) {
+                Button("Archive", systemImage: "archivebox", action: archive)
+                    .buttonStyle(.lifeBoardChip)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .accessibilityIdentifier("lifeMoment.archive")
+                Button("Delete…", systemImage: "trash", role: .destructive) { confirmsDelete = true }
+                    .buttonStyle(.lifeBoardChip)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .accessibilityIdentifier("lifeMoment.delete")
+            }
+        }
+        .confirmationDialog(
+            "Delete \u{201C}\(moment.title)\u{201D}?",
+            isPresented: $confirmsDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Delete moment", role: .destructive, action: delete)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This can’t be undone. Archive hides it instead.")
         }
         .padding(20)
         .featureHeaderArtwork(.moment)
@@ -227,9 +349,13 @@ private struct LifeMomentCard: View {
     let moment: LifeMoment
     let open: () -> Void
     let archive: () -> Void
-    let delete: () -> Void
+    /// Performs the repository delete and reports whether it saved.
+    let delete: () async -> Bool
+    /// Called once the dissolve has played over a successful delete.
+    let didDissolve: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeBoardTransitionCoordinator) private var transitions
     @State private var developProgress: Double = 1
     @State private var dissolveProgress: Double = 0
@@ -247,7 +373,7 @@ private struct LifeMomentCard: View {
             HStack(alignment: .center, spacing: 14) {
                 Image(systemName: moment.kind == .countdown ? "hourglass" : "calendar.badge.heart")
                     .font(.lifeboard(.title3))
-                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                     .frame(width: 34, height: 34)
                     .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
                     .accessibilityHidden(true)
@@ -288,7 +414,7 @@ private struct LifeMomentCard: View {
         .task {
             guard transitions?.claimOneShot("lifeMoment.develop.\(moment.id)") == true else { return }
             developProgress = 0
-            withAnimation(.easeOut(duration: 0.7)) { developProgress = 1 }
+            withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) { developProgress = 1 }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text("\(moment.title), \(moment.eventDate.formatted(date: .abbreviated, time: .omitted)), \(countdown.label)"))
@@ -299,17 +425,25 @@ private struct LifeMomentCard: View {
             Button("Delete", systemImage: "trash", role: .destructive, action: performDelete)
         }
         .confirmationDialog(
-            "Delete this moment?",
+            "Delete \u{201C}\(moment.title)\u{201D}?",
             isPresented: $confirmsDelete,
             titleVisibility: .visible
         ) {
             Button("Delete moment", role: .destructive) {
-                delete()
-                withAnimation(.easeIn(duration: 0.42)) { dissolveProgress = 1 }
+                Task {
+                    // Persist first; the dissolve is the receipt of a write
+                    // that already succeeded, never a promise ahead of one.
+                    guard await delete() else { return }
+                    withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
+                        dissolveProgress = 1
+                    } completion: {
+                        didDissolve()
+                    }
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This removes the moment from LifeBoard.")
+            Text("This can’t be undone. Archive hides it instead.")
         }
     }
 
@@ -355,9 +489,8 @@ private struct LifeMomentComposer: View {
     }
     var body: some View {
         ComposerScaffold(
-            title: existing == nil ? "New Moment" : "Edit Moment",
-            subtitle: "A date worth keeping close.",
-            confirmTitle: "Save",
+            title: existing == nil ? String(localized: "New moment") : String(localized: "Edit moment"),
+            confirmTitle: String(localized: "Save"),
             isConfirmEnabled: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
             identifier: "lifeMoment.composer",
             onConfirm: save
@@ -398,7 +531,7 @@ private struct MomentDetailSection: View {
         ComposerSection("Moment") {
             ComposerField(
                 "Title",
-                prompt: "Anniversary, first day, the trip…",
+                prompt: "Moment name",
                 text: $title,
                 showsLabel: false,
                 identifier: "lifeMoment.title"
@@ -416,9 +549,15 @@ private struct MomentDetailSection: View {
     }
 
     /// The raw value is a camel-cased identifier; `.capitalized` alone turned it
-    /// into "Recurringmeaningfulevent" on screen.
+    /// into "Recurringmeaningfulevent" on screen. Every kind gets its own name:
+    /// the old two-way ternary labelled three different chips "Recurring event".
     private static func kindTitle(_ kind: LifeMomentKind) -> String {
-        kind == .countdown ? "Countdown" : "Recurring event"
+        switch kind {
+        case .countdown: String(localized: "Countdown")
+        case .anniversary: String(localized: "Anniversary")
+        case .milestone: String(localized: "Milestone")
+        case .recurringMeaningfulEvent: String(localized: "Recurring event")
+        }
     }
 }
 
@@ -456,9 +595,9 @@ private struct MomentPrivacySection: View {
     var body: some View {
         ComposerSection(
             "Privacy",
-            footer: "The title and date stay off Home, widgets, and suggestions until enabled."
+            footer: String(localized: "Stays off Home and widgets unless this is on.")
         ) {
-            Toggle("Allow date on Home", isOn: $homeDisplay)
+            Toggle("Show on Home", isOn: $homeDisplay)
                 .toggleStyle(.lifeBoardClay)
                 .accessibilityIdentifier("lifeMoment.homeDisplay")
         }
@@ -472,7 +611,7 @@ private struct MomentNoteSection: View {
         ComposerSection("Note") {
             ComposerField(
                 "Optional note",
-                prompt: "Why this one matters…",
+                prompt: "Optional",
                 text: $note,
                 shape: .prose(lineLimit: 2...6),
                 showsLabel: false

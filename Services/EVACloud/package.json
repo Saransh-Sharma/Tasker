@@ -32,16 +32,16 @@
     "@lifeboard/eva-contracts": "1.0.0",
     "@sinclair/typebox": "^0.34.52",
     "cbor": "^10.0.12",
-    "hono": "^4.13.2",
+    "hono": "^4.13.8",
     "jose": "^6.2.8",
     "node-app-attest": "^1.0.1",
     "openai": "^7.4.0"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.21.3",
-    "@cloudflare/workers-types": "^5.20260814.1",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260917.1",
     "typescript": "~5.9.3",
-    "vitest": "^4.1.10",
-    "wrangler": "^4.123.0"
+    "vitest": "^4.1.11",
+    "wrangler": "^4.133.0"
   }
 }

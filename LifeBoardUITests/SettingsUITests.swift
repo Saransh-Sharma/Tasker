@@ -222,7 +222,7 @@ final class PremiumSettingsUITests: BaseUITest {
 
         attachScreenshot(named: "Look and Feel")
 
-        let detailNavigationBar = app.navigationBars["Look & Feel"]
+        let detailNavigationBar = app.navigationBars["Look & feel"]
         XCTAssertTrue(detailNavigationBar.waitForExistence(timeout: 5))
         detailNavigationBar.buttons.element(boundBy: 0).tap()
 

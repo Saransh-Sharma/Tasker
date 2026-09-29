@@ -7,19 +7,40 @@ struct TaskBreakdownOutput {
     let routeBanner: String?
 }
 
+struct TaskBreakdownRouteDecision: Sendable {
+    let modelName: String?
+    let bannerMessage: String?
+
+    static let heuristicOnly = TaskBreakdownRouteDecision(modelName: nil, bannerMessage: nil)
+
+    @MainActor
+    static func current() -> TaskBreakdownRouteDecision {
+        let route = AIChatModeRouter.route(for: .breakdown)
+        return TaskBreakdownRouteDecision(
+            modelName: EvaModelSelection.resolve(route.selectedModelName),
+            bannerMessage: route.bannerMessage
+        )
+    }
+}
+
 @MainActor
 final class TaskBreakdownService {
     @MainActor static let shared = TaskBreakdownService()
 
     private let llm: LLMEvaluator
+    private let resolveRoute: @MainActor () -> TaskBreakdownRouteDecision
 
     var lastGenerationTimedOut: Bool {
         llm.lastGenerationTimedOut
     }
 
     /// Initializes a new instance.
-    init(llm: LLMEvaluator? = nil) {
+    init(
+        llm: LLMEvaluator? = nil,
+        resolveRoute: @escaping @MainActor () -> TaskBreakdownRouteDecision = TaskBreakdownRouteDecision.current
+    ) {
         self.llm = llm ?? LLMRuntimeCoordinator.shared.evaluator
+        self.resolveRoute = resolveRoute
     }
 
     /// Executes generateSteps.
@@ -37,7 +58,7 @@ final class TaskBreakdownService {
         taskDetails: String?,
         projectName: String?
     ) -> TaskBreakdownOutput {
-        let route = AIChatModeRouter.route(for: .breakdown)
+        let route = resolveRoute()
         let fallback = heuristicBreakdown(
             taskTitle: taskTitle,
             taskDetails: taskDetails,
@@ -74,14 +95,14 @@ final class TaskBreakdownService {
             return TaskBreakdownOutput(steps: [], modelName: nil, routeBanner: nil)
         }
 
-        let route = AIChatModeRouter.route(for: .breakdown)
+        let route = resolveRoute()
         let fallbackSteps = heuristicBreakdown(
             taskTitle: trimmedTitle,
             taskDetails: taskDetails,
             projectName: projectName
         )
 
-        guard let modelName = EvaModelSelection.resolve(route.selectedModelName) else {
+        guard let modelName = route.modelName else {
             return TaskBreakdownOutput(
                 steps: enforceStepContract(candidate: fallbackSteps, fallback: fallbackSteps),
                 modelName: nil,
@@ -204,9 +225,9 @@ final class TaskBreakdownService {
 
         if merged.count < 3 {
             let defaults = [
-                "Define success criteria",
-                "Gather inputs and constraints",
-                "Draft and complete first pass"
+                String(localized: "Define what done looks like"),
+                String(localized: "Gather what you need"),
+                String(localized: "Draft a first pass")
             ]
             for step in defaults where merged.count < 3 {
                 if merged.contains(where: { $0.caseInsensitiveCompare(step) == .orderedSame }) == false {
@@ -241,10 +262,10 @@ final class TaskBreakdownService {
             let prefix = projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
             let project = (prefix?.isEmpty == false) ? " for \(prefix!)" : ""
             steps = [
-                "Define success criteria\(project)",
-                "Gather required inputs and references",
-                "Draft the first pass",
-                "Review and finalize deliverable"
+                String(localized: "Define what done looks like") + project,
+                String(localized: "Gather what you need"),
+                String(localized: "Draft a first pass"),
+                String(localized: "Review and finish")
             ]
         }
 

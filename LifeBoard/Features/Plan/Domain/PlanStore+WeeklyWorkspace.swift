@@ -130,7 +130,7 @@ extension PlanStore {
     @discardableResult
     func place(_ task: PlanningTaskSummary, on day: PlanningDay) async -> Bool {
         guard WeeklyPlanningHorizon.canReceivePlacement(day, today: todayPlanningDay()) else {
-            errorMessage = "That day has already passed."
+            errorMessage = String(localized: "Pick today or a later day.")
             return false
         }
         guard task.metadata.planningDay != day else { return false }
@@ -244,7 +244,7 @@ extension PlanStore {
     @discardableResult
     func placeAll(_ taskIDs: Set<UUID>, on day: PlanningDay) async -> Bool {
         guard WeeklyPlanningHorizon.canReceivePlacement(day, today: todayPlanningDay()) else {
-            errorMessage = "That day has already passed."
+            errorMessage = String(localized: "Pick today or a later day.")
             return false
         }
         let selected = tasks.filter { taskIDs.contains($0.id) && $0.metadata.planningDay != day }
@@ -300,7 +300,7 @@ extension PlanStore {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return nil }
         guard let repository = workspaceTaskRepository else {
-            errorMessage = "Tasks cannot be created from here yet."
+            errorMessage = String(localized: "Couldn’t add task here.")
             return nil
         }
         let request = CreateTaskDefinitionRequest(

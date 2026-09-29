@@ -105,22 +105,22 @@ public actor SystemSurfaceProjectionCoordinator {
 
     private func refreshJournal(now: Date) async {
         let latest = try? await phaseII.fetchJournalDays(search: nil, starredOnly: false, mood: nil).first
-        let snapshot = SystemSurfaceSnapshot(id: latest?.id ?? UUID(), title: "Journal", primaryValue: latest == nil ? "Capture a moment" : "Recent reflection", secondaryValue: nil, systemImage: "book.closed", sensitivity: .privateSensitive, isExplicitlyAuthorized: permitted(.journal), deepLinkPath: "journal", updatedAt: latest?.updatedAt ?? now)
+        let snapshot = SystemSurfaceSnapshot(id: latest?.id ?? UUID(), title: "Journal", primaryValue: latest == nil ? String(localized: "Write about today") : String(localized: "Recent entry"), secondaryValue: nil, systemImage: "book.closed", sensitivity: .privateSensitive, isExplicitlyAuthorized: permitted(.journal), deepLinkPath: "journal", updatedAt: latest?.updatedAt ?? now)
         await write(.journal, [snapshot], now: now)
     }
 
     private func refreshFasting(now: Date) async {
         let active = try? await phaseII.fetchFastingSessions(limit: 20).first(where: { $0.endedAt == nil })
         let elapsed = active.map { max(0, now.timeIntervalSince($0.startedAt)) }
-        let value = elapsed.map { Self.duration($0) } ?? "No active timer"
-        let snapshot = SystemSurfaceSnapshot(id: active?.id ?? UUID(), title: "Fasting", primaryValue: value, secondaryValue: active == nil ? nil : "Timer active", systemImage: "timer", sensitivity: .privateSensitive, isExplicitlyAuthorized: permitted(.fasting), deepLinkPath: "track", updatedAt: active?.updatedAt ?? active?.startedAt ?? now)
+        let value = elapsed.map { Self.duration($0) } ?? String(localized: "Not fasting")
+        let snapshot = SystemSurfaceSnapshot(id: active?.id ?? UUID(), title: "Fasting", primaryValue: value, secondaryValue: active == nil ? nil : String(localized: "Timer running"), systemImage: "timer", sensitivity: .privateSensitive, isExplicitlyAuthorized: permitted(.fasting), deepLinkPath: "fasting", updatedAt: active?.updatedAt ?? active?.startedAt ?? now)
         await write(.fasting, [snapshot], now: now)
     }
 
     private func refreshWellness(now: Date) async {
         let sample = try? await wellness.bodyMetricSamples(kind: .bodyMass).first
-        let value = (try? sample?.value(in: sample?.displayUnit ?? .kilograms)).flatMap { $0 }.map { "\($0.formatted(.number.precision(.fractionLength(1)))) \(sample?.displayUnit.symbol ?? "")" } ?? "Open Track"
-        let snapshot = SystemSurfaceSnapshot(id: sample?.id ?? UUID(), title: "Wellness", primaryValue: value, secondaryValue: "Private measurement", systemImage: "heart.text.square", sensitivity: .privateSensitive, isExplicitlyAuthorized: permitted(.wellness), deepLinkPath: "track", updatedAt: sample?.updatedAt ?? now)
+        let value = (try? sample?.value(in: sample?.displayUnit ?? .kilograms)).flatMap { $0 }.map { "\($0.formatted(.number.precision(.fractionLength(1)))) \(sample?.displayUnit.symbol ?? "")" } ?? String(localized: "No weight logged")
+        let snapshot = SystemSurfaceSnapshot(id: sample?.id ?? UUID(), title: "Wellness", primaryValue: value, secondaryValue: String(localized: "Weight"), systemImage: "heart.text.square", sensitivity: .privateSensitive, isExplicitlyAuthorized: permitted(.wellness), deepLinkPath: "wellness/body", updatedAt: sample?.updatedAt ?? now)
         await write(.wellness, [snapshot], now: now)
     }
 
@@ -128,30 +128,30 @@ public actor SystemSurfaceProjectionCoordinator {
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = .autoupdatingCurrent
         let values = (try? await nutrition.logs(from: calendar.startOfDay(for: now), to: nil)) ?? []
         let total = values.reduce(NutritionMacros.zero) { $0.adding($1.resolvedMacrosSnapshot) }
-        let snapshot = SystemSurfaceSnapshot(id: UUID(), title: "Nutrition", primaryValue: values.isEmpty ? "Nothing logged" : "\(Int(total.calories.rounded())) kcal", secondaryValue: values.isEmpty ? nil : "\(values.count) logged items", systemImage: "fork.knife", sensitivity: .privateSensitive, isExplicitlyAuthorized: permitted(.nutrition), deepLinkPath: "track", updatedAt: values.map(\.updatedAt).max() ?? now)
+        let snapshot = SystemSurfaceSnapshot(id: UUID(), title: "Nutrition", primaryValue: values.isEmpty ? String(localized: "Nothing logged") : "\(Int(total.calories.rounded())) kcal", secondaryValue: values.isEmpty ? nil : (values.count == 1 ? String(localized: "1 meal") : String(localized: "\(values.count) meals")), systemImage: "fork.knife", sensitivity: .privateSensitive, isExplicitlyAuthorized: permitted(.nutrition), deepLinkPath: "nutrition", updatedAt: values.map(\.updatedAt).max() ?? now)
         await write(.nutrition, [snapshot], now: now)
     }
 
     private func refreshMoments(now: Date) async {
         let candidates = ((try? await moments.moments(includeArchived: false)) ?? []).filter(\.permitsHomeDisplay).compactMap { moment in moment.calendarDaysUntilNextOccurrence(from: now).map { (moment, $0) } }.sorted { $0.1 < $1.1 }
         let next = candidates.first
-        let snapshot = SystemSurfaceSnapshot(id: next?.0.id ?? UUID(), title: next?.0.title ?? "Life Moments", primaryValue: next.map { $0.1 == 0 ? "Today" : "\($0.1) days" } ?? "Open LifeBoard", secondaryValue: nil, systemImage: "calendar.badge.heart", sensitivity: .privateStandard, isExplicitlyAuthorized: permitted(.lifeMoments) && next?.0.permitsHomeDisplay == true, deepLinkPath: "insights", updatedAt: next?.0.updatedAt ?? now)
+        let snapshot = SystemSurfaceSnapshot(id: next?.0.id ?? UUID(), title: next?.0.title ?? String(localized: "Life moments"), primaryValue: next.map { $0.1 == 0 ? String(localized: "Today") : $0.1 == 1 ? String(localized: "Tomorrow") : String(localized: "\($0.1) days") } ?? String(localized: "No upcoming dates"), secondaryValue: nil, systemImage: "calendar.badge.heart", sensitivity: .privateStandard, isExplicitlyAuthorized: permitted(.lifeMoments) && next?.0.permitsHomeDisplay == true, deepLinkPath: next.map { "moment/\($0.0.id.uuidString)" } ?? "moments", updatedAt: next?.0.updatedAt ?? now)
         await write(.lifeMoments, [snapshot], now: now)
     }
 
     private func refreshGoals(now: Date) async {
         let values = ((try? await track.fetchGoals()) ?? []).filter { !$0.isArchived }
-        let snapshot = SystemSurfaceSnapshot(id: UUID(), title: "Goals", primaryValue: values.isEmpty ? "No active goals" : "\(values.count) active", systemImage: "target", sensitivity: .privateStandard, isExplicitlyAuthorized: permitted(.goals), deepLinkPath: "insights", updatedAt: now)
+        let snapshot = SystemSurfaceSnapshot(id: UUID(), title: "Goals", primaryValue: values.isEmpty ? "No active goals" : "\(values.count) active", systemImage: "target", sensitivity: .privateStandard, isExplicitlyAuthorized: permitted(.goals), deepLinkPath: "goals", updatedAt: now)
         await write(.goals, [snapshot], now: now)
     }
 
     private func refreshRoutines(now: Date) async {
         let values = ((try? await track.fetchRoutines()) ?? []).filter { !$0.isArchived }
-        let snapshot = SystemSurfaceSnapshot(id: UUID(), title: "Routines", primaryValue: values.isEmpty ? "No routines" : "\(values.count) available", systemImage: "repeat", sensitivity: .privateStandard, isExplicitlyAuthorized: permitted(.routines), deepLinkPath: "track", updatedAt: now)
+        let snapshot = SystemSurfaceSnapshot(id: UUID(), title: "Routines", primaryValue: values.isEmpty ? String(localized: "No routines") : (values.count == 1 ? String(localized: "1 routine") : String(localized: "\(values.count) routines")), systemImage: "repeat", sensitivity: .privateStandard, isExplicitlyAuthorized: permitted(.routines), deepLinkPath: "routines", updatedAt: now)
         await write(.routines, [snapshot], now: now)
     }
 
     private static func duration(_ interval: TimeInterval) -> String {
-        let minutes = Int(interval / 60); return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
+        LifeBoardDuration.text(minutes: Int(interval / 60))
     }
 }

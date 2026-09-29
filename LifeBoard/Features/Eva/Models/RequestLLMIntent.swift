@@ -5,17 +5,17 @@ import SwiftUI
 
 @available(iOS 16.0, macOS 13.0, *)
 struct RequestLLMIntent: AppIntent {
-    static let title: LocalizedStringResource = "Ask Assistant Inline"
-    static let description: LocalizedStringResource = "Get an inline assistant response without opening chat"
+    static let title: LocalizedStringResource = "Ask Eva Inline"
+    static let description: LocalizedStringResource = "Gets Eva’s answer without opening the app."
     
-    @Parameter(title: "Continuous Chat", default: true)
+    @Parameter(title: "Keep chatting", default: true)
     var continuous: Bool
     
-    @Parameter(title: "message", requestValueDialog: IntentDialog("chat"))
+    @Parameter(title: "Message", requestValueDialog: IntentDialog("What do you want to ask?"))
     var prompt: String
 
     static var parameterSummary: some ParameterSummary {
-        Summary("new chat with \(\.$prompt)") {
+        Summary("Ask Eva \(\.$prompt)") {
             // shortcuts additional parameters
             \.$continuous
         }
@@ -46,7 +46,7 @@ struct RequestLLMIntent: AppIntent {
 
         let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedPrompt.isEmpty {
-            throw $prompt.needsValueError(IntentDialog(stringLiteral: "chat"))
+            throw $prompt.needsValueError(IntentDialog(stringLiteral: String(localized: "What do you want to ask?")))
         }
 
         var immediateResponse: String?
@@ -54,7 +54,7 @@ struct RequestLLMIntent: AppIntent {
         case .invocation(var invocation):
             switch invocation.id {
             case .clear:
-                immediateResponse = "The /clear command is only available in the in-app chat."
+                immediateResponse = String(localized: "/clear works only in the app.")
             default:
                 if invocation.id.requiresArgument {
                     let query = invocation.argumentQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -69,10 +69,10 @@ struct RequestLLMIntent: AppIntent {
                         let result = try await service.execute(invocation: invocation)
                         immediateResponse = formatShortcutCommandResult(result)
                     } catch {
-                        immediateResponse = (error as? LocalizedError)?.errorDescription ?? "Unable to run command right now."
+                        immediateResponse = (error as? LocalizedError)?.errorDescription ?? String(localized: "Couldn’t run command.")
                     }
                 } else {
-                    immediateResponse = "Task context is unavailable right now."
+                    immediateResponse = String(localized: "Couldn’t load your tasks.")
                 }
             }
         case .missingRequiredArgument(let commandID, _):
@@ -86,7 +86,7 @@ struct RequestLLMIntent: AppIntent {
         if var immediateResponse {
             let maxCharacters = maxCharacters ?? .max
             if immediateResponse.count > maxCharacters {
-                immediateResponse = String(immediateResponse.prefix(maxCharacters)).trimmingCharacters(in: .whitespaces) + "..."
+                immediateResponse = String(immediateResponse.prefix(maxCharacters)).trimmingCharacters(in: .whitespaces) + "…"
             }
             if continuous {
                 throw $prompt.needsValueError(IntentDialog(stringLiteral: immediateResponse))
@@ -105,13 +105,13 @@ struct RequestLLMIntent: AppIntent {
             } else if let model = ModelConfiguration.getModelByName(modelName) {
             let ready = await LLMRuntimeCoordinator.shared.ensureReady(modelName: modelName)
             guard ready.ready else {
-                let error = ready.failureMessage ?? "The active local model could not be prepared right now."
+                let error = ready.failureMessage ?? String(localized: "Couldn’t load the on-device model.")
                 return .result(value: error, dialog: "\(error)")
             }
                 runtimeModel = ModelConfiguration.getModelByName(ready.resolvedModelName) ?? model
                 resolvedModelName = ready.resolvedModelName
             } else {
-                let error = "Offline EVA is not ready. Activate Cloud EVA or install a local model."
+                let error = String(localized: "Eva isn’t ready. Choose Cloud or download a model in Settings.")
                 return .result(value: error, dialog: "\(error)")
             }
             let resolvedBudget = LLMChatBudgets.active.resolved(for: runtimeModel)
@@ -158,7 +158,7 @@ struct RequestLLMIntent: AppIntent {
             let maxCharacters = maxCharacters ?? .max
             
             if output.count > maxCharacters {
-                output = String(output.prefix(maxCharacters)).trimmingCharacters(in: .whitespaces) + "..."
+                output = String(output.prefix(maxCharacters)).trimmingCharacters(in: .whitespaces) + "…"
             }
             
             let responseMessage = Message(role: .assistant, content: output, thread: thread)
@@ -171,7 +171,7 @@ struct RequestLLMIntent: AppIntent {
             return .result(value: output, dialog: "\(output)")
         }
         else {
-            let error = "Activate Cloud EVA or install an Offline EVA model first."
+            let error = String(localized: "Eva isn’t ready. Choose Cloud or download a model in Settings.")
             return .result(value: error, dialog: "\(error)")
         }
     }

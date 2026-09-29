@@ -121,7 +121,7 @@ public struct EventKitEventDetailView: UIViewControllerRepresentable {
             if let event = store.event(withIdentifier: eventID) {
                 eventViewController.event = event
                 let title = event.title?.trimmingCharacters(in: .whitespacesAndNewlines)
-                eventViewController.title = title?.isEmpty == false ? title : String(localized: "Untitled Event")
+                eventViewController.title = title?.isEmpty == false ? title : String(localized: "Untitled event")
                 unavailableLabel?.isHidden = true
             } else {
                 eventViewController.event = nil
@@ -161,8 +161,8 @@ public struct EventKitEventDetailView: UIViewControllerRepresentable {
                 target: self,
                 action: #selector(hideFromTimelineTapped)
             )
-            hideItem.accessibilityLabel = String(localized: "Hide from Timeline")
-            hideItem.accessibilityHint = String(localized: "Hides this event from the Home timeline for this day.")
+            hideItem.accessibilityLabel = String(localized: "Hide from timeline")
+            hideItem.accessibilityHint = String(localized: "Hides it for this day")
             hideItem.accessibilityIdentifier = "schedule.detail.hideFromTimeline"
             eventViewController?.navigationItem.rightBarButtonItem = hideItem
         }
@@ -198,7 +198,7 @@ public struct EventKitEventDetailView: View {
 
     public var body: some View {
         VStack(spacing: 16) {
-            Text(String(localized: "Event unavailable on this platform."))
+            Text(String(localized: "Not available on this device."))
                 .font(.lifeboard(.body))
             Text(eventID)
                 .font(.lifeboard(.caption2))
@@ -209,9 +209,9 @@ public struct EventKitEventDetailView: View {
             }
             if let onHideFromTimeline {
                 Button(action: onHideFromTimeline) {
-                    Label(String(localized: "Hide from Timeline"), systemImage: "eye.slash")
+                    Label(String(localized: "Hide from timeline"), systemImage: "eye.slash")
                 }
-                .accessibilityHint(String(localized: "Hides this event from the Home timeline for this day."))
+                .accessibilityHint(String(localized: "Hides it for this day"))
                 .accessibilityIdentifier("schedule.detail.hideFromTimeline")
             }
         }

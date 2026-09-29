@@ -5,6 +5,7 @@ struct LifeManagementProjectColorPicker: View {
     @Binding var selectedColor: ProjectColor
 
     @Environment(\.lifeboardTokens) private var tokens
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var spacing: SemanticSpacingTokens { tokens.spacing }
 
@@ -18,7 +19,7 @@ struct LifeManagementProjectColorPicker: View {
                         systemImage: nil,
                         isSelected: selectedColor == color
                     ) {
-                        withAnimation(LifeBoardAnimation.stateChange) {
+                        withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                             selectedColor = color
                         }
                     }

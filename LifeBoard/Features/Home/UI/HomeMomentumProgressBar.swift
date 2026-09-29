@@ -23,7 +23,7 @@ struct HomeMomentumProgressBar: View {
                     .frame(height: height)
                     .scaleEffect(x: clampedProgress, y: 1, anchor: .leading)
                     .animation(
-                        animate ? .spring(response: 0.34, dampingFraction: 0.82) : .linear(duration: 0.01),
+                        animate ? MotionProfile.threadAdvance.animation(reduceMotion: false) : nil,
                         value: clampedProgress
                     )
             }

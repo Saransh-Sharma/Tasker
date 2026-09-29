@@ -1,91 +1,5 @@
 import XCTest
 
-@MainActor
-final class EvaCloudLiveDeviceSmokeTests: XCTestCase {
-    func testAppleCloudActivationOnPhysicalDevice() throws {
-        #if !LIFEBOARD_LIVE_CLOUD_SMOKE
-        throw XCTSkip("Live Apple smoke runs only with the LIFEBOARD_LIVE_CLOUD_SMOKE build condition.")
-        #endif
-        continueAfterFailure = false
-
-        let app = XCUIApplication()
-        // Deliberately *not* `-SKIP_ONBOARDING`: the EVA sign-in this test
-        // qualifies now lives inside onboarding's power-up chain.
-        app.launchArguments = [
-            XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
-            XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
-            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
-            // Pinned to the v5 Life Map journey, which is what the walk below
-            // drives. v6 is on by default in Debug, and without this the test
-            // would find no `onboarding.lifeMap.flow` and quietly `XCTSkip` —
-            // losing the Apple sign-in coverage it exists to provide rather than
-            // reporting that it had. Retarget this at the v6 chain when v6
-            // promotes and the v5 flow is retired.
-            "-LIFEBOARD_DISABLE_ONBOARDING_V6"
-        ]
-        app.launch()
-
-        // Cloud EVA is reached through app onboarding now, not through a
-        // standalone setup screen on the EVA tab. `-LIFEBOARD_TEST_EVA_CLOUD_SETUP`
-        // no longer stages anything, so this smoke test drives the real path:
-        // build the Life Map, choose "Power it up", and walk to the EVA step.
-        let onboarding = app.descendants(matching: .any)["onboarding.lifeMap.flow"]
-        guard onboarding.waitForExistence(timeout: 15) else {
-            throw XCTSkip(
-                "Onboarding did not present. This smoke test needs a clean install: it signs in through the onboarding EVA step. Hierarchy: \(app.debugDescription)"
-            )
-        }
-
-        let evaStep = app.descendants(matching: .any)["onboarding.lifeMap.step.eva"]
-        let primary = app.buttons["onboarding.primaryAction"]
-        let secondary = app.buttons["onboarding.secondaryAction"]
-
-        // Walk the flow. The core steps each accept their default answer, and
-        // the reveal's secondary action opens the power-up chain.
-        var guardRail = 0
-        while evaStep.exists == false, guardRail < 40 {
-            guardRail += 1
-            if app.descendants(matching: .any)["onboarding.lifeMap.step.reveal"].exists {
-                XCTAssertTrue(secondary.waitForExistence(timeout: 5))
-                secondary.tap()
-                continue
-            }
-            guard primary.waitForExistence(timeout: 5), primary.isEnabled else {
-                throw XCTSkip(
-                    "Onboarding stalled on a step needing a real choice. Hierarchy: \(app.debugDescription)"
-                )
-            }
-            primary.tap()
-        }
-
-        XCTAssertTrue(
-            evaStep.waitForExistence(timeout: 10),
-            "Expected to reach the onboarding EVA step. Hierarchy: \(app.debugDescription)"
-        )
-
-        XCTAssertTrue(primary.waitForExistence(timeout: 5))
-        let signInTitle = primary.label
-        primary.tap()
-
-        #if targetEnvironment(simulator)
-        throw XCTSkip(
-            "The simulator reached Apple's native authorization flow. Complete end-to-end qualification on physical hardware because App Attest is unavailable in Simulator."
-        )
-        #endif
-
-        // Success is the requirement checklist completing; failure surfaces as
-        // the step's inline error rather than a thrown exception.
-        let cloudReady = NSPredicate { _, _ in
-            primary.exists && primary.label != signInTitle
-        }
-        let result = XCTWaiter.wait(
-            for: [XCTNSPredicateExpectation(predicate: cloudReady, object: app)],
-            timeout: 180
-        )
-        XCTAssertNotEqual(result, .timedOut, "Apple cloud activation did not finish within three minutes.")
-    }
-}
-
 final class ChatPlanApplyUndoTests: BaseUITest {
     func testChatEntryPointOpensAssistantSurfaceAndSlashPicker() throws {
         try openChatSurface()
@@ -139,10 +53,8 @@ final class ChatPlanApplyUndoTests: BaseUITest {
     func testLeavingAndReopeningChatDoesNotReopenAnActivationFlow() throws {
         try openChatSurface()
 
-        tapNativeChatBackOrCloseButton()
-        XCTAssertTrue(
-            app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view].waitForExistence(timeout: 5)
-        )
+        // Eva is a root; leaving it means choosing another root.
+        XCTAssertTrue(HomePage(app: app).openRoot("home"), "Home should open from the root chrome")
 
         try openChatSurface()
         XCTAssertFalse(
@@ -151,51 +63,26 @@ final class ChatPlanApplyUndoTests: BaseUITest {
         )
     }
 
+    /// Eva is a Foundation root, reached from the dock or root switcher.
     @discardableResult
     private func openChatSurface() throws -> XCUIApplication {
-        let homePage = HomePage(app: app)
-        let chatCandidates: [XCUIElement] = [
-            homePage.chatButton,
-            app.buttons["Chat"],
-            app.descendants(matching: .any)["home.bottomBar"]
-        ]
+        let evaRoot = HomePage(app: app).rootButton("eva")
+        guard evaRoot.waitForExistence(timeout: 5) else {
+            throw XCTSkip("The Eva root is not reachable from the root chrome")
+        }
+        evaRoot.tap()
 
-        for candidate in chatCandidates where candidate.waitForExistence(timeout: 2) {
-            if candidate.identifier == "home.bottomBar" {
-                candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.50)).tap()
-            } else if candidate.isHittable {
-                candidate.tap()
-            } else {
-                candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            }
-
-            let emptyState = app.otherElements["chat.emptyState.container"]
-            let composer = app.otherElements["chat.composer.container"]
-            let predicate = NSPredicate { _, _ in
-                emptyState.exists || composer.exists
-            }
-            let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
-            if XCTWaiter.wait(for: [expectation], timeout: 4) == .completed {
-                return app
-            }
+        let emptyState = app.otherElements["chat.emptyState.container"]
+        let composer = app.otherElements["chat.composer.container"]
+        let predicate = NSPredicate { _, _ in
+            emptyState.exists || composer.exists
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        if XCTWaiter.wait(for: [expectation], timeout: 6) == .completed {
+            return app
         }
 
-        throw XCTSkip("Chat entry point is not reachable with current accessibility identifiers")
-    }
-
-    private func tapNativeChatBackOrCloseButton() {
-        let navigationBar = app.navigationBars.firstMatch
-        let closeButton = navigationBar.buttons["Close"]
-        let backButton = navigationBar.buttons["Back"]
-        let button = closeButton.exists ? closeButton : backButton
-
-        XCTAssertTrue(button.waitForExistence(timeout: 3), "Native chat back or close button should exist")
-
-        if button.isHittable {
-            button.tap()
-        } else {
-            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        }
+        throw XCTSkip("Eva root did not show the chat surface")
     }
 }
 
@@ -204,33 +91,11 @@ final class ChatCompletedChromeUITests: BaseUITest {
         [XCUIApplication.LaunchArgumentKey.testEvaActivationCompleted.rawValue]
     }
 
-    func testCompletedChatUsesCompactNativeNavigationChrome() throws {
-        try openCompletedChatSurface()
-
-        let navTitle = app.descendants(matching: .any)["chat.nav.title"]
-        XCTAssertTrue(navTitle.waitForExistence(timeout: 3), "Completed chat should publish a native compact nav title")
-        XCTAssertEqual(navTitle.label, "Eva")
-
-        XCTAssertEqual(navTitle.value as? String, "Ask or use / commands")
-
-        XCTAssertFalse(app.staticTexts["Planning workspace"].exists, "Empty chat should not render planning workspace copy")
-        XCTAssertFalse(app.staticTexts["Keep context tight, use commands when you want structured help."].exists, "Open-thread chrome copy should be removed")
-
-        XCTAssertTrue(app.buttons["chat.header.settings"].exists || app.buttons["Settings"].exists, "Settings should live in the native navigation bar")
-        XCTAssertTrue(app.buttons["chat.header.history"].exists || app.buttons["History"].exists, "History should live in the native navigation bar")
-        XCTAssertFalse(app.buttons["chat.header.new_chat"].exists || app.buttons["New chat"].exists, "New chat should be hidden for a fresh empty chat")
-        XCTAssertTrue(app.buttons["Back"].exists || app.buttons["Close"].exists, "Back or close should remain in the native navigation bar")
-
-        if app.staticTexts["Hi there!"].exists {
-            XCTAssertTrue(app.buttons["eva.structured.help"].exists, "Structured Eva help should remain reachable after replacing the questionmark artwork")
-        }
-    }
-
     func testCompletedChatComposerOpensKeyboardFromBottomBarEntry() throws {
         try openCompletedChatSurface()
 
         let composer = waitForCompletedChatComposer(timeout: 5)
-        XCTAssertTrue(composer.exists, "Completed chat composer should be visible after opening Eva from the home chat button")
+        XCTAssertTrue(composer.exists, "Completed chat composer should be visible after opening the Eva root")
 
         let textField = composer.textFields.firstMatch.exists
             ? composer.textFields.firstMatch
@@ -247,45 +112,19 @@ final class ChatCompletedChromeUITests: BaseUITest {
         textField.typeText("Plan my focus block")
     }
 
-    func testCompletedChatBackButtonReturnsToHome() throws {
-        try openCompletedChatSurface()
-
-        let composer = app.descendants(matching: .any)["chat.composer.container"]
-        let emptyState = app.descendants(matching: .any)["chat.emptyState.container"]
-        let navTitle = app.descendants(matching: .any)["chat.nav.title"]
-        XCTAssertTrue(
-            composer.exists || emptyState.exists || navTitle.exists,
-            "Completed chat should be visible before tapping Back"
-        )
-
-        tapNativeChatBackOrCloseButton()
-
-        let homePage = HomePage(app: app)
-        XCTAssertTrue(homePage.verifyIsDisplayed(timeout: 4), "Back from completed chat should return to Home")
-        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton, timeout: 4), "Home should be selected after dismissing completed chat")
-        XCTAssertFalse(navTitle.waitForExistence(timeout: 1), "Completed chat navigation title should disappear after dismissal")
-    }
-
+    /// Eva is a Foundation root, reached from the dock or root switcher.
     @discardableResult
     private func openCompletedChatSurface() throws -> XCUIApplication {
-        let homePage = HomePage(app: app)
-        let chatButton = homePage.chatButton.waitForExistence(timeout: 2) ? homePage.chatButton : app.buttons["Chat"]
-
-        if chatButton.waitForExistence(timeout: 2) {
-            if chatButton.isHittable {
-                chatButton.tap()
-            } else {
-                chatButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            }
-        } else {
-            app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.60, dy: 0.92)).tap()
+        let evaRoot = HomePage(app: app).rootButton("eva")
+        if evaRoot.waitForExistence(timeout: 5) {
+            evaRoot.tap()
         }
 
         if waitForCompletedChatSurface(timeout: 5) {
             return app
         }
 
-        throw XCTSkip("Completed chat entry point is not reachable with current accessibility identifiers")
+        throw XCTSkip("Eva root did not show the completed chat surface")
     }
 
     private func waitForCompletedChatSurface(timeout: TimeInterval) -> Bool {
@@ -293,7 +132,7 @@ final class ChatCompletedChromeUITests: BaseUITest {
         let composer = app.descendants(matching: .any)["chat.composer.container"]
         let structuredComposer = app.descendants(matching: .any)["eva.structured.composer"]
         let navTitle = app.descendants(matching: .any)["chat.nav.title"]
-        let emptyGreeting = app.staticTexts["Hi there!"]
+        let emptyGreeting = app.staticTexts["Hi there"]
         let predicate = NSPredicate { _, _ in
             emptyState.exists || composer.exists || structuredComposer.exists || navTitle.exists || emptyGreeting.exists
         }
@@ -310,20 +149,5 @@ final class ChatCompletedChromeUITests: BaseUITest {
         let composer = app.descendants(matching: .any)["chat.composer.container"]
         _ = composer.waitForExistence(timeout: timeout)
         return composer
-    }
-
-    private func tapNativeChatBackOrCloseButton() {
-        let navigationBar = app.navigationBars.firstMatch
-        let backButton = navigationBar.buttons["Back"]
-        let closeButton = navigationBar.buttons["Close"]
-        let button = backButton.exists ? backButton : closeButton
-
-        XCTAssertTrue(button.waitForExistence(timeout: 3), "Native chat back or close button should exist")
-
-        if button.isHittable {
-            button.tap()
-        } else {
-            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        }
     }
 }

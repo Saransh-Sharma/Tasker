@@ -19,7 +19,7 @@ public extension View {
     @MainActor
     func lifeBoardUIKitHostEnvironment(for layoutClass: LayoutClass) -> some View {
         let preferences = FoundationCoordinator.shared.preferences
-        return lifeBoardTokenEnvironment(for: layoutClass)
+        return lifeboardLiveLayoutEnvironment(initial: layoutClass)
             .lifeBoardResolvedMotion(
                 comfortProfile: preferences.comfortProfile,
                 requestedAmbientTierID: preferences.renderingTier.rawValue

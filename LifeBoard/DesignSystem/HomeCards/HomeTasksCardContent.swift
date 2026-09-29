@@ -15,7 +15,11 @@ struct HomeTasksCardContent<DateControls: View>: View {
     let palette: DaypartPalette
     let dateControls: DateControls
     var taskWidgetAnimation: Animation? = nil
-    var onComplete: (PlanningTaskSummary) -> Void = { _ in }
+    /// A failed mutation from the adapter; shown under the rows.
+    var mutationError: String? = nil
+    /// Returns whether the completion was saved. The mark moves on tap and
+    /// settles back if this returns `false`, so a failed write never reads as done.
+    var onComplete: (PlanningTaskSummary) async -> Bool = { _ in false }
     var onOpen: (PlanningTaskSummary) -> Void = { _ in }
     var onAdd: () -> Void = {}
     var onUndo: () -> Void = {}
@@ -28,9 +32,9 @@ struct HomeTasksCardContent<DateControls: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             header(isExpanded: isExpanded)
             if hasPlanningRepository == false {
-                HomeEmptyStateRow("Tasks are unavailable right now", symbol: "exclamationmark.triangle", palette: palette)
+                HomeEmptyStateRow(String(localized: "Couldn’t load tasks."), symbol: "exclamationmark.triangle", palette: palette)
             } else if isLoading {
-                HomeEmptyStateRow("Loading tasks", symbol: "hourglass", palette: palette)
+                HomeEmptyStateRow(String(localized: "Loading…"), symbol: "hourglass", palette: palette)
             } else if tasks.isEmpty {
                 HomeEmptyStateRow(emptyMessage, symbol: "checkmark.circle", palette: palette)
             } else {
@@ -38,9 +42,15 @@ struct HomeTasksCardContent<DateControls: View>: View {
                     row(task)
                 }
             }
+            if let mutationError {
+                Label(mutationError, systemImage: "exclamationmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+                    .accessibilityIdentifier("home.tasks.mutationError")
+            }
             if let message = refreshFailure {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Your change was saved. \(message)")
+                    Text("Saved. \(message)")
                         .font(.caption)
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                     Button("Refresh tasks") {
@@ -135,8 +145,9 @@ struct HomeTasksCardContent<DateControls: View>: View {
                     isComplete: false,
                     title: task.title
                 ) { _ in
-                    onComplete(task)
+                    await onComplete(task)
                 }
+                .accessibilityIdentifier("home.taskCheckbox.\(task.id.uuidString)")
                 .homeCardEvidence("tasks.complete.\(task.id.uuidString)", role: "control")
                 .padding(.leading, -11)
             } else {
@@ -198,7 +209,7 @@ struct HomeTasksCardContent<DateControls: View>: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(isExpanded ? "home.tasks.showLess" : "home.tasks.showMore")
         .homeCardEvidence("tasks.expansion", role: "control", copy: isExpanded ? "Show less" : "Show more", typography: .init(role: "subheadline", points: 15, weight: "semibold"))
-        .accessibilityHint(isExpanded ? "Collapses the task card and returns to today" : "Shows every overdue task and task due today")
+        .accessibilityHint(isExpanded ? "Shows fewer tasks" : "Shows all tasks for today")
     }
 
 }

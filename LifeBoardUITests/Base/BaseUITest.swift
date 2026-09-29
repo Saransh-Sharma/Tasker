@@ -57,10 +57,13 @@ class BaseUITest: XCTestCase {
 
     /// Wait for app to finish launching and be ready for interaction
     func waitForAppLaunch() {
-        let homeIndicator = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
+        let homeIndicator = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.header]
         let foundationHome = app.buttons["foundation.destination.home"]
+        // At iPad and Mac widths the roots live in the top switcher, not the
+        // dock; without this every iPad run failed here before its test began.
+        let switcherHome = app.buttons["foundation.expanded.destination.home"]
         let predicate = NSPredicate { _, _ in
-            homeIndicator.exists || foundationHome.exists
+            homeIndicator.exists || foundationHome.exists || switcherHome.exists
         }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
         let homeExists = XCTWaiter.wait(
@@ -87,58 +90,6 @@ class BaseUITest: XCTestCase {
         )
     }
 
-    // MARK: - Seeded Timeline Launch
-
-    func launchSeededTimelineWorkspace(
-        calendarMode: String = "active",
-        skipOnboarding: Bool = true,
-        evaActivationCompleted: Bool = false
-    ) {
-        app?.terminate()
-        app = XCUIApplication()
-        app.launchSeededTimelineWorkspace(
-            calendarMode: calendarMode,
-            skipOnboarding: skipOnboarding,
-            evaActivationCompleted: evaActivationCompleted
-        )
-        ensureHomeTimelineReady()
-    }
-
-    @discardableResult
-    func ensureHomeTimelineReady(
-        timeout: TimeInterval = 14,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) -> Bool {
-        let home = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
-        let allFilter = app.buttons[AccessibilityIdentifiers.Home.sunriseFilter("all")]
-        let bottomBarHome = app.buttons[AccessibilityIdentifiers.Home.bottomBarHome]
-        let bottomBarCalendar = app.buttons["home.bottomBar.calendar"]
-        let timelineSurface = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.timelineSurface]
-        let timelineContent = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.timelineContent]
-        let timelineCards = app.descendants(matching: .any).matching(
-            NSPredicate(
-                format: "identifier BEGINSWITH %@ OR identifier BEGINSWITH %@",
-                "home.timeline.task.",
-                "home.timeline.event."
-            )
-        )
-
-        let predicate = NSPredicate { _, _ in
-            let hasHomeSignal = home.exists || allFilter.exists || bottomBarHome.exists || bottomBarCalendar.exists
-            let hasTimelineSignal = timelineSurface.exists || timelineContent.exists || timelineCards.firstMatch.exists
-            return hasHomeSignal && hasTimelineSignal
-        }
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
-        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-        if result != .completed {
-            XCTFail("Home timeline did not become ready for seeded UI test", file: file, line: line)
-            return false
-        }
-        return true
-    }
-
-
     @discardableResult
     func ensurePerformanceAppReady(
         timeout: TimeInterval = 14,
@@ -147,10 +98,10 @@ class BaseUITest: XCTestCase {
     ) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            let home = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
-            let bottomBar = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.bottomBar]
-            let foundationHome = app.buttons["foundation.destination.home"]
-            if home.exists || bottomBar.exists || foundationHome.exists {
+            let home = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.header]
+            let foundationHome = app.buttons[AccessibilityIdentifiers.Shell.destination("home")]
+            let switcherHome = app.buttons[AccessibilityIdentifiers.Shell.expandedDestination("home")]
+            if home.exists || foundationHome.exists || switcherHome.exists {
                 return true
             }
 
@@ -183,10 +134,7 @@ class BaseUITest: XCTestCase {
             AccessibilityIdentifiers.LifeWeave.flow,
             "eva.activation.intro",
             "eva.activation.about_you",
-            "eva.activation.goals",
-            "eva.activation.model_choice",
-            "eva.activation.install_model",
-            "eva.activation.downloading_model"
+            "eva.activation.model_choice"
         ]
         for identifier in setupIdentifiers {
             if app.descendants(matching: .any)[identifier].exists {
@@ -346,6 +294,11 @@ class BaseUITest: XCTestCase {
                     selectAll.tap()
                     app.typeText(XCUIKeyboardKey.delete.rawValue)
                 } else {
+                    // Backspaces delete behind the caret, and the double tap
+                    // left it inside the first word, so the tail survived
+                    // ("…update"). Put the caret after the last character
+                    // (bottom-right covers multi-line fields) first.
+                    element.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.9)).tap()
                     let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
                     element.typeText(deleteString)
                 }

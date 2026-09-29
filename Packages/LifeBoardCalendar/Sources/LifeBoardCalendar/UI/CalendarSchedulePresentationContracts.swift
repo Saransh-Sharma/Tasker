@@ -290,6 +290,6 @@ public enum CalendarSchedulePresentationBuilder {
         guard let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) else {
             return CalendarPresentation.scheduleDateText(for: weekStart)
         }
-        return "\(CalendarPresentation.compactDateText(for: weekStart))-\(CalendarPresentation.compactDateText(for: weekEnd))"
+        return "\(CalendarPresentation.compactDateText(for: weekStart)) – \(CalendarPresentation.compactDateText(for: weekEnd))"
     }
 }

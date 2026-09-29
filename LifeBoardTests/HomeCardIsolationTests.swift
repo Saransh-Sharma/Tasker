@@ -62,7 +62,7 @@ final class HomeCardIsolationTests: XCTestCase {
         let forbidden = ["CompositionRoot.shared", "DependencyContainer.shared", "URLSession", "URLRequest(",
                          "Timer(", "Timer.publish", "Timer.scheduledTimer", "DispatchSource.makeTimerSource",
                          "UserDefaults", "NotificationCenter.default.post", "NSManagedObjectContext"]
-        for url in shared + [root.appendingPathComponent("LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift")] {
+        for url in shared + [root.appendingPathComponent("LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift"), root.appendingPathComponent("LifeBoard/DesignSystem/LifeBoardHomeCardBodies+SizeResolution.swift")] {
             let source = try String(contentsOf: url, encoding: .utf8)
             for token in forbidden {
                 XCTAssertFalse(source.contains(token), "\(url.lastPathComponent) introduced \(token) into the preview dependency boundary")
@@ -88,7 +88,7 @@ final class HomeCardIsolationTests: XCTestCase {
             let card = HomeTasksCardContent(tasks: tasks, title: "Today’s tasks", emptyMessage: "No tasks due today",
                 isLoading: loading, hasPlanningRepository: available, collapsedLimit: 4, isExpanded: false,
                 allowsCompletion: true, completedTask: completed, refreshFailure: failure, palette: palette,
-                dateControls: EmptyView(), onComplete: { _ in calls.append("complete") },
+                dateControls: EmptyView(), onComplete: { _ in calls.append("complete"); return true },
                 onOpen: { _ in calls.append("open") }, onAdd: { calls.append("add") },
                 onUndo: { calls.append("undo") }, onRetry: { calls.append("retry") },
                 onToggleExpansion: { calls.append("expand") })

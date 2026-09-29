@@ -13,12 +13,20 @@
 # generic MIN_FILES threshold, so it is no longer a shrapnel candidate. Removing
 # the row is stricter than keeping a lowered one: the generic rule now fails it
 # again the moment it regrows past 8 files with a low average.
+# 2026-09-25: LifeBoard/LifeBoardDesign/Components 24 files -> 12, average
+# 97.8 -> 91.2. Twelve dead components (no live view instantiated them) were
+# deleted with the old Home generation. Nothing was split or added; the average
+# fell only because the deleted files were longer than the survivors. The file
+# count, the number this ratchet exists to hold, halved.
+# 2026-09-25: LifeBoard/Features/Eva/Views/Chat/Chrome dropped, not raised. It
+# gained EvaChatReceiptCenter.swift (16 files) but its average rose to 153.6,
+# above MIN_AVERAGE_LINES, so it is no longer a candidate; the generic rule
+# fails it again the moment it drops back below 150.
 # Existing small-file concentrations. Do not add shards or reduce the average
 # LOC until an intentional feature-boundary consolidation removes the entry.
 LifeBoard/Domain/Interfaces	23	110.826087
-LifeBoard/Features/Eva/Views/Chat/Chrome	15	128.333333
 LifeBoard/Features/Eva/Views/Chat/Conversation	24	101.416667
-LifeBoard/LifeBoardDesign/Components	24	97.750000
+LifeBoard/LifeBoardDesign/Components	12	91.166667
 LifeBoard/Features/Onboarding/Models	71	66.577465
 LifeBoard/Features/Home/UI/Modals/OverdueRescue	45	91.044444
 LifeBoard/Features/Home/UI/Timeline/Surface	97	72.226804

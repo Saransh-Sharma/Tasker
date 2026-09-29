@@ -16,15 +16,15 @@ private enum HabitCadencePreset: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .daily: return "Daily"
-        case .weekly: return "Weekly"
-        case .interval: return "Interval"
+        case .daily: return String(localized: "Daily")
+        case .weekly: return String(localized: "Weekly")
+        case .interval: return String(localized: "Every few days")
         }
     }
 }
 
 struct HabitDetailScreen: View {
-    @StateObject private var viewModel: HabitDetailViewModel
+    @StateObject var viewModel: HabitDetailViewModel
     private let onMutation: @MainActor @Sendable () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -37,6 +37,7 @@ struct HabitDetailScreen: View {
     @State private var isInitialReadOnlyHydrationComplete = false
     @State private var isInitialEditorSupportHydrationComplete = false
     @State private var snackbar: SnackbarData?
+    @State private var confirmsSlip = false
 
     private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var isInitialDraftHydrationComplete: Bool {
@@ -125,7 +126,7 @@ struct HabitDetailScreen: View {
         ) {
             Button("OK", role: .cancel) { viewModel.clearError() }
         } message: {
-            Text(viewModel.errorMessage ?? "Please try again.")
+            Text(viewModel.errorMessage ?? String(localized: "Try again."))
         }
     }
 
@@ -164,7 +165,7 @@ struct HabitDetailScreen: View {
             if viewModel.isPreparingEditorData {
                 ProgressView()
                     .controlSize(.small)
-                    .accessibilityLabel("Loading habit editor")
+                    .accessibilityLabel("Loading")
             }
             AutosaveWhisper(state: viewModel.autosaveState)
         }
@@ -176,10 +177,10 @@ struct HabitDetailScreen: View {
             autosaveFailureBanner
             detailReveal {
                 VStack(alignment: .leading, spacing: spacing.s16) {
-                    CalmFieldGroup(title: "Essentials") { essentialsEditorContent }
-                    CalmFieldGroup(title: "Rhythm") { rhythmEditorContent }
-                    CalmFieldGroup(title: "Appearance") { appearanceContent }
-                    CalmFieldGroup(title: "Lifecycle") { lifecycleContent }
+                    CalmFieldGroup(title: String(localized: "Type")) { essentialsEditorContent }
+                    CalmFieldGroup(title: String(localized: "Schedule")) { rhythmEditorContent }
+                    CalmFieldGroup(title: String(localized: "Appearance")) { appearanceContent }
+                    CalmFieldGroup(title: String(localized: "Status")) { lifecycleContent }
                 }
             }
             habitProgressCard
@@ -198,8 +199,8 @@ struct HabitDetailScreen: View {
                     .foregroundStyle(Color.lifeboard.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
-                Button("Retry") { viewModel.retryAutosave() }
-                    .buttonStyle(.bordered)
+                Button("Try again") { viewModel.retryAutosave() }
+                    .buttonStyle(.lifeBoardChip)
                     .disabled(viewModel.isSaving)
             }
             .padding(spacing.s12)
@@ -211,13 +212,13 @@ struct HabitDetailScreen: View {
 
     private func detailReveal<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
         CalmInlineReveal(
-            title: "Details",
+            title: String(localized: "Details"),
             collapsedHint: rhythmSummary,
             isExpanded: $showDetailReveal,
             accessibilityID: HabitDetailAccessibilityID.detailsDisclosure,
             onToggle: {
-                HapticFeedback.light()
-                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
+                Haptic.pick.play()
+                withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
                     showDetailReveal.toggle()
                 }
             },
@@ -228,32 +229,48 @@ struct HabitDetailScreen: View {
     private var heroCard: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             HStack(alignment: .top, spacing: spacing.s12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                        .fill(accentColor.opacity(0.14))
-                        .frame(width: 58, height: 58)
-                    Image(systemName: viewModel.draft.selectedIconSymbolName ?? viewModel.row.icon?.symbolName ?? "circle.dashed")
-                        .font(.lifeboard(.title2))
-                        .foregroundStyle(accentColor)
-                        .contentTransition(.symbolEffect(.replace))
-                        .animation(
-                            LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange,
-                            value: viewModel.draft.selectedIconSymbolName
-                        )
+                // The ring is the habit's identity here as it is on Home: tap
+                // opens nothing (this *is* the habit), hold completes today.
+                if let todayCell {
+                    HabitProgressRing(
+                        title: viewModel.draft.title.isEmpty ? viewModel.row.title : viewModel.draft.title,
+                        value: todayCell.state == .success ? 1 : 0,
+                        target: 1,
+                        step: 1,
+                        unit: "",
+                        isTimed: false,
+                        size: .hero,
+                        tapBehavior: .perform({}),
+                        showsCount: false,
+                        onChange: { change in
+                            await logToday(change, cell: todayCell)
+                        }
+                    )
+                    .accessibilityIdentifier(HabitDetailAccessibilityID.heroRing)
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                            .fill(accentColor.opacity(0.14))
+                            .frame(width: 58, height: 58)
+                        Image(systemName: viewModel.draft.selectedIconSymbolName ?? viewModel.row.icon?.symbolName ?? "circle.dashed")
+                            .font(.lifeboard(.title2))
+                            .foregroundStyle(accentColor)
+                    }
+                    .accessibilityHidden(true)
                 }
-                .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
-                    TextField("Habit title", text: $viewModel.draft.title, axis: .vertical)
+                    TextField("Habit title", text: $viewModel.draft.title, prompt: Text("Habit title").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                         .font(.lifeboard(.title2))
                         .bold()
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(3)
+                        .returnKeyEndsEditing(text: $viewModel.draft.title)
                         .textFieldStyle(.plain)
                         .accessibilityLabel("Habit title")
 
                     HStack(spacing: spacing.s4) {
-                        StatusPill(text: viewModel.draft.kind == .positive ? "Build" : "Quit", systemImage: "sparkles", tone: viewModel.draft.kind == .positive ? .success : .warning)
+                        StatusPill(text: viewModel.draft.kind == .positive ? String(localized: "Build") : String(localized: "Quit"), systemImage: "sparkles", tone: viewModel.draft.kind == .positive ? .success : .warning)
                         StatusPill(text: habitStateLabel, systemImage: habitStateSymbol, tone: viewModel.row.isArchived || viewModel.row.isPaused ? .quiet : .accent)
                     }
                 }
@@ -268,7 +285,7 @@ struct HabitDetailScreen: View {
                 .accessibilityIdentifier(HabitDetailAccessibilityID.contextPrimary)
 
             if viewModel.draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text("Habit title cannot be empty")
+                Text("Add a name.")
                     .font(.lifeboard(.callout))
                     .foregroundStyle(DetailTonePalette.dangerText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -286,10 +303,10 @@ struct HabitDetailScreen: View {
     private var habitProgressCard: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             VStack(alignment: .leading, spacing: spacing.s4) {
-                Text("Habit Progress")
+                Text("Progress")
                     .font(.lifeboard(.headline))
                     .foregroundStyle(Color.lifeboard.textPrimary)
-                Text("A quiet view of the last \(HabitDetailCalendarBuilder.historyDayCount) days.")
+                Text("Last \(HabitDetailCalendarBuilder.historyDayCount) days")
                     .font(.lifeboard(.callout))
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -309,14 +326,20 @@ struct HabitDetailScreen: View {
                 accentColor: accentColor
             )
 
+            HabitWeekdayBarsSection(
+                statistics: HabitWeekdayStatistics.make(marks: viewModel.historyMarks),
+                accent: accentColor
+            )
+
             if let todayCell {
                 Button(todayActionTitle(for: todayCell), systemImage: todayActionSymbol(for: todayCell)) {
                     mutate(todayCell)
                 }
                 .buttonStyle(DetailCapsuleButtonStyle(tone: .success))
                 .disabled(!todayCell.isInteractive || viewModel.isSaving)
-                .completionCelebration(isComplete: todayCell.state == .success, tint: accentColor)
-                .lbCelebrationBurst(trigger: completionBurstTrigger, tint: accentColor)
+                // One burst after the persisted completion, as on the task
+                // detail; see `TaskDetailScreen` for why the stack went.
+                .lifeboardCompletionBurst(trigger: completionBurstTrigger)
             }
         }
         .padding(spacing.s12)
@@ -402,12 +425,12 @@ struct HabitDetailScreen: View {
                         set: { viewModel.draft.reminderWindowEndPickerDate = $0 }
                     ),
                     onEnable: {
-                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
+                        withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
                             viewModel.draft.ensureReminderWindowDefaults()
                         }
                     },
                     onClear: {
-                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
+                        withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
                             viewModel.draft.clearReminderWindow()
                         }
                     },
@@ -436,7 +459,7 @@ struct HabitDetailScreen: View {
                     )
                 }
 
-                TextField("Notes", text: $viewModel.draft.notes, axis: .vertical)
+                TextField("Notes", text: $viewModel.draft.notes, prompt: Text("Notes").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                     .lineLimit(3...7)
                     .textFieldStyle(TokenTextFieldStyle())
 
@@ -445,7 +468,7 @@ struct HabitDetailScreen: View {
 
     private var appearanceContent: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-                TextField("Search icons", text: $viewModel.draft.iconSearchQuery)
+                TextField("Search icons", text: $viewModel.draft.iconSearchQuery, prompt: Text("Search icons").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                     .textFieldStyle(TokenTextFieldStyle())
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -459,6 +482,7 @@ struct HabitDetailScreen: View {
                                     .foregroundStyle(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                                     .frame(width: CreationChipMetrics.compactSwatchSize, height: CreationChipMetrics.compactSwatchSize)
                                     .background(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: CreationChipMetrics.compactCornerRadius, style: .continuous))
+                                .minimumHitTarget(CreationChipMetrics.hitHeight)
                             }
                             .frame(width: CreationChipMetrics.hitHeight, height: CreationChipMetrics.hitHeight)
                             .buttonStyle(.plain)
@@ -483,6 +507,7 @@ struct HabitDetailScreen: View {
                                                 .padding(3)
                                         }
                                     }
+                                    .minimumHitTarget(CreationChipMetrics.hitHeight)
                             }
                             .frame(width: CreationChipMetrics.hitHeight, height: CreationChipMetrics.hitHeight)
                             .buttonStyle(.plain)
@@ -504,26 +529,96 @@ struct HabitDetailScreen: View {
                 .disabled(viewModel.isSaving)
 
                 if viewModel.row.trackingMode == .lapseOnly && !viewModel.row.isArchived {
-                    Button("Log lapse", systemImage: "arrow.uturn.backward.circle") {
-                        viewModel.logLapse { didSucceed in
-                            if didSucceed { notifyMutation() }
-                        }
+                    // Same words and flow as Home's "Log a slip…": confirm,
+                    // save, then a receipt with Undo.
+                    Button("Log a slip…", systemImage: "arrow.uturn.backward.circle") {
+                        confirmsSlip = true
                     }
                     .buttonStyle(DetailCapsuleButtonStyle(tone: .warning))
                     .disabled(viewModel.isSaving)
-                }
-
-                Button(String(localized: "Archive", defaultValue: "Archive") + " habit", systemImage: "archivebox.fill") {
-                    viewModel.archive { didSucceed in
-                        if didSucceed { notifyMutation() }
+                    .confirmationDialog(
+                        HomeHabitCopy.slipConfirmTitle,
+                        isPresented: $confirmsSlip,
+                        titleVisibility: .visible
+                    ) {
+                        Button(HomeHabitCopy.slipConfirmAction) { logSlip() }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text(HomeHabitCopy.slipConfirmMessage)
                     }
                 }
-                .buttonStyle(DetailCapsuleButtonStyle(tone: .danger))
-                .disabled(viewModel.isSaving || viewModel.row.isArchived)
 
-                Text("Pause keeps history intact. Archive removes the habit from active views.")
+                if viewModel.row.isArchived {
+                    if viewModel.canRestoreFromArchive {
+                        Button("Restore habit", systemImage: "arrow.uturn.backward") {
+                            restoreFromArchive()
+                        }
+                        .buttonStyle(DetailCapsuleButtonStyle(tone: .quiet))
+                        .disabled(viewModel.isSaving)
+                        .accessibilityIdentifier("habit.detail.restore")
+                    }
+                } else {
+                    Button("Archive habit", systemImage: "archivebox.fill") {
+                        let title = viewModel.row.title
+                        viewModel.archive { didSucceed in
+                            guard didSucceed else { return }
+                            notifyMutation()
+                            // Archiving is reversible, so it runs at once and
+                            // offers Undo instead of asking first.
+                            snackbar = SnackbarData(
+                                message: String(localized: "Archived \u{201C}\(title)\u{201D}"),
+                                actions: viewModel.canRestoreFromArchive ? [
+                                    SnackbarAction(title: "Undo") { restoreFromArchive() }
+                                ] : []
+                            )
+                        }
+                    }
+                    .buttonStyle(DetailCapsuleButtonStyle(tone: .danger))
+                    .disabled(viewModel.isSaving)
+                }
+
+                Text("Paused and archived habits keep their history.")
                     .font(.lifeboard(.callout))
                     .foregroundStyle(Color.lifeboard.textSecondary)
+        }
+    }
+}
+
+extension HabitDetailScreen {
+    /// Persist first, then a quiet haptic and a receipt that can take it back.
+    /// A slip is a fact about a day, so nothing here buzzes like failure.
+    private func logSlip() {
+        let title = viewModel.row.title
+        viewModel.logLapse { didSucceed in
+            guard didSucceed else {
+                Haptic.fail.play()
+                return
+            }
+            Haptic.decline.play()
+            notifyMutation()
+            snackbar = SnackbarData(
+                message: HomeHabitCopy.slipReceipt(title),
+                actions: [
+                    SnackbarAction(title: "Undo") {
+                        viewModel.undoTodayLapse { undone in
+                            if undone {
+                                Haptic.pick.play()
+                                notifyMutation()
+                            } else {
+                                Haptic.fail.play()
+                            }
+                        }
+                    }
+                ]
+            )
+        }
+    }
+
+    private func restoreFromArchive() {
+        viewModel.restoreFromArchive { didSucceed in
+            guard didSucceed else { return }
+            notifyMutation()
+            snackbar = SnackbarData(message: String(localized: "Habit restored"))
         }
     }
 
@@ -574,8 +669,8 @@ struct HabitDetailScreen: View {
 
     private var habitStateLabel: String {
         if viewModel.row.isArchived { return String(localized: "Archived", defaultValue: "Archived") }
-        if viewModel.row.isPaused { return "Paused" }
-        return "Live"
+        if viewModel.row.isPaused { return String(localized: "Paused") }
+        return String(localized: "Active")
     }
 
     private var habitStateSymbol: String {
@@ -587,9 +682,10 @@ struct HabitDetailScreen: View {
     private var reminderSummary: String {
         let startText = viewModel.draft.reminderWindowStart.trimmingCharacters(in: .whitespacesAndNewlines)
         let endText = viewModel.draft.reminderWindowEnd.trimmingCharacters(in: .whitespacesAndNewlines)
-        let start = startText.isEmpty ? "Not set" : startText
-        let end = endText.isEmpty ? "Not set" : endText
-        return "\(start) to \(end)"
+        if startText.isEmpty && endText.isEmpty { return String(localized: "No reminder") }
+        let start = startText.isEmpty ? "—" : startText
+        let end = endText.isEmpty ? "—" : endText
+        return "\(start)–\(end)"
     }
 
     private var rhythmSummary: String {
@@ -613,7 +709,7 @@ struct HabitDetailScreen: View {
         if let projectName = selectedProjectName, projectName.isEmpty == false {
             parts.append(projectName)
         }
-        parts.append(viewModel.draft.trackingMode == .lapseOnly ? "Lapse only" : "Daily check-in")
+        parts.append(viewModel.draft.trackingMode == .lapseOnly ? String(localized: "Log slips only") : String(localized: "Daily check-in"))
         return parts.joined(separator: " · ")
     }
 
@@ -631,11 +727,11 @@ struct HabitDetailScreen: View {
     private func cadenceSummary(_ cadence: HabitCadenceDraft) -> String {
         switch cadence {
         case .daily(let hour, let minute):
-            return "Daily at \(formattedTime(hour: hour, minute: minute))"
+            return String(localized: "Daily at \(formattedTime(hour: hour, minute: minute))")
         case .weekly(let days, let hour, let minute):
-            return "\(weekdaySummary(days)) at \(formattedTime(hour: hour, minute: minute))"
+            return String(localized: "\(weekdaySummary(days)) at \(formattedTime(hour: hour, minute: minute))")
         case .interval(let days, let hour, let minute):
-            return "Every \(max(1, days)) days at \(formattedTime(hour: hour, minute: minute))"
+            return String(localized: "Every \(max(1, days)) days at \(formattedTime(hour: hour, minute: minute))")
         }
     }
 
@@ -647,8 +743,8 @@ struct HabitDetailScreen: View {
 
     private func weekdaySummary(_ days: [Int]) -> String {
         let symbols = Calendar.current.shortWeekdaySymbols
-        if days.count == 5 && days == [2, 3, 4, 5, 6] { return "Weekdays" }
-        if days.count == 7 { return "Every day" }
+        if days.count == 5 && days == [2, 3, 4, 5, 6] { return String(localized: "Weekdays") }
+        if days.count == 7 { return String(localized: "Every day") }
         return days.compactMap { day in
             let index = max(0, min(symbols.count - 1, day - 1))
             guard symbols.indices.contains(index) else { return nil }
@@ -658,11 +754,15 @@ struct HabitDetailScreen: View {
 
     private func todayActionTitle(for cell: HabitDetailDayCell) -> String {
         switch cell.state {
-        case .success: return "Mark today skipped"
-        case .skipped, .lapsed: return "Reset today"
-        case .future: return "Today is upcoming"
+        case .success:
+            return viewModel.row.kind == .negative ? String(localized: "Log slip today") : String(localized: "Skip today")
+        case .skipped, .lapsed: return String(localized: "Clear today")
+        case .future: return String(localized: "Not due yet")
         default:
-            return viewModel.row.trackingMode == .lapseOnly ? "Log today" : "Mark today done"
+            if viewModel.row.kind == .negative {
+                return viewModel.row.trackingMode == .lapseOnly ? String(localized: "Log slip today") : String(localized: "Mark clean")
+            }
+            return String(localized: "Mark done")
         }
     }
 
@@ -698,71 +798,19 @@ struct HabitDetailScreen: View {
         )
     }
 
-    private var weeklyDaysBinding: Binding<[Int]> {
-        Binding(
-            get: {
-                let days = weeklyDays(from: viewModel.draft.cadence)
-                return days.isEmpty ? [2, 3, 4, 5, 6] : days
-            },
-            set: { days in
-                let time = cadenceTime(from: viewModel.draft.cadence)
-                viewModel.draft.cadence = .weekly(daysOfWeek: days.sorted().isEmpty ? [2, 3, 4, 5, 6] : days.sorted(), hour: time.hour, minute: time.minute)
+    /// Hold on the hero ring: to the target completes today, back to zero
+    /// resets it. Both are the calendar's own next-mutation, so the receipt
+    /// and Undo snackbar are the same ones a tapped cell gets.
+    private func logToday(_ change: HabitAmountChange, cell: HabitDetailDayCell) async -> Bool {
+        let wantsDone = HabitAmountRule.apply(change, to: cell.state == .success ? 1 : 0, target: 1) >= 1
+        guard wantsDone != (cell.state == .success), cell.isInteractive else { return true }
+        return await withCheckedContinuation { continuation in
+            let onMutation = onMutation
+            viewModel.mutateDay(cell) { didSucceed in
+                if didSucceed { onMutation() }
+                continuation.resume(returning: didSucceed)
             }
-        )
-    }
-
-    private var cadenceTimeBinding: Binding<Date> {
-        Binding(
-            get: {
-                let calendar = Calendar.current
-                let time = cadenceTime(from: viewModel.draft.cadence)
-                return calendar.date(bySettingHour: time.hour ?? 9, minute: time.minute ?? 0, second: 0, of: calendar.startOfDay(for: Date())) ?? Date()
-            },
-            set: { date in
-                let calendar = Calendar.current
-                let hour = calendar.component(.hour, from: date)
-                let minute = calendar.component(.minute, from: date)
-                switch viewModel.draft.cadence {
-                case .daily:
-                    viewModel.draft.cadence = .daily(hour: hour, minute: minute)
-                case .weekly(let days, _, _):
-                    viewModel.draft.cadence = .weekly(daysOfWeek: days, hour: hour, minute: minute)
-                case .interval(let days, _, _):
-                    viewModel.draft.cadence = .interval(days: days, hour: hour, minute: minute)
-                }
-            }
-        )
-    }
-
-    private func cadenceTime(from cadence: HabitCadenceDraft) -> (hour: Int?, minute: Int?) {
-        switch cadence {
-        case .daily(let hour, let minute): return (hour, minute)
-        case .weekly(_, let hour, let minute): return (hour, minute)
-        case .interval(_, let hour, let minute): return (hour, minute)
         }
-    }
-
-    private func weeklyDays(from cadence: HabitCadenceDraft) -> [Int] {
-        switch cadence {
-        case .daily: return []
-        case .weekly(let days, _, _): return days
-        case .interval: return []
-        }
-    }
-
-    private var intervalDaysBinding: Binding<Int> {
-        Binding(
-            get: { intervalDays(from: viewModel.draft.cadence) },
-            set: { days in
-                let time = cadenceTime(from: viewModel.draft.cadence)
-                viewModel.draft.cadence = .interval(days: max(2, days), hour: time.hour, minute: time.minute)
-            }
-        )
-    }
-
-    private func intervalDays(from cadence: HabitCadenceDraft) -> Int {
-        if case let .interval(days, _, _) = cadence { return max(2, days) }
-        return 2
     }
 
     private func mutate(_ cell: HabitDetailDayCell) {
@@ -770,6 +818,7 @@ struct HabitDetailScreen: View {
         let willCompleteToday = cell.isToday && cell.state != .success && cell.state != .future
         viewModel.mutateDay(cell) { didSucceed in
             guard didSucceed else { return }
+            // The mutation feedback already plays its haptic.
             if willCompleteToday, sawTodayCompletionThisSession == false {
                 sawTodayCompletionThisSession = true
                 completionBurstTrigger += 1
@@ -785,14 +834,15 @@ struct HabitDetailScreen: View {
 
     private func playMutationHaptic(_ haptic: HabitDetailMutationFeedbackHaptic) {
         switch haptic {
-        case .selection: HapticFeedback.selection()
-        case .success: HapticFeedback.success()
-        case .warning: HapticFeedback.warning()
+        case .selection: Haptic.pick.play()
+        case .success: Haptic.commit.play()
+        // A lapse or reset is a fact about a day, not a failure.
+        case .warning: Haptic.decline.play()
         }
     }
 }
 
-private enum HabitDetailAccessibilityID {
+enum HabitDetailAccessibilityID {
     static let view = "habitDetail.view"
     static let grid = "habitDetail.grid"
     static let contextPrimary = "habitDetail.context.primary"
@@ -804,39 +854,7 @@ private enum HabitDetailAccessibilityID {
     static let bestStreakMetric = "habitDetail.metric.bestStreak"
     static let totalCountMetric = "habitDetail.metric.totalCount"
     static let completionRateMetric = "habitDetail.metric.completionRate"
-}
-
-private enum HabitCalendarMetrics {
-    static let columnCount = 7
-    static let cellSpacing: CGFloat = 3
-    static let minimumCellSide: CGFloat = 44
-    static let maximumCellSide: CGFloat = 52
-
-    static func cellSide(for availableWidth: CGFloat) -> CGFloat {
-        let requiredSpacing = CGFloat(columnCount - 1) * cellSpacing
-        let cellWidth = (availableWidth - requiredSpacing) / CGFloat(columnCount)
-        return min(maximumCellSide, max(minimumCellSide, floor(cellWidth)))
-    }
-
-    static func requiredWidth(for availableWidth: CGFloat) -> CGFloat {
-        let side = cellSide(for: availableWidth)
-        return (side * CGFloat(columnCount)) + (CGFloat(columnCount - 1) * cellSpacing)
-    }
-}
-
-enum HabitDetailCalendarLayoutMetrics {
-    static let columnCount = HabitCalendarMetrics.columnCount
-    static let cellSpacing = HabitCalendarMetrics.cellSpacing
-    static let minimumCellSide = HabitCalendarMetrics.minimumCellSide
-    static let maximumCellSide = HabitCalendarMetrics.maximumCellSide
-
-    static func cellSide(for availableWidth: CGFloat) -> CGFloat {
-        HabitCalendarMetrics.cellSide(for: availableWidth)
-    }
-
-    static func requiredWidth(for availableWidth: CGFloat) -> CGFloat {
-        HabitCalendarMetrics.requiredWidth(for: availableWidth)
-    }
+    static let heroRing = "habitDetail.hero.ring"
 }
 
 private struct HabitMetricGrid: View {
@@ -862,29 +880,29 @@ private struct HabitMetricGrid: View {
     @ViewBuilder
     private var metricTiles: some View {
         HabitMetricTile(
-            title: "Current",
-            subtitle: "Active streak",
+            title: String(localized: "Streak"),
+            subtitle: nil,
             value: metrics.currentStreakDisplay,
             valueColor: accentColor,
             accessibilityIdentifier: HabitDetailAccessibilityID.currentStreakMetric
         )
         HabitMetricTile(
-            title: "Longest",
-            subtitle: "Best run so far",
+            title: String(localized: "Best streak"),
+            subtitle: nil,
             value: metrics.bestStreakDisplay,
             valueColor: Color.lifeboard.textPrimary,
             accessibilityIdentifier: HabitDetailAccessibilityID.bestStreakMetric
         )
         HabitMetricTile(
-            title: "Total",
-            subtitle: "Count",
+            title: String(localized: "Total"),
+            subtitle: nil,
             value: metrics.totalCountDisplay,
             valueColor: Color.lifeboard.textPrimary,
             accessibilityIdentifier: HabitDetailAccessibilityID.totalCountMetric
         )
         HabitMetricTile(
-            title: "Completion",
-            subtitle: "Rate",
+            title: String(localized: "Completion rate"),
+            subtitle: nil,
             value: metrics.completionRateDisplay,
             valueColor: completionRateColor,
             accessibilityIdentifier: HabitDetailAccessibilityID.completionRateMetric
@@ -905,7 +923,7 @@ private struct HabitMetricGrid: View {
 
 private struct HabitMetricTile: View {
     let title: String
-    let subtitle: String
+    let subtitle: String?
     let value: String
     let valueColor: Color
     let accessibilityIdentifier: String
@@ -926,10 +944,12 @@ private struct HabitMetricTile: View {
                 .foregroundStyle(Color.lifeboard.textSecondary)
                 .lineLimit(1)
 
-            Text(subtitle)
-                .font(.lifeboard(.meta))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .lineLimit(1)
+            if let subtitle {
+                Text(subtitle)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+                    .lineLimit(1)
+            }
         }
         .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
         .padding(.horizontal, Theme.Spacing.md)
@@ -941,206 +961,7 @@ private struct HabitMetricTile: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(accessibilityIdentifier)
-        .animation(LifeBoardAnimation.numericUpdate, value: value)
-    }
-}
-
-private struct HabitCalendarSection: View {
-    let row: HabitLibraryRow
-    let viewState: HabitDetailCalendarViewState
-    let helperText: String
-    let isLoading: Bool
-    let isSaving: Bool
-    let onTapDay: (HabitDetailDayCell) -> Void
-
-    @Environment(\.lifeboardLayoutClass) private var layoutClass
-    @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: SemanticSpacingTokens { tokens.spacing }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            Text(helperText)
-                .font(.lifeboard(.callout))
-                .foregroundStyle(Color.lifeboard.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier(HabitDetailAccessibilityID.helperText)
-
-            GeometryReader { proxy in
-                let availableWidth = max(proxy.size.width, HabitCalendarMetrics.requiredWidth(for: 0))
-                let gridWidth = HabitCalendarMetrics.requiredWidth(for: availableWidth)
-                let cellSide = HabitCalendarMetrics.cellSide(for: availableWidth)
-
-                VStack(alignment: .leading, spacing: spacing.s8) {
-                    weekdayHeader(cellSide: cellSide)
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: spacing.s8) {
-                            ForEach(viewState.weeks) { week in
-                                VStack(alignment: .leading, spacing: spacing.s4) {
-                                    if let monthLabel = week.monthLabel {
-                                        Text(monthLabel)
-                                            .font(.lifeboard(.callout).weight(.semibold))
-                                            .foregroundStyle(Color.lifeboard.textSecondary)
-                                    }
-
-                                    HStack(spacing: HabitCalendarMetrics.cellSpacing) {
-                                        ForEach(week.cells) { cell in
-                                            HabitCalendarDayCell(row: row, cell: cell, side: cellSide, isSaving: isSaving) {
-                                                onTapDay(cell.cell)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        .frame(width: gridWidth, alignment: .leading)
-                    }
-                    .accessibilityIdentifier(HabitDetailAccessibilityID.grid)
-                }
-            }
-            .frame(height: gridHeight)
-
-            if isLoading {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Refreshing rhythm")
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(Color.lifeboard.textSecondary)
-                }
-            }
-        }
-        .padding(2)
-    }
-
-    private var gridHeight: CGFloat {
-        let weekCount = max(viewState.weeks.count, 1)
-        let monthLabelCount = viewState.weeks.reduce(0) { $0 + ($1.monthLabel == nil ? 0 : 1) }
-        return 20 + spacing.s8 + (CGFloat(weekCount) * HabitCalendarMetrics.maximumCellSide) + (CGFloat(max(weekCount - 1, 0)) * spacing.s8) + (CGFloat(monthLabelCount) * (22 + spacing.s4))
-    }
-
-    private func weekdayHeader(cellSide: CGFloat) -> some View {
-        HStack(spacing: HabitCalendarMetrics.cellSpacing) {
-            ForEach(Array(Calendar.current.veryShortWeekdaySymbols.enumerated()), id: \.offset) { _, symbol in
-                Text(symbol)
-                    .font(.lifeboard(.meta).weight(.semibold))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
-                    .frame(width: cellSide, alignment: .center)
-            }
-        }
-    }
-}
-
-private struct HabitCalendarDayCell: View {
-    let row: HabitLibraryRow
-    let cell: HabitDetailCalendarCellViewState
-    let side: CGFloat
-    let isSaving: Bool
-    let action: () -> Void
-
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
-
-    var body: some View {
-        Button(action: action) {
-            let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
-            ZStack {
-                shape.fill(fillColor)
-                shape.strokeBorder(borderColor, style: strokeStyle)
-                if cell.cell.isToday {
-                    shape
-                        .strokeBorder(Color.lifeboard.accentPrimary, lineWidth: 1.6)
-                        .padding(1)
-                }
-                differentiateOverlay
-                Text(cell.dayNumber)
-                    .font(.lifeboard(.callout).weight(textWeight))
-                    .foregroundStyle(textColor)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(width: side, height: side)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!cell.cell.isInteractive || isSaving)
-        .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier(cell.accessibilityIdentifier)
-        .accessibilityLabel("\(row.title), \(cell.accessibilityLabel)")
-        .accessibilityValue(cell.accessibilityValue)
-        .accessibilityHint(cell.accessibilityHint)
-        .accessibilityAddTraits(cell.cell.isInteractive ? .isButton : .isStaticText)
-    }
-
-    @ViewBuilder
-    private var differentiateOverlay: some View {
-        if differentiateWithoutColor {
-            switch cell.cell.state {
-            case .lapsed, .empty:
-                Rectangle()
-                    .fill(Color.lifeboard.textSecondary.opacity(0.22))
-                    .frame(width: side * 0.42, height: 1)
-            case .skipped, .notScheduled:
-                Circle()
-                    .fill(Color.lifeboard.textSecondary.opacity(0.55))
-                    .frame(width: 5, height: 5)
-            case .success, .future:
-                EmptyView()
-            }
-        }
-    }
-
-    private var colorFamily: HabitColorFamily {
-        HabitColorFamily.family(for: row.colorHex, fallback: row.kind == .positive ? .green : .coral)
-    }
-
-    private var fillColor: Color {
-        switch cell.cell.state {
-        case .success:
-            return HabitEverydayPalette.depthColor(for: colorFamily, depth: max(1, min(cell.streakDepth ?? 1, 8)), colorScheme: colorScheme)
-        case .future:
-            return HabitEverydayPalette.futureFill(colorScheme: colorScheme)
-        case .skipped, .notScheduled:
-            return HabitEverydayPalette.paperFill(colorScheme: colorScheme)
-        case .lapsed, .empty:
-            return HabitEverydayPalette.missedFill(colorScheme: colorScheme).opacity(cell.cell.state == .lapsed ? 0.58 : 0.34)
-        }
-    }
-
-    private var borderColor: Color {
-        switch cell.cell.state {
-        case .lapsed:
-            return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.96)
-        default:
-            return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.78)
-        }
-    }
-
-    private var strokeStyle: StrokeStyle {
-        switch cell.cell.state {
-        case .skipped, .notScheduled:
-            return StrokeStyle(lineWidth: 1, dash: [4, 3])
-        default:
-            return StrokeStyle(lineWidth: 1)
-        }
-    }
-
-    private var textColor: Color {
-        switch cell.cell.state {
-        case .success:
-            return (cell.streakDepth ?? 1) >= 4 ? Color.lifeboard(.textInverse).opacity(0.98) : Color.lifeboard.textPrimary
-        case .lapsed:
-            return Color.lifeboard.textSecondary
-        case .future, .notScheduled:
-            return Color.lifeboard.textTertiary
-        default:
-            return Color.lifeboard.textPrimary
-        }
-    }
-
-    private var textWeight: Font.Weight {
-        switch cell.cell.state {
-        case .success, .lapsed: return .semibold
-        default: return .medium
-        }
+        .lifeBoardMotion(.contentInsertion, value: value)
     }
 }
 
@@ -1152,7 +973,7 @@ private struct HabitWeekdayPickerRow: View {
             ForEach(weekdays, id: \.day) { item in
                 let isSelected = selectedDays.contains(item.day)
                 Button {
-                    HapticFeedback.selection()
+                    Haptic.pick.play()
                     if isSelected {
                         selectedDays.removeAll { $0 == item.day }
                     } else {

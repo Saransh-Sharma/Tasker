@@ -189,7 +189,7 @@ public enum DayCloseScenarioBuilder {
         }
         if let anchor, let task = tasksByID[anchor] {
             rows.append(
-                PlanningScenarioDiff(title: "Tomorrow starts with", after: task.title)
+                PlanningScenarioDiff(title: String(localized: "Tomorrow starts with"), after: task.title)
             )
         }
         return rows

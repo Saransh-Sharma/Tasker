@@ -61,7 +61,7 @@ struct LifeManagementAreaComposerView: View {
         VStack(spacing: 0) {
             AddTaskNavigationBar(
                 containerMode: containerMode,
-                title: draft.isNew ? "New Area" : "Edit Area",
+                title: draft.isNew ? "New area" : "Edit area",
                 canSave: canSave
             ) {
                 onCancel()
@@ -74,13 +74,13 @@ struct LifeManagementAreaComposerView: View {
             ScrollView {
                 VStack(spacing: spacing.s16) {
                     LifeManagementComposerPreviewCard(
-                        eyebrow: draft.isNew ? "Create area" : "Edit area",
+                        eyebrow: "Area",
                         title: draft.name.lifeManagementNilIfBlank ?? "New area",
-                        subtitle: "Define the bucket that holds related projects and habits.",
+                        subtitle: "Holds projects and habits",
                         iconName: draft.iconSymbolName,
                         accentColor: lifeManagementResolvedColor(hex: draft.colorHex, fallback: Color.lifeboard.accentPrimary),
                         metrics: [
-                            LifeManagementComposerPreviewMetric(title: "Accent", value: selectedColorTitle),
+                            LifeManagementComposerPreviewMetric(title: "Color", value: selectedColorTitle),
                             LifeManagementComposerPreviewMetric(title: "Icon", value: selectedIconTitle)
                         ]
                     )
@@ -89,21 +89,21 @@ struct LifeManagementAreaComposerView: View {
                     AddTaskTitleField(
                         text: $draft.name,
                         isFocused: $titleFieldFocused,
-                        placeholder: "Name this area",
-                        helperText: "Use a clear bucket like Health, Career, or Home.",
+                        placeholder: "Area name",
+                        helperText: "For example, Health or Career.",
                         onSubmit: commit
                     )
                     .enhancedStaggeredAppearance(index: 1)
 
                     LifeManagementComposerSectionCard(
                         title: "Appearance",
-                        subtitle: "Pick an accent and icon so the area is easy to spot across the app.",
+                        subtitle: "",
                         iconSystemName: "paintpalette.fill"
                     ) {
                         VStack(alignment: .leading, spacing: spacing.s16) {
                             LifeManagementComposerFieldLabel(
-                                title: "Accent",
-                                detail: "Choose from the same palette used for habit accents."
+                                title: "Color",
+                                detail: ""
                             )
 
                             LifeManagementAreaSwatchPicker(
@@ -112,7 +112,7 @@ struct LifeManagementAreaComposerView: View {
 
                             LifeManagementComposerFieldLabel(
                                 title: "Icon",
-                                detail: "Choose the symbol that best represents this part of your life."
+                                detail: ""
                             )
 
                             LifeManagementAreaIconPicker(
@@ -142,7 +142,7 @@ struct LifeManagementAreaComposerView: View {
                 isLoading: isSaving,
                 successFlash: false,
                 showAddAnother: false,
-                buttonTitle: draft.isNew ? "Add Area" : "Save Area",
+                buttonTitle: draft.isNew ? "Add area" : "Save",
                 onCreateAction: commit,
                 onAddAnotherAction: {}
             )

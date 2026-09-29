@@ -18,23 +18,23 @@ enum OnboardingPrimaryGoal: String, CaseIterable, Codable, Identifiable {
 
     var title: String {
         switch self {
-        case .wholeWeek: return "My whole week"
-        case .workDeadlines: return "Work and deadlines"
-        case .lifeAdmin: return "Life admin"
-        case .habitsRoutines: return "Habits and routines"
-        case .calendarChaos: return "Calendar chaos"
-        case .dailyExecution: return "Starting each day"
+        case .wholeWeek: return String(localized: "My whole week")
+        case .workDeadlines: return String(localized: "Work and deadlines")
+        case .lifeAdmin: return String(localized: "Life admin")
+        case .habitsRoutines: return String(localized: "Habits and routines")
+        case .calendarChaos: return String(localized: "Calendar chaos")
+        case .dailyExecution: return String(localized: "Starting each day")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .wholeWeek: return "See work, habits, and personal life in one system."
-        case .workDeadlines: return "Stay ahead of deliverables without scattered lists."
-        case .lifeAdmin: return "Keep bills, chores, and personal follow-through visible."
-        case .habitsRoutines: return "Build consistency with a streak you can actually see."
-        case .calendarChaos: return "Turn a packed schedule into something manageable."
-        case .dailyExecution: return "Know the one thing to start with when the day opens."
+        case .wholeWeek: return String(localized: "Work, habits, and home together.")
+        case .workDeadlines: return String(localized: "Deliverables and due dates.")
+        case .lifeAdmin: return String(localized: "Bills, chores, and follow-ups.")
+        case .habitsRoutines: return String(localized: "Build habits you can see.")
+        case .calendarChaos: return String(localized: "Fit tasks around a full calendar.")
+        case .dailyExecution: return String(localized: "Know what to start with.")
         }
     }
 

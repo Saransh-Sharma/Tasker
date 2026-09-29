@@ -28,10 +28,41 @@ final class TrackFoundationStore {
     /// The receipt for the last quick water log, with the log it can undo.
     private(set) var hydrationReceipt: ActionReceiptPresentation?
     private var undoableHydrationLog: HydrationLog?
+    /// Which control wrote the last quick water log, so its receipt appears
+    /// under that control rather than somewhere else on the screen.
+    private(set) var hydrationReceiptAnchor: TrackHydrationReceiptAnchor = .quickLog
+    /// The last record deleted from a history row or composer, with the write
+    /// that puts it back. Deleting a log is reversible, so it runs at once and
+    /// offers Undo instead of asking first (DESIGN.md launch contract 1).
+    private(set) var deletionReceipt: TrackDeletionReceipt?
+    /// What the last routine run did, shown after the runner closes so the
+    /// finish is more than a haptic.
+    private(set) var routineFinishReceipt: ActionReceiptPresentation?
     private(set) var hasLoaded = false
     private(set) var isLoading = false
     var errorMessage: String?
     var activeRoutineRun: RoutineRun?
+    /// The run the person tucked away with Minimize.
+    ///
+    /// A paused or interrupted run stays "active", and the runner used to be a
+    /// full-screen cover bound to `activeRoutineRun != nil` with no way out
+    /// except End — reopening Track threw it straight back over the screen.
+    /// Persisted so a fresh store (another Track surface, a relaunch) honours it.
+    var minimizedRoutineRunID: UUID? = RoutineRunnerMinimizeMemory.load() {
+        didSet { RoutineRunnerMinimizeMemory.save(minimizedRoutineRunID) }
+    }
+
+    /// The run the runner should cover the screen for, if any.
+    var presentedRoutineRun: RoutineRun? {
+        guard let activeRoutineRun, activeRoutineRun.id != minimizedRoutineRunID else { return nil }
+        return activeRoutineRun
+    }
+
+    /// An active run the person minimized — what the Resume banner offers.
+    var minimizedRoutineRun: RoutineRun? {
+        guard let activeRoutineRun, activeRoutineRun.id == minimizedRoutineRunID else { return nil }
+        return activeRoutineRun
+    }
 
     let repository: any TrackFoundationRepository
     let phaseIIRepository: any PhaseIIRepository
@@ -45,7 +76,7 @@ final class TrackFoundationStore {
     private let habitProjectionService: (any TrackHabitProjectionService)?
     private let habitGradeEngine: any HabitGradeService
     private let linkedMutationApplier: (any RoutineLinkedMutationApplying)?
-    private let starterPackMutationApplier: (any StarterPackCanonicalMutationApplying)?
+    let starterPackMutationApplier: (any StarterPackCanonicalMutationApplying)?
     private let habitRecoveryMutationApplier: (any HabitRecoveryMutationApplying)?
     private let correctionReceiptRepository: any TrackCorrectionReceiptRepository
 
@@ -228,25 +259,29 @@ final class TrackFoundationStore {
             errorMessage = nil
         } catch {
             guard revision == refreshDrain.revision else { return }
-            errorMessage = error.localizedDescription
+            errorMessage = Self.readableFailure(error)
         }
     }
 
     /// Returns the log it wrote, so the caller can offer Undo on the receipt.
     @discardableResult
-    func quickAddHydration(_ milliliters: Double) async -> HydrationLog? {
+    func quickAddHydration(
+        _ milliliters: Double,
+        anchor: TrackHydrationReceiptAnchor = .quickLog
+    ) async -> HydrationLog? {
         let log = HydrationLog(amount: milliliters, unit: .milliliters)
         do {
             try await repository.saveHydrationLog(log)
             Haptic.commit.play()
             undoableHydrationLog = log
+            hydrationReceiptAnchor = anchor
             hydrationReceipt = ActionReceiptPresentation(
-                message: "Added \(Int(milliliters)) mL of water"
+                message: String(localized: "Added \(Int(milliliters)) mL of water")
             )
             await load()
             return log
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.readableFailure(error)
             return nil
         }
     }
@@ -261,7 +296,7 @@ final class TrackFoundationStore {
                 updatedAt: Date()
             ))
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func correctHydration(_ log: HydrationLog, amountMilliliters: Double) async {
@@ -271,7 +306,7 @@ final class TrackFoundationStore {
         do {
             try await applyCorrection(previous: .hydration(log), corrected: .hydration(corrected))
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func clearHydrationReceipt() {
@@ -288,11 +323,52 @@ final class TrackFoundationStore {
         Haptic.decline.play()
     }
 
-    func deleteHydration(_ log: HydrationLog) async {
+    func deleteHydration(_ log: HydrationLog, offersUndo: Bool = false) async {
         do {
             try await repository.deleteHydrationLog(id: log.id)
+            if offersUndo {
+                let repository = repository
+                offerDeletionUndo(.hydration, message: String(localized: "Deleted water entry")) {
+                    try await repository.saveHydrationLog(log)
+                }
+            }
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch {
+            Haptic.fail.play()
+            errorMessage = String(localized: "Couldn’t delete water entry.")
+        }
+    }
+
+    private func offerDeletionUndo(
+        _ domain: TrackDeletionReceipt.Domain,
+        message: String,
+        restore: @escaping @MainActor () async throws -> Void
+    ) {
+        Haptic.commit.play()
+        deletionReceipt = TrackDeletionReceipt(domain: domain, message: message, restore: restore)
+    }
+
+    func clearDeletionReceipt() {
+        deletionReceipt = nil
+    }
+
+    /// Puts back the record the receipt is about. A failure keeps the receipt
+    /// so the person can try again, and says what happened.
+    func undoDeletion() async {
+        guard let receipt = deletionReceipt else { return }
+        do {
+            try await receipt.restore()
+            deletionReceipt = nil
+            Haptic.pick.play()
+            await load()
+        } catch {
+            Haptic.fail.play()
+            errorMessage = String(localized: "Couldn’t restore entry. Try Undo again.")
+        }
+    }
+
+    func clearRoutineFinishReceipt() {
+        routineFinishReceipt = nil
     }
 
     func saveMood(_ mood: JournalMood, energy: Int?) async {
@@ -312,16 +388,25 @@ final class TrackFoundationStore {
             await load()
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.readableFailure(error)
             return false
         }
     }
 
-    func deleteMood(_ checkIn: MoodEnergyCheckInValue) async {
+    func deleteMood(_ checkIn: MoodEnergyCheckInValue, offersUndo: Bool = false) async {
         do {
             try await phaseIIRepository.deleteMoodCheckIn(id: checkIn.id)
+            if offersUndo {
+                let phaseIIRepository = phaseIIRepository
+                offerDeletionUndo(.mood, message: String(localized: "Deleted check-in")) {
+                    try await phaseIIRepository.saveMoodCheckIn(checkIn)
+                }
+            }
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch {
+            Haptic.fail.play()
+            errorMessage = String(localized: "Couldn’t delete check-in.")
+        }
     }
 
     func resolveMedication(event: MedicationEventValue, status: MedicationEventStatus) async {
@@ -336,7 +421,7 @@ final class TrackFoundationStore {
             )
             try await applyCorrection(previous: .medication(event), corrected: .medication(value))
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func snoozeMedication(event: MedicationEventValue, by interval: TimeInterval = 15 * 60) async {
@@ -361,10 +446,10 @@ final class TrackFoundationStore {
                 throw error
             }
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
-    func medicationName(id: UUID) -> String { medications.first(where: { $0.id == id })?.name ?? "Medication" }
+    func medicationName(id: UUID) -> String { medications.first(where: { $0.id == id })?.name ?? String(localized: "Medication") }
 
     func habitPolicy(for habitID: UUID) -> HabitResiliencePolicy {
         habitPolicies.first(where: { $0.habitID == habitID }) ?? HabitResiliencePolicy(habitID: habitID)
@@ -376,20 +461,20 @@ final class TrackFoundationStore {
         do {
             try await repository.saveHabitResiliencePolicy(updated)
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func recoverHabit(habitID: UUID, day: PlanningDay) async -> HabitRecoveryReceipt? {
         var policy = habitPolicy(for: habitID)
         guard policy.recoveryEnabled else {
-            errorMessage = "Recovery completions are disabled for this habit."
+            errorMessage = String(localized: "Recovery is off for this habit.")
             return nil
         }
         guard policy.recoveryReceipts.contains(where: { $0.day == day }) == false else {
             return policy.recoveryReceipts.first(where: { $0.day == day })
         }
         guard let habitRecoveryMutationApplier else {
-            errorMessage = "Habit recovery is unavailable until the canonical habit runtime finishes loading."
+            errorMessage = String(localized: "Habits are still loading. Try again.")
             return nil
         }
 
@@ -406,11 +491,11 @@ final class TrackFoundationStore {
                 try? await habitRecoveryMutationApplier.revert(receipt)
                 throw error
             }
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            Haptic.commit.play()
             await load()
             return receipt
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.readableFailure(error)
             return nil
         }
     }
@@ -419,7 +504,7 @@ final class TrackFoundationStore {
         let original = habitPolicy(for: habitID)
         guard let receipt = original.recoveryReceipts.first(where: { $0.day == day }) else { return true }
         guard let habitRecoveryMutationApplier else {
-            errorMessage = "Habit recovery is unavailable until the canonical habit runtime finishes loading."
+            errorMessage = String(localized: "Habits are still loading. Try again.")
             return false
         }
         var updated = original
@@ -435,11 +520,11 @@ final class TrackFoundationStore {
                 try? await repository.saveHabitResiliencePolicy(original)
                 throw error
             }
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            Haptic.commit.play()
             await load()
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.readableFailure(error)
             return false
         }
     }
@@ -451,25 +536,26 @@ final class TrackFoundationStore {
         do {
             try await repository.saveHabitGroup(value)
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func deleteHabitGroup(_ group: HabitGroup) async {
         do {
             try await repository.deleteHabitGroup(id: group.id)
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func startRoutine(_ routine: RoutineDefinition) async {
         let run = routineService.begin(routine, at: Date())
         do {
             try await repository.saveRoutineRun(run)
+            minimizedRoutineRunID = nil
             activeRoutineRun = run
             await RoutineLiveActivityCoordinator.shared.synchronize(run: run)
         } catch {
             activeRoutineRun = nil
-            errorMessage = error.localizedDescription
+            errorMessage = Self.readableFailure(error)
         }
     }
 
@@ -477,7 +563,7 @@ final class TrackFoundationStore {
         do {
             try await repository.saveRoutineSchedule(schedule)
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func saveRoutine(
@@ -536,7 +622,7 @@ final class TrackFoundationStore {
             ))
             await load()
             SystemSurfaceRefresher.requestRefreshSoon()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func createRoutine(
@@ -556,19 +642,19 @@ final class TrackFoundationStore {
             try await repository.saveRoutine(value)
             await load()
             SystemSurfaceRefresher.requestRefreshSoon()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func deleteRoutine(_ routine: RoutineDefinition) async {
         guard activeRoutineRun?.routineID != routine.id else {
-            errorMessage = "End the active run before deleting this routine."
+            errorMessage = String(localized: "End the routine before deleting it.")
             return
         }
         do {
             try await repository.deleteRoutine(id: routine.id)
             await load()
             SystemSurfaceRefresher.requestRefreshSoon()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func advanceRoutine(response: String? = nil, skip: Bool = false) async {
@@ -582,6 +668,18 @@ final class TrackFoundationStore {
 
     func pauseRoutine() async {
         await applyRoutineCommand(.pause)
+    }
+
+    /// Pauses a running run and takes the runner off screen. The run, its place
+    /// and its timer are kept; `reopenRoutine()` brings the runner back.
+    func minimizeRoutine() async {
+        guard let run = activeRoutineRun else { return }
+        if run.status == .running { await pauseRoutine() }
+        minimizedRoutineRunID = run.id
+    }
+
+    func reopenRoutine() {
+        minimizedRoutineRunID = nil
     }
 
     func resumeRoutine() async {
@@ -608,7 +706,7 @@ final class TrackFoundationStore {
                     throw NSError(
                         domain: "TrackFoundationStore.Routine",
                         code: 1,
-                        userInfo: [NSLocalizedDescriptionKey: "This linked step cannot be completed until its canonical task or habit service is available."]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t complete this step. Try again.")]
                     )
                 }
                 let stepID = activeRoutineRun.currentStepID ?? transition.run.events.last?.stepID ?? UUID()
@@ -640,10 +738,13 @@ final class TrackFoundationStore {
             case .completed, .partial, .abandoned, .skipped: nil
             }
             if transition.run.status == .completed {
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                Haptic.commit.play()
+            }
+            if let summary = Self.routineFinishSummary(transition.run) {
+                routineFinishReceipt = summary
             }
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func abandonRoutine() async {
@@ -695,7 +796,7 @@ final class TrackFoundationStore {
             )
             await load()
             SystemSurfaceRefresher.requestRefreshSoon()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func archiveGoal(_ goal: GoalDefinition) async {
@@ -703,7 +804,7 @@ final class TrackFoundationStore {
             _ = try await goalLifecycleService.transition(goal, to: .archived, reason: "Archived by user")
             await load()
             SystemSurfaceRefresher.requestRefreshSoon()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func transitionGoal(
@@ -717,7 +818,7 @@ final class TrackFoundationStore {
             SystemSurfaceRefresher.requestRefreshSoon()
             return receipt
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.readableFailure(error)
             return nil
         }
     }
@@ -727,21 +828,21 @@ final class TrackFoundationStore {
             _ = try await goalLifecycleService.undo(receipt)
             await load()
             SystemSurfaceRefresher.requestRefreshSoon()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func deleteGoal(_ goal: GoalDefinition) async {
         do {
             try await repository.deleteGoal(id: goal.id)
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func saveGoalLink(goalID: UUID, source: GoalLinkSource, sourceID: UUID) async {
         do {
             try await repository.saveGoalLink(.init(goalID: goalID, source: source, sourceID: sourceID))
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     func saveSleep(bedtime: Date, wakeTime: Date, rest: Int?, interruptions: Int, notes: String?) async {
@@ -759,102 +860,27 @@ final class TrackFoundationStore {
                 try await repository.saveSleepContextRecord(record)
             }
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
-    func deleteSleep(_ record: SleepContextRecord) async {
+    func deleteSleep(_ record: SleepContextRecord, offersUndo: Bool = false) async {
         do {
             try await repository.deleteSleepContextRecord(id: record.id)
-            await load()
-        } catch { errorMessage = error.localizedDescription }
-    }
-
-    func installStarterPack(_ preview: StarterPackPreview) async {
-        let selected = preview.items.filter(\.isSelected)
-        var createdIDs: [StarterPackItemKind: Set<UUID>] = [:]
-        var createdGoals: [GoalDefinition] = []
-        var createdRoutines: [RoutineDefinition] = []
-        do {
-            for item in selected {
-                switch item.kind {
-                case .goal:
-                    let goal = GoalDefinition(title: item.title, type: .completion)
-                    try await repository.saveGoal(goal)
-                    createdGoals.append(goal)
-                    createdIDs[.goal, default: []].insert(goal.id)
-                case .routine:
-                    let steps = Self.steps(for: preview.pack)
-                    let routine = RoutineDefinition(title: item.title, steps: steps)
-                    try await repository.saveRoutine(routine)
-                    try await repository.saveRoutineSchedule(Self.defaultSchedule(for: preview.pack, routineID: routine.id))
-                    createdRoutines.append(routine)
-                    createdIDs[.routine, default: []].insert(routine.id)
-                case .habit, .reminder:
-                    guard let starterPackMutationApplier else {
-                        throw NSError(
-                            domain: "LifeBoard.StarterPack",
-                            code: 2,
-                            userInfo: [NSLocalizedDescriptionKey: "Habit creation is temporarily unavailable. No starter-pack receipt was saved."]
-                        )
-                    }
-                    let id = try await starterPackMutationApplier.createHabit(
-                        title: item.title,
-                        pack: preview.pack,
-                        itemKind: item.kind
-                    )
-                    createdIDs[item.kind, default: []].insert(id)
+            if offersUndo {
+                let repository = repository
+                offerDeletionUndo(.sleep, message: String(localized: "Deleted sleep entry")) {
+                    try await repository.saveSleepContextRecord(record)
                 }
             }
-            try await repository.saveStarterPackInstallation(.init(pack: preview.pack, createdIDs: createdIDs))
             await load()
         } catch {
-            for var goal in createdGoals {
-                goal.isArchived = true
-                goal.updatedAt = Date()
-                try? await repository.saveGoal(goal)
-            }
-            for var routine in createdRoutines {
-                routine.isArchived = true
-                routine.updatedAt = Date()
-                try? await repository.saveRoutine(routine)
-            }
-            if let starterPackMutationApplier {
-                let habitIDs = (createdIDs[.habit] ?? []).union(createdIDs[.reminder] ?? [])
-                for id in habitIDs { try? await starterPackMutationApplier.archiveHabit(id: id) }
-            }
-            errorMessage = error.localizedDescription
-            await load()
+            Haptic.fail.play()
+            errorMessage = String(localized: "Couldn’t delete sleep entry.")
         }
     }
+}
 
-    func removeStarterPack(_ installation: StarterPackInstallation) async {
-        guard installation.removedAt == nil else { return }
-        do {
-            let goalIDs = installation.createdIDs[.goal] ?? []
-            for var goal in definitions where goalIDs.contains(goal.id) {
-                goal.isArchived = true
-                goal.updatedAt = Date()
-                try await repository.saveGoal(goal)
-            }
-            let routineIDs = installation.createdIDs[.routine] ?? []
-            for var routine in routines where routineIDs.contains(routine.id) {
-                routine.isArchived = true
-                routine.updatedAt = Date()
-                try await repository.saveRoutine(routine)
-            }
-            if let starterPackMutationApplier {
-                let habitIDs = (installation.createdIDs[.habit] ?? []).union(installation.createdIDs[.reminder] ?? [])
-                for id in habitIDs {
-                    try await starterPackMutationApplier.archiveHabit(id: id)
-                }
-            }
-            var removed = installation
-            removed.removedAt = Date()
-            try await repository.saveStarterPackInstallation(removed)
-            await load()
-        } catch { errorMessage = error.localizedDescription }
-    }
-
+extension TrackFoundationStore {
     func activeCorrection(domain: TrackCorrectionDomain, sourceID: UUID) -> TrackCorrectionReceipt? {
         correctionReceipts
             .filter { $0.domain == domain && $0.sourceID == sourceID && $0.isReversed == false }
@@ -876,7 +902,7 @@ final class TrackFoundationStore {
                 throw error
             }
             await load()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = Self.readableFailure(error) }
     }
 
     private func applyCorrection(previous: TrackCorrectionPayload, corrected: TrackCorrectionPayload) async throws {
@@ -907,36 +933,73 @@ final class TrackFoundationStore {
         }
     }
 
+    /// "Morning reset finished · 4 done, 1 skipped". Nil while the run is
+    /// still open. Linked task and habit completions stay done, so there is
+    /// no Undo to offer here — only an honest account of what happened.
+    static func routineFinishSummary(_ run: RoutineRun) -> ActionReceiptPresentation? {
+        let title = run.versionSnapshot.title
+        let verb: String
+        switch run.status {
+        case .running, .paused, .interrupted: return nil
+        case .completed: verb = String(localized: "finished")
+        case .partial: verb = String(localized: "ended early")
+        case .abandoned, .skipped: verb = String(localized: "ended")
+        }
+        let skipped = run.events.filter(\.wasSkipped).count
+        let done = run.events.count - skipped
+        var parts: [String] = [String(localized: "\(done) done")]
+        if skipped > 0 { parts.append(String(localized: "\(skipped) skipped")) }
+        return ActionReceiptPresentation(message: String(localized: "\(title) \(verb)"), detail: parts.joined(separator: ", "))
+    }
+
+    /// Human copy for a failed write. Our own errors already carry a sentence
+    /// written for people; a system error's text ("The operation couldn't be
+    /// completed. (NSCocoaErrorDomain error 134030.)") never reaches the screen.
+    static func readableFailure(_ error: Error) -> String {
+        let nsError = error as NSError
+        if nsError.domain.hasPrefix("TrackFoundationStore") {
+            return nsError.localizedDescription
+        }
+        // A Swift error that describes itself was written for this app.
+        // Foundation and Core Data errors were not.
+        if nsError.domain != NSCocoaErrorDomain,
+           let described = (error as? LocalizedError)?.errorDescription,
+           described.isEmpty == false {
+            return described
+        }
+        return String(localized: "Try again.")
+    }
+
     private static func todayBounds() -> (start: Date, end: Date) {
         let start = Calendar.current.startOfDay(for: Date())
         return (start, Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400))
     }
 
     private static func routineValidationMessage(_ report: RoutineValidationReport) -> String {
-        guard let first = report.issues.first else { return "This routine is ready." }
+        guard let first = report.issues.first else { return String(localized: "This routine is ready.") }
         return switch first {
         case .noSteps:
-            "Add at least one step."
+            String(localized: "Add at least one step.")
         case .emptyTitle:
-            "Every routine step needs a title."
+            String(localized: "Name every step.")
         case .duplicateStepID:
-            "Two steps share the same identity. Recreate one of them."
+            String(localized: "Two steps conflict. Delete one and add it again.")
         case .duplicateOrdinal:
-            "Two steps occupy the same position. Reorder the routine and try again."
+            String(localized: "Two steps share a position. Reorder them.")
         case .invalidChoice:
-            "Choice labels must be unique, non-empty, and match their branch rules."
+            String(localized: "Each choice needs its own label.")
         case .branchSourceMismatch:
-            "A branch is attached to the wrong source step."
+            String(localized: "A branch starts from the wrong step.")
         case .missingBranchDestination:
-            "A branch points to a step that no longer exists."
+            String(localized: "A branch points to a deleted step.")
         case .unreachableStep:
-            "A step cannot be reached from the start of this routine."
+            String(localized: "A step can’t be reached from the start.")
         case .loop:
-            "This routine contains a loop. Choose a forward destination."
+            String(localized: "Steps loop back. Point branches forward.")
         case .missingLinkedEntity:
-            "A linked step needs a task or habit."
+            String(localized: "A linked step needs a task or habit.")
         case .linkedEntityUnavailable:
-            "A linked task or habit is no longer available."
+            String(localized: "Couldn’t find a linked task or habit.")
         }
     }
 
@@ -948,31 +1011,6 @@ final class TrackFoundationStore {
         let schedule = schedules.first { $0.medicationID == event.medicationID }
         let windowDuration = schedule.map { max(0, $0.windowEndMinutes - $0.windowStartMinutes) * 60 } ?? 0
         return now > event.scheduledAt.addingTimeInterval(TimeInterval(windowDuration))
-    }
-
-    private static func steps(for pack: StarterPack) -> [RoutineStep] {
-        switch pack {
-        case .morningFoundation:
-            [.init(title: "Name your energy", kind: .checkIn, ordinal: 0), .init(title: "Choose today's anchor", kind: .choice, ordinal: 1, choices: ["Focus", "Care", "Recovery"])]
-        case .workdayReset:
-            [.init(title: "Close distractions", kind: .instruction, ordinal: 0), .init(title: "Breathe for two minutes", kind: .timer, ordinal: 1, duration: 120)]
-        case .lowEnergyRecovery:
-            [.init(title: "Name what you need", kind: .choice, ordinal: 0, choices: ["Rest", "Water", "A smaller step"]), .init(title: "Take one gentle action", kind: .instruction, ordinal: 1)]
-        case .medicationSupport:
-            [.init(title: "Check your medication schedule", kind: .instruction, ordinal: 0), .init(title: "Record the outcome", kind: .checkIn, ordinal: 1)]
-        case .eveningWindDown:
-            [.init(title: "Close the day", kind: .instruction, ordinal: 0), .init(title: "Reflect briefly", kind: .checkIn, ordinal: 1, isRequired: false, isSkippable: true)]
-        }
-    }
-
-    private static func defaultSchedule(for pack: StarterPack, routineID: UUID) -> RoutineSchedule {
-        let daypart: ResolvedDaypart
-        switch pack {
-        case .morningFoundation: daypart = .morning
-        case .workdayReset, .lowEnergyRecovery, .medicationSupport: daypart = .afternoon
-        case .eveningWindDown: daypart = .evening
-        }
-        return RoutineSchedule(routineID: routineID, weekdays: Set(1...7), daypart: daypart)
     }
 
     nonisolated static func dueRoutines(
@@ -990,332 +1028,4 @@ final class TrackFoundationStore {
         }.map(\.routineID))
         return routines.filter { dueIDs.contains($0.id) }
     }
-
-    private static func projections(
-        hydrationLogs: [HydrationLog],
-        medicationEvents: [MedicationEventValue],
-        checkIns: [MoodEnergyCheckInValue],
-        sleepRecords: [SleepContextRecord],
-        routines: [RoutineDefinition],
-        routineRuns: [RoutineRun],
-        goals: [GoalProgressSnapshot],
-        habitGrades: [HabitGradeSnapshot],
-        trackers: [TrackerDefinitionValue],
-        trackerEntries: [TrackerEntryValue],
-        journalDays: [JournalEvidenceSummary],
-        correctionReceipts: [TrackCorrectionReceipt],
-        now: Date
-    ) -> (context: [TrackContextEnvelope], events: [NormalizedLifeEvent]) {
-        let zone = TimeZone.current
-        func day(_ date: Date) -> PlanningDay { PlanningDay(date: date, timeZone: zone) }
-        let policy = EvidenceAuthorizationPolicy()
-        let projector = NormalizedLifeEventProjector(policy: policy, timeZone: zone)
-        var context: [TrackContextEnvelope] = []
-        var events: [NormalizedLifeEvent] = []
-
-        func makeEvent(
-            id: String,
-            sourceID: UUID,
-            domain: String,
-            kind: String,
-            occurredAt: Date,
-            numericValue: Double?,
-            completeness: ProjectionCompleteness,
-            sensitivity: DataSensitivity,
-            provenance: String,
-            evidence: [EvidenceReference],
-            receipt: MutationReceiptReference? = nil,
-            reversal: ReversalState = .notApplicable
-        ) -> NormalizedLifeEvent {
-            NormalizedLifeEvent(
-                id: id, sourceID: sourceID, domain: domain, kind: kind,
-                occurredAt: occurredAt, localDay: day(occurredAt), numericValue: numericValue,
-                completeness: completeness, sensitivity: sensitivity,
-                allowedDestinations: policy.allowedDestinations(domain: domain, sensitivity: sensitivity),
-                provenance: provenance, evidence: evidence,
-                freshness: policy.freshness(domain: domain, occurredAt: occurredAt, now: now),
-                authorization: .authorized, redaction: .none,
-                receipt: receipt, reversal: reversal
-            )
-        }
-
-        func correctionMetadata(
-            domain: TrackCorrectionDomain,
-            sourceID: UUID
-        ) -> (MutationReceiptReference?, ReversalState) {
-            guard let receipt = correctionReceipts
-                .filter({ $0.domain == domain && $0.sourceID == sourceID })
-                .max(by: { lhs, rhs in lhs.appliedAt < rhs.appliedAt }) else {
-                return (nil, .notApplicable)
-            }
-            return (receipt.reference, receipt.reversalState)
-        }
-
-        for log in hydrationLogs {
-            let correction = correctionMetadata(domain: .hydration, sourceID: log.id)
-            let destinations: Set<Destination> = [.home, .track, .insights]
-            context.append(.init(
-                id: "hydration:\(log.id.uuidString)", sourceID: log.id, sourceType: "hydration",
-                timestamp: log.timestamp, localDay: day(log.timestamp), completeness: .complete,
-                sensitivity: .privateStandard, isAuthorized: true,
-                allowedDestinations: destinations, provenance: "LifeBoard hydration log"
-            ))
-            events.append(projector.event(
-                sourceID: log.id, domain: "hydration", kind: "recorded", occurredAt: log.timestamp,
-                numericValue: HydrationMeasurementService.milliliters(log.amount, unit: log.unit),
-                provenance: "LifeBoard hydration log", evidenceDisplay: "Hydration log",
-                receipt: correction.0, reversal: correction.1, now: now
-            ))
-        }
-        for event in medicationEvents {
-            let correction = correctionMetadata(domain: .medication, sourceID: event.id)
-            context.append(.init(
-                id: "medication:\(event.id.uuidString)", sourceID: event.id, sourceType: "medicationEvent",
-                timestamp: event.scheduledAt, localDay: day(event.scheduledAt), completeness: .complete,
-                sensitivity: .privateSensitive, isAuthorized: true,
-                allowedDestinations: [.home, .track], provenance: "LifeBoard medication event"
-            ))
-            events.append(makeEvent(
-                id: "medication:\(event.id.uuidString)", sourceID: event.id, domain: "medication",
-                kind: event.status.rawValue, occurredAt: event.scheduledAt, numericValue: nil,
-                completeness: .complete, sensitivity: .privateSensitive,
-                provenance: "LifeBoard medication event",
-                evidence: [EvidenceReference(sourceID: event.id, kind: "medication", display: "Medication event")],
-                receipt: correction.0, reversal: correction.1
-            ))
-        }
-        for checkIn in checkIns {
-            let correction = correctionMetadata(domain: .mood, sourceID: checkIn.id)
-            let timestamp = checkIn.createdAt
-            context.append(.init(
-                id: "mood:\(checkIn.id.uuidString)", sourceID: checkIn.id, sourceType: "moodEnergy",
-                timestamp: timestamp, localDay: day(timestamp), completeness: .complete,
-                sensitivity: .privateSensitive, isAuthorized: true,
-                allowedDestinations: [.track], provenance: "LifeBoard mood and energy check-in"
-            ))
-            let moodValence = JournalMood.dialOrder.firstIndex(of: checkIn.mood).map { Double($0 - 4) }
-            events.append(makeEvent(
-                id: "mood:\(checkIn.id.uuidString)", sourceID: checkIn.id, domain: "mood",
-                kind: checkIn.mood.rawValue, occurredAt: timestamp, numericValue: moodValence,
-                completeness: .complete, sensitivity: .privateSensitive,
-                provenance: "LifeBoard mood and energy check-in",
-                evidence: [EvidenceReference(sourceID: checkIn.id, kind: "mood", display: "Mood & energy check-in")],
-                receipt: correction.0, reversal: correction.1
-            ))
-        }
-        for record in sleepRecords {
-            let correction = correctionMetadata(domain: .sleep, sourceID: record.id)
-            context.append(.init(
-                id: "sleep:\(record.id.uuidString)", sourceID: record.id, sourceType: "sleepContext",
-                timestamp: record.createdAt, localDay: day(record.createdAt), completeness: .complete,
-                sensitivity: .privateSensitive, isAuthorized: true,
-                allowedDestinations: [.track], provenance: "Manual LifeBoard sleep context"
-            ))
-            events.append(makeEvent(
-                id: "sleep:\(record.id.uuidString)", sourceID: record.id, domain: "sleep",
-                kind: "context", occurredAt: record.createdAt, numericValue: nil,
-                completeness: .complete, sensitivity: .privateSensitive,
-                provenance: "Manual LifeBoard sleep context",
-                evidence: [EvidenceReference(sourceID: record.id, kind: "sleep", display: "Sleep context")],
-                receipt: correction.0, reversal: correction.1
-            ))
-        }
-        for routine in routines {
-            context.append(.init(
-                id: "routine:\(routine.id.uuidString)", sourceID: routine.id, sourceType: "dueRoutine",
-                timestamp: now, localDay: day(now), completeness: .complete,
-                sensitivity: .privateStandard, isAuthorized: true,
-                allowedDestinations: [.home, .track, .plan], provenance: "LifeBoard routine schedule"
-            ))
-            events.append(makeEvent(
-                id: "routine:\(routine.id.uuidString)", sourceID: routine.id, domain: "routine",
-                kind: "due", occurredAt: now, numericValue: nil,
-                completeness: .complete, sensitivity: .privateStandard,
-                provenance: "LifeBoard routine schedule",
-                evidence: [EvidenceReference(sourceID: routine.id, kind: "routine", display: routine.title)]
-            ))
-        }
-        for run in routineRuns {
-            events.append(projector.event(
-                sourceID: run.id, domain: "routine", kind: run.status.rawValue,
-                occurredAt: run.endedAt ?? run.updatedAt, provenance: "LifeBoard routine run",
-                evidenceDisplay: run.versionSnapshot.title, evidenceRouteID: run.routineID, now: now
-            ))
-        }
-        for grade in habitGrades {
-            events.append(projector.event(
-                sourceID: grade.habitID, domain: "habit", kind: "thirty_day_grade",
-                occurredAt: grade.generatedAt, numericValue: grade.grade,
-                completeness: grade.grade == nil ? .partial : .complete,
-                provenance: "Canonical 30-day habit occurrence history",
-                evidenceDisplay: "Habit history", now: now
-            ))
-        }
-        let trackerByID = Dictionary(uniqueKeysWithValues: trackers.map { ($0.id, $0) })
-        for entry in trackerEntries {
-            let definition = trackerByID[entry.trackerID]
-            let correction = correctionMetadata(domain: .tracker, sourceID: entry.id)
-            events.append(projector.event(
-                sourceID: entry.id, domain: "tracker", kind: definition?.kind.rawValue ?? "entry",
-                occurredAt: entry.timestamp,
-                numericValue: entry.numericValue ?? entry.booleanValue.map { $0 ? 1 : 0 },
-                provenance: "LifeBoard tracker entry",
-                evidenceDisplay: definition?.title ?? "Tracker entry", evidenceRouteID: entry.trackerID,
-                receipt: correction.0, reversal: correction.1, now: now
-            ))
-        }
-        for journal in journalDays {
-            // The shared exclusion contract applies before a journal source
-            // can become Eva evidence, even when this projection carries only
-            // a display-safe identity and no journal text.
-            guard journal.aiExclusion.permitsAssistantEvidence else { continue }
-            events.append(projector.event(
-                sourceID: journal.id, domain: "journal", kind: "day_updated",
-                occurredAt: journal.updatedAt, sensitivity: .privateSensitive,
-                provenance: "Private LifeBoard Journal day",
-                evidenceDisplay: "Journal entry", now: now
-            ))
-        }
-        for goal in goals {
-            let completeness: ProjectionCompleteness = goal.missingLinkCount == 0 ? .complete : .partial
-            context.append(.init(
-                id: "goal:\(goal.goalID.uuidString)", sourceID: goal.goalID, sourceType: "goalProgress",
-                timestamp: now, localDay: day(now),
-                completeness: completeness,
-                sensitivity: .privateStandard, isAuthorized: true,
-                allowedDestinations: [.home, .track, .insights], provenance: "Explicit LifeBoard goal links"
-            ))
-            events.append(makeEvent(
-                id: "goal:\(goal.goalID.uuidString)", sourceID: goal.goalID, domain: "goal",
-                kind: "progress", occurredAt: now, numericValue: goal.progressFraction,
-                completeness: completeness, sensitivity: .privateStandard,
-                provenance: "Explicit LifeBoard goal links",
-                evidence: [EvidenceReference(sourceID: goal.goalID, kind: "goal", display: "Goal progress")]
-            ))
-        }
-        return (context, events)
-    }
 }
-
-enum RoutineLiveActivityAction: String, Codable, Hashable, Sendable {
-    case pause
-    case resume
-    case stop
-
-    var runCommand: RoutineRunCommand {
-        switch self {
-        case .pause: .pause
-        case .resume: .resume
-        case .stop: .stop
-        }
-    }
-}
-
-struct RoutineLiveActivityCommand: Codable, Hashable, Sendable {
-    var id: UUID
-    var runID: UUID
-    var action: RoutineLiveActivityAction
-}
-
-#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
-import ActivityKit
-import OSLog
-
-actor RoutineLiveActivityCoordinator {
-    static let shared = RoutineLiveActivityCoordinator()
-    private let logger = Logger(
-        subsystem: "com.saransh1337.To-Do-List",
-        category: "RoutineLiveActivity"
-    )
-
-    @discardableResult
-    func synchronize(run: RoutineRun) async -> Bool {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return false }
-        let state = contentState(for: run)
-        let content = ActivityContent(state: state, staleDate: nil)
-        let existing = Activity<RoutineActivityAttributes>.activities.first {
-            $0.attributes.runID == run.id
-        }
-        let isTerminal = switch run.status {
-        case .completed, .partial, .abandoned, .skipped: true
-        case .running, .paused, .interrupted: false
-        }
-        if isTerminal {
-            if let existing {
-                await existing.end(content, dismissalPolicy: .immediate)
-            }
-            return true
-        }
-        if let existing {
-            await existing.update(content)
-            return true
-        }
-        do {
-            _ = try Activity.request(
-                attributes: RoutineActivityAttributes(
-                    runID: run.id,
-                    routineID: run.routineID,
-                    title: run.versionSnapshot.title
-                ),
-                content: content,
-                pushType: nil
-            )
-            return true
-        } catch {
-            logger.error(
-                "Live Activity start failed; canonical routine state is unchanged: \(String(describing: error), privacy: .public)"
-            )
-            return false
-        }
-    }
-
-    func endOrphanedActivities(except runID: UUID?) async {
-        for activity in Activity<RoutineActivityAttributes>.activities
-        where activity.attributes.runID != runID {
-            await activity.end(nil, dismissalPolicy: .immediate)
-        }
-    }
-
-    private func contentState(
-        for run: RoutineRun
-    ) -> RoutineActivityAttributes.ContentState {
-        let currentTitle = run.currentStepID.flatMap { currentID in
-            run.versionSnapshot.steps.first(where: { $0.id == currentID })?.title
-        } ?? "Review complete"
-        return .init(
-            status: run.status.rawValue,
-            stepTitle: currentTitle,
-            completedStepCount: run.events.count,
-            totalStepCount: run.versionSnapshot.steps.count,
-            updatedAt: run.updatedAt
-        )
-    }
-}
-
-enum RoutineLiveActivityDeepLink {
-    static func command(from url: URL) -> RoutineLiveActivityCommand? {
-        guard
-            url.scheme?.lowercased() == "lifeboard",
-            url.host?.lowercased() == "routine",
-            let runID = url.pathComponents.last.flatMap(UUID.init(uuidString:)),
-            let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-            let rawAction = components.queryItems?.first(where: { $0.name == "command" })?.value,
-            let action = RoutineLiveActivityAction(rawValue: rawAction),
-            let token = components.queryItems?.first(where: { $0.name == "token" })?.value
-                .flatMap(UUID.init(uuidString:))
-        else { return nil }
-        return RoutineLiveActivityCommand(id: token, runID: runID, action: action)
-    }
-}
-#else
-actor RoutineLiveActivityCoordinator {
-    static let shared = RoutineLiveActivityCoordinator()
-    @discardableResult
-    func synchronize(run: RoutineRun) async -> Bool { false }
-    func endOrphanedActivities(except runID: UUID?) async {}
-}
-
-enum RoutineLiveActivityDeepLink {
-    static func command(from url: URL) -> RoutineLiveActivityCommand? { nil }
-}
-#endif

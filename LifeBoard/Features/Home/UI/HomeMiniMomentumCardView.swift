@@ -23,7 +23,7 @@ struct HomeMiniMomentumCardView: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                    Text("Daily rhythm")
+                    Text("Today")
                         .font(.lifeboard(.bodyEmphasis))
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(1)
@@ -76,8 +76,8 @@ struct HomeMiniMomentumCardView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             reflectionEligible
-            ? "Daily rhythm summary. \(completionPercent) percent done, \(progress.streakDays) active days, reflection available."
-            : "Daily rhythm summary. \(completionPercent) percent done, \(progress.streakDays) active days."
+            ? String(localized: "Today. \(completionPercent) percent done, \(progress.streakDays) active days, reflection ready.")
+            : String(localized: "Today. \(completionPercent) percent done, \(progress.streakDays) active days.")
         )
         .accessibilityHint("Opens analytics")
         .accessibilityIdentifier("home.momentumMiniCard")

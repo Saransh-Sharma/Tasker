@@ -9,17 +9,17 @@ struct InlineNextTaskWidgetView: View {
     var body: some View {
         TaskWidgetScene { _ in
             if let task = entry.snapshot.nextTask {
-                Text("Next \(task.title)")
+                Text("Next: \(task.title)")
                     .font(TaskWidgetTypography.captionStrong)
                     .lineLimit(1)
             } else {
-                Text("Next capture")
+                Text("Nothing next")
                     .font(TaskWidgetTypography.captionStrong)
                     .lineLimit(1)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(entry.snapshot.nextTask.map { "Next task \($0.title)" } ?? "Next task. Capture a task")
+        .accessibilityLabel(entry.snapshot.nextTask.map { "Next task: \($0.title)" } ?? "Nothing next")
         .widgetURL(entry.snapshot.nextTask.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.quickAdd)
     }
 }
@@ -60,11 +60,11 @@ struct RectangularTop2TasksWidgetView: View {
 
         TaskWidgetScene { _ in
             VStack(alignment: .leading, spacing: 4) {
-                Text("TOP 2")
+                Text("Up next")
                     .font(TaskWidgetTypography.eyebrow)
                     .foregroundStyle(WidgetBrand.textSecondary)
                 if topTasks.isEmpty {
-                    Text("No tasks queued")
+                    Text("Nothing up next")
                         .font(TaskWidgetTypography.support)
                         .foregroundStyle(WidgetBrand.textSecondary)
                         .lineLimit(2)
@@ -89,21 +89,21 @@ struct RectangularOverdueAlertWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: 4) {
-                Text("OVERDUE")
+                Text("From earlier")
                     .font(TaskWidgetTypography.eyebrow)
-                    .foregroundStyle(WidgetBrand.sunriseGold)
+                    .foregroundStyle(WidgetBrand.goldInk)
                 Text("\(entry.snapshot.overdueCount)")
                     .font(TaskWidgetTypography.titleLarge)
                     .foregroundStyle(WidgetBrand.textPrimary)
                     .taskWidgetNumericTransition(Double(entry.snapshot.overdueCount), reduceMotion: context.reduceMotion)
-                Text(entry.snapshot.overdueTasks.first?.title ?? "Nothing to rescue")
+                Text(entry.snapshot.overdueTasks.first?.title ?? "Nothing from earlier")
                     .font(TaskWidgetTypography.support)
                     .foregroundStyle(WidgetBrand.textSecondary)
                     .lineLimit(1)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(entry.snapshot.overdueTasks.first.map { "Rescue \(entry.snapshot.overdueCount). First task \($0.title)" } ?? "Nothing to rescue")
+        .accessibilityLabel(entry.snapshot.overdueTasks.first.map { "\(entry.snapshot.overdueCount) from earlier. First: \($0.title)" } ?? "Nothing from earlier")
         .widgetURL(entry.snapshot.overdueTasks.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.overdue)
     }
 }
@@ -123,7 +123,7 @@ struct CircularQuickAddWidgetView: View {
                     .widgetAccentable()
             }
             .padding(6)
-            .accessibilityLabel("Quick add task")
+            .accessibilityLabel("Add task")
         }
         .widgetURL(TaskWidgetRoutes.quickAdd)
     }
@@ -139,10 +139,10 @@ struct RectangularFocusNowWidgetView: View {
     var body: some View {
         TaskWidgetScene { _ in
             VStack(alignment: .leading, spacing: 4) {
-                Text("FOCUS")
+                Text("Focus")
                     .font(TaskWidgetTypography.eyebrow)
                     .foregroundStyle(WidgetBrand.actionPrimary)
-                Text(task?.title ?? "No focus task")
+                Text(task?.title ?? "Nothing now")
                     .font(TaskWidgetTypography.support)
                     .foregroundStyle(task == nil ? WidgetBrand.textSecondary : WidgetBrand.textPrimary)
                     .lineLimit(2)
@@ -154,7 +154,7 @@ struct RectangularFocusNowWidgetView: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(task.map { "Focus now \($0.title)" } ?? "No focus task")
+        .accessibilityLabel(task.map { "Focus: \($0.title)" } ?? "Nothing now")
         .widgetURL(task.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.today)
     }
 }
@@ -165,17 +165,17 @@ struct InlineDueSoonWidgetView: View {
     var body: some View {
         TaskWidgetScene { _ in
             if let task = entry.snapshot.upcomingTasks.first {
-                Text("Due soon \(task.title)")
+                Text("Due soon: \(task.title)")
                     .font(TaskWidgetTypography.captionStrong)
                     .lineLimit(1)
             } else {
-                Text("Due soon clear")
+                Text("Nothing due soon")
                     .font(TaskWidgetTypography.captionStrong)
                     .lineLimit(1)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(entry.snapshot.upcomingTasks.first.map { "Due soon \($0.title)" } ?? "No upcoming deadline")
+        .accessibilityLabel(entry.snapshot.upcomingTasks.first.map { "Due soon: \($0.title)" } ?? "Nothing due soon")
         .widgetURL(entry.snapshot.upcomingTasks.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.upcoming)
     }
 }
@@ -186,7 +186,7 @@ struct RectangularWaitingOnWidgetView: View {
     var body: some View {
         TaskWidgetScene { _ in
             VStack(alignment: .leading, spacing: 4) {
-                Text("WAITING")
+                Text("Waiting on")
                     .font(TaskWidgetTypography.eyebrow)
                     .foregroundStyle(WidgetBrand.magenta)
                 Text(entry.snapshot.waitingOn.first?.title ?? "No blocked tasks")
@@ -199,7 +199,7 @@ struct RectangularWaitingOnWidgetView: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(entry.snapshot.waitingOn.first.map { "Waiting on \($0.title). \(entry.snapshot.waitingOn.count) blocked tasks." } ?? "No blocked tasks")
+        .accessibilityLabel(entry.snapshot.waitingOn.first.map { "Waiting on \($0.title). \(entry.snapshot.waitingOn.count) blocked." } ?? "No blocked tasks")
         .widgetURL(entry.snapshot.waitingOn.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.today)
     }
 }
@@ -221,7 +221,7 @@ struct DeskTodayBoardWidgetView: View {
                         eyebrow: "Today",
                         value: "\(entry.snapshot.todayTopTasks.count)",
                         numericValue: Double(entry.snapshot.todayTopTasks.count),
-                        supporting: entry.snapshot.nextTask?.title ?? "No active tasks",
+                        supporting: entry.snapshot.nextTask?.title ?? "No open tasks",
                         accent: WidgetBrand.actionPrimary
                     )
                 }
@@ -264,15 +264,15 @@ struct CountdownPanelWidgetView: View {
                             .font(TaskWidgetTypography.support)
                             .foregroundStyle(WidgetBrand.textSecondary)
                     } else {
-                        TaskWidgetEmptyState(title: "No upcoming deadlines.", symbol: "hourglass")
+                        TaskWidgetEmptyState(title: "Nothing due", symbol: "hourglass")
                     }
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, style: .quiet, padding: 14) {
                     TaskWidgetHeroMetric(
                         eyebrow: "Countdown",
-                        value: next?.dueLabel ?? "Clear",
-                        supporting: next == nil ? "Your horizon is open." : "Next meaningful deadline in sight.",
+                        value: next?.dueLabel ?? "None",
+                        supporting: next == nil ? "Nothing due" : "Next deadline",
                         accent: WidgetBrand.sunriseGold
                     )
                 }
@@ -307,12 +307,12 @@ struct FocusDockWidgetView: View {
                             .font(TaskWidgetTypography.support)
                             .foregroundStyle(WidgetBrand.textSecondary)
                     } else {
-                        TaskWidgetEmptyState(title: "No focus lane yet.", symbol: "target")
+                        TaskWidgetEmptyState(title: "Nothing up next", symbol: "target")
                     }
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sandstone, style: .quiet, padding: 14) {
-                    TaskWidgetSectionHeader(eyebrow: "Queue", title: "Next", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Then", title: "Next", detail: nil, accent: WidgetBrand.textPrimary)
                     TaskWidgetTaskList(tasks: Array(queue.dropFirst()), limit: context.supportListLimit, subtitle: { $0.projectLabel })
                 }
             }
@@ -334,17 +334,17 @@ struct NightlyResetWidgetView: View {
             ) {
                 TaskWidgetPanel(accent: WidgetBrand.emerald, padding: 14) {
                     TaskWidgetHeroMetric(
-                        eyebrow: "Nightly Reset",
+                        eyebrow: "Done today",
                         value: "\(entry.snapshot.doneTodayCount)",
                         numericValue: Double(entry.snapshot.doneTodayCount),
-                        supporting: entry.snapshot.overdueTasks.first.map { "Rescue: \($0.title)" } ?? "All clear for tomorrow",
+                        supporting: entry.snapshot.overdueTasks.first.map { "From earlier: \($0.title)" } ?? "All clear",
                         accent: WidgetBrand.emerald
                     )
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sunriseGold, style: .softSection, padding: 14) {
-                    TaskWidgetSectionHeader(eyebrow: "Rescue", title: "Into Tomorrow", detail: nil, accent: WidgetBrand.textPrimary)
-                    TaskWidgetSummaryPill(title: "Rescue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.sunriseGold)
+                    TaskWidgetSectionHeader(eyebrow: "Tomorrow", title: "Rescue", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSummaryPill(title: "Rescue", value: "\(entry.snapshot.overdueCount)", numericValue: Double(entry.snapshot.overdueCount), tint: WidgetBrand.goldInk)
                 }
             }
         }
@@ -365,10 +365,10 @@ struct MorningBriefPanelWidgetView: View {
             ) {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 14) {
                     TaskWidgetHeroMetric(
-                        eyebrow: "Morning Brief",
+                        eyebrow: "Today",
                         value: "\(entry.snapshot.todayTopTasks.count)",
                         numericValue: Double(entry.snapshot.todayTopTasks.count),
-                        supporting: entry.snapshot.morningTasks.first?.title ?? "No kickoff task",
+                        supporting: entry.snapshot.morningTasks.first?.title ?? "No morning tasks",
                         accent: WidgetBrand.actionPrimary
                     )
                 }
@@ -398,21 +398,21 @@ struct ProjectPulseWidgetView: View {
             ) {
                 TaskWidgetPanel(accent: WidgetBrand.actionPrimary, padding: 14) {
                     TaskWidgetHeroMetric(
-                        eyebrow: "Project Pulse",
+                        eyebrow: "Active projects",
                         value: "\(entry.snapshot.projectSlices.count)",
                         numericValue: Double(entry.snapshot.projectSlices.count),
-                        supporting: entry.snapshot.projectSlices.first?.projectName ?? "No active project slices",
+                        supporting: entry.snapshot.projectSlices.first?.projectName ?? "No active projects",
                         accent: WidgetBrand.actionPrimary
                     )
                 }
             } trailing: {
                 TaskWidgetPanel(accent: WidgetBrand.sunriseGold, style: .quiet, padding: 14) {
-                    TaskWidgetSectionHeader(eyebrow: "Portfolio", title: "Watchlist", detail: nil, accent: WidgetBrand.textPrimary)
+                    TaskWidgetSectionHeader(eyebrow: "Projects", title: "Open tasks", detail: nil, accent: WidgetBrand.textPrimary)
                     ForEach(Array(entry.snapshot.projectSlices.prefix(context.supportListLimit + 1))) { slice in
                         TaskWidgetTaskLine(
                             title: slice.projectName,
                             trailing: slice.overdueCount > 0 ? "!\(slice.overdueCount)" : "\(slice.openCount)",
-                            trailingTint: slice.overdueCount > 0 ? WidgetBrand.sunriseGold : WidgetBrand.actionPrimary,
+                            trailingTint: slice.overdueCount > 0 ? WidgetBrand.goldInk : WidgetBrand.actionPrimary,
                             destination: slice.projectID.map(TaskWidgetRoutes.project(_:))
                         )
                     }

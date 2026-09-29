@@ -75,7 +75,7 @@ struct EvaDestination: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             evaTopStrip
         }
-        .navigationTitle("Eva")
+        .navigationTitle(AssistantIdentitySnapshot.current.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("foundation.eva")
@@ -93,7 +93,6 @@ struct EvaDestination: View {
                 await loadAuthorizedEvidence()
             }
         }
-        .refreshable { await loadAuthorizedEvidence() }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if composerBottomClearance > 0 {
                 Color.clear
@@ -109,7 +108,7 @@ struct EvaDestination: View {
             } catch {
                 evidenceContext = EvaAuthorizedEvidenceContext(
                     availability: .failed,
-                    failureMessage: "Evidence sharing preferences could not be saved."
+                    failureMessage: String(localized: "Couldn’t save sharing settings.")
                 )
             }
         }
@@ -175,8 +174,8 @@ struct EvaDestination: View {
         .accessibilityLabel(privacyBadgeTitle)
         .accessibilityHint(
             isPrivacyDetailExpanded
-                ? "Hides Eva's evidence sharing controls"
-                : "Shows what Eva may use, and lets you change it"
+                ? "Hides sharing options"
+                : "Shows sharing options"
         )
         .accessibilityIdentifier("eva.privacy.badge")
         .lifeboardPressFeedback()
@@ -187,24 +186,23 @@ struct EvaDestination: View {
     }
 
     private var privacyBadgeTitle: String {
-        usesCloudEva ? "Cloud Eva · only context you allow" : "Private on-device context"
+        usesCloudEva ? String(localized: "Cloud · only what you allow") : String(localized: "On \(DeviceNoun.this)")
     }
 
     private var evidenceSharingMenu: some View {
         Menu {
-            Toggle("Body signals", isOn: $sharingPolicy.permitsBody)
+            Toggle("Body data", isOn: $sharingPolicy.permitsBody)
             Toggle("Mood check-ins", isOn: $sharingPolicy.permitsMood)
             Toggle("Medication and care", isOn: $sharingPolicy.permitsCare)
             Divider()
-            Text("Journal sharing is managed in Journal Privacy")
+            Text("Journal access is in Journal settings.")
         } label: {
-            Label("Evidence", systemImage: "checkmark.shield")
+            Label("Sharing", systemImage: "checkmark.shield")
                 .font(.lifeboard(.caption1))
                 .padding(.horizontal, Theme.Spacing.sm)
                 .frame(minHeight: 44)
         }
-        .accessibilityLabel("Eva evidence sharing")
-        .accessibilityHint("Choose which sensitive LifeBoard evidence Eva may use")
+        .accessibilityLabel("What \(AssistantIdentityText.currentSnapshot().displayName) can use")
     }
 
     private func loadAuthorizedEvidence() async {

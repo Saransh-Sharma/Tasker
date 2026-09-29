@@ -256,6 +256,7 @@ public final class CompositionRoot: @unchecked Sendable {
             weeklyReviewMutationRepository: weeklyReviewMutationRepository,
             weeklyReviewDraftStore: weeklyReviewDraftStore,
             reflectionNoteRepository: reflectionNoteRepository,
+            frictionFindingRepository: frictionFindingRepository,
             gamificationRepository: gamificationRepository,
             assistantActionRepository: assistantActionRepository,
             externalSyncRepository: externalSyncRepository,

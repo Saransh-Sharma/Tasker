@@ -1,0 +1,161 @@
+Attributes: Application, 0x116c20780, pid: 32342, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x116c20780, pid: 32342, label: 'LifeBoard'
+    Window (Main), 0x116c208c0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x116c20a00, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x116c20b40, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x116c20c80, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x116c20dc0, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x116c20f00, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x116c21040, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x116c21180, {{0.0, 0.0}, {402.0, 874.0}}
+                    Button, 0x116c212c0, {{201.0, 451.0}, {0.0, 0.0}}
+                    Other, 0x116c21400, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x116c21540, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x116c21680, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x116c217c0, {{0.0, 0.0}, {402.0, 874.0}}
+                          Other, 0x116c21900, {{0.0, 0.0}, {402.0, 874.0}}
+                            Other, 0x116c21a40, {{0.0, 0.0}, {402.0, 874.0}}
+                              Other, 0x116c21b80, {{0.0, 0.0}, {402.0, 874.0}}
+                                Other, 0x116c21cc0, {{0.0, 62.0}, {402.0, 632.0}}
+                                Other, 0x116c21e00, {{0.0, 0.0}, {402.0, 874.0}}
+                                  Other, 0x116c21f40, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x116c22080, {{0.0, 0.0}, {402.0, 874.0}}
+                                      Other, 0x116c221c0, {{0.0, 0.0}, {402.0, 874.0}}
+                                        Other, 0x116c22300, {{0.0, 0.0}, {402.0, 874.0}}
+                                          Image, 0x116c22440, {{-45.0, 0.0}, {492.0, 874.0}}
+                                          Image, 0x116c22580, {{225.2, 64.9}, {141.5, 141.2}}
+                                          Other, 0x116c226c0, {{201.0, 62.0}, {0.0, 0.0}}
+                                          ScrollView, 0x116c22800, {{0.0, 151.3}, {402.0, 722.7}}, identifier: 'foundation.home.scroll'
+                                            Other, 0x116c22940, {{0.0, 151.3}, {402.0, 1599.0}}
+                                              Other, 0x116c22a80, {{20.0, 163.3}, {362.0, 1441.3}}
+                                                StaticText, 0x116c22bc0, {{20.0, 163.3}, {45.7, 26.3}}, identifier: 'home.hero', label: 'Now'
+                                                Other, 0x116c22d00, {{34.0, 214.7}, {177.7, 111.3}}, identifier: 'home.hero'
+                                                  Image, 0x116c22e40, {{35.0, 214.7}, {14.7, 14.7}}, identifier: 'scope', label: 'scope'
+                                                  StaticText, 0x116c22f80, {{35.0, 214.7}, {88.3, 14.7}}, label: 'Focus Now'
+                                                  StaticText, 0x116c230c0, {{34.0, 233.3}, {100.7, 20.3}}, label: 'Draft update'
+                                                  StaticText, 0x116c23200, {{34.0, 256.7}, {177.7, 13.3}}, label: 'Its deadline needs attention soon.'
+                                                  Button, 0x116c23340, {{58.3, 282.0}, {63.7, 44.0}}, label: 'Start'
+                                                StaticText, 0x116c23480, {{20.0, 358.0}, {77.7, 26.3}}, identifier: 'home.todayStory', label: 'Up next'
+                                                Button, 0x116c235c0, {{36.0, 396.3}, {330.0, 95.3}}, identifier: 'home.todayStory', label: 'Nothing else is scheduled today, Open time is fine. Add a task if something is on your mind.'
+                                                  Image, 0x116c23700, {{37.3, 434.7}, {19.0, 19.0}}, identifier: 'sun.max', label: 'Brightness Higher'
+                                                  StaticText, 0x116c23840, {{106.0, 408.3}, {118.7, 36.0}}, label: 'Nothing else is scheduled today'
+                                                  StaticText, 0x116c23980, {{106.0, 448.3}, {188.7, 31.3}}, label: 'Open time is fine. Add a task if something is on your mind.'
+                                                  Image, 0x116c23ac0, {{347.3, 435.3}, {17.3, 17.3}}, identifier: 'plus.circle', label: 'Add'
+                                                StaticText, 0x116c23c00, {{20.0, 531.7}, {124.0, 26.3}}, label: 'Keep steady'
+                                                Other, 0x116c23d40, {{20.0, 578.0}, {362.0, 100.0}}, identifier: 'home.signalRow'
+                                                  Button, 0x116c23e80, {{20.0, 578.0}, {115.3, 100.0}}, identifier: 'home.signal.hydration', label: 'Hydration, setup required', value: Set up
+                                                    Image, 0x106e1ed00, {{72.3, 612.0}, {10.7, 10.7}}, identifier: 'plus', label: 'Add'
+                                                    StaticText, 0x106e1ee40, {{51.3, 654.3}, {52.7, 13.3}}, label: 'Hydration'
+                                                  Button, 0x106e1ef80, {{143.3, 578.0}, {115.3, 100.0}}, identifier: 'home.signal.fasting', label: 'Start fasting timer', value: Open window, 0 hou...
+                                                    StaticText, 0x106e1f0c0, {{182.3, 594.8}, {37.3, 14.3}}, label: '0h 0m'
+                                                    StaticText, 0x106e1f200, {{186.3, 609.2}, {29.3, 14.3}}, label: 'open'
+                                                    StaticText, 0x106e1f340, {{181.3, 643.2}, {39.3, 13.3}}, label: 'Fasting'
+                                                    StaticText, 0x106e1f480, {{186.2, 661.5}, {29.7, 14.3}}, label: 'Start'
+                                                  Button, 0x106e1f5c0, {{266.7, 578.0}, {115.3, 100.0}}, identifier: 'home.signal.connectHealth', label: 'Connect Health'
+                                                    Image, 0x106e1f700, {{316.0, 602.0}, {16.7, 16.7}}, identifier: 'heart.text.square', label: 'heart.text.square'
+                                                    StaticText, 0x106e1f840, {{298.0, 643.3}, {52.7, 31.3}}, label: 'Connect
+Health'
+                                                StaticText, 0x116c48000, {{20.0, 706.8}, {111.0, 26.3}}, label: 'Your space'
+                                                Button, 0x116c48140, {{338.0, 698.0}, {44.0, 44.0}}, identifier: 'home.customize', label: 'Customize Home'
+                                                Image, 0x116c48280, {{22.7, 750.6}, {170.0, 217.2}}, value: Pinned by you
+                                                StaticText, 0x116c483c0, {{40.1, 788.4}, {109.2, 19.7}}, identifier: 'home.widget.care', label: 'Night care', value: Pinned by you
+                                                  Image, 0x116c48500, {{40.1, 790.3}, {18.7, 15.8}}, identifier: 'cross.case.fill', label: 'cross.case.fill'
+                                                  StaticText, 0x116c48640, {{69.5, 788.4}, {79.8, 19.7}}, label: 'Night care'
+                                                Image, 0x116c48780, {{39.5, 830.1}, {16.5, 16.5}}, identifier: 'checkmark.circle', label: 'Selected', value: Pinned by you, Selected
+                                                StaticText, 0x116c488c0, {{68.9, 819.7}, {96.6, 36.8}}, label: 'No unresolved care decisions', value: Pinned by you
+                                                Button, 0x116c48a00, {{38.2, 880.8}, {73.4, 17.5}}, identifier: 'home.care.open', label: 'Open Care', value: Pinned by you
+                                                Image, 0x116c48b40, {{207.2, 774.7}, {172.0, 214.1}}, value: Pinned by you
+                                                Button, 0x116c48c80, {{225.6, 790.1}, {138.2, 42.4}}, identifier: 'home.widget.routines', label: 'View night routines', value: Pinned by you
+                                                  Image, 0x116c48dc0, {{227.5, 804.3}, {17.4, 14.5}}, identifier: 'repeat', label: 'Repeat 1'
+                                                  StaticText, 0x116c48f00, {{255.5, 791.7}, {63.0, 39.2}}, label: 'Night routines'
+                                                Image, 0x116c49040, {{226.8, 873.7}, {16.4, 16.4}}, identifier: 'checkmark.circle', label: 'Selected', value: Pinned by you, Selected
+                                                StaticText, 0x116c49180, {{256.1, 844.1}, {96.1, 75.2}}, label: 'No routines are due in this part of the day', value: Pinned by you
+                                                Button, 0x116c492c0, {{225.6, 943.4}, {133.1, 17.4}}, identifier: 'home.routines.open', label: 'View night routines', value: Pinned by you
+                                                Image, 0x116c49400, {{28.1, 976.7}, {345.7, 388.0}}, value: Pinned by you
+                                                Other, 0x116c49540, {{45.3, 1027.3}, {131.2, 19.4}}, identifier: 'home.widget.tasks', value: Pinned by you
+                                                  StaticText, 0x116c49680, {{45.3, 1027.3}, {131.2, 19.4}}, label: 'Today’s tasks'
+                                                    Image, 0x116c497c0, {{45.3, 1028.9}, {17.8, 16.2}}, identifier: 'checklist', label: 'checklist'
+                                                    StaticText, 0x116c49900, {{73.7, 1027.3}, {102.8, 19.4}}, label: 'Today’s tasks'
+                                                Button, 0x116c49a40, {{32.9, 1058.2}, {42.0, 42.0}}, label: 'Archive brief', value: Pinned by you
+                                                Button, 0x116c49b80, {{85.4, 1058.2}, {273.1, 42.0}}, identifier: 'home.task.E7200000-0000-4000-8000-000000000006', label: 'Archive brief', value: Pinned by you
+                                                  StaticText, 0x116c49cc0, {{85.4, 1070.6}, {85.6, 17.2}}, label: 'Archive brief'
+                                                  Image, 0x116c49e00, {{351.9, 1074.1}, {6.0, 10.2}}, identifier: 'chevron.right', label: 'Forward'
+                                                Button, 0x116c49f40, {{32.9, 1111.6}, {42.0, 42.0}}, label: 'Draft update', value: Pinned by you
+                                                Button, 0x116c4a080, {{85.4, 1111.6}, {273.1, 42.0}}, identifier: 'home.task.E7200000-0000-4000-8000-000000000001', label: 'Draft update', value: Pinned by you
+                                                  StaticText, 0x116c4a1c0, {{85.4, 1124.1}, {85.0, 17.2}}, label: 'Draft update'
+                                                  Image, 0x116c4a300, {{351.9, 1127.6}, {6.0, 10.2}}, identifier: 'chevron.right', label: 'Forward'
+                                                Button, 0x116c4a440, {{32.9, 1165.1}, {42.0, 42.0}}, label: 'Email launch notes', value: Pinned by you
+                                                Button, 0x116c4a580, {{85.4, 1165.1}, {273.1, 42.0}}, identifier: 'home.task.E7200000-0000-4000-8000-000000000005', label: 'Email launch notes', value: Pinned by you
+                                                  StaticText, 0x116c4a6c0, {{85.4, 1177.5}, {125.7, 17.2}}, label: 'Email launch notes'
+                                                  Image, 0x116c4a800, {{351.9, 1181.0}, {6.0, 10.2}}, identifier: 'chevron.right', label: 'Forward'
+                                                Button, 0x116c4a940, {{32.9, 1218.6}, {42.0, 42.0}}, label: 'Plan next step', value: Pinned by you
+                                                Button, 0x116c4aa80, {{85.4, 1218.6}, {273.1, 42.0}}, identifier: 'home.task.E7200000-0000-4000-8000-000000000003', label: 'Plan next step', value: Pinned by you
+                                                  StaticText, 0x116c4abc0, {{85.4, 1231.0}, {94.9, 17.2}}, label: 'Plan next step'
+                                                  Image, 0x116c4ad00, {{351.9, 1234.5}, {6.0, 10.2}}, identifier: 'chevron.right', label: 'Forward'
+                                                Button, 0x116c4ae40, {{45.3, 1284.5}, {93.6, 17.2}}, identifier: 'home.tasks.add', label: 'Add a task', value: Pinned by you
+                                                  Image, 0x116c4af80, {{45.3, 1287.0}, {12.1, 12.1}}, identifier: 'plus', label: 'Add'
+                                                  StaticText, 0x116c4b0c0, {{45.3, 1284.5}, {93.6, 17.2}}, label: 'Add a task'
+                                                Button, 0x116c4b200, {{259.9, 1284.5}, {98.7, 17.2}}, identifier: 'home.tasks.showMore', label: 'Show more', value: Pinned by you
+                                                  Image, 0x116c4b340, {{259.9, 1289.3}, {12.7, 7.6}}, identifier: 'chevron.down', label: 'Go Down'
+                                                  StaticText, 0x116c4b480, {{259.9, 1284.5}, {98.7, 17.2}}, label: 'Show more'
+                                                Other, 0x116c4b5c0, {{28.1, 1356.3}, {345.7, 248.3}}, value: Pinned by you
+                                                StaticText, 0x116c4b700, {{45.3, 1371.6}, {80.9, 19.4}}, identifier: 'home.widget.journal', label: 'Journal', value: Pinned by you
+                                                  Image, 0x116c4b840, {{45.3, 1372.9}, {13.4, 17.2}}, identifier: 'book.closed', label: 'book.closed'
+                                                  StaticText, 0x116c4b980, {{69.2, 1371.6}, {57.0, 19.4}}, label: 'Journal'
+                                                StaticText, 0x116c4bac0, {{43.4, 1403.4}, {302.1, 36.3}}, label: 'Keep one honest moment from today—words, photos, or audio.', value: Pinned by you
+                                                Button, 0x116c4bc00, {{43.4, 1456.9}, {151.8, 45.8}}, identifier: 'home.journal.capture', label: 'Write', value: Pinned by you
+                                                  Image, 0x116c4bd40, {{88.0, 1470.6}, {17.5, 17.5}}, identifier: 'square.and.pencil', label: 'Compose'
+                                                  StaticText, 0x116c4be80, {{88.0, 1470.6}, {65.6, 19.7}}, label: 'Write'
+                                                Button, 0x116c4c000, {{206.7, 1452.2}, {151.8, 55.4}}, identifier: 'home.journal.search', label: 'Search', value: Pinned by you
+                                                  Image, 0x116c4c140, {{245.6, 1472.2}, {15.6, 15.9}}, identifier: 'magnifyingglass', label: 'Search'
+                                                  StaticText, 0x116c4c280, {{206.7, 1452.2}, {151.8, 55.4}}, label: 'Search'
+                                                Button, 0x116c4c3c0, {{43.4, 1520.0}, {315.2, 42.0}}, identifier: 'home.journal.weeklyReflection', label: 'Weekly reflection', value: Pinned by you
+                                                  Image, 0x116c4c500, {{44.1, 1532.4}, {17.2, 17.5}}, identifier: 'sparkles.rectangle.stack', label: 'sparkles.rectangle.stack'
+                                                  StaticText, 0x116c4c640, {{44.1, 1531.8}, {144.2, 18.0}}, label: 'Weekly reflection'
+                                                  Image, 0x116c4c780, {{350.3, 1534.6}, {7.3, 12.7}}, identifier: 'chevron.right', label: 'Forward'
+                                          Other, 0x116c4c8c0, {{20.0, 70.0}, {348.0, 73.3}}, identifier: 'home.header'
+                                            StaticText, 0x116c4ca00, {{20.0, 70.0}, {153.3, 26.3}}, label: 'Good morning!'
+                                            StaticText, 0x116c4cb40, {{20.0, 111.0}, {166.0, 18.0}}, label: 'Thursday, September 17'
+                                            Button, 0x116c4cc80, {{194.0, 99.3}, {66.7, 44.0}}, identifier: 'home.mode', label: 'Home mode, Smart'
+                                              Button, 0x116c4cdc0, {{194.0, 99.3}, {66.7, 44.0}}
+                                                StaticText, 0x116c4cf00, {{194.0, 112.8}, {4.7, 17.0}}, label: '·'
+                                                StaticText, 0x116c4d040, {{194.0, 99.3}, {66.7, 44.0}}, label: 'Smart'
+                                                Image, 0x116c4d180, {{249.0, 118.3}, {10.3, 6.0}}, identifier: 'chevron.down', label: 'Go Down'
+                                            Button, 0x116c4d2c0, {{352.3, 105.0}, {15.7, 3.3}}, identifier: 'foundation.more.home', label: 'More'
+                                  Other, 0x116c4d400, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x116c4d540, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x116c4d680, {{0.0, 791.0}, {402.0, 83.0}}
+                        Other, 0x116c4d7c0, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x116c4d900, {{0.0, 791.0}, {402.0, 83.0}}
+                    Other, 0x116c4da40, {{0.0, 672.0}, {402.0, 162.5}}, identifier: 'LifeBoardCompactChrome'
+                      Button, 0x116c4db80, {{20.0, 702.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.toolsToggle', label: 'Open capture tools'
+                      TextField, 0x116c4dcc0, {{72.0, 713.0}, {258.0, 22.0}}, identifier: 'home.lifeThread.composer', placeholderValue: 'Ask Eva or capture what is on your mind'
+                        Other, 0x116c4de00, {{72.0, 721.0}, {258.0, 11.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                          Other, 0x116c4df40, {{75.0, 729.0}, {252.0, 3.0}}
+                      Button, 0x116c4e080, {{338.0, 702.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.send', label: 'Start dictation'
+                      Button, 0x116c4e1c0, {{20.0, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.home', label: 'Home', value: Root, Selected
+                        Image, 0x116c4e300, {{46.0, 782.7}, {20.7, 18.3}}, identifier: 'house', label: 'Home'
+                        StaticText, 0x116c4e440, {{40.2, 805.3}, {32.0, 13.3}}, label: 'Home'
+                      Button, 0x116c4e580, {{92.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.plan', label: 'Plan', value: Root
+                        Image, 0x116c4e6c0, {{120.3, 784.3}, {16.7, 15.3}}, identifier: 'calendar', label: 'Calendar'
+                        StaticText, 0x116c4e800, {{117.3, 803.5}, {22.7, 13.3}}, label: 'Plan'
+                      Button, 0x116c4e940, {{164.7, 774.0}, {72.7, 52.0}}, identifier: 'foundation.destination.track', label: 'Track', value: Root
+                        Image, 0x116c4ea80, {{190.7, 784.0}, {21.0, 15.7}}, identifier: 'chart.bar.fill', label: 'Chart Column'
+                        StaticText, 0x116c4ebc0, {{186.5, 803.7}, {29.0, 13.3}}, label: 'Track'
+                      Button, 0x116c4ed00, {{237.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.insights', label: 'Insights', value: Root
+                        Image, 0x116c4ee40, {{265.7, 782.3}, {15.7, 19.0}}, identifier: 'sparkles', label: 'Sparkle'
+                        StaticText, 0x116c4ef80, {{252.7, 805.3}, {41.3, 13.3}}, label: 'Insights'
+                      Button, 0x116c4f0c0, {{309.7, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.eva', label: 'Eva', value: Root
+                        Image, 0x116c4f200, {{333.7, 782.3}, {24.0, 19.0}}, identifier: 'bubble.left.and.bubble.right', label: 'Conversation'
+                        StaticText, 0x116c4f340, {{336.5, 805.3}, {18.7, 13.3}}, label: 'Eva'
+                    Other, 0x116c4f480, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.night', label: 'Celestial atmosphere: night'
+                    Button, 0x116c4f5c0, {{0.0, 62.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                    Other, 0x116c4f700, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x116c20780, pid: 32342, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x116c4f840, pid: 32342, label: 'LifeBoard'
+  }

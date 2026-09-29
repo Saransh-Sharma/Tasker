@@ -16,7 +16,7 @@ extension EvaCloudAccessCoordinator {
         case .authenticationRequired:
             return previousIdentityKind == .apple ? .appleReauthenticationRequired : .needsActivation
         case .adultEligibilityRequired:
-            return .temporarilyUnavailable("EVA could not connect. Please try again.")
+            return .temporarilyUnavailable("Eva couldn’t connect. Try again.")
         case .consentRequired:
             return .needsActivation
         case .creditsExhausted:
@@ -54,15 +54,15 @@ extension EvaCloudAccessCoordinator {
         if let urlError = error as? URLError {
             switch urlError.code {
             case .timedOut, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
-                return "EVA's server didn't respond in time. Tap to try again — setup will resume safely."
+                return String(localized: "Eva’s server didn’t respond. Tap to try again.")
             case .notConnectedToInternet, .networkConnectionLost:
-                return "You're offline. Reconnect and tap to try again, or use Offline EVA."
+                return String(localized: "You’re offline. Reconnect and tap to try again.")
             default:
                 break
             }
         }
         if let envelope = error as? EvaErrorEnvelope, envelope.retryable {
-            return "\(envelope.message) Tap to try again."
+            return String(localized: "\(envelope.message) Tap to try again.")
         }
         return error.localizedDescription
     }

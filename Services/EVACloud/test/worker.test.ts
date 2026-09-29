@@ -7,6 +7,10 @@ import { failClosedRuntimeConfig } from '../src/config/runtime-config.js'
 import { guestRolloutBucket } from '../src/auth/guest-rollout.js'
 
 const bindings = env as unknown as Env
+const distributionTrustPolicy = {
+  attestationMode: 'optionalRiskSignal',
+  ageEligibilitySource: 'distribution',
+} as const
 
 async function bootstrappedAccount(identityKind: 'guest' | 'apple' = 'apple') {
   const accountId = `test-${crypto.randomUUID()}`
@@ -671,7 +675,7 @@ describe('EVA Cloud Worker', () => {
     expect(Date.parse(ageBody.expiresAt) - Date.now()).toBeGreaterThan(23 * 60 * 60 * 1_000)
     const authorization = await stub.fetch('https://durable.internal/authorize', {
       method: 'POST',
-      body: JSON.stringify({ familyId, installationId, platform: 'ios', requireAdult: true, requireAttestation: false }),
+      body: JSON.stringify({ familyId, installationId, platform: 'ios', trustPolicy: distributionTrustPolicy }),
     })
     await expect(authorization.json()).resolves.toMatchObject({ authorized: true })
 
@@ -685,7 +689,7 @@ describe('EVA Cloud Worker', () => {
     })
     const expired = await stub.fetch('https://durable.internal/authorize', {
       method: 'POST',
-      body: JSON.stringify({ familyId, installationId, platform: 'ios', requireAdult: true, requireAttestation: false }),
+      body: JSON.stringify({ familyId, installationId, platform: 'ios', trustPolicy: distributionTrustPolicy }),
     })
     await expect(expired.json()).resolves.toMatchObject({ authorized: true })
   })
@@ -771,8 +775,7 @@ describe('EVA Cloud Worker', () => {
         familyId,
         installationId,
         platform: 'catalyst',
-        requireAdult: false,
-        requireAttestation: false,
+        trustPolicy: distributionTrustPolicy,
       }),
     })
     await expect(response.json()).resolves.toMatchObject({
@@ -800,8 +803,7 @@ describe('EVA Cloud Worker', () => {
         familyId: knownMinor.familyId,
         installationId: knownMinor.installationId,
         platform: 'ios',
-        requireAdult: false,
-        requireAttestation: false,
+        trustPolicy: distributionTrustPolicy,
       }),
     })).json()).resolves.toMatchObject({ authorized: true })
 
@@ -822,10 +824,50 @@ describe('EVA Cloud Worker', () => {
         familyId: mandatoryUnknown.familyId,
         installationId: mandatoryUnknown.installationId,
         platform: 'ios',
-        requireAdult: true,
-        requireAttestation: false,
+        trustPolicy: distributionTrustPolicy,
       }),
     })).json()).resolves.toMatchObject({ authorized: true })
+  })
+
+  it('enforces explicit service-managed age and required-attestation policies', async () => {
+    const account = await bootstrappedAccount()
+    const authorize = (trustPolicy: {
+      attestationMode: 'optionalRiskSignal' | 'required'
+      ageEligibilitySource: 'distribution' | 'serviceManaged'
+    }) => account.stub.fetch('https://durable.internal/authorize', {
+      method: 'POST',
+      body: JSON.stringify({
+        familyId: account.familyId,
+        installationId: account.installationId,
+        platform: 'ios',
+        trustPolicy,
+      }),
+    })
+
+    await expect((await authorize({
+      attestationMode: 'optionalRiskSignal',
+      ageEligibilitySource: 'serviceManaged',
+    })).json()).resolves.toMatchObject({ authorized: false, reason: 'age' })
+
+    await account.stub.fetch('https://durable.internal/device/age', {
+      method: 'POST',
+      body: JSON.stringify({
+        installationId: account.installationId,
+        platform: 'ios',
+        eligibleAdult: true,
+        policyRequired: true,
+        declaration: 'adult:service-managed-v1',
+      }),
+    })
+    await expect((await authorize({
+      attestationMode: 'optionalRiskSignal',
+      ageEligibilitySource: 'serviceManaged',
+    })).json()).resolves.toMatchObject({ authorized: true })
+
+    await expect((await authorize({
+      attestationMode: 'required',
+      ageEligibilitySource: 'serviceManaged',
+    })).json()).resolves.toMatchObject({ authorized: false, reason: 'attestation' })
   })
 
   it('rejects stale assertion challenges and regressing counters', async () => {

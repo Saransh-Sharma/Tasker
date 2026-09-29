@@ -12,7 +12,7 @@ struct LifeManagementIconTile: View {
 
     var body: some View {
         Button {
-            HapticFeedback.selection()
+            Haptic.pick.play()
             action()
         } label: {
             VStack(spacing: spacing.s8) {

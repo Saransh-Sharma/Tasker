@@ -10,6 +10,12 @@ struct HomeFocusCardContent: View {
     let preset: WidgetSizePreset
     let palette: DaypartPalette
     var onOpen: () -> Void = {}
+    /// True while the action is being carried out (a session starting); the
+    /// button shows progress and ignores further taps.
+    var isBusy: Bool = false
+    /// Why the last action did not happen, said in place rather than by
+    /// switching tabs.
+    var failureMessage: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -36,17 +42,35 @@ struct HomeFocusCardContent: View {
             Button {
                 onOpen()
             } label: {
-                Text(actionTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 44)
-                    .background(Color(SemanticColorTokens.inkPrimary), in: Capsule())
+                ZStack {
+                    // The title keeps the capsule's width while progress shows.
+                    Text(actionTitle)
+                        .opacity(isBusy ? 0 : 1)
+                    if isBusy {
+                        ProgressView()
+                            .tint(Color(SemanticColorTokens.foundationSurfaceSolid))
+                    }
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(Color(SemanticColorTokens.inkPrimary), in: Capsule())
             }
             .buttonStyle(.plain)
+            .disabled(isBusy)
             .frame(maxWidth: 112)
             .accessibilityHint(actionHint)
+            .accessibilityValue(isBusy ? "Starting" : "")
             .homeCardEvidence("focus.open", role: "control", copy: actionTitle, typography: .init(role: "subheadline", points: 15, weight: "semibold", alignment: "center"))
+
+            if let failureMessage {
+                Label(failureMessage, systemImage: "exclamationmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(palette.color(for: .foreground))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("home.hero.failure")
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

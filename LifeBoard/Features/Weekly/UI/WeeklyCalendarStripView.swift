@@ -176,7 +176,7 @@ struct WeeklyCalendarStripView: View {
                         withAnimation(LifeBoardAnimation.stateChange) {
                             selectedDate = date
                         }
-                        HapticFeedback.selection()
+                        Haptic.pick.play()
                     } label: {
                         dayCell(date: date)
                             .frame(maxWidth: .infinity)
@@ -266,7 +266,7 @@ struct WeeklyCalendarStripView: View {
             withAnimation(LifeBoardAnimation.stateChange) {
                 selectedDate = date
             }
-            HapticFeedback.selection()
+            Haptic.pick.play()
         } label: {
             ZStack {
                 if isSelected {
@@ -305,7 +305,7 @@ struct WeeklyCalendarStripView: View {
             withAnimation(LifeBoardAnimation.stateChange) {
                 isExpanded.toggle()
             }
-            HapticFeedback.selection()
+            Haptic.pick.play()
         } label: {
             Image(systemName: "chevron.down")
                 .lifeboardFont(.eyebrow)
@@ -315,7 +315,7 @@ struct WeeklyCalendarStripView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isExpanded ? "Collapse to week view" : "Expand to month view")
+        .accessibilityLabel(isExpanded ? "Show week" : "Show month")
         .accessibilityIdentifier("home.calendar.expandToggle")
     }
 
@@ -339,7 +339,7 @@ struct WeeklyCalendarStripView: View {
         withAnimation(LifeBoardAnimation.stateChange) {
             displayedWeekStart = newStart
         }
-        HapticFeedback.selection()
+        Haptic.pick.play()
     }
 
     // MARK: - Formatters

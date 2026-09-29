@@ -6,6 +6,7 @@ struct ChatsSettingsView: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var isEditingPrompt = false
     @State private var draftPrompt = ""
+    @State private var showsAdvanced = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
     @Binding var currentThread: Thread?
@@ -18,16 +19,29 @@ struct ChatsSettingsView: View {
         ScrollView {
             VStack(spacing: 0) {
                 SettingsSectionHeader(
-                    title: "Chat Behavior",
-                    subtitle: "Set the prompt and feedback touches that shape \(assistantIdentity.snapshot.displayName)’s replies."
+                    title: String(localized: "Chat behavior"),
+                    subtitle: ""
                 )
                 .padding(.top, spacing.s16)
 
                 VStack(spacing: spacing.cardStackVertical) {
-                    promptCard
-
                     if layoutClass == .phone {
                         hapticsCard
+                    }
+
+                    // The instructions editor is for people who want to
+                    // rewrite them; everyone else never needs to see it.
+                    SurfaceCard {
+                        DisclosureGroup(isExpanded: $showsAdvanced) {
+                            promptCard
+                                .padding(.top, spacing.s12)
+                        } label: {
+                            Text("Advanced")
+                                .font(.lifeboard(.bodyEmphasis))
+                                .foregroundStyle(Color.lifeboard(.textPrimary))
+                        }
+                        .tint(Color.lifeboard(.accentPrimary))
+                        .accessibilityIdentifier("chatsSettings.advanced")
                     }
                 }
                 .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 860 : .infinity, alignment: .center)
@@ -37,7 +51,7 @@ struct ChatsSettingsView: View {
             .padding(.bottom, spacing.s24)
         }
         .background(Color.lifeboard(.bgCanvas))
-        .navigationTitle("Chat Behavior")
+        .navigationTitle("Chat behavior")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -63,15 +77,12 @@ struct ChatsSettingsView: View {
 
     private var promptCard: some View {
         SettingsFieldCard(
-            title: "System Prompt",
-            subtitle: "Sets \(assistantIdentity.snapshot.displayName)’s baseline tone before task context is added.",
-            footer: "Use Default for concise planning help."
+            title: String(localized: "Instructions"),
+            subtitle: String(localized: "Sent to \(assistantIdentity.snapshot.displayName) before every chat."),
+            footer: ""
         ) {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                HStack(spacing: spacing.s8) {
-                    promptBadge(title: promptStateLabel, tone: appManager.systemPrompt == AppManager.defaultSystemPrompt ? .neutral : .accent)
-                    promptBadge(title: "\(appManager.systemPrompt.count) chars", tone: .neutral)
-                }
+                promptBadge(title: promptStateLabel, tone: appManager.systemPrompt == AppManager.defaultSystemPrompt ? .neutral : .accent)
 
                 Text(appManager.systemPrompt)
                     .font(.lifeboard(.callout))
@@ -89,7 +100,7 @@ struct ChatsSettingsView: View {
                     )
 
                 HStack(spacing: spacing.s8) {
-                    Button("Edit Prompt") {
+                    Button("Edit instructions") {
                         draftPrompt = appManager.systemPrompt
                         isEditingPrompt = true
                     }
@@ -98,7 +109,7 @@ struct ChatsSettingsView: View {
                     .tint(Color.lifeboard(.accentPrimary))
 
                     if appManager.systemPrompt != AppManager.defaultSystemPrompt {
-                        Button("Reset to Default") {
+                        Button("Reset to default") {
                             draftPrompt = AppManager.defaultSystemPrompt
                             isEditingPrompt = true
                         }
@@ -115,8 +126,8 @@ struct ChatsSettingsView: View {
         SurfaceCard {
             SettingsToggleRow(
                 iconName: "waveform.path",
-                title: "Chat Haptics",
-                subtitle: "Play light haptic feedback when \(assistantIdentity.snapshot.displayName) switches models or finishes key actions.",
+                title: String(localized: "Haptics in chat"),
+                subtitle: String(localized: "Tap on send and when \(assistantIdentity.snapshot.displayName) replies."),
                 isOn: $appManager.shouldPlayHaptics
             )
         }
@@ -163,7 +174,7 @@ struct ChatsSettingsView: View {
     }
 
     private var promptStateLabel: String {
-        appManager.systemPrompt == AppManager.defaultSystemPrompt ? "Default" : "Custom"
+        appManager.systemPrompt == AppManager.defaultSystemPrompt ? String(localized: "Default") : String(localized: "Custom")
     }
 }
 
@@ -178,6 +189,9 @@ private struct PromptEditorView: View {
         VStack(spacing: 0) {
             TextEditor(text: $prompt)
                 .font(.lifeboard(.callout))
+                // Reset sits in the bottom bar under the keyboard; Done is the
+                // way back to it without dragging inside the editor.
+                .keyboardBar()
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .padding(16)
                 .background(Color.lifeboard(.surfaceSecondary))
@@ -187,19 +201,20 @@ private struct PromptEditorView: View {
                 .padding(.top, 16)
         }
         .background(Color.lifeboard(.bgCanvas))
-        .navigationTitle("Edit Prompt")
+        .navigationTitle("Edit instructions")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", action: onCancel)
+                    .keyboardShortcut(.cancelAction)
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Done", action: onSave)
             }
             ToolbarItem(placement: .bottomBar) {
-                Button("Reset to Default", action: onReset)
+                Button("Reset to default", action: onReset)
                     .tint(Color.lifeboard(.accentPrimary))
             }
         }

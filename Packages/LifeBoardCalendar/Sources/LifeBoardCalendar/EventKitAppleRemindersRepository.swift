@@ -88,7 +88,7 @@ public final class EventKitAppleRemindersRepository: AppleRemindersRepositoryPro
                 let error = NSError(
                     domain: "EventKitAppleRemindersProvider",
                     code: 404,
-                    userInfo: [NSLocalizedDescriptionKey: "Reminder list not found: \(listID)"]
+                    userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t find that Reminders list.")]
                 )
                 completion(.failure(error))
                 return

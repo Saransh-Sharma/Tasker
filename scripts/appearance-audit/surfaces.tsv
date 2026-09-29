@@ -1,0 +1,39 @@
+# name	seed	route(LIFEBOARD_EVIDENCE_ROUTE or -)	extra launch args (space separated)
+journal	APP_STORE_SCREENSHOTS	journal
+care	QUIET_TRACKING_WORKSPACE	care
+routines	APP_STORE_SCREENSHOTS	routines
+goals	APP_STORE_SCREENSHOTS	goals
+fasting	APP_STORE_SCREENSHOTS	fasting
+body	APP_STORE_SCREENSHOTS	body
+workout	APP_STORE_SCREENSHOTS	workout
+sleep	APP_STORE_SCREENSHOTS	sleep
+movement	APP_STORE_SCREENSHOTS	movement
+nutrition	APP_STORE_SCREENSHOTS	nutrition
+moments	APP_STORE_SCREENSHOTS	moment
+capture-sheet	ESTABLISHED_WORKSPACE	capture
+plan-week	APP_STORE_SCREENSHOTS	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://week
+plan-backlog	RESCUE_WORKSPACE	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://backlog
+weekly-planner	ESTABLISHED_WORKSPACE	-	-LIFEBOARD_TEST_ROUTE:weekly_planner
+weekly-review	INSIGHTS_HISTORY	-	-LIFEBOARD_TEST_ROUTE:weekly_review
+focus-active	FOCUS_WORKSPACE	-	-LIFEBOARD_TEST_MARKETING_ACTIVE_FOCUS -LIFEBOARD_TEST_DEEP_LINK:lifeboard://focus
+day-close	DAY_CLOSE	-	-LIFEBOARD_TEST_ROUTE:daily_summary:nightly
+day-open	DAY_OPEN	-	-LIFEBOARD_TEST_ROUTE:day_compass:morningPlan
+home-dayclose-spine	DAY_CLOSE	-	-LIFEBOARD_FORCE_DAY_CLOSE
+task-detail	DAY_CLOSE	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://task/0DC10000-0000-0000-0000-000000000001
+habit-board	HABIT_BOARD_WORKSPACE	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://habits
+habit-library	HABIT_BOARD_WORKSPACE	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://habits/library
+habit-detail	APP_STORE_SCREENSHOTS	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://habit/A6000000-0000-0000-0000-000000000002
+goal-detail	APP_STORE_SCREENSHOTS	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://goal/A7200000-0000-0000-0000-000000000001
+reflection	APP_STORE_SCREENSHOTS	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://reflection
+notes	APP_STORE_SCREENSHOTS	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://notes
+note-capture	APP_STORE_SCREENSHOTS	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://note
+settings	ESTABLISHED_WORKSPACE	-	-LIFEBOARD_TEST_OPEN_SETTINGS
+setup-center	ESTABLISHED_WORKSPACE	-	-LIFEBOARD_TEST_OPEN_SETUP_CENTER
+bad-link-alert	ESTABLISHED_WORKSPACE	-	-LIFEBOARD_TEST_DEEP_LINK:lifeboard://task/bad
+fixture-home-empty	none	-	-LIFEBOARD_VISUAL_FIXTURE=home:empty
+fixture-home-loading	none	-	-LIFEBOARD_VISUAL_FIXTURE=home:loading
+fixture-home-offline	none	-	-LIFEBOARD_VISUAL_FIXTURE=home:offline
+fixture-plan-error	none	-	-LIFEBOARD_VISUAL_FIXTURE=plan:recoverable-error
+fixture-track-denied	none	-	-LIFEBOARD_VISUAL_FIXTURE=track:denied
+fixture-insights-destructive	none	-	-LIFEBOARD_VISUAL_FIXTURE=insights:destructive-confirmation
+reference-dashboard	ESTABLISHED_WORKSPACE	-	-LIFEBOARD_FOUNDATION_REFERENCE_DASHBOARD

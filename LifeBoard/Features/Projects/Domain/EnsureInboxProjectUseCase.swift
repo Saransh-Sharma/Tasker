@@ -76,9 +76,9 @@ public enum EnsureInboxError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .creationFailed(let error):
-            return "Failed to create Inbox project: \(error.localizedDescription)"
+            return String(localized: "Couldn’t create Inbox. \(error.localizedDescription)")
         case .validationFailed(let message):
-            return "Inbox project validation failed: \(message)"
+            return String(localized: "Couldn’t set up Inbox. \(message)")
         }
     }
 }

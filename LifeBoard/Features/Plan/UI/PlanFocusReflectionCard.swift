@@ -45,23 +45,30 @@ struct PlanFocusReflectionCard: View {
                 title: { "\($0)" }
             )
             .accessibilityValue("\(focusReflectionEnergy) out of 5")
-            TextField("A short note, if useful", text: $focusReflectionNote, axis: .vertical)
+            TextField("Note", text: $focusReflectionNote, prompt: Text("Note").foregroundColor(Color(SemanticColorTokens.inkSecondary)), axis: .vertical)
                 .lineLimit(2...4)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
+                // Clay well, not the system rounded border: that drew a pure white
+                // box on warm paper and a pure black one in dark appearance.
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.field)
                 .accessibilityIdentifier("plan.focus.reflection.note")
             VStack(alignment: .leading, spacing: 12) {
                 if receipt.interruptionCount > 0 {
                     Label(
-                        "\(receipt.interruptionCount) interruption\(receipt.interruptionCount == 1 ? "" : "s")",
+                        receipt.interruptionCount == 1
+                            ? String(localized: "1 interruption")
+                            : String(localized: "\(receipt.interruptionCount) interruptions"),
                         systemImage: "bell.slash"
                     )
                     .font(.caption)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 CommitControl(
-                    title: "Save reflection",
-                    runningTitle: "Saving reflection",
-                    successTitle: "Reflection saved",
+                    title: String(localized: "Save"),
+                    runningTitle: String(localized: "Saving…"),
+                    successTitle: String(localized: "Saved"),
                     phase: store.focusReflectionCommitPhase
                 ) {
                     let energy = focusReflectionEnergy

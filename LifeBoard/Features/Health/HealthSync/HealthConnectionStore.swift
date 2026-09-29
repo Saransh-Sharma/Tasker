@@ -137,6 +137,9 @@ public final class HealthConnectionStore {
                 isRequestingAuthorization = false
             }
             HealthAuthorizationPromptState.recordRequested()
+            // Observers install only once Health has been asked for; on a
+            // first connection that is now, not at the next launch.
+            HealthCoordinator.shared.prepareForLaunch()
             UserDefaults.standard.set(true, forKey: Self.unfinishedAuthorizationKey)
             do {
                 try await gateway.requestAuthorization(writeDomains: writableDomains)

@@ -14,7 +14,7 @@ struct InsightsEvidenceDisclosure: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 12)
         } label: {
-            Label("Evidence", systemImage: "checkmark.shield")
+            Label("Details", systemImage: "checkmark.shield")
                 .lifeboardFont(.headline)
         }
         .padding(16)

@@ -146,7 +146,7 @@ private struct HomeTimelineAddTaskButton: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: reduceTransparency ? [WidgetBrand.actionPrimary, WidgetBrand.actionPrimary] : [WidgetBrand.actionPrimary, WidgetBrand.violetDeep],
+                            colors: reduceTransparency ? [WidgetBrand.actionPrimary, WidgetBrand.actionPrimary] : [WidgetBrand.actionPrimary, WidgetBrand.actionPrimaryPressed],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -163,7 +163,7 @@ private struct HomeTimelineAddTaskButton: View {
             .frame(width: 44, height: 44)
             .shadow(color: WidgetBrand.floatingShadow.opacity(reduceTransparency ? 0.12 : 0.26), radius: reduceTransparency ? 4 : 10, x: 0, y: 5)
         }
-        .accessibilityLabel("Add Task")
+        .accessibilityLabel("Add task")
     }
 }
 
@@ -173,7 +173,7 @@ private struct HomeTimelineWidgetHeader: View {
 
     var body: some View {
         TaskWidgetSectionHeader(
-            eyebrow: "Timeline",
+            eyebrow: "Today",
             title: HomeTimelineFormatter.dateText(timeline.date),
             detail: detail,
             accent: WidgetBrand.textPrimary
@@ -289,7 +289,7 @@ private struct HomeTimelineAllDayStrip: View {
     var body: some View {
         if items.isEmpty == false {
             HStack(spacing: 6) {
-                Label("All Day", systemImage: "sun.max")
+                Label("All day", systemImage: "sun.max")
                     .font(TaskWidgetTypography.captionStrong)
                     .foregroundStyle(WidgetBrand.sunriseGoldDeep)
                     .lineLimit(1)
@@ -318,7 +318,7 @@ private struct HomeTimelineAllDayStrip: View {
                 }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(items.count) all-day timeline item\(items.count == 1 ? "" : "s")")
+            .accessibilityLabel("\(items.count) all-day \(items.count == 1 ? "item" : "items")")
         }
     }
 }
@@ -385,7 +385,7 @@ private struct HomeTimelineWeekAgenda: View {
 
     var body: some View {
         TaskWidgetPanel(style: .quiet, padding: 10) {
-            TaskWidgetSectionHeader(eyebrow: "Week", title: "Timeline Load", detail: nil, accent: WidgetBrand.textPrimary)
+            TaskWidgetSectionHeader(eyebrow: "Week", title: "How busy", detail: nil, accent: WidgetBrand.textPrimary)
 
             VStack(alignment: .leading, spacing: 7) {
                 ForEach(days) { day in
@@ -420,15 +420,15 @@ private struct HomeTimelineWeekAgendaDay: View {
 
     private var summary: String {
         let total = day.timedCount + day.allDayCount
-        guard total > 0 else { return "Clear" }
+        guard total > 0 else { return "Nothing planned" }
         let itemSuffix = total == 1 ? "item" : "items"
         switch day.loadLevel {
         case .light:
-            return "\(total) light \(itemSuffix)"
+            return "\(total) \(itemSuffix), light"
         case .balanced:
-            return "\(total) balanced \(itemSuffix)"
+            return "\(total) \(itemSuffix), balanced"
         case .busy:
-            return "\(total) busy \(itemSuffix)"
+            return "\(total) \(itemSuffix), busy"
         }
     }
 }
@@ -441,9 +441,9 @@ private struct HomeTimelineStatusFooter: View {
         HStack(spacing: 6) {
             Image(systemName: isStale ? "arrow.clockwise.circle" : "arrow.up.right")
                 .font(TaskWidgetTypography.caption)
-                .foregroundStyle(isStale ? WidgetBrand.sunriseGoldDeep : WidgetBrand.violet)
+                .foregroundStyle(isStale ? WidgetBrand.sunriseGoldDeep : WidgetBrand.actionPrimary)
                 .accessibilityHidden(true)
-            Text(isStale ? "Refresh day" : "Open day")
+            Text(isStale ? "Refresh" : "Open day")
                 .font(TaskWidgetTypography.captionStrong)
                 .foregroundStyle(WidgetBrand.textSecondary)
                 .lineLimit(1)
@@ -483,22 +483,23 @@ private struct HomeTimelineEmptyState: View {
 
     private var title: String {
         if isStale {
-            return "Timeline may be stale"
+            return "Not up to date"
         }
         if timeline.day.inboxItems.isEmpty == false {
-            return "Inbox ready"
+            return "Inbox"
         }
-        return "Open timeline"
+        return "Nothing scheduled"
     }
 
     private var detail: String {
         if isStale {
-            return "Open LifeBoard to refresh today's timeline."
+            return "Open LifeBoard to refresh."
         }
         if timeline.day.inboxItems.isEmpty == false {
-            return "\(timeline.day.inboxItems.count) unscheduled task\(timeline.day.inboxItems.count == 1 ? "" : "s") to place."
+            let count = timeline.day.inboxItems.count
+            return count == 1 ? "1 unscheduled task" : "\(count) unscheduled tasks"
         }
-        return "No scheduled items yet. Add a task to give today a target."
+        return "Free all day"
     }
 }
 
@@ -526,7 +527,7 @@ private enum HomeTimelineFormatter {
     }
 
     static func anchorText(_ timeline: TaskListWidgetTimelineSnapshot) -> String {
-        "\(timeText(timeline.day.wakeAnchor))-\(timeText(timeline.day.sleepAnchor))"
+        "\(timeText(timeline.day.wakeAnchor))–\(timeText(timeline.day.sleepAnchor))"
     }
 
     static func itemDetailText(_ item: TaskListWidgetTimelineItem) -> String {
@@ -534,7 +535,7 @@ private enum HomeTimelineFormatter {
         if item.isAllDay {
             parts.append("All day")
         } else if let start = item.startDate, let end = item.endDate {
-            parts.append("\(timeText(start))-\(timeText(end))")
+            parts.append("\(timeText(start))–\(timeText(end))")
         } else if item.source == .task {
             parts.append("Inbox")
         }
@@ -558,12 +559,12 @@ private enum HomeTimelineFormatter {
         isStale: Bool
     ) -> String {
         if isStale {
-            return "Home timeline may be stale. Open LifeBoard to refresh."
+            return "Today not up to date. Open LifeBoard to refresh."
         }
         if let primary = timeline.primaryItem {
-            return "Home timeline, \(dateText(timeline.date)), \(primary.title), \(itemDetailText(primary))."
+            return "Today, \(dateText(timeline.date)), \(primary.title), \(itemDetailText(primary))."
         }
-        return "Home timeline, \(dateText(timeline.date)), \(compactCountText(timeline))."
+        return "Today, \(dateText(timeline.date)), \(compactCountText(timeline))."
     }
 
     static func destination(for item: TaskListWidgetTimelineItem) -> URL {

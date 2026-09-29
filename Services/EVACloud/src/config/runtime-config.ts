@@ -69,11 +69,16 @@ export const EvaRuntimeConfigSchema = Type.Object({
     helperLimit: Type.Integer({ minimum: 1, maximum: 1_000 }),
     rollingWindowSeconds: Type.Integer({ minimum: 3_600, maximum: 604_800 }),
   }, { additionalProperties: false })),
-  agePolicy: Type.Optional(Type.Object({
-    minimumAge: Type.Literal(13),
-    unknownAgeAllowed: Type.Boolean(),
-    requiredRegionFailClosed: Type.Boolean(),
-  }, { additionalProperties: false })),
+  trustPolicy: Type.Object({
+    attestationMode: Type.Union([
+      Type.Literal('optionalRiskSignal'),
+      Type.Literal('required'),
+    ]),
+    ageEligibilitySource: Type.Union([
+      Type.Literal('distribution'),
+      Type.Literal('serviceManaged'),
+    ]),
+  }, { additionalProperties: false }),
   creditPolicy: Type.Object({
     initial: Type.Literal(100),
     capacity: Type.Literal(100),
@@ -96,10 +101,17 @@ export const EvaRuntimeConfigSchema = Type.Object({
 
 export type EvaRuntimeConfig = Static<typeof EvaRuntimeConfigSchema>
 
-/** Compatibility shim for older callers. Distribution owns age eligibility. */
-export function requiresAgeDecision(_config: EvaRuntimeConfig): boolean {
-  return false
-}
+export type EvaTrustPolicy = EvaRuntimeConfig['trustPolicy']
+
+/**
+ * The server's current trust contract. App Attest improves the risk signal when
+ * present; it is not a hidden availability gate. Age eligibility is owned by
+ * distribution, not inferred from an ignored runtime boolean.
+ */
+export const defaultTrustPolicy: EvaTrustPolicy = Object.freeze({
+  attestationMode: 'optionalRiskSignal',
+  ageEligibilitySource: 'distribution',
+})
 
 const route = (
   inputTokenCap: number,
@@ -145,7 +157,7 @@ export function failClosedRuntimeConfig(env: Env): EvaRuntimeConfig {
       rolloutPercent: 0,
     },
     usagePolicy: { billableLimit: 20, helperLimit: 100, rollingWindowSeconds: 86_400 },
-    agePolicy: { minimumAge: 13, unknownAgeAllowed: true, requiredRegionFailClosed: false },
+    trustPolicy: defaultTrustPolicy,
     creditPolicy: { initial: 100, capacity: 100, refillAmount: 20, refillPeriodSeconds: 86_400 },
     // Values mirror the official model pages fetched on 2026-08-16, but stay
     // unapproved until checked against the actual OpenAI project billing page.

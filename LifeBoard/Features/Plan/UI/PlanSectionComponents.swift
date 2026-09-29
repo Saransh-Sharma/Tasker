@@ -6,11 +6,9 @@ import UIKit
 /// `@MainActor` is required: these read `@Observable @MainActor` stores.
 @MainActor
 enum PlanSectionCopy {
+    /// The app's one duration format ("45 min", "1 hr, 30 min").
     static func duration(_ seconds: TimeInterval) -> String {
-        let minutes = max(0, Int((seconds / 60).rounded()))
-        if minutes < 60 { return "\(minutes)m" }
-        let hours = minutes / 60, remainder = minutes % 60
-        return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
+        LifeBoardDuration.text(seconds: max(0, seconds))
     }
 
     static func shortDayTitle(_ day: PlanningDay) -> String {
@@ -27,13 +25,13 @@ enum PlanSectionCopy {
 
     static func loadColor(_ value: CapacityBudget) -> Color {
         value.overloadDuration > 0
-            ? Color(SemanticColorTokens.foundationApricotAccent)
+            ? Color(SemanticColorTokens.foundationApricotInk)
             : Color(SemanticColorTokens.foundationFocusRing)
     }
 
     static func loadLabel(_ value: CapacityBudget) -> String {
-        if value.overloadDuration > 0 { return "\(duration(value.overloadDuration)) over usable capacity" }
-        return "\(duration(value.remainingKnownCapacity)) known capacity remains"
+        if value.overloadDuration > 0 { return "\(duration(value.overloadDuration)) over" }
+        return "\(duration(value.remainingKnownCapacity)) open"
     }
 
     static func shifted(_ day: PlanningDay, by offset: Int) -> PlanningDay? {
@@ -70,8 +68,14 @@ extension PlanSectionHeader where Trailing == EmptyView {
 
 struct PlanEmptyCard: View {
     let title: String
-    let detail: String
+    /// Optional by design: an empty state is a title plus one action, and a
+    /// body line only when it adds a fact the title doesn't carry.
+    let detail: String?
     let symbol: String
+    /// An empty state offers one action (DESIGN.md contract 6).
+    var actionTitle: String? = nil
+    var actionIdentifier: String? = nil
+    var action: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 14) {
@@ -84,11 +88,22 @@ struct PlanEmptyCard: View {
             } else {
                 Image(systemName: symbol)
                     .font(.title2)
-                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.headline)
-                Text(detail).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).lifeboardFont(.headline)
+                if let detail {
+                    Text(detail).lifeboardFont(.caption1).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                }
+                if let actionTitle, let action {
+                    Button(actionTitle) {
+                        Haptic.pick.play()
+                        action()
+                    }
+                    .buttonStyle(.lifeBoardChip)
+                    .padding(.top, 4)
+                    .accessibilityIdentifier(actionIdentifier ?? "plan.emptyCard.action")
+                }
             }
             Spacer()
         }
@@ -150,8 +165,8 @@ struct PlanCalendarStateSection: View {
             HStack(spacing: 12) {
                 Image(systemName: "calendar.badge.plus")
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Calendar can reveal real openings").font(.subheadline.weight(.semibold))
-                    Text("Optional and read-only.")
+                    Text("Show your calendar").font(.subheadline.weight(.semibold))
+                    Text("Your events stay unchanged.")
                         .font(.caption)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
@@ -164,16 +179,16 @@ struct PlanCalendarStateSection: View {
                         await store.requestCalendarAccess()
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .frame(minHeight: 52)
-            .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
+            .lifeBoardGlassSurface(cornerRadius: Radius.card, interactive: true)
             .accessibilityIdentifier("plan.calendar.notRequested")
         case .denied:
             HStack(spacing: 12) {
-                Label("Calendar off · planning still works", systemImage: "calendar.badge.exclamationmark")
+                Label("Calendar access is off", systemImage: "calendar.badge.exclamationmark")
                     .font(.caption)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Spacer()
@@ -186,13 +201,13 @@ struct PlanCalendarStateSection: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .frame(minHeight: 44)
-            .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
+            .lifeBoardGlassSurface(cornerRadius: Radius.card, interactive: true)
             .accessibilityIdentifier("plan.calendar.denied")
         case .loading:
             HStack(spacing: 12) {
                 ProgressView()
                     .controlSize(.small)
-                Text("Refreshing read-only calendar context")
+                Text("Loading…")
                     .font(.caption)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Spacer()
@@ -201,12 +216,12 @@ struct PlanCalendarStateSection: View {
             .frame(minHeight: 44)
             .background(
                 Color(SemanticColorTokens.foundationSurfaceRecessed),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
             )
             .accessibilityIdentifier("plan.calendar.loading")
         case .fresh(let fetchedAt):
             Label(
-                "\(snapshot.commitments.count) read-only commitment\(snapshot.commitments.count == 1 ? "" : "s") · updated \(fetchedAt.formatted(date: .omitted, time: .shortened))",
+                Self.freshSummary(count: snapshot.commitments.count, fetchedAt: fetchedAt),
                 systemImage: "calendar.badge.checkmark"
             )
             .font(.caption)
@@ -216,16 +231,16 @@ struct PlanCalendarStateSection: View {
         case .staleCached(let fetchedAt, let message):
             PlanCalendarCacheWarning(
                 store: store,
-                title: "Calendar may be stale",
-                detail: "Last updated \(fetchedAt.formatted(date: .omitted, time: .shortened)). \(message)",
+                title: String(localized: "Calendar may be outdated"),
+                detail: String(localized: "Updated \(fetchedAt.formatted(date: .omitted, time: .shortened)). \(message)"),
                 symbol: "clock.arrow.circlepath",
                 identifier: "plan.calendar.stale"
             )
         case .offlineCached(let fetchedAt):
             PlanCalendarCacheWarning(
                 store: store,
-                title: "Offline calendar cache",
-                detail: "Openings use events from \(fetchedAt.formatted(date: .omitted, time: .shortened)).",
+                title: String(localized: "Calendar offline"),
+                detail: String(localized: "Showing events from \(fetchedAt.formatted(date: .omitted, time: .shortened))."),
                 symbol: "wifi.slash",
                 identifier: "plan.calendar.offline"
             )
@@ -233,7 +248,7 @@ struct PlanCalendarStateSection: View {
             HStack(spacing: 12) {
                 Image(systemName: "calendar.badge.exclamationmark")
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Calendar couldn’t refresh")
+                    Text("Couldn’t refresh calendar")
                         .font(.caption.weight(.semibold))
                     Text(message)
                         .font(.caption2)
@@ -241,16 +256,23 @@ struct PlanCalendarStateSection: View {
                         .lineLimit(2)
                 }
                 Spacer()
-                Button("Retry") { Task { await store.load() } }
+                Button("Try again") { Task { await store.load() } }
                     .frame(minHeight: 44)
             }
             .padding(.horizontal, 12)
             .background(
                 Color(SemanticColorTokens.foundationSurfaceRecessed),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
             )
             .accessibilityIdentifier("plan.calendar.failed")
         }
+    }
+
+    private static func freshSummary(count: Int, fetchedAt: Date) -> String {
+        let time = fetchedAt.formatted(date: .omitted, time: .shortened)
+        return count == 1
+            ? String(localized: "1 event · Updated \(time)")
+            : String(localized: "\(count) events · Updated \(time)")
     }
 }
 
@@ -273,13 +295,13 @@ struct PlanCalendarCacheWarning: View {
                     .lineLimit(2)
             }
             Spacer()
-            Button("Retry") { Task { await store.load() } }
+            Button("Try again") { Task { await store.load() } }
                 .frame(minHeight: 44)
         }
         .padding(.horizontal, 12)
         .background(
             Color(SemanticColorTokens.foundationSurfaceRecessed),
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
         )
         .accessibilityIdentifier(identifier)
     }
@@ -292,12 +314,12 @@ struct PlanCalibrationSuggestionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "timer.square")
-                .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationSageInk))
             VStack(alignment: .leading, spacing: 2) {
-                Text("Observed median: \(PlanSectionCopy.duration(suggestion.suggestedDuration))")
+                Text("Usually \(PlanSectionCopy.duration(suggestion.suggestedDuration))")
                     .font(.caption.weight(.semibold))
                 Text(
-                    "\(suggestion.evidenceSessionCount) sessions · \(PlanSectionCopy.duration(suggestion.observedMinimum))–\(PlanSectionCopy.duration(suggestion.observedMaximum)) observed"
+                    "^[\(suggestion.evidenceSessionCount) session](inflect: true) · \(PlanSectionCopy.duration(suggestion.observedMinimum))–\(PlanSectionCopy.duration(suggestion.observedMaximum))"
                 )
                 .font(.caption2)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))

@@ -71,8 +71,8 @@ public enum HabitRecoveryMutationError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidDay: "This local calendar day could not be resolved."
-        case .missingOccurrence: "LifeBoard could not verify the habit occurrence after recovery."
+        case .invalidDay: String(localized: "Couldn’t find that day.")
+        case .missingOccurrence: String(localized: "Couldn’t confirm the logged day. Try again.")
         }
     }
 }
@@ -245,7 +245,7 @@ public final class CanonicalStarterPackMutationApplier: StarterPackCanonicalMuta
             throw NSError(
                 domain: "LifeBoard.StarterPack",
                 code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Create a life area before installing habit-based starter-pack items."]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "Add a life area first.")]
             )
         }
 
@@ -257,7 +257,7 @@ public final class CanonicalStarterPackMutationApplier: StarterPackCanonicalMuta
             trackingMode: .dailyCheckIn,
             icon: .init(symbolName: itemKind == .reminder ? "bell.fill" : "sparkles", categoryKey: "starter-pack"),
             colorHex: SceneHex.apricot,
-            targetConfig: .init(notes: "Created from the \(Self.displayName(pack)) starter pack.", targetCountPerDay: 1),
+            targetConfig: .init(notes: String(localized: "From the \(Self.displayName(pack)) starter pack."), targetCountPerDay: 1),
             cadence: .daily(hour: schedule.hour, minute: schedule.minute),
             reminderWindowStart: itemKind == .reminder ? schedule.windowStart : nil,
             reminderWindowEnd: itemKind == .reminder ? schedule.windowEnd : nil
@@ -286,11 +286,11 @@ public final class CanonicalStarterPackMutationApplier: StarterPackCanonicalMuta
 
     private static func displayName(_ pack: StarterPack) -> String {
         switch pack {
-        case .morningFoundation: "Morning Foundation"
-        case .workdayReset: "Workday Reset"
-        case .lowEnergyRecovery: "Low Energy Recovery"
-        case .medicationSupport: "Medication Support"
-        case .eveningWindDown: "Evening Wind-down"
+        case .morningFoundation: String(localized: "Morning")
+        case .workdayReset: String(localized: "Workday reset")
+        case .lowEnergyRecovery: String(localized: "Low energy")
+        case .medicationSupport: String(localized: "Medication")
+        case .eveningWindDown: String(localized: "Evening wind-down")
         }
     }
 }
@@ -396,40 +396,40 @@ public enum RoutineTemplateCatalog {
     public static func definition(for kind: RoutineTemplateKind) -> RoutineDefinition? {
         switch kind {
         case .morning:
-            make("Morning", [
-                step("Arrive gently", .checkIn, minutes: 1, optional: true),
-                step("Choose today’s anchor", .instruction),
-                step("Begin the first small action", .timer, minutes: 10, optional: true)
+            make(String(localized: "Morning"), [
+                step(String(localized: "Check in"), .checkIn, minutes: 1, optional: true),
+                step(String(localized: "Pick today’s focus"), .instruction),
+                step(String(localized: "Start the first task"), .timer, minutes: 10, optional: true)
             ])
         case .evening:
-            make("Evening", [
-                step("Close open loops", .instruction, optional: true),
-                step("Set down tomorrow’s first step", .instruction),
-                step("Quiet the space", .timer, minutes: 5, optional: true)
+            make(String(localized: "Evening"), [
+                step(String(localized: "Wrap up open tasks"), .instruction, optional: true),
+                step(String(localized: "Pick tomorrow’s first task"), .instruction),
+                step(String(localized: "Tidy up"), .timer, minutes: 5, optional: true)
             ])
         case .workStart:
-            make("Work start", [
-                step("Clear the work surface", .timer, minutes: 2, optional: true),
-                step("Name the outcome", .checkIn),
-                step("Start a focus block", .timer, minutes: 25, optional: true)
+            make(String(localized: "Work start"), [
+                step(String(localized: "Clear your desk"), .timer, minutes: 2, optional: true),
+                step(String(localized: "Set today’s goal"), .checkIn),
+                step(String(localized: "Start focus"), .timer, minutes: 25, optional: true)
             ])
         case .shutdown:
-            make("Shutdown", [
-                step("Capture unfinished thoughts", .instruction),
-                step("Choose the next starting point", .instruction),
-                step("Close work", .checkIn, optional: true)
+            make(String(localized: "Work end"), [
+                step(String(localized: "Note loose ends"), .instruction),
+                step(String(localized: "Pick where to start next"), .instruction),
+                step(String(localized: "Close work"), .checkIn, optional: true)
             ])
         case .workout:
-            make("Workout", [
-                step("Set your intention", .checkIn, optional: true),
-                step("Move in the way you planned", .timer, minutes: 20, optional: true),
-                step("Cool down and note how it felt", .checkIn, optional: true)
+            make(String(localized: "Workout"), [
+                step(String(localized: "Plan the workout"), .checkIn, optional: true),
+                step(String(localized: "Work out"), .timer, minutes: 20, optional: true),
+                step(String(localized: "Cool down"), .checkIn, optional: true)
             ])
         case .care:
-            make("Care", [
-                step("Check what you need", .checkIn),
-                step("Take one care action", .instruction),
-                step("Pause before continuing", .timer, minutes: 2, optional: true)
+            make(String(localized: "Care"), [
+                step(String(localized: "Check what you need"), .checkIn),
+                step(String(localized: "Do one thing for yourself"), .instruction),
+                step(String(localized: "Pause"), .timer, minutes: 2, optional: true)
             ])
         case .custom:
             nil
@@ -779,10 +779,10 @@ public struct DefaultGoalProgressService: GoalProgressService {
         } : nil
         let confidence = relevantLinks.isEmpty ? 0 : Double(resolved.count) / Double(relevantLinks.count)
         let nextAction: String
-        if relevantLinks.isEmpty { nextAction = "Link a project, task, habit, routine, or measure." }
-        else if missingCount > 0 { nextAction = "Add or sync missing linked progress." }
-        else if fraction == 1 { nextAction = "Review and close the goal when it feels complete." }
-        else { nextAction = "Continue the next linked action." }
+        if relevantLinks.isEmpty { nextAction = String(localized: "Link a task or habit.") }
+        else if missingCount > 0 { nextAction = String(localized: "Some linked data is missing.") }
+        else if fraction == 1 { nextAction = String(localized: "Target reached.") }
+        else { nextAction = String(localized: "In progress") }
 
         return GoalProgressSnapshot(
             goalID: goal.id,
@@ -804,9 +804,9 @@ public enum GoalLifecycleError: LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .emptyTitle: "Give this goal a name."
-        case .invalidTarget: "This goal needs a finite target that differs from its baseline."
-        case .unchangedStatus: "The goal already has that status."
+        case .emptyTitle: String(localized: "Name this goal.")
+        case .invalidTarget: String(localized: "Target must differ from the starting value.")
+        case .unchangedStatus: String(localized: "The goal already has that status.")
         }
     }
 }
@@ -934,8 +934,12 @@ public struct GoalAssessmentService: Sendable {
         } : nil
 
         var missing: [String] = []
-        if ordered.isEmpty { missing.append("No linked evidence yet") }
-        if missedCheckIns > 0 { missing.append("\(missedCheckIns) scheduled check-in\(missedCheckIns == 1 ? "" : "s") missing") }
+        if ordered.isEmpty { missing.append(String(localized: "Nothing linked yet")) }
+        if missedCheckIns > 0 {
+            missing.append(missedCheckIns == 1
+                ? String(localized: "1 check-in not logged")
+                : String(localized: "\(missedCheckIns) check-ins not logged"))
+        }
 
         let riskReason: GoalRiskReason?
         if missedCheckIns >= 2 {
@@ -1001,28 +1005,5 @@ public enum HydrationMeasurementService {
         case .liters: return milliliters / 1_000
         case .fluidOunces: return milliliters / 29.573_529_562_5
         }
-    }
-}
-
-public enum StarterPackCatalog {
-    public static func preview(_ pack: StarterPack) -> StarterPackPreview {
-        let items: [StarterPackItem]
-        switch pack {
-        case .morningFoundation:
-            items = [item("morning-check-in", .habit, "Morning check-in"), item("morning-routine", .routine, "Morning foundation")]
-        case .workdayReset:
-            items = [item("reset-goal", .goal, "Protect focused work"), item("reset-routine", .routine, "Workday reset")]
-        case .lowEnergyRecovery:
-            items = [item("recovery-check-in", .habit, "Name your energy"), item("recovery-routine", .routine, "Low energy recovery")]
-        case .medicationSupport:
-            items = [item("medication-reminder", .reminder, "Medication check-in"), item("medication-routine", .routine, "Medication support")]
-        case .eveningWindDown:
-            items = [item("evening-habit", .habit, "Evening reflection"), item("evening-routine", .routine, "Evening wind-down")]
-        }
-        return StarterPackPreview(pack: pack, items: items)
-    }
-
-    private static func item(_ id: String, _ kind: StarterPackItemKind, _ title: String) -> StarterPackItem {
-        StarterPackItem(id: id, kind: kind, title: title, isSelected: true)
     }
 }

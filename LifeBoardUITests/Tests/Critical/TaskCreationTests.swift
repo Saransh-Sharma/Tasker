@@ -9,6 +9,12 @@
 import XCTest
 
 class TaskCreationTests: BaseUITest {
+
+    /// New tasks are due today, so they appear in Home's Tasks card, which is
+    /// where this suite completes, undoes and deletes them.
+    override var additionalLaunchArguments: [String] {
+        [XCUIApplication.LaunchArgumentKey.testNewTasksDueToday.rawValue]
+    }
     var homePage: HomePage!
 
     override func setUp() async throws {
@@ -60,7 +66,6 @@ class TaskCreationTests: BaseUITest {
         // WHEN: User creates an evening task with only a title
         let addTaskPage = homePage.tapAddTask()
         addTaskPage.enterTitle(taskTitle)
-        addTaskPage.selectTaskType(.evening)
         addTaskPage.tapSave()
         XCTAssertTrue(addTaskPage.waitForDismissal(timeout: 3), "Add Task screen should dismiss after Save")
 
@@ -71,32 +76,6 @@ class TaskCreationTests: BaseUITest {
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: taskTitle), "Evening task should exist in task list")
 
         takeScreenshot(named: "evening_task_minimal_info")
-    }
-
-    func testCreateTaskWithManualIconSelectionPersistsIconOnHome() throws {
-        let taskTitle = "Dentist icon \(UUID().uuidString.prefix(6))"
-
-        let addTaskPage = homePage.tapAddTask()
-        XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add Task screen should appear")
-
-        addTaskPage.enterTitle(taskTitle)
-        addTaskPage.openIconPicker()
-        XCTAssertTrue(addTaskPage.iconPickerSheet.waitForExistence(timeout: 3), "Icon picker should open")
-        addTaskPage.selectTaskIcon("stethoscope")
-        XCTAssertTrue(
-            addTaskPage.waitForIconButtonLabel(containing: "stethoscope", timeout: 2),
-            "Manual icon selection should be reflected before saving"
-        )
-        addTaskPage.tapSave()
-        XCTAssertTrue(addTaskPage.waitForDismissal(timeout: 3), "Add Task screen should dismiss after Save")
-
-        XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should appear in task list")
-        let row = homePage.taskRow(containingTitle: taskTitle)
-        XCTAssertTrue(row.waitForExistence(timeout: 2), "Created task row should appear")
-        XCTAssertTrue(
-            row.label.lowercased().contains("icon: stethoscope"),
-            "Task row should expose the persisted icon in its accessibility label"
-        )
     }
 
     // MARK: - Regression: Keyboard Done Creates Task and Dismisses
@@ -159,9 +138,13 @@ class TaskCreationTests: BaseUITest {
         XCTAssertTrue(addTaskPage.waitForDismissal(timeout: 3), "Add Task screen should dismiss after first valid submit")
         XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should appear after rapid submit")
 
-        let exactTitlePredicate = NSPredicate(format: "label == %@", taskTitle)
-        let createdRows = app.staticTexts.matching(exactTitlePredicate).count
-        XCTAssertEqual(createdRows, 1, "Rapid keyboard submits should create exactly one task row")
+        // Tasks-card rows, one per task: the title also appears in the today
+        // story for a task that is scheduled as well as due.
+        XCTAssertEqual(
+            homePage.taskRowCount(containingTitle: taskTitle),
+            1,
+            "Rapid keyboard submits should create exactly one task row"
+        )
     }
 
     // MARK: - Test 3: Validate Empty Title Error
@@ -176,10 +159,9 @@ class TaskCreationTests: BaseUITest {
 
         // Optional: Try to interact with other fields
         addTaskPage.selectPriority(.high)
-        addTaskPage.selectTaskType(.morning)
 
-        // Attempt to save
-        addTaskPage.tapSave()
+        // Attempt to save (Done is disabled with no title, so nothing closes)
+        addTaskPage.attemptSave()
 
         // THEN: Validation error should appear OR save button should be disabled
         // Note: The exact behavior depends on app implementation
@@ -222,8 +204,8 @@ class TaskCreationTests: BaseUITest {
             addTaskPage.dismissKeyboard()
         }
 
-        // Attempt to save
-        addTaskPage.tapSave()
+        // Attempt to save (over 200 characters, Done stays disabled)
+        addTaskPage.attemptSave()
 
         // THEN: Validation error should appear OR title should be truncated OR save fails
         let stillOnAddTaskScreen = addTaskPage.verifyIsDisplayed(timeout: 2)
@@ -254,7 +236,6 @@ class TaskCreationTests: BaseUITest {
         addTaskPage.selectPriority(.medium)
 
         // Home view requires task type to display tasks - set to morning so it appears
-        addTaskPage.selectTaskType(.morning)
 
         // Dismiss keyboard
         if app.keyboards.firstMatch.exists {
@@ -274,43 +255,6 @@ class TaskCreationTests: BaseUITest {
         // For now, we verify the task was created successfully
 
         takeScreenshot(named: "task_defaults_to_inbox")
-    }
-
-    // MARK: - Test 6: Create Upcoming Task with Reminder
-
-    func testCreateUpcomingTaskWithReminder() throws {
-        // Reminder feature not yet implemented in the UI
-        let remindersEnabledInUITests = false
-        try XCTSkipIf(
-            !remindersEnabledInUITests,
-            "Reminder toggle feature not yet implemented - test kept for future implementation"
-        )
-
-        // GIVEN: User is on the home screen
-        let dueDate = TestDataFactory.daysFromNow(7) // 1 week from now
-
-        // WHEN: User creates an upcoming task with a reminder
-        let addTaskPage = homePage.tapAddTask()
-        addTaskPage.enterTitle("Upcoming Task with Reminder")
-        addTaskPage.selectTaskType(.upcoming)
-        addTaskPage.selectPriority(.high)
-        addTaskPage.setDueDate(dueDate)
-        addTaskPage.enableReminder()
-
-        // Dismiss keyboard
-        if app.keyboards.firstMatch.exists {
-            addTaskPage.dismissKeyboard()
-        }
-
-        addTaskPage.tapSave()
-
-        // Wait for task to appear
-        let taskCreated = homePage.waitForTask(withTitle: "Upcoming Task with Reminder", timeout: 5)
-
-        // THEN: Task should be created with upcoming type and reminder enabled
-        XCTAssertTrue(taskCreated, "Upcoming task with reminder should be created")
-
-        takeScreenshot(named: "upcoming_task_with_reminder")
     }
 
     // MARK: - Test 7: Cancel Task Creation
@@ -354,7 +298,6 @@ class TaskCreationTests: BaseUITest {
         addTaskPage.selectPriority(.medium)
 
         // IMPORTANT: Select task type so task appears in filtered home view
-        addTaskPage.selectTaskType(.morning)
 
         // Set due date to tomorrow using FSCalendar picker
         addTaskPage.setDueDate(tomorrow)

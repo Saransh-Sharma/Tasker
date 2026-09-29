@@ -18,29 +18,67 @@ struct CaptureSheet: View {
     let onClose: () -> Void
     let onOpenHabitBoard: () -> Void
 
+    /// Every capture host has exactly one close control.
+    ///
+    /// Hosts with their own bar (task, habit, time block, mood check-in) close
+    /// through it. The rest are module screens pushed into a bare
+    /// `NavigationStack`; they get the close in the leading toolbar slot. The old
+    /// floating ✕ pinned top-trailing sat directly on the task composer's "Done",
+    /// so a tap meant to save discarded the capture instead.
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            captureContent
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .lifeboardFont(.headline)
-                    .foregroundStyle(Color.lifeboard(.textPrimary))
-                    .frame(width: 44, height: 44)
-                    // The app's own glass, not `.regularMaterial`: this control
-                    // floats over every capture host, so a system material made
-                    // it the one piece of chrome that ignored the warm palette
-                    // in both appearances.
-                    .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close capture")
-            .accessibilityValue(request.kind.title)
-            .accessibilityIdentifier("foundation.capture.dismiss")
-            .padding(12)
-            .zIndex(10)
+        captureContent
+    }
+
+    private var closeButton: some View {
+        Button {
+            onClose()
+        } label: {
+            Label("Close", systemImage: "xmark")
+                .labelStyle(.iconOnly)
         }
+        .keyboardShortcut(.cancelAction)
+        .accessibilityLabel("Close")
+        .accessibilityValue(request.kind.title)
+        .accessibilityIdentifier("foundation.capture.dismiss")
+    }
+
+    /// What a capture shows when the store it writes to is not available —
+    /// a feature switched off, or storage that failed to open. It used to be
+    /// `EmptyView()`: a blank sheet with no way to tell what happened and, for
+    /// module hosts, no close control either.
+    private var unavailableHost: some View {
+        NavigationStack {
+            VStack {
+                StatusSurface(
+                    state: .unavailable,
+                    title: String(localized: "\(request.kind.title) unavailable"),
+                    message: String(localized: "Nothing was saved. Restart the app and try again.")
+                )
+                Spacer(minLength: 0)
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background { GrainedCanvas() }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    closeButton.keyboardShortcut(.cancelAction)
+                }
+            }
+        }
+        .escapeCancels(perform: onClose)
+        .accessibilityIdentifier("foundation.capture.unavailable")
+    }
+
+    private func moduleHost<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        NavigationStack {
+            content()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { closeButton }
+                }
+        }
+        // Esc while one of the module's fields is focused closes the capture
+        // the same way the close button does.
+        .escapeCancels(perform: onClose)
     }
 
     @ViewBuilder
@@ -56,17 +94,18 @@ struct CaptureSheet: View {
             HabitCaptureHost()
         case .journal:
             if V2FeatureFlags.journalV1Enabled, let phaseIIRepository {
-                NavigationStack {
+                moduleHost {
                     JournalModuleView(
                         repository: phaseIIRepository,
                         initialText: request.captureSeed?.rawText ?? request.prefilledText,
                         startsWithTextComposer: request.captureSeed != nil || request.prefilledText != nil
                     )
+                    .marksJournalContentVisible()
                 }
-            } else { EmptyView() }
+            } else { unavailableHost }
         case .note:
             if V2FeatureFlags.knowledgeNotesV1Enabled, let phaseIIRepository {
-                NavigationStack {
+                moduleHost {
                     KnowledgeModuleView(
                         repository: phaseIIRepository,
                         startsWithNewNote: true,
@@ -74,27 +113,27 @@ struct CaptureSheet: View {
                         initialText: request.captureSeed?.rawText ?? request.prefilledText
                     )
                 }
-            } else { EmptyView() }
+            } else { unavailableHost }
         case .trackerEntry:
             if V2FeatureFlags.trackersV1Enabled, let phaseIIRepository {
-                NavigationStack {
+                moduleHost {
                     BehaviorAreaRouteView(
                         repository: phaseIIRepository,
                         initialArea: .trackers,
                         onOpenHabitBoard: onOpenHabitBoard
                     )
                 }
-            } else { EmptyView() }
+            } else { unavailableHost }
         case .mood where V2FeatureFlags.journalParityV1Enabled:
             if let phaseIIRepository, let trackFoundationRepository {
                 JournalMoodCaptureView(
                     repository: trackFoundationRepository,
                     phaseIIRepository: phaseIIRepository
                 )
-            } else { EmptyView() }
+            } else { unavailableHost }
         case .mood, .hydration, .medicationEvent, .routineRun:
             if let phaseIIRepository, let trackFoundationRepository {
-                NavigationStack {
+                moduleHost {
                     TrackUniversalCaptureView(
                         kind: request.kind,
                         repository: trackFoundationRepository,
@@ -102,7 +141,7 @@ struct CaptureSheet: View {
                         linkedMutationApplier: routineLinkedMutationApplier
                     )
                 }
-            } else { EmptyView() }
+            } else { unavailableHost }
         case .timeBlock:
             if let planningRepository {
                 NavigationStack {
@@ -112,7 +151,7 @@ struct CaptureSheet: View {
                         onReceipt: onReceipt
                     )
                 }
-            } else { EmptyView() }
+            } else { unavailableHost }
         }
     }
 }
@@ -123,33 +162,36 @@ struct TimeBlockCaptureHost: View {
     var onReceipt: (ActionReceipt) -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
-    @State private var start = Date()
-    @State private var minutes = 45.0
+    @State private var start = TimeBlockDraft.defaultStart(on: Date())
+    @State private var minutes = TimeBlockDraft.defaultMinutes
     @State private var isSaving = false
     @State private var errorMessage: String?
 
     var body: some View {
         Form {
-            TextField("What is this time for?", text: $title)
+            TextField("Title", text: $title, prompt: Text("Title").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
             DatePicker("Starts", selection: $start)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Duration: \(Int(minutes)) minutes")
-                Slider(value: $minutes, in: 15...240, step: 15)
-            }
+            TimeBlockDurationField(minutes: $minutes)
         }
+        // The warm canvas behind the grouped list, not the system's pure white
+        // (light) or pure black (dark) grouped background.
+        .scrollContentBackground(.hidden)
+        .background { GrainedCanvas() }
         .navigationTitle("New time block")
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction) }
             ToolbarItem(placement: .confirmationAction) {
                 Button(isSaving ? "Saving…" : "Add") { save() }
-                    .disabled(isSaving)
+                    .disabled(isSaving || TimeBlockDraft.isValid(title: title) == false)
             }
         }
-        .alert("Time block wasn’t saved", isPresented: errorBinding) {
+        .alert("Couldn’t save time block", isPresented: errorBinding) {
             Button("OK", role: .cancel) { errorMessage = nil }
         } message: {
-            Text(errorMessage ?? "Please try again.")
+            Text(errorMessage ?? String(localized: "Try again."))
         }
+        // Esc with the title field focused does what Cancel does.
+        .escapeCancels { dismiss() }
     }
 
     private var errorBinding: Binding<Bool> {
@@ -164,7 +206,7 @@ struct TimeBlockCaptureHost: View {
         isSaving = true
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let block = InternalTimeBlock(
-            title: cleanTitle.isEmpty ? "Focus block" : cleanTitle,
+            title: cleanTitle.isEmpty ? String(localized: "Focus") : cleanTitle,
             startAt: start,
             endAt: start.addingTimeInterval(minutes * 60)
         )
@@ -178,13 +220,13 @@ struct TimeBlockCaptureHost: View {
                     let command = MutationCommand(
                         preview: .init(
                             destination: .plan,
-                            summary: "Add time block “\(block.title)”",
-                            changes: ["Reserves \(Int(minutes)) minutes starting \(start.formatted(date: .omitted, time: .shortened))"],
+                            summary: String(localized: "Add time block “\(block.title)”"),
+                            changes: [String(localized: "\(TimeBlockDraft.durationLabel(minutes: minutes)) at \(start.formatted(date: .omitted, time: .shortened))")],
                             origin: .directTap
                         ),
                         apply: {
                             try await repository.saveTimeBlock(block)
-                            return "Time block “\(block.title)” added"
+                            return String(localized: "Added “\(block.title)”")
                         },
                         undo: {
                             try await repository.deleteTimeBlock(id: block.id)

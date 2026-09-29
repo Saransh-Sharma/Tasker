@@ -15,29 +15,33 @@ extension LifeThreadComposerHost {
         let action: Action
     }
 
+    /// Most-used first: the things people write, then the things they log,
+    /// then the tools that start something else. "Metric" with a heart icon
+    /// opened water logging; it now says so. Its id stays "metric" because UI
+    /// tests address tools by identifier.
     var composerTools: [ComposerToolDescriptor] {
         var tools: [ComposerToolDescriptor] = [
-            .init(id: "task", title: "Task", systemImage: "checkmark.circle", action: .capture(.task)),
-            .init(id: "habit", title: "Habit", systemImage: "repeat", action: .capture(.habit))
+            .init(id: "task", title: "Task", systemImage: "checkmark.circle", action: .capture(.task))
         ]
-        if V2FeatureFlags.planningCoreV1Enabled {
-            tools.append(.init(id: "timeBlock", title: "Time block", systemImage: "clock", action: .capture(.timeBlock)))
-        }
         if V2FeatureFlags.journalV1Enabled {
             tools.append(.init(id: "journal", title: "Journal", systemImage: "book.closed", action: .capture(.journal)))
         }
+        if V2FeatureFlags.knowledgeNotesV1Enabled {
+            tools.append(.init(id: "note", title: "Note", systemImage: "note.text", action: .capture(.note)))
+        }
+        tools.append(.init(id: "habit", title: "Habit", systemImage: "repeat", action: .capture(.habit)))
         if V2FeatureFlags.careModulesV2Enabled {
             tools.append(.init(id: "mood", title: "Mood", systemImage: "face.smiling", action: .capture(.mood)))
-            tools.append(.init(id: "metric", title: "Metric", systemImage: "waveform.path.ecg", action: .capture(.hydration)))
+            tools.append(.init(id: "metric", title: "Water", systemImage: "drop", action: .capture(.hydration)))
         }
         if V2FeatureFlags.trackersV1Enabled {
             tools.append(.init(id: "tracker", title: "Tracker", systemImage: "list.bullet.rectangle", action: .capture(.trackerEntry)))
         }
-        tools.append(.init(id: "voice", title: "Voice", systemImage: "waveform", action: .voice))
-        tools.append(.init(id: "scan", title: "Scan", systemImage: "doc.viewfinder", action: .scan))
-        if V2FeatureFlags.knowledgeNotesV1Enabled {
-            tools.append(.init(id: "note", title: "Note", systemImage: "note.text", action: .capture(.note)))
+        if V2FeatureFlags.planningCoreV1Enabled {
+            tools.append(.init(id: "timeBlock", title: "Time block", systemImage: "clock", action: .capture(.timeBlock)))
         }
+        tools.append(.init(id: "scan", title: "Scan", systemImage: "doc.viewfinder", action: .scan))
+        tools.append(.init(id: "voice", title: "Voice", systemImage: "waveform", action: .voice))
         return tools
     }
 
@@ -175,8 +179,8 @@ extension LifeThreadComposerHost {
     func beginDocumentScan(router: AppRouter) {
         guard VNDocumentCameraViewController.isSupported else {
             router.activeAlert = .init(
-                title: "Scanning isn’t available here",
-                message: "Use LifeBoard on an iPhone or iPad with a camera, or paste text into the composer."
+                title: String(localized: "Can’t scan on this device"),
+                message: String(localized: "Paste the text instead.")
             )
             return
         }
@@ -184,13 +188,62 @@ extension LifeThreadComposerHost {
         showsDocumentScanner = true
     }
 
+    /// Keys ahead of Done on the capture keyboard: `#` tag, `+` project, `@`
+    /// context. The syntax was invisible until someone typed it; a key puts the
+    /// sigil where the completion row reads it, and the row opens by itself.
+    @ViewBuilder
+    var composerTokenKeys: some View {
+        composerTokenKey(.tag, name: "tag")
+        composerTokenKey(.project, name: "project")
+        composerTokenKey(.context, name: "context")
+    }
+
+    func composerTokenKey(_ kind: CaptureTokenCompletion.Kind, name: String) -> some View {
+        Button(String(kind.sigil)) {
+            composer.draftText = CaptureTokenCompletion.insertingSigil(kind, into: composer.draftText)
+        }
+        .font(.lifeboard(.callout))
+        // The glyph alone reads as "number sign"; the label says what the key
+        // does, and the input labels give Voice Control the plain word too.
+        .accessibilityLabel("Add \(name)")
+        .accessibilityInputLabels(["Add \(name)", name.capitalized])
+        .accessibilityIdentifier("lifeThread.composer.token.\(name)")
+    }
+
+    /// One helper row above the keyboard at a time. While a token is being
+    /// typed its suggestions are what matters — an interpretation of a
+    /// half-typed token is wrong anyway — and the two rows together left almost
+    /// no content visible above the keyboard on a small phone.
+    var showsInterpretationRow: Bool {
+        CaptureTokenCompletion.activeToken(in: composer.draftText) == nil
+    }
+
+    /// The border says when the composer holds the keyboard, as Eva's does.
+    var composerBorder: some View {
+        RoundedRectangle(cornerRadius: Radius.dock, style: .continuous)
+            .stroke(
+                lifeThreadComposerIsFocused
+                    ? Color.lifeboard(.actionFocus)
+                    : Color(SemanticColorTokens.foundationHairline),
+                lineWidth: lifeThreadComposerIsFocused ? 1.5 : 1
+            )
+            .lifeBoardMotion(.controlMorph, value: lifeThreadComposerIsFocused)
+    }
+
+    /// Takes a pending focus request once the field is on screen — after the
+    /// orb restores, a Home card asks, or a sheet finishes dismissing. The
+    /// one-turn hop lets a field that was only just inserted take the keyboard.
+    func consumeFocusRequestIfNeeded() {
+        guard composer.consumeFocusRequest() else { return }
+        DispatchQueue.main.async { lifeThreadComposerIsFocused = true }
+    }
+
     func composerPlaceholder(for destination: Destination) -> String {
         switch destination {
-        case .home: "Ask Eva or capture what is on your mind"
-        case .plan: "Plan, move, or make sense of your time"
-        case .track: "Log something or reflect on how you feel"
-        case .insights: "Ask about a pattern or what to try next"
-        case .eva: "Talk with Eva"
+        case .home, .plan: String(localized: "Add a task or ask Eva")
+        case .track: String(localized: "Log or ask Eva")
+        case .insights: String(localized: "Ask about a pattern")
+        case .eva: String(localized: "Ask Eva")
         }
     }
 

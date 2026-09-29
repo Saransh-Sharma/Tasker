@@ -21,7 +21,7 @@ struct AddTaskDescriptionField: View {
         ZStack(alignment: .topLeading) {
             // Placeholder
             if text.isEmpty {
-                Text("Description (optional)")
+                Text("Notes")
                     .font(.lifeboard(.body))
                     .foregroundColor(Color.lifeboard.textTertiary)
                     .padding(spacing.s12)

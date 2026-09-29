@@ -77,21 +77,16 @@ struct EvaChiefOfStaffGuideView: View {
                     mascotWell
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(assistantIdentity.snapshot.displayName) as Chief of Staff")
+                        Text("What \(assistantIdentity.snapshot.displayName) can do")
                             .font(ClayTypography.sectionTitle)
                             .foregroundStyle(ClayColorTokens.navy)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text("Plan, triage, and apply with confirmation.")
+                        Text("You approve every change.")
                             .font(ClayTypography.bodyStrong)
                             .foregroundStyle(ClayColorTokens.navyMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-
-                Text("Start with one of these prompts, or read the examples to learn when \(assistantIdentity.snapshot.displayName) is strongest.")
-                    .font(ClayTypography.body)
-                    .foregroundStyle(ClayColorTokens.navyMuted)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(Theme.Spacing.lg)
         }
@@ -170,7 +165,7 @@ struct EvaChiefOfStaffGuideView: View {
     func sectionIconWell(_ icon: String, style: RoleStyle) -> some View {
         Image(systemName: icon)
             .lifeboardFont(.title2)
-            .foregroundStyle(style.base)
+            .foregroundStyle(style.deep) // `base` glyphs sat at 1.4–2.7:1 on `softSurface`
             .frame(width: 44, height: 44)
             .background(style.softSurface.opacity(0.92), in: RoundedRectangle(cornerRadius: RadiusTokens.iconWell, style: .continuous))
             .overlay {

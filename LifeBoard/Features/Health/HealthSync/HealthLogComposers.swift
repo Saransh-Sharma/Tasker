@@ -22,8 +22,7 @@ struct HealthWaterLogSheet: View {
 
     var body: some View {
         ComposerScaffold(
-            title: "Log water",
-            subtitle: "A number you chose, not one the app decided.",
+            title: String(localized: "Log water"),
             identifier: "health.water.composer"
         ) {
             HealthWaterAmountSection(amount: $amount)
@@ -62,7 +61,7 @@ struct HealthWaterLogSheet: View {
             // The banner belongs to the commit bar, which also offers the retry
             // the inline red `Text` never did.
             commitPhase = .recoverableFailure(.init(
-                message: "Water could not be saved locally.",
+                message: String(localized: "Couldn’t save water."),
                 recovery: .retry
             ))
         }
@@ -78,8 +77,8 @@ private struct HealthWaterAmountSection: View {
 
     var body: some View {
         ComposerSection(
-            "How much",
-            footer: "Recorded locally, and mirrored to Apple Health if you allowed write-back."
+            String(localized: "How much"),
+            footer: String(localized: "Also saved to Apple Health if sharing is on.")
         ) {
             ValueDrum(
                 "Amount",
@@ -117,8 +116,7 @@ struct HealthWeightLogSheet: View {
 
     var body: some View {
         ComposerScaffold(
-            title: "Log weight",
-            subtitle: "A number you chose, not one the app decided.",
+            title: String(localized: "Log weight"),
             identifier: "health.weight.composer"
         ) {
             HealthWeightAmountSection(kilograms: $kilograms)
@@ -150,7 +148,7 @@ struct HealthWeightLogSheet: View {
             source: .manual
         ) else {
             commitPhase = .recoverableFailure(.init(
-                message: "That weight could not be recorded.",
+                message: String(localized: "Couldn’t save weight."),
                 recovery: .retry
             ))
             return
@@ -164,7 +162,7 @@ struct HealthWeightLogSheet: View {
             dismiss()
         } catch {
             commitPhase = .recoverableFailure(.init(
-                message: "Weight could not be saved locally.",
+                message: String(localized: "Couldn’t save weight."),
                 recovery: .retry
             ))
         }
@@ -178,8 +176,8 @@ private struct HealthWeightAmountSection: View {
         // No presets. There is no sensible preset for a body weight, and
         // offering one would be the app deciding.
         ComposerSection(
-            "Today's weight",
-            footer: "Recorded locally, and mirrored to Apple Health if you allowed write-back."
+            String(localized: "Today’s weight"),
+            footer: String(localized: "Also saved to Apple Health if sharing is on.")
         ) {
             ValueDrum(
                 "Weight",

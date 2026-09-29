@@ -81,14 +81,14 @@ struct LifeMapOrbitCanvas: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Your Life Map")
+        .accessibilityLabel("Your life map")
         .accessibilityValue(accessibilitySummary)
         .accessibilityAction(named: "Rotate clockwise") { rotate(by: 36) }
         .accessibilityAction(named: "Rotate counterclockwise") { rotate(by: -36) }
     }
 
     private var centerTitle: String {
-        step == .welcome ? "Daily Loop" : scene.centerPromise
+        step == .welcome ? String(localized: "Your day") : scene.centerPromise
     }
 
     /// VoiceOver cannot see an orbit. Stating the contents plainly is the
@@ -96,10 +96,10 @@ struct LifeMapOrbitCanvas: View {
     private var accessibilitySummary: String {
         let areas = scene.lifeAreas.map(\.title)
         guard areas.isEmpty == false else {
-            return "\(centerTitle) at the centre, with Home, Plan, Track, Insights, and EVA around it."
+            return String(localized: "\(centerTitle) in the middle, with Home, Plan, Track, Insights, and Eva around it.")
         }
-        return "\(centerTitle) at the centre. Your areas, in priority order: "
-            + onboardingNaturalLanguageList(areas, fallback: "none yet") + "."
+        return String(localized: "\(centerTitle) in the middle. Your areas, in order: ")
+            + onboardingNaturalLanguageList(areas, fallback: String(localized: "none yet")) + "."
     }
 
     private var rotationGesture: some Gesture {

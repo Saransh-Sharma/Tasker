@@ -818,7 +818,7 @@ public final class SaveWeeklyPlanUseCase: @unchecked Sendable {
                     completion(.failure(NSError(
                         domain: "SaveWeeklyPlanUseCase",
                         code: 404,
-                        userInfo: [NSLocalizedDescriptionKey: "Task not found while saving the weekly plan."]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t save plan. A task is missing.")]
                     )))
                     return
                 }
@@ -901,35 +901,35 @@ public final class CalculateWeeklyMomentumUseCase: @unchecked Sendable {
                 let headline: String
                 switch score {
                 case 75...:
-                    headline = "Momentum is compounding."
+                    headline = String(localized: "Strong week")
                 case 45...74:
-                    headline = "Momentum is steady."
+                    headline = String(localized: "Steady week")
                 default:
-                    headline = "Momentum needs recovery."
+                    headline = String(localized: "Light week")
                 }
 
                 let drivers = [
                     WeeklyMomentumDriver(
                         id: "completed_tasks",
-                        label: "Completed tasks",
+                        label: String(localized: "Tasks done"),
                         value: Double(completedTasks.count),
-                        detail: "\(completedTasks.count) tasks closed"
+                        detail: String(localized: "\(completedTasks.count) done")
                     ),
                     WeeklyMomentumDriver(
                         id: "finished_outcomes",
-                        label: "Finished outcomes",
+                        label: String(localized: "Goals done"),
                         value: Double(completedOutcomes),
                         detail: activeOutcomes == 0
-                            ? "No weekly outcomes defined"
-                            : "\(completedOutcomes) of \(activeOutcomes) outcomes finished"
+                            ? String(localized: "No goals set")
+                            : String(localized: "\(completedOutcomes) of \(activeOutcomes) goals done")
                     ),
                     WeeklyMomentumDriver(
                         id: "carry_pressure",
-                        label: "Carry pressure",
+                        label: String(localized: "Moved before"),
                         value: Double(carryPressureCount),
                         detail: carryPressureCount == 0
-                            ? "No deferred tasks pressuring next week"
-                            : "\(carryPressureCount) deferred tasks are pushing forward"
+                            ? String(localized: "None moved before")
+                            : String(localized: "\(carryPressureCount) moved before")
                     )
                 ]
 
@@ -937,7 +937,7 @@ public final class CalculateWeeklyMomentumUseCase: @unchecked Sendable {
                     weekStartDate: snapshot.weekStartDate,
                     weekEndDate: Calendar.current.date(byAdding: .day, value: 6, to: snapshot.weekStartDate) ?? snapshot.weekStartDate,
                     score: score,
-                    narrative: "\(headline) \(completedTasks.count) tasks closed and \(completedOutcomes) outcomes moved meaningfully this week.",
+                    narrative: String(localized: "\(headline). \(completedTasks.count) tasks done, \(completedOutcomes) goals done."),
                     overloadDetected: snapshot.thisWeekTasks.filter { !$0.isComplete }.count > (snapshot.plan?.targetCapacity ?? max(snapshot.thisWeekTasks.count, 1)),
                     completionRate: completionRate,
                     habitContinuityScore: snapshot.plan?.selectedHabitIDs.isEmpty == false ? 1 : 0,
@@ -959,14 +959,14 @@ public final class BuildRecoveryInsightsUseCase: @unchecked Sendable {
 
         let headline: String
         if carryForwardCount > laterCount + droppedCount {
-            headline = "Next week is inheriting some pressure."
+            headline = String(localized: "Most tasks stay on the plan.")
         } else if droppedCount > 0 {
-            headline = "You cleared drag, not just shuffled it."
+            headline = String(localized: "Some tasks moved to Someday.")
         } else {
-            headline = "The week closed cleanly."
+            headline = String(localized: "All sorted.")
         }
 
-        let narrative = "\(carryForwardCount) carried, \(laterCount) moved later, \(droppedCount) consciously dropped."
+        let narrative = String(localized: "\(carryForwardCount) kept · \(laterCount) to Later · \(droppedCount) to Someday")
 
         return RecoveryInsights(
             headline: headline,

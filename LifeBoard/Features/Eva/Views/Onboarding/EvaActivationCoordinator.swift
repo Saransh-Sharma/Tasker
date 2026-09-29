@@ -20,9 +20,9 @@ enum EvaActivationNavigationLeadingActionStyle: Equatable {
     var accessibilityLabel: String {
         switch self {
         case .close:
-            return "Close"
+            return String(localized: "Close")
         case .back:
-            return "Back"
+            return String(localized: "Back")
         }
     }
 }
@@ -42,7 +42,7 @@ struct EvaActivationNavigationChrome: Equatable {
 
     var progressAccessibilityValue: String? {
         guard showsProgress else { return nil }
-        return "Step \(stepIndex) of \(stepCount)"
+        return String(localized: "Step \(stepIndex) of \(stepCount)")
     }
 }
 
@@ -124,7 +124,7 @@ final class EvaActivationCoordinator: ObservableObject {
         switch state.stage {
         case .intro:
             EvaActivationNavigationChrome(
-                screenTitle: "Meet \(identitySnapshot.displayName)",
+                screenTitle: String(localized: "Meet \(identitySnapshot.displayName)"),
                 stepIndex: 1,
                 stepCount: 5,
                 showsProgress: true,
@@ -133,7 +133,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .aboutYou:
             EvaActivationNavigationChrome(
-                screenTitle: "Quick Sync",
+                screenTitle: String(localized: "About you"),
                 stepIndex: 2,
                 stepCount: 5,
                 showsProgress: true,
@@ -142,7 +142,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .goals:
             EvaActivationNavigationChrome(
-                screenTitle: "Current Goals",
+                screenTitle: String(localized: "Goals"),
                 stepIndex: 3,
                 stepCount: 5,
                 showsProgress: true,
@@ -151,7 +151,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .cloudSetup:
             EvaActivationNavigationChrome(
-                screenTitle: String(localized: "Connect Cloud EVA"),
+                screenTitle: String(localized: "Connect Eva"),
                 stepIndex: 4,
                 stepCount: 5,
                 showsProgress: true,
@@ -160,7 +160,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .modelChoice:
             EvaActivationNavigationChrome(
-                screenTitle: String(localized: "Set Up Offline EVA"),
+                screenTitle: String(localized: "Choose a model"),
                 stepIndex: 4,
                 stepCount: 5,
                 showsProgress: true,
@@ -169,7 +169,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .modelDownload:
             EvaActivationNavigationChrome(
-                screenTitle: "Getting \(identitySnapshot.displayName) Ready",
+                screenTitle: String(localized: "Getting \(identitySnapshot.displayName) ready"),
                 stepIndex: 4,
                 stepCount: 5,
                 showsProgress: true,
@@ -178,7 +178,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .installRecovery:
             EvaActivationNavigationChrome(
-                screenTitle: "Recovery",
+                screenTitle: String(localized: "Setup"),
                 stepIndex: 4,
                 stepCount: 5,
                 showsProgress: true,
@@ -187,7 +187,7 @@ final class EvaActivationCoordinator: ObservableObject {
             )
         case .firstChat:
             EvaActivationNavigationChrome(
-                screenTitle: "First Win",
+                screenTitle: String(localized: "First chat"),
                 stepIndex: 5,
                 stepCount: 5,
                 showsProgress: true,

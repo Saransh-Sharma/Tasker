@@ -71,11 +71,16 @@ text = text.replace(
     f"\t\t\t\t{anchor_ref} /* LifeBoardTokenBridge.swift */,\n\t\t\t\t{file_ref} /* {base} */,\n",
     1,
 )
-text = text.replace(
-    f"\t\t\t\t{anchor_build} /* LifeBoardTokenBridge.swift in Sources */,\n",
-    f"\t\t\t\t{anchor_build} /* LifeBoardTokenBridge.swift in Sources */,\n\t\t\t\t{build_file} /* {base} in Sources */,\n",
-    1,
-)
+# The Sources phase's indentation has drifted (it is two tabs at the time of
+# writing, not four), so match whatever indentation the anchor line has and
+# fail loudly rather than silently leaving the file out of the target.
+import re
+member = re.compile(r"^(\t+)" + re.escape(anchor_build) + r" /\* LifeBoardTokenBridge\.swift in Sources \*/,\n", re.M)
+match = member.search(text)
+if match is None:
+    sys.exit("❌ Could not find the app target's Sources-phase anchor; nothing written.")
+indent = match.group(1)
+text = text[:match.end()] + f"{indent}{build_file} /* {base} in Sources */,\n" + text[match.end():]
 
 open(pbx, "w").write(text)
 PY

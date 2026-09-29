@@ -127,7 +127,7 @@ public extension ReflectionInsight {
                     reference: EvaRecordReference(
                         kind: .journal,
                         recordID: item.entryID,
-                        title: "Journal — \(item.date.formatted(date: .abbreviated, time: .omitted))",
+                        title: String(localized: "Journal · \(item.date.formatted(date: .abbreviated, time: .omitted))"),
                         occurredAt: item.date
                     ),
                     reason: explanation,

@@ -118,8 +118,8 @@ public enum LifeMomentRepositoryError: LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidTitle: "Add a short name for this moment."
-        case .notFound: "That moment is no longer available."
+        case .invalidTitle: String(localized: "Add a name.")
+        case .notFound: String(localized: "Moment not found.")
         }
     }
 }
@@ -194,7 +194,7 @@ public struct LifeMomentHomeCardSource: HomeCardSource {
             return .init(
                 availability: .unavailable,
                 title: definition.title,
-                detail: "This moment is no longer available. You can remove this card in Home Edit.",
+                detail: String(localized: "Moment not found. Remove this card from Home."),
                 updatedAt: date
             )
         }
@@ -202,7 +202,7 @@ public struct LifeMomentHomeCardSource: HomeCardSource {
             return .init(
                 availability: .redacted,
                 title: definition.title,
-                detail: "Open this moment to allow its date on Home.",
+                detail: String(localized: "Open to show its date on Home."),
                 updatedAt: date
             )
         }
@@ -211,7 +211,7 @@ public struct LifeMomentHomeCardSource: HomeCardSource {
             return .init(
                 availability: .empty,
                 title: moment.title,
-                detail: "This moment has passed. Archive it or choose a new date.",
+                detail: String(localized: "This date has passed."),
                 actions: inlineActions,
                 updatedAt: moment.updatedAt
             )
@@ -222,7 +222,7 @@ public struct LifeMomentHomeCardSource: HomeCardSource {
         case .compact: nil
         case .standard, .wide: occurrence.formatted(date: .abbreviated, time: .omitted)
         case .tall, .expanded:
-            moment.note ?? "A meaningful date you chose to keep close."
+            moment.note ?? String(localized: "A date you’re tracking")
         }
         return .init(
             availability: .ready,
@@ -261,8 +261,8 @@ public struct LifeMomentContextCandidateSource: HomeContextCandidateSource {
                   days <= thresholdDays,
                   let occurrence = moment.nextOccurrence(onOrAfter: context.date) else { return nil }
             let reason = days == 0
-                ? "You asked to see this moment on its day."
-                : "You asked to see this moment during its final week."
+                ? String(localized: "Today")
+                : days == 1 ? String(localized: "Tomorrow") : String(localized: "In \(days) days")
             return HomeContextCandidate(
                 id: "life-moment:\(moment.id.uuidString)",
                 widgetKind: .lifeMoment,
@@ -296,12 +296,12 @@ public struct LifeMomentsOverviewHomeCardSource: HomeCardSource {
 
     public func snapshot(configuration: HomeCardConfiguration, size: HomeCardSize, at date: Date) async -> HomeCardSnapshot {
         guard let moments = try? await repository.moments(includeArchived: false) else {
-            return .init(availability: .degraded, title: definition.title, detail: "Moments are unavailable right now. Your Home layout is unchanged.", updatedAt: date)
+            return .init(availability: .degraded, title: definition.title, detail: String(localized: "Couldn’t load moments."), updatedAt: date)
         }
         guard let moment = moments.filter(\.permitsHomeDisplay).compactMap({ value -> (LifeMoment, Int)? in
             value.calendarDaysUntilNextOccurrence(from: date).map { (value, $0) }
         }).sorted(by: { $0.1 < $1.1 }).first else {
-            return .init(availability: .redacted, title: definition.title, detail: "Choose a moment and allow its date on Home.", actions: inlineActions, updatedAt: date)
+            return .init(availability: .redacted, title: definition.title, detail: String(localized: "Pick a moment to show on Home."), actions: inlineActions, updatedAt: date)
         }
         let value = moment.1 == 0 ? "Today" : moment.1 == 1 ? "Tomorrow" : "\(moment.1) days"
         // The countdown body derives its own numeral from the target date, so

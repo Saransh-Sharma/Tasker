@@ -11,8 +11,8 @@ import SwiftUI
 public struct HomeCardBody: View {
     private let snapshot: HomeCardSnapshot?
     private let archetype: HomeCardArchetype
-    private let preset: WidgetSizePreset
-    private let palette: DaypartPalette
+    let preset: WidgetSizePreset
+    let palette: DaypartPalette
     private let title: String
     private let symbol: String
     private let queueLimit: Int
@@ -310,7 +310,8 @@ public struct HomeCardBody: View {
     private func queueRow(_ item: HomeQueueItem) -> some View {
         HStack(spacing: 8) {
             Image(systemName: item.systemImage ?? stateSymbol(item.state))
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
+                .dynamicTypeSize(...DynamicTypeSize.xxLarge)
                 .foregroundStyle(item.state == .overdue ? overdueTint : palette.color(for: .foregroundSecondary))
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
@@ -519,72 +520,6 @@ public struct HomeCardBody: View {
         }
     }
 
-    // MARK: States
-
-    @ViewBuilder
-    private func emptyBody(_ snapshot: HomeCardSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(snapshot.value ?? "Nothing yet")
-                .lifeboardFont(.body)
-                .foregroundStyle(palette.color(for: .foreground))
-                .lineLimit(2)
-            if let detail = snapshot.detail {
-                Text(detail)
-                    .lifeboardFont(.caption1)
-                    .homeCardEvidence("body.detail", role: "text", copy: detail, typography: .init(role: "caption1", points: 13, weight: "regular"))
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-                    .lineLimit(2)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func statusBody(_ snapshot: HomeCardSnapshot) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: snapshot.availability == .redacted ? "lock.fill" : "exclamationmark.triangle")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(snapshot.value ?? (snapshot.availability == .redacted ? "Hidden here" : "Not available"))
-                    .lifeboardFont(.body)
-                    .foregroundStyle(palette.color(for: .foreground))
-                    .lineLimit(2)
-                if let detail = snapshot.detail {
-                    Text(detail)
-                        .lifeboardFont(.caption1)
-                        .homeCardEvidence("body.detail", role: "text", copy: detail, typography: .init(role: "caption1", points: 13, weight: "regular"))
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                        .lineLimit(2)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    /// Payload absent or the wrong shape for this archetype. Falls back to the
-    /// provider's own strings rather than drawing nothing.
-    @ViewBuilder
-    private func fallbackSummary(_ snapshot: HomeCardSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            if let value = snapshot.value {
-                Text(value)
-                    .lifeboardFont(.bodyStrong)
-                    .homeCardEvidence("body.value", role: "text", copy: value, typography: .init(role: "bodyStrong", points: 17, weight: "semibold"))
-                    .foregroundStyle(palette.color(for: .foreground))
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let detail = snapshot.detail, preset != .compact {
-                Text(detail)
-                    .lifeboardFont(.caption1)
-                    .homeCardEvidence("body.detail", role: "text", copy: detail, typography: .init(role: "caption1", points: 13, weight: "regular"))
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
     // MARK: Actions
 
     /// Providers have always populated `actions`; nothing ever rendered them.
@@ -653,76 +588,7 @@ public struct HomeCardBody: View {
         }
     }
 
-    private var chartHeight: CGFloat {
-        switch preset {
-        case .compact: 24
-        case .standard: 42
-        case .wide: 70
-        case .tall: 104
-        case .expanded: 132
-        }
-    }
-
-    private var ringDiameter: CGFloat {
-        switch preset {
-        case .compact: 38
-        case .standard: 52
-        case .wide: 64
-        case .tall, .expanded: 76
-        }
-    }
-
-    private var streakDayCount: Int {
-        switch preset {
-        case .compact, .standard: 7
-        case .wide: 14
-        case .tall, .expanded: 28
-        }
-    }
-
-    private var streakHeight: CGFloat {
-        let rows = ceil(Double(streakDayCount) / 7)
-        return CGFloat(rows) * 16
-    }
-
-    private var excerptLineLimit: Int {
-        switch preset {
-        case .compact: 2
-        case .standard: 3
-        case .wide: 4
-        case .tall, .expanded: 8
-        }
-    }
-
     private var accentTint: Color {
         palette.color(for: .celestialPrimary)
-    }
-
-    private var overdueTint: Color {
-        Color(SemanticColorTokens.foundationDanger)
-    }
-
-    private func itemNoun(_ count: Int) -> String {
-        count == 1 ? "item" : "items"
-    }
-
-    private func stateSymbol(_ state: HomeQueueItem.State) -> String {
-        switch state {
-        case .pending: "circle"
-        case .inProgress: "circle.lefthalf.filled"
-        case .done: "checkmark.circle.fill"
-        case .overdue: "exclamationmark.circle"
-        case .skipped: "minus.circle"
-        }
-    }
-
-    private func stateDescription(_ state: HomeQueueItem.State) -> String {
-        switch state {
-        case .pending: "Not started"
-        case .inProgress: "In progress"
-        case .done: "Done"
-        case .overdue: "Overdue"
-        case .skipped: "Skipped"
-        }
     }
 }

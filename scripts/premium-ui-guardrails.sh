@@ -69,6 +69,20 @@ fail_if_matches \
   LifeBoard/Shared/UI \
   --glob '*.swift'
 
+# A full-screen cover on iPad or a Mac window covers the whole display for one
+# dial or ritual. `lifeboardCover` (LifeBoardUI/LifeBoardPresentation.swift)
+# keeps it full screen on iPhone and makes it a page sheet at pad widths.
+# Exempt: Apple's camera scanners, and Life Management's cover, which is
+# already gated to compact width with a sheet beside it.
+fail_if_matches \
+  "Present covers with lifeboardCover, not a raw fullScreenCover" \
+  '\.fullScreenCover\(' \
+  LifeBoard \
+  --glob '*.swift' \
+  --glob '!**/LifeBoardPhaseVIViews.swift' \
+  --glob '!**/FoundationShellModifiers.swift' \
+  --glob '!**/LifeManagementViewRoot.swift'
+
 if ! rg -q 'ScreenScaffold' LifeBoard/Shared/UI/DestinationScaffold.swift; then
   echo "❌ Secondary destinations must use ScreenScaffold"
   FAILED=1
@@ -97,6 +111,8 @@ fi
 
 MIGRATED_COMPOSER_FILES=(
   LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift
+  LifeBoard/Features/Track/UI/TrackGoalComposers.swift
+  LifeBoard/Features/Track/UI/TrackStarterPackViews.swift
   LifeBoard/Features/Health/UI/LifeBoardPhaseVIViews.swift
   LifeBoard/Features/Health/HealthSync/HealthLogComposers.swift
   LifeBoard/Features/Health/HealthSync/HealthHubSections.swift

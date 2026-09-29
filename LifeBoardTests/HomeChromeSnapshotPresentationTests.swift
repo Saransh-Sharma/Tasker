@@ -169,7 +169,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.viewLabel, "Today")
         XCTAssertEqual(presentation.compactDateText, today.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
         XCTAssertEqual(presentation.backgroundDateText, today.formatted(.dateTime.month(.wide).day()))
-        XCTAssertEqual(presentation.foregroundRelativeLabel, "TODAY")
+        XCTAssertEqual(presentation.foregroundRelativeLabel, "Today")
         XCTAssertEqual(presentation.dateAccessibilityLabel, "Today, \(today.formatted(.dateTime.month(.wide).day()))")
         XCTAssertFalse(presentation.showsBackToToday)
         XCTAssertFalse(presentation.showsReflectionCTA)
@@ -182,7 +182,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.dayProgress?.totalCount, 5)
         XCTAssertEqual(presentation.dayProgress?.remainingCount, 3)
         XCTAssertFalse(presentation.dayProgress?.isComplete ?? true)
-        XCTAssertEqual(presentation.dayProgress?.accessibilityLabel, "Today progress, 2 of 5 due items done, 3 left")
+        XCTAssertEqual(presentation.dayProgress?.accessibilityLabel, "Today, 2 of 5 tasks done, 3 left")
         XCTAssertEqual(presentation.dayProgress?.progressFraction ?? -1, 0.4, accuracy: 0.0001)
     }
 
@@ -266,7 +266,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         XCTAssertEqual(presentation.compactDateText, selectedDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
         XCTAssertEqual(presentation.backgroundDateText, selectedDate.formatted(.dateTime.month(.wide).day()))
-        XCTAssertEqual(presentation.foregroundRelativeLabel, "TOMORROW")
+        XCTAssertEqual(presentation.foregroundRelativeLabel, "Tomorrow")
         XCTAssertEqual(presentation.dateAccessibilityLabel, "Tomorrow, \(selectedDate.formatted(.dateTime.month(.wide).day()))")
         XCTAssertTrue(presentation.showsBackToToday)
         XCTAssertFalse(presentation.showsReflectionCTA)
@@ -348,12 +348,12 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         let presentation = snapshot.homeHeaderPresentation(tasks: tasks)
 
-        XCTAssertEqual(presentation.viewLabel, "Overdue")
+        XCTAssertEqual(presentation.viewLabel, "From earlier")
         XCTAssertNil(presentation.compactDateText)
         XCTAssertNil(presentation.backgroundDateText)
         XCTAssertNil(presentation.foregroundRelativeLabel)
         XCTAssertNil(presentation.dateAccessibilityLabel)
-        XCTAssertEqual(presentation.statusText, "2 rescue tasks")
+        XCTAssertEqual(presentation.statusText, "2 tasks from earlier")
         XCTAssertNil(presentation.todayStatus)
         XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertNil(presentation.dayProgress)
@@ -376,7 +376,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.dayProgress?.totalCount, 0)
         XCTAssertEqual(presentation.dayProgress?.remainingCount, 0)
         XCTAssertEqual(presentation.dayProgress?.progressFraction ?? -1, 1, accuracy: 0.0001)
-        XCTAssertEqual(presentation.dayProgress?.accessibilityLabel, "Today progress, nothing due today")
+        XCTAssertEqual(presentation.dayProgress?.accessibilityLabel, "Today, nothing due")
     }
 
     func testTodayPresentationRoundsDueWorkPercentageForHeaderDisplay() {
@@ -471,13 +471,13 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
     func testDateHeaderRelativeLabelsCoverPastAndFutureOffsets() {
         let today = Calendar.current.startOfDay(for: Date())
         let expectedLabels: [(offset: Int, label: String, accessibility: String)] = [
-            (-9, "9 DAYS AGO", "9 days ago"),
-            (-2, "2 DAYS AGO", "2 days ago"),
-            (-1, "YESTERDAY", "Yesterday"),
-            (0, "TODAY", "Today"),
-            (1, "TOMORROW", "Tomorrow"),
-            (2, "IN 2 DAYS", "In 2 days"),
-            (9, "IN 9 DAYS", "In 9 days")
+            (-9, "9 days ago", "9 days ago"),
+            (-2, "2 days ago", "2 days ago"),
+            (-1, "Yesterday", "Yesterday"),
+            (0, "Today", "Today"),
+            (1, "Tomorrow", "Tomorrow"),
+            (2, "In 2 days", "In 2 days"),
+            (9, "In 9 days", "In 9 days")
         ]
 
         for expected in expectedLabels {

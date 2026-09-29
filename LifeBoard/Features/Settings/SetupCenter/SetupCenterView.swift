@@ -17,6 +17,7 @@ struct SetupCenterView: View {
     @State private var showsHealthAccess = false
     @State private var showsHealthWriteBack = false
     @State private var showsCalendarChooser = false
+    @State var showsEvaConsent = false
     @State private var providerPreference = EvaProviderRouter.Preference.resolvedStoredPreference()
 
     init(
@@ -64,10 +65,10 @@ struct SetupCenterView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Connect what helps")
+                    Text("Connections")
                         .lifeboardFont(.screenTitle)
                         .foregroundStyle(Color.lifeboard(.textPrimary))
-                    Text("All integrations are optional and can be changed later.")
+                    Text("All optional. Change them any time.")
                         .lifeboardFont(.support)
                         .foregroundStyle(Color.lifeboard(.textSecondary))
                     Text(status.summary)
@@ -90,7 +91,7 @@ struct SetupCenterView: View {
             .scrollIndicators(.hidden)
             .onChange(of: scrollTarget) { _, target in
                 guard let target else { return }
-                withAnimation(reduceMotion ? nil : .snappy) {
+                withAnimation(MotionProfile.route.animation(reduceMotion: reduceMotion)) {
                     proxy.scrollTo(target, anchor: .center)
                 }
             }
@@ -110,13 +111,18 @@ struct SetupCenterView: View {
             let completed = previous.snapshots.first { $0.integration == expandedIntegration }?.state.isReady == false
                 && current.snapshots.first { $0.integration == expandedIntegration }?.state.isReady == true
             guard completed else { return }
-            UIAccessibility.post(notification: .announcement, argument: "Integration ready")
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Connected"))
 
         }
         .sheet(isPresented: $showsHealthPrompt) {
             HealthConnectionSheet(context: context ?? .init(.health, from: .settings))
         }
         .sheet(isPresented: $showsHealthAccess) { HealthAccessInstructions() }
+        .sheet(isPresented: $showsEvaConsent) {
+            EvaCloudConsentSheet(access: evaAccess, source: .setupCenter, identifierPrefix: "setupCenter.eva.consent") { succeeded in
+                Task { await ProductTelemetry.shared.record(.connectorResult, outcome: succeeded ? "eva_cloud_completed" : "eva_cloud_failed") }
+            }
+        }
         .sheet(isPresented: $showsHealthWriteBack) {
             HealthConnectPromptSheet(
                 leadDomain: .activity,
@@ -157,7 +163,7 @@ private extension SetupCenterView {
             VStack(alignment: .leading, spacing: 14) {
                 explanation(snapshot)
                 SetupCenterPrimaryAction(
-                    title: snapshot.recoveryAction.isEmpty ? "Checking calendars…" : snapshot.recoveryAction,
+                    title: snapshot.recoveryAction.isEmpty ? String(localized: "Loading…") : snapshot.recoveryAction,
                     identifier: "setupCenter.calendar.action",
                     isEnabled: snapshot.state != .checking,
                     action: { handleCalendarAction(snapshot.recoveryActionKind) }
@@ -171,12 +177,12 @@ private extension SetupCenterView {
         SetupCenterDisclosureCard(snapshot: snapshot, isExpanded: expandedIntegration == .health, onToggle: { toggle(.health) }) {
             VStack(alignment: .leading, spacing: 14) {
                 explanation(snapshot)
-                Text("Health imports are processed on this device. Available Health context may accompany EVA requests; manage EVA context in Settings.")
+                Text("Eva may use Health data. Change this in Eva settings.")
                     .lifeboardFont(.caption1)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
                 if healthStore.isRefreshing {
-                    ProgressView("Syncing Apple Health…")
+                    ProgressView("Syncing…")
                         .accessibilityIdentifier("setupCenter.health.loading")
                 } else {
                     if !snapshot.recoveryAction.isEmpty {
@@ -185,7 +191,7 @@ private extension SetupCenterView {
                     }
                     .id("health.action")
                     }
-                    Button("Save LifeBoard logs to Apple Health") { showsHealthWriteBack = true }
+                    Button("Save to Health") { showsHealthWriteBack = true }
                         .buttonStyle(.lifeBoardChip)
                     if HealthAuthorizationPromptState.hasRequested {
                         Button("Manage Health access") { showsHealthAccess = true }
@@ -202,7 +208,7 @@ private extension SetupCenterView {
             VStack(alignment: .leading, spacing: 14) {
                 explanation(snapshot)
                 if evaAccess.isWorking && providerPreference == .cloud {
-                    ProgressView(evaAccess.account.activationStage.progressCaption ?? "Connecting Cloud EVA…")
+                    ProgressView(evaAccess.account.activationStage.progressCaption ?? String(localized: "Connecting…"))
                         .accessibilityIdentifier("setupCenter.eva.loading")
                 } else {
                     evaPrimaryAction(snapshot)
@@ -232,21 +238,21 @@ private extension SetupCenterView {
     @ViewBuilder
     func evaPrimaryAction(_ snapshot: SetupCenterIntegrationSnapshot) -> some View {
         if providerPreference == .offline {
-            SetupCenterPrimaryAction(title: offlineModelReady ? "Manage Offline EVA" : "Choose a local model", identifier: "setupCenter.eva.offline") {
+            SetupCenterPrimaryAction(title: offlineModelReady ? String(localized: "Eva settings") : String(localized: "Choose a model"), identifier: "setupCenter.eva.offline") {
                 onNavigate(.llm)
             }
         } else {
             switch evaAccess.state {
             case .needsActivation:
-                SetupCenterPrimaryAction(title: "Retry connection", identifier: "setupCenter.eva.activate", action: activateCloudEva)
+                SetupCenterPrimaryAction(title: String(localized: "Turn on Eva"), identifier: "setupCenter.eva.activate", action: activateCloudEva)
             case .temporarilyUnavailable:
-                SetupCenterPrimaryAction(title: "Retry Cloud EVA", identifier: "setupCenter.eva.retry", action: retryCloudEva)
+                SetupCenterPrimaryAction(title: String(localized: "Try again"), identifier: "setupCenter.eva.retry", action: retryCloudEva)
             case .appleReauthenticationRequired:
-                SetupCenterPrimaryAction(title: "Reconnect with Apple", identifier: "setupCenter.eva.reconnectApple", action: reconnectAppleEva)
+                SetupCenterPrimaryAction(title: String(localized: "Reconnect with Apple"), identifier: "setupCenter.eva.reconnectApple", action: reconnectAppleEva)
             case .quotaExhausted:
-                SetupCenterPrimaryAction(title: "Use Offline EVA", identifier: "setupCenter.eva.offline", action: chooseOfflineEva)
+                SetupCenterPrimaryAction(title: String(localized: "Use \(DeviceNoun.this)"), identifier: "setupCenter.eva.offline", action: chooseOfflineEva)
             case .ready:
-                SetupCenterPrimaryAction(title: "Manage EVA", identifier: "setupCenter.eva.manage") { onNavigate(.llm) }
+                SetupCenterPrimaryAction(title: String(localized: "Eva settings"), identifier: "setupCenter.eva.manage") { onNavigate(.llm) }
             case .hydrating, .activating:
                 EmptyView()
             }
@@ -256,7 +262,7 @@ private extension SetupCenterView {
     @ViewBuilder
     var evaAlternativeActions: some View {
         if providerPreference == .cloud {
-            Button("Use Offline EVA", action: chooseOfflineEva)
+            Button(String(localized: "Use \(DeviceNoun.this)"), action: chooseOfflineEva)
                 .buttonStyle(.lifeBoardChip)
                 .accessibilityIdentifier("setupCenter.eva.provider.offline")
             if evaAccess.state == .needsActivation {
@@ -267,10 +273,9 @@ private extension SetupCenterView {
                     .accessibilityIdentifier("setupCenter.eva.notNow")
             }
         } else {
-            Button("Use Cloud EVA") {
-                evaAccess.selectCloud()
+            Button("Use the cloud") {
                 providerPreference = .cloud
-                Task { _ = await evaAccess.ensureActivated(source: .setupCenter) }
+                activateCloudEva()
             }
             .buttonStyle(.lifeBoardChip)
             .accessibilityIdentifier("setupCenter.eva.provider.cloud")
@@ -278,7 +283,7 @@ private extension SetupCenterView {
     }
 
     func toggle(_ integration: SetupCenterIntegration) {
-        withAnimation(reduceMotion ? nil : .snappy) {
+        withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
             expandedIntegration = expandedIntegration == integration ? nil : integration
             if expandedIntegration != nil {
                 scrollTarget = integration.rawValue
@@ -342,6 +347,13 @@ private extension SetupCenterView {
     }
 
     func activateCloudEva() {
+        // The first connection is the consent step; after that, connecting
+        // again needs no second confirmation.
+        guard evaAccess.hasConfirmedCloudConsent else {
+            Task { await ProductTelemetry.shared.record(.connectorResult, outcome: "eva_cloud_started") }
+            showsEvaConsent = true
+            return
+        }
         evaAccess.selectCloud()
         Task {
             await ProductTelemetry.shared.record(.connectorResult, outcome: "eva_cloud_started")
@@ -372,7 +384,7 @@ private extension SetupCenterView {
         }
     }
     func grantTitle(_ grant: EvaConsentPolicy.Grant) -> String {
-        switch grant { case .journal: "Journal"; case .health: "Health"; case .lifeMoments: "Life Moments"; case .personalMemory: "Personal Memory" }
+        grant.onboardingTitle
     }
 
     func refreshAll(selectRecommended: Bool) async {

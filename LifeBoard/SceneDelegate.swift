@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import UIKit.UIGestureRecognizerSubclass
 import UserNotifications
 import SwiftUI
 import CoreSpotlight
@@ -33,13 +34,22 @@ extension Notification.Name {
     static let lifeboardPresentHabitLibrary = Notification.Name("LifeBoardPresentHabitLibrary")
     static let lifeboardPresentHabitDetail = Notification.Name("LifeBoardPresentHabitDetail")
     static let lifeboardProcessWidgetActionCommand = Notification.Name("LifeBoardProcessWidgetActionCommand")
+    /// A `PendingShortcutLaunchAction` was queued while the app is alive (Siri
+    /// in-process, Control Center, a deep link, or a return to the foreground).
+    /// Launch drains the queue on its own; this covers every later arrival.
+    static let lifeboardPendingShortcutHandoff = Notification.Name("LifeBoardPendingShortcutHandoff")
 }
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private var foundationDomainMaintenance: FoundationDomainMaintenance?
+    /// This window's navigation. The first window uses the shared coordinator,
+    /// which widgets, intents and restoration already address; each further
+    /// window gets its own (see `FoundationCoordinator(secondaryWindowFor:)`).
+    var foundationCoordinator: FoundationCoordinator = .shared
+    /// The scene session that owns the shared coordinator, if one is connected.
+    @MainActor private static var primarySceneIdentifier: String?
 
-
-    private enum BootstrapFailureAction {
+    enum BootstrapFailureAction {
         case retrySync
         case recoverFromICloud
     }
@@ -47,12 +57,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     var persistentBootstrapObserver: NSObjectProtocol?
     private var onboardingRequestObserver: NSObjectProtocol?
-    private weak var journalPrivacyShield: UIView?
+    weak var journalPrivacyShield: UIView?
     private var navigationEventCoordinator: NavigationEventCoordinator?
     private var launchCoordinator: LaunchCoordinator?
     private var onboardingCoordinator: AppOnboardingCoordinator?
     private var motionConstraintObservers: [NSObjectProtocol] = []
-
+    /// Links, Spotlight results and notification launches that arrived while
+    /// onboarding covered the window. Routing them then would change roots
+    /// behind a full-screen flow the person cannot see past, and the result
+    /// was lost by the time onboarding closed. Replayed once it has.
+    private var routesDeferredBehindOnboarding: [() -> Void] = []
+    private var deferredRouteDrainTask: Task<Void, Never>?
 
     /// Executes scene.
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
@@ -60,17 +75,48 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // If using a storyboard, the `window` property will automatically be initialized and attached to the scene.
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
         guard let windowScene = (scene as? UIWindowScene) else { return }
+        let sceneIdentifier = session.persistentIdentifier
+        if let primary = Self.primarySceneIdentifier, primary != sceneIdentifier {
+            foundationCoordinator = FoundationCoordinator(secondaryWindowFor: sceneIdentifier, sharing: .shared)
+        } else {
+            Self.primarySceneIdentifier = sceneIdentifier
+        }
         
         // Create window programmatically to control root navigation composition
         window = UIWindow(windowScene: windowScene)
+        #if targetEnvironment(macCatalyst)
+        // A Mac window could shrink to nothing. 760 keeps it above the 700-point
+        // switcher breakpoint, so the Mac always gets the desktop chrome rather
+        // than the phone's bottom dock. The shell draws its own root switcher,
+        // so the title bar carries no title and no toolbar of its own.
+        windowScene.sizeRestrictions?.minimumSize = CGSize(width: 760, height: 600)
+        if let titlebar = windowScene.titlebar {
+            titlebar.titleVisibility = .hidden
+            titlebar.toolbar = nil
+            titlebar.separatorStyle = .none
+        }
+        #endif
+        // Anything presented outside the SwiftUI shell's `.tint` — sheets with
+        // their own navigation stack, alerts, share sheets — falls back to the
+        // window's tint, which was unset and therefore system blue.
+        window?.tintColor = SemanticColorTokens.foundationSystemTint
+        // Test and evidence fixture only. The shell's `.preferredColorScheme`
+        // never reached the window, so `-LIFEBOARD_VISUAL_APPEARANCE=dark` alone
+        // produced light screens — every "dark" capture taken without also
+        // switching the simulator was mislabelled. Overriding the window forces
+        // it everywhere, sheets and UIKit presentations included.
+        if let fixture = VisualAppearanceFixture.active {
+            window?.overrideUserInterfaceStyle = fixture.preferredColorScheme == .dark ? .dark : .light
+        }
 
         let appDelegate = UIApplication.shared.delegate as? AppDelegate
         let rootMode = appDelegate?.makeLaunchRootMode() ?? .bootstrapFailure(
-            message: AppDelegate.persistentBootstrapFailureMessage ?? "LifeBoard storage is unavailable. Please relaunch the app."
+            message: AppDelegate.persistentBootstrapFailureMessage ?? String(localized: "Couldn’t open your data. Relaunch LifeBoard.")
         )
         renderRoot(for: rootMode)
         installPersistentBootstrapObserver()
         installMotionConstraintObservers()
+        installAmbientActivityObserver()
         onboardingRequestObserver = NotificationCenter.default.addObserver(
             forName: .lifeboardStartOnboardingRequested,
             object: nil,
@@ -126,14 +172,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
             return nil
         }
+        guard case .ready(let graph) = appDelegate.appRuntime.state else {
+            return nil
+        }
         return makeDeferredHomeRootController(
             bootstrapState: appDelegate.persistentBootstrapState,
             failureMessage: AppDelegate.persistentBootstrapFailureMessage,
-            makeHomeViewModel: {
-                let dependencies = CompositionRoot.shared
-                guard dependencies.isConfiguredForRuntime else { return nil }
-                return dependencies.makeHomeViewModel()
-            }
+            makeHomeViewModel: graph.featureFactories.makeHomeViewModel
         )
     }
 
@@ -149,7 +194,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         guard let homeViewModel = makeHomeViewModel() else {
             showBootstrapFailureRoot(
-                message: failureMessage ?? "LifeBoard could not initialize dependencies."
+                message: failureMessage ?? String(localized: "Couldn’t finish setting up.")
             )
             return nil
         }
@@ -158,12 +203,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let launchCoordinator = LaunchCoordinator(
             presentationDependencies: CompositionRoot.shared,
             homeViewModel: homeViewModel,
-            router: FoundationCoordinator.shared.router
+            router: foundationCoordinator.router
         )
         self.launchCoordinator = launchCoordinator
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate,
               let persistentContainer = appDelegate.persistentContainer else {
-            showBootstrapFailureRoot(message: "LifeBoard storage finished opening without a persistent container.")
+            showBootstrapFailureRoot(message: String(localized: "Couldn’t open your data."))
             return nil
         }
         let state = CompositionRoot.shared
@@ -172,7 +217,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
               let tagRepository = state.tagRepository,
               let assistantActionRepository = state.assistantActionRepository,
               let coordinator = state.useCaseCoordinator else {
-            showBootstrapFailureRoot(message: "LifeBoard’s canonical task and habit services did not finish setup.")
+            showBootstrapFailureRoot(message: String(localized: "Couldn’t finish setting up."))
             return nil
         }
 
@@ -236,7 +281,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             lifeMoments: lifeMomentRepository
         ))
         #if canImport(WatchConnectivity) && os(iOS)
-        WatchConnectivityCoordinator.shared.configure(
+        if AppDelegate.isRunningTests == false {
+            WatchConnectivityCoordinator.shared.configure(
             repository: phaseIIRepository,
             container: persistentContainer,
             resolveBehaviorOccurrence: { command, completion in
@@ -246,7 +292,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                         code: 403,
                         userInfo: [
                             NSLocalizedDescriptionKey:
-                                "Behavior actions are unavailable while the flagship is disabled."
+                                String(localized: "Couldn’t update habit.")
                         ]
                     )))
                     return
@@ -263,7 +309,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     completion(.failure(NSError(
                         domain: "LifeBoardWatchFasting",
                         code: 403,
-                        userInfo: [NSLocalizedDescriptionKey: "Fasting controls are unavailable while the flagship is disabled."]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t update fast.")]
                     )))
                     return
                 }
@@ -276,7 +322,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                             throw NSError(
                                 domain: "LifeBoardWatchFasting",
                                 code: 409,
-                                userInfo: [NSLocalizedDescriptionKey: "That fasting session is no longer active."]
+                                userInfo: [NSLocalizedDescriptionKey: String(localized: "That fast has ended.")]
                             )
                         }
                         switch command.action {
@@ -296,7 +342,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     completion(.failure(NSError(
                         domain: "LifeBoardWatchRoutine",
                         code: 403,
-                        userInfo: [NSLocalizedDescriptionKey: "Routine controls are unavailable while the flagship is disabled."]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t update routine.")]
                     )))
                     return
                 }
@@ -308,7 +354,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                             throw NSError(
                                 domain: "LifeBoardWatchRoutine",
                                 code: 404,
-                                userInfo: [NSLocalizedDescriptionKey: "That routine run is no longer available."]
+                                userInfo: [NSLocalizedDescriptionKey: String(localized: "That routine has ended.")]
                             )
                         }
                         let runCommand: RoutineRunCommand = switch command.action {
@@ -330,9 +376,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     }
                 }
             }
-        )
+            )
+        }
         #endif
-        if V2FeatureFlags.lifeOSSystemSurfacesV2Enabled,
+        if AppDelegate.isRunningTests == false,
+           V2FeatureFlags.lifeOSSystemSurfacesV2Enabled,
            let snapshotStore = SystemSnapshotStore.appGroup() {
             let projector = SystemSurfaceProjectionCoordinator(
                 store: snapshotStore,
@@ -371,6 +419,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         let foundationRoot = FoundationShell(
                 homeViewModel: homeViewModel,
+                runtime: foundationCoordinator,
                 homeProjectionAdapter: projectionCoordinator,
                 dashboardLayoutRepository: layoutRepository,
                 phaseIIRepository: phaseIIRepository,
@@ -388,15 +437,23 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 gamificationRepository: coordinator.gamificationRepository
             )
         let foundationController = ApplicationHostController(
-            root: AnyView(foundationRoot),
+            // The live layout class for the whole shell. Without it every
+            // `layoutClass.isPad` branch and readable-width cap below stayed at
+            // the environment's `.phone` default on iPad and Mac.
+            root: AnyView(
+                foundationRoot.lifeboardLiveLayoutEnvironment(
+                    initial: LayoutResolver.classify(windowScene: window?.windowScene)
+                )
+            ),
             presentationDependencies: CompositionRoot.shared,
-            router: FoundationCoordinator.shared.router
+            router: foundationCoordinator.router
         )
 
         navigationEventCoordinator?.stop()
         let navigationEventCoordinator = NavigationEventCoordinator(
-            router: FoundationCoordinator.shared.router,
-            homeViewModel: homeViewModel
+            router: foundationCoordinator.router,
+            homeViewModel: homeViewModel,
+            isEventTarget: { [weak self] in self?.isAppWideEventTarget ?? false }
         )
         navigationEventCoordinator.start()
         self.navigationEventCoordinator = navigationEventCoordinator
@@ -449,131 +506,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         return foundationController
     }
 
-    /// Commits three known tasks to a day so the day-loop rituals have a deck.
-    ///
-    /// `-LIFEBOARD_TEST_SEED_DAY_CLOSE` commits them to today, which is what the
-    /// evening ritual reconciles. `-LIFEBOARD_TEST_SEED_DAY_OPEN` commits them to
-    /// yesterday, because `DayCloseStore` in `.open` mode reads a distinct
-    /// `retrospectiveDay` — seeding today leaves the morning surface empty.
-    ///
-    /// This creates its own tasks. It previously wrote planning metadata over
-    /// whatever another seeder had already made and returned silently when it
-    /// found none, so it produced an empty deck unless it happened to be paired
-    /// with a workspace seed — and `-LIFEBOARD_TEST_SEED_DAY_CLOSE` is not a
-    /// case `HomeUITestWorkspaceSeeder` recognises, so pairing it did not help.
-    /// Owning the rows also makes the must-do-first ordering deterministic
-    /// instead of depending on which task `fetchAll` returned first.
-    private static func seedDayLoopRitualsIfNeeded(
-        planning: CoreDataPlanningRepository,
-        tasks: any TaskDefinitionRepositoryProtocol,
-        completion: @escaping () -> Void
-    ) {
-        let arguments = ProcessInfo.processInfo.arguments
-        let seedsClose = arguments.contains("-LIFEBOARD_TEST_SEED_DAY_CLOSE")
-        let seedsOpen = arguments.contains("-LIFEBOARD_TEST_SEED_DAY_OPEN")
-        guard seedsClose || seedsOpen else {
-            completion()
-            return
-        }
-        // Fixed identifiers so the deck's "must-do first, then UUID" ordering is
-        // reproducible across runs and a screenshot can be compared to the last.
-        let seeds: [(id: UUID, title: String, commitment: TaskCommitmentLevel)] = [
-            (UUID(uuidString: "0DC10000-0000-0000-0000-000000000001")!,
-             "Draft the quarterly note", .mustDo),
-            (UUID(uuidString: "0DC10000-0000-0000-0000-000000000002")!,
-             "Reply to the venue about Friday", .standard),
-            (UUID(uuidString: "0DC10000-0000-0000-0000-000000000003")!,
-             "Book the dentist", .standard)
-        ]
-        let day = PlanningDay(
-            date: seedsOpen ? Date().addingTimeInterval(-86_400) : Date()
-        )
-
-        Task { @MainActor in
-            defer { completion() }
-            let existing: [TaskDefinition] = await withCheckedContinuation { continuation in
-                tasks.fetchAll { continuation.resume(returning: (try? $0.get()) ?? []) }
-            }
-            let existingIDs = Set(existing.map(\.id))
-            let existingMetadata = (
-                try? await planning.fetchTaskMetadata(taskIDs: Set(seeds.map(\.id)))
-            ) ?? []
-            let metadataByID = Dictionary(
-                uniqueKeysWithValues: existingMetadata.map { ($0.taskID, $0) }
-            )
-
-            for seed in seeds {
-                if existingIDs.contains(seed.id) == false {
-                    let definition = TaskDefinition(
-                        id: seed.id,
-                        projectID: ProjectConstants.inboxProjectID,
-                        title: seed.title
-                    )
-                    let created: Bool = await withCheckedContinuation { continuation in
-                        tasks.create(definition) { continuation.resume(returning: (try? $0.get()) != nil) }
-                    }
-                    guard created else {
-                        // Swallowing this made a failed seed indistinguishable
-                        // from a successful one, which is how the empty deck
-                        // went undiagnosed.
-                        logError("Day-loop seed could not create task \(seed.title)")
-                        continue
-                    }
-                }
-                // Read-modify-write: constructing fresh metadata reset fields the
-                // deck filters on, notably `availability` and
-                // `unscheduledDisposition`.
-                var metadata = metadataByID[seed.id] ?? PlanningTaskMetadata(taskID: seed.id)
-                metadata.planningDay = day
-                metadata.commitmentLevel = seed.commitment
-                metadata.availability = .actionable
-                metadata.unscheduledDisposition = .inbox
-                metadata.updatedAt = Date()
-                do {
-                    try await planning.saveTaskMetadata(metadata)
-                } catch {
-                    logError("Day-loop seed could not commit \(seed.title): \(error)")
-                }
-            }
-        }
-    }
-
-    /// Executes showBootstrapFailureRoot.
-    private func showBootstrapFailureRoot(message: String) {
-        let failureViewController = BootstrapFailureViewController(
-            message: message,
-            onRetrySync: { [weak self] in
-                self?.performBootstrapFailureAction(.retrySync)
-            },
-            onRecoverFromICloud: { [weak self] in
-                self?.performBootstrapFailureAction(.recoverFromICloud)
-            }
-        )
-        window?.rootViewController = failureViewController
-        window?.makeKeyAndVisible()
-    }
-
-    private func performBootstrapFailureAction(_ action: BootstrapFailureAction) {
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
-
-        let mode: LaunchRootMode
-        switch action {
-        case .retrySync:
-            mode = appDelegate.retryPersistentStoreBootstrap()
-        case .recoverFromICloud:
-            mode = appDelegate.recoverFromCloudAuthoritativeReset()
-        }
-
-        renderRoot(for: mode)
-        if case .bootstrapFailure(let message) = mode,
-           let failureVC = window?.rootViewController as? BootstrapFailureViewController {
-            failureVC.setWorking(false, hint: message)
-        }
-    }
-
     /// Executes sceneDidDisconnect.
     func sceneDidDisconnect(_ scene: UIScene) {
         foundationDomainMaintenance?.setScene(scene.session.persistentIdentifier, active: false)
+        if Self.primarySceneIdentifier == scene.session.persistentIdentifier {
+            Self.primarySceneIdentifier = nil
+        }
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.
         // Release any resources associated with this scene that can be re-created the next time the scene connects.
@@ -605,6 +543,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Compile signature Metal effects off the first-use path so the first bloom/reveal is smooth.
         SignatureShaders.warmUp()
         removeJournalPrivacyShield()
+        AmbientActivityClock.shared.noteInteraction()
+        AmbientActivityClock.shared.setCovered(acceptsAppCommands == false)
+    }
+
+    /// Feeds `AmbientActivityClock` from every touch in this window, so the
+    /// sky can settle when nobody is using the app. The recognizer never
+    /// recognizes, cancels, or delays anything.
+    private func installAmbientActivityObserver() {
+        guard let window,
+              window.gestureRecognizers?.contains(where: { $0 is AmbientActivityTouchObserver }) != true else {
+            return
+        }
+        let observer = AmbientActivityTouchObserver(target: nil, action: nil)
+        observer.configurePassive()
+        observer.onTouchesBegan = { [weak self] in
+            AmbientActivityClock.shared.noteInteraction()
+            AmbientActivityClock.shared.setCovered(self?.acceptsAppCommands == false)
+        }
+        observer.onTouchesMoved = {
+            AmbientActivityClock.shared.noteInteraction()
+        }
+        window.addGestureRecognizer(observer)
     }
 
     private func installMotionConstraintObservers() {
@@ -627,35 +587,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         Task { @MainActor in
             LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "scene_will_resign_active")
         }
-        installJournalPrivacyShieldIfNeeded()
-    }
-
-    private func installJournalPrivacyShieldIfNeeded() {
-        let defaults = UserDefaults(suiteName: AppGroupConstants.suiteName) ?? .standard
-        let policy = JournalPrivacyPolicyPersistence.load(from: defaults)
-        guard policy.shieldsAppSwitcher, journalPrivacyShield == nil, let window else { return }
-
-        let shield = UIView(frame: window.bounds)
-        shield.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        shield.backgroundColor = SemanticColorTokens.foundationCanvas
-        shield.isAccessibilityElement = true
-        shield.accessibilityLabel = "LifeBoard content hidden for privacy"
-
-        let symbol = UIImageView(image: UIImage(systemName: "lock.shield.fill"))
-        symbol.tintColor = SemanticColorTokens.foundationApricotAccent
-        symbol.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold)
-        symbol.translatesAutoresizingMaskIntoConstraints = false
-        shield.addSubview(symbol)
-        NSLayoutConstraint.activate([
-            symbol.centerXAnchor.constraint(equalTo: shield.centerXAnchor),
-            symbol.centerYAnchor.constraint(equalTo: shield.centerYAnchor)
-        ])
-        window.addSubview(shield)
-        journalPrivacyShield = shield
-    }
-
-    private func removeJournalPrivacyShield() {
-        journalPrivacyShield?.removeFromSuperview()
+        installJournalPrivacyShieldIfNeeded(for: .willResignActive)
     }
 
     /// Executes sceneWillEnterForeground.
@@ -663,6 +595,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called as the scene transitions from the background to the foreground.
         // Use this method to undo the changes made on entering the background.
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_will_enter_foreground")
+        // A Shortcut or Control Center press may have queued a handoff while
+        // the app was suspended; the adapter drains it (no-op when empty).
+        NotificationCenter.default.post(name: .lifeboardPendingShortcutHandoff, object: nil)
+        // Widget buttons no longer open the app, so their queued commands
+        // are applied here, on every return to the foreground.
+        NotificationCenter.default.post(name: .lifeboardProcessWidgetActionCommand, object: nil)
     }
 
     /// Executes sceneDidEnterBackground.
@@ -670,9 +608,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called as the scene transitions from the foreground to the background.
         // Use this method to save data, release shared resources, and store enough scene-specific state information
         // to restore the scene back to its current state.
+        installJournalPrivacyShieldIfNeeded(for: .didEnterBackground)
         Task { @MainActor in
             LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "scene_did_enter_background")
-            FoundationCoordinator.shared.router.journalDidLock()
+            foundationCoordinator.router.journalDidLock()
         }
         Task { await ProductTelemetry.shared.flush() }
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_enter_background")
@@ -687,98 +626,74 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         handleIncomingUserActivity(userActivity)
     }
 
-    private func handleIncomingUserActivity(_ userActivity: NSUserActivity) {
-        if let webpageURL = userActivity.webpageURL {
-            handleIncomingURL(webpageURL)
-            return
-        }
-        guard userActivity.activityType == CSSearchableItemActionType,
-              let identifier = userActivity.userInfo?[CSSearchableItemActivityIdentifier] as? String else {
-            return
-        }
-        if let reference = SpotlightRouteTranslator.reference(for: identifier) {
-            RecordRouteResolver.open(reference, with: FoundationCoordinator.shared.router)
-        } else if identifier.hasPrefix(SpotlightRouteTranslator.journalPrefix) {
-            FoundationCoordinator.shared.router.restoreFallbackToHome(
-                message: "That Journal result is incomplete or no longer available."
-            )
-        }
-    }
-
-    func handleNotificationLaunch(
-        request: UNNotificationRequest,
-        actionIdentifier: String = UNNotificationDefaultActionIdentifier
-    ) {
-        if V2FeatureFlags.lifeOSFoundationV1Enabled,
-           let route = foundationNavigationRoute(for: request, actionIdentifier: actionIdentifier) {
-            FoundationCoordinator.shared.router.handle(notificationRoute: route)
-            return
-        }
-        if let actionHandler = NotificationCoordinator.actionHandler {
-            actionHandler.handleAction(identifier: actionIdentifier, request: request)
-            return
-        }
-
-        postFallbackNotificationRoute(for: request)
-    }
-
-    func postFallbackNotificationRoute(for request: UNNotificationRequest) {
-        let payload = request.content.userInfo[LocalNotificationRequest.UserInfoKey.route] as? String
-        let taskIDRaw = request.content.userInfo[LocalNotificationRequest.UserInfoKey.taskID] as? String
-        let taskID = taskIDRaw.flatMap(UUID.init(uuidString:))
-        let route = NotificationRoute.from(
-            payload: payload ?? "home_today",
-            fallbackTaskID: taskID
+    /// Queues `action` when onboarding covers this window and replays it
+    /// after onboarding closes. Returns `true` when it was queued.
+    func deferWhileOnboardingCovers(_ action: @escaping () -> Void) -> Bool {
+        guard onboardingCoordinator?.onboardingHost != nil else { return false }
+        routesDeferredBehindOnboarding.append(action)
+        logInfo(
+            event: "scene_route_deferred_behind_onboarding",
+            message: "Deferred an incoming route until onboarding closes",
+            fields: ["pending": String(routesDeferredBehindOnboarding.count)]
         )
-        if V2FeatureFlags.lifeOSFoundationV1Enabled {
-            FoundationCoordinator.shared.router.handle(notificationRoute: route)
+        scheduleDeferredRouteDrain()
+        return true
+    }
+
+    private func scheduleDeferredRouteDrain() {
+        guard deferredRouteDrainTask == nil else { return }
+        deferredRouteDrainTask = Task { @MainActor [weak self] in
+            // Polls twice a second while onboarding is up; the flow owns its
+            // own dismissal and posts nothing this could observe instead.
+            for _ in 0..<3_600 {
+                guard let self else { return }
+                if self.onboardingCoordinator?.onboardingHost == nil, self.acceptsAppCommands { break }
+                try? await Task.sleep(for: .milliseconds(500))
+                guard Task.isCancelled == false else { return }
+            }
+            // Onboarding delivers its own destination as it closes; land on top
+            // of it rather than racing it.
+            try? await Task.sleep(for: .milliseconds(600))
+            guard Task.isCancelled == false else { return }
+            guard let self else { return }
+            self.deferredRouteDrainTask = nil
+            guard self.onboardingCoordinator?.onboardingHost == nil else {
+                // Onboarding came straight back (a replay): keep waiting.
+                self.scheduleDeferredRouteDrain()
+                return
+            }
+            let pending = self.routesDeferredBehindOnboarding
+            self.routesDeferredBehindOnboarding.removeAll()
+            pending.forEach { $0() }
+        }
+    }
+
+    func handleIncomingURL(_ url: URL) {
+        if let scheme = url.scheme?.lowercased(), ["lifeboard", "tasker"].contains(scheme),
+           deferWhileOnboardingCovers({ [weak self] in self?.handleIncomingURL(url) }) {
             return
         }
-        NotificationRouteBus.shared.post(route: route)
-    }
-
-    private func foundationNavigationRoute(
-        for request: UNNotificationRequest,
-        actionIdentifier: String
-    ) -> NotificationRoute? {
-        let payload = request.content.userInfo[LocalNotificationRequest.UserInfoKey.route] as? String
-        let taskID = (request.content.userInfo[LocalNotificationRequest.UserInfoKey.taskID] as? String)
-            .flatMap(UUID.init(uuidString:))
-        let payloadRoute = NotificationRoute.from(
-            payload: payload ?? "home_today",
-            fallbackTaskID: taskID
-        )
-        if actionIdentifier == UNNotificationDefaultActionIdentifier { return payloadRoute }
-        guard let action = NotificationActionID(rawValue: actionIdentifier) else { return nil }
-        switch action {
-        case .open: return payloadRoute
-        case .openToday: return .homeToday(taskID: taskID)
-        case .openWeeklyPlanner: return .weeklyPlanner
-        case .openWeeklyReview: return .weeklyReview
-        case .openDone: return .homeDone
-        case .complete, .snooze15m, .snooze30m, .snooze60m: return nil
-        }
-    }
-
-    private func handleIncomingURL(_ url: URL) {
         if let command = RoutineLiveActivityDeepLink.command(from: url) {
-            _ = FoundationCoordinator.shared.handle(url: url)
+            _ = foundationCoordinator.handle(url: url)
             guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
-                FoundationCoordinator.shared.router.activeAlert = AppAlertState(
-                    title: "Routine controls unavailable",
-                    message: "Open Track to review the current run."
+                foundationCoordinator.router.activeAlert = AppAlertState(
+                    title: String(localized: "Couldn’t update routine"),
+                    message: String(localized: "Open Track to see it.")
                 )
                 return
             }
-            guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
-                FoundationCoordinator.shared.router.activeAlert = AppAlertState(
-                    title: "Routine command pending",
-                    message: "LifeBoard is still opening. Use the in-app routine controls once Track appears."
-                )
-                return
-            }
-            let repository = CoreDataTrackFoundationRepository(container: container)
-            Task {
+            // A cold launch from the Live Activity arrives before the store
+            // has opened. The command used to be dropped with a "still
+            // opening" alert; it now waits (bounded) for the store and runs.
+            Task { @MainActor [foundationCoordinator] in
+                guard let container = await AppDelegate.readyWritableContainer() else {
+                    foundationCoordinator.router.activeAlert = AppAlertState(
+                        title: String(localized: "Couldn’t update routine"),
+                        message: String(localized: "Use the controls in Track.")
+                    )
+                    return
+                }
+                let repository = CoreDataTrackFoundationRepository(container: container)
                 do {
                     guard let run = try await repository
                         .fetchRoutineRuns(routineID: nil)
@@ -799,9 +714,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     SystemSurfaceRefresher.requestRefreshSoon()
                 } catch {
                     await MainActor.run {
-                        FoundationCoordinator.shared.router.activeAlert = AppAlertState(
-                            title: "Routine command not applied",
-                            message: "The run may already have ended. Open Track to review its current state."
+                        foundationCoordinator.router.activeAlert = AppAlertState(
+                            title: String(localized: "Couldn’t update routine"),
+                            message: String(localized: "It may have ended. Open Track to check.")
                         )
                     }
                 }
@@ -809,26 +724,26 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         if let command = FastingLiveActivityDeepLink.command(from: url) {
-            _ = FoundationCoordinator.shared.handle(url: url)
+            _ = foundationCoordinator.handle(url: url)
             guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
-                FoundationCoordinator.shared.router.activeAlert = AppAlertState(
-                    title: "Fasting controls unavailable",
-                    message: "Open Track to review the current session."
+                foundationCoordinator.router.activeAlert = AppAlertState(
+                    title: String(localized: "Couldn’t update fast"),
+                    message: String(localized: "Open Track to see it.")
                 )
                 return
             }
-            guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
-                FoundationCoordinator.shared.router.activeAlert = AppAlertState(
-                    title: "Fasting command pending",
-                    message: "LifeBoard is still opening. Use the in-app fasting controls once Track appears."
+            Task { @MainActor [foundationCoordinator] in
+                guard let container = await AppDelegate.readyWritableContainer() else {
+                    foundationCoordinator.router.activeAlert = AppAlertState(
+                        title: String(localized: "Couldn’t update fast"),
+                        message: String(localized: "Use the controls in Track.")
+                    )
+                    return
+                }
+                let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
+                let store = FastingTimerStore(
+                    repository: FastingRepositoryAdapter(repository: repository)
                 )
-                return
-            }
-            let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
-            let store = FastingTimerStore(
-                repository: FastingRepositoryAdapter(repository: repository)
-            )
-            Task {
                 do {
                     guard try await store.activeSession()?.id == command.sessionID else {
                         throw FastingTimerStoreError.noActiveSession
@@ -841,9 +756,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     }
                 } catch {
                     await MainActor.run {
-                        FoundationCoordinator.shared.router.activeAlert = AppAlertState(
-                            title: "Fasting command not applied",
-                            message: "The session may already have ended. Open Track to review its current state."
+                        foundationCoordinator.router.activeAlert = AppAlertState(
+                            title: String(localized: "Couldn’t update fast"),
+                            message: String(localized: "It may have ended. Open Track to check.")
                         )
                     }
                 }
@@ -851,11 +766,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         if let command = FocusLiveActivityDeepLink.command(from: url) {
-            _ = FoundationCoordinator.shared.handle(url: url)
+            _ = foundationCoordinator.handle(url: url)
             guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
-                FoundationCoordinator.shared.router.activeAlert = AppAlertState(
-                    title: "Focus command pending",
-                    message: "LifeBoard is still opening. Use the in-app Focus controls once Plan appears."
+                foundationCoordinator.router.activeAlert = AppAlertState(
+                    title: String(localized: "Still opening"),
+                    message: String(localized: "Try the focus controls in Plan.")
                 )
                 return
             }
@@ -867,9 +782,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     )
                 } catch {
                     await MainActor.run {
-                        FoundationCoordinator.shared.router.activeAlert = AppAlertState(
-                            title: "Focus command not applied",
-                            message: "The session may already have ended. Open Plan to review its current state."
+                        foundationCoordinator.router.activeAlert = AppAlertState(
+                            title: String(localized: "Couldn’t update focus"),
+                            message: String(localized: "It may have ended. Open Plan to check.")
                         )
                     }
                 }
@@ -877,7 +792,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         if V2FeatureFlags.lifeOSFoundationV1Enabled,
-           FoundationCoordinator.shared.handle(url: url) {
+           foundationCoordinator.handle(url: url) {
             return
         }
         guard let scheme = url.scheme?.lowercased(), ["lifeboard", "tasker"].contains(scheme) else { return }
@@ -936,7 +851,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 NotificationCenter.default.post(
                     name: .lifeboardOpenHomeDeepLink,
                     object: nil,
-                    userInfo: ["notice": "That weekly destination is unavailable. Opened Home instead."]
+                    userInfo: ["notice": String(localized: "Couldn’t open that page. Showing Home.")]
                 )
             }
             return
@@ -1013,189 +928,107 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 }
 
-/// Keeps seeded UI journeys deterministic without delaying or changing production launch.
-private final class UITestSeedGateViewController: UIViewController {
-    private let progress = UIActivityIndicatorView(style: .medium)
-    private var installed = false
+// MARK: - Menu bar and hardware keyboard commands
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = SemanticColorTokens.foundationCanvas
-        progress.translatesAutoresizingMaskIntoConstraints = false
-        progress.startAnimating()
-        progress.accessibilityLabel = "Preparing LifeBoard test workspace"
-        view.addSubview(progress)
-        NSLayoutConstraint.activate([
-            progress.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            progress.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-        ])
+/// The window-side half of `AppCommandMenu`. `AppDelegate` receives the
+/// commands — it is always at the end of the responder chain, so they fire
+/// even when nothing in the window is first responder, which is most of the
+/// time — and forwards them to the key window's scene, whose router they move.
+extension SceneDelegate {
+    /// Whether app-wide navigation (deep links, widget commands, notification
+    /// routes) belongs to this window: the only window, else the key window's
+    /// scene, else the primary window.
+    var isAppWideEventTarget: Bool {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard scenes.count > 1, let mine = window?.windowScene else { return true }
+        if let key = scenes.first(where: { scene in
+            scene.activationState == .foregroundActive && scene.windows.contains(where: \.isKeyWindow)
+        }) {
+            return key === mine
+        }
+        return Self.primarySceneIdentifier == mine.session.persistentIdentifier
     }
 
-    func install(_ controller: UIViewController) {
-        guard installed == false else { return }
-        installed = true
-        loadViewIfNeeded()
-        addChild(controller)
-        controller.view.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(controller.view)
-        NSLayoutConstraint.activate([
-            controller.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            controller.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            controller.view.topAnchor.constraint(equalTo: view.topAnchor),
-            controller.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-        controller.didMove(toParent: self)
-        progress.stopAnimating()
-        progress.removeFromSuperview()
+    /// Off while onboarding covers the window: it is presented full screen,
+    /// and the menu must not change roots or open captures behind it.
+    var acceptsAppCommands: Bool {
+        guard let root = window?.rootViewController else { return false }
+        var presented = root.presentedViewController
+        while let current = presented {
+            if current.modalPresentationStyle == .fullScreen { return false }
+            presented = current.presentedViewController
+        }
+        return true
+    }
+
+    func performNewCapture() {
+        let router = foundationCoordinator.router
+        if router.selectedDestination == .eva {
+            NotificationCenter.default.post(name: .requestEvaChatNewThread, object: nil)
+            return
+        }
+        router.captureRouter.request(kind: router.contextualCaptureKind, source: .shell)
+    }
+
+    func performGoTo(_ destination: Destination) {
+        foundationCoordinator.router.select(destination)
+    }
+
+    func performOpenSettings() {
+        let router = foundationCoordinator.router
+        router.push(.settings, in: router.selectedDestination)
+    }
+
+    var newCaptureTitle: String {
+        let router = foundationCoordinator.router
+        return AppCommandMenu.newCaptureTitle(
+            destination: router.selectedDestination,
+            captureKind: router.contextualCaptureKind
+        )
     }
 }
 
-final class LaunchHostController: UIViewController {
-    private let resolveHomeRootController: () -> UIViewController?
+/// Observes touches for `AmbientActivityClock` without participating in
+/// gesture resolution: it stays in `.possible`, recognizes alongside every
+/// other recognizer, and never cancels or delays touches to the views below.
+private final class AmbientActivityTouchObserver: UIGestureRecognizer, UIGestureRecognizerDelegate {
+    var onTouchesBegan: (@MainActor () -> Void)?
+    var onTouchesMoved: (@MainActor () -> Void)?
 
-    private var hasScheduledHomeAttach = false
-    private var pendingHomeController: UIViewController?
-    private var attachedHomeController: UIViewController?
-    private let splashState = LaunchSplashState()
-    private var splashHostController: UIHostingController<LaunchSplashView>?
-
-    init(resolveHomeRootController: @escaping () -> UIViewController?) {
-        self.resolveHomeRootController = resolveHomeRootController
-        super.init(nibName: nil, bundle: nil)
+    /// Configures the passive behaviour. Kept out of an initializer override
+    /// so this does not depend on which `UIGestureRecognizer` initializer the
+    /// SDK marks designated.
+    func configurePassive() {
+        cancelsTouchesInView = false
+        delaysTouchesBegan = false
+        delaysTouchesEnded = false
+        delegate = self
     }
 
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        onTouchesBegan?()
     }
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        setupSplash()
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        onTouchesMoved?()
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        scheduleHomeAttachIfNeeded()
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        state = .failed
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        attachHomeIfPossible()
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        state = .failed
     }
 
-    private func setupSplash() {
-        view.backgroundColor = ThemeStore.shared.currentTheme.tokens.color.bgCanvas
-
-        let splashHostController = UIHostingController(rootView: LaunchSplashView(state: splashState))
-        splashHostController.view.backgroundColor = .clear
-        splashHostController.view.translatesAutoresizingMaskIntoConstraints = false
-
-        addChild(splashHostController)
-        view.addSubview(splashHostController.view)
-        NSLayoutConstraint.activate([
-            splashHostController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            splashHostController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            splashHostController.view.topAnchor.constraint(equalTo: view.topAnchor),
-            splashHostController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-        splashHostController.didMove(toParent: self)
-        self.splashHostController = splashHostController
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        true
     }
 
-    private func scheduleHomeAttachIfNeeded() {
-        guard hasScheduledHomeAttach == false else { return }
-        hasScheduledHomeAttach = true
-
-        let firstFrameInterval = PerformanceTrace.begin("LaunchHostFirstFrame")
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            PerformanceTrace.end(firstFrameInterval)
-            self.refreshPendingHomeController()
-        }
-    }
-
-    func refreshPendingHomeController() {
-        guard attachedHomeController == nil else { return }
-        pendingHomeController = resolveHomeRootController()
-        attachHomeIfPossible()
-    }
-
-    private func attachHomeIfPossible() {
-        guard attachedHomeController == nil else { return }
-        guard let homeController = pendingHomeController else { return }
-        guard view.bounds.width > 1, view.bounds.height > 1 else { return }
-
-        let interval = PerformanceTrace.begin("LaunchHostAttachHome")
-        addChild(homeController)
-        homeController.view.translatesAutoresizingMaskIntoConstraints = false
-        homeController.view.alpha = 1
-        if let splashView = splashHostController?.view {
-            view.insertSubview(homeController.view, belowSubview: splashView)
-        } else {
-            view.addSubview(homeController.view)
-        }
-        NSLayoutConstraint.activate([
-            homeController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            homeController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            homeController.view.topAnchor.constraint(equalTo: view.topAnchor),
-            homeController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-        homeController.didMove(toParent: self)
-        PerformanceTrace.end(interval)
-        attachedHomeController = homeController
-        pendingHomeController = nil
-        completeSplashOverAttachedHome()
-    }
-
-    private func completeSplashOverAttachedHome() {
-        guard let splashHostController else { return }
-
-        if MotionOverride.effectiveReduceMotion {
-            fadeSplashOverAttachedHome(duration: 0.12, delay: 0)
-            return
-        }
-
-        splashState.completeReveal()
-        fadeSplashOverAttachedHome(
-            duration: LaunchSplashMetrics.finalCrossfadeDuration,
-            delay: max(
-                LaunchSplashMetrics.revealDuration
-                    - LaunchSplashMetrics.finalCrossfadeDuration,
-                0
-            ),
-            splashHostController: splashHostController
-        )
-    }
-
-    private func fadeSplashOverAttachedHome(
-        duration: TimeInterval,
-        delay: TimeInterval,
-        splashHostController: UIHostingController<LaunchSplashView>? = nil
-    ) {
-        let splashHostController = splashHostController ?? self.splashHostController
-        guard let splashHostController else { return }
-
-        UIView.animate(
-            withDuration: duration,
-            delay: delay,
-            options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseOut]
-        ) {
-            splashHostController.view.alpha = 0
-        } completion: { [weak self, weak splashHostController] _ in
-            guard let self, let splashHostController else { return }
-            self.removeSplashHostController(splashHostController)
-        }
-    }
-
-    private func removeSplashHostController(
-        _ splashHostController: UIHostingController<LaunchSplashView>
-    ) {
-        splashHostController.willMove(toParent: nil)
-        splashHostController.view.removeFromSuperview()
-        splashHostController.removeFromParent()
-        if self.splashHostController === splashHostController {
-            self.splashHostController = nil
-        }
+    override func canPrevent(_ preventedGestureRecognizer: UIGestureRecognizer) -> Bool {
+        false
     }
 }

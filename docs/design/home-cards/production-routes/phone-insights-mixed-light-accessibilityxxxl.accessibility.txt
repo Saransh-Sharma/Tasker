@@ -1,0 +1,78 @@
+Attributes: Application, 0x115e4a6c0, pid: 94237, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x115e4a6c0, pid: 94237, label: 'LifeBoard'
+    Window (Main), 0x115e4a800, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x115e4a940, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x115e4aa80, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x115e4abc0, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x115e4ad00, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x115e4ae40, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x115e4af80, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x115e4b0c0, {{0.0, 0.0}, {402.0, 874.0}}
+                    Button, 0x115e4b200, {{201.0, 451.0}, {0.0, 0.0}}
+                    Other, 0x115d57200, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x115d57340, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x115d57480, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x115d575c0, {{0.0, 0.0}, {402.0, 874.0}}
+                          Other, 0x115d57700, {{0.0, 0.0}, {402.0, 874.0}}
+                            Other, 0x115d57840, {{0.0, 0.0}, {402.0, 874.0}}
+                              Other, 0x115d57980, {{0.0, 0.0}, {402.0, 874.0}}
+                                Other, 0x115d57ac0, {{0.0, 62.0}, {402.0, 612.0}}
+                                Other, 0x115d57c00, {{0.0, 0.0}, {402.0, 874.0}}
+                                  Other, 0x115d57d40, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x115e58000, {{0.0, 0.0}, {402.0, 874.0}}
+                                      Other, 0x115e58140, {{0.0, 0.0}, {402.0, 874.0}}
+                                        Other, 0x115e58280, {{0.0, 0.0}, {402.0, 874.0}}
+                                          Image, 0x115e583c0, {{-45.0, 0.0}, {492.0, 874.0}}
+                                          Image, 0x115e58500, {{240.3, 37.3}, {168.4, 168.4}}
+                                          Other, 0x115e58640, {{201.0, 62.0}, {0.0, 0.0}}
+                                          ScrollView, 0x115e58780, {{0.0, 390.0}, {402.0, 484.0}}, identifier: 'foundation.insights'
+                                            Other, 0x115e588c0, {{0.0, 390.0}, {402.0, 961.0}}
+                                              Other, 0x115e58a00, {{20.0, 398.0}, {362.0, 904.3}}
+                                                ScrollView, 0x115e58b40, {{20.0, 398.0}, {362.0, 65.3}}, identifier: 'insights.lens', label: 'Insights lens'
+                                                  Other, 0x115e58c80, {{20.0, 398.0}, {734.0, 65.3}}
+                                                    Button, 0x115e58dc0, {{24.0, 402.0}, {178.7, 57.3}}, identifier: 'insights.lens.overview', label: 'Overview', Selected
+                                                    Button, 0x115e58f00, {{206.7, 402.0}, {178.3, 57.3}}, identifier: 'insights.lens.trends', label: 'Trends'
+                                                    Button, 0x115e59040, {{389.0, 402.0}, {178.7, 57.3}}, identifier: 'insights.lens.review', label: 'Review'
+                                                    Button, 0x115e59180, {{571.7, 402.0}, {178.3, 57.3}}, identifier: 'insights.lens.experience', label: 'Experience'
+                                                Other, 0x115e592c0, {{20.0, 487.3}, {362.0, 631.0}}, identifier: 'lifeboard.status.noRecord'
+                                                  Image, 0x115e59400, {{28.7, 496.0}, {43.0, 43.0}}, identifier: 'minus.circle', label: 'Remove'
+                                                  StaticText, 0x115e59540, {{76.0, 503.3}, {224.0, 187.3}}, label: 'Nothing recorded yet'
+                                                  StaticText, 0x115e59680, {{76.0, 695.7}, {278.0, 406.7}}, label: 'A check-in, routine, care event, or hydration log will appear here with its source.'
+                                                Button, 0x115e597c0, {{33.3, 1130.3}, {335.3, 172.0}}, identifier: 'insights.empty.openTrack', label: 'Record something in Track'
+                                            Other, 0x115e59900, {{369.0, 418.0}, {30.0, 394.0}}, label: 'Vertical scroll bar, 3 pages', value: 0%
+                                              Other, 0x115e59a40, {{396.0, 421.0}, {3.0, 188.7}}
+                                            Other, 0x115e59b80, {{369.0, 418.0}, {30.0, 394.0}}, label: 'Vertical scroll bar, 3 pages', value: 0%
+                                              Other, 0x115e59cc0, {{396.0, 421.0}, {3.0, 188.7}}
+                                          Other, 0x115e59e00, {{20.0, 70.0}, {362.0, 312.0}}, identifier: 'insights.header'
+                                            StaticText, 0x115e59f40, {{20.0, 70.0}, {203.0, 65.7}}, label: 'Insights'
+                                            StaticText, 0x115e5a080, {{20.0, 138.7}, {348.3, 187.3}}, label: 'Notice change without turning life into a score.'
+                                            Button, 0x115e5a1c0, {{338.0, 338.0}, {44.0, 44.0}}, identifier: 'foundation.more.insights', label: 'More'
+                                              Button, 0x115e5a300, {{338.0, 338.0}, {44.0, 44.0}}
+                                                Image, 0x115e5a440, {{336.0, 355.0}, {48.3, 10.0}}, identifier: 'ellipsis', label: 'More'
+                                  Other, 0x115e5a580, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x115e5a6c0, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x115e5a800, {{0.0, 791.0}, {402.0, 83.0}}
+                        Other, 0x115e5a940, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x115e5aa80, {{0.0, 791.0}, {402.0, 83.0}}
+                    Other, 0x115e5abc0, {{0.0, 652.0}, {402.0, 182.5}}, identifier: 'LifeBoardCompactChrome'
+                      Button, 0x115e5ad00, {{20.0, 692.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.toolsToggle', label: 'Open capture tools'
+                      TextField, 0x115e5ae40, {{72.0, 682.0}, {258.0, 64.0}}, identifier: 'home.lifeThread.composer', placeholderValue: 'Ask about a pattern or what to try next'
+                        Other, 0x115e5af80, {{72.0, 713.0}, {258.0, 30.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                          Other, 0x115e5b0c0, {{75.0, 740.0}, {252.0, 3.0}}
+                      Button, 0x115e5b200, {{337.3, 688.3}, {45.7, 51.0}}, identifier: 'lifeThread.composer.send', label: 'Start dictation'
+                      Button, 0x115e5b340, {{20.0, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.home', label: 'Home', value: Root
+                      Button, 0x115e5b480, {{92.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.plan', label: 'Plan', value: Root
+                      Button, 0x115e5b5c0, {{164.7, 774.0}, {72.7, 52.0}}, identifier: 'foundation.destination.track', label: 'Track', value: Root
+                      Button, 0x115e5b700, {{237.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.insights', label: 'Insights', value: Root, Selected
+                      Button, 0x115e5b840, {{309.7, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.eva', label: 'Eva', value: Root
+                    Other, 0x115e5b980, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.morning', label: 'Celestial atmosphere: morning'
+                    Button, 0x115e5bac0, {{0.0, 62.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                    Other, 0x115e5bc00, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x115e4a6c0, pid: 94237, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x115e5bd40, pid: 94237, label: 'LifeBoard'
+  }

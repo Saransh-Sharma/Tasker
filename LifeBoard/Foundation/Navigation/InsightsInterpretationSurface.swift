@@ -48,16 +48,16 @@ struct InsightsInterpretationSurface: View {
                 VStack(spacing: 8) {
                     if let exploreWithEva {
                         Button(action: exploreWithEva) {
-                            Label("Explore this with Eva", systemImage: "sparkles")
+                            Label("Ask \(AssistantIdentityText.currentSnapshot().displayName)", systemImage: "sparkles")
                                 .frame(maxWidth: .infinity, minHeight: 48)
                         }
                         .buttonStyle(.lifeBoardPrimaryCompact)
-                        .tint(Color(SemanticColorTokens.foundationApricotAccent))
+                        .tint(Color(SemanticColorTokens.foundationApricotInk))
                         .accessibilityIdentifier("insights.interpretation.askEva")
                     }
 
                     if let dismissEverywhere {
-                        Button("Dismiss everywhere", systemImage: "xmark.circle", action: dismissEverywhere)
+                        Button("Hide insight", systemImage: "xmark.circle", action: dismissEverywhere)
                             .font(.subheadline.weight(.medium))
                             .frame(maxWidth: .infinity, minHeight: 44)
                             .buttonStyle(.plain)

@@ -8,7 +8,7 @@ struct HomeBackToTodayButtonView: View {
 
     var body: some View {
         Button {
-            HapticFeedback.selection()
+            Haptic.pick.play()
             action()
         } label: {
             HStack(spacing: spacing.s4) {
@@ -35,7 +35,6 @@ struct HomeBackToTodayButtonView: View {
         .buttonStyle(.plain)
         .scaleOnPress()
         .accessibilityLabel("Back to Today")
-        .accessibilityHint("Returns to the default Today view")
         .accessibilityIdentifier("home.backToToday.button")
     }
 }

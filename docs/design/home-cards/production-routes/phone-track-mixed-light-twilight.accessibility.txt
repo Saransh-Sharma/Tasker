@@ -1,0 +1,139 @@
+Attributes: Application, 0x1137fcc80, pid: 34269, label: 'LifeBoard'
+Element subtree:
+ →Application, 0x1137fcc80, pid: 34269, label: 'LifeBoard'
+    Window (Main), 0x1137fcdc0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x1137fcf00, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x1137fd040, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x1137fd180, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x1137fd2c0, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x1137fd400, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x1137fd540, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x1137fd680, {{0.0, 0.0}, {402.0, 874.0}}
+                    Button, 0x1137fd7c0, {{201.0, 451.0}, {0.0, 0.0}}
+                    Other, 0x1137fe580, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x1137fe6c0, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x1137fe800, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x1137fe940, {{0.0, 0.0}, {402.0, 874.0}}
+                          Other, 0x1137fea80, {{0.0, 0.0}, {402.0, 874.0}}
+                            Other, 0x1137febc0, {{0.0, 0.0}, {402.0, 874.0}}
+                              Other, 0x1137fed00, {{0.0, 0.0}, {402.0, 874.0}}
+                                Other, 0x1137fee40, {{0.0, 62.0}, {402.0, 632.0}}
+                                Other, 0x1137fef80, {{0.0, 0.0}, {402.0, 874.0}}
+                                  Other, 0x1137ff0c0, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x1137ff200, {{0.0, 0.0}, {402.0, 874.0}}
+                                      Other, 0x1137ff340, {{0.0, 0.0}, {402.0, 874.0}}
+                                        Other, 0x1137ff480, {{0.0, 0.0}, {402.0, 874.0}}
+                                          Image, 0x1137ff5c0, {{-45.0, 0.0}, {492.0, 874.0}}
+                                          Image, 0x1137ff700, {{247.2, 69.9}, {148.9, 148.9}}
+                                          Other, 0x1137ff840, {{201.0, 62.0}, {0.0, 0.0}}
+                                          ScrollView, 0x1137ff980, {{0.0, 171.0}, {402.0, 703.0}}, identifier: 'foundation.track.scroll'
+                                            Other, 0x1137ffac0, {{0.0, 171.0}, {402.0, 957.0}}
+                                              Other, 0x1137ffc00, {{19.5, 171.0}, {363.0, 744.7}}
+                                                StaticText, 0x1137ffd40, {{22.0, 171.0}, {106.3, 24.0}}, label: 'Quick log'
+                                                  Image, 0x1137ffe80, {{22.0, 175.7}, {10.3, 17.3}}, identifier: 'bolt', label: 'Flash'
+                                                  StaticText, 0x113784140, {{42.3, 171.0}, {86.0, 24.0}}, label: 'Quick log'
+                                                ScrollView, 0x113784280, {{20.0, 207.0}, {362.0, 60.0}}
+                                                  Other, 0x1137843c0, {{20.0, 207.0}, {647.3, 60.0}}
+                                                    Button, 0x113784500, {{20.0, 209.0}, {118.7, 56.0}}, identifier: 'track.quick.water', label: 'Water, +250 mL'
+                                                      Image, 0x113784640, {{42.7, 229.3}, {10.7, 15.3}}, identifier: 'drop.fill', label: 'Water Drop'
+                                                      StaticText, 0x113784780, {{76.0, 219.8}, {42.7, 18.0}}, label: 'Water'
+                                                      StaticText, 0x1137848c0, {{76.0, 239.8}, {50.7, 14.3}}, label: '+250 mL'
+                                                    Button, 0x113784a00, {{150.7, 209.0}, {130.0, 56.0}}, identifier: 'track.quick.trackers', label: 'Trackers, Your own'
+                                                      Image, 0x113784b40, {{171.0, 229.7}, {15.3, 15.0}}, identifier: 'square.grid.3x3.fill', label: 'square.grid.3x3.fill'
+                                                      StaticText, 0x113784c80, {{206.7, 219.8}, {62.0, 18.0}}, label: 'Trackers'
+                                                      StaticText, 0x114410000, {{206.7, 239.8}, {52.3, 14.3}}, label: 'Your own'
+                                                    Button, 0x114410140, {{292.7, 209.0}, {188.7, 56.0}}, identifier: 'track.quick.mood', label: 'Mood, Check in when useful'
+                                                      Image, 0x114410280, {{313.0, 229.3}, {15.3, 15.3}}, identifier: 'face.smiling', label: 'face.smiling'
+                                                      StaticText, 0x1144103c0, {{348.7, 219.8}, {40.3, 18.0}}, label: 'Mood'
+                                                      StaticText, 0x114410500, {{348.7, 239.8}, {120.7, 14.3}}, label: 'Check in when useful'
+                                                    Button, 0x114410640, {{493.3, 209.0}, {174.0, 56.0}}, identifier: 'track.quick.sleep', label: 'Sleep, No manual context'
+                                                      Image, 0x114410780, {{514.0, 228.3}, {15.3, 17.7}}, identifier: 'moon.zzz', label: 'Snooze'
+                                                      StaticText, 0x1144108c0, {{549.3, 219.8}, {40.3, 18.0}}, label: 'Sleep'
+                                                      StaticText, 0x114410a00, {{549.3, 239.8}, {106.0, 14.3}}, label: 'No manual context'
+                                                Other, 0x114410b40, {{19.5, 282.5}, {363.0, 53.0}}, identifier: 'track.lens', label: 'Track lens'
+                                                  Button, 0x114410c80, {{24.0, 287.0}, {115.3, 44.0}}, identifier: 'track.lens.today', label: 'Today', Selected
+                                                  Button, 0x114410dc0, {{143.3, 287.0}, {115.3, 44.0}}, identifier: 'track.lens.areas', label: 'Areas'
+                                                  Button, 0x114410f00, {{262.7, 287.0}, {115.3, 44.0}}, identifier: 'track.lens.history', label: 'History'
+                                                Button, 0x114411040, {{20.0, 351.0}, {362.0, 134.0}}, identifier: 'track.healthSummary', label: 'From Apple Health, Steps, no record, Active, no record, Distance, no record, Connect Apple Health to bring your activity into LifeBoard.'
+                                                  Image, 0x114411180, {{38.0, 368.3}, {14.7, 20.7}}, identifier: 'heart.text.clipboard', label: 'heart.text.clipboard'
+                                                  StaticText, 0x1144112c0, {{38.0, 368.3}, {172.3, 21.0}}, label: 'From Apple Health'
+                                                  Image, 0x114411400, {{359.0, 373.3}, {6.3, 10.7}}, identifier: 'chevron.right', label: 'Forward'
+                                                  StaticText, 0x114411540, {{36.0, 402.3}, {32.7, 40.3}}, label: 'Steps, no record'
+                                                    StaticText, 0x114411680, {{36.0, 402.3}, {17.7, 24.0}}, label: '—'
+                                                    StaticText, 0x1144117c0, {{36.0, 428.3}, {32.7, 14.3}}, label: 'Steps'
+                                                  StaticText, 0x114411900, {{152.0, 402.3}, {35.3, 40.3}}, label: 'Active, no record'
+                                                    StaticText, 0x114411a40, {{152.0, 402.3}, {17.7, 24.0}}, label: '—'
+                                                    StaticText, 0x114411b80, {{152.0, 428.3}, {35.3, 14.3}}, label: 'Active'
+                                                  StaticText, 0x114411cc0, {{268.0, 402.3}, {49.7, 40.3}}, label: 'Distance, no record'
+                                                    StaticText, 0x114411e00, {{268.0, 402.3}, {17.7, 24.0}}, label: '—'
+                                                    StaticText, 0x114411f40, {{268.0, 428.3}, {49.7, 14.3}}, label: 'Distance'
+                                                  StaticText, 0x114412080, {{36.0, 454.7}, {330.0, 14.3}}, label: 'Connect Apple Health to bring your activity into LifeBoard.'
+                                                StaticText, 0x1144121c0, {{25.0, 507.0}, {154.4, 23.6}}, label: 'Care snapshot'
+                                                  Image, 0x114412300, {{25.0, 513.5}, {13.4, 13.4}}, identifier: 'heart.text.square', label: 'heart.text.square'
+                                                  StaticText, 0x114412440, {{48.3, 507.0}, {131.1, 23.6}}, label: 'Care snapshot'
+                                                Image, 0x114412580, {{40.1, 559.7}, {12.1, 17.0}}, identifier: 'track.hydration', label: 'Water Drop'
+                                                StaticText, 0x1144126c0, {{40.1, 558.1}, {98.3, 20.0}}, identifier: 'track.hydration', label: 'Hydration'
+                                                StaticText, 0x114412800, {{38.8, 589.9}, {102.9, 23.6}}, identifier: 'track.hydration', label: 'No data yet'
+                                                StaticText, 0x114412940, {{38.8, 639.9}, {73.1, 14.1}}, identifier: 'track.hydration', label: 'No target yet'
+                                                Button, 0x114412a80, {{305.2, 640.0}, {58.0, 14.1}}, identifier: 'track.hydration', label: 'Set target'
+                                                Button, 0x114412bc0, {{76.8, 680.3}, {82.6, 43.3}}, identifier: 'track.hydration', label: '+250 mL'
+                                                Button, 0x114412d00, {{242.6, 680.3}, {83.2, 43.3}}, identifier: 'track.hydration', label: '+500 mL'
+                                                Other, 0x114412e40, {{23.0, 751.1}, {355.9, 164.5}}
+                                                  Button, 0x114412f80, {{23.0, 751.1}, {172.1, 164.5}}, label: 'Mood + energy, Check in when useful'
+                                                    Image, 0x1144130c0, {{40.1, 768.5}, {17.0, 17.0}}, identifier: 'face.smiling', label: 'face.smiling'
+                                                    StaticText, 0x114413200, {{40.1, 766.9}, {89.1, 41.6}}, label: 'Mood + energy'
+                                                    StaticText, 0x114413340, {{38.8, 820.3}, {85.2, 37.4}}, label: 'Check in when useful'
+                                                    Image, 0x114413480, {{161.3, 882.2}, {16.7, 16.7}}, identifier: 'plus.circle', label: 'Add'
+                                                  Button, 0x1144135c0, {{206.9, 751.1}, {172.1, 164.5}}, label: 'Medication, None set up'
+                                                    Image, 0x114413700, {{223.9, 768.2}, {21.0, 18.4}}, identifier: 'pills', label: 'pills'
+                                                    StaticText, 0x114413840, {{223.9, 767.2}, {117.7, 20.0}}, label: 'Medication'
+                                                    StaticText, 0x114413980, {{222.6, 799.7}, {84.2, 17.7}}, label: 'None set up'
+                                                    Image, 0x114413ac0, {{354.0, 884.5}, {8.2, 14.4}}, identifier: 'chevron.right', label: 'Forward'
+                                            Other, 0x114413c00, {{369.0, 199.0}, {30.0, 613.0}}, label: 'Vertical scroll bar, 2 pages', value: 0%
+                                              Other, 0x114413d40, {{396.0, 202.0}, {3.0, 433.7}}
+                                            Other, 0x114413e80, {{369.0, 199.0}, {30.0, 613.0}}, label: 'Vertical scroll bar, 2 pages', value: 0%
+                                              Other, 0x114418000, {{396.0, 202.0}, {3.0, 433.7}}
+                                          Other, 0x114418140, {{20.0, 70.0}, {362.0, 93.0}}, identifier: 'track.header'
+                                            StaticText, 0x114418280, {{20.0, 70.0}, {153.3, 26.3}}, label: 'Good morning!'
+                                            StaticText, 0x1144183c0, {{20.0, 125.0}, {160.0, 38.0}}, label: 'What would feel useful to record?'
+                                            Other, 0x114418500, {{187.0, 98.6}, {73.8, 41.7}}, identifier: 'track.header.daypart', label: 'Morning, 25 percent through daylight'
+                                              Image, 0x114418640, {{193.7, 104.7}, {10.0, 10.3}}
+                                            Button, 0x114418780, {{338.0, 94.7}, {44.0, 44.0}}, identifier: 'foundation.more.track', label: 'More'
+                                              Button, 0x1144188c0, {{338.0, 94.7}, {44.0, 44.0}}
+                                                Image, 0x114418a00, {{352.3, 115.0}, {15.7, 3.3}}, identifier: 'ellipsis', label: 'More'
+                                  Other, 0x114418b40, {{0.0, 0.0}, {402.0, 874.0}}
+                                    Other, 0x114418c80, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x114418dc0, {{0.0, 791.0}, {402.0, 83.0}}
+                        Other, 0x114418f00, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x114419040, {{0.0, 791.0}, {402.0, 83.0}}
+                    Other, 0x114419180, {{0.0, 672.0}, {402.0, 162.5}}, identifier: 'LifeBoardCompactChrome'
+                      Button, 0x1144192c0, {{20.0, 702.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.toolsToggle', label: 'Open capture tools'
+                      TextField, 0x114419400, {{72.0, 713.0}, {258.0, 22.0}}, identifier: 'home.lifeThread.composer', placeholderValue: 'Log something or reflect on how you feel'
+                        Other, 0x114419540, {{72.0, 721.0}, {258.0, 11.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                          Other, 0x114419680, {{75.0, 729.0}, {252.0, 3.0}}
+                      Button, 0x1144197c0, {{338.0, 702.0}, {44.0, 44.0}}, identifier: 'lifeThread.composer.send', label: 'Start dictation'
+                      Button, 0x114419900, {{20.0, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.home', label: 'Home', value: Root
+                        Image, 0x114419a40, {{46.3, 783.0}, {20.0, 17.7}}, identifier: 'house', label: 'Home'
+                        StaticText, 0x114419b80, {{40.7, 804.7}, {31.0, 13.3}}, label: 'Home'
+                      Button, 0x114419cc0, {{92.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.plan', label: 'Plan', value: Root
+                        Image, 0x114419e00, {{120.3, 784.3}, {16.7, 15.3}}, identifier: 'calendar', label: 'Calendar'
+                        StaticText, 0x114419f40, {{117.3, 803.5}, {22.7, 13.3}}, label: 'Plan'
+                      Button, 0x11441a080, {{164.7, 774.0}, {72.7, 52.0}}, identifier: 'foundation.destination.track', label: 'Track', value: Root, Selected
+                        Image, 0x11441a1c0, {{190.0, 784.0}, {22.0, 16.0}}, identifier: 'chart.bar.fill', label: 'Chart Column'
+                        StaticText, 0x11441a300, {{185.7, 804.2}, {30.7, 13.3}}, label: 'Track'
+                      Button, 0x11441a440, {{237.3, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.insights', label: 'Insights', value: Root
+                        Image, 0x11441a580, {{265.7, 782.3}, {15.7, 19.0}}, identifier: 'sparkles', label: 'Sparkle'
+                        StaticText, 0x11441a6c0, {{252.7, 805.3}, {41.3, 13.3}}, label: 'Insights'
+                      Button, 0x11441a800, {{309.7, 774.0}, {72.3, 52.0}}, identifier: 'foundation.destination.eva', label: 'Eva', value: Root
+                        Image, 0x11441a940, {{333.7, 782.3}, {24.0, 19.0}}, identifier: 'bubble.left.and.bubble.right', label: 'Conversation'
+                        StaticText, 0x11441aa80, {{336.5, 805.3}, {18.7, 13.3}}, label: 'Eva'
+                    Other, 0x11441abc0, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'lifeboard.atmosphere.twilight', label: 'Celestial atmosphere: twilight'
+                    Button, 0x11441ad00, {{0.0, 62.0}, {44.0, 44.0}}, identifier: 'home.evidence.cache', label: 'Sample artwork cache', value: {}
+                    Other, 0x11441ae40, {{0.0, 62.0}, {1.0, 1.0}}, identifier: 'home.productionEvidence.geometry', label: 'Production evidence geometry', value: {"arrangement":"mi...
+Path to element:
+ →Application, 0x1137fcc80, pid: 34269, label: 'LifeBoard'
+Query chain:
+ →Find: Target Application 'com.saransh1337.To-Do-List'
+  Output: {
+    Application, 0x11441af80, pid: 34269, label: 'LifeBoard'
+  }

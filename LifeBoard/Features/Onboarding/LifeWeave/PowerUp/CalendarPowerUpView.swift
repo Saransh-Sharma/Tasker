@@ -200,7 +200,7 @@ struct CalendarPowerUpView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    Label(String(localized: "Read-only. LifeBoard never changes events."), systemImage: "eye")
+                    Label(String(localized: "Read-only access"), systemImage: "eye")
                         .lifeboardFont(.caption1)
                         .foregroundStyle(Color.lifeboard(.textTertiary))
                         .fixedSize(horizontal: false, vertical: true)
@@ -228,7 +228,7 @@ struct CalendarPowerUpView: View {
     /// works the one screen that lies.
     private var proofHeadline: String {
         let calendarCount = model.selectedCalendarCount
-        let calendarPhrase = "\(calendarCount) calendar\(calendarCount == 1 ? "" : "s")"
+        let calendarPhrase = calendarCount == 1 ? String(localized: "1 calendar") : String(localized: "\(calendarCount) calendars")
 
         guard let events = session.visibleEventCount else {
             // The read did not finish in time. Still true, and still useful.

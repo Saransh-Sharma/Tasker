@@ -237,9 +237,9 @@ public enum EmbeddingProviderError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .unavailable:
-            return "Semantic embedding assets are unavailable on this device."
+            return String(localized: "Search by meaning isn’t available on this device.")
         case .emptyResult:
-            return "The semantic embedding model returned no vectors."
+            return String(localized: "Couldn’t index this text for search.")
         }
     }
 }

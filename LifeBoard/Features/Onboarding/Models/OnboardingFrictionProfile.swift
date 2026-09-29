@@ -18,15 +18,15 @@ enum OnboardingFrictionProfile: String, CaseIterable, Codable, Identifiable, Sen
     var title: String {
         switch self {
         case .starting:
-            return "Getting started"
+            return String(localized: "Getting started")
         case .choosing:
-            return "Too many options"
+            return String(localized: "Too many options")
         case .remembering:
-            return "Keeping track"
+            return String(localized: "Keeping track")
         case .finishing:
-            return "Following through"
+            return String(localized: "Following through")
         case .overwhelmed:
-            return "Too much at once"
+            return String(localized: "Too much at once")
         }
     }
 
@@ -48,15 +48,15 @@ enum OnboardingFrictionProfile: String, CaseIterable, Codable, Identifiable, Sen
     var helperCopy: String {
         switch self {
         case .starting:
-            return "We’ll narrow things to the easiest place to begin."
+            return String(localized: "Starts with the easiest step.")
         case .choosing:
-            return "We’ll keep decisions light and use good defaults."
+            return String(localized: "Fewer choices, good defaults.")
         case .remembering:
-            return "We’ll bring the next step back when it matters."
+            return String(localized: "Brings back the next step.")
         case .finishing:
-            return "We’ll favor steps with a clear finish line."
+            return String(localized: "Steps with a clear finish.")
         case .overwhelmed:
-            return "We’ll keep the setup light and low-pressure."
+            return String(localized: "A lighter setup.")
         }
     }
 }

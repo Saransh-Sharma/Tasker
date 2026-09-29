@@ -302,13 +302,13 @@ public enum Weekday: String, CaseIterable, Codable, Sendable {
 
     public var displayTitle: String {
         switch self {
-        case .sunday: return "Sunday"
-        case .monday: return "Monday"
-        case .tuesday: return "Tuesday"
-        case .wednesday: return "Wednesday"
-        case .thursday: return "Thursday"
-        case .friday: return "Friday"
-        case .saturday: return "Saturday"
+        case .sunday: return String(localized: "Sunday")
+        case .monday: return String(localized: "Monday")
+        case .tuesday: return String(localized: "Tuesday")
+        case .wednesday: return String(localized: "Wednesday")
+        case .thursday: return String(localized: "Thursday")
+        case .friday: return String(localized: "Friday")
+        case .saturday: return String(localized: "Saturday")
         }
     }
 }
@@ -332,13 +332,13 @@ public enum UserValidationError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .emptyName:
-            return "User name cannot be empty"
+            return String(localized: "Add a name.")
         case .nameTooLong:
-            return "User name cannot exceed 100 characters"
+            return String(localized: "Use up to 100 characters for your name.")
         case .invalidEmail:
-            return "Please enter a valid email address"
+            return String(localized: "Enter a valid email address.")
         case .emailTooLong:
-            return "Email address cannot exceed 200 characters"
+            return String(localized: "Use up to 200 characters for email.")
         }
     }
 }

@@ -81,7 +81,7 @@ struct ChatHeaderView: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("chat.header.new_chat")
         .accessibilityLabel("New chat")
-        .accessibilityHint("Starts a fresh chat without deleting this one.")
+        .accessibilityHint("Keeps this chat in history")
         .lifeboardPressFeedback()
     }
 

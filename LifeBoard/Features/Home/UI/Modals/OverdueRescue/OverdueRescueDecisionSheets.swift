@@ -39,7 +39,9 @@ struct OverdueRescueQuickEditSheet: View {
     var body: some View {
         VStack(spacing: 22) {
             Capsule()
-                .fill(Color(red: 0.78, green: 0.78, blue: 0.82))
+                // The hairline token, not a fixed light grey that glared on the
+                // dark sheet.
+                .fill(Color(SemanticColorTokens.foundationHairline))
                 .frame(width: 58, height: 6)
                 .padding(.top, 12)
             HStack {
@@ -100,7 +102,7 @@ struct OverdueRescueQuickEditSheet: View {
                     Button("15 min") { draft.duration = 15 * 60 }
                     Button("30 min") { draft.duration = 30 * 60 }
                     Button("45 min") { draft.duration = 45 * 60 }
-                    Button("1 hour") { draft.duration = 60 * 60 }
+                    Button("1 hr") { draft.duration = 60 * 60 }
                     Button("No duration") { draft.duration = nil }
                 } label: {
                     editRow(icon: "clock", title: "Duration", value: durationText)
@@ -147,7 +149,7 @@ struct OverdueRescueQuickEditSheet: View {
                         .font(.lifeboard(.callout))
                         .fontWeight(.semibold)
                         .foregroundStyle(Color.lifeboard.accentPrimary)
-                    Text("Based on project relevance and how long the task has needed a decision.")
+                    Text("Based on project and how long it’s waited.")
                         .font(.lifeboard(.body))
                         .foregroundStyle(OverdueRescuePalette.secondaryInk)
                         .lineLimit(2)
@@ -217,21 +219,20 @@ struct OverdueRescueQuickEditSheet: View {
     }
 
     var dueText: String {
-        guard let dueDate = draft.dueDate else { return "No due date" }
-        if Calendar.current.isDateInToday(dueDate) { return "Today" }
-        if Calendar.current.isDateInTomorrow(dueDate) { return "Tomorrow" }
+        guard let dueDate = draft.dueDate else { return String(localized: "No due date") }
+        if Calendar.current.isDateInToday(dueDate) { return String(localized: "Today") }
+        if Calendar.current.isDateInTomorrow(dueDate) { return String(localized: "Tomorrow") }
         return dueDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
     }
 
     var durationText: String {
-        guard let duration = draft.duration else { return "No duration" }
-        let minutes = Int(duration / 60)
-        return minutes >= 60 ? "\(minutes / 60) hour" : "\(minutes) min"
+        guard let duration = draft.duration else { return String(localized: "No duration") }
+        return LifeBoardDuration.text(minutes: Int(duration / 60))
     }
 
     var projectText: String {
-        if draft.projectID == ProjectConstants.inboxProjectID { return "No project" }
-        return projects.first(where: { $0.id == draft.projectID })?.name ?? "Project"
+        if draft.projectID == ProjectConstants.inboxProjectID { return String(localized: "No project") }
+        return projects.first(where: { $0.id == draft.projectID })?.name ?? String(localized: "Project")
     }
 }
 
@@ -288,33 +289,27 @@ struct OverdueRescueSafeFixesView: View {
             OverdueRescueShieldHero()
                 .frame(width: 244, height: 210)
                 .padding(.top, 8)
-            Text("Apply \(viewModel.safeFixes.count) safe fixes?")
+            Text(viewModel.safeFixes.count == 1 ? "Apply 1 suggested fix?" : "Apply \(viewModel.safeFixes.count) suggested fixes?")
                 .font(.lifeboard(.title1))
                 .fontWeight(.bold)
                 .foregroundStyle(OverdueRescuePalette.ink)
                 .multilineTextAlignment(.center)
-            Text("LifeBoard found \(viewModel.safeFixes.count) changes it is confident about.")
-                .font(.lifeboard(.title3))
-                .foregroundStyle(OverdueRescuePalette.secondaryInk)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
-                .padding(.horizontal, 24)
 
             VStack(spacing: 0) {
                 if viewModel.safeFixBreakdown.move > 0 {
-                    safeRow(icon: "clock", title: "\(viewModel.safeFixBreakdown.move) move later", value: "\(viewModel.safeFixBreakdown.move)", color: Color.lifeboard.statusWarning)
+                    safeRow(icon: "clock", title: "Move later", value: "\(viewModel.safeFixBreakdown.move)", color: Color.lifeboard.statusWarning)
                 }
                 if viewModel.safeFixBreakdown.move > 0, viewModel.safeFixBreakdown.stay > 0 {
                     Divider()
                 }
                 if viewModel.safeFixBreakdown.stay > 0 {
-                    safeRow(icon: "checkmark.circle", title: "\(viewModel.safeFixBreakdown.stay) stay today", value: "\(viewModel.safeFixBreakdown.stay)", color: Color.lifeboard.statusSuccess)
+                    safeRow(icon: "checkmark.circle", title: "Stay today", value: "\(viewModel.safeFixBreakdown.stay)", color: Color.lifeboard.statusSuccess)
                 }
                 if viewModel.safeFixBreakdown.duration > 0, viewModel.safeFixBreakdown.move + viewModel.safeFixBreakdown.stay > 0 {
                     Divider()
                 }
                 if viewModel.safeFixBreakdown.duration > 0 {
-                    safeRow(icon: "calendar", title: "\(viewModel.safeFixBreakdown.duration) gets a duration", value: "\(viewModel.safeFixBreakdown.duration)", color: Color.lifeboard.accentPrimary)
+                    safeRow(icon: "calendar", title: "Get an estimate", value: "\(viewModel.safeFixBreakdown.duration)", color: Color.lifeboard.accentPrimary)
                 }
             }
             .padding(.vertical, 12)
@@ -328,7 +323,7 @@ struct OverdueRescueSafeFixesView: View {
                     .foregroundStyle(Color.lifeboard.accentPrimary)
                     .frame(width: 52, height: 52)
                     .background(Circle().fill(Color.lifeboard.accentPrimary.opacity(0.10)))
-                Text("These changes are non-destructive\nand can be undone.")
+                Text("Nothing is deleted, and you can undo them.")
                     .font(.lifeboard(.body))
                     .foregroundStyle(OverdueRescuePalette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -338,7 +333,7 @@ struct OverdueRescueSafeFixesView: View {
             .padding(.horizontal, 34)
 
             Spacer()
-            Button("Apply \(viewModel.safeFixes.count) fixes") {
+            Button(OverdueRescueDeckCopy.applySuggested) {
                 dismiss()
                 viewModel.applySafeFixes()
             }
@@ -428,7 +423,7 @@ struct OverdueRescuePauseView: View {
                         .font(.lifeboard(.title1))
                         .fontWeight(.bold)
                         .foregroundStyle(OverdueRescuePalette.ink)
-                    Text("You reviewed \(viewModel.sprintResolvedCount) of \(viewModel.sprintTotal) tasks.\nYour changes are saved.\n\(viewModel.remainingCount) tasks can wait.")
+                    Text("\(viewModel.sprintResolvedCount) of \(viewModel.sprintTotal) reviewed. Changes are saved.")
                         .font(.lifeboard(.title3))
                         .foregroundStyle(OverdueRescuePalette.secondaryInk)
                         .multilineTextAlignment(.center)
@@ -537,7 +532,7 @@ struct OverdueRescueDeleteOverlay: View {
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .multilineTextAlignment(.center)
 
-                    Text("This removes it from your board. You can undo right after deleting.")
+                    Text("You can undo this.")
                         .font(.lifeboard(.callout))
                         .foregroundStyle(Color.lifeboard.textSecondary)
                         .multilineTextAlignment(.center)
@@ -596,8 +591,8 @@ struct OverdueRescueDeleteOverlay: View {
 
     var deleteAccessibilityLabel: String {
         if let taskTitle, taskTitle.isEmpty == false {
-            return "Delete \(taskTitle)? This removes it from your board. You can undo right after deleting."
+            return String(localized: "Delete “\(taskTitle)”? You can undo this.")
         }
-        return "Delete this task? This removes it from your board. You can undo right after deleting."
+        return String(localized: "Delete this task? You can undo this.")
     }
 }

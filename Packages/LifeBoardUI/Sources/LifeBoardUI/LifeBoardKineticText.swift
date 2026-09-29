@@ -87,6 +87,7 @@ private struct KineticTextModifier: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.lifeBoardMotionContext) private var motionContext
 
     @State private var touchX: CGFloat?
     @State private var intensity: Double = 0
@@ -98,8 +99,9 @@ private struct KineticTextModifier: ViewModifier {
         return MotionPolicy.resolve(
             reduceMotion: reduceMotion,
             reduceTransparency: reduceTransparency,
-            sceneIsActive: scenePhase == .active
-        ).allowsSpatialMotion
+            sceneIsActive: scenePhase == .active,
+            comfortProfile: motionContext.comfortProfile
+        ).allowsSpatialMotion && motionContext.comfortProfile != .calm
     }
 
     func body(content: Content) -> some View {

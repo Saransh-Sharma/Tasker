@@ -81,7 +81,7 @@ extension HomeViewModel {
             assignIfChanged(\.morningTasks, [])
             assignIfChanged(\.eveningTasks, [])
             assignIfChanged(\.overdueTasks, [])
-            assignIfChanged(\.emptyStateMessage, "No completed tasks in last 30 days")
+            assignIfChanged(\.emptyStateMessage, String(localized: "Nothing done in the last 30 days"))
             assignIfChanged(\.emptyStateActionTitle, nil)
             updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
             refreshNeedsReplanCandidates()
@@ -138,25 +138,25 @@ extension HomeViewModel {
                 assignIfChanged(
                     \.emptyStateMessage,
                     activeFilterState.selectedProjectIDs.isEmpty
-                        ? "Nothing coming up. Your slate is clear."
-                        : "No open tasks in this project."
+                        ? String(localized: "Nothing coming up")
+                        : String(localized: "No open tasks in this project")
                 )
             } else {
-                assignIfChanged(\.emptyStateMessage, "No upcoming tasks in 14 days")
+                assignIfChanged(\.emptyStateMessage, String(localized: "Nothing in the next 14 days"))
             }
             assignIfChanged(\.emptyStateActionTitle, nil)
         case .overdue:
             assignIfChanged(\.upcomingTasks, [])
-            assignIfChanged(\.emptyStateMessage, "No overdue tasks. Great job.")
+            assignIfChanged(\.emptyStateMessage, String(localized: "Nothing from earlier"))
             assignIfChanged(\.emptyStateActionTitle, nil)
         case .morning:
             assignIfChanged(\.upcomingTasks, [])
-            assignIfChanged(\.emptyStateMessage, "No morning tasks. Add one to start strong.")
-            assignIfChanged(\.emptyStateActionTitle, "Add Morning TaskDefinition")
+            assignIfChanged(\.emptyStateMessage, String(localized: "No morning tasks"))
+            assignIfChanged(\.emptyStateActionTitle, String(localized: "Add task"))
         case .evening:
             assignIfChanged(\.upcomingTasks, [])
-            assignIfChanged(\.emptyStateMessage, "No evening tasks. Plan your wind-down.")
-            assignIfChanged(\.emptyStateActionTitle, "Add Evening TaskDefinition")
+            assignIfChanged(\.emptyStateMessage, String(localized: "No evening tasks"))
+            assignIfChanged(\.emptyStateActionTitle, String(localized: "Add task"))
         case .today:
             assignIfChanged(\.upcomingTasks, [])
             assignIfChanged(\.emptyStateMessage, nil)
@@ -219,7 +219,7 @@ extension HomeViewModel {
                     if self.weeklySummary == nil {
                         self.assignIfChanged(
                             \.weeklySummaryErrorMessage,
-                            "Couldn't load weekly summary. Try again."
+                            String(localized: "Couldn’t load this week. Try again.")
                         )
                     }
                     logWarning(

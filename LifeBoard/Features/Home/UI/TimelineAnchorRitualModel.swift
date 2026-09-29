@@ -29,13 +29,12 @@ struct TimelineAnchorRitualModel: Equatable {
         self.title = selection.title
         self.subtitle = selection.subtitle
         self.selectedTimeText = Self.formatted(selectedDate, template: "jm", calendar: calendar)
-        self.sectionTitle = selection == .wake ? "Select start time" : "Select end time"
-        self.footerText = selection == .wake
-            ? "A beautiful day begins with intention."
-            : "Rest well. Tomorrow is a new beginning."
+        self.sectionTitle = selection == .wake ? String(localized: "Select start time") : String(localized: "Select end time")
+        // No footer: the sheet's title and time picker say everything.
+        self.footerText = ""
         self.selectedAccessibilityText = selection == .wake
-            ? "selected start time"
-            : "selected end time"
+            ? String(localized: "selected start time")
+            : String(localized: "selected end time")
         self.timeOptions = Self.options(
             centeredOn: selectedDate,
             selection: selection,

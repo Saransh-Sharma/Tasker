@@ -78,49 +78,6 @@ class ProjectManagementTests: BaseUITest {
         takeScreenshot(named: "inbox_project_exists")
     }
 
-    // MARK: - Test 27: Filter Tasks by Project
-
-    func testFilterTasksByProject() throws {
-        // GIVEN: Tasks exist in different projects
-
-        // Create a custom project first
-        let projectPage = navigateToProjectManagement()
-        let newProjectPage = projectPage.tapAddProject()
-        let projectData = TestDataFactory.simpleProject()
-        newProjectPage.createProject(from: projectData)
-
-        XCTAssertTrue(projectPage.waitForProject(named: projectData.name, timeout: 5), "Project should be created")
-
-        // Go back to home
-        projectPage.tapBack()
-        settingsPage.tapDone()
-
-        // Create tasks in Inbox and custom project
-        let addTaskPage1 = homePage.tapAddTask()
-        addTaskPage1.createTask(title: "Inbox Task", priority: .low, taskType: .morning, project: nil)
-
-        let addTaskPage2 = homePage.tapAddTask()
-        addTaskPage2.enterTitle("Project Task")
-        addTaskPage2.selectProject(named: projectData.name)
-        addTaskPage2.tapSave()
-
-        // Wait for tasks to appear
-        _ = homePage.waitForTask(withTitle: "Inbox Task", timeout: 5)
-        _ = homePage.waitForTask(withTitle: "Project Task", timeout: 5)
-
-        // WHEN: User filters by project
-        homePage.tapProjectFilter()
-        waitForAnimations(duration: 1.0)
-
-        // Select specific project (implementation depends on app UI)
-        // For now, verify filter button exists and is tappable
-
-        // THEN: Only tasks from selected project should be visible
-        // (Exact verification depends on filtering UI implementation)
-
-        takeScreenshot(named: "filter_tasks_by_project")
-    }
-
     // MARK: - Test 28: Project Pill Selection in Add Task
 
     func testProjectPillSelection() throws {

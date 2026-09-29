@@ -8,7 +8,7 @@ import SwiftUI
 struct CreditsView: View {
     var body: some View {
         Form {
-            Section(header: Text("open source")
+            Section(header: Text("Open source")
                 .font(.lifeboard(.caption1))
                 .foregroundColor(Color.lifeboard(.textTertiary))
             ) {
@@ -52,7 +52,7 @@ struct CreditsView: View {
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .background(Color.lifeboard(.bgCanvas))
-        .navigationTitle("credits")
+        .navigationTitle("Acknowledgements")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

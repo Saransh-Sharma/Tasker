@@ -206,6 +206,25 @@ scan_added_lines \
   'LifeBoard/Foundation/Design/LifeBoardDaypartTokens.swift' \
   'Packages/LifeBoardTokens/'
 
+# Appearance audit, 2026-09-18. The warm accents are fixed pale *fills*
+# (#E7BB7E, #C9C6BA, #F0CD87) that sit at 1.5–1.9:1 on the light canvas; drawn
+# as a label, glyph, chart stroke or state they were illegible. Their
+# `foundation*Ink` twins clear 4.5:1 in every appearance.
+scan_added_lines \
+  "Token Law: warm accents are fills; draw ink with foundation*Ink" \
+  '(foregroundStyle|foregroundColor|\.tint|stroke)\([^)]*foundation(Apricot|Sage|Sun)Accent'
+
+# `palette(for:)` is the light-only palette. Feature code that painted with it
+# rendered light-appearance ink (#6F6252) on the dark canvas. Screens use
+# `appearancePalette(for:colorScheme:)`; only decorative art that must look like
+# a given daypart regardless of appearance may use it.
+scan_added_lines \
+  "Token Law: screens use appearancePalette, not the light-only palette(for:)" \
+  'DaypartTokens\.palette\(for:' \
+  'LifeBoard/DesignSystem/AtmosphereSlider.swift' \
+  'LifeBoard/Foundation/Design/ReferenceGallery.swift' \
+  'Packages/LifeBoardTokens/'
+
 scan_added_lines \
   "Token Law: no UIFont.systemFont / SwiftUI .font(.system...) in UI modules" \
   'UIFont\.systemFont|\.font\(\.system\(' \

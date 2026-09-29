@@ -74,20 +74,6 @@ public struct ParsedCapture: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-/// One recognized piece of capture text, in the order it was written. The
-/// composer shows each as a chip the person can remove to take the words back.
-public struct CaptureTokenPiece: Equatable, Hashable, Sendable {
-    public enum Kind: String, Equatable, Hashable, Sendable {
-        case date, time, duration, repeatPattern, priority, project, tag, context
-    }
-
-    public let kind: Kind
-    /// Exactly as typed, e.g. "fri", "3pm", "#health".
-    public let text: String
-    /// UTF-16 range in the original untrimmed input.
-    public var sourceRange: NSRange? = nil
-}
-
 public enum TaskCaptureParser {
 
     /// Parses a raw capture string. `now`/`calendar` are injectable for deterministic tests.
@@ -453,56 +439,6 @@ public enum TaskCaptureParser {
         return nil
     }
 
-    // MARK: - Explicit tokens (#tag, +project, @context)
-
-    private struct TokenMatch {
-        let value: String
-        let range: Range<String.Index>
-    }
-
-    private struct TokenMatches {
-        var tags: [TokenMatch] = []
-        var project: TokenMatch?
-        var context: TokenMatch?
-
-        var all: [TokenMatch] { tags + [project, context].compactMap { $0 } }
-
-        /// De-duplicated case-insensitively, first spelling wins. Someone who
-        /// writes "#Work ... #work" meant one tag.
-        var tagValues: [String] {
-            var seen: Set<String> = []
-            return tags.compactMap { seen.insert($0.value.lowercased()).inserted ? $0.value : nil }
-        }
-    }
-
-    /// Every token must begin with a letter.
-    ///
-    /// This is what keeps `@home` and `@3pm` apart: the time matchers accept a
-    /// leading `@` before digits, so a context pattern that allowed digits would
-    /// race them for the same substring and win, turning "call mom @3pm" into a
-    /// task with a context named "3pm" and no time. Requiring a letter makes the
-    /// two grammars disjoint by construction rather than by pass ordering.
-    private static func tokenMatches(in text: String) -> TokenMatches {
-        var result = TokenMatches()
-        result.tags = allMatches(#"(?<![\w])#([A-Za-z][\w-]*)"#, in: text)
-        result.project = allMatches(#"(?<![\w])\+([A-Za-z][\w-]*)"#, in: text).first
-        result.context = allMatches(#"(?<![\w])@([A-Za-z][\w-]*)"#, in: text).first
-        return result
-    }
-
-    /// All non-overlapping matches, returning capture group 1 as the value and
-    /// the whole match as the range to strip.
-    private static func allMatches(_ pattern: String, in text: String) -> [TokenMatch] {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
-        let nsRange = NSRange(text.startIndex..<text.endIndex, in: text)
-        return regex.matches(in: text, options: [], range: nsRange).compactMap { match in
-            guard let full = Range(match.range, in: text),
-                  match.numberOfRanges > 1,
-                  let value = Range(match.range(at: 1), in: text) else { return nil }
-            return TokenMatch(value: String(text[value]), range: full)
-        }
-    }
-
     // MARK: - Recurrence
 
     private struct RecurrenceMatch {
@@ -597,8 +533,7 @@ public enum TaskCaptureParser {
         let range: Range<String.Index>
     }
 
-    /// `!high` / `!max` / `!low` / `!none`, or the `p0`–`p3` codes the priority
-    /// type already publishes via `Priority.code`.
+    /// `!high` / `!max` / `!low` / `!none`, or `p1`–`p4` with p1 the highest.
     private static func firstPriorityMatch(in text: String) -> PriorityMatch? {
         if let m = regexMatch(#"(?<![\w])!(max|high|urgent|low|none)\b"#, in: text),
            let word = captured(m.groups, 1, in: text)?.lowercased() {
@@ -611,16 +546,16 @@ public enum TaskCaptureParser {
             }
             return PriorityMatch(priority: priority, range: m.range)
         }
-        // Mapped explicitly rather than through `init(rawValue:)` so the codes
-        // stay pinned to `Priority.code` ("P0"…"P3") even if the raw Int32
-        // values are ever renumbered.
-        if let m = regexMatch(#"(?<![\w])p([0-3])\b"#, in: text),
+        // The Todoist/Linear convention people already type: p1 is the most
+        // urgent. The old mapping followed the internal storage order, so
+        // "p1" filed a task as Low. p4 (and a legacy p0) mean no priority.
+        if let m = regexMatch(#"(?<![\w])p([0-4])\b"#, in: text),
            let raw = Int(captured(m.groups, 1, in: text) ?? "") {
             let priority: TaskPriorityConfig.Priority
             switch raw {
-            case 1: priority = .low
+            case 1: priority = .max
             case 2: priority = .high
-            case 3: priority = .max
+            case 3: priority = .low
             default: priority = TaskPriorityConfig.Priority.none
             }
             return PriorityMatch(priority: priority, range: m.range)
@@ -670,100 +605,5 @@ public enum TaskCaptureParser {
         let withoutOrphanSigil = withoutDanglingConnector
             .replacingOccurrences(of: #"\s*[@#+]\s*$"#, with: "", options: .regularExpression)
         return withoutOrphanSigil.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-}
-
-
-/// Suggestions for the `#tag`, `+project`, and `@context` being typed.
-///
-/// Pure and caret-free: the composer types at the end of the draft, so the
-/// token under completion is the trailing run after its sigil. Names are
-/// inserted in the parser's own grammar (a letter, then letters, digits, `_`,
-/// or `-`), with spaces written as hyphens, so what autocomplete writes is
-/// always something `TaskCaptureParser` reads back.
-public enum CaptureTokenCompletion {
-    public enum Kind: Equatable, Sendable {
-        case tag, project, context
-
-        public var sigil: Character {
-            switch self {
-            case .tag: "#"
-            case .project: "+"
-            case .context: "@"
-            }
-        }
-    }
-
-    public struct ActiveToken: Equatable, Sendable {
-        public let kind: Kind
-        /// What has been typed after the sigil; may be empty right after it.
-        public let prefix: String
-    }
-
-    public struct Suggestion: Equatable, Hashable, Sendable {
-        public let name: String
-        public let isNew: Bool
-    }
-
-    public static func activeToken(in text: String) -> ActiveToken? {
-        guard let last = text.last, last.isWhitespace == false else { return nil }
-        let trailing = text.reversed().prefix { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" }
-        let prefix = String(trailing.reversed())
-        let sigilIndex = text.index(text.endIndex, offsetBy: -(prefix.count + 1), limitedBy: text.startIndex)
-        guard let sigilIndex else { return nil }
-        let kind: Kind
-        switch text[sigilIndex] {
-        case "#": kind = .tag
-        case "+": kind = .project
-        case "@": kind = .context
-        default: return nil
-        }
-        // A sigil glued to a word ("C#", "a+b") is not a token.
-        if sigilIndex > text.startIndex {
-            let before = text[text.index(before: sigilIndex)]
-            guard before.isWhitespace else { return nil }
-        }
-        // Tokens start with a letter; "@3pm" is a time, not a context.
-        if let first = prefix.first, first.isLetter == false { return nil }
-        return ActiveToken(kind: kind, prefix: prefix)
-    }
-
-    /// Prefix matches first, then other substring matches, at most `limit`.
-    /// Offers to create a new tag when nothing matches what was typed;
-    /// projects and contexts must already exist.
-    public static func suggestions(for token: ActiveToken, candidates: [String], limit: Int = 5) -> [Suggestion] {
-        let query = normalized(token.prefix)
-        var seen: Set<String> = []
-        let unique = candidates.filter { seen.insert(normalized($0)).inserted }
-        let prefixed = unique.filter { query.isEmpty || normalized($0).hasPrefix(query) }
-        let contained = query.isEmpty ? [] : unique.filter {
-            normalized($0).contains(query) && normalized($0).hasPrefix(query) == false
-        }
-        var result = (prefixed.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending } + contained)
-            .prefix(limit)
-            .map { Suggestion(name: $0, isNew: false) }
-        if token.kind == .tag, query.isEmpty == false,
-           unique.contains(where: { normalized($0) == query }) == false,
-           result.count < limit {
-            result.append(Suggestion(name: token.prefix, isNew: true))
-        }
-        return result
-    }
-
-    /// Replaces the trailing token with the chosen name and a space.
-    public static func apply(_ name: String, kind: Kind, to text: String) -> String {
-        guard let token = activeToken(in: text), token.kind == kind else { return text }
-        let base = text.dropLast(token.prefix.count + 1)
-        return "\(base)\(kind.sigil)\(tokenText(name)) "
-    }
-
-    public static func tokenText(_ name: String) -> String {
-        name.split(whereSeparator: \.isWhitespace).joined(separator: "-")
-    }
-
-    /// Case, spacing, and hyphens ignored: "+side-project" is "Side Project".
-    public static func normalized(_ value: String) -> String {
-        value.lowercased().replacingOccurrences(of: "-", with: " ")
-            .split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 }

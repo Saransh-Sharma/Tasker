@@ -8,8 +8,10 @@ struct ChatEmptyStateView: View {
     let onSelectStarterPrompt: (EvaStarterPrompt) -> Void
     let onSelectSuggestion: (SlashCommandDescriptor) -> Void
     let onOpenEvaGuide: () -> Void
+    var onReviewContext: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeBoardMotionContext) private var motionContext
 
     var isActivationPresentation: Bool {
         if case .activation = presentationMode {
@@ -60,10 +62,6 @@ struct ChatEmptyStateView: View {
                             .foregroundStyle(Color.lifeboard(.textPrimary))
                             .multilineTextAlignment(.center)
                             .accessibilityIdentifier("chat.emptyState.title")
-                        Text("Your plans, your priorities, and what today actually looks like.")
-                            .font(.lifeboard(.callout))
-                            .foregroundStyle(Color.lifeboard(.textSecondary))
-                            .multilineTextAlignment(.center)
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
@@ -99,7 +97,10 @@ struct ChatEmptyStateView: View {
                     .symbolEffect(
                         .wiggle.byLayer,
                         options: .repeat(.periodic(delay: 3.0)),
+                        // Idle motion: withdrawn under Calm and energy pressure too.
                         isActive: !reduceMotion
+                            && motionContext.allowsSpatialMotion
+                            && motionContext.comfortProfile != .calm
                     )
             }
             VStack(spacing: Theme.Spacing.xs) {
@@ -138,7 +139,7 @@ struct ChatEmptyStateView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     HStack(alignment: .center, spacing: Theme.Spacing.sm) {
                         EvaMascotView(placement: .chatEmptyHeader, size: .avatar)
-                        Text("Hi there!")
+                        Text("Hi there")
                             .lifeboardFont(.screenTitle)
                             .foregroundStyle(EvaChatSunriseGlass.primary)
                     }
@@ -149,7 +150,25 @@ struct ChatEmptyStateView: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    guideButton
+                    // What the assistant can see and change, said once, with
+                    // the place to change it.
+                    Text("\(identity.displayName) sees your tasks, habits, and calendar. You approve every change.")
+                        .lifeboardFont(.callout)
+                        .foregroundStyle(EvaChatSunriseGlass.navyMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("chat.emptyState.scope")
+
+                    HStack(spacing: Theme.Spacing.sm) {
+                        guideButton
+                        if let onReviewContext {
+                            Button("What \(identity.displayName) sees", action: onReviewContext)
+                                .lifeboardFont(.caption1)
+                                .foregroundStyle(EvaChatSunriseGlass.primary)
+                                .frame(minHeight: 44)
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("chat.emptyState.reviewContext")
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -211,7 +230,7 @@ struct ChatEmptyStateView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(identity.displayName) help")
-        .accessibilityHint("Shows ways to use \(identity.displayName) as your chief of staff.")
+        .accessibilityHint("Opens the guide")
         .accessibilityIdentifier("eva.structured.help")
         .lifeboardPressFeedback()
     }

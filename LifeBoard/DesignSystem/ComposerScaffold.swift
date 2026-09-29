@@ -136,11 +136,17 @@ public struct ComposerScaffold<Content: View, Commit: View>: View {
                                 onCancel?()
                                 dismiss()
                             }
+                            // Esc on a hardware keyboard and the Mac, which had
+                            // no way out of a composer but the pointer.
+                                .keyboardShortcut(.cancelAction)
                             .modifier(FieldIdentity(identifier: cancelIdentifier))
                         }
                         if let confirmation {
                             ToolbarItem(placement: .confirmationAction) {
                                 Button(confirmation.title, action: confirmation.action)
+                                    // ⌘Return, not Return: Return belongs to
+                                    // the focused field (newlines, next field).
+                                    .keyboardShortcut(.return, modifiers: .command)
                                     .disabled(confirmation.isEnabled == false)
                             }
                         }
@@ -150,8 +156,22 @@ public struct ComposerScaffold<Content: View, Commit: View>: View {
         }
         .presentationDetents(detents)
         .interactiveDismissDisabled(isDismissBlocked)
+        // VoiceOver's two-finger scrub and the Mac's accessibility cancel reach
+        // the same exit as the Cancel button (which also carries Esc).
+        .accessibilityAction(.escape) {
+            onCancel?()
+            dismiss()
+        }
+        // Esc while a field is focused: the Cancel button's shortcut never sees
+        // the key then, so the app's Esc command routes it here.
+        .escapeCancels {
+            onCancel?()
+            dismiss()
+        }
     }
+}
 
+extension ComposerScaffold {
     private var layout: some View {
         ComposerLayout(
             fit: contentFit,
@@ -490,104 +510,3 @@ private struct ComposerSectionLabel: ViewModifier {
 }
 
 // MARK: - Row
-
-// MARK: - Commit bar
-
-/// The failure banner and commit control that close every composer.
-///
-/// The backing is Regular Liquid Glass rather than a raw system material. That is
-/// not a cosmetic swap: a commit bar is navigation and control chrome, which is
-/// precisely — and only — what the glass law reserves glass for, and routing it
-/// through `lifeBoardSystemGlass` is what makes it honour Reduce Transparency
-/// and the Clear-Glass ban along with the rest of the chrome layer.
-public struct ComposerCommitBar: View {
-    private let title: String
-    private let runningTitle: String
-    private let successTitle: String
-    private let phase: LifeBoardComposerPhase
-    private let isEnabled: Bool
-    private let identifier: String?
-    private let action: () -> Void
-
-    @Environment(\.lifeBoardTransitionCoordinator) private var transitions
-    @State private var firstLightTrigger = 0
-
-    public init(
-        title: String,
-        runningTitle: String = "Saving",
-        successTitle: String = "Saved",
-        phase: LifeBoardComposerPhase,
-        isEnabled: Bool = true,
-        identifier: String? = nil,
-        action: @escaping () -> Void
-    ) {
-        self.title = title
-        self.runningTitle = runningTitle
-        self.successTitle = successTitle
-        self.phase = phase
-        self.isEnabled = isEnabled
-        self.identifier = identifier
-        self.action = action
-    }
-
-    public var body: some View {
-        VStack(spacing: 8) {
-            if case .recoverableFailure(let failure) = phase {
-                Label(failure.message, systemImage: "exclamationmark.circle")
-                    .font(.lifeboard(.meta))
-                    .foregroundStyle(Color.lifeboard(.statusWarning))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            CommitControl(
-                title: title,
-                runningTitle: runningTitle,
-                successTitle: successTitle,
-                phase: phase,
-                isEnabled: isEnabled,
-                action: action
-            )
-            // Identity only, never `accessibilityElement(children:)`. The
-            // commit control has to keep reporting as a `Button`, because the
-            // Track suite drives `app.buttons["track.*.commit"]` throughout;
-            // wrapping it in a container would hide the button inside it.
-            .modifier(FieldIdentity(identifier: identifier))
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background {
-            Color.clear
-                .lifeBoardSystemGlass(.regular, in: Rectangle())
-                .ignoresSafeArea(edges: .bottom)
-        }
-        // `firstLight` is reserved for the first daily commitment. Claimed once
-        // per calendar day across the whole window, so the first thing you
-        // record today is lit and the fifth is not.
-        .lifeboardFirstLight(
-            trigger: firstLightTrigger,
-            tint: Color(SemanticColorTokens.foundationSunAccent)
-        )
-        .onChange(of: isSucceeded) { _, succeeded in
-            guard succeeded else { return }
-            let key = "lifeboard.firstLight.\(Self.dayKey())"
-            guard transitions?.claimOneShot(key) == true else { return }
-            firstLightTrigger &+= 1
-        }
-    }
-
-    private var isRunning: Bool {
-        if case .running = phase { return true }
-        return false
-    }
-
-    private var isSucceeded: Bool {
-        if case .success = phase { return true }
-        return false
-    }
-
-    private static func dayKey() -> String {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day], from: Date())
-        return "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
-    }
-}

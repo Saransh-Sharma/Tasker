@@ -1,41 +1,81 @@
 import SwiftUI
 import UIKit
 
+/// One set of defaults for a new time block, shared by Plan's block composer
+/// and the capture tray's time-block host. They had drifted: one started at
+/// 9:00 AM even when that was hours ago, one allowed 3 hours and the other 4,
+/// and only one of them refused an empty title.
+enum TimeBlockDraft {
+    static let minuteRange: ClosedRange<Double> = 15...240
+    static let minuteStep: Double = 15
+    static let defaultMinutes: Double = 45
+
+    /// Today: the next quarter hour. Any other day: 9 AM.
+    static func defaultStart(on day: Date, now: Date = Date(), calendar: Calendar = .current) -> Date {
+        TaskWhenSelection.defaultStart(on: day, now: now, calendar: calendar)
+    }
+
+    static func isValid(title: String) -> Bool {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
+    static func durationLabel(minutes: Double) -> String {
+        LifeBoardDuration.text(minutes: Int(minutes))
+    }
+}
+
+/// The duration row both block composers share.
+struct TimeBlockDurationField: View {
+    @Binding var minutes: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            LabeledContent("Duration", value: TimeBlockDraft.durationLabel(minutes: minutes))
+            Slider(value: $minutes, in: TimeBlockDraft.minuteRange, step: TimeBlockDraft.minuteStep)
+                .accessibilityLabel("Duration")
+                .accessibilityValue(TimeBlockDraft.durationLabel(minutes: minutes))
+        }
+    }
+}
+
 struct PlanBlockComposer: View {
     let day: PlanningDay
     let save: (String, Date, TimeInterval) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var start: Date
-    @State private var minutes = 45.0
+    @State private var minutes = TimeBlockDraft.defaultMinutes
 
     init(day: PlanningDay, save: @escaping (String, Date, TimeInterval) -> Void) {
         self.day = day
         self.save = save
         let base = day.startDate() ?? Date()
-        _start = State(initialValue: Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: base) ?? base)
+        _start = State(initialValue: TimeBlockDraft.defaultStart(on: base))
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Block title", text: $title)
+                TextField("Block title", text: $title, prompt: Text("Block title").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                     .accessibilityIdentifier("plan.block.title")
                 DatePicker("Starts", selection: $start, displayedComponents: [.hourAndMinute])
-                VStack(alignment: .leading) {
-                    Text("Duration: \(Int(minutes)) minutes")
-                    Slider(value: $minutes, in: 15...180, step: 15)
-                }
+                TimeBlockDurationField(minutes: $minutes)
             }
+            // The warm canvas behind the grouped list, not the system's pure white
+            // (light) or pure black (dark) grouped background.
+            .scrollContentBackground(.hidden)
+            .background { GrainedCanvas() }
             .navigationTitle("New time block")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction) }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") { save(title, start, minutes * 60); dismiss() }
+                        .disabled(TimeBlockDraft.isValid(title: title) == false)
                         .accessibilityIdentifier("plan.block.add")
                 }
             }
         }
+        .escapeCancels { dismiss() }
         .accessibilityIdentifier("plan.block.composer")
     }
 }
@@ -79,18 +119,25 @@ struct PlanWorkingHoursComposer: View {
                         }
                     }
                 }
-                Section("Daily window") {
+                Section("Daily hours") {
                     DatePicker("Starts", selection: $start, displayedComponents: .hourAndMinute)
                     DatePicker("Ends", selection: $end, displayedComponents: .hourAndMinute)
                 }
-                Section("Protected buffer") {
-                    Text("\(Int(bufferMinutes)) minutes remains unallocated.")
+                Section("Buffer") {
+                    Text(bufferMinutes < 1
+                         ? String(localized: "No buffer")
+                         : String(localized: "\(LifeBoardDuration.text(minutes: Int(bufferMinutes))) free each day"))
                     Slider(value: $bufferMinutes, in: 0...180, step: 15)
+                        .accessibilityLabel("Buffer")
                 }
             }
+            // The warm canvas behind the grouped list, not the system's pure white
+            // (light) or pure black (dark) grouped background.
+            .scrollContentBackground(.hidden)
+            .background { GrainedCanvas() }
             .navigationTitle("Working hours")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction) }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         let startMinute = Calendar.current.component(.hour, from: start) * 60 + Calendar.current.component(.minute, from: start)
@@ -102,6 +149,7 @@ struct PlanWorkingHoursComposer: View {
                 }
             }
         }
+        .escapeCancels { dismiss() }
     }
 
     private func weekdayLabel(_ weekday: Int) -> String {

@@ -307,11 +307,11 @@ public actor LocalJournalExportService: JournalExporting {
 
     private func markdown(_ envelope: ExportEnvelope) -> String {
         var lines = [
-            "# Weekly Reflection",
+            "# " + String(localized: "Week summary"),
             "",
             "**Week:** \(envelope.report.weekStart.formatted(date: .long, time: .omitted)) – \(envelope.report.weekEnd.formatted(date: .long, time: .omitted))",
             "**Version:** \(envelope.report.version)",
-            "**Density:** \(envelope.report.density.rawValue.capitalized)",
+            "**" + String(localized: "Coverage") + ":** " + Self.densityTitle(envelope.report.density),
             "",
             envelope.report.summary
         ]
@@ -319,7 +319,7 @@ public actor LocalJournalExportService: JournalExporting {
             lines += ["", "## Takeaway", "", takeaway]
         }
         if envelope.redactedSensitiveFields {
-            lines += ["", "> Mood, energy, audio transcription, media, and local semantic index data were excluded."]
+            lines += ["", "> " + String(localized: "Mood, energy, transcripts, and media were left out.")]
         }
         for entry in envelope.entries {
             lines += ["", "## \(entry.date.formatted(date: .long, time: .omitted))", "", entry.text]
@@ -328,6 +328,15 @@ public actor LocalJournalExportService: JournalExporting {
             for transcript in entry.audioTranscriptions ?? [] { lines.append("\nAudio transcript: \(transcript)") }
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// The raw value is a storage key; this is what the exported document says.
+    private static func densityTitle(_ density: WeeklyReflectionReport.Density) -> String {
+        switch density {
+        case .empty: String(localized: "Nothing yet")
+        case .light: String(localized: "A few days")
+        case .full: String(localized: "Full week")
+        }
     }
 
     private func csv(_ envelope: ExportEnvelope) -> String {

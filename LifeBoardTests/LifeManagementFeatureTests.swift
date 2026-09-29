@@ -1286,7 +1286,7 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
             case .failure(let error):
                 XCTAssertEqual(
                     error.localizedDescription,
-                    "Choose a different destination area before deleting this area."
+                    "Pick another area to move its items to."
                 )
             }
             expectation.fulfill()

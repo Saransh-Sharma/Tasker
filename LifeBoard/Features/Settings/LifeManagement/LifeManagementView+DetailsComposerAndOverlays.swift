@@ -12,7 +12,7 @@ extension LifeManagementView {
                         viewModel.restoreLifeArea(row.id)
                     }
                     if row.isGeneral == false {
-                        Button("Delete Permanently", systemImage: "trash", role: .destructive) {
+                        Button("Delete permanently", systemImage: "trash", role: .destructive) {
                             viewModel.beginDeleteArea(row.id)
                         }
                     }
@@ -20,11 +20,11 @@ extension LifeManagementView {
                     Button("Edit", systemImage: "pencil") {
                         viewModel.beginEditLifeArea(row.id)
                     }
-                    Button("Add Project", systemImage: "folder.badge.plus") {
+                    Button("Add project", systemImage: "folder.badge.plus") {
                         viewModel.beginCreateProject(prefillLifeAreaID: row.id)
                     }
                     .disabled(row.lifeArea.isArchived || viewModel.isMutating)
-                    Button("Add Habit", systemImage: "repeat") {
+                    Button("Add habit", systemImage: "repeat") {
                         presentHabitComposer(prefill: AddHabitPrefillTemplate(title: "", lifeAreaID: row.id))
                     }
                     .disabled(row.lifeArea.isArchived || viewModel.isMutating)
@@ -43,7 +43,7 @@ extension LifeManagementView {
                         viewModel.restoreProject(row.id)
                     }
                     if row.project.isDefault == false {
-                        Button("Delete Permanently", systemImage: "trash", role: .destructive) {
+                        Button("Delete permanently", systemImage: "trash", role: .destructive) {
                             viewModel.beginDeleteProject(row.id)
                         }
                     }
@@ -51,7 +51,7 @@ extension LifeManagementView {
                     Button("Edit", systemImage: "pencil") {
                         viewModel.beginEditProject(row.id)
                     }
-                    Button("Add Habit", systemImage: "repeat") {
+                    Button("Add habit", systemImage: "repeat") {
                         presentHabitComposer(
                             prefill: AddHabitPrefillTemplate(
                                 title: "",
@@ -62,7 +62,7 @@ extension LifeManagementView {
                     }
                     .disabled(row.project.isArchived || row.lifeArea?.isArchived == true || viewModel.isMutating)
                     if row.isMoveLocked == false {
-                        Button("Move Project", systemImage: "arrow.left.arrow.right") {
+                        Button("Move project", systemImage: "arrow.left.arrow.right") {
                             viewModel.beginMoveProject(row.id)
                         }
                     }
@@ -86,7 +86,7 @@ extension LifeManagementView {
                     Button("Restore", systemImage: "arrow.uturn.backward") {
                         viewModel.restoreHabit(row.id)
                     }
-                    Button("Delete Permanently", systemImage: "trash", role: .destructive) {
+                    Button("Delete permanently", systemImage: "trash", role: .destructive) {
                         viewModel.beginDeleteHabit(row.id)
                     }
                 } else {
@@ -114,14 +114,14 @@ extension LifeManagementView {
         case .habit:
             StatusSurface(
                 state: .empty,
-                title: "Habit Editor Opened",
-                message: "Habits open in the editor sheet so you can update cadence, notes, and status in one place."
+                title: "Editing habit",
+                message: ""
             )
         case nil:
             StatusSurface(
                 state: .empty,
-                title: "Select a Life Area",
-                message: "Choose an area, project, or habit from the hierarchy to inspect or edit it."
+                title: "Nothing selected",
+                message: "Choose an area, project or habit."
             )
         }
     }
@@ -234,17 +234,17 @@ extension LifeManagementView {
             Menu {
                 switch viewModel.selectedNode {
                 case .area(let areaID):
-                    Button("Add Project", systemImage: "folder.badge.plus") {
+                    Button("Add project", systemImage: "folder.badge.plus") {
                         viewModel.beginCreateProject(prefillLifeAreaID: areaID)
                     }
                     .disabled(selectedAreaIsArchived || viewModel.isMutating)
-                    Button("Add Habit", systemImage: "repeat") {
+                    Button("Add habit", systemImage: "repeat") {
                         presentHabitComposer(prefill: AddHabitPrefillTemplate(title: "", lifeAreaID: areaID))
                     }
                     .disabled(selectedAreaIsArchived || viewModel.isMutating)
                 case .project(let projectID):
                     let lifeAreaID = viewModel.projectRow(for: projectID)?.project.lifeAreaID
-                    Button("Add Habit", systemImage: "repeat") {
+                    Button("Add habit", systemImage: "repeat") {
                         presentHabitComposer(
                             prefill: AddHabitPrefillTemplate(
                                 title: "",
@@ -255,7 +255,7 @@ extension LifeManagementView {
                     }
                     .disabled(selectedProjectAllowsChildHabits == false || viewModel.isMutating)
                 default:
-                    Button("Add Area", systemImage: "square.grid.2x2") {
+                    Button("Add area", systemImage: "square.grid.2x2") {
                         viewModel.beginCreateLifeArea()
                     }
                 }
@@ -287,7 +287,7 @@ extension LifeManagementView {
                     Button("Dismiss") {
                         viewModel.clearError()
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                 }
             }
         }
@@ -318,7 +318,7 @@ extension LifeManagementView {
         HStack(spacing: spacing.s8) {
             ProgressView()
                 .controlSize(.small)
-            Text("Updating life management...")
+            Text("Updating…")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
         }

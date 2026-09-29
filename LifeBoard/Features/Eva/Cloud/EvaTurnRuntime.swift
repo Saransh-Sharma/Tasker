@@ -56,7 +56,7 @@ struct EvaTurnRuntime: Sendable {
                   let policy = configuration.routes[route],
                   policy.enabled,
                   let consent = account.consent else {
-                throw EvaProviderError.unavailable(String(localized: "Cloud EVA configuration is not ready."))
+                throw EvaProviderError.unavailable(String(localized: "Couldn’t load the cloud setup."))
             }
             let creditReady = policy.billable == false || (account.quota?.remaining ?? account.credits?.balance ?? 0) > 0
             guard creditReady else { throw EvaProviderError.creditsExhausted(account.credits) }
@@ -83,7 +83,7 @@ struct EvaTurnRuntime: Sendable {
             guard let localModelName,
                   let model = ModelConfiguration.getModelByName(localModelName) else {
                 throw EvaProviderError.unavailable(
-                    String(localized: "Install an Offline EVA model in Settings before selecting Offline EVA.")
+                    String(localized: "Download a model in Settings first.")
                 )
             }
             return EvaTurnRuntime(
@@ -127,7 +127,7 @@ struct EvaTurnRuntime: Sendable {
               account.consent?.revision == consentRevision,
               account.consent.map({ Set($0.grants) }) == grants else {
             throw EvaProviderError.unavailable(
-                String(localized: "EVA privacy or routing settings changed. Please send this message again.")
+                String(localized: "Eva settings changed. Send the message again.")
             )
         }
         if let error = account.readinessError(route: route) { throw error }
@@ -239,7 +239,7 @@ enum EvaCloudChatOutputDelivery {
         let text = runtime.cloudDisplayText(from: output)
         let usableText = text.flatMap { $0.isEmpty ? nil : $0 }
         send(
-            usableText ?? String(localized: "Cloud EVA returned an empty response. Please try again."),
+            usableText ?? String(localized: "Eva didn’t reply. Try again."),
             usableText == nil ? nil : runtime.modelName
         )
         return true

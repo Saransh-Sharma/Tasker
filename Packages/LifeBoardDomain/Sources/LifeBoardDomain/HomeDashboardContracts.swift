@@ -36,10 +36,10 @@ public enum DashboardMode: String, Codable, CaseIterable, Hashable, Sendable {
 
     public var title: String {
         switch self {
-        case .smart: return "Smart"
-        case .work: return "Work"
-        case .personal: return "Personal"
-        case .lowEnergy: return "Low Energy"
+        case .smart: return String(localized: "Smart")
+        case .work: return String(localized: "Work")
+        case .personal: return String(localized: "Personal")
+        case .lowEnergy: return String(localized: "Low energy")
         }
     }
 
@@ -55,10 +55,10 @@ public enum DashboardMode: String, Codable, CaseIterable, Hashable, Sendable {
 
     public var summary: String {
         switch self {
-        case .smart: return "Everything, ordered by what needs you."
-        case .work: return "Work commitments only. Personal care stays private."
-        case .personal: return "Life outside work."
-        case .lowEnergy: return "Less on screen. Care and rest first."
+        case .smart: return String(localized: "Everything, most urgent first.")
+        case .work: return String(localized: "Work tasks only.")
+        case .personal: return String(localized: "Life outside work.")
+        case .lowEnergy: return String(localized: "Less on screen, rest first.")
         }
     }
 }
@@ -79,11 +79,11 @@ public enum WidgetSizePreset: String, CaseIterable, Hashable, Sendable {
 
     public var title: String {
         switch self {
-        case .compact: return "Glance"
-        case .standard: return "Compact"
-        case .wide: return "Wide"
-        case .tall: return "Story"
-        case .expanded: return "Expanded"
+        case .compact: return String(localized: "Glance")
+        case .standard: return String(localized: "Compact")
+        case .wide: return String(localized: "Wide")
+        case .tall: return String(localized: "Story")
+        case .expanded: return String(localized: "Expanded")
         }
     }
 
@@ -145,10 +145,10 @@ public enum HomeCardOwnership: String, Codable, CaseIterable, Hashable, Sendable
 
     public var accessibilityDescription: String {
         switch self {
-        case .pinned: return "Pinned by you"
-        case .smart: return "Adaptive smart slot"
-        case .suggested: return "Suggested for now"
-        case .system: return "Active system state"
+        case .pinned: return String(localized: "Pinned")
+        case .smart: return String(localized: "Changes through the day")
+        case .suggested: return String(localized: "Suggested")
+        case .system: return String(localized: "Shown while active")
         }
     }
 }
@@ -162,11 +162,11 @@ public enum HomeSmartSlotSchedule: String, Codable, CaseIterable, Hashable, Send
 
     public var title: String {
         switch self {
-        case .morning: return "Morning"
-        case .workday: return "Workday"
-        case .evening: return "Evening"
-        case .weekend: return "Weekend"
-        case .always: return "Always adaptive"
+        case .morning: return String(localized: "Morning")
+        case .workday: return String(localized: "Workday")
+        case .evening: return String(localized: "Evening")
+        case .weekend: return String(localized: "Weekend")
+        case .always: return String(localized: "Always")
         }
     }
 }
@@ -293,11 +293,11 @@ public enum HomeSectionRole: String, Codable, CaseIterable, Hashable, Sendable {
 
     public var title: String {
         switch self {
-        case .anchored: "Now"
-        case .today: "Today"
-        case .keepSteady: "Keep steady"
-        case .closeLoop: "Close the loop"
-        case .userSpace: "Your space"
+        case .anchored: String(localized: "Now")
+        case .today: String(localized: "Today")
+        case .keepSteady: String(localized: "Keep steady")
+        case .closeLoop: String(localized: "Close the loop")
+        case .userSpace: String(localized: "Your space")
         }
     }
 }
@@ -350,30 +350,30 @@ public struct DefaultDashboardWidgetRegistry: DashboardWidgetRegistry {
     public init() {
         let allSizes = Set(WidgetSizePreset.allCases)
         descriptors = [
-            .init(kind: .setupChecklist, title: "Make LifeBoard more useful", category: .orient, supportedSizes: [.standard, .wide], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .ring, sectionRole: .userSpace),
-            .init(kind: .focusNow, title: "Focus Now", category: .act, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .decision, sectionRole: .anchored),
-            .init(kind: .lifeSnapshot, title: "Life Snapshot", category: .orient, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .anchored),
-            .init(kind: .care, title: "Care", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .queue, sectionRole: .keepSteady),
+            .init(kind: .setupChecklist, title: String(localized: "Finish setup"), category: .orient, supportedSizes: [.standard, .wide], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .ring, sectionRole: .userSpace),
+            .init(kind: .focusNow, title: String(localized: "Focus Now"), category: .act, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .decision, sectionRole: .anchored),
+            .init(kind: .lifeSnapshot, title: String(localized: "Life snapshot"), category: .orient, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .anchored),
+            .init(kind: .care, title: String(localized: "Care"), category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .queue, sectionRole: .keepSteady),
             // Today's committed work belongs above wellbeing, not last on the
             // board. It has its own anchored section now.
-            .init(kind: .tasks, title: "Today’s Tasks", category: .act, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .queue, sectionRole: .today),
-            .init(kind: .routines, title: "Routines", category: .wellbeing, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .queue, sectionRole: .keepSteady),
-            .init(kind: .scheduleCapacity, title: "Schedule & Capacity", category: .plan, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .spine, sectionRole: .anchored),
-            .init(kind: .quickCapture, title: "Quick Capture", category: .act, supportedSizes: [.compact, .standard, .wide], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .action, sectionRole: .anchored),
-            .init(kind: .compactTimeline, title: "Day Shape", category: .plan, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .spine, sectionRole: .anchored),
-            .init(kind: .journal, title: "Journal", category: .reflect, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .closeLoop),
-            .init(kind: .progressReflection, title: "Progress & Reflection", category: .reflect, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .closeLoop),
-            .init(kind: .fasting, title: "Active Fast", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .ring, sectionRole: .keepSteady),
-            .init(kind: .goals, title: "Goal Progress", category: .progress, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .ring, sectionRole: .keepSteady),
-            .init(kind: .evaConversation, title: "Saved Eva Insight", category: .reflect, supportedSizes: [.standard, .wide, .tall], multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .closeLoop),
-            .init(kind: .bodyMetric, title: "Body Metric", category: .wellbeing, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .keepSteady),
-            .init(kind: .workout, title: "Recent Workout", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
-            .init(kind: .sleep, title: "Sleep Note", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .keepSteady),
-            .init(kind: .movement, title: "Movement", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
-            .init(kind: .lifeMoment, title: "Life Moment", category: .reflect, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .countdown, sectionRole: .closeLoop),
-            .init(kind: .nutritionSummary, title: "Nutrition Summary", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
-            .init(kind: .recentMeal, title: "Recent Meal", category: .wellbeing, supportedSizes: [.compact, .standard, .wide, .tall], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .keepSteady),
-            .init(kind: .logMeal, title: "Log Meal", category: .act, supportedSizes: [.compact, .standard, .wide], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .action, sectionRole: .keepSteady)
+            .init(kind: .tasks, title: String(localized: "Today’s tasks"), category: .act, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .queue, sectionRole: .today),
+            .init(kind: .routines, title: String(localized: "Routines"), category: .wellbeing, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .queue, sectionRole: .keepSteady),
+            .init(kind: .scheduleCapacity, title: String(localized: "Schedule & capacity"), category: .plan, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .spine, sectionRole: .anchored),
+            .init(kind: .quickCapture, title: String(localized: "Quick capture"), category: .act, supportedSizes: [.compact, .standard, .wide], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .action, sectionRole: .anchored),
+            .init(kind: .compactTimeline, title: String(localized: "Day shape"), category: .plan, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .spine, sectionRole: .anchored),
+            .init(kind: .journal, title: String(localized: "Journal"), category: .reflect, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .closeLoop),
+            .init(kind: .progressReflection, title: String(localized: "Progress"), category: .reflect, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .closeLoop),
+            .init(kind: .fasting, title: String(localized: "Fasting"), category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .ring, sectionRole: .keepSteady),
+            .init(kind: .goals, title: String(localized: "Goals"), category: .progress, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .ring, sectionRole: .keepSteady),
+            .init(kind: .evaConversation, title: String(localized: "Saved from Eva"), category: .reflect, supportedSizes: [.standard, .wide, .tall], multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .closeLoop),
+            .init(kind: .bodyMetric, title: String(localized: "Body metric"), category: .wellbeing, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .keepSteady),
+            .init(kind: .workout, title: String(localized: "Recent workout"), category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
+            .init(kind: .sleep, title: String(localized: "Sleep"), category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .keepSteady),
+            .init(kind: .movement, title: String(localized: "Movement"), category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
+            .init(kind: .lifeMoment, title: String(localized: "Life moment"), category: .reflect, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .countdown, sectionRole: .closeLoop),
+            .init(kind: .nutritionSummary, title: String(localized: "Nutrition"), category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
+            .init(kind: .recentMeal, title: String(localized: "Recent meal"), category: .wellbeing, supportedSizes: [.compact, .standard, .wide, .tall], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .keepSteady),
+            .init(kind: .logMeal, title: String(localized: "Log meal"), category: .act, supportedSizes: [.compact, .standard, .wide], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .action, sectionRole: .keepSteady)
         ]
     }
 

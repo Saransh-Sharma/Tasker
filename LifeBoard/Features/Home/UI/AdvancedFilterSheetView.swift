@@ -79,10 +79,10 @@ struct AdvancedFilterSheetView: View {
             Form {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Precision filters")
+                        Text("Filters")
                             .font(.lifeboard(.headline))
                             .foregroundStyle(Color.lifeboard.textPrimary)
-                        Text("Save named slices for the moments when the default board is still too broad.")
+                        Text("Save filters to reuse them.")
                             .font(.lifeboard(.caption1))
                             .foregroundStyle(Color.lifeboard.textSecondary)
                     }
@@ -99,7 +99,7 @@ struct AdvancedFilterSheetView: View {
                 }
 
                 Section {
-                    Toggle("Show completed inline", isOn: $showCompletedInline)
+                    Toggle("Show completed", isOn: $showCompletedInline)
                 } header: {
                     sectionHeader("Completion", index: 0)
                 }
@@ -131,7 +131,7 @@ struct AdvancedFilterSheetView: View {
                 }
 
                 Section {
-                    TextField("work, deep-focus, errands", text: $tagsText)
+                    TextField("work, deep-focus, errands", text: $tagsText, prompt: Text("work, deep-focus, errands").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                     // Was `.pickerStyle(.segmented)`, the stock grey segmented control.
                     // `OptionRail` is the design system's equivalent and keeps the
                     // semantics: one selection, per-value accessibility identifiers,
@@ -166,13 +166,13 @@ struct AdvancedFilterSheetView: View {
                 }
 
                 Section {
-                    Toggle("Enable range", isOn: $useDateRange)
+                    Toggle("Filter by date", isOn: $useDateRange)
                     if useDateRange {
                         DatePicker("Start", selection: $startDate, displayedComponents: .date)
                         DatePicker("End", selection: $endDate, displayedComponents: .date)
                     }
                 } header: {
-                    sectionHeader("Date Range", index: 7)
+                    sectionHeader("Date range", index: 7)
                 }
 
                 Section {
@@ -209,7 +209,7 @@ struct AdvancedFilterSheetView: View {
                         }
                     }
 
-                    TextField("New saved view name", text: $saveViewName)
+                    TextField("View name", text: $saveViewName, prompt: Text("View name").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                     Button("Save current view") {
                         let draft = buildDraftFilter()
                         onSaveNamedView(draft, showCompletedInline, saveViewName)
@@ -217,17 +217,18 @@ struct AdvancedFilterSheetView: View {
                     }
                     .disabled(saveViewName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 } header: {
-                    sectionHeader("Saved Views", index: 8)
+                    sectionHeader("Saved views", index: 8)
                 }
             }
             .scrollContentBackground(.hidden)
             .background(Color.lifeboard.bgCanvas)
             .listRowBackground(Color.lifeboard.surfacePrimary)
-            .navigationTitle("Advanced Filters")
+            .navigationTitle("Advanced filters")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
                 }
 
                 ToolbarItem(placement: .destructiveAction) {

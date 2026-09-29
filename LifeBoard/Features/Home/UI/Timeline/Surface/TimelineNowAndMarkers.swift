@@ -145,7 +145,7 @@ struct TimelineEndAddMarker: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Add task after timeline")
         .accessibilityValue(accessibilityValue)
-        .accessibilityHint("Opens Add Task with a suggested timeline time.")
+        .accessibilityHint("Opens Add task")
         .accessibilityIdentifier("home.timeline.endAdd")
     }
 }

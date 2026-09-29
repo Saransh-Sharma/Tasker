@@ -868,6 +868,6 @@ final class LLMRuntimeCoordinator {
         if case let LLMEvaluatorError.unsupportedRuntime(_, message) = error {
             return message
         }
-        return "Model failed to prepare. Please switch models or retry."
+        return String(localized: "Couldn’t load model. Try again or pick another.")
     }
 }

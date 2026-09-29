@@ -29,10 +29,10 @@ final class WatchJournalCaptureStore: ObservableObject {
     var pendingCount: Int { outbox.filter { $0.syncState != .synced }.count }
 
     var syncSummary: String {
-        if pendingCount == 0 { return "Everything is on iPhone" }
+        if pendingCount == 0 { return "All on iPhone" }
         return connectivity.isReachable
             ? "\(pendingCount) sending to iPhone"
-            : "\(pendingCount) safe on this Watch"
+            : "\(pendingCount) on this Watch"
     }
 
     func start() {
@@ -76,7 +76,7 @@ final class WatchJournalCaptureStore: ObservableObject {
             captureID: captureID,
             kind: .audio,
             sourceSurface: .app,
-            textPreview: "Voice moment",
+            textPreview: "Voice note",
             speechTruthState: .transcriptOnIPhoneLater,
             audioManifest: manifest
         ))
@@ -126,7 +126,7 @@ final class WatchJournalCaptureStore: ObservableObject {
             if item.envelope.kind == .audio {
                 guard let fileURL = audioURL(for: item.envelope),
                       FileManager.default.fileExists(atPath: fileURL.path) else {
-                    markFailed(item.id, message: "Recording is unavailable", isPermanent: true)
+                    markFailed(item.id, message: "Couldn’t find recording", isPermanent: true)
                     return
                 }
                 try connectivity.transferAudio(fileURL: fileURL, envelope: item.envelope)

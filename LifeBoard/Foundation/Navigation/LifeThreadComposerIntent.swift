@@ -14,6 +14,11 @@ import VisionKit
 extension LifeThreadComposerHost {
     func liveResolveComposerIntent(router: AppRouter) {
         guard V2FeatureFlags.universalInputRoutingEnabled else { return }
+        // A submit is already working on this draft and its own resolution
+        // decides what happens next. A preview now would only re-offer the
+        // text that is being saved — the Return key's newline strip lands here
+        // mid-submit.
+        guard composer.state != .working else { return }
         liveIntentResolveTask?.cancel()
         // An interpretation belongs to the exact draft that produced it.
         // Clear it synchronously before debouncing the replacement so a
@@ -28,6 +33,11 @@ extension LifeThreadComposerHost {
         guard text.isEmpty == false else {
             return
         }
+        #if DEBUG
+        // Lets UI tests reach the path where Send beats the preview, which a
+        // person hits by tapping within about 0.3 s of the last keystroke.
+        if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_DISABLE_COMPOSER_LIVE_PREVIEW") { return }
+        #endif
         liveIntentResolveTask = Task {
             try? await Task.sleep(for: .milliseconds(320))
             guard !Task.isCancelled else { return }
@@ -48,6 +58,7 @@ extension LifeThreadComposerHost {
             let resolution = await universalInputCoordinator.resolvePreview(input)
             guard !Task.isCancelled else { return }
             await MainActor.run {
+                guard composer.state != .working else { return }
                 switch resolution {
                 case .captureDraft(let draft):
                     composer.showInterpretation(for: draft)
@@ -70,6 +81,14 @@ extension LifeThreadComposerHost {
     }
 
     func submitLifeThreadComposer(router: AppRouter) {
+        // One submit at a time: Return, Send and an accepted row can each
+        // arrive while the last submit is still working.
+        guard composer.state != .working else { return }
+        // Sending ends editing (`DESIGN.md`): the keyboard goes away as the work
+        // starts. Disabling the field for `.working` does not do it — the
+        // keyboard stayed up over the receipt — and an empty Send or Return
+        // means "I'm done typing" anyway.
+        lifeThreadComposerIsFocused = false
         liveIntentResolveTask?.cancel()
         liveIntentResolveTask = nil
         if let interpretation = composer.interpretation {
@@ -88,10 +107,10 @@ extension LifeThreadComposerHost {
                 router.activateRoot(.eva)
                 Haptic.pick.play()
             } catch {
-                composer.focus()
+                composer.returnToEditing()
                 router.activeAlert = .init(
                     title: "Couldn’t open Eva",
-                    message: "Your draft is still here. Please try again."
+                    message: String(localized: "Try again. Your draft is still here.")
                 )
             }
             return
@@ -110,7 +129,7 @@ extension LifeThreadComposerHost {
             overdueRescueEligible: !homeViewModel.evaRescueTasksByID.isEmpty,
             overdueTaskCount: homeViewModel.evaRescueTasksByID.count
         )
-        composer.beginWorking("Understanding what you need")
+        composer.beginWorking(String(localized: "Thinking…"))
         Task {
             let resolution = await universalInputCoordinator.resolve(input)
             await MainActor.run {
@@ -122,6 +141,16 @@ extension LifeThreadComposerHost {
     func handleLifeThreadResolution(_ resolution: LifeThreadIntentResolution, router: AppRouter) {
         switch resolution {
         case .answer(let request):
+            if ComposerPlainPhraseChoice.consumeAsk(request.prompt) == false,
+               QuickCaptureSavePolicy.isPlainPhrase(request.prompt) {
+                composer.returnToEditing()
+                composer.showClarification(ComposerPlainPhraseChoice.clarification(
+                    for: request,
+                    destination: composer.destination
+                ))
+                Haptic.pick.play()
+                return
+            }
             do {
                 try EvaChatLaunchRequestStore.shared.submit(.init(prompt: request.prompt))
                 composer.dismissDraft()
@@ -129,18 +158,24 @@ extension LifeThreadComposerHost {
                 router.activateRoot(.eva)
                 Haptic.pick.play()
             } catch {
-                composer.focus()
+                composer.returnToEditing()
                 router.activeAlert = .init(
                     title: "Couldn’t open Eva",
-                    message: "Your draft is still here. Please try again."
+                    message: String(localized: "Try again. Your draft is still here.")
                 )
             }
         case .captureDraft(let draft):
+            // "Save as task" on a plain phrase: saved to the Inbox in place,
+            // like any typed task, rather than opening the editor.
+            if draft.kind == .task, let seed = draft.seed, ComposerPlainPhraseChoice.consumeTask(draft.id) {
+                saveTaskInPlace(seed, router: router)
+                return
+            }
             if draft.kind == .task, QuickCaptureSavePolicy.canSaveInPlace(draft.seed), let seed = draft.seed {
                 saveTaskInPlace(seed, router: router)
                 return
             }
-            composer.focus()
+            composer.returnToEditing()
             runtime.captureRouter.request(
                 kind: draft.kind,
                 source: .shell,
@@ -150,7 +185,7 @@ extension LifeThreadComposerHost {
         case .transactionPreview(let preview):
             composer.review(preview)
         case .navigation(let request):
-            composer.focus()
+            composer.returnToEditing()
             router.activateRoot(request.destination)
             if let route = request.route {
                 router.push(route, in: request.destination)
@@ -162,6 +197,9 @@ extension LifeThreadComposerHost {
             // resume if the action is cancelled. We don't dismiss the
             // keyboard or the draft; only the deck navigates over the
             // composer.
+            // Reached straight from a submit, the composer is still working;
+            // nothing else would ever release it.
+            composer.returnToEditing()
             lifeThreadComposerIsFocused = false
             switch action {
             case .showTodaySchedule:
@@ -181,13 +219,13 @@ extension LifeThreadComposerHost {
                     let guidance: String
                     switch accessAction {
                     case .requestPermission:
-                        guidance = "Connect Calendar to surface next meetings and free windows."
+                        guidance = String(localized: "Connect your calendar to see events.")
                     case .openSystemSettings:
-                        guidance = "Calendar access is denied. Enable LifeBoard in Settings > Privacy & Security > Calendars to see your meetings here."
+                        guidance = String(localized: "Calendar access is off. Turn it on in Settings.")
                     case .unavailable:
-                        guidance = "Calendar access is restricted by system policy."
+                        guidance = String(localized: "Calendar access is restricted on this device.")
                     case .noneNeeded:
-                        guidance = "Calendar is connected, but no calendars are selected. Pick one in Home to see your meetings."
+                        guidance = String(localized: "No calendars selected. Pick one on Home.")
                     }
                     router.activeAlert = .init(
                         title: "Calendar isn’t connected",
@@ -232,16 +270,26 @@ extension LifeThreadComposerHost {
     /// Anything uncertain — an unknown `+project`, a failed save — falls back to
     /// the editor with the draft intact.
     func saveTaskInPlace(_ seed: CaptureSeed, router: AppRouter) {
-        guard composer.state != .working, let parsed = seed.parsedCapture else { return }
-        composer.beginWorking("Adding task")
         let openEditor = {
-            composer.focus()
+            composer.returnToEditing()
             runtime.captureRouter.request(
                 kind: .task,
                 source: .shell,
                 prefilledText: seed.rawText,
                 captureSeed: seed
             )
+        }
+        guard let parsed = seed.parsedCapture else {
+            openEditor()
+            return
+        }
+        // A submit that resolved into this save already holds the lock and
+        // only needs a truer label; the interpretation row's Add arrives
+        // without it. This used to return whenever the composer was working —
+        // the very state the submit path leaves it in — so a Send that beat
+        // the live preview stayed on "Understanding what you need" for good.
+        if composer.beginWorking(String(localized: "Adding…")) == false {
+            composer.relabelWorking(String(localized: "Adding…"))
         }
         Task { @MainActor in
             let viewModel = CompositionRoot.shared.makeNewAddTaskViewModel()
@@ -301,8 +349,7 @@ extension LifeThreadComposerHost {
     ) {
         // A second tap while the first apply is in flight must not apply the
         // same preview twice. `DESIGN.md`: running prevents duplicate submission.
-        guard composer.state != .working else { return }
-        composer.beginWorking("Saving locally")
+        guard composer.beginWorking(String(localized: "Saving…")) else { return }
         Task {
             do {
                 let receipt = try await lifeBoardMutationCoordinator.apply(previewID: preview.id)
@@ -318,8 +365,8 @@ extension LifeThreadComposerHost {
                 await MainActor.run {
                     composer.review(preview)
                     router.activeAlert = .init(
-                        title: "Change wasn’t applied",
-                        message: "Nothing was changed. Your preview is still here so you can try again."
+                        title: String(localized: "Couldn’t apply change"),
+                        message: String(localized: "Nothing changed. Try again.")
                     )
                 }
             }
@@ -341,10 +388,62 @@ extension LifeThreadComposerHost {
                 await MainActor.run {
                     router.activeAlert = .init(
                         title: "Couldn’t undo",
-                        message: "The saved change is still in place. Please open its source and try again."
+                        message: String(localized: "Try again from where you made it.")
                     )
                 }
             }
         }
+    }
+}
+
+/// The "Save as task / Ask Eva" question for a plain phrase, and the memory of
+/// which answer was picked so acting on it does not ask again. An answer only
+/// counts once its option is chosen: dismissing the question and sending the
+/// same words asks again.
+@MainActor
+enum ComposerPlainPhraseChoice {
+    private static var pendingTaskOptions: [UUID: UUID] = [:]
+    private static var pendingAskOptions: [UUID: String] = [:]
+    private static var confirmedTaskDraftIDs: Set<UUID> = []
+    private static var confirmedAskPrompts: Set<String> = []
+
+    static func clarification(
+        for request: LifeThreadAnswerRequest,
+        destination: Destination
+    ) -> ClarificationRequest {
+        let text = request.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parsed = TaskCaptureParser.parse(text)
+        let draft = LifeThreadCaptureDraft(
+            kind: .task,
+            text: text,
+            destination: destination,
+            seed: CaptureSeed(rawText: text, parsedCapture: parsed, inputSource: .typed)
+        )
+        let assistant = AssistantIdentitySnapshot.current.displayName
+        let save = ClarificationOption(label: "Save as task", systemImage: "checklist", resolution: .captureDraft(draft))
+        let ask = ClarificationOption(label: "Ask \(assistant)", systemImage: "sparkles", resolution: .answer(request))
+        pendingTaskOptions = [save.id: draft.id]
+        pendingAskOptions = [ask.id: request.prompt]
+        return ClarificationRequest(
+            question: "Save \u{201C}\(text)\u{201D} as a task?",
+            options: [save, ask],
+            originalText: request.prompt
+        )
+    }
+
+    /// Call when a clarification option is picked, before acting on it.
+    static func didChoose(_ option: ClarificationOption) {
+        if let draftID = pendingTaskOptions[option.id] { confirmedTaskDraftIDs.insert(draftID) }
+        if let prompt = pendingAskOptions[option.id] { confirmedAskPrompts.insert(prompt) }
+        pendingTaskOptions = [:]
+        pendingAskOptions = [:]
+    }
+
+    static func consumeTask(_ id: UUID) -> Bool {
+        confirmedTaskDraftIDs.remove(id) != nil
+    }
+
+    static func consumeAsk(_ prompt: String) -> Bool {
+        confirmedAskPrompts.remove(prompt) != nil
     }
 }

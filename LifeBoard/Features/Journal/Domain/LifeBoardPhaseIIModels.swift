@@ -155,12 +155,12 @@ public enum TrackerTemplate: String, CaseIterable, Identifiable, Hashable, Senda
 
     public var detail: String {
         switch self {
-        case .pain: "A personal 0–10 observation. Non-clinical."
-        case .symptoms: "A private text observation. Non-clinical."
-        case .caffeine: "Record an amount in milligrams."
-        case .reading: "Record time spent reading."
-        case .spending: "Record an amount in your preferred currency."
-        case .screenTime: "Record a duration without judgment."
+        case .pain: String(localized: "Rate it from 0 to 10.")
+        case .symptoms: String(localized: "Describe it in your words.")
+        case .caffeine: String(localized: "Amount in mg.")
+        case .reading: String(localized: "Minutes read.")
+        case .spending: String(localized: "Amount in your currency.")
+        case .screenTime: String(localized: "Minutes on screen.")
         }
     }
 
@@ -553,6 +553,9 @@ public enum JournalBlockKind: String, Codable, CaseIterable, Sendable {
     /// A transcript produced from a voice recording (OffRecord parity);
     /// rendered like text but attributed to speech capture.
     case voice
+    /// The Day Close reflection, mirrored into the journal (string-backed
+    /// `kindRaw`; older builds skip it). See `JournalDayCloseWriter`.
+    case dayClose
 }
 
 
@@ -690,7 +693,9 @@ public struct JournalDayValue: Identifiable, Codable, Hashable, Sendable {
     }
 
     public var displayText: String {
-        blocks.compactMap(\.text).joined(separator: "\n")
+        // Mood reasons ride on the mood block's text as `reasons:…`; they
+        // are chips, not prose.
+        blocks.compactMap { JournalMoodReasons.isEncoded($0.text) ? nil : $0.text }.joined(separator: "\n")
     }
 
     public var latestMood: JournalMood? {
@@ -776,30 +781,29 @@ public struct JournalPrompt: Identifiable, Codable, Hashable, Sendable {
 
     public static func contextual(daypart: ResolvedDaypart, hasEntry: Bool) -> Self {
         if hasEntry {
-            return Self(id: "continue", title: "Anything else worth keeping?", supportiveCopy: "A sentence is enough.")
+            return Self(id: "continue", title: String(localized: "Anything else?"), supportiveCopy: String(localized: "A sentence is enough."))
         }
         switch daypart {
         case .morning:
-            return Self(id: "morning", title: "What would make today feel kind?", supportiveCopy: "Name one thing, not the whole plan.")
+            return Self(id: "morning", title: String(localized: "What matters most today?"), supportiveCopy: String(localized: "One thing."))
         case .afternoon:
-            return Self(id: "afternoon", title: "What is taking up space right now?", supportiveCopy: "You do not have to solve it here.")
+            return Self(id: "afternoon", title: String(localized: "What’s on your mind?"), supportiveCopy: String(localized: "Name it."))
         case .evening:
-            return Self(id: "evening", title: "What stayed with you today?", supportiveCopy: "Keep the part that mattered.")
+            return Self(id: "evening", title: String(localized: "What stayed with you today?"), supportiveCopy: String(localized: "What stood out."))
         case .night:
-            return Self(id: "night", title: "What can you set down for tonight?", supportiveCopy: "Nothing needs to be polished.")
+            return Self(id: "night", title: String(localized: "What can wait until tomorrow?"), supportiveCopy: String(localized: "It can wait."))
         }
     }
 }
 
 public struct JournalInsightSnapshot: Equatable, Sendable {
     public var daysWritten: Int
-    public var currentStreak: Int
     public var totalWords: Int
     public var dominantMood: JournalMood?
     public var averageEnergy: Double?
     public var evidenceDayIDs: [UUID]
 
-    public static let empty = Self(daysWritten: 0, currentStreak: 0, totalWords: 0, dominantMood: nil, averageEnergy: nil, evidenceDayIDs: [])
+    public static let empty = Self(daysWritten: 0, totalWords: 0, dominantMood: nil, averageEnergy: nil, evidenceDayIDs: [])
 }
 
 
@@ -960,11 +964,11 @@ public enum WeeklyReflectionService {
         let summary: String
         switch density {
         case .empty:
-            summary = "There is not enough Journal evidence to summarize this week yet."
-        case .light:
-            summary = "You kept \(activeDays) day\(activeDays == 1 ? "" : "s") and \(wordCount) words this week. " + evidenceSentence(dominantMood: dominantMood, averageEnergy: averageEnergy)
-        case .full:
-            summary = "Across \(activeDays) Journal days and \(wordCount) words, " + evidenceSentence(dominantMood: dominantMood, averageEnergy: averageEnergy)
+            summary = String(localized: "Not enough entries to summarize yet.")
+        case .light, .full:
+            let dayText = activeDays == 1 ? String(localized: "1 day") : String(localized: "\(activeDays) days")
+            let wordText = wordCount == 1 ? String(localized: "1 word") : String(localized: "\(wordCount) words")
+            summary = String(localized: "\(dayText), \(wordText) this week.") + " " + evidenceSentence(dominantMood: dominantMood, averageEnergy: averageEnergy)
         }
         let matchingVersions = previousVersions.filter { calendar.isDate($0.weekStart, inSameDayAs: weekStart) }
         let nextVersion = (matchingVersions.map(\.version).max() ?? 0) + 1
@@ -980,10 +984,11 @@ public enum WeeklyReflectionService {
     }
 
     private static func evidenceSentence(dominantMood: JournalMood?, averageEnergy: Double?) -> String {
-        let moodText = dominantMood.map { "\($0.title) appeared most often" } ?? "mood evidence stayed varied"
-        let energyText = averageEnergy.map { "average recorded energy was \(String(format: "%.1f", $0)) out of 5" }
-            ?? "energy was not recorded often enough to summarize"
-        return "\(moodText), and \(energyText). This is a reflection of recorded evidence, not a diagnosis."
+        let moodText = dominantMood.map { String(localized: "Most common mood: \($0.displayName).") }
+            ?? String(localized: "Mood varied.")
+        guard let averageEnergy else { return moodText }
+        let energy = averageEnergy.formatted(.number.precision(.fractionLength(1)))
+        return moodText + " " + String(localized: "Average energy \(energy) of 5.")
     }
 }
 
@@ -1046,9 +1051,9 @@ public enum JournalExportFailure: LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .noSelectedEvidence: "No selected Journal evidence is available for this reflection."
-        case .encodingFailed: "LifeBoard could not prepare this Journal export."
-        case .unableToCreateProtectedFile: "LifeBoard could not create a protected export file."
+        case .noSelectedEvidence: String(localized: "Couldn’t export. Select at least 1 day.")
+        case .encodingFailed: String(localized: "Couldn’t prepare export.")
+        case .unableToCreateProtectedFile: String(localized: "Couldn’t create export file.")
         }
     }
 }
@@ -1146,14 +1151,14 @@ public enum JournalBackupFailure: LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .weakPassphrase: "Use a backup passphrase with at least eight characters."
-        case .unsupportedVersion: "This Journal backup version is not supported."
-        case .malformedArchive: "The Journal backup is malformed or incomplete."
-        case .authenticationFailed: "The passphrase is incorrect or the backup was modified."
-        case .invalidIdentity: "The backup contains conflicting Journal identities."
-        case .unsafeMediaPath: "The backup contains an unsafe media path."
-        case .payloadTooLarge: "The backup contains media larger than LifeBoard can safely import."
-        case .protectedFileFailure: "LifeBoard could not create the protected backup or restore its media."
+        case .weakPassphrase: String(localized: "Use at least 8 characters.")
+        case .unsupportedVersion: String(localized: "Couldn’t read this backup version.")
+        case .malformedArchive: String(localized: "Couldn’t read backup. It may be incomplete.")
+        case .authenticationFailed: String(localized: "Wrong passphrase, or the backup was changed.")
+        case .invalidIdentity: String(localized: "Couldn’t import backup. Some entries conflict.")
+        case .unsafeMediaPath: String(localized: "Couldn’t import backup. A media file is unsafe.")
+        case .payloadTooLarge: String(localized: "Couldn’t import backup. A media file is too large.")
+        case .protectedFileFailure: String(localized: "Couldn’t save backup files.")
         }
     }
 }
@@ -1344,92 +1349,4 @@ public extension PhaseIIRepository {
         for attachment in attachments { try await saveKnowledgeAttachment(attachment) }
     }
     func pruneKnowledgeRecovery(now: Date = Date()) async throws {}
-}
-
-public struct JournalHomeContextCandidateSource: HomeContextCandidateSource {
-    public let providerID = "journal"
-    private let repository: any PhaseIIRepository
-
-    public init(repository: any PhaseIIRepository) { self.repository = repository }
-
-    public func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate] {
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: context.date)
-        guard hour >= 17,
-              (try? await repository.fetchJournalDay(containing: context.date)) == nil else { return [] }
-        return [.init(
-            id: "evening-reflection:\(calendar.startOfDay(for: context.date).timeIntervalSince1970)",
-            widgetKind: .journal,
-            title: "Keep one moment from today",
-            reason: .init(message: "Evening is a natural pause, and today does not have a journal moment yet.", signal: "time of day"),
-            destination: .track,
-            sensitivity: .privateSensitive,
-            priority: 180,
-            relevantFrom: context.date
-        )]
-    }
-}
-
-/// Suggests the Weekly Reflection once the week is winding down and the week
-/// actually contains journal material to reflect on.
-public struct WeeklyReflectionHomeContextCandidateSource: HomeContextCandidateSource {
-    public let providerID = "weekly-reflection"
-    private let repository: any PhaseIIRepository
-
-    public init(repository: any PhaseIIRepository) { self.repository = repository }
-
-    public func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate] {
-        var calendar = Calendar.current
-        calendar.firstWeekday = Calendar.current.firstWeekday
-        let weekday = calendar.component(.weekday, from: context.date)
-        let lastWeekday = ((calendar.firstWeekday + 5) % 7) + 1
-        guard weekday == lastWeekday else { return [] }
-        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: context.date),
-              let days = try? await repository.fetchJournalDays(search: nil, starredOnly: false, mood: nil),
-              days.contains(where: { weekInterval.contains($0.day) }) else { return [] }
-        return [.init(
-            id: "weekly-reflection:\(Int(weekInterval.start.timeIntervalSince1970))",
-            widgetKind: .journal,
-            title: "Your week is ready to reflect on",
-            reason: .init(
-                message: "This week has journal moments, and the week is closing.",
-                signal: "end of week"
-            ),
-            destination: .track,
-            sensitivity: .privateSensitive,
-            priority: 260,
-            relevantFrom: context.date,
-            relevantUntil: weekInterval.end
-        )]
-    }
-}
-
-/// Resurfaces a journal day from exactly one year ago — a gentle memory, only
-/// when the user permits sensitive content on Home, and never with content in
-/// the candidate itself.
-public struct JournalMemoryHomeContextCandidateSource: HomeContextCandidateSource {
-    public let providerID = "journal-memory"
-    private let repository: any PhaseIIRepository
-
-    public init(repository: any PhaseIIRepository) { self.repository = repository }
-
-    public func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate] {
-        let calendar = Calendar.current
-        guard let lastYear = calendar.date(byAdding: .year, value: -1, to: context.date),
-              let memory = try? await repository.fetchJournalDay(containing: lastYear) else { return [] }
-        return [.init(
-            id: "journal-memory:\(memory.id.uuidString)",
-            widgetKind: .journal,
-            title: "A year ago today",
-            reason: .init(
-                message: "You kept a journal moment on this day last year. Open it privately when you like.",
-                signal: "on this day"
-            ),
-            destination: .track,
-            sensitivity: .privateSensitive,
-            priority: 150,
-            relevantFrom: context.date,
-            relevantUntil: calendar.startOfDay(for: context.date).addingTimeInterval(24 * 60 * 60)
-        )]
-    }
 }

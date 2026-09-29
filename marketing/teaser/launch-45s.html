@@ -1,0 +1,58 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  body{margin:0;background:#111;color:#ccc;font:13px/1.4 ui-monospace,Menlo,monospace;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px}
+  canvas#c{width:min(92vw,720px);height:auto;background:#000;box-shadow:0 0 0 1px #333}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
+  button{background:#222;color:#ddd;border:1px solid #444;padding:4px 10px;cursor:pointer;font:inherit}
+  input[type=range]{width:320px}
+</style>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="core.js"></script>
+<script src="lifeboard-scenes.js"></script>
+<title>LifeBoard launch film (45 s)</title>
+<script>
+'use strict';
+// BRIEF: the full film. The 30 s spine plus the seven life areas, Journal, Everywhere and Private by default. 45.0 s.
+// t     dur   scene       look              label
+// 0.0   2.5   sunrise     ink morning       Good morning.
+// 2.5   2.5   scatter     ink morning boil  A real day has a lot in it.
+// 5.0   2.5   areas       riso              Work. Home. Health. People.
+// 7.5   0.5   blot        night             -
+// 8.0   2.0   fold        ink morning       One place.
+// 10.0  2.5   home        ink morning       What matters now?
+// 12.5  3.0   plan        ink afternoon     When should it happen?
+// 15.5  2.25  focus       ink afternoon     What am I doing now?
+// 17.75 2.75  track       ink afternoon     What needs sustaining?
+// 20.5  3.5   recover     ink evening       Plans break. You don't.
+// 24.0  2.5   journal     pencil            What do I want to remember?
+// 26.5  2.5   insights    night             What changed?
+// 29.0  3.5   eva         night             Ask. Review. Undo.
+// 32.5  2.0   everywhere  night             Wherever you are.
+// 34.5  1.5   private     night             Private by default.
+// 36.0  2.0   montage     riso              -
+// 38.0  2.0   gallery     riso              -
+// 40.0  5.0   print       riso              (sign-off) iPhone · iPad · Apple Watch
+const TIMELINE = [
+  { name: 'sunrise',    dur: 2.5,  fn: sceneSunrise(2.5) },
+  { name: 'scatter',    dur: 2.5,  fn: sceneScatter(2.5) },
+  { name: 'areas',      dur: 2.5,  fn: sceneAreas(2.5) },
+  { name: 'blot',       dur: 0.5,  fn: sceneBlot(0.5) },
+  { name: 'fold',       dur: 2.0,  fn: sceneFold(2.0) },
+  { name: 'home',       dur: 2.5,  fn: sceneHome(2.5) },
+  { name: 'plan',       dur: 3.0,  fn: scenePlan(3.0) },
+  { name: 'focus',      dur: 2.25, fn: sceneFocus(2.25) },
+  { name: 'track',      dur: 2.75, fn: sceneTrack(2.75) },
+  { name: 'recover',    dur: 3.5,  fn: sceneRecover(3.5) },
+  { name: 'journal',    dur: 2.5,  fn: sceneJournal(2.5) },
+  { name: 'insights',   dur: 2.5,  fn: sceneInsights(2.5) },
+  { name: 'eva',        dur: 3.5,  fn: sceneEva(3.5) },
+  { name: 'everywhere', dur: 2.0,  fn: sceneEverywhere(2.0) },
+  { name: 'private',    dur: 1.5,  fn: scenePrivate(1.5) },
+  { name: 'montage',    dur: 2.0,  fn: sceneMontage(2.0) },
+  { name: 'gallery',    dur: 2.0,  fn: sceneGallery(2.0) },
+  { name: 'print',      dur: 5.0,  fn: scenePrint(5.0, { platforms: 'iPhone · iPad · Apple Watch' }) },
+];
+function score(ac, t0, dest) { scoreFromTimeline(ac, t0, dest, TIMELINE); }
+defineFilm({ palette: lbMorning, timeline: TIMELINE, score, format: { ar: '9:16', width: 1080 } });
+</script>

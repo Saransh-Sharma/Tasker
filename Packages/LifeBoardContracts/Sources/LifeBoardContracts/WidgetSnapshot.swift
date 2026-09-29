@@ -427,8 +427,8 @@ public struct TaskListWidgetTimelineGap: Codable, Equatable, Hashable, Identifia
         startDate: Date,
         endDate: Date,
         suggestedTaskCount: Int,
-        headline: String = "Open time",
-        supportingText: String = "Add a task or place something from Inbox."
+        headline: String = String(localized: "Open time"),
+        supportingText: String = String(localized: "Add a task or pick one from Inbox.")
     ) {
         self.id = "\(startDate.timeIntervalSince1970)-\(endDate.timeIntervalSince1970)"
         self.startDate = startDate
@@ -576,6 +576,15 @@ public struct TaskListWidgetHabitPrimary: Codable, Equatable, Hashable, Identifi
     public var todayState: TaskListWidgetHabitTodayState
     public var dueAt: Date?
     public var week: [TaskListWidgetHabitDay]
+    /// Amount habits: what is recorded today, the target, its unit and step.
+    /// Optional so snapshots written before amounts existed still decode.
+    public var currentAmount: Double?
+    public var targetValue: Double?
+    public var targetUnit: String?
+    public var targetIsTimed: Bool?
+    public var stepValue: Double?
+    /// A quit habit records a clean day rather than a completion.
+    public var isQuitHabit: Bool?
 
     public init(
         habitID: UUID,
@@ -586,7 +595,13 @@ public struct TaskListWidgetHabitPrimary: Codable, Equatable, Hashable, Identifi
         bestStreak: Int = 0,
         todayState: TaskListWidgetHabitTodayState = .empty,
         dueAt: Date? = nil,
-        week: [TaskListWidgetHabitDay] = []
+        week: [TaskListWidgetHabitDay] = [],
+        currentAmount: Double? = nil,
+        targetValue: Double? = nil,
+        targetUnit: String? = nil,
+        targetIsTimed: Bool? = nil,
+        stepValue: Double? = nil,
+        isQuitHabit: Bool? = nil
     ) {
         self.habitID = habitID
         self.title = title
@@ -597,6 +612,12 @@ public struct TaskListWidgetHabitPrimary: Codable, Equatable, Hashable, Identifi
         self.todayState = todayState
         self.dueAt = dueAt
         self.week = week
+        self.currentAmount = currentAmount
+        self.targetValue = targetValue
+        self.targetUnit = targetUnit
+        self.targetIsTimed = targetIsTimed
+        self.stepValue = stepValue
+        self.isQuitHabit = isQuitHabit
     }
 }
 
@@ -607,6 +628,9 @@ public struct TaskListWidgetHabitSnapshot: Codable, Equatable, Hashable, Sendabl
     public var dueCount: Int
     public var completedTodayCount: Int
     public var atRiskCount: Int
+    /// Today's habits in board order, for the medium widget's rings.
+    /// Optional so older snapshot files still decode.
+    public var today: [TaskListWidgetHabitPrimary]?
 
     public init(
         date: Date = Date(),
@@ -614,7 +638,8 @@ public struct TaskListWidgetHabitSnapshot: Codable, Equatable, Hashable, Sendabl
         primaryHabit: TaskListWidgetHabitPrimary? = nil,
         dueCount: Int = 0,
         completedTodayCount: Int = 0,
-        atRiskCount: Int = 0
+        atRiskCount: Int = 0,
+        today: [TaskListWidgetHabitPrimary]? = nil
     ) {
         self.date = date
         self.updatedAt = updatedAt
@@ -622,6 +647,7 @@ public struct TaskListWidgetHabitSnapshot: Codable, Equatable, Hashable, Sendabl
         self.dueCount = dueCount
         self.completedTodayCount = completedTodayCount
         self.atRiskCount = atRiskCount
+        self.today = today
     }
 
     public static let empty = TaskListWidgetHabitSnapshot()
@@ -911,103 +937,6 @@ public struct TaskListWidgetSnapshot: Codable, Equatable, Sendable {
     }
 }
 
-public enum FastingWatchAction: String, Codable, Equatable, Sendable {
-    case finish
-    case cancel
-}
-
-public struct FastingWatchCommand: Codable, Equatable, Sendable {
-    public static let transportPayloadKey = "lifeboard.fasting.command"
-    public static let transportSchemaKey = "lifeboard.fasting.schema"
-    public static let transportSchemaVersion = 1
-
-    public var commandID: UUID
-    public var sessionID: UUID
-    public var action: FastingWatchAction
-    public var createdAt: Date
-    public var expiresAt: Date
-
-    public init(
-        commandID: UUID = UUID(),
-        sessionID: UUID,
-        action: FastingWatchAction,
-        createdAt: Date = Date(),
-        expiresAt: Date = Date().addingTimeInterval(15 * 60)
-    ) {
-        self.commandID = commandID
-        self.sessionID = sessionID
-        self.action = action
-        self.createdAt = createdAt
-        self.expiresAt = expiresAt
-    }
-
-    public func watchUserInfoPayload() throws -> [String: Any] {
-        [
-            Self.transportSchemaKey: Self.transportSchemaVersion,
-            Self.transportPayloadKey: try JSONEncoder().encode(self)
-        ]
-    }
-
-    public static func decodeWatchUserInfo(_ userInfo: [String: Any]) -> Self? {
-        guard
-            (userInfo[transportSchemaKey] as? Int) == transportSchemaVersion,
-            let data = userInfo[transportPayloadKey] as? Data
-        else {
-            return nil
-        }
-        return try? JSONDecoder().decode(Self.self, from: data)
-    }
-}
-
-public enum RoutineWatchAction: String, Codable, Equatable, Sendable {
-    case pause
-    case resume
-    case stop
-}
-
-public struct RoutineWatchCommand: Codable, Equatable, Sendable {
-    public static let transportPayloadKey = "lifeboard.routine.command"
-    public static let transportSchemaKey = "lifeboard.routine.schema"
-    public static let transportSchemaVersion = 1
-
-    public var commandID: UUID
-    public var runID: UUID
-    public var action: RoutineWatchAction
-    public var createdAt: Date
-    public var expiresAt: Date
-
-    public init(
-        commandID: UUID = UUID(),
-        runID: UUID,
-        action: RoutineWatchAction,
-        createdAt: Date = Date(),
-        expiresAt: Date = Date().addingTimeInterval(15 * 60)
-    ) {
-        self.commandID = commandID
-        self.runID = runID
-        self.action = action
-        self.createdAt = createdAt
-        self.expiresAt = expiresAt
-    }
-
-    public func watchUserInfoPayload() throws -> [String: Any] {
-        [
-            Self.transportSchemaKey: Self.transportSchemaVersion,
-            Self.transportPayloadKey: try JSONEncoder().encode(self)
-        ]
-    }
-
-    public static func decodeWatchUserInfo(_ userInfo: [String: Any]) -> Self? {
-        guard
-            (userInfo[transportSchemaKey] as? Int) == transportSchemaVersion,
-            let data = userInfo[transportPayloadKey] as? Data
-        else {
-            return nil
-        }
-        return try? JSONDecoder().decode(Self.self, from: data)
-    }
-}
-
 public enum TaskListWidgetActionType: String, Codable, Equatable, Sendable {
     case complete
     case defer15m
@@ -1067,6 +996,71 @@ public struct TaskListWidgetActionCommand: Codable, Equatable, Sendable {
 public enum BehaviorOccurrenceActionType: String, Codable, Equatable, Sendable {
     case complete
     case skip
+}
+
+/// What a habit widget button queues for the app: one step of an amount, or
+/// today's completion. The intent never opens the app; the app drains this the
+/// next time it is active. One slot, like the other widget commands, and the
+/// app remembers the last `commandID` it applied so a replayed file is a no-op.
+public struct HabitAmountActionCommand: Codable, Equatable, Sendable {
+    public enum Kind: String, Codable, Sendable {
+        case step
+        case complete
+        case abstain
+    }
+
+    public var commandID: UUID
+    public var habitID: UUID
+    public var kind: Kind
+    /// The amount to add for `.step`; ignored otherwise.
+    public var delta: Double
+    public var createdAt: Date
+    public var expiresAt: Date
+
+    public init(
+        commandID: UUID = UUID(),
+        habitID: UUID,
+        kind: Kind,
+        delta: Double = 0,
+        createdAt: Date = Date(),
+        expiresAt: Date = Date().addingTimeInterval(15 * 60)
+    ) {
+        self.commandID = commandID
+        self.habitID = habitID
+        self.kind = kind
+        self.delta = delta
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+    }
+
+    public var isExpired: Bool { expiresAt <= Date() }
+
+    @discardableResult
+    public func savePending() -> Bool {
+        guard let url = AppGroupConstants.habitAmountActionCommandURL,
+              let data = try? JSONEncoder().encode(self) else {
+            return false
+        }
+        do {
+            try data.write(to: url, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    public static func loadPending() -> HabitAmountActionCommand? {
+        guard let url = AppGroupConstants.habitAmountActionCommandURL,
+              let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(HabitAmountActionCommand.self, from: data)
+    }
+
+    public static func clearPending() {
+        guard let url = AppGroupConstants.habitAmountActionCommandURL else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
 }
 
 public struct BehaviorOccurrenceActionCommand: Codable, Equatable, Sendable {

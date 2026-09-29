@@ -36,16 +36,22 @@ struct OverdueTriageService {
         guard commands.isEmpty == false else { return nil }
 
         let summary = [
-            movedToNextWeek > 0 ? "Reschedule \(movedToNextWeek) lowest-priority task(s) to next week" : nil,
-            movedToTomorrow > 0 ? "Reschedule \(movedToTomorrow) low-priority task(s) to tomorrow" : nil,
-            keptToday > 0 ? "Keep \(keptToday) high-priority task(s) in today focus" : nil
+            movedToNextWeek > 0
+                ? (movedToNextWeek == 1 ? String(localized: "Move 1 task to next week") : String(localized: "Move \(movedToNextWeek) tasks to next week"))
+                : nil,
+            movedToTomorrow > 0
+                ? (movedToTomorrow == 1 ? String(localized: "Move 1 task to tomorrow") : String(localized: "Move \(movedToTomorrow) tasks to tomorrow"))
+                : nil,
+            keptToday > 0
+                ? (keptToday == 1 ? String(localized: "Keep 1 task today") : String(localized: "Keep \(keptToday) tasks today"))
+                : nil
         ].compactMap { $0 }
 
         return OverdueTriageSuggestion(
             envelope: AssistantCommandEnvelope(
                 schemaVersion: 2,
                 commands: commands,
-                rationaleText: "Reduce overwhelm while keeping critical work visible."
+                rationaleText: String(localized: "Keeps the most important work today.")
             ),
             summaryLines: summary
         )

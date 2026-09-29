@@ -4,10 +4,11 @@ import developmentFixture from './fixtures/attestation-development.json'
 import productionFixture from './fixtures/attestation-production.json'
 import {
   appAttestRequestPayload,
+  enforceRequestTrust,
   validateAppAttestAssertion,
   validateAttestationRegistration,
 } from '../src/attestation/app-attest.js'
-import type { Env } from '../src/environment.js'
+import type { Env, SessionPrincipal } from '../src/environment.js'
 
 const fixtureBundleIdentifier = 'io.uebelacker.AppAttestExample'
 const fixtureTeamIdentifier = 'V8H6LQ9448'
@@ -40,6 +41,35 @@ function fixtureChallenge(value: { challenge: string }): string {
 afterEach(() => vi.useRealTimers())
 
 describe('App Attest request binding', () => {
+  const principal: SessionPrincipal = {
+    accountId: 'account',
+    sessionFamilyId: 'family',
+    installationId: 'installation',
+    platform: 'ios',
+    authenticatedAt: 0,
+    identityKind: 'guest',
+  }
+
+  it('allows absent optional proof but rejects missing required and incomplete proof', async () => {
+    const environment = fixtureEnvironment('development', 'development')
+    const request = new Request('https://eva.test/v1/eva/responses', { method: 'POST', body: '{}' })
+
+    await expect(enforceRequestTrust(environment, principal, request, {
+      attestationMode: 'optionalRiskSignal',
+      ageEligibilitySource: 'distribution',
+    })).resolves.toBeUndefined()
+    await expect(enforceRequestTrust(environment, principal, request, {
+      attestationMode: 'required',
+      ageEligibilitySource: 'distribution',
+    })).rejects.toMatchObject({ code: 'attestation_required' })
+    await expect(enforceRequestTrust(environment, principal, new Request(request, {
+      headers: { 'X-EVA-Attest-Assertion': 'partial-proof' },
+    }), {
+      attestationMode: 'optionalRiskSignal',
+      ageEligibilitySource: 'distribution',
+    })).rejects.toMatchObject({ code: 'attestation_required' })
+  })
+
   it('binds an assertion to method, path, one-time challenge, and exact body', async () => {
     const first = await appAttestRequestPayload(new Request('https://eva.test/v1/eva/responses', {
       method: 'POST', body: '{"value":1}',

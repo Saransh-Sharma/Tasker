@@ -45,9 +45,6 @@ struct HomeCardPlacementSheet: View {
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         Text("Add \(descriptor.title) to Home")
                             .lifeboardFont(.heroDisplay)
-                        Text("Choose how much this card should reveal. You can resize or move it any time.")
-                            .font(.body)
-                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
@@ -74,12 +71,12 @@ struct HomeCardPlacementSheet: View {
                     HStack(spacing: 12) {
                         Image(systemName: "hand.draw")
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                        Text("LifeBoard will use the first open position. Your existing cards never move unless you choose to edit Home.")
+                        Text("Goes in the first open spot without moving other cards.")
                             .font(.caption)
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     .padding(14)
-                    .background(Color(SemanticColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(Color(SemanticColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: Radius.row, style: .continuous))
                 }
                 .padding(22)
             }
@@ -102,6 +99,7 @@ struct HomeCardPlacementSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
+                        .keyboardShortcut(.cancelAction)
                 }
             }
         }
@@ -117,10 +115,10 @@ struct HomeCardPlacementSheet: View {
     private var sizeButtons: some View {
         ForEach(WidgetSizePreset.allCases.filter(descriptor.supportedSizes.contains), id: \.self) { size in
             Button {
-                withAnimation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.86)) {
+                withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                     selectedSize = size
                 }
-                UISelectionFeedbackGenerator().selectionChanged()
+                Haptic.pick.play()
             } label: {
                 VStack(spacing: 3) {
                     Text(size.title).font(.subheadline.weight(.semibold))
@@ -134,7 +132,7 @@ struct HomeCardPlacementSheet: View {
                   ? Color(SemanticColorTokens.inkPrimary)
                   : Color(SemanticColorTokens.inkSecondary))
             .accessibilityLabel(size.title)
-            .accessibilityHint("Uses \(size.canonicalGridSpan.columns) columns and \(size.canonicalGridSpan.rows) rows")
+            .accessibilityHint("\(size.canonicalGridSpan.columns) columns, \(size.canonicalGridSpan.rows) rows")
             .accessibilityValue(selectedSize == size ? "Selected" : "")
         }
     }
@@ -143,7 +141,7 @@ struct HomeCardPlacementSheet: View {
         let span = selectedSize.canonicalGridSpan
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("My Home preview", systemImage: "house")
+                Label("Your Home", systemImage: "house")
                     .font(.subheadline.weight(.semibold))
                 Spacer()
                 Text(selectedSize.title)
@@ -155,7 +153,7 @@ struct HomeCardPlacementSheet: View {
                 let unit = (proxy.size.width - (gap * 3)) / 4
                 ZStack(alignment: .topLeading) {
                     ForEach(0..<16, id: \.self) { index in
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: Radius.field, style: .continuous)
                             .fill(Color(SemanticColorTokens.foundationCanvas))
                             .frame(width: unit, height: unit * 0.58)
                             .offset(
@@ -163,7 +161,7 @@ struct HomeCardPlacementSheet: View {
                                 y: CGFloat(index / 4) * ((unit * 0.58) + gap)
                             )
                     }
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.row, style: .continuous)
                         .fill(Color(SemanticColorTokens.foundationSunAccent))
                         .overlay(alignment: .topLeading) {
                             Label(descriptor.title, systemImage: descriptor.systemImage)
@@ -175,7 +173,7 @@ struct HomeCardPlacementSheet: View {
                             width: (unit * CGFloat(span.columns)) + (gap * CGFloat(span.columns - 1)),
                             height: max(unit * 0.58, (unit * 0.58 * CGFloat(span.rows)) + (gap * CGFloat(span.rows - 1)))
                         )
-                        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.18), radius: 10, y: 5)
+                        .lifeboardElevation(.e2, cornerRadius: Radius.row, includesBorder: false)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
@@ -183,9 +181,9 @@ struct HomeCardPlacementSheet: View {
             .clipped()
         }
         .padding(16)
-        .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: Radius.hero, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.hero, style: .continuous)
                 .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
     }
@@ -205,7 +203,7 @@ struct ComposerPreviewCard: View {
                     .frame(width: 32, height: 32)
                     .background(Color(SemanticColorTokens.foundationSunAccent).opacity(0.2), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Review before applying")
+                    Text("Preview")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Text(preview.summary)
@@ -252,7 +250,7 @@ struct ComposerPreviewCard: View {
             RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                 .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
-        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.14), radius: 12, y: 6)
+        .lifeboardElevation(.e2, cornerRadius: Radius.card, includesBorder: false)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("lifeThread.preview")
     }
@@ -292,32 +290,14 @@ struct HomeCardPlacementReceiptView: View {
     let onUndo: () -> Void
     let onDismiss: () -> Void
 
+    /// The shared receipt: one silhouette, Undo and View, never on a timer.
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.title3)
-                .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
-            Text(receipt.title)
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button("View", action: onView)
-                .font(.subheadline.weight(.semibold))
-            Button("Undo", action: onUndo)
-                .font(.subheadline)
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .frame(width: 32, height: 32)
-            }
-            .accessibilityLabel("Dismiss")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .lifeBoardGlassSurface(cornerRadius: 22, interactive: true)
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
-        }
-        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.2), radius: 16, y: 8)
+        ReceiptBar(
+            ActionReceiptPresentation(id: receipt.id, message: receipt.title),
+            undo: onUndo,
+            destination: .init(title: "View", action: onView),
+            onDismiss: onDismiss
+        )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.addCard.receipt")
     }

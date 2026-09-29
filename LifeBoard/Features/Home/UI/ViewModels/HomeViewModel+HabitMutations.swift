@@ -188,19 +188,19 @@ extension HomeViewModel {
 
         switch request {
         case .resolve(.complete):
-            stateLabel = "Marked done"
+            stateLabel = String(localized: "Marked done")
             haptic = .success
         case .resolve(.abstained):
-            stateLabel = row.kind == .negative ? "Marked clean" : "Marked done"
+            stateLabel = row.kind == .negative ? String(localized: "Marked clean") : String(localized: "Marked done")
             haptic = .success
         case .resolve(.skip):
-            stateLabel = "Marked skipped"
+            stateLabel = String(localized: "Marked skipped")
             haptic = .selection
         case .resolve(.lapsed):
-            stateLabel = "Marked lapsed"
+            stateLabel = String(localized: "Slip logged")
             haptic = .warning
         case .reset:
-            stateLabel = row.trackingMode == .lapseOnly ? "Cleared to tracking" : "Cleared to empty"
+            stateLabel = String(localized: "Cleared")
             haptic = .selection
         }
 

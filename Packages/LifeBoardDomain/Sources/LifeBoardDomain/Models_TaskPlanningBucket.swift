@@ -10,15 +10,15 @@ public enum TaskPlanningBucket: String, Codable, CaseIterable, Hashable, Sendabl
     public var displayName: String {
         switch self {
         case .today:
-            return "Today"
+            return String(localized: "Today")
         case .thisWeek:
-            return "This Week"
+            return String(localized: "This week")
         case .nextWeek:
-            return "Next Week"
+            return String(localized: "Next week")
         case .later:
-            return "Later"
+            return String(localized: "Later")
         case .someday:
-            return "Someday"
+            return String(localized: "Someday")
         }
     }
 

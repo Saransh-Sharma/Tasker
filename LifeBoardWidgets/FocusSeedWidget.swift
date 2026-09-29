@@ -9,8 +9,8 @@ struct FocusSeedWidget: Widget {
             FocusSeedWidgetView(entry: entry)
                 .modifier(TaskWidgetContainerBackgroundModifier(enabled: true))
         }
-        .configurationDisplayName("Focus Seed")
-        .description("See today's focus time and start a session.")
+        .configurationDisplayName("Focus")
+        .description("Today’s focus time.")
         .supportedFamilies([.systemSmall])
     }
 }
@@ -42,11 +42,11 @@ struct FocusSeedWidgetView: View {
     var body: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
-                TaskWidgetSectionHeader(eyebrow: "Focus", title: "Seed", detail: nil, accent: WidgetBrand.textPrimary)
+                TaskWidgetSectionHeader(eyebrow: "Focus", title: "Today", detail: nil, accent: WidgetBrand.textPrimary)
 
                 Spacer(minLength: 0)
 
-                HStack(alignment: .center, spacing: 14) {
+                HStack(alignment: .center, spacing: 12) {
                     ZStack {
                         Circle()
                             .stroke(WidgetBrand.sky.opacity(0.28), lineWidth: 6)
@@ -56,15 +56,19 @@ struct FocusSeedWidgetView: View {
                             .foregroundStyle(WidgetBrand.sky)
                             .widgetAccentable()
                     }
-                    .frame(width: 66, height: 66)
+                    // 66pt plus the header and the action band overflowed a
+                    // small widget: the eyebrow clipped at the top and
+                    // "Start Focus" wrapped and clipped at the bottom.
+                    .frame(width: 50, height: 50)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(entry.snapshot.focusMinutesToday)")
                             .font(TaskWidgetTypography.display)
                             .foregroundStyle(WidgetBrand.textPrimary)
                             .taskWidgetNumericTransition(Double(entry.snapshot.focusMinutesToday), reduceMotion: context.reduceMotion)
-                        Text("minutes focused")
+                        Text("min")
                             .font(TaskWidgetTypography.support)
+                            .lineLimit(1)
                             .foregroundStyle(WidgetBrand.textSecondary)
                     }
                 }
@@ -72,14 +76,15 @@ struct FocusSeedWidgetView: View {
                 Spacer(minLength: 0)
 
                 Link(destination: URL(string: "lifeboard://focus")!) {
-                    TaskWidgetActionBandLabel(title: "Start Focus", accent: WidgetBrand.actionPrimary)
+                    // Short enough for a small widget; the header already says Focus.
+                    TaskWidgetActionBandLabel(title: "Start", accent: WidgetBrand.actionPrimary)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Focus today \(entry.snapshot.focusMinutesToday) minutes. Double tap to start focus.")
-        .accessibilityHint("Opens focus session")
+        .accessibilityLabel("Focus today: \(entry.snapshot.focusMinutesToday) minutes")
+        .accessibilityHint("Opens Focus")
         .widgetURL(URL(string: "lifeboard://focus"))
     }
 }

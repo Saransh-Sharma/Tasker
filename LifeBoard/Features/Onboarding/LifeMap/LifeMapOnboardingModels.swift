@@ -144,19 +144,19 @@ enum LifeMapModuleGroup: String, CaseIterable, Codable, Identifiable {
 
     var title: String {
         switch self {
-        case .planFocus: "Plan & Focus"
-        case .routinesHealth: "Routines & Health"
-        case .reflectionGrowth: "Reflection & Growth"
-        case .eva: "EVA"
+        case .planFocus: String(localized: "Plan & focus")
+        case .routinesHealth: String(localized: "Routines & health")
+        case .reflectionGrowth: String(localized: "Reflection & growth")
+        case .eva: String(localized: "Eva")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .planFocus: "Tasks, calendar capacity, and focus sessions"
-        case .routinesHealth: "Habits, care, nutrition, and recovery"
-        case .reflectionGrowth: "Journal, goals, moments, and insights"
-        case .eva: "A private guide that helps connect the system"
+        case .planFocus: String(localized: "Tasks, calendar, and focus sessions")
+        case .routinesHealth: String(localized: "Habits, care, nutrition, and recovery")
+        case .reflectionGrowth: String(localized: "Journal, goals, life moments, and insights")
+        case .eva: String(localized: "Plans with you")
         }
     }
 
@@ -343,33 +343,6 @@ struct LifeMapProfile: Codable, Equatable {
     var frictionIDs: [String]
     var createdAt: Date
     var updatedAt: Date
-}
-
-struct LifeMapSceneNode: Identifiable, Equatable {
-    enum Kind: Equatable { case root, lifeArea }
-
-    let id: String
-    let title: String
-    let symbol: String
-    let colorHex: String?
-    let kind: Kind
-    let emphasis: Double
-}
-
-struct LifeMapSceneModel: Equatable {
-    static let roots: [LifeMapSceneNode] = [
-        .init(id: "home", title: "Home", symbol: "house.fill", colorHex: nil, kind: .root, emphasis: 1),
-        .init(id: "plan", title: "Plan", symbol: "calendar", colorHex: nil, kind: .root, emphasis: 1),
-        .init(id: "track", title: "Track", symbol: "chart.bar.fill", colorHex: nil, kind: .root, emphasis: 1),
-        .init(id: "insights", title: "Insights", symbol: "sparkles", colorHex: nil, kind: .root, emphasis: 1),
-        .init(id: "eva", title: "EVA", symbol: "wand.and.stars", colorHex: nil, kind: .root, emphasis: 1)
-    ]
-
-    var roots = Self.roots
-    var lifeAreas: [LifeMapSceneNode]
-    var capacityFraction: Double
-    var centerPromise: String
-    var captureTitle: String?
 }
 
 final class LifeMapProfileStore: @unchecked Sendable {

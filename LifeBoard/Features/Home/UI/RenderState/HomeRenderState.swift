@@ -468,13 +468,13 @@ enum TimelineGapAction: String, Equatable {
     var title: String {
         switch self {
         case .addTask:
-            return "Add Task"
+            return String(localized: "Add task")
         case .scheduleInbox:
-            return "Place Inbox"
+            return String(localized: "Place Inbox")
         case .planBlock:
-            return "Plan Block"
+            return String(localized: "Plan block")
         case .dismiss:
-            return "Dismiss"
+            return String(localized: "Dismiss")
         }
     }
 }
@@ -508,8 +508,8 @@ struct TimelineGap: Equatable, Identifiable {
         self.startDate = startDate
         self.endDate = endDate
         self.suggestedTaskCount = suggestedTaskCount
-        self.headline = headline ?? "Open time"
-        self.supportingText = supportingText ?? "Place something meaningful into this window."
+        self.headline = headline ?? String(localized: "Open time")
+        self.supportingText = supportingText ?? String(localized: "Free time")
         let resolvedPrimary = primaryAction ?? (suggestedTaskCount > 0 ? .scheduleInbox : .addTask)
         self.primaryAction = resolvedPrimary
         if let secondaryAction {
@@ -774,99 +774,93 @@ struct NeedsReplanSummary: Equatable {
         oldestDate: nil
     )
 
-    var title: String { "Needs Replan" }
-    var persistentTitle: String { "Replan Day" }
+    var title: String { String(localized: "From earlier") }
+    var persistentTitle: String { String(localized: "Replan day") }
 
     var subtitle: String {
         if count == 0 {
-            return "No unfinished past tasks need replanning."
+            return String(localized: "Nothing from earlier")
         }
-        if unscheduledCount > 0, datedCount > 0 {
-            return "\(datedCount) overdue or carry-over, \(unscheduledCount) unscheduled"
-        }
-        if unscheduledCount > 0 {
-            return unscheduledCount == 1
-                ? "1 unscheduled task needs a plan"
-                : "\(unscheduledCount) unscheduled tasks need a plan"
-        }
+        if let mixed = mixedBacklogText { return mixed }
+        if let unscheduled = unscheduledText { return unscheduled }
         if count == 1 {
             if let newestDate, Calendar.current.isDateInYesterday(newestDate) {
-                return "1 unfinished task from yesterday"
+                return String(localized: "1 task from yesterday")
             }
             if let newestDate {
-                return "1 unfinished task from \(newestDate.formatted(.dateTime.month().day()))"
+                return String(localized: "1 task from \(newestDate.formatted(.dateTime.month().day()))")
             }
-            return "1 unfinished task from a past day"
+            return String(localized: "1 task from earlier")
         }
         if dayCount <= 1 {
             if let newestDate, Calendar.current.isDateInYesterday(newestDate) {
-                return "\(count) unfinished from yesterday"
+                return String(localized: "\(count) tasks from yesterday")
             }
             if let newestDate {
-                return "\(count) unfinished from \(newestDate.formatted(.dateTime.month().day()))"
+                return String(localized: "\(count) tasks from \(newestDate.formatted(.dateTime.month().day()))")
             }
-            return "\(count) unfinished from a past day"
+            return String(localized: "\(count) tasks from earlier")
         }
         if count >= 10 {
-            return "\(count) unfinished - start with the most recent"
+            return String(localized: "\(count) tasks from earlier · newest first")
         }
-        return "\(count) unfinished from past days"
+        return String(localized: "\(count) tasks from earlier")
     }
 
     var persistentSubtitle: String {
         if count == 0 {
             return emptyStateMessage
         }
-        if unscheduledCount > 0, datedCount > 0 {
-            return "\(datedCount) overdue or carry-over, \(unscheduledCount) unscheduled"
-        }
-        if unscheduledCount > 0 {
-            return unscheduledCount == 1
-                ? "1 unscheduled task needs a plan"
-                : "\(unscheduledCount) unscheduled tasks need a plan"
-        }
+        if let mixed = mixedBacklogText { return mixed }
+        if let unscheduled = unscheduledText { return unscheduled }
         if count == 1 {
-            return "1 task still needs a decision"
+            return String(localized: "1 task to sort")
         }
-        return "\(count) tasks still need a decision"
+        return String(localized: "\(count) tasks to sort")
+    }
+
+    /// "3 from earlier, 2 with no date", when both kinds are waiting.
+    private var mixedBacklogText: String? {
+        guard unscheduledCount > 0, datedCount > 0 else { return nil }
+        return String(localized: "\(datedCount) from earlier, \(unscheduledCount) with no date")
+    }
+
+    private var unscheduledText: String? {
+        guard unscheduledCount > 0 else { return nil }
+        return unscheduledCount == 1
+            ? String(localized: "1 task with no date")
+            : String(localized: "\(unscheduledCount) tasks with no date")
     }
 
     var callToAction: String {
-        if count == 0 { return "Go to Today" }
-        if count == 1 { return "Resolve" }
-        if dayCount <= 1 { return "Plan the Day" }
-        if count >= 10 { return "Start" }
-        return "Review"
+        if count == 0 { return String(localized: "Go to Today") }
+        if count == 1 { return String(localized: "Sort") }
+        if dayCount <= 1 { return String(localized: "Plan the day") }
+        if count >= 10 { return String(localized: "Start") }
+        return String(localized: "Review")
     }
 
     var persistentCallToAction: String {
-        count == 0 ? "Add Task" : "Open"
+        count == 0 ? String(localized: "Add task") : String(localized: "Open")
     }
 
     var launcherTitle: String {
-        count == 0 ? "You're all caught up" : "Plan the Day"
+        count == 0 ? String(localized: "All sorted") : String(localized: "Plan the day")
     }
 
     var launcherBodyText: String {
         if count == 0 {
             return emptyStateMessage
         }
-        return "Resolve rescue, carry-forward, and unscheduled work before you shape what happens next."
+        return String(localized: "Sort tasks from earlier before planning today.")
     }
 
     var launcherPrimaryActionTitle: String {
-        count == 0 ? "Add Task" : "Start Replan"
+        count == 0 ? String(localized: "Add task") : String(localized: "Start")
     }
 
     private var emptyStateMessage: String {
-        let variants = [
-            "Your day is clear. Add one task that makes today count.",
-            "Nothing needs recovery right now. Add a task to build momentum.",
-            "No backlog to clean up. Add a task and give today a target."
-        ]
-        let dayKey = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-        let stableIndex = abs(((dayKey.year ?? 0) * 10_000) + ((dayKey.month ?? 0) * 100) + (dayKey.day ?? 0)) % variants.count
-        return variants[stableIndex]
+        String(localized: "Nothing from earlier.")
     }
 }
 

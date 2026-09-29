@@ -176,21 +176,21 @@ public struct WatchRecentCapture: Codable, Identifiable, Hashable, Sendable {
     public var title: String {
         switch envelope.kind {
         case .mood:
-            return "Mood"
+            return String(localized: "Mood")
         case .speak:
-            return "Thought"
+            return String(localized: "Thought")
         case .audio:
-            return "Raw voice"
+            return String(localized: "Audio")
         }
     }
 
     public var statusText: String {
         switch syncState {
-        case .saved: return "Saved on watch"
-        case .queued: return "Held for later"
-        case .sending: return "Sending"
-        case .synced: return "On your iPhone"
-        case .failed: return lastError ?? "Retry"
+        case .saved: return String(localized: "Saved on watch")
+        case .queued: return String(localized: "Waiting to send")
+        case .sending: return String(localized: "Sending…")
+        case .synced: return String(localized: "On your iPhone")
+        case .failed: return lastError ?? String(localized: "Retry")
         }
     }
 }
@@ -305,14 +305,14 @@ public struct WatchCaptureEnvelope: Codable, Identifiable, Hashable, Sendable {
     public var privacySafePreview: String {
         switch kind {
         case .mood:
-            return moodValue ?? "Mood"
+            return moodValue ?? String(localized: "Mood")
         case .speak:
-            return textPreview?.isEmpty == false ? textPreview! : "Dictated thought"
+            return textPreview?.isEmpty == false ? textPreview! : String(localized: "Dictated thought")
         case .audio:
             if let duration = audioManifest?.duration {
-                return "Audio \(Self.durationFormatter.string(from: duration) ?? "")"
+                return String(localized: "Audio \(Self.durationFormatter.string(from: duration) ?? "")")
             }
-            return "Audio note"
+            return String(localized: "Audio note")
         }
     }
 

@@ -22,20 +22,21 @@ public struct TaskPriorityConfig {
         /// Human-readable display name
         public var displayName: String {
             switch self {
-            case .none: return "None"
-            case .low: return "Low"
-            case .high: return "High"
-            case .max: return "Max"
+            case .none: return String(localized: "None")
+            case .low: return String(localized: "Low")
+            case .high: return String(localized: "High")
+            case .max: return String(localized: "Max")
             }
         }
 
-        /// Short code for UI
+        /// Short code for UI. P1 is the most urgent, as in the capture parser
+        /// (`TaskCaptureParser`) and the tools people bring the habit from.
         public var code: String {
             switch self {
-            case .none: return "P0"
-            case .low: return "P1"
+            case .max: return "P1"
             case .high: return "P2"
-            case .max: return "P3"
+            case .low: return "P3"
+            case .none: return "P4"
             }
         }
 

@@ -1,4 +1,5 @@
 import LifeBoardTokens
+import LifeBoardUI
 import SwiftUI
 
 /// A title, an optional count, and at most one trailing action.
@@ -62,7 +63,15 @@ public struct SectionHeader<Trailing: View>: View {
                 Spacer(minLength: 8)
             }
 
-            trailing
+            if Trailing.self == EmptyView.self {
+                trailing
+            } else {
+                // The trailing action is usually a short text button ("See all",
+                // "Edit") whose drawn glyphs are ~20pt tall. The component owns
+                // the 44pt target so no call site can ship a small one.
+                trailing
+                    .minimumHitTarget()
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)

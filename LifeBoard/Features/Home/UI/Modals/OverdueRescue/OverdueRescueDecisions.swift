@@ -147,9 +147,9 @@ struct OverdueRescueActionGrid: View {
 
     func accessibilityHint(for title: String) -> String {
         if title == keepTitle { return keepAccessibilityHint }
-        if title == OverdueRescueDeckCopy.edit { return "Opens quick edit for this task." }
-        if title == OverdueRescueDeckCopy.delete { return "Removes this task from your board." }
-        return "Moves this task out of today and moves to the next card."
+        if title == OverdueRescueDeckCopy.edit { return String(localized: "Opens quick edit") }
+        if title == OverdueRescueDeckCopy.delete { return String(localized: "Deletes the task") }
+        return String(localized: "Moves the task to a later day")
     }
 }
 
@@ -189,9 +189,9 @@ struct OverdueRescueSwipeHint: View {
 
     var text: String {
         switch reveal {
-        case .keep: return "Swipe right to keep"
-        case .move: return "Swipe left to move later"
-        case .none: return "Swipe left or right or tap a choice below."
+        case .keep: return String(localized: "Swipe right to keep")
+        case .move: return String(localized: "Swipe left to move later")
+        case .none: return String(localized: "Swipe or tap a choice")
         }
     }
 }

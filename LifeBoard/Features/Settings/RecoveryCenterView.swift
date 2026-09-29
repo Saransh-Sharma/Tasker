@@ -105,7 +105,7 @@ struct RecoveryCenterView: View {
                             Text(recovery.actionTitle)
                         }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                     .disabled(runningRecovery != nil)
                     .accessibilityIdentifier("settings.recoveryCenter.\(area.id).action")
                 }
@@ -147,10 +147,10 @@ struct RecoveryCenterView: View {
 
     private func accessibilityLabel(for health: RecoveryStatus.Health) -> String {
         switch health {
-        case .healthy: return "Ready"
-        case .working: return "In progress"
-        case .attention: return "Needs attention"
-        case .unavailable: return "Paused"
+        case .healthy: return String(localized: "Ready")
+        case .working: return String(localized: "Updating")
+        case .attention: return String(localized: "Check")
+        case .unavailable: return String(localized: "Paused")
         }
     }
 
@@ -158,9 +158,9 @@ struct RecoveryCenterView: View {
         VStack(alignment: .leading, spacing: 8) {
             Divider().overlay(Color.lifeboard.strokeHairline)
             Button("Copy diagnostics", action: onExportDiagnostics)
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
                 .accessibilityIdentifier("settings.recoveryCenter.diagnostics")
-            Text("Operation names, counts and timings only. No titles, entries, health values or attachments.")
+            Text("Counts and timings only. Never your content.")
                 .font(.footnote)
                 .foregroundStyle(Color.lifeboard.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)

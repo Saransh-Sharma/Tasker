@@ -23,7 +23,7 @@ struct AddTaskInlineCreator: View {
     var body: some View {
         HStack(spacing: spacing.s8) {
             // Text field
-            TextField("Project name", text: $projectName)
+            TextField("Project name", text: $projectName, prompt: Text("Project name").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                 .font(.lifeboard(.callout))
                 .foregroundColor(Color.lifeboard.textPrimary)
                 .focused($isFocused)
@@ -39,7 +39,7 @@ struct AddTaskInlineCreator: View {
             // Create button
             Button {
                 guard !projectName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                HapticFeedback.success()
+                Haptic.pick.play()
                 onCreate()
             } label: {
                 Text("Create")
@@ -57,7 +57,7 @@ struct AddTaskInlineCreator: View {
 
             // Cancel button
             Button {
-                HapticFeedback.light()
+                Haptic.pick.play()
                 onCancel()
             } label: {
                 Image(systemName: "xmark.circle.fill")

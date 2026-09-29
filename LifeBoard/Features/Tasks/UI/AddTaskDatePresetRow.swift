@@ -110,10 +110,10 @@ enum DatePreset: CaseIterable {
 
     var label: String {
         switch self {
-        case .today: return "Today"
-        case .tomorrow: return "Tomorrow"
-        case .thisWeek: return "This Week"
-        case .someday: return "Someday"
+        case .today: return String(localized: "Today")
+        case .tomorrow: return String(localized: "Tomorrow")
+        case .thisWeek: return String(localized: "This week")
+        case .someday: return String(localized: "Someday")
         }
     }
 
@@ -158,7 +158,7 @@ struct AddTaskCustomDatePickerSheet: View {
         NavigationStack {
             VStack(spacing: spacing.s20) {
                 DatePicker(
-                    "Due Date",
+                    "Due date",
                     selection: $selectedDate,
                     in: Calendar.current.startOfDay(for: Date())...,
                     displayedComponents: .date
@@ -171,18 +171,19 @@ struct AddTaskCustomDatePickerSheet: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .accessibilityIdentifier(AddTaskDatePickerAccessibilityID.sheet)
-            .navigationTitle("Pick a Date")
+            .navigationTitle("Pick a date")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         isPresented = false
                     }
+                    .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Set Date") {
+                    Button("Set date") {
                         dueDate = selectedDate
-                        HapticFeedback.success()
+                        Haptic.pick.play()
                         isPresented = false
                     }
                     .font(.lifeboard(.button))

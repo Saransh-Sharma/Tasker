@@ -28,16 +28,36 @@ struct ScreenRootHeader: View {
     @Binding var showsHomeDisplayPanel: Bool
     @Binding var homeCardPlacementRequest: HomeCardPlacementRequest?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Home's mode rides its date line. Track's greeting carries the day's
+    /// position: `DESIGN.md` wants its daypart reading to differ "two glances
+    /// an hour apart", and the scenic sky alone cannot say how much of the day
+    /// is left — this can, and it has a VoiceOver description the sky lacks.
+    private var contextAccessory: AnyView? {
+        switch destination {
+        case .home:
+            AnyView(HomeModeMenu(router: runtime.router))
+        case .track:
+            AnyView(
+                CelestialDaypartIndicator()
+                    .frame(width: 72, height: 40)
+                    .accessibilityIdentifier("track.header.daypart")
+            )
+        default:
+            nil
+        }
+    }
 
     var body: some View {
         let model = RootHeaderModel(
             title: title,
-            context: context,
+            context: context.isEmpty ? nil : context,
             captureAvailable: headerOwnsCapture,
             secondaryActionTitle: "More",
-            // Only Home's title is a greeting addressed to the person; the
-            // other roots name a destination.
-            titleRespondsToTouch: destination == .home
+            // Home's and Track's titles are greetings addressed to the person;
+            // the other roots name a destination.
+            titleRespondsToTouch: destination == .home || destination == .track
         )
         VStack(alignment: .trailing, spacing: 8) {
             AppRootHeader(
@@ -54,29 +74,11 @@ struct ScreenRootHeader: View {
                     }
                     Haptic.pick.play()
                 },
-                leadingAccessory: destination == .eva
-                    ? AnyView(
-                        Button {
-                            Haptic.pick.play()
-                            runtime.router.select(.home)
-                        } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.lifeboard(.buttonSmall))
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(
-                            AtmosphereDescriptor.usesInverseHeaderInk(for: atmosphereSnapshot.phase)
-                                ? Color(SemanticColorTokens.foundationOnScenicDark)
-                                : Color(SemanticColorTokens.inkPrimary)
-                        )
-                        .accessibilityLabel("Back to Home")
-                        .accessibilityHint("Leaves Eva and returns to the Home screen")
-                        .accessibilityIdentifier("eva.chat.back")
-                    )
-                    : nil,
-                contextAccessory: destination == .home ? AnyView(HomeModeMenu(router: runtime.router)) : nil,
+                // No back arrow on the Eva root: it is a tab, and the dock
+                // is how every root is left. A "Back to Home" there implied
+                // Eva was pushed on top of Home.
+                leadingAccessory: nil,
+                contextAccessory: contextAccessory,
                 secondaryActions: AnyView(
                     // Home's controls outgrew a menu. Atmosphere is a sequence
                     // — a day — and a menu can only list it; SwiftUI menus
@@ -111,6 +113,25 @@ struct ScreenRootHeader: View {
                                     .accessibilityIdentifier("home.addToHome.\(destination.rawValue)")
                                     Divider()
                                 }
+                                if destination == .plan {
+                                    // Starting a session was reachable only from
+                                    // a task or a block inside the day.
+                                    Button("Focus session", systemImage: "timer") {
+                                        runtime.router.push(.focusSession(nil), in: .plan)
+                                    }
+                                    .accessibilityIdentifier("foundation.plan.focusSession")
+                                    Divider()
+                                }
+                                if destination == .eva {
+                                    // The chats list (search, export, applied
+                                    // changes) hung off the legacy chat host's
+                                    // nav bar and had no entry on this root.
+                                    Button("Chats", systemImage: "text.below.folder") {
+                                        NotificationCenter.default.post(name: .toggleChatHistory, object: nil)
+                                    }
+                                    .accessibilityIdentifier("foundation.eva.chats")
+                                    Divider()
+                                }
                                 Button("Settings", systemImage: "gearshape") {
                                     runtime.router.push(.settings, in: destination)
                                 }
@@ -121,7 +142,12 @@ struct ScreenRootHeader: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    // The control sits where the celestial body does. On clear
+                    // glass a secondary glyph read grey-on-sun (dark) and
+                    // grey-on-moon (night); a surface backing under the glass
+                    // keeps a known ground whatever drifts behind it.
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                    .background(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.72), in: Circle())
                     .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
                     .accessibilityLabel("More")
                     .accessibilityIdentifier("foundation.more.\(destination.rawValue)")
@@ -129,20 +155,37 @@ struct ScreenRootHeader: View {
             )
 
             if captureState.isExpanded, headerOwnsCapture {
-                HStack(spacing: 8) {
+                // Five columns truncate every title to one letter at
+                // accessibility sizes; the tray becomes a list of rows there.
+                let usesAccessibilityLayout = dynamicTypeSize.isAccessibilitySize
+                let trayLayout = usesAccessibilityLayout
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                    : AnyLayout(HStackLayout(spacing: 8))
+                trayLayout {
                     ForEach(primaryCaptureKinds, id: \.self) { kind in
                         Button {
                             onCommitCapture(kind)
                         } label: {
-                            VStack(spacing: 5) {
-                                Image(systemName: kind.systemImage)
-                                    .lifeboardFont(.headline)
-                                Text(trayTitle(kind))
-                                    .font(.caption2.weight(.semibold))
-                                    .lineLimit(1)
+                            if usesAccessibilityLayout {
+                                HStack(spacing: 12) {
+                                    Image(systemName: kind.systemImage)
+                                        .lifeboardFont(.headline)
+                                    Text(trayTitle(kind))
+                                        .font(.body.weight(.semibold))
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                .contentShape(Rectangle())
+                            } else {
+                                VStack(spacing: 4) {
+                                    Image(systemName: kind.systemImage)
+                                        .lifeboardFont(.headline)
+                                    Text(trayTitle(kind))
+                                        .font(.caption2.weight(.semibold))
+                                        .lineLimit(1)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 54)
+                                .contentShape(Rectangle())
                             }
-                            .frame(maxWidth: .infinity, minHeight: 54)
-                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
@@ -151,7 +194,7 @@ struct ScreenRootHeader: View {
                 }
                 .padding(8)
                 .frame(maxWidth: 430)
-                .lifeBoardGlassSurface(cornerRadius: 22, interactive: true)
+                .lifeBoardGlassSurface(cornerRadius: Radius.card, interactive: true)
                 .lifeBoardGlassIdentity(.captureTray)
                 .background {
                     RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
@@ -177,6 +220,7 @@ struct ScreenRootHeader: View {
 /// or in a second date row repeated beneath the header.
 private struct HomeModeMenu: View {
     let router: AppRouter
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Menu {
@@ -184,7 +228,10 @@ private struct HomeModeMenu: View {
                 get: { router.dashboardMode },
                 set: { mode in
                     Haptic.pick.play()
-                    router.dashboardMode = mode
+                    // Home reflows rather than snaps into the new mode.
+                    withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
+                        router.dashboardMode = mode
+                    }
                 }
             )) {
                 ForEach(DashboardMode.allCases, id: \.self) { mode in

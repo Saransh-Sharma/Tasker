@@ -963,6 +963,51 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertEqual(decoded.effectiveCurrentStepPausedDuration, 0)
     }
 
+    /// The runner is a full-screen cover; a paused run stays active, so without
+    /// Minimize the only way off the screen was ending the routine.
+    func testMinimizedRoutineRunnerStaysDismissedAcrossStoresUntilReopened() async throws {
+        RoutineRunnerMinimizeMemory.save(nil)
+        defer { RoutineRunnerMinimizeMemory.save(nil) }
+        let container = try await makeTrackFoundationContainer()
+        let track = CoreDataTrackFoundationRepository(container: container)
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let routine = RoutineDefinition(title: "Shutdown", steps: [
+            .init(title: "Close the loop", kind: .instruction, ordinal: 0)
+        ])
+        try await track.saveRoutine(routine)
+        let store = await MainActor.run {
+            TrackFoundationStore(repository: track, phaseIIRepository: phaseII)
+        }
+
+        await store.startRoutine(routine)
+        let started = await MainActor.run { (store.presentedRoutineRun?.routineID, store.minimizedRoutineRun) }
+        XCTAssertEqual(started.0, routine.id, "Starting presents the runner")
+        XCTAssertNil(started.1)
+
+        await store.minimizeRoutine()
+        let minimized = await MainActor.run {
+            (store.presentedRoutineRun, store.minimizedRoutineRun?.status, store.activeRoutineRun != nil)
+        }
+        XCTAssertNil(minimized.0, "Minimize takes the runner off screen")
+        XCTAssertEqual(minimized.1, .paused, "Minimize pauses a running run")
+        XCTAssertTrue(minimized.2, "The run itself is kept")
+
+        // Reopening Track builds a fresh store; it must not throw the cover back.
+        let reopenedStore = await MainActor.run {
+            TrackFoundationStore(repository: track, phaseIIRepository: phaseII)
+        }
+        await reopenedStore.load()
+        let afterReload = await MainActor.run {
+            (reopenedStore.presentedRoutineRun, reopenedStore.minimizedRoutineRun?.routineID)
+        }
+        XCTAssertNil(afterReload.0)
+        XCTAssertEqual(afterReload.1, routine.id, "The Resume banner offers the minimized run")
+
+        await MainActor.run { reopenedStore.reopenRoutine() }
+        let resumed = await MainActor.run { reopenedStore.presentedRoutineRun?.routineID }
+        XCTAssertEqual(resumed, routine.id)
+    }
+
     func testPausedRoutineRunRoundTripsForInterruptionRecovery() async throws {
         let container = try await makeTrackFoundationContainer()
         let repository = CoreDataTrackFoundationRepository(container: container)
@@ -1036,8 +1081,8 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertNil(noEvidence.progressFraction)
         XCTAssertFalse(noEvidence.isAtRisk)
         XCTAssertEqual(noEvidence.missingEvidence, [
-            "No linked evidence yet",
-            "1 scheduled check-in missing"
+            "Nothing linked yet",
+            "1 check-in not logged"
         ])
 
         let missed = service.assess(
@@ -1752,6 +1797,68 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         let payloadSize = try JSONEncoder().encode(attributes).count + JSONEncoder().encode(state).count
         XCTAssertLessThan(payloadSize, 2_048)
         XCTAssertEqual(attributes.title.count, 80)
+    }
+
+    /// The Live Activity buttons act through the intent bridge, not by opening
+    /// the app. This drives the same closure the widget's intent calls and
+    /// checks that each command lands on the persisted session.
+    func testFocusLiveActivityIntentBridgeRunsCommandsAgainstThePersistedSession() async throws {
+        let model = try XCTUnwrap(
+            NSManagedObjectModel(
+                contentsOf: try modelBundleURL()
+                    .appendingPathComponent("TaskModelV3_HabitProgress.mom")
+            )
+        )
+        let container = NSPersistentContainer(name: "LiveActivityBridge", managedObjectModel: model)
+        let cloud = NSPersistentStoreDescription()
+        cloud.type = NSInMemoryStoreType
+        cloud.configuration = "CloudSync"
+        cloud.url = URL(fileURLWithPath: "/dev/null/bridge-cloud-\(UUID().uuidString)")
+        let local = NSPersistentStoreDescription()
+        local.type = NSInMemoryStoreType
+        local.configuration = "LocalOnly"
+        local.url = URL(fileURLWithPath: "/dev/null/bridge-local-\(UUID().uuidString)")
+        container.persistentStoreDescriptions = [cloud, local]
+        try await load(container)
+
+        let repository = CoreDataPlanningRepository(container: container)
+        FocusLiveActivityCommandRunner.installIntentBridge { repository }
+        defer { FocusLiveActivityIntentBridge.perform = nil }
+        let bridge = try XCTUnwrap(FocusLiveActivityIntentBridge.perform)
+
+        let session = try await repository.start(
+            taskID: nil,
+            timeBlockID: nil,
+            targetDuration: 25 * 60,
+            at: Date()
+        )
+        XCTAssertEqual(session.state, .running)
+
+        await bridge(FocusActivityLink.url(sessionID: session.id, command: "pause", token: UUID()))
+        let paused = try await repository.session(id: session.id)
+        XCTAssertEqual(paused?.state, .paused)
+
+        await bridge(FocusActivityLink.url(sessionID: session.id, command: "resume", token: UUID()))
+        let resumed = try await repository.session(id: session.id)
+        XCTAssertEqual(resumed?.state, .running)
+
+        // A replayed token is idempotent: the same pause twice leaves one pause.
+        let pauseToken = UUID()
+        await bridge(FocusActivityLink.url(sessionID: session.id, command: "pause", token: pauseToken))
+        await bridge(FocusActivityLink.url(sessionID: session.id, command: "pause", token: pauseToken))
+        let pausedOnceSession = try await repository.session(id: session.id)
+        let pausedOnce = try XCTUnwrap(pausedOnceSession)
+        XCTAssertEqual(pausedOnce.state, .paused)
+        XCTAssertTrue(pausedOnce.appliedCommandIDs.contains(pauseToken))
+
+        await bridge(FocusActivityLink.url(sessionID: session.id, command: "end", token: UUID()))
+        let ended = try await repository.session(id: session.id)
+        XCTAssertEqual(ended?.state, .ended)
+
+        // An unknown command never reaches the repository.
+        await bridge(FocusActivityLink.url(sessionID: session.id, command: "explode", token: UUID()))
+        let untouched = try await repository.session(id: session.id)
+        XCTAssertEqual(untouched?.state, .ended)
     }
 
     func testFastingLiveActivityContractUsesCanonicalSessionAndExplicitCommands() throws {

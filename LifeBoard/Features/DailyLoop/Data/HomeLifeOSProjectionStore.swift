@@ -119,13 +119,29 @@ final class HomeLifeOSProjectionStore {
     var taskAgendaDate: Date {
         didSet { rebuildTaskAgenda() }
     }
+
+    /// Midnight passed (or the clock or time zone changed) while Home stayed
+    /// open. The task list was showing "today", so it follows today; a day the
+    /// person picked further away is left alone. Returns whether it moved.
+    @discardableResult
+    func rollAgendaToToday(now: Date = HomeReferenceClock.now, calendar: Calendar = .current) -> Bool {
+        guard calendar.isDate(taskAgendaDate, inSameDayAs: now) == false else { return false }
+        let start = calendar.startOfDay(for: now)
+        let agendaStart = calendar.startOfDay(for: taskAgendaDate)
+        let distance = abs(calendar.dateComponents([.day], from: agendaStart, to: start).day ?? 0)
+        guard distance <= 1 else { return false }
+        taskAgendaDate = now
+        return true
+    }
     private(set) var taskAgenda: HomeTaskAgendaProjection
     /// The task most recently completed from Home, and the reason its Undo
     /// control is offered. Cleared once taken back.
     private(set) var lastCompletedTask: PlanningTaskSummary?
     private(set) var trackSnapshot: TrackTodaySnapshot?
-    private(set) var focusTask: PlanningTaskSummary?
-    private(set) var focusResult: FocusRankResult?
+    /// Medication names by ID, read with the track snapshot.
+    private(set) var medicationNames: [UUID: String] = [:]
+    var focusTask: PlanningTaskSummary?
+    var focusResult: FocusRankResult?
     private(set) var latestMood: MoodEnergyCheckInValue?
     private(set) var activeFast: FastingSessionValue?
     /// The most recently completed session anchors the open-window clock on
@@ -133,24 +149,27 @@ final class HomeLifeOSProjectionStore {
     /// into persistence from its TimelineView redraws.
     private(set) var latestEndedFast: FastingSessionValue?
     private(set) var recentMealAt: Date?
-    private(set) var fastingMutationError: String?
-    private var fastEndUndoSession: FastingSessionValue?
+    var fastingMutationError: String?
+    /// Set when completing, reopening, or undoing a task from Home fails, so
+    /// the card can say so instead of leaving the row as it was.
+    private(set) var taskMutationError: String?
+    var fastEndUndoSession: FastingSessionValue?
     private(set) var activeFocusSession: FocusSessionV2?
     /// Today's repair proposals, already stripped of the ones the person
     /// resolved. Home reads these rather than recomputing from `planSnapshot`:
     /// resolving a repair with "leave today as it is" writes a receipt but does
     /// **not** change the snapshot, so a recompute would resurface a dismissed
     /// repair every time Home loaded, forever.
-    private(set) var repairProposals: [PlanRepairProposal] = []
+    var repairProposals: [PlanRepairProposal] = []
     /// How much drift is worth surfacing, per `PlanDriftPolicy`. Feeds the loop
     /// spine's stage resolution; `0` means the spine stays in `.act`.
-    private(set) var driftCount: Int = 0
-    private(set) var heroSnapshot: AdaptiveHeroSnapshot?
+    var driftCount: Int = 0
+    var heroSnapshot: AdaptiveHeroSnapshot?
     private(set) var isLoading = false
     private(set) var hasLoadedCore = false
     @ObservationIgnored private var cardAuthorizationGeneration = 0
     @ObservationIgnored private var cardRefreshGeneration = 0
-    private(set) var mutationRevision = 0
+    var mutationRevision = 0
     private(set) var lastTaskMutationRefreshOutcome: ProjectionRefreshOutcome?
     @ObservationIgnored private let taskMutationRefresh = CommittedProjectionRefresh()
     @ObservationIgnored private let hydrationMutationRefresh = CommittedProjectionRefresh()
@@ -187,17 +206,17 @@ final class HomeLifeOSProjectionStore {
     private let planningRepository: CoreDataPlanningRepository?
     private let trackRepository: CoreDataTrackFoundationRepository?
     private let projectionReader: HomeProjectionReader
-    @ObservationIgnored private var projectionFailures: Set<DashboardWidgetKind> = []
-    @ObservationIgnored private var planningTasks: [PlanningTaskSummary] = []
-    @ObservationIgnored private var loadedRepairProposals: [PlanRepairProposal] = []
+    @ObservationIgnored var projectionFailures: Set<DashboardWidgetKind> = []
+    @ObservationIgnored var planningTasks: [PlanningTaskSummary] = []
+    @ObservationIgnored var loadedRepairProposals: [PlanRepairProposal] = []
     @ObservationIgnored private var lastCompletionReceiptID: UUID?
     private let phaseIIRepository: (any PhaseIIRepository)?
-    private let fastingTimerStore: FastingTimerStore?
-    private let rankingService: any FocusRankingService
-    private let wellnessRepository: (any WellnessRepository)?
-    private let nutritionRepository: (any NutritionRepository)?
-    private let lifeMomentRepository: (any LifeMomentRepository)?
-    private let healthMetrics: (any HealthMetricsReading)?
+    let fastingTimerStore: FastingTimerStore?
+    let rankingService: any FocusRankingService
+    let wellnessRepository: (any WellnessRepository)?
+    let nutritionRepository: (any NutritionRepository)?
+    let lifeMomentRepository: (any LifeMomentRepository)?
+    let healthMetrics: (any HealthMetricsReading)?
 
     init(
         planningRepository: CoreDataPlanningRepository?,
@@ -280,10 +299,16 @@ final class HomeLifeOSProjectionStore {
             try await planningRepository.apply(receiptID: receipt.id)
             lastCompletionReceiptID = receipt.id
             lastCompletedTask = isComplete ? task : nil
+            taskMutationError = nil
             mutationRevision &+= 1
             await refreshCommittedTaskAgenda(required: planningRepository.sourceRevisions.snapshot())
             return true
-        } catch { return false }
+        } catch {
+            taskMutationError = isComplete
+                ? "Couldn\u{2019}t complete \u{201C}\(task.title)\u{201D}. Try again."
+                : "Couldn\u{2019}t reopen \u{201C}\(task.title)\u{201D}. Try again."
+            return false
+        }
     }
 
     /// Reopens the task completed from Home.
@@ -298,9 +323,12 @@ final class HomeLifeOSProjectionStore {
             try await planningRepository.undo(receiptID: receiptID)
             lastCompletionReceiptID = nil
             lastCompletedTask = nil
+            taskMutationError = nil
             mutationRevision &+= 1
             await refreshCommittedTaskAgenda(required: planningRepository.sourceRevisions.snapshot())
-        } catch { return }
+        } catch {
+            taskMutationError = "Couldn\u{2019}t undo. The task is still complete."
+        }
     }
 
     func retryTaskMutationRefresh() async {
@@ -324,13 +352,13 @@ final class HomeLifeOSProjectionStore {
                     let core = try await self.projectionReader.readCore()
                     guard !Task.isCancelled, presentation == self.committedPresentationGeneration else { return .cancelled }
                     guard let revision = core.sourceRevisions else {
-                        return .failed("Task projection is unavailable.")
+                        return .failed(String(localized: "Couldn’t load tasks."))
                     }
                     guard self.sourceIsCurrent(revision, domains: [.tasks, .focus]) else { continue }
                     self.publishCore(core, now: HomeReferenceClock.now)
                     return .applied(revision)
                 }
-                return .failed("Tasks changed while refreshing. Refresh again to see the latest changes.")
+                return .failed(String(localized: "Tasks changed. Refresh again."))
             } catch { return .failed(error.localizedDescription) }
         }
         if mutation == mutationRevision { lastTaskMutationRefreshOutcome = outcome }
@@ -427,6 +455,9 @@ final class HomeLifeOSProjectionStore {
         let changed = trackSnapshot != next || latestMood != inputs.mood || hydrationRefreshError != nil
         hydrationRefreshError = nil
         if trackSnapshot != next { trackSnapshot = next }
+        if inputs.medicationNames.isEmpty == false, medicationNames != inputs.medicationNames {
+            medicationNames = inputs.medicationNames
+        }
         if latestMood != inputs.mood { latestMood = inputs.mood }
         rebuildFocus()
         rebuildHero(now: now)
@@ -563,7 +594,7 @@ final class HomeLifeOSProjectionStore {
 
     @discardableResult
     func saveMood(_ mood: JournalMood, energy: Int?) async -> ProjectionRefreshOutcome {
-        guard let phaseIIRepository else { return .failed("Mood check-ins are unavailable.") }
+        guard let phaseIIRepository else { return .failed(String(localized: "Couldn’t load check-ins.")) }
         do {
             try await phaseIIRepository.saveMoodCheckIn(.init(mood: mood, energy: energy))
             if moodRevisionLedger == nil { moodFallbackRevisions.advance([.wellness]) }
@@ -604,8 +635,8 @@ final class HomeLifeOSProjectionStore {
                     self.moodRefreshError = nil
                     return .applied(input.revisions ?? fallback)
                 }
-                return .failed("Your mood was saved, but the latest check-in could not be refreshed. Try refreshing again.")
-            } catch { return .failed("Mood could not be refreshed: \(error.localizedDescription)") }
+                return .failed(String(localized: "Mood saved. Couldn’t refresh check-ins."))
+            } catch { return .failed(String(localized: "Couldn’t refresh mood. \(error.localizedDescription)")) }
         }
     }
 
@@ -710,12 +741,12 @@ final class HomeLifeOSProjectionStore {
                         let failureDetail = resolution.snapshot.detail
                         resolution = previous
                         resolution.snapshot.availability = .degraded
-                        resolution.snapshot.detail = failureDetail ?? "Refresh unavailable. Showing the last available information."
+                        resolution.snapshot.detail = failureDetail ?? String(localized: "Couldn’t refresh. Showing last update.")
                     }
                     if resolved[key]?.hasSamePresentation(as: resolution) != true { resolved[key] = resolution }
                 } else if var previous = resolved[key], previous.snapshot.availability != .redacted {
                     previous.snapshot.availability = .degraded
-                    previous.snapshot.detail = "Refresh unavailable. Showing the last available information."
+                    previous.snapshot.detail = String(localized: "Couldn’t refresh. Showing last update.")
                     resolved[key] = previous
                 }
                 publishCardResolutions(resolved)
@@ -743,7 +774,7 @@ final class HomeLifeOSProjectionStore {
 
     @discardableResult
     func quickAddHydration(_ milliliters: Double) async -> ProjectionRefreshOutcome {
-        guard let trackRepository else { return .failed("Hydration is unavailable.") }
+        guard let trackRepository else { return .failed(String(localized: "Couldn’t load water.")) }
         do {
             try await trackRepository.saveHydrationLog(.init(amount: milliliters, unit: .milliliters))
             mutationRevision &+= 1
@@ -754,7 +785,7 @@ final class HomeLifeOSProjectionStore {
     func refreshCommittedHydration() async -> ProjectionRefreshOutcome {
         guard committedPresentationIsActive, !Task.isCancelled else { return .cancelled }
         let presentation = committedPresentationGeneration
-        guard let trackRepository else { return .failed("Hydration is unavailable.") }
+        guard let trackRepository else { return .failed(String(localized: "Couldn’t load water.")) }
         let required = trackRepository.sourceRevisions.snapshot()
         return await hydrationMutationRefresh.run(required: required, domains: [.tracking]) { [weak self] in
             guard let self else { return .cancelled }
@@ -789,8 +820,8 @@ final class HomeLifeOSProjectionStore {
                     self.hydrationRefreshError = nil
                     return .applied(input.revisions)
                 }
-                return .failed("Hydration changed while refreshing. Refresh again to see the latest total.")
-            } catch { return .failed("Water totals could not be refreshed: \(error.localizedDescription)") }
+                return .failed(String(localized: "Water changed. Refresh again."))
+            } catch { return .failed(String(localized: "Couldn’t refresh water. \(error.localizedDescription)")) }
         }
     }
 
@@ -852,898 +883,5 @@ final class HomeLifeOSProjectionStore {
         taskMutationRefresh.cancel()
         moodMutationRefresh.cancel()
         hydrationMutationRefresh.cancel()
-    }
-
-    @discardableResult
-    func startFast(
-        targetDuration: TimeInterval?,
-        reminderOffsets: [TimeInterval] = [],
-        at date: Date = HomeReferenceClock.now
-    ) async -> Bool {
-        guard let fastingTimerStore else {
-            fastingMutationError = "Fasting is unavailable right now."
-            return false
-        }
-        do {
-            _ = try await fastingTimerStore.start(
-                targetDuration: targetDuration,
-                reminderOffsets: reminderOffsets,
-                at: date
-            )
-            fastingMutationError = nil
-            mutationRevision &+= 1
-            return true
-        } catch {
-            fastingMutationError = error.localizedDescription
-            return false
-        }
-    }
-
-    @discardableResult
-    func endActiveFast(at date: Date = HomeReferenceClock.now) async -> Bool {
-        guard let fastingTimerStore else {
-            fastingMutationError = "Fasting is unavailable right now."
-            return false
-        }
-        do {
-            let undoSession = activeFast
-            _ = try await fastingTimerStore.finish(at: date)
-            fastEndUndoSession = undoSession
-            fastingMutationError = nil
-            mutationRevision &+= 1
-            return true
-        } catch {
-            fastingMutationError = error.localizedDescription
-            return false
-        }
-    }
-
-    @discardableResult
-    func undoLastFastEnd() async -> Bool {
-        guard let fastingTimerStore, let session = fastEndUndoSession else { return false }
-        do {
-            _ = try await fastingTimerStore.correct(
-                sessionID: session.id,
-                startedAt: session.startedAt,
-                endedAt: nil,
-                targetDuration: session.targetDuration,
-                note: session.note
-            )
-            fastEndUndoSession = nil
-            fastingMutationError = nil
-            mutationRevision &+= 1
-            return true
-        } catch {
-            fastingMutationError = error.localizedDescription
-            return false
-        }
-    }
-
-    /// Home renders only these display-ready projections. The provider registry
-    /// is deliberately assembled at the domain boundary so card views do not
-    /// know which repositories produced the values.
-    func makeHomeCardProviderRegistry(at date: Date = HomeReferenceClock.now,
-        requestedSizes: [DashboardWidgetKind: Set<HomeCardSize>]? = nil) throws -> HomeCardProviderRegistry {
-        let registry = DefaultDashboardWidgetRegistry.shared
-        let kinds: [(DashboardWidgetKind, Destination)] = [
-            (.setupChecklist, .track),
-            (.focusNow, .plan),
-            (.tasks, .plan),
-            (.scheduleCapacity, .plan),
-            (.compactTimeline, .plan),
-            (.lifeSnapshot, .track),
-            (.care, .track),
-            (.routines, .track),
-            (.goals, .track),
-            (.fasting, .track),
-            (.journal, .track),
-            (.progressReflection, .insights),
-            (.quickCapture, .home),
-            (.evaConversation, .eva)
-        ]
-        var providers: [any HomeCardSource] = kinds.compactMap { kind, destination in
-            guard requestedSizes == nil || requestedSizes?[kind] != nil,
-                  let definition = registry.descriptor(for: kind) else { return nil }
-            let sizes = definition.supportedSizes.filter { requestedSizes?[kind]?.contains($0) ?? true }
-            let snapshots = Dictionary(uniqueKeysWithValues: sizes.map { size in
-                var snapshot = homeCardSnapshot(kind: kind, size: size, date: date)
-                if projectionFailures.contains(kind) {
-                    snapshot.availability = .degraded
-                    snapshot.detail = "Refresh unavailable. Showing the last available information."
-                }
-                return (size, snapshot)
-            })
-            let route = homeCardPrimaryRoute(kind: kind)
-            return ProjectionHomeCardSource(
-                definition: definition,
-                destination: destination,
-                snapshotBuilder: { size, date in
-                    snapshots[size] ?? HomeCardSnapshot(availability: .unavailable, title: "Unavailable", updatedAt: date)
-                },
-                routeBuilder: { route }
-            )
-        }
-        if let wellnessRepository {
-            let focuses: [(DashboardWidgetKind, WellnessHomeCardFocus)] = [
-                (.bodyMetric, .bodyMetric(.bodyMass)), (.workout, .workouts), (.sleep, .sleep), (.movement, .movement)
-            ]
-            providers += focuses.compactMap { kind, focus -> (any HomeCardSource)? in
-                guard requestedSizes == nil || requestedSizes?[kind] != nil else { return nil }
-                return registry.descriptor(for: kind).map {
-                    WellnessHomeCardSource(
-                        definition: $0,
-                        focus: focus,
-                        repository: wellnessRepository,
-                        healthMetrics: healthMetrics
-                    )
-                }
-            }
-        }
-        if let nutritionRepository {
-            let focuses: [(DashboardWidgetKind, NutritionHomeCardFocus)] = [
-                (.nutritionSummary, .dailySummary), (.recentMeal, .recentMeal), (.logMeal, .logMeal)
-            ]
-            providers += focuses.compactMap { kind, focus -> (any HomeCardSource)? in
-                guard requestedSizes == nil || requestedSizes?[kind] != nil else { return nil }
-                return registry.descriptor(for: kind).map {
-                    NutritionHomeCardSource(
-                        definition: $0,
-                        focus: focus,
-                        repository: nutritionRepository,
-                        healthMetrics: healthMetrics
-                    )
-                }
-            }
-        }
-        if requestedSizes == nil || requestedSizes?[.lifeMoment] != nil,
-           let lifeMomentRepository, let definition = registry.descriptor(for: .lifeMoment) {
-            providers.append(LifeMomentsOverviewHomeCardSource(definition: definition, repository: lifeMomentRepository))
-        }
-        return try HomeCardProviderRegistry(providers: providers)
-    }
-
-    private func homeCardSnapshot(
-        kind: DashboardWidgetKind,
-        size: HomeCardSize,
-        date: Date
-    ) -> HomeCardSnapshot {
-        let title = DefaultDashboardWidgetRegistry.shared.descriptor(for: kind)?.title ?? "Home"
-        switch kind {
-        case .focusNow:
-            guard let focusTask else { return emptySnapshot(title, "Choose what is next.", date) }
-            return densitySnapshot(
-                title: title,
-                value: focusTask.title,
-                compactDetail: focusResult?.reasons.first?.text ?? "Pick this up next.",
-                storyDetail: "Fits the time you have now.",
-                size: size,
-                date: date
-            )
-        case .tasks:
-            guard let planSnapshot else { return unavailableSnapshot(title, date) }
-            let planned = planSnapshot.plannedTasks
-            let unscheduled = planSnapshot.unscheduledTasks
-            let count = planned.count + unscheduled.count
-            guard count > 0 else {
-                return emptySnapshot(title, "Nothing is asking for your attention.", date)
-            }
-            // Planned work first, then flexible; overdue rises above both.
-            let rows = (planned + unscheduled).map { task in
-                HomeQueueItem(
-                    id: task.id.uuidString,
-                    title: task.title,
-                    supporting: task.dueDate.map {
-                        "Due \($0.formatted(date: .abbreviated, time: .omitted))"
-                    },
-                    state: Self.queueState(for: task, at: date)
-                )
-            }
-            .sorted { lhs, rhs -> Bool in
-                let lhsRank = lhs.state == .overdue ? 0 : 1
-                let rhsRank = rhs.state == .overdue ? 0 : 1
-                return lhsRank < rhsRank
-            }
-            return densitySnapshot(
-                title: title,
-                value: "\(count)",
-                compactDetail: count == 1 ? "task in view" : "tasks in view",
-                storyDetail: "\(planned.count) planned · \(unscheduled.count) still flexible",
-                size: size,
-                date: date,
-                payload: .queue(rows)
-            )
-        case .scheduleCapacity, .compactTimeline:
-            guard let planSnapshot else { return unavailableSnapshot(title, date) }
-            let count = planSnapshot.commitments.count
-            // The spine reads as the day's shape: what is fixed, in order.
-            let spine = planSnapshot.commitments
-                .sorted { $0.startAt < $1.startAt }
-                .map { commitment in
-                    HomeQueueItem(
-                        id: commitment.id,
-                        title: commitment.title,
-                        supporting: commitment.startAt.formatted(date: .omitted, time: .shortened),
-                        state: commitment.endAt < date ? .done : .pending,
-                        systemImage: "circle.fill"
-                    )
-                }
-            return densitySnapshot(
-                title: title,
-                value: "\(count)",
-                compactDetail: count == 1 ? "fixed commitment" : "fixed commitments",
-                storyDetail: planSnapshot.freeWindows.isEmpty
-                    ? "No open window is projected yet."
-                    : "\(planSnapshot.freeWindows.count) open windows remain flexible.",
-                size: size,
-                date: date,
-                payload: .queue(spine)
-            )
-        case .lifeSnapshot:
-            guard let latestMood else { return emptySnapshot(title, "A gentle check-in can start your snapshot.", date) }
-            return densitySnapshot(
-                title: title,
-                value: latestMood.mood.title,
-                compactDetail: latestMood.energy.map { "Energy \($0)/5" } ?? "Mood checked in",
-                storyDetail: "Your last check-in.",
-                size: size,
-                date: date
-            )
-        case .care:
-            guard let trackSnapshot else { return unavailableSnapshot(title, date) }
-            let pending = trackSnapshot.unresolvedMedicationEvents.filter { $0.status == .unresolved }
-            guard pending.isEmpty == false else {
-                return emptySnapshot(title, "No unresolved care decisions.", date)
-            }
-            // The event carries only a medication ID; the snapshot has no name
-            // lookup, so the row leads with its scheduled time and Care owns
-            // the detail. Better an honest time than an invented label.
-            let rows = pending.map { event in
-                HomeQueueItem(
-                    id: event.id.uuidString,
-                    title: event.scheduledAt.formatted(date: .omitted, time: .shortened),
-                    supporting: event.note,
-                    state: event.scheduledAt < date ? .overdue : .pending,
-                    systemImage: "cross.case"
-                )
-            }
-            return densitySnapshot(
-                title: title,
-                value: "\(pending.count)",
-                compactDetail: pending.count == 1 ? "waiting on you" : "waiting on you",
-                storyDetail: "Confirm each one when you have taken it.",
-                size: size,
-                date: date,
-                payload: .queue(rows)
-            )
-        case .routines:
-            guard let trackSnapshot else { return unavailableSnapshot(title, date) }
-            let due = trackSnapshot.dueRoutines
-            guard due.isEmpty == false else {
-                return emptySnapshot(title, "Nothing due right now.", date)
-            }
-            let rows = due.map { routine in
-                HomeQueueItem(
-                    id: routine.id.uuidString,
-                    title: routine.title,
-                    supporting: routine.steps.isEmpty ? nil : "\(routine.steps.count) steps",
-                    state: .pending,
-                    systemImage: "repeat"
-                )
-            }
-            return densitySnapshot(
-                title: title,
-                value: "\(due.count)",
-                compactDetail: due.count == 1 ? "routine ready" : "routines ready",
-                storyDetail: "Start one when it fits.",
-                size: size,
-                date: date,
-                payload: .queue(rows)
-            )
-        case .goals:
-            guard let trackSnapshot else { return unavailableSnapshot(title, date) }
-            let goals = trackSnapshot.goals
-            guard goals.isEmpty == false else {
-                return emptySnapshot(title, "Add a goal to follow.", date)
-            }
-            // Lead with the goal nearest completion rather than an arbitrary
-            // first row, so the ring reads as momentum.
-            let ranked = goals.max { Self.goalFraction($0) < Self.goalFraction($1) }
-            let fraction = ranked.map(Self.goalFraction) ?? 0
-            let percent = Int((fraction * 100).rounded())
-            return densitySnapshot(
-                title: title,
-                value: "\(goals.count)",
-                compactDetail: goals.count == 1 ? "goal in view" : "goals in view",
-                storyDetail: ranked?.nextUsefulAction ?? "Open Track for progress and evidence.",
-                size: size,
-                date: date,
-                payload: .progress(fraction: fraction, label: "\(percent)%")
-            )
-        case .fasting:
-            guard let activeFast else { return emptySnapshot(title, "No fast running.", date) }
-            let elapsed = max(0, activeFast.elapsed(at: date))
-            let hours = Int(elapsed) / 3_600
-            let minutes = (Int(elapsed) % 3_600) / 60
-            let fraction = activeFast.targetDuration.map { target in
-                target > 0 ? min(1, elapsed / target) : 0
-            } ?? 0
-            return densitySnapshot(
-                title: title,
-                value: String(format: "%d:%02d", hours, minutes),
-                compactDetail: activeFast.targetDuration.map { "Target \(Int($0 / 3_600))h" } ?? "Running",
-                storyDetail: "Started \(activeFast.startedAt.formatted(date: .omitted, time: .shortened)).",
-                size: size,
-                date: date,
-                payload: .progress(
-                    fraction: fraction,
-                    label: String(format: "%d:%02d", hours, minutes)
-                )
-            )
-        case .journal:
-            // Previously hard-coded to `.degraded` with no way to grant consent,
-            // so this card could never become useful. It now reflects a real
-            // setting the user can turn on in Journal privacy.
-            guard JournalHomeConsentStore.isGranted else {
-                return HomeCardSnapshot(
-                    availability: .degraded,
-                    title: title,
-                    value: size == .compact ? nil : "Show journal here?",
-                    detail: "Turn on in Journal privacy.",
-                    updatedAt: date
-                )
-            }
-            return densitySnapshot(
-                title: title,
-                value: "Open",
-                compactDetail: "Today\u{2019}s entry",
-                storyDetail: "Words, photos, or audio \u{2014} whatever fits.",
-                size: size,
-                date: date
-            )
-        case .progressReflection:
-            guard let planSnapshot, let trackSnapshot else { return unavailableSnapshot(title, date) }
-            let planned = planSnapshot.plannedTasks.count
-            let goals = trackSnapshot.goals.count
-            return densitySnapshot(
-                title: title,
-                value: planned == 0 ? "A quiet day" : "\(planned) planned",
-                compactDetail: goals == 0 ? "Look back on today" : "\(goals) goals in context",
-                storyDetail: "What helped, and what to carry forward.",
-                size: size,
-                date: date
-            )
-        case .quickCapture:
-            return densitySnapshot(
-                title: title,
-                value: "Capture",
-                compactDetail: "Task, note, journal, mood, or metric",
-                storyDetail: "Write naturally. You review before anything saves.",
-                size: size,
-                date: date
-            )
-        case .evaConversation:
-            return emptySnapshot(title, "Save an Eva insight to place it here.", date)
-        case .setupChecklist:
-            let outstanding = outstandingSetupItems()
-            guard let first = outstanding.first else {
-                // Nothing left to offer: the card reports empty and the Home
-                // canvas drops it rather than leaving a permanent placeholder.
-                return emptySnapshot(title, "Everything you asked for is connected.", date)
-            }
-            return densitySnapshot(
-                title: title,
-                value: first,
-                compactDetail: outstanding.count == 1 ? "1 optional step" : "\(outstanding.count) optional steps",
-                storyDetail: outstanding.prefix(3).joined(separator: " \u{00B7} "),
-                size: size,
-                date: date
-            )
-        default:
-            return unavailableSnapshot(title, date)
-        }
-    }
-
-    private func homeCardPrimaryRoute(kind: DashboardWidgetKind) -> AppRoute? {
-        guard kind == .goals,
-              let ranked = trackSnapshot?.goals.max(by: {
-                  Self.goalFraction($0) < Self.goalFraction($1)
-              }) else { return nil }
-        return .goal(ranked.goalID)
-    }
-
-    /// What the user still has not set up, in the order worth offering it.
-    ///
-    /// Onboarding deliberately does not ask for everything; this is where the
-    /// remainder lives so the flow can stay short. Each row disappears as soon as
-    /// it is satisfied, and the card removes itself when the list empties.
-    private func outstandingSetupItems() -> [String] {
-        var items: [String] = []
-
-        if PermissionPromptState.hasRequested(.notifications) == false {
-            items.append("Turn on reminders")
-        }
-        if PermissionKind.appleHealth.isSupportedOnThisDevice,
-           PermissionPromptState.hasRequested(.appleHealth) == false {
-            items.append("Connect Apple Health")
-        }
-        if PermissionPromptState.hasRequested(.calendar) == false {
-            items.append("Connect your calendar")
-        }
-        if let trackSnapshot {
-            if trackSnapshot.hydrationTargetMilliliters == nil {
-                items.append("Set a hydration target")
-            }
-            if trackSnapshot.dueRoutines.isEmpty, trackSnapshot.goals.isEmpty {
-                items.append("Add a routine")
-            }
-        }
-        if V2FeatureFlags.journalV1Enabled, JournalHomeConsentStore.isGranted == false {
-            items.append("Show journal on Home")
-        }
-        return items
-    }
-
-    private func densitySnapshot(
-        title: String,
-        value: String,
-        compactDetail: String,
-        storyDetail: String,
-        size: HomeCardSize,
-        date: Date,
-        payload: HomeCardPayload = .none
-    ) -> HomeCardSnapshot {
-        let detail: String?
-        switch size {
-        case .compact: detail = nil
-        case .standard, .wide: detail = compactDetail
-        case .tall, .expanded: detail = storyDetail
-        }
-        return HomeCardSnapshot(
-            availability: .ready,
-            title: title,
-            value: value,
-            detail: detail,
-            payload: payload,
-            updatedAt: date
-        )
-    }
-
-    private func emptySnapshot(
-        _ title: String,
-        _ detail: String,
-        _ date: Date,
-        payload: HomeCardPayload = .none
-    ) -> HomeCardSnapshot {
-        HomeCardSnapshot(
-            availability: .empty,
-            title: title,
-            detail: detail,
-            payload: payload,
-            updatedAt: date
-        )
-    }
-
-    /// Overdue is the only state worth surfacing distinctly on Home — the rest
-    /// is noise at glance size.
-    private static func queueState(
-        for task: PlanningTaskSummary,
-        at date: Date
-    ) -> HomeQueueItem.State {
-        if let due = task.dueDate, due < date { return .overdue }
-        switch task.metadata.availability {
-        case .waiting, .paused: return .skipped
-        case .actionable: return .pending
-        }
-    }
-
-    private static func goalFraction(_ goal: GoalProgressSnapshot) -> Double {
-        if let fraction = goal.progressFraction { return max(0, min(1, fraction)) }
-        guard let current = goal.currentValue, let target = goal.targetValue, target > 0 else { return 0 }
-        return max(0, min(1, current / target))
-    }
-
-    private func unavailableSnapshot(_ title: String, _ date: Date) -> HomeCardSnapshot {
-        HomeCardSnapshot(
-            availability: .unavailable,
-            title: title,
-            detail: "Unavailable right now.",
-            updatedAt: date
-        )
-    }
-
-    /// Reads the day's drift from `PlanStore`, which has already removed the
-    /// repairs this person resolved.
-    ///
-    /// A failed load leaves `repairProposals` holding either the previous day's
-    /// values or an unfiltered list, so a partial load must surface nothing at
-    /// all. Absent is not zero drift, but the honest rendering of "we don't
-    /// know" on the spine is the same as "nothing to show" — and it is far
-    /// better than asking someone to repair a day we failed to read.
-    private func rebuildDrift(now: Date = HomeReferenceClock.now) {
-        guard let snapshot = planSnapshot else {
-            if repairProposals.isEmpty == false { repairProposals = [] }
-            if driftCount != 0 { driftCount = 0 }
-            return
-        }
-        let nextProposals = loadedRepairProposals
-        let nextDriftCount = PlanDriftPolicy.default.surfacedCount(
-            proposals: nextProposals,
-            in: snapshot,
-            now: now
-        )
-        if repairProposals != nextProposals { repairProposals = nextProposals }
-        if driftCount != nextDriftCount { driftCount = nextDriftCount }
-    }
-
-    private func rebuildFocus() {
-        guard let snapshot = planSnapshot else {
-            if focusTask != nil { focusTask = nil }
-            if focusResult != nil { focusResult = nil }
-            return
-        }
-        let currentTasks = Dictionary(planningTasks.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
-        let tasks = (snapshot.plannedTasks + snapshot.unscheduledTasks).compactMap { currentTasks[$0.id] }
-        let candidates = tasks.map { task in
-            FocusRankCandidate(
-                id: task.id,
-                title: task.title,
-                availability: task.metadata.availability,
-                dependenciesReady: task.dependenciesReady,
-                pinOrder: task.metadata.pinOrder,
-                commitmentLevel: task.metadata.commitmentLevel,
-                priority: task.metadata.commitmentLevel == .mustDo ? .urgent : .medium,
-                planningDay: task.metadata.planningDay,
-                dueDate: task.dueDate,
-                estimatedDuration: task.estimatedDuration,
-                planningContext: task.metadata.planningContext
-            )
-        }
-        let results = rankingService.rank(
-            candidates,
-            context: FocusRankContext(
-                freeWindowDuration: snapshot.capacity.remainingKnownCapacity,
-                availableEnergy: latestMood?.energy,
-                planningContext: nil
-            )
-        )
-        guard let first = results.first(where: \.isEligible) else {
-            if focusTask != nil { focusTask = nil }
-            if focusResult != nil { focusResult = nil }
-            return
-        }
-        let nextTask = tasks.first { $0.id == first.candidateID }
-        if focusResult != first { focusResult = first }
-        if focusTask != nextTask { focusTask = nextTask }
-    }
-
-    private func rebuildHero(now: Date = HomeReferenceClock.now) {
-        if let session = activeFocusSession, session.state == .running || session.state == .paused {
-            publishHero(.init(
-                id: "active-focus:\(session.id.uuidString)", priority: .activeFocus,
-                title: session.state == .paused ? "Focus is paused" : "Focus in progress",
-                detail: "Your active session stays in control until you end it.",
-                primaryActionTitle: session.state == .paused ? "Resume" : "Open focus",
-                secondaryActionTitles: ["End"], sourceID: session.id, generatedAt: now
-            ))
-            return
-        }
-        if let event = trackSnapshot?.unresolvedMedicationEvents.first(where: { $0.status == .unresolved }) {
-            publishHero(.init(
-                id: "care:\(event.id.uuidString)", priority: .safetySensitiveCare,
-                title: "A medication window needs a decision",
-                detail: "Choose what happened. LifeBoard will not assume an outcome.",
-                primaryActionTitle: "Review", secondaryActionTitles: ["Later"],
-                sourceID: event.id, generatedAt: now
-            ))
-            return
-        }
-        if let commitment = planSnapshot?.commitments
-            .filter({ $0.endAt > now })
-            .sorted(by: { $0.startAt < $1.startAt }).first {
-            publishHero(.init(
-                id: "commitment:\(commitment.id)", priority: .fixedCommitment,
-                title: commitment.startAt <= now ? commitment.title : "Next: \(commitment.title)",
-                detail: commitment.startAt.formatted(date: .omitted, time: .shortened),
-                primaryActionTitle: "Open day", sourceID: nil, generatedAt: now
-            ))
-            return
-        }
-        let currentTasks = Dictionary(planningTasks.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
-        if let mustDo = planSnapshot?.plannedTasks.compactMap({ currentTasks[$0.id] })
-            .first(where: { $0.metadata.commitmentLevel == .mustDo }) {
-            publishHero(.init(
-                id: "must-do:\(mustDo.id.uuidString)", priority: .urgentPlannedWork,
-                title: mustDo.title, detail: "Marked Must Do for today",
-                primaryActionTitle: "Start", secondaryActionTitles: ["Why this?"],
-                sourceID: mustDo.id, generatedAt: now
-            ))
-            return
-        }
-        if let routine = trackSnapshot?.dueRoutines.first {
-            publishHero(.init(
-                id: "routine:\(routine.id.uuidString)", priority: .timedRoutine,
-                title: routine.title, detail: "Ready for this part of the day",
-                primaryActionTitle: "Begin", sourceID: routine.id, generatedAt: now
-            ))
-            return
-        }
-        if let task = focusTask {
-            publishHero(.init(
-                id: "focus:\(task.id.uuidString)", priority: .generalFocus,
-                title: task.title, detail: focusResult?.reasons.first?.text,
-                primaryActionTitle: "Start", secondaryActionTitles: ["Why this?"],
-                sourceID: task.id, generatedAt: now
-            ))
-            return
-        }
-        publishHero(.init(
-            id: "choose-focus", priority: .generalFocus,
-            title: "Choose one useful next step", detail: "Capture first; organize when you are ready.",
-            primaryActionTitle: "Choose a focus", generatedAt: now
-        ))
-    }
-
-    private func publishHero(_ next: AdaptiveHeroSnapshot) {
-        if let current = heroSnapshot,
-           current.id == next.id,
-           current.priority == next.priority,
-           current.title == next.title,
-           current.detail == next.detail,
-           current.primaryActionTitle == next.primaryActionTitle,
-           current.secondaryActionTitles == next.secondaryActionTitles,
-           current.sourceID == next.sourceID {
-            return
-        }
-        heroSnapshot = next
-    }
-}
-
-private struct ProjectionHomeCardSource: HomeCardSource {
-    let definition: HomeCardDefinition
-    let primaryDestination: Destination
-    let privacyClassification: DataSensitivity
-    private let snapshotBuilder: @MainActor @Sendable (HomeCardSize, Date) -> HomeCardSnapshot
-    private let routeBuilder: @MainActor @Sendable () -> AppRoute?
-
-    init(
-        definition: HomeCardDefinition,
-        destination: Destination,
-        snapshotBuilder: @escaping @MainActor @Sendable (HomeCardSize, Date) -> HomeCardSnapshot,
-        routeBuilder: @escaping @MainActor @Sendable () -> AppRoute? = { nil }
-    ) {
-        self.definition = definition
-        primaryDestination = destination
-        privacyClassification = definition.sensitivity
-        self.snapshotBuilder = snapshotBuilder
-        self.routeBuilder = routeBuilder
-    }
-
-    func snapshot(
-        configuration: HomeCardConfiguration,
-        size: HomeCardSize,
-        at date: Date
-    ) async -> HomeCardSnapshot {
-        await snapshotBuilder(size, date)
-    }
-
-    func resolution(context: HomeCardSnapshotContext) async -> HomeCardResolution {
-        let resolvedSnapshot = await snapshot(context: context)
-        let route = await routeBuilder()
-        let actionTitle: String
-        if definition.kind == .goals {
-            actionTitle = route == nil ? "View goals" : "View goal"
-        } else {
-            actionTitle = resolvedSnapshot.actions.first?.title ?? "Open"
-        }
-        return HomeCardResolution(
-            snapshot: resolvedSnapshot,
-            primaryRoute: route,
-            primaryActionTitle: actionTitle
-        )
-    }
-}
-
-struct HomeProjectionCandidate: Equatable, Sendable {
-    let plan: PlanDaySnapshot?
-    let track: TrackTodaySnapshot?
-    let mood: MoodEnergyCheckInValue?
-    let fast: FastingSessionValue?
-    let endedFast: FastingSessionValue?
-    let meal: Date?
-    let focus: FocusSessionV2?
-}
-
-struct HomeCoreProjectionInputs: Sendable {
-    let tasks: [PlanningTaskSummary]
-    let focus: FocusSessionV2?
-    var sourceRevisions: SourceRevisionVector? = nil
-}
-
-struct HomeProjectionInputs: Sendable {
-    var plan: PlanDaySnapshot?
-    var tasks: [PlanningTaskSummary]?
-    var repairs: [PlanRepairProposal]?
-    var focus: FocusSessionV2?
-    var track: TrackTodaySnapshot?
-    var mood: MoodEnergyCheckInValue?
-    var planFailed = false
-    var trackFailed = false
-    var sourceRevisions: SourceRevisionVector? = nil
-    var trackSourceRevisions: SourceRevisionVector? = nil
-    var moodSourceRevisions: SourceRevisionVector? = nil
-}
-
-struct HomeHydrationProjectionInputs: Sendable {
-    let day: Date
-    let amount: Double?
-    let target: Double?
-    let revisions: SourceRevisionVector
-}
-
-struct HomeMoodProjectionInputs: Sendable {
-    let value: MoodEnergyCheckInValue?
-    let revisions: SourceRevisionVector?
-}
-
-/// Reads only what Home displays; no screen stores, writes or Live Activity updates.
-actor HomeProjectionReader {
-    let planning: CoreDataPlanningRepository?
-    let track: CoreDataTrackFoundationRepository?
-    let phaseII: (any PhaseIIRepository)?
-    let goalSamples: (any GoalSampleRepository)?
-    private let calendarRepository: any PlanningCalendarContextRepository
-    private var cachedCalendar: (start: Date, end: Date, context: PlanningCalendarContext)?
-
-    init(planning: CoreDataPlanningRepository?, track: CoreDataTrackFoundationRepository?,
-         phaseII: (any PhaseIIRepository)?, goalSamples: (any GoalSampleRepository)?,
-         calendarRepository: any PlanningCalendarContextRepository = SystemPlanningCalendarContextRepository()) {
-        self.planning = planning; self.track = track; self.phaseII = phaseII; self.goalSamples = goalSamples
-        self.calendarRepository = calendarRepository
-    }
-
-    func readCore() async throws -> HomeCoreProjectionInputs {
-        guard let planning else {
-            return .init(tasks: [], focus: nil)
-        }
-        let revisions = planning.sourceRevisions.snapshot()
-        async let tasks = planning.fetchOpenPlanningTasks()
-        async let focus = planning.activeSession()
-        return try await .init(tasks: tasks, focus: focus, sourceRevisions: revisions)
-    }
-
-    func read(now: Date,
-              onCore: @escaping @MainActor @Sendable (HomeCoreProjectionInputs) -> Void = { _ in },
-              onPlan: @escaping @MainActor @Sendable (HomeProjectionInputs) -> Void = { _ in },
-              onTrack: @escaping @MainActor @Sendable (HomeProjectionInputs) -> Void = { _ in }) async -> HomeProjectionInputs {
-        async let plan = readPlan(now: now, onCore: onCore, onPlan: onPlan)
-        async let track = readTrackAndPublish(now: now, onTrack: onTrack)
-        let (planValues, trackValues) = await (plan, track)
-        var result = planValues
-        result.track = trackValues.track
-        result.mood = trackValues.mood
-        result.trackFailed = trackValues.trackFailed
-        return result
-    }
-
-    private func readTrackAndPublish(now: Date,
-        onTrack: @escaping @MainActor @Sendable (HomeProjectionInputs) -> Void) async -> HomeProjectionInputs {
-        let result = await readTrack(now: now)
-        guard !Task.isCancelled else { return .init() }
-        await onTrack(result)
-        return result
-    }
-
-    private func readPlan(now: Date,
-                          onCore: @escaping @MainActor @Sendable (HomeCoreProjectionInputs) -> Void,
-                          onPlan: @escaping @MainActor @Sendable (HomeProjectionInputs) -> Void) async -> HomeProjectionInputs {
-        guard let planning else { return .init() }
-        let sourceRevisions = planning.sourceRevisions.snapshot()
-        let calendar = Calendar.current
-        let day = PlanningDay(date: now, timeZone: calendar.timeZone, calendar: calendar)
-        let start = calendar.startOfDay(for: now)
-        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? now
-        do {
-            async let tasksValue = planning.fetchOpenPlanningTasks()
-            async let blocksValue = planning.fetchTimeBlocks(from: start, to: end)
-            async let profilesValue = planning.fetchWorkingHoursProfiles()
-            async let calendarValue = readCalendar(from: start, to: end)
-            async let focusValue = planning.activeSession()
-            let (tasks, focus) = try await (tasksValue, focusValue)
-            guard !Task.isCancelled else { return .init() }
-            await onCore(.init(tasks: tasks, focus: focus, sourceRevisions: sourceRevisions))
-            let (blocks, profiles, context) = try await (blocksValue, profilesValue, calendarValue)
-            let profile = profiles.first(where: \.isDefault) ?? profiles.first ?? PlanStore.defaultWorkingProfile()
-            let snapshot = PlanDayProjectionInputs(tasks: tasks, allBlocks: blocks, workingProfile: profile,
-                calendarContext: context.0, calendarState: context.1, calendar: calendar, now: now)
-                .snapshot(for: day)
-            let proposals = DeterministicPlanRepairService().proposals(for: snapshot, now: now)
-            let applied = try await planning.appliedReceiptSources(in: Set(proposals.map { "plan.repair.\($0.id.uuidString)" }))
-            let result = HomeProjectionInputs(plan: snapshot, tasks: tasks,
-                repairs: proposals.filter { !applied.contains("plan.repair.\($0.id.uuidString)") }, focus: focus, sourceRevisions: sourceRevisions)
-            guard !Task.isCancelled else { return .init() }
-            await onPlan(result)
-            return result
-        } catch { return .init(planFailed: true) }
-    }
-
-    private func readCalendar(from start: Date, to end: Date) async -> (PlanningCalendarContext, PlanningCalendarState) {
-        let authorization = await calendarRepository.authorization()
-        guard authorization == .authorized else {
-            cachedCalendar = nil
-            let state: PlanningCalendarState = switch authorization {
-            case .notDetermined: .notRequested
-            case .denied, .restricted: .denied
-            default: .failed(message: "Calendar context is unavailable.")
-            }
-            return (.init(authorization: authorization), state)
-        }
-        do {
-            let context = try await calendarRepository.fetchCommitments(from: start, to: end)
-            cachedCalendar = (start, end, context)
-            return (context, .fresh(fetchedAt: context.fetchedAt))
-        } catch {
-            if let cached = cachedCalendar, cached.start == start, cached.end == end {
-                return (cached.context, .staleCached(fetchedAt: cached.context.fetchedAt,
-                    message: error.localizedDescription))
-            }
-            return (.init(authorization: authorization), .failed(message: error.localizedDescription))
-        }
-    }
-
-    func readHydration(now: Date) async throws -> HomeHydrationProjectionInputs {
-        guard let track else { throw CocoaError(.featureUnsupported) }
-        let revisions = track.sourceRevisions.snapshot()
-        let calendar = Calendar.current
-        let start = calendar.startOfDay(for: now)
-        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? now
-        async let logsValue = track.fetchHydrationLogs(from: start, to: end)
-        async let targetValue = track.fetchHydrationTarget()
-        let (logs, target) = try await (logsValue, targetValue)
-        let amount = logs.reduce(0) { $0 + HydrationMeasurementService.convert($1.amount, from: $1.unit, to: .milliliters) }
-        return .init(day: start, amount: logs.isEmpty && target == nil ? nil : amount,
-                     target: target.map { HydrationMeasurementService.convert($0.amount, from: $0.unit, to: .milliliters) },
-                     revisions: revisions)
-    }
-
-    func readMood(now: Date) async throws -> HomeMoodProjectionInputs {
-        guard let phaseII else { throw CocoaError(.featureUnsupported) }
-        let revisions = (phaseII as? CoreDataLifeBoardPhaseIIRepository)?.sourceRevisions.snapshot()
-        let calendar = Calendar.current
-        let start = calendar.startOfDay(for: now)
-        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? now
-        let values = try await phaseII.fetchMoodCheckIns(from: calendar.date(byAdding: .day, value: -29, to: start), to: end)
-        return .init(value: values.first, revisions: revisions)
-    }
-
-    private func readTrack(now: Date) async -> HomeProjectionInputs {
-        guard let track, let phaseII else { return .init() }
-        let trackRevisions = track.sourceRevisions.snapshot()
-        let moodRevisions = (phaseII as? CoreDataLifeBoardPhaseIIRepository)?.sourceRevisions.snapshot()
-        let calendar = Calendar.current
-        let start = calendar.startOfDay(for: now)
-        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? now
-        do {
-            async let goalsValue = track.fetchGoals()
-            async let linksValue = track.fetchGoalLinks(goalID: nil)
-            async let routinesValue = track.fetchRoutines()
-            async let schedulesValue = track.fetchRoutineSchedules(routineID: nil)
-            async let hydrationValue = track.fetchHydrationLogs(from: start, to: end)
-            async let targetValue = track.fetchHydrationTarget()
-            async let eventsValue = phaseII.fetchMedicationEvents(from: start, to: end)
-            async let moodValue = phaseII.fetchMoodCheckIns(from: calendar.date(byAdding: .day, value: -29, to: start), to: end)
-            let (goals, links, routines, schedules, hydration, target, events, moods) = try await
-                (goalsValue, linksValue, routinesValue, schedulesValue, hydrationValue, targetValue, eventsValue, moodValue)
-            let samples = try await goalSamples?.samples(for: links, asOf: now) ?? []
-            let linksByGoal = Dictionary(grouping: links, by: \.goalID)
-            let progress = goals.map { DefaultGoalProgressService().progress(for: $0, links: linksByGoal[$0.id] ?? [], samples: samples) }
-            let due = TrackFoundationStore.dueRoutines(routines: routines, schedules: schedules, at: now, calendar: calendar)
-            let amount = hydration.reduce(0) { $0 + HydrationMeasurementService.convert($1.amount, from: $1.unit, to: .milliliters) }
-            let snapshot = TrackTodaySnapshot(unresolvedMedicationEvents: events.filter { $0.status == .unresolved || $0.status == .scheduled },
-                habitGrades: [], dueRoutines: due, goals: progress,
-                hydrationAmountMilliliters: hydration.isEmpty && target == nil ? nil : amount,
-                hydrationTargetMilliliters: target.map { HydrationMeasurementService.convert($0.amount, from: $0.unit, to: .milliliters) },
-                completeness: .complete, generatedAt: now)
-            return .init(track: snapshot, mood: moods.first, trackSourceRevisions: trackRevisions, moodSourceRevisions: moodRevisions)
-        } catch { return .init(trackFailed: true) }
     }
 }

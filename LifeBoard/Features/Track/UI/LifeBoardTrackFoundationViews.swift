@@ -11,6 +11,9 @@ struct TrackFoundationRootView: View {
     private let sourcePickerRepository: any TypedSourcePickerRepository
     private let onOpenHabitBoard: () -> Void
     private let onOpenHealth: () -> Void
+    /// Pushes a typed route on Track's stack. `nil` only where a host has not
+    /// wired a router yet; the Areas links then fall back to local pushes.
+    private let onOpenRoute: ((AppRoute) -> Void)?
     private let nutritionRepository: any NutritionRepository
     private let lifeMomentRepository: any LifeMomentRepository
     private let wellnessRepository: any WellnessRepository
@@ -58,6 +61,7 @@ struct TrackFoundationRootView: View {
         lifeMomentRepository: any LifeMomentRepository,
         wellnessRepository: any WellnessRepository,
         initialLens: TrackLens = .today,
+        onOpenRoute: ((AppRoute) -> Void)? = nil,
         onOpenHabitBoard: @escaping () -> Void = {},
         onOpenHealth: @escaping () -> Void = {}
     ) {
@@ -76,6 +80,7 @@ struct TrackFoundationRootView: View {
             ?? ComposedTypedSourcePickerRepository(trackFoundation: repository, phaseII: phaseIIRepository)
         self.onOpenHabitBoard = onOpenHabitBoard
         self.onOpenHealth = onOpenHealth
+        self.onOpenRoute = onOpenRoute
         self.nutritionRepository = nutritionRepository
         self.lifeMomentRepository = lifeMomentRepository
         self.wellnessRepository = wellnessRepository
@@ -94,7 +99,7 @@ struct TrackFoundationRootView: View {
             fastingSessions = try await fastingTimerStore.sessions(limit: 60)
             fastingError = nil
         } catch {
-            fastingError = error.localizedDescription
+            fastingError = String(localized: "Couldn’t load fasting history.")
         }
     }
 
@@ -114,23 +119,36 @@ struct TrackFoundationRootView: View {
 
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    TrackHeaderSection()
                     // `DESIGN.md`: "Scrolling is not a quiet moment. Content
                     // entering the viewport rises, focuses, and settles." Track
                     // was one of three roots with no scroll entrance at all.
                     // Applied to the root's own children so each section is
                     // treated once, rather than every row inside it.
+                    if let minimizedRun = store.minimizedRoutineRun {
+                        TrackRoutineResumeBanner(run: minimizedRun) { store.reopenRoutine() }
+                    }
+                    if let finish = store.routineFinishReceipt {
+                        ReceiptBar(finish, onDismiss: { store.clearRoutineFinishReceipt() })
+                            .accessibilityIdentifier("track.routine.finishReceipt")
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     TrackQuickLogStrip(
                         store: store,
                         showsMood: $showsMood,
                         editingMood: $editingMood,
                         showsSleep: $showsSleep,
-                        editingSleep: $editingSleep
+                        editingSleep: $editingSleep,
+                        onOpenSleep: openWellnessSleep
                     )
                     .lifeBoardScrollEntrance()
                     categoryRail
                         .lifeBoardScrollEntrance(intensity: 0.55)
                     categoryContent
+                        // First load only (`isLoading` is false on refreshes):
+                        // placeholder shapes rather than empty-state copy that
+                        // flips to data a moment later.
+                        .redacted(reason: store.isLoading ? .placeholder : [])
+                        .allowsHitTesting(store.isLoading == false)
                         .lifeBoardScrollEntrance()
                 }
                 .padding(.horizontal, 20)
@@ -256,22 +274,29 @@ struct TrackFoundationRootView: View {
             TrackTodayRoutinesSection(store: store)
             TrackCareSnapshotSection(
                 store: store,
-                showsMood: $showsMood,
-                editingMood: $editingMood,
-                showsSleep: $showsSleep,
                 showsHydrationTarget: $showsHydrationTarget,
                 onOpenHabitBoard: onOpenHabitBoard,
-                onOpenHealth: onOpenHealth
+                onOpenHealth: onOpenHealth,
+                onOpenRoute: onOpenRoute
             )
         case .areas:
+            // Every area is two taps from Track: this lens, then its tile.
+            // They used to sit at the bottom of the lens as untyped links,
+            // which skipped the router — Journal opened with no router, so
+            // its Ask Eva and evidence chips did nothing.
+            if let onOpenRoute {
+                TrackAreasGridSection(onOpenRoute: onOpenRoute)
+            }
             TrackBodyCareSection(
                 store: store,
                 careHistoryDays: $careHistoryDays,
                 showsSleep: $showsSleep,
                 editingSleep: $editingSleep,
                 showsHydrationTarget: $showsHydrationTarget,
+                onOpenSleep: openWellnessSleep,
                 onOpenHabitBoard: onOpenHabitBoard,
-                onOpenHealth: onOpenHealth
+                onOpenHealth: onOpenHealth,
+                onOpenRoute: onOpenRoute
             )
             if activeFast == nil { fastingModule(isHero: false) }
             TrackMindCareSection(
@@ -297,9 +322,6 @@ struct TrackFoundationRootView: View {
             )
             TrackModulesSection(
                 store: store,
-                nutritionRepository: nutritionRepository,
-                lifeMomentRepository: lifeMomentRepository,
-                wellnessRepository: wellnessRepository,
                 showsStarterPacks: $showsStarterPacks
             )
         case .history:
@@ -311,6 +333,15 @@ struct TrackFoundationRootView: View {
                 editingSleep: $editingSleep
             )
         }
+    }
+
+    /// Sleep is recorded in one place: Wellness, where Apple Health nights and
+    /// manual notes share one history. Track's own sleep context composer
+    /// stays for editing the records it already holds, and is the fallback
+    /// when Wellness is off.
+    private var openWellnessSleep: (() -> Void)? {
+        guard V2FeatureFlags.wellnessCoreV1Enabled, let onOpenRoute else { return nil }
+        return { onOpenRoute(.wellness(.sleep)) }
     }
 
     /// - Parameter isHero: whether this lens has nominated fasting as its one
@@ -338,10 +369,12 @@ struct TrackFoundationRootView: View {
 
 private struct TrackEmptyStateRow: View {
     private let title: String
-    private let detail: String
+    private let detail: String?
     private let symbol: String
 
-    init(_ title: String, detail: String, symbol: String) {
+    /// `detail` is optional: an empty state is a title plus, at most, one line
+    /// that adds something the title does not already say.
+    init(_ title: String, detail: String? = nil, symbol: String) {
         self.title = title
         self.detail = detail
         self.symbol = symbol
@@ -349,10 +382,12 @@ private struct TrackEmptyStateRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: symbol).font(.title2).foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+            Image(systemName: symbol).font(.title2).foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.headline)
-                Text(detail).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                Text(title).font(.lifeboard(.headline))
+                if let detail {
+                    Text(detail).font(.lifeboard(.caption1)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                }
             }
             Spacer()
         }.trackClayCard()
@@ -379,8 +414,8 @@ private struct TrackModuleRow: View {
         HStack(spacing: 14) {
             Image(systemName: symbol).font(.title3).frame(width: 28).foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.headline)
-                Text(detail).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                Text(title).font(.lifeboard(.headline))
+                Text(detail).font(.lifeboard(.caption1)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Image(systemName: "chevron.right")
@@ -397,15 +432,18 @@ private struct TrackCareTile: View {
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 12) {
-                Label(title, systemImage: symbol).font(.headline)
+                Label(title, systemImage: symbol).font(.lifeboard(.headline))
                 Text(value).font(.subheadline.weight(.semibold))
                 Spacer(minLength: 0)
-                Image(systemName: "plus.circle").frame(maxWidth: .infinity, alignment: .trailing)
+                Image(systemName: "plus.circle")
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .accessibilityHidden(true)
             }
             .frame(minHeight: 112, alignment: .topLeading)
             .trackClayCard()
         }
         .buttonStyle(.plain)
+        .accessibilityHint("Records \(title.lowercased())")
     }
 }
 
@@ -417,27 +455,37 @@ private struct TrackBehaviorAreaLink: View {
     let symbol: String
     let onOpenHabitBoard: () -> Void
     let onOpenHealth: () -> Void
+    /// Medication opens as the typed `.careLibrary` route when a router is
+    /// wired; the local push remains only for hosts without one.
+    var onOpenRoute: ((AppRoute) -> Void)? = nil
 
     var body: some View {
-        NavigationLink {
-            BehaviorAreaRouteView(
-                repository: repository,
-                initialArea: area,
-                onOpenHabitBoard: onOpenHabitBoard,
-                onOpenHealth: onOpenHealth
-            )
-        } label: {
-            VStack(alignment: .leading, spacing: 12) {
-                Label(title, systemImage: symbol).font(.headline)
-                Text(value).font(.subheadline.weight(.semibold))
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-            .frame(minHeight: 112, alignment: .topLeading)
-            .trackClayCard()
+        if let onOpenRoute, area == .medication {
+            Button { onOpenRoute(.careLibrary) } label: { tile }
+                .buttonStyle(.plain)
+        } else {
+            NavigationLink {
+                BehaviorAreaRouteView(
+                    repository: repository,
+                    initialArea: area,
+                    onOpenHabitBoard: onOpenHabitBoard,
+                    onOpenHealth: onOpenHealth
+                )
+            } label: { tile }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+    }
+
+    private var tile: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: symbol).font(.lifeboard(.headline))
+            Text(value).font(.lifeboard(.bodyStrong))
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .frame(minHeight: 112, alignment: .topLeading)
+        .trackClayCard()
     }
 }
 
@@ -449,11 +497,11 @@ private struct TrackHistoryRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
-                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.body.weight(.medium))
+                Text(title).font(.lifeboard(.bodyEmphasis))
                 Text(detail)
-                    .font(.caption)
+                    .font(.lifeboard(.caption1))
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .lineLimit(2)
             }
@@ -470,11 +518,11 @@ private struct TrackHydrationTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Hydration", systemImage: "drop.fill")
-                .font(.headline)
+            Label("Water", systemImage: "drop.fill")
+                .font(.lifeboard(.headline))
             Text(TrackSectionCopy.hydrationLabel(store)).font(.title3.weight(.semibold))
             if let amount = store.snapshot.hydrationAmountMilliliters, let target = store.snapshot.hydrationTargetMilliliters, target > 0 {
-                ProgressView(value: min(1, amount / target)).tint(Color(SemanticColorTokens.foundationSageAccent))
+                ProgressView(value: min(1, amount / target)).tint(Color(SemanticColorTokens.foundationSageInk))
                 Button("Edit target") { showsHydrationTarget = true }
                     .font(.caption.weight(.semibold))
                     .frame(minHeight: 44)
@@ -482,7 +530,7 @@ private struct TrackHydrationTile: View {
             } else {
                 HStack(spacing: 8) {
                     Text("No target yet")
-                        .font(.caption)
+                        .font(.lifeboard(.caption1))
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Spacer(minLength: 0)
                     Button("Set target") { showsHydrationTarget = true }
@@ -492,21 +540,55 @@ private struct TrackHydrationTile: View {
                 }
             }
             HStack(spacing: 8) {
-                Button("+250 ml") {
-                    Task { await store.quickAddHydration(250); await trackOfferHealthConnect() }
+                Button("+250 mL") {
+                    Task { await store.quickAddHydration(250, anchor: .hydrationTile); await trackOfferHealthConnect() }
                 }
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .accessibilityIdentifier("track.hydration.add250")
-                Button("+500 ml") {
-                    Task { await store.quickAddHydration(500); await trackOfferHealthConnect() }
+                Button("+500 mL") {
+                    Task { await store.quickAddHydration(500, anchor: .hydrationTile); await trackOfferHealthConnect() }
                 }
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .accessibilityIdentifier("track.hydration.add500")
             }
             .buttonStyle(.lifeBoardChip)
+            // Under the buttons that wrote it; the Quick log strip shows only
+            // the receipts for its own Water button.
+            if let receipt = store.hydrationReceipt, store.hydrationReceiptAnchor == .hydrationTile {
+                ReceiptBar(
+                    receipt,
+                    undo: { Task { await store.undoLastHydration() } },
+                    onDismiss: { store.clearHydrationReceipt() }
+                )
+                .accessibilityIdentifier("track.hydration.tile.receipt")
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .trackClayCard()
+        .lifeBoardMotion(.contentInsertion, value: store.hydrationReceipt?.id)
         .accessibilityIdentifier("track.hydration")
+    }
+}
+
+/// The Undo for a record deleted from a history row or composer, drawn in the
+/// section the record belonged to — including when it was the last one there.
+private struct TrackDeletionReceiptBar: View {
+    let store: TrackFoundationStore
+    let domains: Set<TrackDeletionReceipt.Domain>
+
+    var body: some View {
+        Group {
+            if let receipt = store.deletionReceipt, domains.contains(receipt.domain) {
+                ReceiptBar(
+                    receipt.presentation,
+                    undo: { Task { await store.undoDeletion() } },
+                    onDismiss: { store.clearDeletionReceipt() }
+                )
+                .accessibilityIdentifier("track.deletion.receipt")
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .lifeBoardMotion(.contentInsertion, value: store.deletionReceipt?.id)
     }
 }
 
@@ -517,23 +599,28 @@ private struct TrackHydrationHistoryRow: View {
     var body: some View {
         let amount = HydrationMeasurementService.milliliters(log.amount, unit: log.unit)
         HStack(spacing: 12) {
-            Image(systemName: "drop.fill").foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
+            Image(systemName: "drop.fill").foregroundStyle(Color(SemanticColorTokens.foundationSageInk))
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(Int(amount)) ml").font(.body.weight(.medium))
-                Text(log.timestamp.formatted(date: .omitted, time: .shortened) + (log.correctedAt == nil ? "" : " · corrected"))
-                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                Text("\(Int(amount)) mL").font(.lifeboard(.bodyEmphasis))
+                Text(log.timestamp.formatted(date: .omitted, time: .shortened) + (log.correctedAt == nil ? "" : String(localized: " · edited")))
+                    .font(.lifeboard(.caption1)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Menu {
-                Button("Add 50 ml") { Task { await store.correctHydration(log, amountMilliliters: amount + 50) } }
-                Button("Remove 50 ml") { Task { await store.correctHydration(log, amountMilliliters: max(0, amount - 50)) } }
+                Button("Add 50 mL") { Task { await store.correctHydration(log, amountMilliliters: amount + 50) } }
+                Button("Remove 50 mL") { Task { await store.correctHydration(log, amountMilliliters: max(0, amount - 50)) } }
                 if let receipt = store.activeCorrection(domain: .hydration, sourceID: log.id) {
-                    Button("Undo last correction", systemImage: "arrow.uturn.backward") {
+                    Button("Undo last edit", systemImage: "arrow.uturn.backward") {
                         Task { await store.undoCorrection(receipt) }
                     }
                 }
-                Button("Delete entry", systemImage: "trash", role: .destructive) { Task { await store.deleteHydration(log) } }
-            } label: { Image(systemName: "ellipsis.circle") }
+                Button("Delete entry", systemImage: "trash", role: .destructive) { Task { await store.deleteHydration(log, offersUndo: true) } }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Actions for \(Int(amount)) mL at \(log.timestamp.formatted(date: .omitted, time: .shortened))")
         }
         .padding(.vertical, 8)
         .accessibilityIdentifier("track.hydration.history.\(log.id.uuidString)")
@@ -548,12 +635,12 @@ private struct TrackSleepHistoryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "moon.zzz").foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
+            Image(systemName: "moon.zzz").foregroundStyle(Color(SemanticColorTokens.foundationSageInk))
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(record.bedtime.formatted(date: .abbreviated, time: .shortened))–\(record.wakeTime.formatted(date: .omitted, time: .shortened))")
-                    .font(.body.weight(.medium))
-                Text(record.perceivedRest.map { "Rest \($0)/5 · \(record.interruptionCount) interruptions" } ?? "\(record.interruptionCount) interruptions")
-                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    .font(.lifeboard(.bodyEmphasis))
+                Text(TrackSectionCopy.sleepDetail(record))
+                    .font(.lifeboard(.caption1)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Menu {
@@ -562,17 +649,17 @@ private struct TrackSleepHistoryRow: View {
                     showsSleep = true
                 }
                 if let receipt = store.activeCorrection(domain: .sleep, sourceID: record.id) {
-                    Button("Undo last correction", systemImage: "arrow.uturn.backward") {
+                    Button("Undo last edit", systemImage: "arrow.uturn.backward") {
                         Task { await store.undoCorrection(receipt) }
                     }
                 }
-                Button("Delete", systemImage: "trash", role: .destructive) { Task { await store.deleteSleep(record) } }
+                Button("Delete", systemImage: "trash", role: .destructive) { Task { await store.deleteSleep(record, offersUndo: true) } }
             } label: {
                 Image(systemName: "ellipsis")
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-            .accessibilityLabel("Actions for sleep context")
+            .accessibilityLabel("Actions for sleep entry")
         }
         .padding(.vertical, 8)
         .privacySensitive()
@@ -629,7 +716,7 @@ private struct TrackQuickLogButton: View {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
                     Text(detail)
-                        .font(.caption)
+                        .font(.lifeboard(.caption1))
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .lineLimit(1)
                 }
@@ -658,11 +745,17 @@ private struct TrackHabitQualitySummary: View {
         let streak = store.snapshot.habitGrades.map(\.streak).max() ?? 0
         HStack(spacing: 12) {
             metric(
-                title: "30-day grade",
-                value: average.map { "\(Int(($0 * 100).rounded()))%" } ?? "Building",
+                title: String(localized: "Last 30 days"),
+                // "—" is the missing-value mark: no graded days yet is unknown,
+                // not a state worth a word.
+                value: average.map { "\(Int(($0 * 100).rounded()))%" } ?? "—",
                 symbol: "chart.line.uptrend.xyaxis"
             )
-            metric(title: "Current streak", value: "\(streak) days", symbol: "flame")
+            metric(
+                title: String(localized: "Current streak"),
+                value: TrackSectionCopy.dayCount(streak),
+                symbol: "flame"
+            )
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("track.habitQuality")
@@ -671,7 +764,7 @@ private struct TrackHabitQualitySummary: View {
     private func metric(title: String, value: String, symbol: String) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Label(title, systemImage: symbol)
-                .font(.caption.weight(.medium))
+                .font(.lifeboard(.meta))
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Text(value)
                 .font(.title3.weight(.semibold))
@@ -691,24 +784,28 @@ private struct TrackMoodTrendView: View {
     var body: some View {
         switch MoodTrendProjector.project(store.checkIns) {
         case .empty:
-            TrackEmptyStateRow("No mood trend yet", detail: "Check in when it feels useful. Missing data is never treated as neutral.", symbol: "chart.line.downtrend.xyaxis")
+            TrackEmptyStateRow(
+                String(localized: "No mood trend yet"),
+                detail: String(localized: "Shows after 3 check-ins."),
+                symbol: "chart.line.downtrend.xyaxis"
+            )
         case let .light(sampleCount):
             TrackEmptyStateRow(
-                "A trend needs a little more context",
-                detail: "\(sampleCount) of 3 check-ins recorded. LifeBoard will not infer a pattern yet.",
+                String(localized: "No mood trend yet"),
+                detail: String(localized: "\(sampleCount) of 3 check-ins"),
                 symbol: "ellipsis"
             )
         case let .ready(summary):
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("30-day rhythm").font(.headline)
+                        Text("Last 30 days").font(.lifeboard(.headline))
                         Text(TrackSectionCopy.moodTrendDescription(summary))
-                            .font(.caption)
+                            .font(.lifeboard(.caption1))
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     Spacer()
-                    Text("\(summary.sampleCount) check-ins")
+                    Text("^[\(summary.sampleCount) check-in](inflect: true)")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
@@ -735,15 +832,6 @@ enum TrackSectionCopy {
         return [GridItem(.adaptive(minimum: 150), spacing: 12)]
     }
 
-    static func daypartTitle(_ preferences: PresentationPreferences) -> String {
-        switch preferences.resolvedDaypart() {
-        case .morning: "Good morning"
-        case .afternoon: "Good afternoon"
-        case .evening: "Good evening"
-        case .night: "A gentler night"
-        }
-    }
-
     static func daypartSymbol(_ preferences: PresentationPreferences) -> String {
         switch preferences.resolvedDaypart() {
         case .morning: "sunrise"
@@ -753,53 +841,109 @@ enum TrackSectionCopy {
         }
     }
 
+    /// A count, not a verdict. "Up to date" claimed a state for a person with
+    /// no medications at all.
+    static func medicationStatus(_ store: TrackFoundationStore) -> String {
+        let open = store.snapshot.unresolvedMedicationEvents.count
+        if open > 0 { return String(localized: "\(open) to confirm") }
+        return store.medications.isEmpty ? String(localized: "None added") : String(localized: "All logged")
+    }
+
     static func latestMood(_ store: TrackFoundationStore) -> String {
-        guard let latest = store.checkIns.first else { return "Check in when useful" }
-        return latest.energy.map { "\(latest.mood.title) · energy \($0)/5" } ?? latest.mood.title
+        guard let latest = store.checkIns.first else { return String(localized: "No check-ins") }
+        let mood = latest.mood.displayName
+        return latest.energy.map { String(localized: "\(mood) · energy \($0)/5") } ?? mood
     }
 
     static func latestSleep(_ store: TrackFoundationStore) -> String {
-        guard let record = store.sleepRecords.first else { return "No manual context" }
-        return record.perceivedRest.map { "Rest \($0)/5" } ?? "Recorded"
+        guard let record = store.sleepRecords.first else { return String(localized: "Not logged") }
+        return record.perceivedRest.map { String(localized: "Rest \($0)/5") } ?? String(localized: "Logged")
+    }
+
+    /// "Rest 3/5 · 2 wake-ups" for a sleep history row.
+    static func sleepDetail(_ record: SleepContextRecord) -> String {
+        let count = record.interruptionCount
+        let wakeUps = switch count {
+        case 0: String(localized: "No wake-ups")
+        case 1: String(localized: "1 wake-up")
+        default: String(localized: "\(count) wake-ups")
+        }
+        return record.perceivedRest.map { String(localized: "Rest \($0)/5 · \(wakeUps)") } ?? wakeUps
+    }
+
+    /// "1 day" / "12 days", without "day(s)". Nonisolated because option-rail
+    /// title closures call it.
+    nonisolated static func dayCount(_ count: Int) -> String {
+        count == 1 ? String(localized: "1 day") : String(localized: "\(count) days")
     }
 
     static func hydrationLabel(_ store: TrackFoundationStore) -> String {
-        guard let amount = store.snapshot.hydrationAmountMilliliters else { return "No data yet" }
-        if let target = store.snapshot.hydrationTargetMilliliters { return "\(Int(amount)) / \(Int(target)) ml" }
-        return "\(Int(amount)) ml"
+        guard let amount = store.snapshot.hydrationAmountMilliliters else { return String(localized: "None today") }
+        if let target = store.snapshot.hydrationTargetMilliliters {
+            return "\(Int(amount)) of \(milliliters(target))"
+        }
+        return milliliters(amount)
+    }
+
+    static func milliliters(_ amount: Double) -> String {
+        Measurement(value: amount.rounded(), unit: UnitVolume.milliliters)
+            .formatted(.measurement(width: .abbreviated, usage: .asProvided, numberFormatStyle: .number.precision(.fractionLength(0))))
     }
 
     static func moodCheckInDetail(_ checkIn: MoodEnergyCheckInValue) -> String {
         let time = checkIn.createdAt.formatted(date: .abbreviated, time: .shortened)
         guard let energy = checkIn.energy else { return time }
-        return "Energy \(energy)/5 · \(time)"
+        return String(localized: "Energy \(energy)/5 · \(time)")
     }
 
+    /// "Mostly lighter · average energy 3.2/5". The facts, not a reading.
     static func moodTrendDescription(_ summary: MoodTrendSummary) -> String {
-        let feeling: String
-        switch summary.averageValence {
-        case 1.5...: feeling = "mostly lighter"
-        case ..<(-1.5): feeling = "mostly heavier"
-        default: feeling = "varied"
+        let feeling = switch summary.averageValence {
+        case 1.5...: String(localized: "Mostly lighter")
+        case ..<(-1.5): String(localized: "Mostly heavier")
+        default: String(localized: "Varied")
         }
-        guard let energy = summary.averageEnergy else { return "Your recorded mood has felt \(feeling). Energy was not consistently recorded." }
-        return "Your recorded mood has felt \(feeling), with average energy \(energy.formatted(.number.precision(.fractionLength(1))))/5."
+        guard let energy = summary.averageEnergy else { return feeling }
+        let average = energy.formatted(.number.precision(.fractionLength(1)))
+        return String(localized: "\(feeling) · average energy \(average)/5")
     }
 
     static func progressLabel(_ progress: GoalProgressSnapshot?) -> String {
-        guard let progress else { return "Not linked" }
+        guard let progress else { return String(localized: "Not linked") }
         if let fraction = progress.progressFraction { return "\(Int(fraction * 100))%" }
-        return progress.missingLinkCount > 0 ? "Data incomplete" : "Ready"
+        return progress.missingLinkCount > 0 ? String(localized: "Data incomplete") : String(localized: "Linked")
     }
 
     static func starterPackTitle(_ pack: StarterPack) -> String {
-        switch pack {
-        case .morningFoundation: "Morning Foundation"
-        case .workdayReset: "Workday Reset"
-        case .lowEnergyRecovery: "Low Energy Recovery"
-        case .medicationSupport: "Medication Support"
-        case .eveningWindDown: "Evening Wind-down"
-        }
+        StarterPackCopy.title(pack)
+    }
+
+    static func stepCount(_ count: Int) -> String {
+        count == 1 ? String(localized: "1 step") : String(localized: "\(count) steps")
+    }
+
+    /// "Target 16 hr, 30 min" — the old "Target 16h" dropped the half hour.
+    static func fastingTargetText(_ target: TimeInterval?) -> String {
+        guard let target else { return String(localized: "No target") }
+        return String(localized: "Target \(LifeBoardDuration.text(seconds: target))")
+    }
+
+    /// "Fasting for 3 hours, 12 minutes" — what VoiceOver says instead of
+    /// reading the H:MM:SS clock as three numbers.
+    static func fastingSpokenElapsed(_ interval: TimeInterval) -> String {
+        let formatter = DateComponentsFormatter()
+        formatter.unitsStyle = .full
+        formatter.allowedUnits = interval >= 3_600 ? [.hour, .minute] : [.minute]
+        formatter.zeroFormattingBehavior = .dropAll
+        let spoken = formatter.string(from: max(60, interval)) ?? ""
+        return String(localized: "Fasting for \(spoken)")
+    }
+
+    /// Human copy for a failed fasting write. The store's own errors already
+    /// say what to do; anything else never shows a system message.
+    static func fastingFailure(_ error: Error) -> String {
+        if let known = error as? FastingTimerStoreError, let text = known.errorDescription { return text }
+        return String(localized: "Couldn’t save the fast. Try again.")
     }
 
     static func fastingClock(_ interval: TimeInterval) -> String {
@@ -841,11 +985,11 @@ enum TrackSectionCopy {
     }
 
     static func routineTitle(_ store: TrackFoundationStore, for run: RoutineRun) -> String {
-        store.routines.first { $0.id == run.routineID }?.title ?? "Routine"
+        store.routines.first { $0.id == run.routineID }?.title ?? String(localized: "Routine")
     }
 
     static func goalTitle(_ store: TrackFoundationStore, for id: UUID) -> String {
-        store.definitions.first { $0.id == id }?.title ?? "Goal"
+        store.definitions.first { $0.id == id }?.title ?? String(localized: "Goal")
     }
 }
 
@@ -861,72 +1005,36 @@ private func trackOfferHealthConnect() async {
 
 // MARK: - Track modules
 
-/// The greeting, with the day's position beside it.
-///
-/// Track is where a person records what their day was actually like, so which
-/// part of the day it is now is load-bearing context rather than decoration.
-/// `CelestialDaypartIndicator` answers it with the same sun and moon artwork the
-/// scenic backdrop uses — `CelestialDawn` through `CelestialNight` — riding an
-/// arc at the height the real clock has reached.
-///
-/// The scenic celestial behind the header is deliberately anchored away from the
-/// reading column so it never sits behind the greeting, which means the backdrop
-/// alone cannot answer "how much of the day is left". This can, at a glance, and
-/// it carries a VoiceOver description the backdrop does not.
-private struct TrackHeaderSection: View {
-    @Environment(PresentationPreferences.self) private var preferences
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
-        let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
-            : AnyLayout(HStackLayout(alignment: .top, spacing: 16))
-
-        layout {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(TrackSectionCopy.daypartTitle(preferences))
-                    .font(Typography.screenTitle())
-                    .foregroundStyle(palette.color(for: .foreground))
-                Text("What would feel useful to record?")
-                    .font(Typography.body())
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Below the greeting at accessibility sizes rather than shrunk
-            // beside it: `DESIGN.md` forbids shrinking to preserve a one-line
-            // layout, and an arc this small stops being readable before the
-            // text does.
-            CelestialDaypartIndicator()
-                .frame(width: dynamicTypeSize.isAccessibilitySize ? 132 : 96, height: 52)
-                .accessibilityIdentifier("track.header.daypart")
-        }
-        .padding(.top, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityIdentifier("track.header")
-    }
-}
-
 private struct TrackQuickLogStrip: View {
+    @Environment(\.lifeBoardAtmosphereSnapshot) private var atmosphereSnapshot
     let store: TrackFoundationStore
     @Binding var showsMood: Bool
     @Binding var editingMood: MoodEnergyCheckInValue?
     @Binding var showsSleep: Bool
     @Binding var editingSleep: SleepContextRecord?
+    let onOpenSleep: (() -> Void)?
     @Environment(PresentationPreferences.self) private var preferences
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let palette = DaypartTokens.appearancePalette(for: preferences.resolvedDaypart(), colorScheme: colorScheme)
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Quick log", symbol: "bolt")
+            // The first heading under the shared root header, so at twilight
+            // and night it sits on the dark sky: cocoa ink there vanished once
+            // Track's own greeting (which used to sit above it) moved up.
+            if AtmosphereDescriptor.usesInverseHeaderInk(for: atmosphereSnapshot.phase) {
+                Label("Quick log", systemImage: "bolt")
+                    .lifeboardFont(.sectionTitle)
+                    .foregroundStyle(Color(SemanticColorTokens.foundationOnScenicDark))
+                    .accessibilityAddTraits(.isHeader)
+            } else {
+                SectionHeader("Quick log", symbol: "bolt")
+            }
 
             ScrollView(.horizontal) {
                 HStack(spacing: 12) {
                     TrackQuickLogButton(
-                        title: "Water",
+                        title: String(localized: "Water"),
                         detail: "+250 mL",
                         symbol: "drop.fill",
                         identifier: "track.quick.water",
@@ -939,7 +1047,7 @@ private struct TrackQuickLogStrip: View {
                     }
                     trackersLink
                     TrackQuickLogButton(
-                        title: "Mood",
+                        title: String(localized: "Mood"),
                         detail: TrackSectionCopy.latestMood(store),
                         symbol: "face.smiling",
                         identifier: "track.quick.mood"
@@ -948,13 +1056,17 @@ private struct TrackQuickLogStrip: View {
                         showsMood = true
                     }
                     TrackQuickLogButton(
-                        title: "Sleep",
-                        detail: TrackSectionCopy.latestSleep(store),
+                        title: String(localized: "Sleep"),
+                        detail: onOpenSleep == nil ? TrackSectionCopy.latestSleep(store) : String(localized: "Log last night"),
                         symbol: "moon.zzz",
                         identifier: "track.quick.sleep"
                     ) {
-                        editingSleep = nil
-                        showsSleep = true
+                        if let onOpenSleep {
+                            onOpenSleep()
+                        } else {
+                            editingSleep = nil
+                            showsSleep = true
+                        }
                     }
                 }
                 .padding(.vertical, 2)
@@ -965,16 +1077,20 @@ private struct TrackQuickLogStrip: View {
             // inset sits *behind* the shell's floating composer and dock, so a
             // receipt placed there is never seen — the Inbox receipt learned the
             // same thing.
-            if let receipt = store.hydrationReceipt {
+            if let receipt = store.hydrationReceipt, store.hydrationReceiptAnchor == .quickLog {
                 ReceiptBar(
                     receipt,
                     undo: { Task { await store.undoLastHydration() } },
                     onDismiss: { store.clearHydrationReceipt() }
                 )
                 .accessibilityIdentifier("track.hydration.receipt")
-                .lifeBoardMotion(.contentInsertion, value: receipt.id)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
+        // On the container, keyed on the receipt: an animation modifier on
+        // the receipt itself cannot animate that receipt's own insertion, so
+        // it used to cut in and out.
+        .lifeBoardMotion(.contentInsertion, value: store.hydrationReceipt?.id)
     }
 
     private var trackersLink: some View {
@@ -995,8 +1111,8 @@ private struct TrackQuickLogStrip: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Trackers")
                         .font(.subheadline.weight(.semibold))
-                    Text("Your own")
-                        .font(.caption)
+                    Text("Custom")
+                        .font(.lifeboard(.caption1))
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
@@ -1021,24 +1137,32 @@ private struct TrackDueAndUnresolvedSection: View {
             // `LazyVStack(spacing: 16)`. Now that it is one child, the spacing
             // has to be restated here to look the same.
             VStack(spacing: 16) {
-                SectionHeader("Needs a decision", symbol: "exclamationmark.circle")
+                SectionHeader("Doses to confirm", symbol: "exclamationmark.circle")
                 ForEach(store.snapshot.unresolvedMedicationEvents) { event in
+                    let time = event.scheduledAt.formatted(date: .omitted, time: .shortened)
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Image(systemName: "pills.fill").foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                            Image(systemName: "pills.fill").foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                             VStack(alignment: .leading) {
-                                Text(store.medicationName(id: event.medicationID)).font(.headline)
-                                Text(event.status == .unresolved ? "The window passed — choose what happened" : "Scheduled \(event.scheduledAt.formatted(date: .omitted, time: .shortened))")
-                                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                                Text(store.medicationName(id: event.medicationID)).font(.lifeboard(.headline))
+                                Text(event.status == .unresolved ? String(localized: "Due \(time)") : String(localized: "Scheduled \(time)"))
+                                    .font(.lifeboard(.caption1)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                         }
+                        // Full-size controls: a dose decision is not a place
+                        // for sub-44pt targets.
                         HStack {
-                            Button("Taken") { Task { await store.resolveMedication(event: event, status: .taken) } }.buttonStyle(.lifeBoardPrimaryCompact)
-                            Button("Skipped") { Task { await store.resolveMedication(event: event, status: .skipped) } }.buttonStyle(.bordered)
-                            Button("Snooze 15m") { Task { await store.snoozeMedication(event: event) } }.buttonStyle(.bordered)
+                            Button("Taken") { Task { await store.resolveMedication(event: event, status: .taken) } }
+                                .buttonStyle(.lifeBoardPrimaryCompact)
+                                .frame(minHeight: 44)
+                            Button("Skipped") { Task { await store.resolveMedication(event: event, status: .skipped) } }
+                                .buttonStyle(.lifeBoardChip)
+                                .frame(minHeight: 44)
+                            Button("Snooze 15 min") { Task { await store.snoozeMedication(event: event) } }
+                                .buttonStyle(.lifeBoardChip)
+                                .frame(minHeight: 44)
                         }
-                        .controlSize(.small)
                     }
                     .trackClayCard()
                     .accessibilityIdentifier("track.medication.\(event.id.uuidString)")
@@ -1061,7 +1185,7 @@ private struct TrackHealthSummarySection: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Label("From Apple Health", systemImage: "heart.text.clipboard")
-                        .font(.headline)
+                        .font(.lifeboard(.headline))
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
@@ -1069,13 +1193,13 @@ private struct TrackHealthSummarySection: View {
                 }
 
                 HStack(alignment: .firstTextBaseline, spacing: 18) {
-                    value(.steps, title: "Steps")
-                    value(.activeEnergy, title: "Active")
-                    value(.walkingRunningDistance, title: "Distance")
+                    value(.steps, title: String(localized: "Steps"))
+                    value(.activeEnergy, title: String(localized: "Active"))
+                    value(.walkingRunningDistance, title: String(localized: "Distance"))
                 }
 
                 Text(status)
-                    .font(.caption)
+                    .font(.lifeboard(.caption1))
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .padding(16)
@@ -1095,14 +1219,14 @@ private struct TrackHealthSummarySection: View {
                 .font(.title3.weight(.bold))
                 .monospacedDigit()
             Text(title)
-                .font(.caption)
+                .font(.lifeboard(.caption1))
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             // Provenance travels with the value. These three numbers carried no
             // source at all, and "—" carried no explanation of *why* it is
             // absent.
             if let aggregate {
                 Text(aggregate.sourceLabel)
-                    .font(.caption2)
+                    .font(.lifeboard(.caption2))
                     .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                     .lineLimit(1)
             }
@@ -1123,8 +1247,13 @@ private struct TrackHealthSummarySection: View {
     private static func text(_ value: Double, metric: HealthMetric) -> String {
         switch metric {
         case .steps: value.formatted(.number.precision(.fractionLength(0)))
-        case .walkingRunningDistance: "\((value / 1_000).formatted(.number.precision(.fractionLength(1)))) km"
-        case .activeEnergy: "\(Int(value)) kcal"
+        // Locale units: kilometres or miles, kilocalories or Calories.
+        case .walkingRunningDistance:
+            Measurement(value: value, unit: UnitLength.meters)
+                .formatted(.measurement(width: .abbreviated, usage: .road, numberFormatStyle: .number.precision(.fractionLength(1))))
+        case .activeEnergy:
+            Measurement(value: value, unit: UnitEnergy.kilocalories)
+                .formatted(.measurement(width: .abbreviated, usage: .workout, numberFormatStyle: .number.precision(.fractionLength(0))))
         default: value.formatted(.number.precision(.fractionLength(0...1)))
         }
     }
@@ -1138,6 +1267,35 @@ private struct TrackHealthSummarySection: View {
 /// the material inside the view would give SwiftUI two structurally different
 /// subtrees, and the running timer's `TimelineView` would be torn down and
 /// rebuilt — restarting the ember ring — every time the nomination changed.
+/// Brings back a routine the person minimized. The run is paused, so the
+/// banner is the only standing reminder that it is still open.
+private struct TrackRoutineResumeBanner: View {
+    let run: RoutineRun
+    let onResume: () -> Void
+
+    var body: some View {
+        Button(action: onResume) {
+            HStack(spacing: 12) {
+                Image(systemName: "play.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Resume routine").font(.lifeboard(.headline))
+                    Text(run.versionSnapshot.title)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+            }
+            .trackClayCard()
+        }
+        .buttonStyle(.plain)
+        .hoverEffect(.highlight)
+        .accessibilityIdentifier("track.routine.resume")
+    }
+}
+
 private struct TrackTodayRoutinesSection: View {
     let store: TrackFoundationStore
 
@@ -1145,17 +1303,17 @@ private struct TrackTodayRoutinesSection: View {
         if store.snapshot.dueRoutines.isEmpty == false {
             // See `TrackDueAndUnresolvedSection` on why this is 16.
             VStack(spacing: 16) {
-                SectionHeader("Useful today", symbol: "sun.max")
+                SectionHeader("Today’s routines", symbol: "sun.max")
                 ForEach(store.snapshot.dueRoutines) { routine in
                     Button { Task { await store.startRoutine(routine) } } label: {
                         HStack(spacing: 14) {
                             Image(systemName: "play.circle.fill")
                                 .font(.title2)
-                                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                                .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(routine.title).font(.headline)
-                                Text("\(routine.steps.count) calm steps")
-                                    .font(.caption)
+                                Text(routine.title).font(.lifeboard(.headline))
+                                Text(TrackSectionCopy.stepCount(routine.steps.count))
+                                    .font(.lifeboard(.caption1))
                                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
@@ -1170,37 +1328,30 @@ private struct TrackTodayRoutinesSection: View {
     }
 }
 
+/// Water progress and medication. Mood and sleep are logged from the Quick
+/// log strip at the top of Today, so this section no longer repeats them.
 private struct TrackCareSnapshotSection: View {
     let store: TrackFoundationStore
-    @Binding var showsMood: Bool
-    @Binding var editingMood: MoodEnergyCheckInValue?
-    @Binding var showsSleep: Bool
     @Binding var showsHydrationTarget: Bool
     let onOpenHabitBoard: () -> Void
     let onOpenHealth: () -> Void
+    var onOpenRoute: ((AppRoute) -> Void)? = nil
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: 12) {
-            SectionHeader("Care snapshot", symbol: "heart.text.square")
+            SectionHeader("Care", symbol: "heart.text.square")
             TrackHydrationTile(store: store, showsHydrationTarget: $showsHydrationTarget)
-            LazyVGrid(columns: TrackSectionCopy.careGridColumns(dynamicTypeSize), spacing: 12) {
-                TrackCareTile(title: "Mood + energy", value: TrackSectionCopy.latestMood(store), symbol: "face.smiling") {
-                    editingMood = nil
-                    showsMood = true
-                }
-                TrackBehaviorAreaLink(
-                    repository: store.phaseIIRepository,
-                    area: .medication,
-                    title: "Medication",
-                    value: store.snapshot.unresolvedMedicationEvents.isEmpty ? "Up to date" : "Decision needed",
-                    symbol: "pills",
-                    onOpenHabitBoard: onOpenHabitBoard,
-                    onOpenHealth: onOpenHealth
-                )
-                TrackCareTile(title: "Sleep context", value: TrackSectionCopy.latestSleep(store), symbol: "moon.zzz") { showsSleep = true }
-                    .privacySensitive()
-            }
+            TrackBehaviorAreaLink(
+                repository: store.phaseIIRepository,
+                area: .medication,
+                title: String(localized: "Medication"),
+                value: TrackSectionCopy.medicationStatus(store),
+                symbol: "pills",
+                onOpenHabitBoard: onOpenHabitBoard,
+                onOpenHealth: onOpenHealth,
+                onOpenRoute: onOpenRoute
+            )
         }
     }
 }
@@ -1211,8 +1362,10 @@ private struct TrackBodyCareSection: View {
     @Binding var showsSleep: Bool
     @Binding var editingSleep: SleepContextRecord?
     @Binding var showsHydrationTarget: Bool
+    let onOpenSleep: (() -> Void)?
     let onOpenHabitBoard: () -> Void
     let onOpenHealth: () -> Void
+    var onOpenRoute: ((AppRoute) -> Void)? = nil
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -1225,31 +1378,39 @@ private struct TrackBodyCareSection: View {
                 TrackBehaviorAreaLink(
                     repository: store.phaseIIRepository,
                     area: .medication,
-                    title: "Medication",
-                    value: store.snapshot.unresolvedMedicationEvents.isEmpty ? "Up to date" : "Decision needed",
+                    title: String(localized: "Medication"),
+                    value: TrackSectionCopy.medicationStatus(store),
                     symbol: "pills",
                     onOpenHabitBoard: onOpenHabitBoard,
-                    onOpenHealth: onOpenHealth
+                    onOpenHealth: onOpenHealth,
+                    onOpenRoute: onOpenRoute
                 )
-                TrackCareTile(title: "Sleep context", value: TrackSectionCopy.latestSleep(store), symbol: "moon.zzz") { showsSleep = true }
-                    .privacySensitive()
+                TrackCareTile(
+                    title: String(localized: "Sleep"),
+                    value: onOpenSleep == nil ? TrackSectionCopy.latestSleep(store) : String(localized: "Nights and notes"),
+                    symbol: "moon.zzz"
+                ) {
+                    if let onOpenSleep { onOpenSleep() } else { editingSleep = nil; showsSleep = true }
+                }
+                .privacySensitive()
             }
+            TrackDeletionReceiptBar(store: store, domains: [.hydration, .sleep])
             if !store.hydrationHistory.isEmpty || !store.sleepRecords.isEmpty {
                 OptionRail(
-                    "Care history range",
+                    "History range",
                     selection: $careHistoryDays,
                     values: [7, 30],
                     identifierPrefix: "track.care.historyRange",
-                    title: { "\($0) days" },
+                    title: { TrackSectionCopy.dayCount($0) },
                     showsLabel: false
                 )
             }
             if !hydrationHistory.isEmpty {
-                SectionHeader("Hydration history", symbol: "drop")
+                SectionHeader("Water history", symbol: "drop")
                 ForEach(hydrationHistory) { TrackHydrationHistoryRow(store: store, log: $0) }
             }
             if !sleepHistory.isEmpty {
-                SectionHeader("Recent sleep context", symbol: "moon.zzz")
+                SectionHeader(onOpenSleep == nil ? "Recent sleep" : "Earlier sleep notes", symbol: "moon.zzz")
                 ForEach(sleepHistory) { record in
                     TrackSleepHistoryRow(
                         store: store,
@@ -1262,7 +1423,11 @@ private struct TrackBodyCareSection: View {
             Button(action: onOpenHealth) {
                 // Fasting is its own module now, so it no longer belongs in
                 // this row's promise.
-                TrackModuleRow("Health and care library", detail: "Medication, trackers, steps, and active energy", symbol: "heart.circle")
+                TrackModuleRow(
+                    String(localized: "Health and care"),
+                    detail: String(localized: "Medication, trackers, steps, energy"),
+                    symbol: "heart.circle"
+                )
             }
             .buttonStyle(.plain)
         }
@@ -1277,20 +1442,21 @@ private struct TrackMindCareSection: View {
     var body: some View {
         VStack(spacing: 12) {
             SectionHeader("Mind", symbol: "brain.head.profile")
-            TrackCareTile(title: "Mood + energy", value: TrackSectionCopy.latestMood(store), symbol: "face.smiling") {
+            TrackCareTile(title: String(localized: "Mood & energy"), value: TrackSectionCopy.latestMood(store), symbol: "face.smiling") {
                 editingMood = nil
                 showsMood = true
             }
+            TrackDeletionReceiptBar(store: store, domains: [.mood])
             TrackMoodTrendView(store: store)
             if !store.checkIns.isEmpty {
                 SectionHeader("Recent check-ins", symbol: "clock.arrow.circlepath")
                 ForEach(Array(store.checkIns.prefix(8)), id: \.id) { checkIn in
                     HStack(spacing: 12) {
-                        Image(systemName: "face.smiling").foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                        Image(systemName: "face.smiling").foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(checkIn.mood.title).font(.body.weight(.medium))
+                            Text(checkIn.mood.displayName).font(.lifeboard(.bodyEmphasis))
                             Text(TrackSectionCopy.moodCheckInDetail(checkIn))
-                                .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                                .font(.lifeboard(.caption1)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                         Spacer()
                         Menu {
@@ -1299,19 +1465,19 @@ private struct TrackMindCareSection: View {
                                 showsMood = true
                             }
                             if let receipt = store.activeCorrection(domain: .mood, sourceID: checkIn.id) {
-                                Button("Undo last correction", systemImage: "arrow.uturn.backward") {
+                                Button("Undo last edit", systemImage: "arrow.uturn.backward") {
                                     Task { await store.undoCorrection(receipt) }
                                 }
                             }
                             Button("Delete", systemImage: "trash", role: .destructive) {
-                                Task { await store.deleteMood(checkIn) }
+                                Task { await store.deleteMood(checkIn, offersUndo: true) }
                             }
                         } label: {
                             Image(systemName: "ellipsis")
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
                         }
-                        .accessibilityLabel("Actions for \(checkIn.mood.title) check-in")
+                        .accessibilityLabel("Actions for \(checkIn.mood.displayName) check-in")
                     }
                     .padding(.vertical, 8)
                     .privacySensitive()
@@ -1332,22 +1498,26 @@ private struct TrackRoutinesAndHabitsSection: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            SectionHeader("Current daypart", symbol: TrackSectionCopy.daypartSymbol(preferences), trailing: {
+            // Today already lists the routines due now; this lens lists every
+            // active routine, so the two never show the same rows twice.
+            SectionHeader("Routines", symbol: TrackSectionCopy.daypartSymbol(preferences), trailing: {
                 Button { editingRoutine = nil; showsRoutineComposer = true } label: { Image(systemName: "plus") }
-                    .accessibilityLabel("Create routine")
+                    .minimumHitTarget()
+                    .accessibilityLabel("Add routine")
             })
-            if store.snapshot.dueRoutines.isEmpty {
-                TrackEmptyStateRow("No routines due", detail: "Start progressively or preview a starter pack.", symbol: "figure.cooldown")
+            let activeRoutines = store.routines.filter { $0.isArchived == false }
+            if activeRoutines.isEmpty {
+                TrackEmptyStateRow(String(localized: "No routines yet"), symbol: "figure.cooldown")
             } else {
-                ForEach(store.snapshot.dueRoutines) { routine in
+                ForEach(activeRoutines) { routine in
                     HStack(spacing: 8) {
                     Button { Task { await store.startRoutine(routine) } } label: {
                         HStack(spacing: 14) {
-                            Image(systemName: "play.circle.fill").font(.title2).foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                            Image(systemName: "play.circle.fill").font(.title2).foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(routine.title).font(.headline)
-                                Text("\(routine.steps.count) calm steps · version \(routine.version)")
-                                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                                Text(routine.title).font(.lifeboard(.headline))
+                                Text(TrackSectionCopy.stepCount(routine.steps.count))
+                                    .font(.lifeboard(.caption1)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
@@ -1378,11 +1548,11 @@ private struct TrackRoutinesAndHabitsSection: View {
                 HStack {
                     Image(systemName: "repeat.circle.fill").foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
                     VStack(alignment: .leading) {
-                        Text("Habits and resilience").font(.headline)
-                        Text("Grade, streak, off days, recovery, and full history")
-                            .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        Text("Habits").lifeboardFont(.headline)
+                        Text("Progress and history")
+                            .lifeboardFont(.caption1).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
-                    Spacer(); Image(systemName: "arrow.up.right")
+                    Spacer(); Image(systemName: "chevron.right")
                 }
                 .trackClayCard()
             }
@@ -1393,11 +1563,11 @@ private struct TrackRoutinesAndHabitsSection: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "shield.lefthalf.filled")
-                        .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationSageInk))
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Resilience settings").font(.headline)
-                        Text("Choose intentional off days, recovery, and how streaks are framed.")
-                            .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        Text("Habit settings").font(.lifeboard(.headline))
+                        Text("Days off and streaks")
+                            .font(.lifeboard(.caption1)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -1422,29 +1592,32 @@ private struct TrackGoalsSection: View {
     @Binding var linkingGoal: GoalDefinition?
     @Binding var goalPendingDeletion: GoalDefinition?
     @Binding var goalUndoReceipt: GoalTransitionReceipt?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 12) {
-            SectionHeader("Goals and progress", symbol: "target", trailing: {
-                Button { editingGoal = nil; showsGoal = true } label: { Image(systemName: "plus") }.accessibilityLabel("Add goal")
+            SectionHeader("Goals", symbol: "target", trailing: {
+                Button { editingGoal = nil; showsGoal = true } label: { Image(systemName: "plus") }
+                    .minimumHitTarget()
+                    .accessibilityLabel("Add goal")
             })
             if store.definitions.isEmpty {
-                TrackEmptyStateRow("No goals required", detail: "Goals are optional. Add one only when it helps organize action.", symbol: "scope")
+                TrackEmptyStateRow(String(localized: "No goals yet"), symbol: "scope")
             } else {
                 ForEach(store.definitions) { goal in
                     let progress = store.snapshot.goals.first(where: { $0.goalID == goal.id })
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(goal.title).font(.headline)
-                                Text("\(goal.effectiveIntent.rawValue.capitalized) · \(goal.effectiveStatus.rawValue.capitalized)")
-                                    .font(.caption)
+                                Text(goal.title).font(.lifeboard(.headline))
+                                Text("\(goal.effectiveIntent.displayName) · \(goal.effectiveStatus.displayName)")
+                                    .font(.lifeboard(.caption1))
                                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                             Text(TrackSectionCopy.progressLabel(progress)).font(.caption.weight(.semibold))
                             Menu {
-                                Button("Link progress source", systemImage: "link.badge.plus") { linkingGoal = goal }
+                                Button("Link progress", systemImage: "link.badge.plus") { linkingGoal = goal }
                                 Button("Edit goal", systemImage: "pencil") { editingGoal = goal; showsGoal = true }
                                 switch goal.effectiveStatus {
                                 case .active, .revised:
@@ -1473,14 +1646,39 @@ private struct TrackGoalsSection: View {
                         if let fraction = progress?.progressFraction { ProgressView(value: fraction).tint(Color(SemanticColorTokens.foundationFocusRing)) }
                         if let why = goal.whyItMatters, !why.isEmpty {
                             Text(why)
-                                .font(.subheadline)
+                                .font(.lifeboard(.support))
                                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                         }
-                        Text(progress?.nextUsefulAction ?? "Link a source to measure progress.")
-                            .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        // No fallback line: with no progress the label above
+                        // already reads "Not linked".
+                        if let nextAction = progress?.nextUsefulAction {
+                            Text(nextAction)
+                                .font(.lifeboard(.caption1)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        }
                     }
                     .trackClayCard()
                     .accessibilityIdentifier("track.goal.\(goal.id.uuidString)")
+
+                    // Under the goal it changed. It sat in the bottom safe-area
+                    // inset, behind the floating composer and the dock, where
+                    // the hydration receipt had already learned it is never seen.
+                    if let receipt = goalUndoReceipt, receipt.after.id == goal.id {
+                        ReceiptBar(
+                            ActionReceiptPresentation(
+                                id: receipt.id,
+                                message: ReceiptCopy.goalTransition(receipt.after.effectiveStatus, title: receipt.after.title)
+                            ),
+                            undo: {
+                                withAnimation(InteractionMotion.sheetRise(reduceMotion: reduceMotion)) { goalUndoReceipt = nil }
+                                Task { await store.undoGoalTransition(receipt) }
+                            },
+                            onDismiss: {
+                                withAnimation(InteractionMotion.sheetRise(reduceMotion: reduceMotion)) { goalUndoReceipt = nil }
+                            }
+                        )
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .accessibilityIdentifier("track.goal.receipt")
+                    }
                 }
             }
         }
@@ -1494,7 +1692,10 @@ private struct TrackGoalsSection: View {
     ) {
         Task {
             let receipt = await store.transitionGoal(goal, to: status, reason: reason)
-            goalUndoReceipt = receipt
+            if receipt != nil { Haptic.commit.play() }
+            withAnimation(InteractionMotion.sheetRise(reduceMotion: reduceMotion)) {
+                goalUndoReceipt = receipt
+            }
             if editAfter, let receipt {
                 editingGoal = receipt.after
                 showsGoal = true
@@ -1505,61 +1706,121 @@ private struct TrackGoalsSection: View {
 
 private struct TrackModulesSection: View {
     let store: TrackFoundationStore
-    let nutritionRepository: any NutritionRepository
-    let lifeMomentRepository: any LifeMomentRepository
-    let wellnessRepository: any WellnessRepository
     @Binding var showsStarterPacks: Bool
 
     var body: some View {
         VStack(spacing: 12) {
-            SectionHeader("Explore and reflect", symbol: "square.grid.2x2")
-            Button { showsStarterPacks = true } label: { TrackModuleRow("Starter packs", detail: "Preview before creating anything", symbol: "shippingbox") }
+            SectionHeader("Starter packs", symbol: "shippingbox")
+            Button { showsStarterPacks = true } label: {
+                TrackModuleRow(
+                    String(localized: "Browse packs"),
+                    detail: String(localized: "Preview before adding"),
+                    symbol: "shippingbox"
+                )
+            }
                 .buttonStyle(.plain)
             ForEach(store.starterPackInstallations.filter { $0.removedAt == nil }) { installation in
                 HStack(spacing: 12) {
                     Image(systemName: "shippingbox.fill").foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(TrackSectionCopy.starterPackTitle(installation.pack)).font(.headline)
-                        Text("Installed · history stays if removed")
-                            .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        Text(TrackSectionCopy.starterPackTitle(installation.pack)).lifeboardFont(.headline)
+                        Text("Added")
+                            .lifeboardFont(.caption1).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     Spacer()
                     Button("Remove", role: .destructive) { Task { await store.removeStarterPack(installation) } }
-                        .font(.caption.weight(.semibold))
+                        .lifeboardFont(.buttonSmall)
+                        .minimumHitTarget()
                 }
                 .padding(.vertical, 8)
             }
-            NavigationLink { JournalModuleView(repository: store.phaseIIRepository) } label: { TrackModuleRow("Journal", detail: "Write, reflect, and look back", symbol: "book.closed") }
-                .buttonStyle(.plain)
-            NavigationLink { KnowledgeModuleView(repository: store.phaseIIRepository) } label: { TrackModuleRow("Notes", detail: "Notes and the links between them", symbol: "note.text") }
-                .buttonStyle(.plain)
-            if V2FeatureFlags.nutritionV1Enabled {
-                NavigationLink { NutritionView(repository: nutritionRepository) } label: { TrackModuleRow("Nutrition", detail: "What you ate today", symbol: "fork.knife") }
-                    .buttonStyle(.plain)
-            }
-            if V2FeatureFlags.wellnessCoreV1Enabled {
-                NavigationLink { WellnessView(repository: wellnessRepository) } label: { TrackModuleRow("Wellness", detail: "Weight, sleep, workouts, and trends", symbol: "heart.text.square") }
-                    .buttonStyle(.plain)
-            }
-            if V2FeatureFlags.lifeMomentsV1Enabled {
-                NavigationLink { LifeMomentsView(repository: lifeMomentRepository) } label: { TrackModuleRow("Life Moments", detail: "Countdowns and dates that matter", symbol: "calendar.badge.heart") }
-                    .buttonStyle(.plain)
-            }
-            NavigationLink {
-                BehaviorAreaRouteView(
-                    repository: store.phaseIIRepository,
-                    initialArea: .trackers
-                )
-            } label: {
-                TrackModuleRow(
-                    "Trackers and medication",
-                    detail: "Typed values, neutral schedules, corrections, and history",
-                    symbol: "square.grid.3x3"
-                )
-            }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("track.module.behavior")
         }
+    }
+}
+
+/// The areas Track holds, as one grid at the top of the Areas lens. Each tile
+/// pushes a typed route on Track's stack, so restoration, the Journal lock and
+/// the destination's own router all work.
+private struct TrackAreasGridSection: View {
+    let onOpenRoute: (AppRoute) -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private struct Area: Identifiable {
+        let id: String
+        let title: String
+        let symbol: String
+        let route: AppRoute
+        var identifier: String { "track.areas.\(id)" }
+    }
+
+    private var areas: [Area] {
+        var areas: [Area] = [
+            Area(id: "journal", title: String(localized: "Journal"), symbol: "book.closed", route: .journalSearch),
+            Area(id: "notes", title: String(localized: "Notes"), symbol: "note.text", route: .notesLibrary(.library(.init())))
+        ]
+        if V2FeatureFlags.nutritionV1Enabled {
+            areas.append(Area(id: "nutrition", title: String(localized: "Nutrition"), symbol: "fork.knife", route: .nutrition(.dailySummary)))
+        }
+        areas.append(Area(id: "fasting", title: String(localized: "Fasting"), symbol: "timer", route: .fasting))
+        if V2FeatureFlags.wellnessCoreV1Enabled {
+            areas.append(Area(id: "wellness", title: String(localized: "Wellness"), symbol: "heart.text.square", route: .wellness(.bodyMetric(.bodyMass))))
+        }
+        if V2FeatureFlags.lifeMomentsV1Enabled {
+            areas.append(Area(id: "lifeMoments", title: String(localized: "Life moments"), symbol: "calendar.badge.heart", route: .lifeMoments(.overview)))
+        }
+        areas.append(contentsOf: [
+            Area(id: "habits", title: String(localized: "Habits"), symbol: "repeat.circle", route: .habitBoard),
+            Area(id: "routines", title: String(localized: "Routines"), symbol: "list.bullet.rectangle", route: .routines(.library)),
+            Area(id: "behavior", title: String(localized: "Trackers & medication"), symbol: "square.grid.3x3", route: .careLibrary),
+            Area(id: "goals", title: String(localized: "Goals"), symbol: "target", route: .goals)
+        ])
+        return areas
+    }
+
+    private var columns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize { return [GridItem(.flexible(), spacing: 12)] }
+        return [GridItem(.adaptive(minimum: 150), spacing: 12)]
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            SectionHeader("Areas", symbol: "square.grid.2x2")
+            LazyVGrid(columns: columns, spacing: 12) {
+                ForEach(areas) { area in
+                    Button {
+                        Haptic.pick.play()
+                        onOpenRoute(area.route)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: area.symbol)
+                                .lifeboardFont(.headline)
+                                .frame(width: 24)
+                                .foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
+                                .accessibilityHidden(true)
+                            Text(area.title)
+                                .lifeboardFont(.headline)
+                                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .lifeboardFont(.caption1)
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                                .accessibilityHidden(true)
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                        .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
+                        .contentShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .hoverableCard(cornerRadius: Radius.card)
+                    .lifeBoardTransitionSource("track.module.\(area.title)")
+                    .accessibilityIdentifier(area.id == "behavior" ? "track.module.behavior" : area.identifier)
+                }
+            }
+        }
+        .accessibilityIdentifier("track.areas")
     }
 }
 
@@ -1581,9 +1842,10 @@ private struct TrackHistorySection: View {
                 selection: $careHistoryDays,
                 values: [7, 30],
                 identifierPrefix: "track.history.range",
-                title: { "\($0) days" },
+                title: { TrackSectionCopy.dayCount($0) },
                 showsLabel: false
             )
+            TrackDeletionReceiptBar(store: store, domains: [.hydration, .sleep, .mood])
 
             if hydrationHistory.isEmpty
                 && sleepHistory.isEmpty
@@ -1592,17 +1854,16 @@ private struct TrackHistorySection: View {
                 && routineHistory.isEmpty
                 && store.snapshot.goals.isEmpty {
                 TrackEmptyStateRow(
-                    "No history yet",
-                    detail: "Explicit records will appear here. Missing data is never treated as zero.",
+                    String(localized: "No history yet"),
                     symbol: "clock.arrow.circlepath"
                 )
             } else {
                 if hydrationHistory.isEmpty == false {
-                    SectionHeader("Hydration", symbol: "drop")
+                    SectionHeader("Water", symbol: "drop")
                     ForEach(hydrationHistory) { TrackHydrationHistoryRow(store: store, log: $0) }
                 }
                 if sleepHistory.isEmpty == false {
-                    SectionHeader("Sleep context", symbol: "moon.zzz")
+                    SectionHeader("Sleep", symbol: "moon.zzz")
                     ForEach(sleepHistory) { record in
                         TrackSleepHistoryRow(
                             store: store,
@@ -1613,15 +1874,15 @@ private struct TrackHistorySection: View {
                     }
                 }
                 if store.checkIns.isEmpty == false {
-                    SectionHeader("Mind check-ins", symbol: "face.smiling")
+                    SectionHeader("Mood & energy", symbol: "face.smiling")
                     ForEach(Array(store.checkIns.prefix(12)), id: \.id) { checkIn in
                         HStack(spacing: 12) {
                             Image(systemName: "face.smiling")
-                                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                                .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(checkIn.mood.title).font(.body.weight(.medium))
+                                Text(checkIn.mood.displayName).font(.lifeboard(.bodyEmphasis))
                                 Text(TrackSectionCopy.moodCheckInDetail(checkIn))
-                                    .font(.caption)
+                                    .font(.lifeboard(.caption1))
                                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
@@ -1695,13 +1956,13 @@ private struct TrackComposerSheets: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: $showsFastingComposer) {
-                FastingComposer { target, _ in
+                FastingComposer { target, reminders in
                     Task {
                         do {
-                            _ = try await fastingTimerStore.start(targetDuration: target)
+                            _ = try await fastingTimerStore.start(targetDuration: target, reminderOffsets: reminders)
                             await reloadFasting()
                         } catch {
-                            fastingError = error.localizedDescription
+                            fastingError = TrackSectionCopy.fastingFailure(error)
                         }
                     }
                 }
@@ -1725,7 +1986,21 @@ private struct TrackComposerSheets: ViewModifier {
                             )
                             await reloadFasting()
                         } catch {
-                            fastingError = error.localizedDescription
+                            fastingError = TrackSectionCopy.fastingFailure(error)
+                        }
+                    },
+                    onSetTimes: { session, startedAt, endedAt in
+                        do {
+                            _ = try await fastingTimerStore.correct(
+                                sessionID: session.id,
+                                startedAt: startedAt,
+                                endedAt: endedAt,
+                                targetDuration: session.targetDuration,
+                                note: session.note
+                            )
+                            await reloadFasting()
+                        } catch {
+                            fastingError = TrackSectionCopy.fastingFailure(error)
                         }
                     }
                 )
@@ -1735,7 +2010,7 @@ private struct TrackComposerSheets: ViewModifier {
                     await store.saveMood(value)
                     return store.errorMessage == nil
                 } delete: { value in
-                    Task { await store.deleteMood(value) }
+                    Task { await store.deleteMood(value, offersUndo: true) }
                 }
             }
             .sheet(isPresented: $showsSleep, onDismiss: { editingSleep = nil }) {
@@ -1795,11 +2070,11 @@ private struct TrackComposerSheets: ViewModifier {
                     return store.errorMessage == nil
                 }
             }
-            .fullScreenCover(isPresented: Binding(
-                get: { store.activeRoutineRun != nil },
+            .lifeboardCover(isPresented: Binding(
+                get: { store.presentedRoutineRun != nil },
                 set: { _ in }
             )) {
-                if let run = store.activeRoutineRun {
+                if let run = store.presentedRoutineRun {
                     RoutineRunner(
                         run: run,
                         advance: { response, skip in
@@ -1807,6 +2082,7 @@ private struct TrackComposerSheets: ViewModifier {
                         },
                         pause: { Task { await store.pauseRoutine() } },
                         resume: { Task { await store.resumeRoutine() } },
+                        minimize: { Task { await store.minimizeRoutine() } },
                         abandon: { Task { await store.abandonRoutine() } }
                     )
                         .interactiveDismissDisabled()
@@ -1823,31 +2099,11 @@ private struct TrackDestructiveDialogs: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .alert("Track needs attention", isPresented: Binding(
+            .alert("Couldn’t save changes", isPresented: Binding(
                 get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } }
             )) { Button("OK", role: .cancel) { store.errorMessage = nil } } message: { Text(store.errorMessage ?? "") }
-            .safeAreaInset(edge: .bottom) {
-                // Both receipts use the shared bar rather than two hand-rolled
-                // rows: one silhouette, Undo that never times out, and copy that
-                // stacks at accessibility text sizes.
-                VStack(spacing: 8) {
-                    if let receipt = goalUndoReceipt {
-                        ReceiptBar(
-                            ActionReceiptPresentation(
-                                message: "Goal \(receipt.after.effectiveStatus.rawValue)."
-                            ),
-                            undo: {
-                                goalUndoReceipt = nil
-                                Task { await store.undoGoalTransition(receipt) }
-                            },
-                            onDismiss: { goalUndoReceipt = nil }
-                        )
-                    }
-                }
-                .padding(.horizontal, 20)
-            }
             .confirmationDialog(
-                "Delete this routine?",
+                "Delete routine?",
                 isPresented: Binding(get: { routinePendingDeletion != nil }, set: { if !$0 { routinePendingDeletion = nil } }),
                 titleVisibility: .visible
             ) {
@@ -1858,10 +2114,10 @@ private struct TrackDestructiveDialogs: ViewModifier {
                 }
                 Button("Cancel", role: .cancel) { routinePendingDeletion = nil }
             } message: {
-                Text("The definition and schedule are removed. Completed and abandoned run history remains available for evidence and review.")
+                Text("Past runs stay in history.")
             }
             .confirmationDialog(
-                "Delete this goal?",
+                "Delete goal?",
                 isPresented: Binding(get: { goalPendingDeletion != nil }, set: { if !$0 { goalPendingDeletion = nil } }),
                 titleVisibility: .visible
             ) {
@@ -1872,7 +2128,7 @@ private struct TrackDestructiveDialogs: ViewModifier {
                 }
                 Button("Cancel", role: .cancel) { goalPendingDeletion = nil }
             } message: {
-                Text("The goal and its explicit progress links are removed. Source tasks, habits, routines, and tracker entries are unchanged.")
+                Text("Linked tasks and habits aren’t changed.")
             }
     }
 }
@@ -1912,11 +2168,12 @@ struct GoalsDestinationView: View {
             LazyVStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("Goals and progress")
+                        // Wraps rather than truncating beside the button at
+                        // large text sizes.
+                        Text("Goals")
                             .font(Typography.screenTitle())
-                        Text("Progress comes from the sources you choose to link.")
-                            .font(.subheadline)
-                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 8)
                     Button("Add goal", systemImage: "plus") {
@@ -1924,18 +2181,19 @@ struct GoalsDestinationView: View {
                         showsComposer = true
                     }
                     .buttonStyle(.lifeBoardPrimaryCompact)
+                    .fixedSize()
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("goals.add")
                 }
                 .featureHeaderArtwork(.goals, enabled: !store.isLoading && store.errorMessage == nil)
 
                 if store.isLoading, store.definitions.isEmpty {
-                    ProgressView("Loading goals")
+                    ProgressView()
                         .frame(maxWidth: .infinity, minHeight: 160)
                 } else if let error = store.errorMessage, store.definitions.isEmpty {
                     StatusSurface(
                         state: .recoverableError,
-                        title: "Goals are unavailable",
+                        title: String(localized: "Couldn’t load goals"),
                         message: error
                     )
                     Button("Try again") { Task { await store.load() } }
@@ -1944,8 +2202,8 @@ struct GoalsDestinationView: View {
                 } else if store.definitions.isEmpty {
                     StatusSurface(
                         state: .empty,
-                        title: "No goals yet",
-                        message: "Add a goal when it helps organize action."
+                        title: String(localized: "No goals yet"),
+                        message: String(localized: "Link tasks and habits to see progress.")
                     )
                     Button("Add goal") {
                         editingGoal = nil
@@ -1955,7 +2213,7 @@ struct GoalsDestinationView: View {
                     .frame(maxWidth: .infinity, minHeight: 48)
                 } else {
                     ForEach(groupedGoals, id: \.status) { group in
-                        Text(group.status.rawValue.capitalized)
+                        Text(group.status.displayName)
                             .font(Typography.sectionTitle())
                         ForEach(group.goals) { goal in
                             goalRow(goal)
@@ -1983,7 +2241,7 @@ struct GoalsDestinationView: View {
             }
         }
         .confirmationDialog(
-            "Delete this goal?",
+            "Delete goal?",
             isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
             titleVisibility: .visible
         ) {
@@ -1994,12 +2252,12 @@ struct GoalsDestinationView: View {
             }
             Button("Cancel", role: .cancel) { pendingDeletion = nil }
         } message: {
-            Text("The goal and its progress links are removed. Linked source records are unchanged.")
+            Text("Linked tasks and habits aren’t changed.")
         }
         .safeAreaInset(edge: .bottom) {
             if let undoReceipt {
                 HStack {
-                    Text("Goal updated.")
+                    Text("Goal updated")
                     Spacer()
                     Button("Undo") {
                         self.undoReceipt = nil
@@ -2031,7 +2289,7 @@ struct GoalsDestinationView: View {
             } label: {
                 VStack(alignment: .leading, spacing: 7) {
                     HStack {
-                        Text(goal.title).font(.headline)
+                        Text(goal.title).font(.lifeboard(.headline))
                         Spacer()
                         Text(TrackSectionCopy.progressLabel(progress))
                             .font(.caption.weight(.semibold))
@@ -2040,10 +2298,13 @@ struct GoalsDestinationView: View {
                         ProgressView(value: fraction)
                             .tint(Color(SemanticColorTokens.foundationFocusRing))
                     }
-                    Text(progress?.nextUsefulAction ?? "Link a source to measure progress.")
-                        .font(.caption)
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                        .multilineTextAlignment(.leading)
+                    // No fallback line: the label above already reads "Not linked".
+                    if let nextAction = progress?.nextUsefulAction {
+                        Text(nextAction)
+                            .font(.lifeboard(.caption1))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                            .multilineTextAlignment(.leading)
+                    }
                 }
                 .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
                 .contentShape(Rectangle())
@@ -2052,7 +2313,7 @@ struct GoalsDestinationView: View {
             .accessibilityLabel("\(goal.title), \(TrackSectionCopy.progressLabel(progress))")
 
             Menu {
-                Button("Link progress source", systemImage: "link.badge.plus") { linkingGoal = goal }
+                Button("Link progress", systemImage: "link.badge.plus") { linkingGoal = goal }
                 Button("Edit goal", systemImage: "pencil") {
                     editingGoal = goal
                     showsComposer = true
@@ -2127,18 +2388,23 @@ struct RoutinesDestinationView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
                 if store.isLoading, store.routines.isEmpty {
-                    ProgressView("Loading routines")
+                    ProgressView()
                         .frame(maxWidth: .infinity, minHeight: 180)
                 } else if let error = store.errorMessage, store.routines.isEmpty {
                     StatusSurface(
                         state: .recoverableError,
-                        title: "Routines are unavailable",
+                        title: String(localized: "Couldn’t load routines"),
                         message: error
                     )
                     Button("Try again") { Task { await store.load() } }
                         .buttonStyle(.lifeBoardPrimaryCompact)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 } else {
+                    if let finish = store.routineFinishReceipt {
+                        ReceiptBar(finish, onDismiss: { store.clearRoutineFinishReceipt() })
+                            .accessibilityIdentifier("track.routine.finishReceipt")
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     destinationContent
                 }
             }
@@ -2168,20 +2434,26 @@ struct RoutinesDestinationView: View {
                 return store.errorMessage == nil
             }
         }
-        .fullScreenCover(isPresented: $showsRunner) {
+        .lifeboardCover(isPresented: $showsRunner) {
             if let run = store.activeRoutineRun {
                 RoutineRunner(
                     run: run,
                     advance: { response, skip in Task { await store.advanceRoutine(response: response, skip: skip) } },
                     pause: { Task { await store.pauseRoutine() } },
                     resume: { Task { await store.resumeRoutine() } },
+                    minimize: {
+                        Task {
+                            await store.minimizeRoutine()
+                            showsRunner = false
+                        }
+                    },
                     abandon: { Task { await store.abandonRoutine() } }
                 )
                 .interactiveDismissDisabled()
             }
         }
         .confirmationDialog(
-            "Delete this routine?",
+            "Delete routine?",
             isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
             titleVisibility: .visible
         ) {
@@ -2195,9 +2467,9 @@ struct RoutinesDestinationView: View {
             }
             Button("Cancel", role: .cancel) { pendingDeletion = nil }
         } message: {
-            Text("The definition and schedule are removed. Existing run history remains available.")
+            Text("Past runs stay in history.")
         }
-        .alert("Routines need attention", isPresented: Binding(
+        .alert("Couldn’t save changes", isPresented: Binding(
             get: { store.errorMessage != nil && store.routines.isEmpty == false },
             set: { if !$0 { store.errorMessage = nil } }
         )) {
@@ -2218,8 +2490,8 @@ struct RoutinesDestinationView: View {
             } else {
                 StatusSurface(
                     state: .unavailable,
-                    title: "Routine unavailable",
-                    message: "It may have been archived or removed."
+                    title: String(localized: "Routine not found"),
+                    message: String(localized: "It may be archived or deleted.")
                 )
                 Button("View all routines") {
                     router.openLeaf(.routines(.library), in: .track)
@@ -2234,10 +2506,10 @@ struct RoutinesDestinationView: View {
         Group {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(collectionHeading).font(Typography.screenTitle())
-                    Text("Review the steps first, then start when it fits.")
-                        .font(.subheadline)
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    Text(collectionHeading)
+                        .font(Typography.screenTitle())
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
                 Button("Add routine", systemImage: "plus") {
@@ -2245,6 +2517,8 @@ struct RoutinesDestinationView: View {
                     showsComposer = true
                 }
                 .buttonStyle(.lifeBoardPrimaryCompact)
+                // One line: the label wrapped to "Add / routine" in a pill.
+                .fixedSize()
                 .frame(minHeight: 44)
             }
             .featureHeaderArtwork(.routines)
@@ -2263,8 +2537,11 @@ struct RoutinesDestinationView: View {
             if displayedRoutines.isEmpty {
                 StatusSurface(
                     state: .empty,
-                    title: "No routines here",
-                    message: "Add a routine or review the complete library."
+                    title: String(localized: "No routines here"),
+                    // "" drops the body line: the Add routine button is right above.
+                    message: isDaypartFocus
+                        ? String(localized: "None scheduled for this time of day.")
+                        : ""
                 )
                 if case .collection(.daypart) = focus {
                     Button("View all routines") { router.openLeaf(.routines(.library), in: .track) }
@@ -2281,7 +2558,7 @@ struct RoutinesDestinationView: View {
             Text(routine.title).font(Typography.screenTitle())
             if let schedule = store.routineSchedules.first(where: { $0.routineID == routine.id }) {
                 Text(scheduleDescription(schedule))
-                    .font(.subheadline)
+                    .font(.lifeboard(.support))
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
 
@@ -2319,10 +2596,10 @@ struct RoutinesDestinationView: View {
                     Image(systemName: "circle")
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(step.title).font(.body)
+                        Text(step.title).font(.lifeboard(.body))
                         if let duration = step.duration {
-                            Text("About \(max(1, Int(duration / 60))) minutes")
-                                .font(.caption)
+                            Text("About \(LifeBoardDuration.text(minutes: max(1, Int(duration / 60))))")
+                                .font(.lifeboard(.caption1))
                                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                     }
@@ -2330,18 +2607,18 @@ struct RoutinesDestinationView: View {
                 .frame(minHeight: 44)
             }
 
-            Text("Run history").font(Typography.sectionTitle())
+            Text("History").font(Typography.sectionTitle())
             let history = store.routineRuns
                 .filter { $0.routineID == routine.id }
                 .sorted { $0.startedAt > $1.startedAt }
             if history.isEmpty {
-                Text("No runs recorded yet.")
+                Text("No runs yet")
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 ForEach(history.prefix(30)) { run in
                     LabeledContent(
                         run.startedAt.formatted(date: .abbreviated, time: .shortened),
-                        value: run.status.rawValue.capitalized
+                        value: run.status.displayName
                     )
                     .frame(minHeight: 44)
                 }
@@ -2355,9 +2632,9 @@ struct RoutinesDestinationView: View {
                 router.push(.routine(routine.id), in: .track)
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(routine.title).font(.headline)
-                    Text("\(routine.steps.count) steps")
-                        .font(.caption)
+                    Text(routine.title).font(.lifeboard(.headline))
+                    Text(TrackSectionCopy.stepCount(routine.steps.count))
+                        .font(.lifeboard(.caption1))
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
@@ -2370,7 +2647,12 @@ struct RoutinesDestinationView: View {
         .padding(14)
         .lifeBoardClaySurface(.raised, cornerRadius: Radius.largeCard)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(routine.title), \(routine.steps.count) steps")
+        .accessibilityLabel("\(routine.title), \(TrackSectionCopy.stepCount(routine.steps.count))")
+    }
+
+    private var isDaypartFocus: Bool {
+        if case .collection(.daypart) = focus { return true }
+        return false
     }
 
     private var displayedRoutines: [RoutineDefinition] {
@@ -2385,22 +2667,27 @@ struct RoutinesDestinationView: View {
     }
 
     private var collectionHeading: String {
-        guard case .collection(.daypart(let daypart)) = focus else { return "Routines" }
-        return "\(daypart.rawValue.capitalized) routines"
+        guard case .collection(.daypart(let daypart)) = focus else { return String(localized: "Routines") }
+        let name = daypart.trackDisplayName
+        return String(localized: "\(name) routines")
     }
 
     private var navigationTitle: String {
-        if case .routine = focus { return "Routine" }
-        return "Routines"
+        if case .routine = focus { return String(localized: "Routine") }
+        return String(localized: "Routines")
     }
 
     private func primaryRoutineActionTitle(_ routine: RoutineDefinition) -> String {
-        guard let active = store.activeRoutineRun else { return "Start routine" }
-        return active.routineID == routine.id ? "Continue routine" : "Continue \(active.versionSnapshot.title)"
+        guard let active = store.activeRoutineRun else { return String(localized: "Start routine") }
+        let activeTitle = active.versionSnapshot.title
+        return active.routineID == routine.id
+            ? String(localized: "Continue routine")
+            : String(localized: "Continue \(activeTitle)")
     }
 
     private func primaryRoutineAction(_ routine: RoutineDefinition) {
         if store.activeRoutineRun != nil {
+            store.reopenRoutine()
             showsRunner = true
         } else {
             Task {
@@ -2411,8 +2698,14 @@ struct RoutinesDestinationView: View {
     }
 
     private func scheduleDescription(_ schedule: RoutineSchedule) -> String {
-        let daypart = schedule.daypart?.rawValue.capitalized ?? "Any daypart"
-        return "\(daypart) · \(schedule.weekdays.count) days each week"
+        let daypart = schedule.daypart?.trackDisplayName ?? String(localized: "Any time")
+        let days = schedule.weekdays.count
+        let cadence = switch days {
+        case 7: String(localized: "Every day")
+        case 1: String(localized: "1 day a week")
+        default: String(localized: "\(days) days a week")
+        }
+        return "\(daypart) · \(cadence)"
     }
 }
 
@@ -2458,8 +2751,8 @@ struct TrackUniversalCaptureView: View {
                     if store.snapshot.unresolvedMedicationEvents.isEmpty {
                         StatusSurface(
                             state: .noRecord,
-                            title: "No medication event due",
-                            message: "Scheduled and unresolved events appear here.",
+                            title: String(localized: "No doses due"),
+                            message: "",
                             density: .compact
                         )
                     } else {
@@ -2467,14 +2760,13 @@ struct TrackUniversalCaptureView: View {
                             Section(store.medicationName(id: event.medicationID)) {
                                 Button("Taken", systemImage: "checkmark.circle") { resolve(event, .taken) }
                                 Button("Skipped", systemImage: "forward.circle") { resolve(event, .skipped) }
-                                Button("Snoozed", systemImage: "clock") { resolve(event, .snoozed) }
+                                Button("Snooze", systemImage: "clock") { resolve(event, .snoozed) }
                             }
                         }
                     }
                 }
                 .lifeBoardFormSurface()
-                .navigationTitle("Medication event")
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
+                .navigationTitle("Medication")
             case .routineRun:
                 List(store.routines) { routine in
                     Button {
@@ -2483,11 +2775,20 @@ struct TrackUniversalCaptureView: View {
                         Label(routine.title, systemImage: "play.circle.fill")
                     }
                 }
-                .overlay { if store.routines.isEmpty { StatusSurface(state: .empty, title: "No routines yet", message: "Add one to start tracking a rhythm.", density: .compact) } }
+                .overlay {
+                    if store.routines.isEmpty {
+                        StatusSurface(
+                            state: .empty,
+                            title: String(localized: "No routines yet"),
+                            message: String(localized: "Add one in Track."),
+                            density: .compact
+                        )
+                    }
+                }
                 .navigationTitle("Start routine")
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
-                .fullScreenCover(isPresented: Binding(get: { store.activeRoutineRun != nil }, set: { _ in })) {
-                    if let run = store.activeRoutineRun {
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() }.keyboardShortcut(.cancelAction) } }
+                .lifeboardCover(isPresented: Binding(get: { store.presentedRoutineRun != nil }, set: { _ in })) {
+                    if let run = store.presentedRoutineRun {
                         RoutineRunner(
                             run: run,
                             advance: { response, skip in
@@ -2495,13 +2796,19 @@ struct TrackUniversalCaptureView: View {
                             },
                             pause: { Task { await store.pauseRoutine() } },
                             resume: { Task { await store.resumeRoutine() } },
+                            minimize: { Task { await store.minimizeRoutine() } },
                             abandon: { Task { await store.abandonRoutine() } }
                         )
                         .interactiveDismissDisabled()
                     }
                 }
             default:
-                StatusSurface(state: .unavailable, title: "Capture unavailable", message: "This capture is not available on this device.", density: .compact)
+                StatusSurface(
+                    state: .unavailable,
+                    title: String(localized: "Not available"),
+                    message: String(localized: "Can’t log this on this device."),
+                    density: .compact
+                )
             }
         }
         .task { await store.load() }
@@ -2524,10 +2831,10 @@ private struct HydrationCaptureComposer: View {
     @State private var bloomTrigger = 0
 
     private let presets: [(amount: Double, title: String, detail: String, symbol: String)] = [
-        (150, "Sip", "150 mL", "drop"),
-        (250, "Glass", "250 mL", "drop.fill"),
-        (500, "Bottle", "500 mL", "waterbottle.fill"),
-        (750, "Large", "750 mL", "waterbottle")
+        (150, String(localized: "Sip"), "150 mL", "drop"),
+        (250, String(localized: "Glass"), "250 mL", "drop.fill"),
+        (500, String(localized: "Bottle"), "500 mL", "waterbottle.fill"),
+        (750, String(localized: "Large"), "750 mL", "waterbottle")
     ]
 
     var body: some View {
@@ -2537,16 +2844,10 @@ private struct HydrationCaptureComposer: View {
 
             ScrollView {
                 VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 24 : 20) {
-                    VStack(spacing: 8) {
-                        Text("A little water for right now")
-                            .font(Typography.sectionTitle().weight(.bold))
-                            .multilineTextAlignment(.center)
-                        Text("Choose what feels true. You can fine-tune it below.")
-                            .font(.subheadline)
-                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.horizontal, 20)
+                    Text("How much water?")
+                        .font(Typography.sectionTitle().weight(.bold))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
 
                     HydrationSelectionOrb(
                         amount: amount,
@@ -2571,7 +2872,7 @@ private struct HydrationCaptureComposer: View {
                     if let target, target > 0 {
                         let projected = todayAmount + amount
                         Label(
-                            "This would bring today to \(Int(projected)) of \(Int(target)) mL.",
+                            "Today: \(Int(projected)) of \(Int(target)) mL",
                             systemImage: projected >= target ? "checkmark.circle.fill" : "circle.dotted"
                         )
                         .font(.footnote.weight(.medium))
@@ -2579,28 +2880,20 @@ private struct HydrationCaptureComposer: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .lifeBoardClaySurface(.well, cornerRadius: 14)
-                    } else {
-                        Label(
-                            "This records what you drank; it does not prescribe a target.",
-                            systemImage: "heart.text.clipboard"
-                        )
-                        .font(.footnote)
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
-                        .lifeBoardClaySurface(.well, cornerRadius: 14)
                     }
+                    // No line without a target: the orb already shows today's
+                    // total, and a disclaimer about targets answered no question.
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 .padding(.bottom, 110)
             }
         }
-        .navigationTitle("Log hydration")
+        .navigationTitle("Log water")
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             ComposerCommitBar(
-                title: "Add \(Int(amount)) mL",
+                title: String(localized: "Add \(Int(amount)) mL"),
                 phase: commitPhase,
                 isEnabled: amount > 0,
                 action: commit
@@ -2620,11 +2913,11 @@ private struct HydrationCaptureComposer: View {
             withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                 amount = preset.amount
             }
-            UISelectionFeedbackGenerator().selectionChanged()
+            Haptic.pick.play()
         } label: {
             HStack(spacing: 11) {
                 Image(systemName: preset.symbol)
-                    .font(.body.weight(.semibold))
+                    .font(.lifeboard(.bodyStrong))
                     .frame(width: 30, height: 30)
                     .background(
                         Color(SemanticColorTokens.foundationSageAccent)
@@ -2690,7 +2983,7 @@ private struct HydrationCaptureComposer: View {
             withAnimation(MotionProfile.localState.animation(reduceMotion: reduceMotion)) {
                 amount = min(1_500, max(50, amount + delta))
             }
-            UISelectionFeedbackGenerator().selectionChanged()
+            Haptic.pick.play()
         } label: {
             Image(systemName: symbol)
                 .font(.subheadline.weight(.bold))
@@ -2714,15 +3007,15 @@ private struct HydrationCaptureComposer: View {
             if await save(committedAmount) {
                 commitPhase = .success(receipt: .init())
                 bloomTrigger &+= 1
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                Haptic.commit.play()
                 try? await Task.sleep(for: .milliseconds(reduceMotion ? 180 : 620))
                 dismiss()
             } else {
                 commitPhase = .recoverableFailure(.init(
-                    message: "Your water was not saved. Nothing was changed.",
+                    message: String(localized: "Couldn’t log water."),
                     recovery: .retry
                 ))
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                Haptic.fail.play()
             }
         }
     }
@@ -2736,6 +3029,9 @@ private struct HydrationSelectionOrb: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeBoardTransitionCoordinator) private var transitions
     @State private var targetCrossedTrigger = 0
+    /// The orb holds a hero number and three lines of text; a fixed 174 let
+    /// them spill out of the circle at accessibility text sizes.
+    @ScaledMetric(relativeTo: .body) private var diameter: CGFloat = 174
 
     private var level: Double {
         min(0.92, max(0.16, amount / 1_000))
@@ -2768,21 +3064,21 @@ private struct HydrationSelectionOrb: View {
 
             VStack(spacing: 4) {
                 Image(systemName: "drop.fill")
-                    .font(.body.weight(.semibold))
+                    .font(.lifeboard(.bodyStrong))
                 Text("\(Int(amount))")
                     .font(Typography.hero().weight(.bold))
                     .monospacedDigit()
                     .contentTransition(.numericText())
                 Text("milliliters")
-                    .font(.caption.weight(.medium))
+                    .font(.lifeboard(.meta))
                 Text(projectedContext)
-                    .font(.caption2)
+                    .font(.lifeboard(.caption2))
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             .padding(.top, 4)
         }
-        .frame(width: 174, height: 174)
+        .frame(width: diameter, height: diameter)
         // Fires once per day, when the recorded total first crosses the target
         // — a "corresponding recorded state change", which is the only thing
         // DESIGN.md permits this shader for. Explicitly NOT on every +250 mL:
@@ -2810,8 +3106,9 @@ private struct HydrationSelectionOrb: View {
 
     private var projectedContext: String {
         let projected = todayAmount + amount
-        guard let target, target > 0 else { return "\(Int(projected)) mL today" }
-        return "\(Int(min(100, projected / target * 100)))% of today"
+        guard let target, target > 0 else { return String(localized: "\(Int(projected)) mL today") }
+        let percent = Int(min(100, projected / target * 100))
+        return String(localized: "\(percent)% of target")
     }
 }
 
@@ -2830,21 +3127,21 @@ private struct HydrationTargetComposer: View {
 
     var body: some View {
         ComposerScaffold(
-            title: "Hydration target",
-            subtitle: "A number you chose, not one the app decided.",
+            title: String(localized: "Water target"),
             identifier: "track.hydration.target.composer"
         ) {
             HydrationTargetSection(amount: $amount)
         } commit: {
             ComposerCommitBar(
-                title: "Save target",
+                title: String(localized: "Save target"),
                 phase: commitPhase,
                 isEnabled: amount > 0,
                 identifier: "track.hydration.target.commit",
                 action: commit
             )
         }
-        .lifeboardCompletionBurst(trigger: successTrigger)
+        // No completion burst: this is a reversible log, and DESIGN.md keeps
+        // the burst for completions. The commit bar's success is the feedback.
     }
 
     private func commit() {
@@ -2857,7 +3154,7 @@ private struct HydrationTargetComposer: View {
                     dismiss()
                 } else {
                     commitPhase = .recoverableFailure(.init(
-                        message: "The hydration target could not be saved.",
+                        message: String(localized: "Couldn’t save target."),
                         recovery: .retry
                     ))
                 }
@@ -2873,10 +3170,7 @@ private struct HydrationTargetSection: View {
     private static let presets: [Double] = [1_500, 2_000, 2_500, 3_000]
 
     var body: some View {
-        ComposerSection(
-            "Your daily target",
-            footer: "This is your own tracking target. LifeBoard does not calculate or recommend a medical hydration amount."
-        ) {
+        ComposerSection {
             ValueDrum(
                 "Daily target",
                 value: $amount,
@@ -2903,9 +3197,10 @@ private struct RoutineRunner: View {
     let advance: (String?, Bool) -> Void
     let pause: () -> Void
     let resume: () -> Void
+    /// Pauses and takes the runner off screen; the run is kept for later.
+    let minimize: () -> Void
     let abandon: () -> Void
     @State private var response: String?
-    @State private var isChoosingSkipReason = false
     @State private var confirmsAbandon = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -2949,41 +3244,36 @@ private struct RoutineRunner: View {
                     Button("End", role: .destructive) { confirmsAbandon = true }
                         .accessibilityIdentifier("track.routine.end")
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    // Esc keeps the run: it minimizes, it never ends.
+                    Button("Minimize", systemImage: "chevron.down") { minimize() }
+                        .keyboardShortcut(.cancelAction)
+                        .accessibilityHint("Pauses and hides the routine")
+                        .accessibilityIdentifier("track.routine.minimize")
+                }
             }
             .confirmationDialog(
-                "End this routine?",
+                "End routine?",
                 isPresented: $confirmsAbandon,
                 titleVisibility: .visible
             ) {
                 Button("End routine", role: .destructive) { abandon() }
                 Button("Keep going", role: .cancel) {}
             } message: {
-                Text("Your completed steps remain in the run history. The routine template is unchanged.")
-            }
-            .confirmationDialog(
-                "Why are you skipping this step?",
-                isPresented: $isChoosingSkipReason,
-                titleVisibility: .visible
-            ) {
-                Button("Not needed today") { advance("Not needed today", true) }
-                Button("Not now") { advance("Not now", true) }
-                Button("Blocked") { advance("Blocked", true) }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("The reason appears in the run review without changing the routine template.")
+                Text("Finished steps stay in history.")
             }
         }
     }
 
     @ViewBuilder private var primaryAction: some View {
         if let step, step.kind == .timer, let duration = step.duration {
+            // A timer is a guide, not a lock: finishing early is allowed.
             ActiveVisibleTimeline(every: 1) { context in
-                Button(timerRemaining(duration: duration, at: context.date) > 0 ? "Timer running" : "Continue") {
+                Button(timerRemaining(duration: duration, at: context.date) > 0 ? "Done early" : "Continue") {
                     advance(response, false)
                 }
                 .buttonStyle(.lifeBoardPrimaryCompact)
                 .controlSize(.large)
-                .disabled(timerRemaining(duration: duration, at: context.date) > 0)
             }
         } else {
             Button("Continue") { advance(response, false) }
@@ -2999,26 +3289,39 @@ private struct RoutineRunner: View {
                 .frame(maxWidth: .infinity)
             HStack(spacing: 12) {
                 Button("Pause", systemImage: "pause.fill", action: pause)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                     .frame(maxWidth: .infinity, minHeight: 48)
                 if step?.isSkippable == true {
-                    Button("Skip", systemImage: "forward.fill") {
-                        isChoosingSkipReason = true
+                    // Tap skips at once. A reason is optional: press and hold
+                    // to add one for the run review.
+                    Menu {
+                        Section("Add a reason") {
+                            Button("Not needed today") { advance("Not needed today", true) }
+                            Button("Not now") { advance("Not now", true) }
+                            Button("Blocked") { advance("Blocked", true) }
+                        }
+                    } label: {
+                        Label("Skip", systemImage: "forward.fill")
+                    } primaryAction: {
+                        advance(nil, true)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lifeBoardChip)
                     .frame(maxWidth: .infinity, minHeight: 48)
+                    .accessibilityHint("Hold to add a reason")
                 }
             }
         }
     }
 
     private var pausedControls: some View {
-        let title = run.status == .interrupted ? "Routine interrupted" : "Routine paused"
+        let title = run.status == .interrupted
+            ? String(localized: "Routine interrupted")
+            : String(localized: "Routine paused")
         return VStack(spacing: 12) {
             Text(title)
                 .font(Typography.sectionTitle())
-            Text("Your place and timer are saved.")
-                .font(.subheadline)
+            Text("Your place is saved.")
+                .font(.lifeboard(.support))
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Button("Resume", systemImage: "play.fill", action: resume)
                 .frame(maxWidth: .infinity, minHeight: 48)
@@ -3068,7 +3371,7 @@ private struct RoutineStepCard: View {
         VStack(spacing: 18) {
             Image(systemName: symbol)
                 .font(.largeTitle)
-                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotInk))
                 .symbolEffect(.breathe, options: .nonRepeating, value: step.id)
             Text(step.title)
                 .font(Typography.screenTitle())
@@ -3077,7 +3380,7 @@ private struct RoutineStepCard: View {
             if step.kind == .timer, let duration = step.duration {
                 RoutineTimerProgress(run: run, duration: duration)
             } else if let duration = step.duration {
-                Text("About \(Int(duration / 60)) minutes")
+                Text("About \(LifeBoardDuration.text(seconds: duration))")
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             if step.choices.isEmpty == false {
@@ -3188,19 +3491,19 @@ private struct HabitResilienceLibrary: View {
             Group {
                 switch state {
                 case .loading:
-                    ProgressView("Loading habits")
+                    ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .failed(let message):
                     StatusSurface(
                         state: .recoverableError,
-                        title: "Couldn’t load habits",
+                        title: String(localized: "Couldn’t load habits"),
                         message: message
                     )
                 case .loaded(let habits) where habits.isEmpty:
                     StatusSurface(
                         state: .empty,
-                        title: "No active habits",
-                        message: "Create or resume a habit, then its resilience policy will appear here."
+                        title: String(localized: "No habits yet"),
+                        message: String(localized: "Add a habit to set days off.")
                     )
                 case .loaded(let habits):
                     // composer-kit:allow-list navigation list of groups and habits;
@@ -3219,8 +3522,8 @@ private struct HabitResilienceLibrary: View {
                                     } label: {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(group.title)
-                                            Text(group.planningContext.rawValue.capitalized)
-                                                .font(.caption)
+                                            Text(group.planningContext.displayName)
+                                                .font(.lifeboard(.caption1))
                                                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                         }
                                     }
@@ -3235,7 +3538,7 @@ private struct HabitResilienceLibrary: View {
                                 }
                             }
                         }
-                        Section("Habit policies") {
+                        Section("Habits") {
                             ForEach(habits) { habit in
                                 NavigationLink {
                                     HabitResilienceEditor(
@@ -3251,7 +3554,7 @@ private struct HabitResilienceLibrary: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(habit.title)
                                         Text(policySummary(policy(for: habit.id)))
-                                            .font(.caption)
+                                            .font(.lifeboard(.caption1))
                                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                     }
                                     .padding(.vertical, 4)
@@ -3263,14 +3566,14 @@ private struct HabitResilienceLibrary: View {
                     .lifeBoardFormSurface()
                 }
             }
-            .navigationTitle("Habit resilience")
+            .navigationTitle("Habit settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() }.keyboardShortcut(.cancelAction) }
             }
             .task { await load() }
             .confirmationDialog(
-                "Delete this habit group?",
+                "Delete group?",
                 isPresented: Binding(get: { groupPendingDeletion != nil }, set: { if !$0 { groupPendingDeletion = nil } }),
                 titleVisibility: .visible
             ) {
@@ -3281,7 +3584,7 @@ private struct HabitResilienceLibrary: View {
                 }
                 Button("Cancel", role: .cancel) { groupPendingDeletion = nil }
             } message: {
-                Text("Habits keep their histories and policies. They simply return to the ungrouped state.")
+                Text("Its habits move to Ungrouped.")
             }
         }
     }
@@ -3291,7 +3594,8 @@ private struct HabitResilienceLibrary: View {
         do {
             state = .loaded(try await repository.candidates(for: .habit, query: ""))
         } catch {
-            state = .failed(error.localizedDescription)
+            // A system error description is not written for a person.
+            state = .failed(String(localized: "Close and reopen to try again."))
         }
     }
 
@@ -3299,12 +3603,24 @@ private struct HabitResilienceLibrary: View {
         policies.first(where: { $0.habitID == habitID }) ?? HabitResiliencePolicy(habitID: habitID)
     }
 
+    /// "Recovery on · Grade and streak · 2 days off". Parts with nothing to
+    /// report are left out rather than spelled as "no exceptions".
     private func policySummary(_ policy: HabitResiliencePolicy) -> String {
-        let recovery = policy.recoveryEnabled ? "recovery on" : "recovery off"
-        let framing = policy.streakPresentation == .gradeAndStreak ? "grade + streak" : "counts only"
-        let exceptionCount = policy.offDays.count + policy.vacationRanges.count
-        let offDays = exceptionCount == 0 ? "no exceptions" : "\(exceptionCount) intentional exception\(exceptionCount == 1 ? "" : "s")"
-        return "\(recovery) · \(framing) · \(offDays)"
+        var parts = [
+            policy.recoveryEnabled ? String(localized: "Recovery on") : String(localized: "Recovery off"),
+            policy.streakPresentation == .gradeAndStreak
+                ? String(localized: "Grade and streak")
+                : String(localized: "Counts only")
+        ]
+        let offDays = policy.offDays.count
+        if offDays > 0 {
+            parts.append(offDays == 1 ? String(localized: "1 day off") : String(localized: "\(offDays) days off"))
+        }
+        let vacations = policy.vacationRanges.count
+        if vacations > 0 {
+            parts.append(vacations == 1 ? String(localized: "1 vacation") : String(localized: "\(vacations) vacations"))
+        }
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -3327,7 +3643,7 @@ private struct HabitGroupEditor: View {
 
     var body: some View {
         ComposerScaffold(
-            title: group == nil ? "New habit group" : "Edit habit group",
+            title: group == nil ? String(localized: "New group") : String(localized: "Edit group"),
             confirmTitle: "Save",
             isConfirmEnabled: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
             identifier: "track.habitGroup.composer",
@@ -3357,21 +3673,21 @@ private struct HabitGroupDetailSection: View {
     var body: some View {
         ComposerSection(
             "Group",
-            footer: "Groups organize presentation only. Moving a habit never rewrites its occurrence history or recurrence schedule."
+            footer: "Groups don’t change a habit’s history."
         ) {
             ComposerField(
                 "Group name",
-                prompt: "Mornings, wind-down, admin…",
+                prompt: "Group name",
                 text: $title,
                 showsLabel: false,
                 identifier: "track.habitGroup.name"
             )
             OptionRail(
-                "Planning context",
+                "Context",
                 selection: $planningContext,
                 values: PlanningContext.allCases,
                 identifierPrefix: "track.habitGroup.context",
-                title: { $0.rawValue.capitalized }
+                title: { $0.displayName }
             )
         }
     }
@@ -3389,8 +3705,8 @@ private struct ResilienceGroupSection: View {
                 selection: $groupID,
                 values: [UUID?.none] + groups.map { UUID?.some($0.id) },
                 title: { id in
-                    guard let id else { return "Ungrouped" }
-                    return groups.first { $0.id == id }?.title ?? "Ungrouped"
+                    guard let id else { return String(localized: "Ungrouped") }
+                    return groups.first { $0.id == id }?.title ?? String(localized: "Ungrouped")
                 },
                 identifier: "track.resilience.group"
             )
@@ -3405,19 +3721,23 @@ private struct ResilienceRecoverySection: View {
     var body: some View {
         ComposerSection(
             "Recovery",
-            footer: "Recovered days count as completed eligible days, but remain visibly identified in history."
+            footer: "Recovered days count as done and stay marked."
         ) {
             // Stays a real `Toggle` with a restyled `ToggleStyle`. The
-            // accessibility-XXXL suite drives `app.switches["Allow recovery
-            // completions"]`, and only a genuine Toggle reports as `.switch`.
-            Toggle("Allow recovery completions", isOn: $recoveryEnabled)
+            // accessibility-XXXL suite drives `app.switches["Allow
+            // recovery"]`, and only a genuine Toggle reports as `.switch`.
+            Toggle("Allow recovery", isOn: $recoveryEnabled)
                 .toggleStyle(.lifeBoardClay)
             OptionRail(
-                "Habit progress",
+                "Show",
                 selection: $streakPresentation,
                 values: [.gradeAndStreak, .countsOnly],
                 identifierPrefix: "track.resilience.presentation",
-                title: { $0 == .gradeAndStreak ? "Grade and streak" : "Counts only" }
+                title: {
+                    $0 == .gradeAndStreak
+                        ? String(localized: "Grade and streak")
+                        : String(localized: "Counts only")
+                }
             )
         }
     }
@@ -3430,8 +3750,8 @@ private struct ResilienceMinimumSection: View {
 
     var body: some View {
         ComposerSection(
-            "Gentle fallback",
-            footer: "Low Energy can offer this kinder version without changing the full target or silently completing it."
+            "Minimum version",
+            footer: "Offered on low-energy days instead of the full target."
         ) {
             OptionRail(
                 "Low-energy minimum",
@@ -3444,7 +3764,9 @@ private struct ResilienceMinimumSection: View {
                 ComposerNumberField(
                     "Amount",
                     value: $minimumValue,
-                    unit: minimumKind == .timed ? "minutes" : (minimumKind == .quantitative ? nil : "times")
+                    unit: minimumKind == .timed
+                        ? String(localized: "min")
+                        : (minimumKind == .quantitative ? nil : String(localized: "times"))
                 )
                 if minimumKind == .quantitative {
                     ComposerField("Unit", prompt: "grams, pages, reps…", text: $minimumUnit)
@@ -3460,12 +3782,12 @@ private struct HabitResilienceEditor: View {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .none: "None"
-            case .binary: "One small check-in"
-            case .avoidance: "Stay within the boundary"
-            case .quota: "Reduced count"
-            case .timed: "Reduced time"
-            case .quantitative: "Reduced amount"
+            case .none: String(localized: "None")
+            case .binary: String(localized: "A check-in")
+            case .avoidance: String(localized: "Stay within limit")
+            case .quota: String(localized: "Reduced count")
+            case .timed: String(localized: "Reduced time")
+            case .quantitative: String(localized: "Reduced amount")
             }
         }
     }
@@ -3526,7 +3848,6 @@ private struct HabitResilienceEditor: View {
         // A pushed editor, so `ComposerPage` rather than the sheet
         // scaffold: the host already owns the navigation stack and the title.
         ComposerPage(
-            subtitle: "How this habit behaves on the days it does not go to plan.",
             identifier: "track.resilience.editor"
         ) {
             ResilienceGroupSection(groupID: $groupID, groups: groups)
@@ -3544,7 +3865,7 @@ private struct HabitResilienceEditor: View {
             exceptionsSection
         } commit: {
             ComposerCommitBar(
-                title: "Save resilience",
+                title: String(localized: "Save"),
                 phase: commitPhase,
                 isEnabled: true,
                 identifier: "track.resilience.commit",
@@ -3561,15 +3882,15 @@ private struct HabitResilienceEditor: View {
     @ViewBuilder
     private var backfillAndVacationSection: some View {
         ComposerSection(
-            "Backfill and vacation",
-            footer: "Vacation days and intentional off days remain distinct from missing data and never lower the eligible grade denominator."
+            "Vacation",
+            footer: "Days off don’t break your streak."
         ) {
             OptionRail(
-                "Correction window",
+                "Log past days",
                 selection: $backfillDays,
                 values: [0, 7, 30],
                 identifierPrefix: "track.resilience.backfill",
-                title: { $0 == 0 ? "Same day only" : "\($0) days" }
+                title: { $0 == 0 ? String(localized: "Today only") : TrackSectionCopy.dayCount($0) }
             )
             DateCapsuleRow("Vacation starts", selection: $vacationStart, components: [.date])
             DateCapsuleRow(
@@ -3587,12 +3908,12 @@ private struct HabitResilienceEditor: View {
                     label: "Vacation"
                 ))
             } label: {
-                Label("Add vacation range", systemImage: "plus.circle")
+                Label("Add vacation", systemImage: "plus.circle")
             }
             .buttonStyle(.lifeBoardChip)
 
             ForEach(vacationRanges) { range in
-                ComposerRow(range.label ?? "Intentional pause", detail: vacationSummary(range)) {
+                ComposerRow(range.label ?? String(localized: "Time off"), detail: vacationSummary(range)) {
                     Button {
                         vacationRanges.removeAll { $0.id == range.id }
                     } label: {
@@ -3603,7 +3924,8 @@ private struct HabitResilienceEditor: View {
                             .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Remove vacation range")
+                    .minimumHitTarget()
+                    .accessibilityLabel("Remove vacation")
                 }
             }
         }
@@ -3611,17 +3933,14 @@ private struct HabitResilienceEditor: View {
 
     @ViewBuilder
     private var historySection: some View {
-        ComposerSection(
-            "30-day history",
-            footer: "Recovery completes the canonical occurrence first, then stores a reversible receipt. Existing completions can be labelled as recovered without changing their completion state."
-        ) {
+        ComposerSection("30-day history") {
             if recentHistory.isEmpty {
-                Text("No due occurrences are available in the last 30 days.")
+                Text("Nothing due in the last 30 days.")
                     .font(.lifeboard(.support))
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
-                ForEach(recentHistory) { occurrence in
-                    recoveryHistoryRow(occurrence)
+                ForEach(recentHistory) { entry in
+                    recoveryHistoryRow(entry)
                 }
             }
         }
@@ -3629,10 +3948,7 @@ private struct HabitResilienceEditor: View {
 
     @ViewBuilder
     private var exceptionsSection: some View {
-        ComposerSection(
-            "Intentional off-day exceptions",
-            footer: "Exceptions use the local calendar day, survive travel and daylight-saving changes, and do not reduce the eligible grade denominator."
-        ) {
+        ComposerSection("Days off") {
             ForEach(exceptionDays, id: \.self) { day in
                 Button {
                     Haptic.pick.play()
@@ -3686,23 +4002,26 @@ private struct HabitResilienceEditor: View {
                 dismiss()
             } else {
                 commitPhase = .recoverableFailure(.init(
-                    message: "Habit resilience could not be saved.",
+                    message: String(localized: "Couldn’t save settings."),
                     recovery: .retry
                 ))
             }
         }
     }
+}
 
+extension HabitResilienceEditor {
     @ViewBuilder
     private func recoveryHistoryRow(_ occurrence: HabitOccurrenceEvidence) -> some View {
         let receipt = recoveryReceipts.first(where: { $0.day == occurrence.day })
         let isRecovered = receipt != nil && occurrence.resolution == .completed
+        let dayTitle = exceptionTitle(occurrence.day)
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(exceptionTitle(occurrence.day))
+                Text(dayTitle)
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Text(historyStatus(occurrence, recovered: isRecovered))
-                    .font(.caption)
+                    .font(.lifeboard(.caption1))
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer(minLength: 8)
@@ -3719,10 +4038,10 @@ private struct HabitResilienceEditor: View {
                         mutatingDays.remove(occurrence.day)
                     }
                 }
-                .buttonStyle(.bordered)
-                .accessibilityLabel("Undo recovery for \(exceptionTitle(occurrence.day))")
+                .buttonStyle(.lifeBoardChip)
+                .accessibilityLabel("Undo recovery for \(dayTitle)")
             } else if recoveryEnabled && offDays.contains(occurrence.day) == false {
-                Button(occurrence.resolution == .completed ? "Label recovered" : "Recover") {
+                Button(occurrence.resolution == .completed ? "Mark recovered" : "Recover") {
                     Task {
                         mutatingDays.insert(occurrence.day)
                         if let receipt = await recover(habit.id, occurrence.day) {
@@ -3733,7 +4052,7 @@ private struct HabitResilienceEditor: View {
                     }
                 }
                 .buttonStyle(.lifeBoardPrimaryCompact)
-                .tint(Color(SemanticColorTokens.foundationSageAccent))
+                .tint(Color(SemanticColorTokens.foundationSageInk))
                 .accessibilityIdentifier("track.habit.recover.\(occurrence.id)")
             }
         }
@@ -3748,24 +4067,31 @@ private struct HabitResilienceEditor: View {
             .map { $0 }
     }
 
-    private func historyStatus(_ occurrence: HabitOccurrenceEvidence, recovered: Bool) -> String {
-        if offDays.contains(occurrence.day) { return "Intentional off day" }
-        if recovered { return "Recovered · counts toward grade" }
-        switch occurrence.resolution {
-        case .due, .missing: return "No data"
-        case .explicitZero: return "Recorded zero"
+    /// Glossary words: a quit habit has clean days and slips, and a person's
+    /// planned break is a day off.
+    private func historyStatus(_ entry: HabitOccurrenceEvidence, recovered: Bool) -> String {
+        if offDays.contains(entry.day) { return String(localized: "Day off") }
+        if recovered { return String(localized: "Recovered") }
+        switch entry.resolution {
+        case .due, .missing: return String(localized: "Not logged")
+        case .explicitZero: return String(localized: "Logged 0")
         case .partial:
-            if let value = occurrence.recordedValue { return "In progress · \(value.formatted())" }
-            return "In progress"
-        case .completed: return "Completed"
-        case .abstained: return "Abstained"
-        case .lapsed: return "Lapsed"
-        case .manuallySkipped: return "Skipped"
-        case .offDay: return "Intentional off day"
-        case .paused: return "Paused"
-        case .failed: return occurrence.failureReason.map { "Couldn’t update · \($0)" } ?? "Couldn’t update"
-        case .unresolved: return "Needs review"
-        case .recovered: return "Recovered · counts toward grade"
+            if let value = entry.recordedValue {
+                let amount = value.formatted()
+                return String(localized: "In progress · \(amount)")
+            }
+            return String(localized: "In progress")
+        case .completed: return String(localized: "Done")
+        case .abstained: return String(localized: "Clean day")
+        case .lapsed: return String(localized: "Slip")
+        case .manuallySkipped: return String(localized: "Skipped")
+        case .offDay: return String(localized: "Day off")
+        case .paused: return String(localized: "Paused")
+        case .failed:
+            return entry.failureReason.map { String(localized: "Couldn’t update · \($0)") }
+                ?? String(localized: "Couldn’t update")
+        case .unresolved: return String(localized: "Needs review")
+        case .recovered: return String(localized: "Recovered")
         }
     }
 
@@ -3825,8 +4151,11 @@ private struct HabitResilienceEditor: View {
     }
 
     private func exceptionTitle(_ day: PlanningDay) -> String {
-        guard let date = day.startDate() else { return "Local day" }
-        if Calendar.current.isDateInToday(date) { return "Today · \(date.formatted(.dateTime.month(.abbreviated).day()))" }
+        guard let date = day.startDate() else { return String(localized: "Day") }
+        if Calendar.current.isDateInToday(date) {
+            let shortDate = date.formatted(.dateTime.month(.abbreviated).day())
+            return String(localized: "Today · \(shortDate)")
+        }
         return date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
     }
 }
@@ -3849,12 +4178,16 @@ private struct RoutineStepEditorRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("Step title", text: $step.title)
-            Picker("Kind", selection: $step.kind) {
-                ForEach(RoutineStepKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+            TextField("Step title", text: $step.title, prompt: Text("Step title").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
+            Picker("Type", selection: $step.kind) {
+                ForEach(RoutineStepKind.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }
             if step.kind == .timer {
-                Stepper("Duration: \(Int(step.durationMinutes)) minutes", value: $step.durationMinutes, in: 1...120)
+                Stepper(
+                    "Duration: \(LifeBoardDuration.text(minutes: Int(step.durationMinutes)))",
+                    value: $step.durationMinutes,
+                    in: 1...120
+                )
             }
             if step.kind == .choice {
                 choiceEditor
@@ -3863,16 +4196,16 @@ private struct RoutineStepEditorRow: View {
                 linkButton
             }
             Toggle("Required", isOn: $step.isRequired)
-            Toggle("May skip", isOn: $step.isSkippable)
+            Toggle("Can skip", isOn: $step.isSkippable)
         }
     }
 
     @ViewBuilder
     private var choiceEditor: some View {
-        TextField("Choices, separated by commas", text: $step.choices)
+        TextField("Choices", text: $step.choices, prompt: Text("Comma-separated choices").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
         ForEach(choices, id: \.self) { choice in
             Picker("If \u{201C}\(choice)\u{201D}", selection: branchDestination(choice)) {
-                Text("Continue in order").tag(UUID?.none)
+                Text("Next step").tag(UUID?.none)
                 ForEach(forwardDestinations) { destination in
                     Text(destination.title).tag(UUID?.some(destination.id))
                 }
@@ -3883,11 +4216,13 @@ private struct RoutineStepEditorRow: View {
     private var linkButton: some View {
         Button(action: pickLink) {
             HStack {
-                Text(step.linkedTitle.isEmpty ? "Link a \(step.kind == .task ? "task" : "habit")" : step.linkedTitle)
+                Text(step.linkedTitle.isEmpty
+                    ? (step.kind == .task ? String(localized: "Link a task") : String(localized: "Link a habit"))
+                    : step.linkedTitle)
                     .foregroundStyle(Color(step.linkedTitle.isEmpty ? SemanticColorTokens.inkSecondary : SemanticColorTokens.inkPrimary))
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.caption)
+                    .font(.lifeboard(.caption1))
                     .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
             }
             .contentShape(Rectangle())
@@ -3919,7 +4254,9 @@ private struct RoutineComposer: View {
             choices = step?.choices.joined(separator: ", ") ?? ""
             branches = step?.branches ?? []
             linkedID = step?.linkedEntityID?.uuidString ?? ""
-            linkedTitle = step?.linkedEntityID == nil ? "" : "Linked \((step?.kind ?? .task) == .habit ? "habit" : "task")"
+            linkedTitle = step?.linkedEntityID == nil
+                ? ""
+                : ((step?.kind ?? .task) == .habit ? String(localized: "Linked habit") : String(localized: "Linked task"))
         }
     }
 
@@ -3965,9 +4302,9 @@ private struct RoutineComposer: View {
             // `RoutineStepEditorRow` so the stack-budget rule still holds.
             Form {
                 Section("Routine") {
-                    TextField("Routine title", text: $title)
+                    TextField("Routine name", text: $title, prompt: Text("Routine name").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                     if existing == nil {
-                        Menu("Start from a template", systemImage: "sparkles.rectangle.stack") {
+                        Menu("Use template", systemImage: "sparkles.rectangle.stack") {
                             ForEach(
                                 RoutineTemplateKind.allCases.filter { $0 != .custom },
                                 id: \.self
@@ -3977,9 +4314,9 @@ private struct RoutineComposer: View {
                         }
                         .frame(minHeight: 44)
                     }
-                    Picker("Daypart", selection: $daypart) {
-                        Text("Any daypart").tag(ResolvedDaypart?.none)
-                        ForEach(ResolvedDaypart.allCases, id: \.self) { Text($0.rawValue.capitalized).tag(ResolvedDaypart?.some($0)) }
+                    Picker("Time of day", selection: $daypart) {
+                        Text("Any time").tag(ResolvedDaypart?.none)
+                        ForEach(ResolvedDaypart.allCases, id: \.self) { Text($0.trackDisplayName).tag(ResolvedDaypart?.some($0)) }
                     }
                     HStack {
                         ForEach(1...7, id: \.self) { weekday in
@@ -4020,19 +4357,20 @@ private struct RoutineComposer: View {
                     .onMove { steps.move(fromOffsets: $0, toOffset: $1) }
                     Button("Add step", systemImage: "plus") { steps.append(.init()) }
                 }
-                Text("Routine history stores this version. Future edits never rewrite prior runs.")
-                    .font(.caption)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
+            // The warm canvas behind the grouped list, not the system's pure white
+            // (light) or pure black (dark) grouped background.
+            .scrollContentBackground(.hidden)
+            .background { GrainedCanvas() }
             .lifeBoardFormSurface()
             .navigationTitle(existing == nil ? "New routine" : "Edit routine")
             .environment(\.editMode, .constant(.active))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction) }
             }
             .safeAreaInset(edge: .bottom) {
                 ComposerCommitBar(
-                    title: existing == nil ? "Create routine" : "Save routine",
+                    title: existing == nil ? String(localized: "Create routine") : String(localized: "Save routine"),
                     phase: commitPhase,
                     isEnabled: isValid,
                     action: saveRoutine
@@ -4042,7 +4380,7 @@ private struct RoutineComposer: View {
             .sheet(item: $pickingStep) { target in
                 let kind: TypedSourceKind = steps.first { $0.id == target.id }?.kind == .habit ? .habit : .task
                 TypedSourcePickerView(
-                    title: "Link a \(kind.title.lowercased())",
+                    title: kind == .habit ? String(localized: "Link habit") : String(localized: "Link task"),
                     kinds: [kind],
                     repository: sourcePickerRepository
                 ) { item in
@@ -4078,7 +4416,7 @@ private struct RoutineComposer: View {
                 dismiss()
             } else {
                 commitPhase = .recoverableFailure(.init(
-                    message: "The routine could not be saved.",
+                    message: String(localized: "Couldn’t save routine."),
                     recovery: .retry
                 ))
             }
@@ -4162,15 +4500,17 @@ private struct RoutineComposer: View {
         }
     }
 
+    /// Menu names only. `.shutdown` stays the stored key; the glossary retires
+    /// "Shutdown" as a name, so the end-of-work routine pairs with Work start.
     private func templateTitle(_ kind: RoutineTemplateKind) -> String {
         switch kind {
-        case .morning: "Morning"
-        case .evening: "Evening"
-        case .workStart: "Work start"
-        case .shutdown: "Shutdown"
-        case .workout: "Workout"
-        case .care: "Care"
-        case .custom: "Custom"
+        case .morning: String(localized: "Morning")
+        case .evening: String(localized: "Evening")
+        case .workStart: String(localized: "Work start")
+        case .shutdown: String(localized: "Work end")
+        case .workout: String(localized: "Workout")
+        case .care: String(localized: "Care")
+        case .custom: String(localized: "Custom")
         }
     }
 }
@@ -4180,9 +4520,13 @@ private struct MoodTrendStrip: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let coordinates = Array(points.enumerated()).map { index, point in
+            // Positioned by date, not by index: two check-ins a week apart
+            // used to sit as close as two a day apart.
+            let first = points.map(\.day).min() ?? Date()
+            let span = max(1, (points.map(\.day).max() ?? first).timeIntervalSince(first))
+            let coordinates = points.map { point in
                 CGPoint(
-                    x: points.count == 1 ? geometry.size.width / 2 : geometry.size.width * CGFloat(index) / CGFloat(points.count - 1),
+                    x: points.count == 1 ? geometry.size.width / 2 : geometry.size.width * CGFloat(point.day.timeIntervalSince(first) / span),
                     y: geometry.size.height * CGFloat(1 - ((point.valence + 4) / 8))
                 )
             }
@@ -4198,8 +4542,9 @@ private struct MoodTrendStrip: View {
                     path.move(to: first)
                     for coordinate in coordinates.dropFirst() { path.addLine(to: coordinate) }
                 }
+                // Ink, not the pale accent: a line is a glyph on paper.
                 .stroke(
-                    Color(SemanticColorTokens.foundationApricotAccent),
+                    Color(SemanticColorTokens.foundationApricotInk),
                     style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
                 )
 
@@ -4207,7 +4552,7 @@ private struct MoodTrendStrip: View {
                     Circle()
                         .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
                         .overlay {
-                            Circle().stroke(Color(SemanticColorTokens.foundationApricotAccent), lineWidth: 2)
+                            Circle().stroke(Color(SemanticColorTokens.foundationApricotInk), lineWidth: 2)
                         }
                         .frame(width: 9, height: 9)
                         .position(coordinates[index])
@@ -4215,7 +4560,28 @@ private struct MoodTrendStrip: View {
             }
         }
         .frame(height: 62)
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Mood over time")
+        .accessibilityValue(accessibilitySummary)
+    }
+
+    /// The same points the strip draws, oldest first, in words.
+    private var accessibilitySummary: String {
+        let ordered = points.sorted { $0.day < $1.day }
+        guard let first = ordered.first, let last = ordered.last else { return String(localized: "No check-ins") }
+        func feeling(_ valence: Double) -> String {
+            switch valence {
+            case 1.5...: String(localized: "lighter")
+            case ..<(-1.5): String(localized: "heavier")
+            default: String(localized: "in between")
+            }
+        }
+        let start = first.day.formatted(.dateTime.month(.abbreviated).day())
+        let end = last.day.formatted(.dateTime.month(.abbreviated).day())
+        let days = TrackSectionCopy.dayCount(ordered.count)
+        let opening = feeling(first.valence)
+        let latest = feeling(last.valence)
+        return String(localized: "\(days), \(start) to \(end). Started \(opening), most recently \(latest).")
     }
 }
 
@@ -4240,13 +4606,14 @@ private struct MoodEnergyComposer: View {
         self.delete = delete
         _mood = State(initialValue: checkIn?.mood ?? .none)
         _energy = State(initialValue: checkIn?.energy ?? 3)
-        _includesEnergy = State(initialValue: checkIn?.energy != nil || checkIn == nil)
+        // Off until the person asks for it, as in Journal: a check-in that
+        // records only a mood must not also claim an energy level.
+        _includesEnergy = State(initialValue: checkIn?.energy != nil)
     }
 
     var body: some View {
         ComposerScaffold(
-            title: checkIn == nil ? "Mood + energy" : "Edit check-in",
-            subtitle: "However today actually is.",
+            title: checkIn == nil ? String(localized: "Mood & energy") : String(localized: "Edit check-in"),
             identifier: "track.mood.composer"
         ) {
             MoodChoiceSection(mood: $mood)
@@ -4258,14 +4625,15 @@ private struct MoodEnergyComposer: View {
             }
         } commit: {
             ComposerCommitBar(
-                title: checkIn == nil ? "Save check-in" : "Save changes",
+                title: checkIn == nil ? String(localized: "Save check-in") : String(localized: "Save changes"),
                 phase: commitPhase,
                 isEnabled: true,
                 identifier: "track.mood.commit",
                 action: saveValue
             )
         }
-        .lifeboardCompletionBurst(trigger: successTrigger)
+        // No completion burst: this is a reversible log, and DESIGN.md keeps
+        // the burst for completions. The commit bar's success is the feedback.
     }
 
     private func saveValue() {
@@ -4284,7 +4652,7 @@ private struct MoodEnergyComposer: View {
                 dismiss()
             } else {
                 commitPhase = .recoverableFailure(.init(
-                    message: "The check-in could not be saved.",
+                    message: String(localized: "Couldn’t save check-in."),
                     recovery: .retry
                 ))
             }
@@ -4300,25 +4668,20 @@ private struct MoodChoiceSection: View {
     @Binding var mood: JournalMood
 
     var body: some View {
-        ComposerSection(
-            "Mood",
-            detail: "Pick the nearest one. There is no wrong answer and no score."
-        ) {
+        // The mood word on the rail is the whole answer: no advice line under
+        // it, and no reassurance that there is no wrong one.
+        ComposerSection("Mood") {
             OptionRail(
                 "Mood",
                 selection: $mood,
                 values: JournalMood.dialOrder,
                 identifierPrefix: "track.mood.choice",
-                title: \.title,
+                title: \.displayName,
                 showsLabel: false,
                 // Mood is the one choice on this screen that carries weight, so
                 // it is the one that earns the bloom.
                 pressBloomTint: Color(SemanticColorTokens.foundationSunAccent)
             )
-            Text(mood.supportiveCopy)
-                .font(.lifeboard(.support))
-                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                .lifeBoardMotion(.contentInsertion, value: mood)
         }
     }
 }
@@ -4328,11 +4691,8 @@ private struct MoodEnergySection: View {
     @Binding var energy: Int
 
     var body: some View {
-        ComposerSection(
-            "Energy",
-            footer: "This records your signal. LifeBoard does not assign a clinical interpretation."
-        ) {
-            Toggle("Record energy", isOn: $includesEnergy)
+        ComposerSection("Energy") {
+            Toggle("Log energy", isOn: $includesEnergy)
                 .toggleStyle(.lifeBoardClay)
             if includesEnergy {
                 BeadStepper(
@@ -4348,11 +4708,11 @@ private struct MoodEnergySection: View {
 
     private static func caption(_ level: Int) -> String {
         switch level {
-        case 1: "Running on empty"
-        case 2: "Low"
-        case 3: "Steady"
-        case 4: "Good"
-        default: "Full tank"
+        case 1: String(localized: "Very low")
+        case 2: String(localized: "Low")
+        case 3: String(localized: "Steady")
+        case 4: String(localized: "Good")
+        default: String(localized: "High")
         }
     }
 }
@@ -4363,12 +4723,21 @@ private struct MoodDeleteSection: View {
 
     var body: some View {
         if isDeletable {
-            DangerRow(
-                "Delete check-in",
-                confirmationTitle: "Delete this check-in?",
-                confirmationMessage: "This removes only this recorded check-in. Other Journal and Track data stays intact.",
-                perform: perform
-            )
+            // Deleting a check-in is reversible — Track offers Undo in a
+            // receipt once the sheet closes — so it runs at once rather than
+            // asking first (DESIGN.md launch contract 1).
+            Button(role: .destructive, action: perform) {
+                Label("Delete check-in", systemImage: "trash")
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color.lifeboard(.statusDanger))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 48)
+                    .lifeBoardClaySurface(.well, cornerRadius: Radius.compact + 2)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("track.mood.delete")
         }
     }
 }
@@ -4398,8 +4767,7 @@ private struct SleepContextComposer: View {
 
     var body: some View {
         ComposerScaffold(
-            title: existing == nil ? "Sleep context" : "Edit sleep context",
-            subtitle: "Record what the night was actually like.",
+            title: existing == nil ? String(localized: "Log sleep") : String(localized: "Edit sleep"),
             isPrivacySensitive: true,
             identifier: "track.sleep.composer"
         ) {
@@ -4408,14 +4776,15 @@ private struct SleepContextComposer: View {
             SleepNotesSection(notes: $notes)
         } commit: {
             ComposerCommitBar(
-                title: existing == nil ? "Save sleep context" : "Save changes",
+                title: existing == nil ? String(localized: "Save sleep") : String(localized: "Save changes"),
                 phase: commitPhase,
                 isEnabled: wake >= bedtime,
                 identifier: "track.sleep.commit",
                 action: saveValue
             )
         }
-        .lifeboardCompletionBurst(trigger: successTrigger)
+        // No completion burst: this is a reversible log, and DESIGN.md keeps
+        // the burst for completions. The commit bar's success is the feedback.
     }
 
     private func saveValue() {
@@ -4438,7 +4807,7 @@ private struct SleepContextComposer: View {
                 dismiss()
             } else {
                 commitPhase = .recoverableFailure(.init(
-                    message: "The sleep context could not be saved.",
+                    message: String(localized: "Couldn’t save sleep."),
                     recovery: .retry
                 ))
             }
@@ -4451,10 +4820,7 @@ private struct SleepWindowSection: View {
     @Binding var wake: Date
 
     var body: some View {
-        ComposerSection(
-            "The night",
-            detail: "Bedtime and wake time as you remember them."
-        ) {
+        ComposerSection("Night") {
             DateCapsuleRow("Bedtime", selection: $bedtime)
             // The old `in: bedtime...` validation moves onto the control, so an
             // impossible wake time cannot be entered and then rejected by a
@@ -4471,21 +4837,21 @@ private struct SleepQualitySection: View {
     var body: some View {
         ComposerSection("How it felt") {
             BeadStepper(
-                "Perceived rest",
+                "Rest",
                 value: $rest,
                 in: 1...5,
                 beadSymbol: "moon.fill",
                 caption: Self.restCaption
             )
             ComposerDial(
-                "Times awake",
+                "Wake-ups",
                 value: Binding(
                     get: { Double(interruptions) },
                     set: { interruptions = Int($0.rounded()) }
                 ),
                 in: 0...20,
                 step: 1,
-                unit: "Interruptions",
+                unit: String(localized: "times"),
                 diameter: 132
             )
         }
@@ -4493,11 +4859,11 @@ private struct SleepQualitySection: View {
 
     private static func restCaption(_ level: Int) -> String {
         switch level {
-        case 1: "Wrecked"
-        case 2: "Rough"
-        case 3: "Okay"
-        case 4: "Good"
-        default: "Rested"
+        case 1: String(localized: "Wrecked")
+        case 2: String(localized: "Rough")
+        case 3: String(localized: "Okay")
+        case 4: String(localized: "Good")
+        default: String(localized: "Rested")
         }
     }
 }
@@ -4507,508 +4873,16 @@ private struct SleepNotesSection: View {
 
     var body: some View {
         ComposerSection(
-            "Anything worth remembering",
-            footer: "Sleep context stays out of widgets, Spotlight, Siri, and lock-screen previews."
+            "Notes",
+            footer: "Hidden from widgets, Spotlight, Siri, and the Lock Screen."
         ) {
             ComposerField(
                 "Private notes",
-                prompt: "Woke at 3, back asleep by 4…",
+                prompt: "Add a note",
                 text: $notes,
                 shape: .prose(lineLimit: 3...8),
                 showsLabel: false
             )
-        }
-    }
-}
-
-struct GoalComposer: View {
-    let existing: GoalDefinition?
-    let save: (GoalDraft) async -> Bool
-    @Environment(\.dismiss) private var dismiss
-    @State private var title: String
-    @State private var type: GoalType
-    @State private var target: Double
-    @State private var hasBaseline: Bool
-    @State private var baseline: Double
-    @State private var unit: String
-    @State private var targetDate: Date
-    @State private var intent: GoalIntent
-    @State private var confidence: GoalConfidence?
-    @State private var whyItMatters: String
-    @State private var checkInCadence: GoalCheckInCadence
-    @State private var commitPhase: LifeBoardComposerPhase = .idle
-    @State private var successTrigger = 0
-
-    init(
-        existing: GoalDefinition? = nil,
-        save: @escaping (GoalDraft) async -> Bool
-    ) {
-        self.existing = existing
-        self.save = save
-        _title = State(initialValue: existing?.title ?? "")
-        _type = State(initialValue: existing?.type ?? .completion)
-        let storedTarget = existing?.targetValue ?? 1
-        _target = State(initialValue: existing?.type == .duration ? storedTarget / 60 : storedTarget)
-        _hasBaseline = State(initialValue: existing?.baselineValue != nil)
-        _baseline = State(initialValue: existing?.type == .duration
-            ? (existing?.baselineValue ?? 0) / 60
-            : existing?.baselineValue ?? 0)
-        _unit = State(initialValue: existing?.unitLabel == "seconds" ? "" : existing?.unitLabel ?? "")
-        _targetDate = State(initialValue: existing?.targetDate ?? Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date())
-        _intent = State(initialValue: existing?.effectiveIntent ?? .outcome)
-        _confidence = State(initialValue: existing?.confidenceRaw.flatMap(GoalConfidence.init(rawValue:)))
-        _whyItMatters = State(initialValue: existing?.whyItMatters ?? "")
-        _checkInCadence = State(initialValue: existing?.checkInCadenceRaw.flatMap(GoalCheckInCadence.init(rawValue:)) ?? .weekly)
-    }
-
-    var body: some View {
-        ComposerScaffold(
-            title: existing == nil ? "New goal" : "Edit goal",
-            subtitle: "One thing you want to be true later.",
-            identifier: "track.goal.composer"
-        ) {
-            GoalIdentitySection(title: $title, type: $type, intent: $intent)
-            GoalTargetSection(
-                type: type,
-                target: $target,
-                hasBaseline: $hasBaseline,
-                baseline: $baseline,
-                unit: $unit,
-                targetDate: $targetDate
-            )
-            GoalCadenceSection(confidence: $confidence, checkInCadence: $checkInCadence)
-            GoalMeaningSection(whyItMatters: $whyItMatters)
-        } commit: {
-            ComposerCommitBar(
-                title: existing == nil ? "Create goal" : "Save goal",
-                phase: commitPhase,
-                isEnabled: canCommit,
-                identifier: "track.goal.commit",
-                action: commit
-            )
-        }
-        .lifeboardCompletionBurst(trigger: successTrigger)
-    }
-
-    private var usesNumericTarget: Bool { type == .count || type == .quantity || type == .duration }
-    private var canCommit: Bool {
-        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            && (usesNumericTarget == false || target > 0)
-    }
-
-    private func commit() {
-        if case .running = commitPhase { return }
-        let draft = GoalDraft(
-            areaID: existing?.areaID,
-            title: title,
-            type: type,
-            intent: intent,
-            targetValue: usesNumericTarget ? (type == .duration ? target * 60 : target) : nil,
-            baselineValue: usesNumericTarget && hasBaseline
-                ? (type == .duration ? baseline * 60 : baseline)
-                : nil,
-            unitLabel: type == .quantity ? unit : type == .duration ? "seconds" : nil,
-            targetDate: type == .targetDate ? targetDate : nil,
-            confidence: confidence,
-            whyItMatters: whyItMatters,
-            checkInCadence: checkInCadence
-        )
-        commitPhase = .running(progress: nil)
-        Task {
-            if await save(draft) {
-                commitPhase = .success(receipt: .init())
-                successTrigger &+= 1
-                dismiss()
-            } else {
-                commitPhase = .recoverableFailure(.init(
-                    message: "The goal could not be saved.",
-                    recovery: .retry
-                ))
-            }
-        }
-    }
-
-    private func goalTypeTitle(_ type: GoalType) -> String {
-        switch type {
-        case .completion: "Completion"
-        case .count: "Count"
-        case .quantity: "Quantity"
-        case .duration: "Duration"
-        case .targetDate: "Target date"
-        }
-    }
-    private func goalIntentTitle(_ intent: GoalIntent) -> String {
-        switch intent {
-        case .outcome: "Outcome"
-        case .maintenance: "Maintenance"
-        case .milestone: "Milestone"
-        case .cumulative: "Cumulative"
-        case .directional: "Directional"
-        }
-    }
-    private func checkInTitle(_ cadence: GoalCheckInCadence) -> String {
-        switch cadence {
-        case .weekly: "Weekly"
-        case .biweekly: "Every two weeks"
-        case .monthly: "Monthly"
-        case .manual: "When I choose"
-        }
-    }
-}
-
-private struct GoalIdentitySection: View {
-    @Binding var title: String
-    @Binding var type: GoalType
-    @Binding var intent: GoalIntent
-
-    var body: some View {
-        ComposerSection("Goal") {
-            ComposerField(
-                "Goal title",
-                prompt: "What you want to be true",
-                text: $title,
-                showsLabel: false,
-                identifier: "track.goal.title"
-            )
-            OptionRail(
-                "Goal type",
-                selection: $type,
-                values: GoalType.allCases,
-                identifierPrefix: "track.goal.type",
-                title: GoalComposerCopy.typeTitle,
-                pressBloomTint: Color(SemanticColorTokens.foundationSunAccent)
-            )
-            OptionRail(
-                "Intent",
-                selection: $intent,
-                values: GoalIntent.allCases,
-                identifierPrefix: "track.goal.intent",
-                title: GoalComposerCopy.intentTitle
-            )
-        }
-    }
-}
-
-private struct GoalTargetSection: View {
-    let type: GoalType
-    @Binding var target: Double
-    @Binding var hasBaseline: Bool
-    @Binding var baseline: Double
-    @Binding var unit: String
-    @Binding var targetDate: Date
-
-    private var usesNumericTarget: Bool { type == .count || type == .quantity || type == .duration }
-
-    var body: some View {
-        if usesNumericTarget || type == .targetDate {
-            ComposerSection("Target") {
-                if usesNumericTarget {
-                    ValueDrum(
-                        type == .duration ? "Target minutes" : "Target",
-                        value: $target,
-                        in: 0...1_000,
-                        step: 1,
-                        coarseStep: 10,
-                        unit: type == .duration ? "minutes" : (unit.isEmpty ? "units" : unit),
-                        fractionDigits: 0,
-                        identifier: "track.goal.target"
-                    )
-                    Toggle("Use a baseline", isOn: $hasBaseline)
-                        .toggleStyle(.lifeBoardClay)
-                    if hasBaseline {
-                        ComposerNumberField(
-                            type == .duration ? "Baseline minutes" : "Baseline",
-                            value: $baseline
-                        )
-                    }
-                    if type == .quantity {
-                        ComposerField("Unit", prompt: "Optional", text: $unit)
-                    }
-                }
-                if type == .targetDate {
-                    DateCapsuleRow("Target date", selection: $targetDate, components: [.date])
-                }
-            }
-        }
-    }
-}
-
-private struct GoalCadenceSection: View {
-    @Binding var confidence: GoalConfidence?
-    @Binding var checkInCadence: GoalCheckInCadence
-
-    var body: some View {
-        ComposerSection("Rhythm") {
-            OptionRail(
-                "Confidence",
-                selection: $confidence,
-                values: [GoalConfidence?.none] + GoalConfidence.allCases.map(Optional.some),
-                identifierPrefix: "track.goal.confidence",
-                title: { $0.map { $0.rawValue.capitalized } ?? "Not set" }
-            )
-            MenuRow(
-                "Check in",
-                selection: $checkInCadence,
-                values: GoalCheckInCadence.allCases,
-                title: GoalComposerCopy.checkInTitle,
-                identifier: "track.goal.checkIn"
-            )
-        }
-    }
-}
-
-private struct GoalMeaningSection: View {
-    @Binding var whyItMatters: String
-
-    var body: some View {
-        ComposerSection(
-            "Why it matters",
-            footer: "Progress comes only from sources you explicitly link after creating the goal."
-        ) {
-            ComposerField(
-                "Why it matters",
-                prompt: "The reason, in your words…",
-                text: $whyItMatters,
-                shape: .prose(lineLimit: 3...8),
-                showsLabel: false
-            )
-        }
-    }
-}
-
-/// Shared display copy so the sections and the parent agree on one spelling.
-private enum GoalComposerCopy {
-    static func typeTitle(_ type: GoalType) -> String {
-        switch type {
-        case .completion: "Completion"
-        case .count: "Count"
-        case .quantity: "Quantity"
-        case .duration: "Duration"
-        case .targetDate: "Target date"
-        }
-    }
-
-    static func intentTitle(_ intent: GoalIntent) -> String {
-        switch intent {
-        case .outcome: "Outcome"
-        case .maintenance: "Maintenance"
-        case .milestone: "Milestone"
-        case .cumulative: "Cumulative"
-        case .directional: "Directional"
-        }
-    }
-
-    static func checkInTitle(_ cadence: GoalCheckInCadence) -> String {
-        switch cadence {
-        case .weekly: "Weekly"
-        case .biweekly: "Every two weeks"
-        case .monthly: "Monthly"
-        case .manual: "When I choose"
-        }
-    }
-}
-
-struct GoalLinkComposer: View {
-    let goal: GoalDefinition
-    let sourcePickerRepository: any TypedSourcePickerRepository
-    let save: (GoalLinkSource, UUID) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var selection: TypedSourcePickerItem?
-    @State private var showsPicker = false
-
-    var body: some View {
-        ComposerScaffold(
-            title: "Link \(goal.title)",
-            confirmTitle: "Link",
-            isConfirmEnabled: selection != nil,
-            identifier: "goal.link.composer",
-            onConfirm: {
-                guard let selection else { return }
-                save(Self.goalSource(for: selection.kind), selection.id)
-                dismiss()
-            }
-        ) {
-            GoalLinkSourceSection(selection: selection) { showsPicker = true }
-        }
-        .sheet(isPresented: $showsPicker) {
-            TypedSourcePickerView(
-                title: "Link \(goal.title)",
-                kinds: TypedSourceKind.allCases,
-                repository: sourcePickerRepository
-            ) { item in selection = item }
-        }
-    }
-
-    private static func goalSource(for kind: TypedSourceKind) -> GoalLinkSource {
-        switch kind {
-        case .task: .task
-        case .project: .project
-        case .habit: .habit
-        case .routine: .routine
-        case .trackerMeasure: .trackerMeasure
-        }
-    }
-}
-
-private struct GoalLinkSourceSection: View {
-    let selection: TypedSourcePickerItem?
-    let choose: () -> Void
-
-    var body: some View {
-        ComposerSection(
-            "Progress source",
-            footer: "LifeBoard aggregates only this explicit link. Unrelated activity never completes a goal."
-        ) {
-            Button(action: choose) {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(selection?.kind.title ?? "Choose a source")
-                            .font(.lifeboard(.body))
-                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                        if let selection {
-                            Text(selection.title)
-                                .font(.lifeboard(.bodyStrong))
-                                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
-                }
-                .padding(.horizontal, 12)
-                .frame(minHeight: 48)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.lifeBoardClay(.well, cornerRadius: Radius.compact + 2))
-            .accessibilityIdentifier("goal.link.chooseSource")
-        }
-    }
-}
-
-private struct StarterPackBrowser: View {
-    let install: (StarterPackPreview) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedPack: StarterPack?
-    @State private var preview: StarterPackPreview?
-    var body: some View {
-        ComposerScaffold(
-            title: "Starter packs",
-            subtitle: "Look before anything is created.",
-            cancelTitle: "Close",
-            identifier: "track.starterPacks"
-        ) {
-            StarterPackListSection { pack in
-                selectedPack = pack
-                preview = StarterPackCatalog.preview(pack)
-            }
-        } commit: {
-            EmptyView()
-        }
-        .sheet(item: $selectedPack) { _ in
-            if let preview { StarterPackPreviewSheet(preview: preview) { install($0); dismiss() } }
-        }
-    }
-}
-
-
-private struct StarterPackListSection: View {
-    let open: (StarterPack) -> Void
-
-    var body: some View {
-        ComposerSection(
-            footer: "Previewing a pack creates nothing. You choose which pieces to keep on the next screen."
-        ) {
-            ForEach(StarterPack.allCases, id: \.self) { pack in
-                StarterPackRow(title: StarterPackCopy.title(pack)) { open(pack) }
-            }
-        }
-    }
-}
-
-private struct StarterPackSelectionSection: View {
-    @Binding var preview: StarterPackPreview
-
-    var body: some View {
-        ComposerSection(
-            "Nothing is created until you confirm",
-            footer: "Selected items use LifeBoard’s canonical creation flows. You can edit them afterward; removing the pack archives its definitions and preserves completed history."
-        ) {
-            ForEach($preview.items) { $item in
-                Toggle(isOn: $item.isSelected) {
-                    Label(item.title, systemImage: StarterPackCopy.symbol(item.kind))
-                }
-                .toggleStyle(.lifeBoardClay)
-            }
-        }
-    }
-}
-
-/// Shared so the browser and the preview sheet cannot drift on naming.
-private enum StarterPackCopy {
-    static func title(_ pack: StarterPack) -> String {
-        switch pack {
-        case .morningFoundation: "Morning Foundation"
-        case .workdayReset: "Workday Reset"
-        case .lowEnergyRecovery: "Low Energy Recovery"
-        case .medicationSupport: "Medication Support"
-        case .eveningWindDown: "Evening Wind-down"
-        }
-    }
-
-    static func symbol(_ kind: StarterPackItemKind) -> String {
-        switch kind {
-        case .goal: "target"
-        case .habit: "repeat.circle"
-        case .routine: "figure.mind.and.body"
-        case .reminder: "bell"
-        }
-    }
-}
-
-private struct StarterPackRow: View {
-    let title: String
-    let open: () -> Void
-
-    var body: some View {
-        Button(action: open) {
-            HStack(spacing: 12) {
-                Image(systemName: "shippingbox")
-                    .font(.lifeboard(.title3))
-                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-                    .frame(width: 32, height: 32)
-                    .accessibilityHidden(true)
-                Text(title)
-                    .font(.lifeboard(.bodyStrong))
-                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                    .multilineTextAlignment(.leading)
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.lifeboard(.caption1))
-                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
-            }
-            .padding(.horizontal, 12)
-            .frame(minHeight: 56)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.lifeBoardClay(.well, cornerRadius: Radius.card))
-        .accessibilityIdentifier("track.starterPacks.\(title)")
-    }
-}
-
-private struct StarterPackPreviewSheet: View {
-    @State var preview: StarterPackPreview
-    let install: (StarterPackPreview) -> Void
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        ComposerScaffold(
-            title: "Preview pack",
-            confirmTitle: "Create selected",
-            isConfirmEnabled: preview.items.contains(where: \.isSelected),
-            identifier: "track.starterPacks.preview",
-            onConfirm: { install(preview); dismiss() }
-        ) {
-            StarterPackSelectionSection(preview: $preview)
         }
     }
 }

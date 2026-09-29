@@ -21,7 +21,7 @@ struct PlanRootView: View {
     private var usesTimeline: Bool {
         lens == .day && dayPresentation == .canvas && !dynamicTypeSize.isAccessibilitySize && !voiceOverEnabled
     }
-    @State private var store: PlanStore
+    @State var store: PlanStore
     @State private var inboxStore: InboxStore
     @State private var taskExecutionStore: TaskExecutionStore
     @State private var lens: PlanLens = .day
@@ -33,10 +33,10 @@ struct PlanRootView: View {
     @State private var showsProjectTemplates = false
     @State private var showsMakeItFitToday = false
     @State private var projectTemplateReceipt: ProjectTemplateCreationReceipt?
-    @State private var projectTemplateError: String?
-    @State private var selectedTaskIDs: Set<UUID> = []
-    @State private var pendingBacklogDeletionTaskIDs: Set<UUID> = []
-    @State private var showsBacklogDeletionConfirmation = false
+    @State var projectTemplateError: String?
+    @State var selectedTaskIDs: Set<UUID> = []
+    @State var pendingBacklogDeletionTaskIDs: Set<UUID> = []
+    @State var showsBacklogDeletionConfirmation = false
     @FocusState private var focusedWeekTaskID: UUID?
     @State private var backlogSearch = ""
     @State private var backlogContextFilter: BacklogContextFilter = .all
@@ -120,7 +120,6 @@ struct PlanRootView: View {
         canvas
             .navigationTitle("Plan")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { planToolbar }
     }
 
     private var canvas: some View {
@@ -140,19 +139,26 @@ struct PlanRootView: View {
 
             PlanRootScrollContainer(fillsHeight: usesTimeline) {
                 VStack(spacing: 16) {
-                    LensPicker(
-                        "Plan lens",
-                        selection: $lens,
-                        values: PlanLens.allCases,
-                        identifierPrefix: "plan.lens",
-                        title: \.rawValue,
-                        identifier: \.rawValue
-                    )
+                    HStack(spacing: 8) {
+                        LensPicker(
+                            "Plan lens",
+                            selection: $lens,
+                            values: PlanLens.allCases,
+                            identifierPrefix: "plan.lens",
+                            title: \.rawValue,
+                            identifier: \.rawValue
+                        )
+                        PlanActionsMenu(
+                            onStartFocus: startFocusSession,
+                            onNewProjectFromTemplate: { showsProjectTemplates = true }
+                        )
+                    }
 
                     PlanOrientationBar(
                         store: store,
                         lens: lens,
                         onEditWorkingHours: { showsWorkingHours = true },
+                        onAskEva: onAskEva,
                         presentation: .init(
                             showsAgenda: dayPresentation == .agenda || dynamicTypeSize.isAccessibilitySize || voiceOverEnabled,
                             isForced: dynamicTypeSize.isAccessibilitySize || voiceOverEnabled,
@@ -222,31 +228,20 @@ struct PlanRootView: View {
             .accessibilityIdentifier("foundation.plan.scroll")
         }
     }
+}
 
-    @ToolbarContentBuilder
-    private var planToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .primaryAction) {
-            Button {
-                pendingFocusSetup = .init(
-                    taskID: nil,
-                    timeBlockID: nil,
-                    title: "Unscoped focus",
-                    suggestedDuration: 25 * 60,
-                    subtaskID: nil
-                )
-            } label: {
-                Label("Start unscoped focus", systemImage: "timer")
-            }
-            .frame(minWidth: 44, minHeight: 44)
-            .accessibilityIdentifier("plan.focus.startUnscoped")
-            Button {
-                showsProjectTemplates = true
-            } label: {
-                Label("New project from template", systemImage: "folder.badge.plus")
-            }
-            .frame(minWidth: 44, minHeight: 44)
-            .accessibilityIdentifier("plan.projectTemplates.open")
-        }
+extension PlanRootView {
+    /// Plan's root draws its own header and hides the navigation bar, so the
+    /// toolbar that used to hold these two actions was invisible at the root.
+    /// They now live in the orientation bar's menu, on every Plan surface.
+    private func startFocusSession() {
+        pendingFocusSetup = .init(
+            taskID: nil,
+            timeBlockID: nil,
+            title: String(localized: "Focus session"),
+            suggestedDuration: 25 * 60,
+            subtaskID: nil
+        )
     }
 
     private func withLifecycle<Content: View>(_ content: Content) -> some View {
@@ -261,6 +256,23 @@ struct PlanRootView: View {
                     store.adoptScenario(scenario)
                     lens = .day
                 }
+                await consumeDayHandoff()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: PlanDayHandoff.didRequest)) { _ in
+                Task { await consumeDayHandoff() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+                Task { await store.rollToToday() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+                Task { await store.rollToToday() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
+                Task { await store.rollToToday() }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task { await store.rollToToday() }
             }
             .onReceive(NotificationCenter.default.publisher(for: .foundationDomainMaintenanceCommitted)) { _ in
                 guard rootActivity.performsContinuousWork else { return }
@@ -269,6 +281,14 @@ struct PlanRootView: View {
             .onChange(of: lens) { _, selectedLens in
                 PlanLensRestoration.save(selectedLens)
             }
+    }
+
+    /// "Show in Plan" from a task: lands on the task's day, in the Day lens.
+    private func consumeDayHandoff() async {
+        guard let day = PlanDayHandoff.pendingDay else { return }
+        PlanDayHandoff.pendingDay = nil
+        lens = .day
+        await store.select(day: day)
     }
 
     private func withSheets<Content: View>(_ content: Content) -> some View {
@@ -306,7 +326,7 @@ struct PlanRootView: View {
                     showsProjectTemplates = false
                 }
             }
-            .fullScreenCover(isPresented: $showsMakeItFitToday) {
+            .lifeboardCover(isPresented: $showsMakeItFitToday) {
                 MakeItFitTodayView(
                     store: store,
                     onOpenTask: { taskID in
@@ -350,46 +370,6 @@ struct PlanRootView: View {
             }
     }
 
-    private func withAlerts<Content: View>(_ content: Content) -> some View {
-        content
-            .alert("Plan needs attention", isPresented: errorBinding) {
-                Button("OK", role: .cancel) { store.errorMessage = nil }
-            } message: { Text(store.errorMessage ?? "") }
-            .confirmationDialog(
-                backlogDeletionTitle,
-                isPresented: $showsBacklogDeletionConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Delete from LifeBoard", role: .destructive) {
-                    let taskIDs = pendingBacklogDeletionTaskIDs
-                    pendingBacklogDeletionTaskIDs.removeAll()
-                    selectedTaskIDs.subtract(taskIDs)
-                    Task { await store.deleteBacklogTasks(taskIDs) }
-                }
-                Button("Cancel", role: .cancel) { pendingBacklogDeletionTaskIDs.removeAll() }
-            } message: {
-                Text("These items will disappear from Plan and linked-source pickers on every synced device. You can undo this planning change immediately; LifeBoard keeps a tombstone instead of physically destroying the canonical task.")
-            }
-            .alert(
-                "Project template needs attention",
-                isPresented: Binding(
-                    get: { projectTemplateError != nil },
-                    set: { if $0 == false { projectTemplateError = nil } }
-                )
-            ) {
-                Button("OK", role: .cancel) { projectTemplateError = nil }
-            } message: {
-                Text(projectTemplateError ?? "")
-            }
-    }
-
-    private var backlogDeletionTitle: String {
-        let count = pendingBacklogDeletionTaskIDs.count
-        return count == 1 ? "Delete this backlog item?" : "Delete \(count) backlog items?"
-    }
-
-
-
     /// One of six hand-rolled receipt bars in the app, now the shared one.
     ///
     /// What the local version got wrong and `ReceiptBar` fixes: it laid Undo and
@@ -426,12 +406,21 @@ struct PlanRootView: View {
     private var inboxContent: some View {
         InboxView(store: inboxStore, onReviewCapture: onReviewCapture)
     }
+}
 
-    private var errorBinding: Binding<Bool> {
-        Binding(
-            get: { store.errorMessage != nil && store.daySnapshot != nil },
-            set: { if $0 == false { store.errorMessage = nil } }
-        )
+/// A day another surface asked Plan to show — the task editor's "Show in Plan".
+///
+/// Plan's store belongs to the root view, so a caller cannot select a day on
+/// it directly. The request is left here and announced; whichever Plan root
+/// is mounted consumes it, and one mounted later picks it up when it loads.
+@MainActor
+enum PlanDayHandoff {
+    static var pendingDay: PlanningDay?
+    static let didRequest = Notification.Name("lifeboard.plan.showDay")
+
+    static func request(_ day: PlanningDay) {
+        pendingDay = day
+        NotificationCenter.default.post(name: didRequest, object: nil)
     }
 }
 
@@ -457,6 +446,7 @@ private struct PlanActivityTaskID: Hashable {
 private struct PlanRootScrollContainer<Content: View>: View {
     let fillsHeight: Bool
     @ViewBuilder let content: () -> Content
+    @Environment(\.lifeBoardShellBottomClearance) private var shellBottomClearance
     var body: some View {
         if fillsHeight {
             // Scrolling roots let content pass under the floating composer and
@@ -464,7 +454,7 @@ private struct PlanRootScrollContainer<Content: View>: View {
             // stops above that chrome instead (and the drawer stays reachable).
             VStack(spacing: 0) {
                 content().frame(maxHeight: .infinity, alignment: .top)
-                Color.clear.frame(height: PlanRootLayout.floatingChromeClearance)
+                Color.clear.frame(height: shellBottomClearance)
             }
         } else {
             ScrollView { content() }
@@ -472,9 +462,3 @@ private struct PlanRootScrollContainer<Content: View>: View {
     }
 }
 
-enum PlanRootLayout {
-    /// Composer capsule + gap + dock, measured on iPhone 17 (about 180 pt from
-    /// the bottom edge to the composer's top). The day canvas and its drawer
-    /// end here; content beyond it would sit under the chrome.
-    static let floatingChromeClearance: CGFloat = 176
-}

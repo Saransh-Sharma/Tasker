@@ -62,10 +62,7 @@ struct EvaFocusWhySheet: View {
                     set: { if !$0 { replacementCandidate = nil } }
                 ),
                 titleVisibility: .visible,
-                actions: replacementDialogActions,
-                message: {
-                    Text("Choose the focus task to swap out.")
-                }
+                actions: replacementDialogActions
             )
             .confirmationDialog(
                 "Discard focus changes?",
@@ -78,7 +75,7 @@ struct EvaFocusWhySheet: View {
                     Button("Keep editing", role: .cancel) {}
                 },
                 message: {
-                    Text("Your current Focus Now set has not been saved.")
+                    Text("Changes to this set will be lost.")
                 }
             )
     }
@@ -200,7 +197,7 @@ struct EvaFocusWhySheet: View {
             onApply: { refinedTasks in
                 draftState.applyRefinedTasks(refinedTasks)
                 showRefineSheet = false
-                showToast("Focus set updated · Undo")
+                showToast(String(localized: "Set updated · Undo"))
             }
         )
         .presentationDetents([.large])
@@ -219,7 +216,7 @@ struct EvaFocusWhySheet: View {
                 onStartFocus(draftState.draftFocusTasks, task, duration)
             }
         )
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 
@@ -253,17 +250,17 @@ struct EvaFocusWhySheet: View {
     }
 
     private func handleCardTap(_ task: TaskDefinition) {
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : .easeInOut(duration: 0.42)) {
+        withAnimation(MotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
             draftState.selectAndFlip(task)
         }
     }
 
     private func quickSwap(_ task: TaskDefinition) {
         guard draftState.quickSwap(task) else {
-            showToast("No better fits right now")
+            showToast(String(localized: "No other tasks"))
             return
         }
-        showToast("Swapped into Focus Now · Undo")
+        showToast(String(localized: "Task swapped · Undo"))
     }
 
     private func handleCandidateTap(_ candidate: TaskDefinition) {
@@ -272,7 +269,7 @@ struct EvaFocusWhySheet: View {
             return
         }
         replace(target, with: candidate)
-        showToast("Swapped into Focus Now · Undo")
+        showToast(String(localized: "Task swapped · Undo"))
     }
 
     private func replace(_ oldTask: TaskDefinition, with newTask: TaskDefinition) {
@@ -287,11 +284,11 @@ struct EvaFocusWhySheet: View {
     }
 
     private func shuffleAgain() {
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.14) : .easeOut(duration: 0.24)) {
+        withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
             draftState.beginShuffle()
         }
         onShuffleCandidates()
-        showToast("Fresh picks ready")
+        showToast(String(localized: "Shuffled"))
         _Concurrency.Task { @MainActor in
             try? await _Concurrency.Task.sleep(nanoseconds: 420_000_000)
             draftState.endShuffle()
@@ -299,14 +296,14 @@ struct EvaFocusWhySheet: View {
     }
 
     private func showToast(_ message: String) {
-        withAnimation(.easeInOut(duration: 0.16)) {
+        withAnimation(MotionProfile.contentInsertion.animation(reduceMotion: reduceMotion)) {
             toastMessage = message
         }
     }
 
     private func undoLastChange() {
         draftState.undoLastChange()
-        showToast("Restored previous Focus Now set")
+        showToast(String(localized: "Set restored"))
     }
 
     private func attemptClose() {
@@ -326,8 +323,8 @@ enum FocusNowMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .currentSet: return "Current set"
-        case .shuffleView: return "Shuffle view"
+        case .currentSet: return String(localized: "Current set")
+        case .shuffleView: return String(localized: "Shuffle view")
         }
     }
 
@@ -511,16 +508,11 @@ struct FocusNowHeader: View {
                 .multilineTextAlignment(.center)
                 .padding(.top, -4)
 
-            Text("Tap or swap until this set feels right.")
-                .font(.lifeboard(.callout))
-                .foregroundStyle(ClayColorTokens.navyMuted)
-                .multilineTextAlignment(.center)
-
             SelectedCountPill(count: selectedCount)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Focus Now. Tap or swap until this set feels right. \(selectedCount) tasks selected.")
+        .accessibilityLabel("Focus Now, \(selectedCount) selected")
     }
 }
 
@@ -544,10 +536,10 @@ struct SelectedCountPill: View {
 struct FocusNowEmptyState: View {
     var body: some View {
         VStack(alignment: .leading, spacing: ClayLayoutMetrics.sm) {
-            Text("No focus set yet")
+            Text("No tasks selected")
                 .font(.lifeboard(.headline))
                 .foregroundStyle(ClayColorTokens.navy)
-            Text("Add one task to anchor your next focus block.")
+            Text("Shuffle for suggestions.")
                 .font(.lifeboard(.callout))
                 .foregroundStyle(ClayColorTokens.navyMuted)
         }
@@ -662,7 +654,7 @@ struct FocusTaskCard: View {
         }
         .accessibilityElement(children: .contain)
         .scaleEffect(isActive ? 1 : 0.992)
-        .animation(.easeInOut(duration: 0.2), value: isActive)
+        .lifeBoardMotion(.selection, value: isActive)
     }
 }
 
@@ -703,12 +695,12 @@ struct FocusTaskCardFront: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Task. \(task.title). \(task.projectName ?? "Inbox"). \(summaryText). Double tap for focus options.")
+                .accessibilityLabel("\(task.title). \(task.projectName ?? String(localized: "Inbox")). \(summaryText).")
                 .accessibilityIdentifier("focusNow.card.front.\(task.id.uuidString)")
 
                 Button(action: onQuickSwap) {
                     HStack {
-                        Text("Tap to swap")
+                        Text("Swap")
                             .font(.lifeboard(.caption1).weight(.semibold))
                             .foregroundStyle(ClayColorTokens.navyMuted)
                             .lineLimit(1)
@@ -727,7 +719,7 @@ struct FocusTaskCardFront: View {
                     .background(EvaClayStyle.cream.opacity(0.82))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Swap this task.")
+                .accessibilityLabel("Swap task")
                 .accessibilityIdentifier("focusNow.card.swap")
             }
         }
@@ -762,7 +754,7 @@ struct FocusTaskCardFront: View {
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text(task.projectName ?? "Inbox")
+            Text(task.projectName ?? String(localized: "Inbox"))
                 .font(.lifeboard(.caption1).weight(.semibold))
                 .foregroundStyle(heroImage.accentColor)
                 .lineLimit(1)
@@ -798,7 +790,7 @@ struct FocusTaskCardBack: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Back to card front")
+                .accessibilityLabel("Back")
                 .accessibilityIdentifier("focusNow.card.back")
                 Spacer()
             }
@@ -806,14 +798,9 @@ struct FocusTaskCardBack: View {
             Spacer(minLength: 0)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Ready to focus?")
+                Text("Start focus?")
                     .font(.lifeboard(.title2).weight(.bold))
                     .foregroundStyle(ClayColorTokens.navy)
-
-                Text("Review the task or start a focused block.")
-                    .font(.lifeboard(.callout))
-                    .foregroundStyle(ClayColorTokens.navyMuted)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             VStack(spacing: 12) {
@@ -824,7 +811,7 @@ struct FocusTaskCardBack: View {
                     .frame(minHeight: 50)
                     .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 16))
 
-                Button("Start timer", systemImage: "play.fill", action: onStartTimer)
+                Button("Start focus", systemImage: "play.fill", action: onStartTimer)
                     .font(.lifeboard(.bodyEmphasis))
                     .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity)
@@ -893,22 +880,19 @@ struct CandidateSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Other great fits")
+                Text("Other tasks")
                     .font(.lifeboard(.headline))
                     .foregroundStyle(ClayColorTokens.navy)
-                Text(selectedMode == .shuffleView ? "Fresh alternatives for your active card." : "Tap a task to swap it into your set.")
+                Text(selectedMode == .shuffleView ? "New suggestions." : "Tap one to swap it in.")
                     .font(.lifeboard(.callout))
                     .foregroundStyle(ClayColorTokens.navyMuted)
             }
 
             if candidates.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("No better fits right now")
+                    Text("No other tasks")
                         .font(.lifeboard(.callout).weight(.semibold))
                         .foregroundStyle(ClayColorTokens.navy)
-                    Text("Your current set already looks focused.")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(ClayColorTokens.navyMuted)
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -930,7 +914,7 @@ struct CandidateSection: View {
                 }
                 .redacted(reason: isShuffling ? .placeholder : [])
                 .opacity(isShuffling ? 0.74 : 1)
-                .animation(.easeInOut(duration: 0.18), value: isShuffling)
+                .lifeBoardMotion(.localState, value: isShuffling)
                 .background(EvaClayStyle.cream.opacity(0.9), in: RoundedRectangle(cornerRadius: Radius.card))
                 .overlay {
                     RoundedRectangle(cornerRadius: Radius.card).stroke(EvaClayStyle.peachBorder.opacity(0.58), lineWidth: 1)
@@ -970,16 +954,16 @@ struct CandidateTaskRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("\(task.title). \(summaryText).")
-            .accessibilityHint("Double tap to swap into Focus Now.")
+            .accessibilityHint("Swaps into Focus Now")
             .accessibilityIdentifier("focusNow.candidate.row.\(task.id.uuidString)")
 
-            Button("Swap into Focus Now", systemImage: "arrow.triangle.2.circlepath", action: onSwapTap)
+            Button("Swap in", systemImage: "arrow.triangle.2.circlepath", action: onSwapTap)
                 .labelStyle(.iconOnly)
                 .font(.lifeboard(.caption1).weight(.bold))
                 .foregroundStyle(ClayColorTokens.navyMuted)
                 .frame(width: 44, height: 44)
                 .background(EvaClayStyle.blueSurface.opacity(0.52), in: Circle())
-                .accessibilityLabel("Swap into Focus Now")
+                .accessibilityLabel("Swap in")
                 .accessibilityIdentifier("focusNow.candidate.swap.\(task.id.uuidString)")
         }
         .padding(.horizontal, 14)
@@ -1017,15 +1001,12 @@ struct ShuffleAgainCard: View {
                     .frame(width: 48, height: 48)
                     .background(EvaClayStyle.cream.opacity(0.9), in: Circle())
                     .rotationEffect(.degrees(isShuffling ? 360 : 0))
-                    .animation(.easeInOut(duration: 0.42), value: isShuffling)
+                    .lifeBoardMotion(.controlMorph, value: isShuffling)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Shuffle Again")
+                    Text("Shuffle")
                         .font(.lifeboard(.callout).weight(.semibold))
                         .foregroundStyle(ClayColorTokens.navy)
-                    Text("Fresh ideas, same Focus Now.")
-                        .font(.lifeboard(.caption1))
-                        .foregroundStyle(ClayColorTokens.navyMuted)
                 }
 
                 Spacer()
@@ -1036,8 +1017,10 @@ struct ShuffleAgainCard: View {
                 LinearGradient(
                     colors: [
                         EvaClayStyle.cream.opacity(0.94),
-                        Color(lifeboardHex: "#FFF1EA").opacity(0.86),
-                        Color(lifeboardHex: "#F7F1FF").opacity(0.78)
+                        // Hero surfaces rather than fixed pastels, so the cream
+                        // dark-appearance ink above keeps its contrast.
+                        Color(TaskHeroAccentRole.sunrise.surface).opacity(0.86),
+                        Color(TaskHeroAccentRole.lake.surface).opacity(0.78)
                     ],
                     startPoint: .leading,
                     endPoint: .trailing
@@ -1070,11 +1053,8 @@ struct FocusBottomActions: View {
                         .background(ClayColorTokens.whiteStroke.opacity(0.14), in: Circle())
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(isStarting ? "Starting..." : "Start focus")
+                        Text(isStarting ? "Starting\u{2026}" : "Start focus")
                             .font(.lifeboard(.bodyEmphasis))
-                        Text("Lock in and get going")
-                            .font(.lifeboard(.caption1))
-                            .opacity(0.82)
                     }
 
                     Spacer(minLength: 0)
@@ -1087,7 +1067,7 @@ struct FocusBottomActions: View {
             }
             .buttonStyle(.plain)
             .disabled(!canStart || isStarting)
-            .accessibilityLabel("Start focus. Lock in and get going.")
+            .accessibilityLabel("Start focus")
             .accessibilityIdentifier("focusNow.startFocus")
 
             Button(action: onRefineSet) {
@@ -1098,11 +1078,8 @@ struct FocusBottomActions: View {
                         .background(EvaClayStyle.peachSurfaceStrong, in: Circle())
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Refine set")
+                        Text("Edit set")
                             .font(.lifeboard(.bodyEmphasis))
-                        Text("Adjust until it's right")
-                            .font(.lifeboard(.caption1))
-                            .foregroundStyle(ClayColorTokens.navyMuted)
                     }
 
                     Spacer(minLength: 0)
@@ -1153,10 +1130,10 @@ struct RefineFocusSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Refine Focus Now")
+                        Text("Edit set")
                             .font(.lifeboard(.title2).weight(.bold))
                             .foregroundStyle(ClayColorTokens.navy)
-                        Text("Choose up to three tasks for this focus block.")
+                        Text("Pick up to 3 tasks.")
                             .font(.lifeboard(.callout))
                             .foregroundStyle(ClayColorTokens.navyMuted)
                         SelectedCountPill(count: selectedIDs.count)
@@ -1227,9 +1204,6 @@ struct RefineFocusSheet: View {
                     Button("Cancel", role: .cancel) {
                         pendingReplacementTask = nil
                     }
-                },
-                message: {
-                    Text("Choose the focus task to swap out.")
                 }
             )
         }
@@ -1253,7 +1227,7 @@ struct RefineFocusSheet: View {
                         .font(.lifeboard(.callout).weight(.semibold))
                         .foregroundStyle(ClayColorTokens.navy)
                         .lineLimit(2)
-                    Text(insightProvider(task.id)?.rationale.first?.label ?? task.projectName ?? "Inbox")
+                    Text(insightProvider(task.id)?.rationale.first?.label ?? task.projectName ?? String(localized: "Inbox"))
                         .font(.lifeboard(.caption1))
                         .foregroundStyle(ClayColorTokens.navyMuted)
                         .lineLimit(2)
@@ -1307,10 +1281,10 @@ struct FocusTaskDetailSheet: View {
                     detailGrid
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Why this task?")
+                        Text("Why?")
                             .font(.lifeboard(.headline))
                             .foregroundStyle(ClayColorTokens.navy)
-                        Text(insight?.rationale.first?.label ?? "It fits your current focus set and helps keep today narrow.")
+                        Text(insight?.rationale.first?.label ?? String(localized: "Part of your focus set."))
                             .font(.lifeboard(.callout))
                             .foregroundStyle(ClayColorTokens.navyMuted)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1334,7 +1308,7 @@ struct FocusTaskDetailSheet: View {
             .background(EvaClayStyle.canvas.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 12) {
-                    Button("Start timer", systemImage: "play.fill", action: onStartTimer)
+                    Button("Start focus", systemImage: "play.fill", action: onStartTimer)
                         .font(.lifeboard(.bodyEmphasis))
                         .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                         .frame(maxWidth: .infinity)
@@ -1364,11 +1338,11 @@ struct FocusTaskDetailSheet: View {
 
     private var detailGrid: some View {
         VStack(spacing: 8) {
-            detailRow("Project", value: task.projectName ?? "Inbox", systemImage: "folder")
-            detailRow("Due date", value: dueDateText, systemImage: "calendar")
-            detailRow("Duration", value: durationText, systemImage: "clock")
-            detailRow("Priority", value: task.priority.displayName, systemImage: "flag")
-            detailRow("Subtasks", value: "\(task.subtasks.count)", systemImage: "checklist")
+            detailRow(String(localized: "Project"), value: task.projectName ?? String(localized: "Inbox"), systemImage: "folder")
+            detailRow(String(localized: "Due date"), value: dueDateText, systemImage: "calendar")
+            detailRow(String(localized: "Duration"), value: durationText, systemImage: "clock")
+            detailRow(String(localized: "Priority"), value: task.priority.displayName, systemImage: "flag")
+            detailRow(String(localized: "Subtasks"), value: "\(task.subtasks.count)", systemImage: "checklist")
         }
         .padding(14)
         .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: Radius.card))
@@ -1391,12 +1365,12 @@ struct FocusTaskDetailSheet: View {
     }
 
     private var dueDateText: String {
-        guard let dueDate = task.dueDate else { return "Not set" }
+        guard let dueDate = task.dueDate else { return String(localized: "Not set") }
         return dueDate.formatted(date: .abbreviated, time: task.isAllDay ? .omitted : .shortened)
     }
 
     private var durationText: String {
-        guard let duration = task.estimatedDuration else { return "Not set" }
+        guard let duration = task.estimatedDuration else { return String(localized: "Not set") }
         return FocusDurationStore.label(for: max(60, Int(duration.rounded())))
     }
 }
@@ -1406,50 +1380,65 @@ struct FocusDurationPickerSheet: View {
     @Binding var selectedDurationSeconds: Int
     let isStarting: Bool
     let onStart: (Int) -> Void
-    @State private var customMinutes = ""
 
-    private let presets = [15, 25, 45, 60]
+    // Countdown presets from the person's own list (Deep work / Pomodoro /
+    // Quick by default), with the historic quick picks as a floor so the
+    // sheet never shows fewer than three choices.
+    private let presets: [Int] = {
+        let fromPreferences = WorkspacePreferencesStore.shared.load().focusPresets
+            .filter { $0.kind == .countdown || $0.kind == .pomodoro }
+            .map(\.minutes)
+        return Array(Set(fromPreferences + [15, 25, 45, 60])).sorted()
+    }()
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 18) {
-                Text("How long do you want to focus?")
-                    .font(.lifeboard(.title2).weight(.bold))
-                    .foregroundStyle(ClayColorTokens.navy)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("How long?")
+                        .font(.lifeboard(.title2).weight(.bold))
+                        .foregroundStyle(ClayColorTokens.navy)
 
-                Text(task.title)
-                    .font(.lifeboard(.callout))
-                    .foregroundStyle(ClayColorTokens.navyMuted)
-                    .lineLimit(2)
+                    Text(task.title)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(ClayColorTokens.navyMuted)
+                        .lineLimit(2)
 
-                HStack(spacing: 8) {
-                    ForEach(presets, id: \.self) { minutes in
-                        Button("\(minutes) min") {
-                            selectedDurationSeconds = minutes * 60
-                            customMinutes = ""
+                    HStack(spacing: 8) {
+                        ForEach(presets, id: \.self) { minutes in
+                            Button("\(minutes) min") {
+                                selectedDurationSeconds = minutes * 60
+                            }
+                            .font(.lifeboard(.caption1).weight(.semibold))
+                            .foregroundStyle(selectedDurationSeconds == minutes * 60 ? Color.lifeboard(.accentOnPrimary) : ClayColorTokens.navy)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 44)
+                        .background(selectedDurationSeconds == minutes * 60 ? Color.lifeboard(.actionPrimary) : EvaClayStyle.cream, in: Capsule())
+                            .accessibilityIdentifier("focusNow.timer.preset.\(minutes)")
                         }
-                        .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(selectedDurationSeconds == minutes * 60 ? Color.lifeboard(.accentOnPrimary) : ClayColorTokens.navy)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 44)
-                    .background(selectedDurationSeconds == minutes * 60 ? Color.lifeboard(.actionPrimary) : EvaClayStyle.cream, in: Capsule())
-                        .accessibilityIdentifier("focusNow.timer.preset.\(minutes)")
                     }
+
+                    // Any other length. The number pad this replaced had no
+                    // Return and no Done, so its keyboard could only be put away
+                    // by starting or closing the sheet. The drum scrubs in
+                    // 5-minute detents and its readout still takes typing.
+                    ValueDrum(
+                        "Custom length",
+                        value: customMinutes,
+                        in: 1...180,
+                        step: 1,
+                        coarseStep: 5,
+                        unit: "min",
+                        fractionDigits: 0,
+                        identifier: "focusNow.timer.customMinutes",
+                        keyboardPrompt: "Minutes"
+                    )
                 }
-
-                TextField("Custom minutes", text: $customMinutes)
-                    .font(.lifeboard(.callout))
-                    .keyboardType(.numberPad)
-                    .padding(12)
-                    .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 16))
-                    .accessibilityIdentifier("focusNow.timer.customMinutes")
-                    .onChange(of: customMinutes) { _, newValue in
-                        guard let minutes = Int(newValue), minutes > 0 else { return }
-                        selectedDurationSeconds = min(max(minutes, 1), 180) * 60
-                    }
-
-                Spacer()
-
+                .padding(18)
+            }
+            // Pinned, so Start stays on screen at the medium detent on a small
+            // phone now that the drum is taller than the field it replaced.
+            .safeAreaInset(edge: .bottom) {
                 Button(startTitle) {
                     onStart(selectedDurationSeconds)
                 }
@@ -1460,16 +1449,24 @@ struct FocusDurationPickerSheet: View {
                 .background(ClayColorTokens.navy, in: RoundedRectangle(cornerRadius: Radius.card))
                 .disabled(isStarting)
                 .accessibilityIdentifier("focusNow.timer.start")
+                .padding([.horizontal, .bottom], 18)
             }
-            .padding(18)
             .background(EvaClayStyle.canvas.ignoresSafeArea())
         }
-        .accessibilityLabel("Choose focus timer duration.")
+        .accessibilityLabel("Focus length")
         .accessibilityIdentifier("focusNow.timer.sheet")
     }
 
+    /// The drum speaks minutes; the selection is kept in seconds.
+    private var customMinutes: Binding<Double> {
+        Binding(
+            get: { Double(selectedDurationSeconds / 60) },
+            set: { selectedDurationSeconds = min(max(Int($0.rounded()), 1), 180) * 60 }
+        )
+    }
+
     private var startTitle: String {
-        isStarting ? "Starting focus" : "Start \(FocusDurationStore.label(for: selectedDurationSeconds)) focus"
+        isStarting ? String(localized: "Starting\u{2026}") : String(localized: "Start \(FocusDurationStore.label(for: selectedDurationSeconds)) focus")
     }
 }
 
@@ -1483,27 +1480,27 @@ struct FocusTaskReasonResolver {
 
         let text = searchableText(for: task)
         if text.containsAny(["read", "book", "study", "learn", "pages"]) {
-            return "Recharge while you learn."
+            return String(localized: "Learning")
         }
         if text.containsAny(["run", "walk", "workout", "exercise", "movement", "move", "wellness", "body", "stretch", "gym"]) {
-            return "Move your body, reset your energy."
+            return String(localized: "Movement")
         }
         if text.containsAny(["meditate", "mindful", "calm", "breathe", "breathing", "journal"]) {
-            return "Create a quiet reset before the next push."
+            return String(localized: "Mindfulness")
         }
         if text.containsAny(["cool off", "recover", "recovery", "break", "pause", "recharge", "decompress", "breather"]) {
-            return "Give your brain a breather."
+            return String(localized: "Break")
         }
         if text.containsAny(["plan", "schedule", "calendar", "tomorrow", "morning", "setup"]) {
-            return "Create a planned day before it starts."
+            return String(localized: "Planning")
         }
         if text.containsAny(["write", "draft", "admin", "paper", "note", "review", "document", "investor", "update", "meeting"]) {
-            return "Clarify the next update while context is fresh."
+            return String(localized: "Writing and admin")
         }
         if text.containsAny(["deep work", "focus", "block", "ship", "build", "code"]) {
-            return "Protect your most important time."
+            return String(localized: "Deep work")
         }
-        return "Keep today narrow and move one useful thing forward."
+        return String(localized: "Up next")
     }
 
     private static func searchableText(for task: TaskDefinition) -> String {
@@ -1541,35 +1538,22 @@ enum TaskHeroImage: String, CaseIterable, Hashable {
         }
     }
 
-    var surfaceColor: Color {
+    /// Adaptive per-hero palette; see `TaskHeroAccentRole` for why these are
+    /// not fixed pastels.
+    var accentRole: TaskHeroAccentRole {
         switch self {
-        case .meditation: return Color(lifeboardHex: "#FFF4EA")
-        case .genericClouds: return Color(lifeboardHex: "#F4FAFF")
-        case .recoveryLake: return Color(lifeboardHex: "#F4EEFF")
-        case .greenPath: return Color(lifeboardHex: "#F2FAEE")
-        case .sunrisePath: return Color(lifeboardHex: "#FFF0E6")
-        case .deskNotebook: return Color(lifeboardHex: "#FFF7EC")
+        case .meditation: return .meditation
+        case .genericClouds: return .clouds
+        case .recoveryLake: return .lake
+        case .greenPath: return .greenPath
+        case .sunrisePath: return .sunrise
+        case .deskNotebook: return .desk
         }
     }
 
-    var borderColor: Color {
-        switch self {
-        case .meditation, .greenPath: return Color(lifeboardHex: "#CFE6C5")
-        case .genericClouds: return EvaClayStyle.blueBorder
-        case .recoveryLake: return Color(lifeboardHex: "#D9C9FF")
-        case .sunrisePath, .deskNotebook: return EvaClayStyle.peachBorder
-        }
-    }
-
-    var accentColor: Color {
-        switch self {
-        case .meditation, .greenPath: return Color(lifeboardHex: "#2F7A4D")
-        case .genericClouds: return ClayColorTokens.violetDeep
-        case .recoveryLake: return Color(lifeboardHex: "#6F57B8")
-        case .sunrisePath: return Color(lifeboardHex: "#C9672B")
-        case .deskNotebook: return ClayColorTokens.navySoft
-        }
-    }
+    var surfaceColor: Color { Color(accentRole.surface) }
+    var borderColor: Color { Color(accentRole.border) }
+    var accentColor: Color { Color(accentRole.accent) }
 
     var tokenColor: Color { surfaceColor.opacity(0.92) }
     var pillColor: Color { surfaceColor.opacity(0.78) }
@@ -1661,8 +1645,7 @@ enum FocusDurationStore {
 
     static func label(for seconds: Int) -> String {
         let minutes = max(1, Int((Double(seconds) / 60.0).rounded()))
-        if minutes == 60 { return "60 min" }
-        return "\(minutes) min"
+        return LifeBoardDuration.text(minutes: minutes)
     }
 }
 
@@ -1690,7 +1673,7 @@ private struct EvaOverdueRescueSheet: View {
             VStack(alignment: .leading, spacing: 14) {
                 if let plan {
                     HStack {
-                        Text("Debt: \(plan.debtLevel.rawValue.capitalized)")
+                        Text(plan.debtLevel.rescueTitle)
                             .font(.lifeboard(.headline))
                         Spacer()
                         Text(String(format: "%.1f", plan.debtScore))
@@ -1700,10 +1683,10 @@ private struct EvaOverdueRescueSheet: View {
 
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {
-                            rescueRows(title: "Do today", items: plan.doToday)
-                            rescueRows(title: "Move", items: plan.move)
-                            rescueRows(title: "Split", items: plan.split)
-                            rescueRows(title: "Drop?", items: plan.dropCandidate)
+                            rescueRows(title: actionTitle(for: .doToday), items: plan.doToday)
+                            rescueRows(title: actionTitle(for: .move), items: plan.move)
+                            rescueRows(title: actionTitle(for: .split), items: plan.split)
+                            rescueRows(title: actionTitle(for: .dropCandidate), items: plan.dropCandidate)
                         }
                     }
 
@@ -1721,14 +1704,14 @@ private struct EvaOverdueRescueSheet: View {
                         .buttonStyle(.lifeBoardPrimaryCompact)
 
                         if lastBatchRunID != nil {
-                            Button("Undo last apply") {
+                            Button("Undo") {
                                 onUndo()
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.lifeBoardChip)
                         }
                     }
                 } else {
-                    Text("No overdue tasks to rescue.")
+                    Text("Nothing from earlier")
                         .font(.lifeboard(.body))
                         .foregroundColor(Color.lifeboard.textSecondary)
                 }
@@ -1747,7 +1730,7 @@ private struct EvaOverdueRescueSheet: View {
                 selectedActionByTaskID = defaults
             }
             .alert("Move selected tasks to Inbox?", isPresented: $showDropConfirm) {
-                Button("Apply", role: .destructive) {
+                Button("Move to Inbox", role: .destructive) {
                     onApply(pendingMutations)
                     pendingMutations = []
                     dismiss()
@@ -1756,7 +1739,7 @@ private struct EvaOverdueRescueSheet: View {
                     pendingMutations = []
                 }
             } message: {
-                Text("Tasks marked Drop? will move to Inbox and have their due date cleared.")
+                Text("Their due dates will be cleared.")
             }
         }
         .presentationDetents([.medium, .large])
@@ -1772,7 +1755,7 @@ private struct EvaOverdueRescueSheet: View {
 
             ForEach(items, id: \.taskID) { item in
                 HStack(spacing: 8) {
-                    Text(tasksByID[item.taskID]?.title ?? "Task")
+                    Text(tasksByID[item.taskID]?.title ?? String(localized: "Task"))
                         .font(.lifeboard(.body))
                         .foregroundColor(Color.lifeboard.textPrimary)
                         .lineLimit(2)
@@ -1780,10 +1763,10 @@ private struct EvaOverdueRescueSheet: View {
                     Spacer()
 
                     Menu {
-                        Button("Do today") { selectedActionByTaskID[item.taskID] = .doToday }
-                        Button("Move") { selectedActionByTaskID[item.taskID] = .move }
-                        Button("Split") { selectedActionByTaskID[item.taskID] = .split }
-                        Button("Drop?") { selectedActionByTaskID[item.taskID] = .dropCandidate }
+                        Button(actionTitle(for: .doToday)) { selectedActionByTaskID[item.taskID] = .doToday }
+                        Button(actionTitle(for: .move)) { selectedActionByTaskID[item.taskID] = .move }
+                        Button(actionTitle(for: .split)) { selectedActionByTaskID[item.taskID] = .split }
+                        Button(actionTitle(for: .dropCandidate)) { selectedActionByTaskID[item.taskID] = .dropCandidate }
                     } label: {
                         Text(actionTitle(for: selectedActionByTaskID[item.taskID] ?? item.action))
                             .font(.lifeboard(.caption1))
@@ -1793,7 +1776,7 @@ private struct EvaOverdueRescueSheet: View {
                 }
                 .padding(.vertical, 8)
                 if (selectedActionByTaskID[item.taskID] ?? item.action) == .split {
-                    Button("Open split helper") {
+                    Button("Split task") {
                         onSplitTask(item.taskID)
                     }
                     .buttonStyle(.plain)
@@ -1806,10 +1789,10 @@ private struct EvaOverdueRescueSheet: View {
 
     private func actionTitle(for action: EvaRescueActionType) -> String {
         switch action {
-        case .doToday: return "Do today"
-        case .move: return "Move"
-        case .split: return "Split"
-        case .dropCandidate: return "Drop?"
+        case .doToday: return DecisionDestination.today.title
+        case .move: return String(localized: "Move")
+        case .split: return String(localized: "Split")
+        case .dropCandidate: return String(localized: "Inbox")
         }
     }
 
@@ -1851,6 +1834,18 @@ private struct EvaOverdueRescueSheet: View {
         let recommendations = plan.doToday + plan.move + plan.split + plan.dropCandidate
         return recommendations.contains { item in
             (selectedActionByTaskID[item.taskID] ?? item.action) == .dropCandidate
+        }
+    }
+}
+
+/// Rescue's header in plain words. The raw level ("High") read as a verdict.
+private extension EvaDebtLevel {
+    var rescueTitle: String {
+        switch self {
+        case .none: String(localized: "Nothing from earlier")
+        case .low: String(localized: "A few from earlier")
+        case .medium: String(localized: "Some from earlier")
+        case .high: String(localized: "Many from earlier")
         }
     }
 }

@@ -27,8 +27,8 @@ struct EvaAboutYouView: View {
         EvaActivationStageView(
             footer: {
                 EvaFooterButtons(
-                    primaryTitle: "Continue",
-                    secondaryTitle: "Back",
+                    primaryTitle: String(localized: "Continue"),
+                    secondaryTitle: String(localized: "Back"),
                     isPrimaryDisabled: !canContinue,
                     onPrimary: onContinue,
                     onSecondary: onBack
@@ -43,14 +43,14 @@ struct EvaAboutYouView: View {
     private var mainContent: some View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
             EvaContentHeader(
-                title: "How should \(assistantIdentity.snapshot.displayName) help you?",
-                bodyText: "A quick setup so \(assistantIdentity.snapshot.displayName) can support your working style and protect your momentum from the start."
+                title: String(localized: "How can \(assistantIdentity.snapshot.displayName) help?"),
+                bodyText: String(localized: "Pick what fits you.")
             )
             .enhancedStaggeredAppearance(index: 0)
 
             EvaSectionCard(
-                title: "Working style",
-                subtitle: "Choose up to 3",
+                title: String(localized: "Working style"),
+                subtitle: String(localized: "Choose up to 3"),
                 accessibilityIdentifier: "eva.activation.about_you.working_style"
             ) {
                 EvaFlowLayout(spacing: spacing.s8, rowSpacing: spacing.s8) {
@@ -66,9 +66,9 @@ struct EvaAboutYouView: View {
                 }
 
                 EvaCollapsedNoteField(
-                    title: "Anything else about how \(assistantIdentity.snapshot.displayName) should help?",
-                    collapsedTitle: "Add a note",
-                    placeholder: "Example: Push me toward the highest-leverage task first",
+                    title: String(localized: "Anything else?"),
+                    collapsedTitle: String(localized: "Add a note"),
+                    placeholder: String(localized: "Your note"),
                     accessibilityIdentifier: "eva.activation.about_you.working_style_note",
                     text: Binding(
                         get: { draft.customWorkingStyleNote ?? "" },
@@ -80,8 +80,8 @@ struct EvaAboutYouView: View {
             .enhancedStaggeredAppearance(index: 1)
 
             EvaSectionCard(
-                title: "Momentum blockers",
-                subtitle: "Choose up to 3",
+                title: String(localized: "Blockers"),
+                subtitle: String(localized: "Choose up to 3"),
                 accessibilityIdentifier: "eva.activation.about_you.blockers"
             ) {
                 EvaFlowLayout(spacing: spacing.s8, rowSpacing: spacing.s8) {
@@ -97,9 +97,9 @@ struct EvaAboutYouView: View {
                 }
 
                 EvaCollapsedNoteField(
-                    title: "Anything \(assistantIdentity.snapshot.displayName) should watch for?",
-                    collapsedTitle: "Add a note",
-                    placeholder: "Example: I avoid the hardest task until late in the day",
+                    title: String(localized: "Anything to watch for?"),
+                    collapsedTitle: String(localized: "Add a note"),
+                    placeholder: String(localized: "Your note"),
                     accessibilityIdentifier: "eva.activation.about_you.momentum_note",
                     text: Binding(
                         get: { draft.customMomentumNote ?? "" },
@@ -110,7 +110,7 @@ struct EvaAboutYouView: View {
             }
             .enhancedStaggeredAppearance(index: 2)
 
-            Text("Saved locally. You can edit this later.")
+            Text("Saved on \(DeviceNoun.this). Edit it anytime.")
                 .font(.lifeboard(.caption1))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .enhancedStaggeredAppearance(index: 3)

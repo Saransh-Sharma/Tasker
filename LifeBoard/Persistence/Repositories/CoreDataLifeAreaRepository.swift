@@ -66,7 +66,7 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol, @unch
                         throw NSError(
                             domain: "CoreDataLifeAreaRepository",
                             code: 409,
-                            userInfo: [NSLocalizedDescriptionKey: "Active life area names must be unique"]
+                            userInfo: [NSLocalizedDescriptionKey: String(localized: "An area with this name already exists.")]
                         )
                     }
                 }

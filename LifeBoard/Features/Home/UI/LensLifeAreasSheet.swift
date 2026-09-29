@@ -69,6 +69,7 @@ struct LensLifeAreasSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
@@ -126,12 +127,16 @@ struct LensLifeAreasSheet: View {
             }
         }
         .listStyle(.insetGrouped)
+        // The warm canvas behind the grouped list, not the system's pure white
+        // (light) or pure black (dark) grouped background.
+        .scrollContentBackground(.hidden)
+        .background { GrainedCanvas() }
         .environment(\.editMode, pinnedAreas.isEmpty ? .constant(.inactive) : .constant(.active))
     }
 
     private var createSection: some View {
         Section {
-            TextField("Life area name", text: $newAreaName)
+            TextField("Life area name", text: $newAreaName, prompt: Text("Life area name").foregroundColor(Color(SemanticColorTokens.inkSecondary)))
                 .font(.lifeboard(.body))
                 .textInputAutocapitalization(.words)
                 .accessibilityIdentifier("home.lens.manage.create.name")
@@ -198,15 +203,15 @@ struct LensLifeAreasSheet: View {
         .accessibilityIdentifier("home.lens.manage.lifeArea.\(area.id.uuidString)")
         .accessibilityLabel(area.name)
         .accessibilityValue(isPinned ? "Pinned" : "Not pinned")
-        .accessibilityHint(disabled ? "Pin limit reached. Unpin a life area first." : (isPinned ? "Unpins this life area" : "Pins this life area"))
+        .accessibilityHint(disabled ? "Unpin one first" : (isPinned ? "Unpins this life area" : "Pins this life area"))
         .accessibilityAddTraits(isPinned ? .isSelected : [])
     }
 
     private var emptyState: some View {
         StatusSurface(
             state: .empty,
-            title: "No life areas yet",
-            message: "Create a life area to pin it to your Home lens row."
+            title: String(localized: "No life areas yet"),
+            message: String(localized: "Create one to pin it here.")
         )
     }
 

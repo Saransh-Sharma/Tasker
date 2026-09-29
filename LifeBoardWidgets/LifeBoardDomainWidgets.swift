@@ -20,15 +20,25 @@ private struct DomainWidgetProvider: TimelineProvider {
 @MainActor
 private struct DomainWidgetConfiguration {
     let domain: SystemSurfaceDomain
+
+    static func description(for domain: SystemSurfaceDomain) -> String {
+        domain.widgetDescription
+    }
+
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "LifeBoard.\(domain.rawValue).v2", provider: DomainWidgetProvider(domain: domain)) { entry in
             DomainWidgetView(domain: domain, entry: entry)
-                .containerBackground(for: .widget) { Color(red: 0.98, green: 0.96, blue: 0.91) }
+                // Adaptive: a fixed cream container under the default `.primary`
+                // ink rendered white text on cream on a dark Home Screen.
+                .containerBackground(for: .widget) { WidgetBrand.canvasWarm }
         }
         .configurationDisplayName(domain.title)
-        .description(
-            LocalizedStringKey("A privacy-aware \(domain.title.lowercased()) glance from LifeBoard.")
-        )
+        // A plain String, never an interpolated `LocalizedStringKey`: WidgetKit
+        // rejects formatted text here at runtime ("Formatted text for
+        // `description` is not supported"), and that one assertion takes the
+        // whole extension down with it, so every widget and Live Activity in
+        // the bundle silently stops rendering.
+        .description(Self.description(for: domain))
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
     }
 }
@@ -40,18 +50,23 @@ private struct DomainWidgetView: View {
     var body: some View {
         Group {
             if family == .accessoryRectangular {
-                HStack { Image(systemName: entry.snapshot?.systemImage ?? domain.symbol); VStack(alignment: .leading) { Text(entry.snapshot?.title ?? domain.title).font(.caption2); Text(entry.snapshot?.primaryValue ?? "Open LifeBoard").font(.caption.weight(.semibold)) } }
+                HStack { Image(systemName: entry.snapshot?.systemImage ?? domain.symbol); VStack(alignment: .leading) { Text(entry.snapshot?.title ?? domain.title).font(.caption2); Text(entry.snapshot?.primaryValue ?? domain.emptyValue).font(.caption.weight(.semibold)).lineLimit(2) } }
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(entry.snapshot?.title ?? domain.title, systemImage: entry.snapshot?.systemImage ?? domain.symbol).font(.caption.weight(.semibold))
-                    Text(entry.snapshot?.primaryValue ?? "Open LifeBoard to view").font(.system(.title3, design: .rounded, weight: .semibold)).minimumScaleFactor(0.75)
+                    Text(entry.snapshot?.primaryValue ?? domain.emptyValue).font(.system(.title3, design: .rounded, weight: .semibold)).minimumScaleFactor(0.75)
                     if family == .systemMedium, let secondary = entry.snapshot?.secondaryValue { Text(secondary).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
                     Spacer(minLength: 0)
-                    Text(entry.snapshot?.updatedAt.formatted(date: .omitted, time: .shortened) ?? "Private by default").font(.caption2).foregroundStyle(.secondary)
+                    if let updatedAt = entry.snapshot?.updatedAt {
+                        Text("Updated \(updatedAt.formatted(date: .omitted, time: .shortened))").font(.caption2).foregroundStyle(.secondary)
+                    }
                 }
             }
         }
-        .widgetURL(URL(string: "lifeboard://\(entry.snapshot?.deepLinkPath ?? domain.deepLinkPath)"))
+        // Always the domain's own screen. The app still publishes a generic
+        // "track"/"insights" path in older snapshots, and "track" is not a
+        // host the router knows, so the snapshot's path is not trusted here.
+        .widgetURL(URL(string: "lifeboard://\(domain.deepLinkPath)"))
         .accessibilityElement(children: .combine)
     }
 }
@@ -67,5 +82,9 @@ private struct DomainWidgetView: View {
 private extension SystemSurfaceDomain {
     var title: String { switch self { case .journal: "Journal"; case .fasting: "Fasting"; case .nutrition: "Nutrition"; case .wellness: "Wellness"; case .lifeMoments: "Life Moments"; case .goals: "Goals"; case .routines: "Routines" } }
     var symbol: String { switch self { case .journal: "book.closed"; case .fasting: "timer"; case .nutrition: "fork.knife"; case .wellness: "heart.text.square"; case .lifeMoments: "calendar.badge.heart"; case .goals: "target"; case .routines: "repeat" } }
-    var deepLinkPath: String { switch self { case .journal: "journal"; case .fasting, .nutrition, .wellness, .routines: "track"; case .lifeMoments, .goals: "insights" } }
+    var deepLinkPath: String { switch self { case .journal: "journal"; case .fasting: "fasting"; case .nutrition: "nutrition"; case .wellness: "wellness/body"; case .routines: "routines"; case .lifeMoments: "moments"; case .goals: "goals" } }
+    /// Shown before the app has published anything for this area. A short
+    /// fact; a tap opens the area.
+    var emptyValue: String { switch self { case .journal: "No entries yet"; case .fasting: "No fast running"; case .nutrition: "Nothing logged today"; case .wellness: "No readings yet"; case .routines: "No routines yet"; case .lifeMoments: "No moments yet"; case .goals: "No goals yet" } }
+    var widgetDescription: String { switch self { case .journal: "Your latest journal entry."; case .fasting: "Your current fast."; case .nutrition: "What you’ve eaten today."; case .wellness: "Your latest body measurement."; case .routines: "Your routines."; case .lifeMoments: "Your next life moment."; case .goals: "Your active goals." } }
 }
