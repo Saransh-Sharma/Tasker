@@ -238,6 +238,8 @@ final class EvaActivationTests: XCTestCase {
         let sessionStore = EvaCloudSessionStore(securityStatusOverride: { operation in
             operation == .load ? errSecMissingEntitlement : nil
         })
+        // Hydration reaches secure storage only after explicit consent.
+        EvaCloudActivationRecordStore.save(grants: [], origin: .userSelection, defaults: defaults)
         let coordinator = EvaCloudAccessCoordinator(
             account: EvaCloudAccountState(),
             defaults: defaults,
