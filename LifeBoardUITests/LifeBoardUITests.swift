@@ -1747,6 +1747,23 @@ class LifeBoardUITests: XCTestCase {
         return app
     }
 
+    /// A card opens its habit through `.habitDetail`, the route reminders,
+    /// widgets and deep links also use. It used to land on a read-only summary
+    /// whose only button switched to the Track tab.
+    func testFoundationHomeHabitCardOpensTheFullHabitScreen() {
+        let app = launchHomeHabitsRow()
+        defer { app.terminate() }
+        let title = app.staticTexts["Drink water after breakfast"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 8))
+        scrollUntilHittable(title, in: app, maximumSwipes: 6)
+        title.tap()
+
+        let detail = app.descendants(matching: .any)["habitDetail.view"]
+        XCTAssertTrue(detail.waitForExistence(timeout: 8), "The habit opens its full screen")
+        XCTAssertFalse(app.buttons["Open in Track"].exists, "Not the old summary card")
+        XCTAssertFalse(app.buttons["Close"].exists, "A pushed habit goes back with Back, not a sheet's Close")
+    }
+
     /// The row also scrolls from a card's words, where the card's own tap and
     /// menu live.
     func testFoundationHomeHabitsRowScrollsFromCardText() {
