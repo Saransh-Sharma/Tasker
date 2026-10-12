@@ -442,21 +442,30 @@ function LegalPage({ type }: { type: 'privacy' | 'terms' }) {
       <main id="main-content" className="legal-page section-pad">
         <p className="eyebrow">LifeBoard</p>
         <h1 tabIndex={-1}>{isPrivacy ? 'Privacy' : 'Terms of use'}</h1>
-        <p className="legal-updated">Last updated: August 13, 2026</p>
+        <p className="legal-updated">Last updated: {isPrivacy ? 'October 7, 2026' : 'August 13, 2026'}</p>
         {isPrivacy ? <PrivacyContent /> : <TermsContent />}
       </main>
     </PageShell>
   );
 }
 
+// The one privacy text. Settings › Data & help › Privacy Policy opens
+// https://getlifeboard.app/privacy/, and generate-marketing-routes.mjs builds
+// that page from this component, so a static file under public/privacy/ is
+// overwritten at build time and never served. Written from what the app does in
+// code (2026-10-07); not yet reviewed by counsel.
 function PrivacyContent() {
   return (
     <div className="legal-content">
-      <section><h2>Local-first by default</h2><p>LifeBoard stores its core working records on your device. If private iCloud continuity is enabled and available, Apple’s CloudKit infrastructure synchronizes eligible records. LifeBoard does not operate a separate task-data account service or hold a recovery phrase for your content.</p></section>
-      <section><h2>Permissions stay specific</h2><p>Calendar access is used for read-only schedule context. Health access is requested by domain and remains optional; manual recording stays available. Microphone, camera, photos, files, notifications, biometrics, speech, and system integrations are requested only when their related action is understandable.</p></section>
-      <section><h2>EVA and model context</h2><p>Local model paths are preferred where available. Eligible remote model work requires explicit account opt-in and category-specific context grants. Revoking a grant affects later requests. Meaningful changes remain behind proposal review and explicit Apply.</p></section>
-      <section><h2>Outside the main app</h2><p>Widgets, Watch, notifications, Spotlight, Live Activities, and extensions receive small, versioned, redacted projections. Protected Journal and health content is not copied into unsafe previews.</p></section>
-      <section><h2>Advertising and profiling</h2><p>LifeBoard does not sell personal task, journal, or health content and does not use it for advertising profiles. Diagnostics are designed to exclude private content.</p></section>
+      <section><h2>What stays on your device</h2><p>LifeBoard stores your tasks, plans, habits, journal, notes, and logs on your device. Health data, body measurements, workouts, sleep notes, meals, mood, hydration, medication, fasting, and focus records stay on this device only: they aren’t synced through iCloud or stored on LifeBoard’s servers. The one exception is a Health summary you choose to let Cloud Eva use, described below.</p></section>
+      <section><h2>iCloud sync</h2><p>If you’re signed in to iCloud, your tasks, plans, habits, routines, goals, life moments, journal, and notes sync between your devices through your private iCloud account. Apple operates that storage; LifeBoard can’t read it.</p></section>
+      <section><h2>Apple Health</h2><p>LifeBoard reads only the Health categories you allow, and writes only the water, nutrition, body measurements, and workouts you log, if you allow that. Health data is never used for advertising and never sold.</p></section>
+      <section><h2>Eva, the assistant</h2><p>Eva can run on your device, or in the cloud once you turn on Cloud Eva. Cloud Eva stays off until you agree to it. When it’s on, your question and the context you allow pass through LifeBoard’s cloud service (hosted on Cloudflare) to OpenAI to prepare an answer.</p><p>Before you turn it on, you choose which optional context Eva may use: journal entries, Health summaries, life moments, and what you’ve told Eva about you. You can change these choices, or turn Cloud Eva off, at any time in Settings › Eva. Changes Eva suggests are shown for review and happen only when you tap Apply.</p></section>
+      <section><h2>Outside the main app</h2><p>Widgets, Watch, notifications, Spotlight, Live Activities, and extensions receive small, redacted summaries. Protected Journal and health content is not shown in their previews.</p></section>
+      <section><h2>Product events</h2><p>LifeBoard sends a small number of anonymous product events, such as whether a setup step finished, using an identifier that changes over time. They contain no task, journal, or health content. You can turn them off in Settings › Data &amp; help.</p></section>
+      <section><h2>Permissions</h2><p>LifeBoard asks for calendar, reminders, microphone, speech recognition, camera, photos, Face ID, and notification access only for the feature you’re using, and works without any of them. Calendar access is read-only: LifeBoard shows your events but never changes them. Reminders access keeps the Reminders lists you choose in sync with your tasks.</p></section>
+      <section><h2>Advertising and profiling</h2><p>LifeBoard does not sell your task, journal, or health content and does not use it for advertising profiles. Diagnostics are designed to exclude private content.</p></section>
+      <section><h2>Your choices</h2><p>You can delete your cloud account in Settings › Eva. Deleting LifeBoard removes the data stored on this device; iCloud data can be removed from your iCloud settings.</p></section>
       <section><h2>Questions</h2><p>Email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> with privacy or data questions.</p></section>
     </div>
   );
