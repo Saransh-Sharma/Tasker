@@ -1,7 +1,7 @@
 import Foundation
 
 struct ProductEventV1: Codable, Sendable {
-    enum Name: String, Codable, Sendable {
+    enum Name: String, Codable, Sendable, CaseIterable {
         case onboardingPresented
         case onboardingStepViewed
         case onboardingStepCompleted
@@ -72,6 +72,56 @@ struct ProductEventV1: Codable, Sendable {
     let durationBucket: String?
 }
 
+extension ProductEventV1.Name {
+    /// Names the server's allow-list (`Services/EVACloud/src/routes/product-events.ts`)
+    /// does not have yet. The server checks a batch as a whole, so one unknown
+    /// name rejects every event sent with it. These stay off the queue until a
+    /// Worker deploy adds them; then they leave this set.
+    /// `ProductTelemetryContractTests` fails in either direction if this drifts.
+    static let awaitingServerSupport: Set<ProductEventV1.Name> = [
+        .connectionInvitationShown,
+        .connectionInvitationDeclined,
+        .healthDataFirstObserved,
+        .evaReadinessHydrated,
+        .evaInlineActivationShown,
+        .evaActivationAutoResumed,
+        .evaActivationAndSendCompleted,
+        .evaSetupCenterCTAShown,
+    ]
+
+    var isAcceptedByServer: Bool { Self.awaitingServerSupport.contains(self) == false }
+}
+
+extension ProductEventV1 {
+    /// `ProductEventSchema`'s duration buckets.
+    static let durationBuckets: Set<String> = ["under_1s", "1_3s", "3_10s", "10_30s", "over_30s"]
+
+    /// The event with every optional field inside the server's rules. A field
+    /// outside them fails the whole batch, so it is dropped (or clamped, for
+    /// counts) here instead of being sent.
+    func conformingToServerSchema() -> ProductEventV1 {
+        ProductEventV1(
+            name: name,
+            timestamp: timestamp,
+            flowVersion: flowVersion.flatMap { (1...100).contains($0) ? $0 : nil },
+            audience: Self.token(audience, maximumLength: 40),
+            outcome: Self.token(outcome, maximumLength: 40),
+            errorCode: Self.token(errorCode, maximumLength: 80, alsoAllowing: ["."]),
+            count: count.map { min(max($0, 0), 100_000) },
+            durationBucket: durationBucket.flatMap { Self.durationBuckets.contains($0) ? $0 : nil }
+        )
+    }
+
+    /// `^[a-zA-Z0-9_-]{1,max}$`, plus any extra characters the field allows.
+    private static func token(_ value: String?, maximumLength: Int, alsoAllowing extra: Set<Character> = []) -> String? {
+        guard let value, (1...maximumLength).contains(value.count) else { return nil }
+        let allowed = value.allSatisfy { character in
+            character.isASCII && (character.isLetter || character.isNumber || character == "_" || character == "-" || extra.contains(character))
+        }
+        return allowed ? value : nil
+    }
+}
+
 actor ProductTelemetry {
     static let shared = ProductTelemetry()
     static let enabledKey = "productTelemetry.enabled"
@@ -87,6 +137,9 @@ actor ProductTelemetry {
     /// re-queued only 32, so a few offline days silently lost most of the
     /// onboarding funnel. Oldest events are dropped first.
     static let maximumPendingEvents = 200
+    /// The server's `maxItems` for one batch. A bigger batch is rejected whole,
+    /// and because failed batches are kept, a queue past this size never drained.
+    static let maximumBatchEvents = 32
     private static let immediateFlushEvents: Set<ProductEventV1.Name> = [
         .evaActivationReviewConfirmed,
         .evaGuestBootstrapSucceeded,
@@ -107,7 +160,9 @@ actor ProductTelemetry {
     init(defaults: UserDefaults = .standard) {
         if let data = defaults.data(forKey: Self.pendingStorageKey),
            let restored = try? JSONDecoder().decode([ProductEventV1].self, from: data) {
-            pending = Array(restored.suffix(Self.maximumPendingEvents))
+            // Queues saved by earlier builds can hold names or values the
+            // server rejects; left in place they would block every later event.
+            pending = Array(Self.sendable(restored).suffix(Self.maximumPendingEvents))
         } else {
             pending = []
         }
@@ -131,6 +186,7 @@ actor ProductTelemetry {
         durationBucket: String? = nil
     ) async {
         guard Self.isEnabled, AppRuntimeConfigurationStore.current.productEventsEnabled else { return }
+        guard name.isAcceptedByServer else { return }
         pending.append(ProductEventV1(
             name: name,
             timestamp: Date(),
@@ -140,7 +196,7 @@ actor ProductTelemetry {
             errorCode: errorCode,
             count: count,
             durationBucket: durationBucket
-        ))
+        ).conformingToServerSchema())
         if pending.count > Self.maximumPendingEvents {
             pending.removeFirst(pending.count - Self.maximumPendingEvents)
         }
@@ -150,9 +206,10 @@ actor ProductTelemetry {
         }
     }
 
-    /// Sends what is queued. Events stay on disk until the server accepts
-    /// them: the old flush cleared the queue *before* sending, so a crash or
-    /// a kill mid-request lost the batch outright.
+    /// Sends what is queued, oldest first, at most `maximumBatchEvents` per
+    /// request. Events stay on disk until the server accepts them: the old
+    /// flush cleared the queue *before* sending, so a crash or a kill
+    /// mid-request lost the batch outright.
     func flush() async {
         guard Self.isEnabled,
               AppRuntimeConfigurationStore.current.productEventsEnabled,
@@ -160,32 +217,55 @@ actor ProductTelemetry {
               pending.isEmpty == false else { return }
         isFlushing = true
         defer { isFlushing = false }
-        let events = pending
-        do {
-            let batch = Batch(installationId: Self.rotatingInstallationID(), events: events)
-            _ = try await EvaCloudTransport.shared.send(
-                path: "/v1/product-events",
-                method: "POST",
-                body: JSONEncoder.evaCloud.encode(batch),
-                authenticated: false,
-                attested: false
-            )
-            // Events recorded while the request was in flight were appended
-            // after `events`; only the sent prefix is removed. A consent
-            // withdrawal during the send has already emptied the queue.
-            if pending.count >= events.count {
-                pending.removeFirst(events.count)
-            } else {
-                pending.removeAll()
+        while let events = Self.nextBatch(from: pending) {
+            do {
+                let batch = Batch(installationId: Self.rotatingInstallationID(), events: events)
+                _ = try await EvaCloudTransport.shared.send(
+                    path: "/v1/product-events",
+                    method: "POST",
+                    body: JSONEncoder.evaCloud.encode(batch),
+                    authenticated: false,
+                    attested: false
+                )
+                removeSentPrefix(events.count)
+            } catch let envelope as EvaErrorEnvelope where envelope.code == Self.permanentRejectionCode {
+                // The server will never accept this batch. Keeping it would
+                // block every event behind it, which is how the queue jammed.
+                removeSentPrefix(events.count)
+            } catch {
+                // Kept for the next flush, bounded, oldest dropped first.
+                if pending.count > Self.maximumPendingEvents {
+                    pending = Array(pending.suffix(Self.maximumPendingEvents))
+                }
+                persistPending()
+                return
             }
-            persistPending()
-        } catch {
-            // Kept for the next flush, bounded, oldest dropped first.
-            if pending.count > Self.maximumPendingEvents {
-                pending = Array(pending.suffix(Self.maximumPendingEvents))
-            }
-            persistPending()
         }
+    }
+
+    /// The error code the server returns when a body fails its contract.
+    static let permanentRejectionCode = "schema_invalid"
+
+    /// The oldest events, no more than the server accepts in one request.
+    static func nextBatch(from events: [ProductEventV1]) -> [ProductEventV1]? {
+        events.isEmpty ? nil : Array(events.prefix(maximumBatchEvents))
+    }
+
+    /// Only what the server can accept, with every field inside its rules.
+    static func sendable(_ events: [ProductEventV1]) -> [ProductEventV1] {
+        events.filter { $0.name.isAcceptedByServer }.map { $0.conformingToServerSchema() }
+    }
+
+    /// Events recorded while a request was in flight were appended after it;
+    /// only the sent prefix is removed. A consent withdrawal during the send
+    /// has already emptied the queue.
+    private func removeSentPrefix(_ count: Int) {
+        if pending.count >= count {
+            pending.removeFirst(count)
+        } else {
+            pending.removeAll()
+        }
+        persistPending()
     }
 
     private func discardPending() {
