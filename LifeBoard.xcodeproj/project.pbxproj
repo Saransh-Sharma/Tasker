@@ -760,6 +760,7 @@
 		ACEAD68FD9A81728B722DC94 /* ReceiptCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 664940181183FA243F38584A /* ReceiptCopy.swift */; };
 		A310000000000000000009CD /* AppRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009CC /* AppRuntimeTests.swift */; };
 		A310000000000000000009CF /* LoggingPrivacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A310000000000000000009CE /* LoggingPrivacyTests.swift */; };
+		A3100000000000000000A9F3 /* ProductTelemetryContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000A9F2 /* ProductTelemetryContractTests.swift */; };
 		A3100000000000000000095D /* SetupCenterFocusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000095C /* SetupCenterFocusTests.swift */; };
 		A3100000000000000000095F /* SetupCenterSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000095E /* SetupCenterSections.swift */; };
 		A31000000000000000000961 /* SetupCenterHealthDisclosureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000960 /* SetupCenterHealthDisclosureSheet.swift */; };
@@ -2090,6 +2091,7 @@
 		664940181183FA243F38584A /* ReceiptCopy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReceiptCopy.swift; path = LifeBoard/Foundation/Design/ReceiptCopy.swift; sourceTree = SOURCE_ROOT; };
 		A310000000000000000009CC /* AppRuntimeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppRuntimeTests.swift; path = LifeBoardTests/AppRuntimeTests.swift; sourceTree = SOURCE_ROOT; };
 		A310000000000000000009CE /* LoggingPrivacyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LoggingPrivacyTests.swift; path = LifeBoardTests/LoggingPrivacyTests.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000A9F2 /* ProductTelemetryContractTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductTelemetryContractTests.swift; path = LifeBoardTests/ProductTelemetryContractTests.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000095C /* SetupCenterFocusTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterFocusTests.swift; path = LifeBoardTests/SetupCenterFocusTests.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000095E /* SetupCenterSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterSections.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterSections.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000960 /* SetupCenterHealthDisclosureSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetupCenterHealthDisclosureSheet.swift; path = LifeBoard/Features/Settings/SetupCenter/SetupCenterHealthDisclosureSheet.swift; sourceTree = SOURCE_ROOT; };
@@ -4123,6 +4125,7 @@
 				A31000000000000000000960 /* SetupCenterHealthDisclosureSheet.swift */,
 				A3100000000000000000095E /* SetupCenterSections.swift */,
 				A3100000000000000000095C /* SetupCenterFocusTests.swift */,
+				A3100000000000000000A9F2 /* ProductTelemetryContractTests.swift */,
 				A310000000000000000009CE /* LoggingPrivacyTests.swift */,
 				A310000000000000000009CC /* AppRuntimeTests.swift */,
 				A310000000000000000009A4 /* HomeCardPresentationTests.swift */,
@@ -6461,6 +6464,7 @@
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
 				A3100000000000000000095D /* SetupCenterFocusTests.swift in Sources */,
+				A3100000000000000000A9F3 /* ProductTelemetryContractTests.swift in Sources */,
 				A310000000000000000009CF /* LoggingPrivacyTests.swift in Sources */,
 				A310000000000000000009CD /* AppRuntimeTests.swift in Sources */,
 				A310000000000000000009A5 /* HomeCardPresentationTests.swift in Sources */,
