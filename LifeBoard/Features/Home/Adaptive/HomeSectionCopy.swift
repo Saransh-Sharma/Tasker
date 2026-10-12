@@ -176,7 +176,8 @@ enum HomeSectionCopy {
         let time = scheduledAt.formatted(date: .omitted, time: .shortened)
         return (
             name?.isEmpty == false ? name! : String(localized: "Medication"),
-            isPastDue ? String(localized: "Due at \(time) · Taken or skipped?") : String(localized: "Due at \(time)")
+            // One line on a half-width card: the row opens Care to log it.
+            isPastDue ? String(localized: "\(time) · Log it") : String(localized: "Due \(time)")
         )
     }
 

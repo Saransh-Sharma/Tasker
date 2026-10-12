@@ -80,7 +80,7 @@ struct HomeWeeklySummaryCard: View {
                 ProgressView()
                     .controlSize(.small)
             } else if errorMessage != nil, summary == nil {
-                Button("Retry", action: onRetryAction)
+                Button("Try again", action: onRetryAction)
                     .buttonStyle(.plain)
                     .font(.lifeboard(.caption1).weight(.semibold))
                     .foregroundStyle(Color.lifeboard.accentPrimary)
