@@ -27,6 +27,7 @@ struct HabitDetailScreen: View {
     @StateObject var viewModel: HabitDetailViewModel
     private let onMutation: @MainActor @Sendable () -> Void
 
+    @Environment(\.habitDetailShowsCloseButton) private var showsCloseButton
     @Environment(\.dismiss) private var dismiss
     @Environment(\.lifeboardTokens) private var tokens
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -137,18 +138,17 @@ struct HabitDetailScreen: View {
 
     private var headerChrome: some View {
         HStack(spacing: spacing.s12) {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.lifeboard(.headline))
-                    .foregroundStyle(Color.lifeboard.textPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(Color.lifeboard.surfaceSecondary.opacity(0.72), in: Circle())
+            if showsCloseButton {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard.textPrimary)
+                        .frame(width: 44, height: 44)
+                        .background(Color.lifeboard.surfaceSecondary.opacity(0.72), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close")
-
             VStack(alignment: .leading, spacing: 2) {
                 Text("Habit")
                     .font(.lifeboard(.meta))

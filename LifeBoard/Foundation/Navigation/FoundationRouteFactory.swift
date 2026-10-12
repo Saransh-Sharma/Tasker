@@ -158,7 +158,7 @@ extension FoundationShell {
                 PlanRollbackRouteView(router: runtime.router)
             }
         case .habitDetail(let id):
-            HabitRouteView(id: id, repository: habitRuntimeReadRepository, router: runtime.router)
+            HabitRouteView(id: id, repository: habitRuntimeReadRepository)
         case .habitBoard:
             HabitBoardScreen(
                 viewModel: CompositionRoot.shared.makeHabitBoardViewModel(),

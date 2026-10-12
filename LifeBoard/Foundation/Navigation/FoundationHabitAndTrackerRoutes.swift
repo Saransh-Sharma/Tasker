@@ -4,24 +4,32 @@ import LifeBoardTranscription
 import UIKit
 import VisionKit
 
+/// Where habit reminders, widgets, deep links and Eva references land, so it
+/// opens the full habit screen. It used to be a read-only summary whose only
+/// action switched to the Track tab without opening the habit.
 struct HabitRouteView: View {
     let id: UUID
     let repository: (any HabitRuntimeReadRepositoryProtocol)?
-    let router: AppRouter
+    @Environment(\.habitViewModelFactory) private var habitViewModelFactory
     @State private var state: RouteLoadState<HabitLibraryRow> = .loading
+    /// Made once per load. Building it in `body` would make a throwaway view
+    /// model on every render, since only the first reaches the `@StateObject`.
+    @State private var detailViewModel: HabitDetailViewModel?
 
     var body: some View {
-        EntityRouteScaffold(title: String(localized: "Habit"), systemImage: "repeat.circle", state: state) { habit in
-            VStack(alignment: .leading, spacing: 16) {
-                Text(habit.title).font(.title2.weight(.semibold))
-                LabeledContent("Area", value: habit.lifeAreaName)
-                LabeledContent("Current streak", value: Self.days(habit.currentStreak))
-                LabeledContent("Best streak", value: Self.days(habit.bestStreak))
-                Label(habit.isPaused ? "Paused" : "Active", systemImage: habit.isPaused ? "pause.circle" : "checkmark.circle")
-                if let notes = habit.notes, notes.isEmpty == false { Text(notes).font(.body).foregroundStyle(Color.lifeboard(.textSecondary)) }
-                Button("Open in Track", systemImage: "chart.bar.fill") { router.select(.track) }
-                    .buttonStyle(.lifeBoardPrimaryCompact)
-                    .tint(Color(SemanticColorTokens.inkPrimary))
+        Group {
+            if let detailViewModel {
+                HabitDetailScreen(viewModel: detailViewModel, onMutation: {})
+                    .environment(\.habitDetailShowsCloseButton, false)
+                    .navigationTitle(String(localized: "Habit"))
+                    .navigationBarTitleDisplayMode(.inline)
+            } else {
+                EntityRouteScaffold(
+                    title: String(localized: "Habit"),
+                    systemImage: "repeat.circle",
+                    state: state,
+                    retry: { Task { await load() } }
+                ) { _ in EmptyView() }
             }
         }
         .task(id: id) { await load() }
@@ -29,16 +37,26 @@ struct HabitRouteView: View {
 
     private func load() async {
         guard let repository else { state = .failed(String(localized: "Couldn’t load habit.")); return }
+        state = .loading
         do {
             let row = try await withCheckedThrowingContinuation { continuation in
                 repository.fetchHabitDetailSummary(habitID: id, includeArchived: true) { continuation.resume(with: $0) }
             }
             state = row.map(RouteLoadState.loaded) ?? .missing
-        } catch { state = .failed(error.localizedDescription) }
-    }
-
-    private static func days(_ count: Int) -> String {
-        count == 1 ? String(localized: "1 day") : String(localized: "\(count) days")
+            if let row {
+                // A revisit re-runs this task; the screen's `@StateObject`
+                // would ignore a second view model anyway.
+                if detailViewModel == nil {
+                    detailViewModel = habitViewModelFactory.makeHabitDetailViewModel(row: row)
+                }
+            } else {
+                detailViewModel = nil
+            }
+        } catch {
+            // An already-open habit stays open; the error shows only when
+            // there is nothing to show instead.
+            state = .failed(error.localizedDescription)
+        }
     }
 }
 

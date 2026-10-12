@@ -24,10 +24,22 @@ private struct HabitViewModelFactoryKey: @preconcurrency EnvironmentKey {
     static let defaultValue: any HabitViewModelFactory = CompositionRoot.shared
 }
 
+private struct HabitDetailShowsCloseButtonKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
 extension EnvironmentValues {
     var habitViewModelFactory: any HabitViewModelFactory {
         get { self[HabitViewModelFactoryKey.self] }
         set { self[HabitViewModelFactoryKey.self] = newValue }
+    }
+
+    /// `HabitDetailScreen` is usually a sheet and draws its own Close. The
+    /// `.habitDetail` route pushes it, where the navigation bar already has
+    /// Back, so the route turns this off.
+    var habitDetailShowsCloseButton: Bool {
+        get { self[HabitDetailShowsCloseButtonKey.self] }
+        set { self[HabitDetailShowsCloseButtonKey.self] = newValue }
     }
 }
 
