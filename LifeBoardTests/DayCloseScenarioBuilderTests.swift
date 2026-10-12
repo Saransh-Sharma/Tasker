@@ -418,7 +418,7 @@ final class DayCloseScenarioBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(scenario.diff.count, 1)
-        XCTAssertEqual(scenario.diff[0].title, "5 moved to tomorrow")
+        XCTAssertEqual(scenario.diff[0].title, "5 moved to Tomorrow")
     }
 }
 

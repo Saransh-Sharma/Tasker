@@ -1994,7 +1994,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         }
 
         XCTAssertEqual(plan.longGapIndicators.count, 1)
-        XCTAssertEqual(plan.longGapIndicators.first?.text, "· · · 4h free · · ·")
+        XCTAssertEqual(plan.longGapIndicators.first?.text, "· · · 4 hr free · · ·")
         if taskElements.count == 2, let indicator = plan.longGapIndicators.first {
             let gapTop = taskElements[0].bottomY
             let gapBottom = taskElements[1].y

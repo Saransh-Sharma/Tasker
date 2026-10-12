@@ -3778,11 +3778,11 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
     func testWeeklyPlanningScreensRenderLoadingAndRetryContracts() throws {
         let plannerSource = try loadWorkspaceFile("LifeBoard/Features/Weekly/UI/WeeklyPlannerView.swift")
         XCTAssertTrue(plannerSource.contains("WeeklyBlockingStateCard("))
-        XCTAssertTrue(plannerSource.contains("primaryActionTitle: \"Retry\""))
+        XCTAssertTrue(plannerSource.contains("primaryActionTitle: \"Try again\""))
 
         let reviewSource = try loadWorkspaceFile("LifeBoard/Features/Weekly/UI/WeeklyReviewView.swift")
         XCTAssertTrue(reviewSource.contains("WeeklyReviewBlockingStateCard("))
-        XCTAssertTrue(reviewSource.contains("primaryActionTitle: \"Retry\""))
+        XCTAssertTrue(reviewSource.contains("primaryActionTitle: \"Try again\""))
 
         let cardSource = try loadWorkspaceFile("LifeBoard/Features/Home/UI/HomeWeeklySummaryCard.swift")
         XCTAssertTrue(cardSource.contains("isLoading"))

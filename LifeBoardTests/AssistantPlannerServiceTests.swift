@@ -59,7 +59,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
 
     func testEvaCaptureParserEscalatesMedicationInsteadOfAutoApplying() async {
         switch await EvaCaptureCommandParser.parse("log my medication dose") {
-        case .review(let message): XCTAssertTrue(message.localizedCaseInsensitiveContains("safety"))
+        case .review(let message): XCTAssertTrue(message.localizedCaseInsensitiveContains("Medication"))
         default: XCTFail("Medication must always require review")
         }
     }
