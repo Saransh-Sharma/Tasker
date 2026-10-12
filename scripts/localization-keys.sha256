@@ -33,6 +33,17 @@
 # disclosures. Those shipped in the commits already on master; their catalog
 # regeneration had not been folded in, so it lands here.
 
-count=1137
-sha256=17b9f99b10be939a629fe5222e263ac1b98c0b81d3daf7c3ed2852084ab5e5c8
-content_sha256=d5209ea272c160498620133c58eb0af7043bdaae40e2780be99d2937c30a9dc0
+# 2026-10-12, the plain-voice copy rewrite (ce572e9e7): 1137 -> 854. The diff
+# has the shape of Xcode's build-time string extraction run against the
+# rewritten source (new keys added in state "new", unreferenced keys dropped).
+#
+# The 373 additions are the rewritten strings ("%@ can’t open your chats",
+# "%@ of %@ reviewed. Changes are saved.", ...). The 656 removals are keys the
+# extraction no longer found: strings the rewrite replaced or the deleted dead UI
+# owned ("%@ XP", "%@ as Chief of Staff", "%@ calendar%@ selected", ...). 17
+# entries stay marked stale, most of them from the unreachable Focus Now sheets
+# in SunriseEvaSheets.swift.
+
+count=854
+sha256=58f82db32e592488ff86ed5269ad472ef2ae67f6dca225118c4b6512e13688c4
+content_sha256=a73643c65890c2270a9a6cd740d96382578e18e344b1b19d2f3c5d606ff94828
