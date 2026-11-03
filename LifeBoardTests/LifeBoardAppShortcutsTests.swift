@@ -115,18 +115,6 @@ final class ShortcutHandoffStoreTests: XCTestCase {
 
         XCTAssertNil(store.consumePendingAction())
     }
-
-    func testMutationSignalStoreConsumesPendingSignal() throws {
-        let taskID = UUID()
-        let store = ShortcutMutationSignalStore(defaults: defaults)
-
-        try store.submitTaskCreated(taskID: taskID)
-
-        let signal = store.consumePendingSignal()
-        XCTAssertEqual(signal?.kind, .taskCreated)
-        XCTAssertEqual(signal?.taskID, taskID)
-        XCTAssertNil(store.consumePendingSignal())
-    }
 }
 
 final class PersistentStoreLocationServiceTests: XCTestCase {
@@ -208,10 +196,41 @@ final class PersistentStoreLocationServiceTests: XCTestCase {
         XCTAssertTrue(fileManager.fileExists(atPath: legacyCloudURL.path))
     }
 
+    /// An unsigned Mac build is handed a container URL it cannot read or write.
+    /// Without the entitlement the store must stay in the app's own directory,
+    /// and nothing may be migrated toward the unusable container.
+    func testUnentitledProcessKeepsStoreInLegacyDirectory() throws {
+        XCTAssertEqual(
+            PersistentStoreLocationService.sharedContainerURL(containerURL: appGroupURL, isEntitledToGroup: true),
+            appGroupURL
+        )
+        let service = makeService(appGroupContainerURL: PersistentStoreLocationService.sharedContainerURL(
+            containerURL: appGroupURL,
+            isEntitledToGroup: false
+        ))
+        let legacyLocalURL = legacyURL.appendingPathComponent(PersistentStoreLocationService.localStoreFileName)
+        XCTAssertTrue(fileManager.createFile(atPath: legacyLocalURL.path, contents: Data("local".utf8)))
+
+        let location = service.resolvedV3StoreLocation()
+        let result = try service.prepareSharedStoreLocationForBootstrap()
+
+        XCTAssertEqual(location.canonicalDirectoryURL.standardizedFileURL, legacyURL.standardizedFileURL)
+        XCTAssertFalse(location.usesSharedAppGroupStore)
+        XCTAssertFalse(result.didMigrateLegacyStore)
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyLocalURL.path))
+        XCTAssertFalse(fileManager.fileExists(
+            atPath: appGroupURL.appendingPathComponent(PersistentStoreLocationService.localStoreFileName).path
+        ))
+    }
+
     private func makeService() -> PersistentStoreLocationService {
+        makeService(appGroupContainerURL: appGroupURL)
+    }
+
+    private func makeService(appGroupContainerURL: URL?) -> PersistentStoreLocationService {
         PersistentStoreLocationService(
             fileManager: fileManager,
-            appGroupContainerURLProvider: { [appGroupURL] in appGroupURL },
+            appGroupContainerURLProvider: { appGroupContainerURL },
             legacyStoreDirectoryURLProvider: { [legacyURL] in
                 guard let legacyURL else {
                     fatalError("Legacy URL missing during test setup")

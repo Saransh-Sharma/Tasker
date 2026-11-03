@@ -11,7 +11,6 @@ enum EvaPowerUpAccessibilityID {
     static let disclosure = "onboarding.lifeweave.powerup.eva.disclosure"
     static let baseContext = "onboarding.lifeweave.powerup.eva.baseContext"
     static let optionalContext = "onboarding.lifeweave.powerup.eva.optionalContext"
-    static let reviewGrants = "onboarding.lifeweave.powerup.eva.reviewGrants"
     static let processing = "onboarding.lifeweave.powerup.eva.processing"
     static let offline = "onboarding.lifeweave.powerup.eva.offline"
     static let offlineCard = "onboarding.lifeweave.powerup.eva.offlineCard"
@@ -21,14 +20,11 @@ enum EvaPowerUpAccessibilityID {
     static let protectWithApple = "onboarding.lifeweave.powerup.eva.protectWithApple"
     static let failure = "onboarding.lifeweave.powerup.eva.failure"
     static let error = "onboarding.lifeweave.powerup.eva.error"
-    static let grantSheet = "onboarding.lifeweave.powerup.eva.grantSheet"
-    static let grantSheetDone = "onboarding.lifeweave.powerup.eva.grantSheet.done"
 
     static func stage(_ id: String) -> String { "onboarding.lifeweave.powerup.eva.stage.\(id)" }
-    static func grant(_ id: String) -> String { "onboarding.lifeweave.powerup.eva.grant.\(id)" }
 }
 
-/// Power Up 3 of 3 — compact disclosure, grant review, activation stages.
+/// Power Up 3 of 3 — one trust line, then activation stages.
 ///
 /// Owned by E5. Drives every state from `EvaCloudAccessCoordinator`; retry goes
 /// through the coordinator so single-use cloud routes are never replayed.
@@ -36,8 +32,9 @@ enum EvaPowerUpAccessibilityID {
 /// The four protected-context toggles are deliberately *not* on this frame. On
 /// the old reveal they were, and the screen became four large switches with a
 /// disclosure, a spinner, and an error line stacked around them — nobody read
-/// any of it. Here the frame carries one summary row and the toggles live one
-/// tap away, which is also where the granular decision actually belongs.
+/// any of it. They live in `EvaCloudConsentSheet`, which the dock's primary
+/// opens before anything reaches the cloud; that sheet's confirm is what
+/// `confirmCloudConsent(grants:source:)` records.
 struct EvaPowerUpView: View {
     @ObservedObject var model: LifeWeaveOnboardingModel
     @StateObject private var evaAccess = EvaCloudAccessCoordinator.shared
@@ -47,7 +44,6 @@ struct EvaPowerUpView: View {
     /// its own copy and updates it in the same action that writes it.
     @State private var prefersOffline = EvaProviderRouter.Preference.resolvedStoredPreference() == .offline
     @State private var showsDataUse = false
-    @State private var showsGrantReview = false
     @State private var showsProcessingDetail = false
 
     /// VoiceOver hears one line per real stage change, never one per frame.
@@ -87,9 +83,6 @@ struct EvaPowerUpView: View {
         .lifeboardFirstLight(trigger: readyTrigger, tint: Color.lifeboard(.accentPrimary))
         .sheet(isPresented: $showsDataUse) {
             EvaDataUseSheet { showsDataUse = false }
-        }
-        .sheet(isPresented: $showsGrantReview) {
-            EvaPowerUpGrantSheet(model: model, isLocked: isGrantSelectionLocked)
         }
         .sheet(isPresented: $model.showsEvaConsent) {
             EvaCloudConsentSheet(
@@ -359,13 +352,6 @@ struct EvaPowerUpView: View {
 
     // MARK: - Actions
 
-    /// Grants are confirmed with activation, so they stop being editable the
-    /// moment the request is in flight. After success the server holds the
-    /// consent revision, and changing it belongs to EVA settings.
-    private var isGrantSelectionLocked: Bool {
-        evaAccess.isWorking || evaAccess.state == .ready
-    }
-
     private func selectOffline() {
         model.chooseOfflineEva()
         prefersOffline = model.evaPrefersOffline
@@ -478,74 +464,5 @@ private struct EvaPowerUpStageRow: View {
         case .active: String(localized: "In progress")
         case .done: String(localized: "Done")
         }
-    }
-}
-
-// MARK: - Grant review
-
-/// The granular consent, one tap off the main frame.
-///
-/// Reads and writes the draft rather than the coordinator's `selectedGrants`:
-/// that property defaults to every category when no receipt exists, so a screen
-/// bound to it would show four switches the user never set and then send them.
-private struct EvaPowerUpGrantSheet: View {
-    @ObservedObject var model: LifeWeaveOnboardingModel
-    let isLocked: Bool
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(EvaConsentPolicy.Grant.allCases, id: \.rawValue) { grant in
-                        Toggle(isOn: binding(for: grant)) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(grant.onboardingTitle)
-                                    .lifeboardFont(.bodyStrong)
-                                    .foregroundStyle(Color.lifeboard(.textPrimary))
-                                Text(grant.onboardingBlurb)
-                                    .lifeboardFont(.caption1)
-                                    .foregroundStyle(Color.lifeboard(.textTertiary))
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        .tint(Color.lifeboard(.accentPrimary))
-                        .disabled(isLocked)
-                        .accessibilityIdentifier(EvaPowerUpAccessibilityID.grant(grant.rawValue))
-                    }
-                } header: {
-                    Text("Eva can also use")
-                        .lifeboardFont(.eyebrow)
-                        .foregroundStyle(Color.lifeboard(.textTertiary))
-                } footer: {
-                    Text(footerText)
-                        .lifeboardFont(.caption1)
-                        .foregroundStyle(Color.lifeboard(.textTertiary))
-                }
-            }
-            .navigationTitle("Sharing")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .accessibilityIdentifier(EvaPowerUpAccessibilityID.grantSheetDone)
-                }
-            }
-        }
-        .accessibilityIdentifier(EvaPowerUpAccessibilityID.grantSheet)
-    }
-
-    private var footerText: String {
-        isLocked
-            ? String(localized: "Change these anytime in Settings.")
-            : String(localized: "These start on. Change them anytime in Settings.")
-    }
-
-    private func binding(for grant: EvaConsentPolicy.Grant) -> Binding<Bool> {
-        Binding(
-            get: { model.draft.resolvedEvaGrants.contains(grant) },
-            set: { model.toggleEvaGrant(grant, enabled: $0) }
-        )
     }
 }

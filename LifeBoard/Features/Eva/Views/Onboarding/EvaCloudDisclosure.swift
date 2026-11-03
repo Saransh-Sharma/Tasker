@@ -100,8 +100,8 @@ struct EvaCloudConsentSheet: View {
     }
 }
 
-/// Human names for the grants, shared by the activation disclosure, the chat
-/// scaffold, and the onboarding grant sheet.
+/// Human names for the grants, shared by the activation disclosure and the chat
+/// scaffold.
 extension EvaConsentPolicy.Grant {
     var onboardingTitle: String {
         switch self {
@@ -109,15 +109,6 @@ extension EvaConsentPolicy.Grant {
         case .health: String(localized: "Health summaries")
         case .lifeMoments: String(localized: "Life moments")
         case .personalMemory: String(localized: "Memories")
-        }
-    }
-
-    var onboardingBlurb: String {
-        switch self {
-        case .journal: String(localized: "Lets answers use what you wrote.")
-        case .health: String(localized: "Daily summaries only.")
-        case .lifeMoments: String(localized: "Dates you’re counting down to.")
-        case .personalMemory: String(localized: "Your working style, blockers, and goals.")
         }
     }
 }

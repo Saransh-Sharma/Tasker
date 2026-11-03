@@ -67,7 +67,7 @@ public final class PersistentStoreLocationService {
 
     public init(
         fileManager: FileManager = .default,
-        appGroupContainerURLProvider: @escaping () -> URL? = { AppGroupConstants.containerURL },
+        appGroupContainerURLProvider: @escaping () -> URL? = { PersistentStoreLocationService.entitledAppGroupContainerURL() },
         legacyStoreDirectoryURLProvider: @escaping () -> URL = { NSPersistentContainer.defaultDirectoryURL() }
     ) {
         self.fileManager = fileManager

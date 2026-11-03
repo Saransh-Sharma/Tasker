@@ -310,9 +310,6 @@ final class NavigationEventCoordinator: HomeNavigationEventAdapterDelegate {
                 }
             }
         }
-        if ShortcutMutationSignalStore.shared.consumePendingSignal() != nil {
-            homeViewModel.handleExternalMutation(reason: .created)
-        }
     }
 
     private func processPendingWidgetActionCommand() {

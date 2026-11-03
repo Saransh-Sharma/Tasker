@@ -258,7 +258,7 @@ final class FoundationDomainMaintenance {
     private var nextDeadline: Date? { deadlines.values.min() }
 
     struct Invalidation: Sendable {
-        enum Domain: Hashable, Sendable { case focus, medication, routine, profile }
+        enum Domain: Hashable, Sendable { case focus, medication, routine, profile, fasting }
         let containerID: ObjectIdentifier
         let domains: Set<Domain>
         let affectedIDs: Set<UUID>
@@ -301,7 +301,7 @@ final class FoundationDomainMaintenance {
     func setScene(_ id: String, active: Bool) {
         if active {
             guard activeScenes.insert(id).inserted else { return }
-            pendingDomains.formUnion([.focus, .medication, .routine, .profile])
+            pendingDomains.formUnion([.focus, .medication, .routine, .profile, .fasting])
             schedule(after: 0)
         } else {
             activeScenes.remove(id)
@@ -438,6 +438,16 @@ final class FoundationDomainMaintenance {
             } catch {
                 deadlines[.routine] = retries.failed(.routine, message: error.localizedDescription, at: Date())
                 logError(event: "routine_maintenance_failed", message: error.localizedDescription)
+            } }
+            // A fast ended elsewhere (another device, a crash mid-write) can leave
+            // its Live Activity on the Lock Screen; keep only the running fast's.
+            if domains.contains(.fasting) { do {
+                let active = try await FastingTimerStore(repository: FastingRepositoryAdapter(repository: phaseII)).activeSession()
+                await FastingLiveActivityCoordinator.shared.endOrphanedActivities(except: active?.id)
+                retries.succeeded(.fasting)
+            } catch {
+                deadlines[.fasting] = retries.failed(.fasting, message: error.localizedDescription, at: Date())
+                logError(event: "fasting_maintenance_failed", message: error.localizedDescription)
             } }
             if changed { NotificationCenter.default.post(name: .foundationDomainMaintenanceCommitted, object: nil) }
         }

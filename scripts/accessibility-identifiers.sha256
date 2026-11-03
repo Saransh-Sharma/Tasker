@@ -371,5 +371,11 @@
 #     checker records the next call on the page, which is now
 #     `String(localized: "Settings")`. "settings.view" is unchanged.
 #
-count=982
-sha256=acf560e3add76ec8a967223ed574ddbf002cab71c40e688e2d5000374dd6a7cd
+# 2026-11-03, orphaned Eva power-up grant sheet removed: 982 -> 979.
+#   - EvaPowerUpAccessibilityID.grantSheet, .grantSheetDone, .grant(<id>)
+#     The sheet had no way to open since 129da2010; grant choice lives in the
+#     consent sheet ("onboarding.lifeweave.powerup.eva.consent.*"). No UI test
+#     referenced these identifiers.
+#
+count=979
+sha256=3b5f89603a36c60168f6a0a6618ef61bc0f452d5a25c5f8e61e0bfe41891f0d0
