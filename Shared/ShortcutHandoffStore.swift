@@ -86,29 +86,6 @@ struct PendingShortcutLaunchAction: Codable, Equatable, Sendable {
     }
 }
 
-enum ShortcutMutationSignalKind: String, Codable, Sendable {
-    case taskCreated
-}
-
-struct ShortcutMutationSignal: Codable, Equatable, Sendable {
-    let id: UUID
-    let kind: ShortcutMutationSignalKind
-    let taskID: UUID?
-    let createdAt: Date
-
-    init(
-        id: UUID = UUID(),
-        kind: ShortcutMutationSignalKind,
-        taskID: UUID? = nil,
-        createdAt: Date = Date()
-    ) {
-        self.id = id
-        self.kind = kind
-        self.taskID = taskID
-        self.createdAt = createdAt
-    }
-}
-
 enum ShortcutHandoffStoreError: LocalizedError {
     case unavailable
     case encodeFailed
@@ -126,7 +103,6 @@ enum ShortcutHandoffStoreError: LocalizedError {
 private enum ShortcutHandoffStoreKey {
     static let chatLaunchRequest = "lifeboard.shortcut.chatLaunchRequest.v1"
     static let pendingLaunchAction = "lifeboard.shortcut.pendingLaunchAction.v1"
-    static let mutationSignal = "lifeboard.shortcut.mutationSignal.v1"
 }
 
 private final class ShortcutHandoffCodableStore: @unchecked Sendable {
@@ -234,34 +210,6 @@ final class PendingShortcutLaunchActionStore: @unchecked Sendable {
         store.consumeIfFresh(
             PendingShortcutLaunchAction.self,
             key: ShortcutHandoffStoreKey.pendingLaunchAction,
-            createdAt: \.createdAt,
-            maxAge: Self.maxAge
-        )
-    }
-}
-
-final class ShortcutMutationSignalStore: @unchecked Sendable {
-    static let shared = ShortcutMutationSignalStore()
-    private static let maxAge: TimeInterval = 10 * 60
-
-    private let store: ShortcutHandoffCodableStore
-
-    init(
-        defaults: UserDefaults = UserDefaults(suiteName: AppGroupConstants.suiteName) ?? UserDefaults.standard,
-        now: @escaping @Sendable () -> Date = { Date() }
-    ) {
-        self.store = ShortcutHandoffCodableStore(defaults: defaults, now: now)
-    }
-
-    func submitTaskCreated(taskID: UUID?) throws {
-        let signal = ShortcutMutationSignal(kind: .taskCreated, taskID: taskID)
-        try store.save(signal, key: ShortcutHandoffStoreKey.mutationSignal)
-    }
-
-    func consumePendingSignal() -> ShortcutMutationSignal? {
-        store.consumeIfFresh(
-            ShortcutMutationSignal.self,
-            key: ShortcutHandoffStoreKey.mutationSignal,
             createdAt: \.createdAt,
             maxAge: Self.maxAge
         )

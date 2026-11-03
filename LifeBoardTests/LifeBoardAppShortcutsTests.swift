@@ -115,18 +115,6 @@ final class ShortcutHandoffStoreTests: XCTestCase {
 
         XCTAssertNil(store.consumePendingAction())
     }
-
-    func testMutationSignalStoreConsumesPendingSignal() throws {
-        let taskID = UUID()
-        let store = ShortcutMutationSignalStore(defaults: defaults)
-
-        try store.submitTaskCreated(taskID: taskID)
-
-        let signal = store.consumePendingSignal()
-        XCTAssertEqual(signal?.kind, .taskCreated)
-        XCTAssertEqual(signal?.taskID, taskID)
-        XCTAssertNil(store.consumePendingSignal())
-    }
 }
 
 final class PersistentStoreLocationServiceTests: XCTestCase {
