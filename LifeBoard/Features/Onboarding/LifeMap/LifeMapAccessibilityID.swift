@@ -8,9 +8,15 @@ import Foundation
 /// copy edits and break under RTL and non-English runs.
 ///
 /// Kept deliberately parallel to `LifeMapOnboardingStep` so a new step cannot
-/// be added without an identifier. `scripts/check-accessibility-identifiers.sh`
-/// hashes every one of these, so any change here is an intentional contract
-/// change and must land with a regenerated snapshot.
+/// be added without an identifier.
+///
+/// The identifier gate (`scripts/check_accessibility_identifiers.rb`) does not
+/// pin these values. It hashes the source text passed at each identifier
+/// modifier call, such as `LifeMapAccessibilityID.rootNode(...)`, not the
+/// string that text resolves to. So renaming a constant used directly at a call
+/// site changes the digest, but editing a value here does not, and neither does
+/// renaming one passed through a property (`primaryAction`, `secondaryAction`).
+/// Treat any value change as a UI-test contract change and review it by hand.
 enum LifeMapAccessibilityID {
     static let flow = "onboarding.lifeMap.flow"
     static let canvas = "onboarding.lifeMap.canvas"
