@@ -1,6 +1,7 @@
 import CloudKit
 import CoreData
 import Foundation
+import LifeBoardContracts
 import Observation
 #if targetEnvironment(macCatalyst)
 import Security
@@ -88,21 +89,20 @@ public struct CloudKitRuntimeContext {
             environment: processInfo.environment,
             arguments: processInfo.arguments,
             isSimulator: isSimulator,
-            hasCloudKitEntitlement: processHasCloudKitEntitlement()
+            hasCloudKitEntitlement: ProcessEntitlements.hasCloudKitService()
         )
     }
+}
 
-    /// iOS device builds cannot install without their provisioned entitlements,
-    /// so only Mac Catalyst — which runs unsigned and ad-hoc builds — is checked.
-    private static func processHasCloudKitEntitlement() -> Bool {
+/// Entitlements the running process was signed with.
+///
+/// iOS device builds cannot install without their provisioned entitlements,
+/// so only Mac Catalyst — which runs unsigned and ad-hoc builds — is checked.
+/// Everywhere else these answer `true`.
+public enum ProcessEntitlements {
+    public static func hasCloudKitService() -> Bool {
 #if targetEnvironment(macCatalyst)
-        guard let task = SecTaskCreateFromSelf(nil),
-              let value = SecTaskCopyValueForEntitlement(
-                  task,
-                  "com.apple.developer.icloud-services" as CFString,
-                  nil
-              ),
-              let services = value as? [String] else {
+        guard let services = value(for: "com.apple.developer.icloud-services") as? [String] else {
             return false
         }
         return services.contains("CloudKit")
@@ -110,6 +110,52 @@ public struct CloudKitRuntimeContext {
         return true
 #endif
     }
+
+    public static func hasApplicationGroup(_ identifier: String) -> Bool {
+#if targetEnvironment(macCatalyst)
+        guard let groups = value(for: "com.apple.security.application-groups") as? [String] else {
+            return false
+        }
+        return groups.contains(identifier)
+#else
+        return true
+#endif
+    }
+
+#if targetEnvironment(macCatalyst)
+    private static func value(for entitlement: String) -> CFTypeRef? {
+        guard let task = SecTaskCreateFromSelf(nil) else { return nil }
+        return SecTaskCopyValueForEntitlement(task, entitlement as CFString, nil)
+    }
+#endif
+}
+
+extension PersistentStoreLocationService {
+    /// The app-group container, or `nil` when this process may not use it.
+    ///
+    /// On macOS, `containerURL(forSecurityApplicationGroupIdentifier:)` returns
+    /// a path even for a process without the group entitlement; iOS returns nil.
+    /// Once a signed build has created that container, macOS refuses an unsigned
+    /// or ad-hoc Mac Catalyst build every read and write inside it, so both store
+    /// topologies fail and launch ends on "Couldn’t open your data". Without the
+    /// entitlement the store stays in the app's own directory instead.
+    public static func entitledAppGroupContainerURL() -> URL? {
+        let isEntitled = ProcessEntitlements.hasApplicationGroup(AppGroupConstants.suiteName)
+        if isEntitled == false { _ = logUnentitledAppGroupOnce }
+        return sharedContainerURL(containerURL: AppGroupConstants.containerURL, isEntitledToGroup: isEntitled)
+    }
+
+    public static func sharedContainerURL(containerURL: URL?, isEntitledToGroup: Bool) -> URL? {
+        isEntitledToGroup ? containerURL : nil
+    }
+
+    private static let logUnentitledAppGroupOnce: Void = {
+        logWarning(
+            event: "persistent_store_app_group_unentitled",
+            message: "Process lacks the app-group entitlement; using the app's own store directory",
+            fields: ["app_group": AppGroupConstants.suiteName]
+        )
+    }()
 }
 
 // MARK: - Cloud sync status
